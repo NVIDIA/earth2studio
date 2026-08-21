@@ -16,14 +16,18 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
+import multiprocessing
 import os
 import pathlib
 import shutil
 import uuid
+import weakref
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
+from typing import Literal
 
 import h5netcdf
 import numpy as np
@@ -58,6 +62,75 @@ class _GSIAsyncTask:
     satellite: str | None = None
 
 
+# Cap for automatic decode-worker selection. Decode throughput plateaus once it
+# drops below the network floor (~16 workers in practice), and more workers than
+# files is wasted anyway (the pool spawns processes on demand).
+_DECODE_WORKERS_CAP = 16
+
+
+def _identity_modifier(df: pd.DataFrame) -> pd.DataFrame:
+    """Picklable stand-in for the lexicon modifier closures.
+
+    Tasks sent to decode worker processes carry this no-op instead of the
+    (unpicklable) lexicon modifier; the real modifier is applied in the
+    parent process.
+    """
+    return df
+
+
+def _decode_gsi_file(
+    cls: type[_UFSObsBase],
+    local_path: str,
+    task: _GSIAsyncTask,
+    column_map: dict[str, str],
+    channel_indexed_fields: dict[str, str],
+    schema: pa.Schema,
+) -> dict[str, pa.Array]:
+    """Decode one cached GSI diag file into a dict of Arrow arrays.
+
+    This is the per-process unit of work for parallel decode: it must stay a
+    module-level function taking only picklable arguments (in particular,
+    ``task`` must not carry a lexicon closure), and it returns Arrow arrays,
+    which serialize between processes near zero-copy.
+    """
+    with h5netcdf.File(local_path, "r") as ds:
+        data: dict[str, pa.Array] = {}
+        channel_index_raw: np.ndarray | None = None
+        for name, dset in ds.variables.items():
+            if name not in column_map:
+                continue
+            # Skip channel-indexed fields; they are expanded below
+            if name in channel_indexed_fields:
+                continue
+            values = np.asarray(dset[:])
+            pa_type = cls.SCHEMA.field(column_map[name]).type
+            # Convert char arrays into strings for DF
+            if values.dtype.kind == "S" and values.ndim == 2:
+                values = values.view(f"S{values.shape[1]}").ravel()
+                values = np.char.rstrip(np.char.decode(values, "utf-8"), "\x00")
+            # Apply subclass-specific transformations
+            values = cls._transform_column(name, values, task, ds)
+            data[name] = pa.array(values, type=pa_type)
+            # Stash raw Channel_Index for per-channel expansion
+            if name == "Channel_Index":
+                channel_index_raw = np.asarray(dset[:])
+
+        # Expand channel-indexed fields using Channel_Index as lookup
+        if channel_index_raw is not None:
+            idx: np.ndarray = channel_index_raw.astype(np.int32) - 1
+            for gsi_name, field_name in channel_indexed_fields.items():
+                if gsi_name in ds.variables:
+                    lut = np.asarray(
+                        ds[gsi_name][:],
+                        dtype=schema.field(field_name).type.to_pandas_dtype(),
+                    )
+                    data[gsi_name] = pa.array(
+                        lut[idx], type=schema.field(field_name).type
+                    )
+
+    return data
+
+
 class _UFSObsBase:
     """Base class for GSI data sources.
 
@@ -76,6 +149,7 @@ class _UFSObsBase:
         cache: bool = True,
         async_timeout: int = 600,
         verbose: bool = True,
+        decode_workers: int | Literal["auto"] = "auto",
     ) -> None:
         self.obs_type = "ges"
         self._verbose = verbose
@@ -83,6 +157,8 @@ class _UFSObsBase:
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
+        self._decode_workers = decode_workers
+        self._decode_pool: concurrent.futures.ProcessPoolExecutor | None = None
         # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
         self._store = obstore_store_from_url(
             f"s3://{self.UFS_BUCKET}",
@@ -195,13 +271,46 @@ class _UFSObsBase:
         uri = f"s3://{self.UFS_BUCKET}/{key}"
         logger.warning(f"File {uri} not found")
 
+    def _decode_worker_limit(self) -> int:
+        """Max processes to decode across (before capping by file count)."""
+        if self._decode_workers == "auto":
+            try:
+                avail = len(os.sched_getaffinity(0))  # CPUs available to process
+            except AttributeError:  # pragma: no cover - platform dependent
+                avail = os.cpu_count() or 1
+            return min(_DECODE_WORKERS_CAP, avail)
+        return max(1, self._decode_workers)
+
+    def _get_decode_pool(self) -> concurrent.futures.ProcessPoolExecutor:
+        """Persistent decode process pool, created lazily and reused across calls.
+
+        Uses the 'spawn' start method: safe after CUDA init and available on
+        all platforms. Workers are spawned on demand up to max_workers, so
+        sizing the pool to the configured limit (rather than this call's file
+        count) costs nothing up front.
+        """
+        if self._decode_pool is None:
+            pool = concurrent.futures.ProcessPoolExecutor(
+                max_workers=self._decode_worker_limit(),
+                mp_context=multiprocessing.get_context("spawn"),
+            )
+            self._decode_pool = pool
+            weakref.finalize(self, pool.shutdown, wait=False)
+        return self._decode_pool
+
     def _compile_dataframe(
         self,
         async_tasks: list[_GSIAsyncTask],
         variables: list[str],
         schema: pa.Schema,
     ) -> pd.DataFrame:
-        """Compile fetched data into a DataFrame."""
+        """Compile fetched data into a DataFrame.
+
+        The per-file NetCDF decode is CPU-bound, so when more than one decode
+        worker is configured the files are decoded in a persistent spawn-based
+        process pool (see :func:`_decode_gsi_file`); results come back as
+        Arrow arrays and the lexicon modifiers are applied in this process.
+        """
         # Identify schema fields that are per-channel (need Channel_Index lookup)
         channel_indexed_fields: dict[str, str] = {}
         for field in schema:
@@ -213,7 +322,7 @@ class _UFSObsBase:
                 gsi_name = field.metadata[b"gsi_name"].decode("utf-8")
                 channel_indexed_fields[gsi_name] = field.name
 
-        frames: list[pd.DataFrame] = []
+        jobs: list[tuple[_GSIAsyncTask, str, dict[str, str]]] = []
         for task in async_tasks:
             # Overwrite obs column name (needed for uv)
             column_map = self._build_column_map(schema)
@@ -225,51 +334,50 @@ class _UFSObsBase:
                     f"s3://{self.UFS_BUCKET}/{task.gsi_obs_key}",
                 )
                 continue
-            try:
-                with h5netcdf.File(local_path, "r") as ds:
-                    data: dict[str, np.ndarray] = {}
-                    channel_index_raw: np.ndarray | None = None
-                    for name, dset in ds.variables.items():
-                        if name not in column_map:
-                            continue
-                        # Skip channel-indexed fields; they are expanded below
-                        if name in channel_indexed_fields:
-                            continue
-                        values = np.asarray(dset[:])
-                        pa_type = self.SCHEMA.field(column_map[name]).type
-                        # Convert char arrays into strings for DF
-                        if values.dtype.kind == "S" and values.ndim == 2:
-                            values = values.view(f"S{values.shape[1]}").ravel()
-                            values = np.char.rstrip(
-                                np.char.decode(values, "utf-8"), "\x00"
-                            )
-                        # Apply subclass-specific transformations
-                        values = self._transform_column(name, values, task, ds)
-                        data[name] = pa.array(values, type=pa_type)
-                        # Stash raw Channel_Index for per-channel expansion
-                        if name == "Channel_Index":
-                            channel_index_raw = np.asarray(dset[:])
+            jobs.append((task, local_path, column_map))
 
-                    # Expand channel-indexed fields using Channel_Index as lookup
-                    if channel_index_raw is not None:
-                        idx: np.ndarray = channel_index_raw.astype(np.int32) - 1
-                        for gsi_name, field_name in channel_indexed_fields.items():
-                            if gsi_name in ds.variables:
-                                lut = np.asarray(
-                                    ds[gsi_name][:],
-                                    dtype=schema.field(
-                                        field_name
-                                    ).type.to_pandas_dtype(),
-                                )
-                                data[gsi_name] = pa.array(
-                                    lut[idx], type=schema.field(field_name).type
-                                )
+        cls = type(self)
+        decoded: list[dict[str, pa.Array]] = []
+        if min(self._decode_worker_limit(), len(jobs)) <= 1:
+            for task, local_path, column_map in jobs:
+                try:
+                    decoded.append(
+                        _decode_gsi_file(
+                            cls,
+                            local_path,
+                            task,
+                            column_map,
+                            channel_indexed_fields,
+                            schema,
+                        )
+                    )
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.error("Failed to read {}: {}", local_path, exc)
+                    raise exc
+        else:
+            pool = self._get_decode_pool()
+            futures = [
+                pool.submit(
+                    _decode_gsi_file,
+                    cls,
+                    local_path,
+                    replace(task, gsi_modifier=_identity_modifier),
+                    column_map,
+                    channel_indexed_fields,
+                    schema,
+                )
+                for task, local_path, column_map in jobs
+            ]
+            for (task, local_path, column_map), future in zip(jobs, futures):
+                try:
+                    decoded.append(future.result())
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.error("Failed to read {}: {}", local_path, exc)
+                    raise exc
 
-                df = pd.DataFrame(data)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.error("Failed to read {}: {}", local_path, exc)
-                raise exc
-
+        frames: list[pd.DataFrame] = []
+        for (task, local_path, column_map), data in zip(jobs, decoded):
+            df = pd.DataFrame(data)
             # Rename columns
             df.rename(columns=column_map, inplace=True)
             # Add e2s columns
@@ -303,14 +411,19 @@ class _UFSObsBase:
         column_map[time_field.metadata[b"gsi_name"].decode("utf-8")] = time_field.name
         return column_map
 
+    @classmethod
     def _transform_column(
-        self,
+        cls,
         name: str,
         values: np.ndarray,
         task: _GSIAsyncTask,
         ds: h5netcdf.File,
     ) -> np.ndarray:
-        """Transform column values. Must be implemented by subclasses."""
+        """Transform column values. Must be implemented by subclasses.
+
+        Classmethod (not instance method) so it can run inside decode worker
+        processes, which receive the class rather than the instance.
+        """
         raise NotImplementedError("Subclasses must implement _transform_column.")
 
     def _add_task_columns(self, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
@@ -449,6 +562,12 @@ class UFSObsConv(_UFSObsBase):
         by default 600.
     verbose : bool, optional
         Log basic progress information, by default True.
+    decode_workers : int | Literal["auto"], optional
+        Number of processes used to decode the fetched NetCDF files into
+        DataFrames, or "auto" to select from the available CPUs. Use 1 to
+        decode serially in the current process, by default "auto". Workers
+        use the 'spawn' start method, so as with any use of multiprocessing,
+        script entry points must be guarded by ``if __name__ == "__main__"``.
 
     Warning
     -------
@@ -551,8 +670,9 @@ class UFSObsConv(_UFSObsBase):
                     day = day + timedelta(hours=6)
         return tasks
 
+    @classmethod
     def _transform_column(
-        self,
+        cls,
         name: str,
         values: np.ndarray,
         task: _GSIAsyncTask,
@@ -596,6 +716,12 @@ class UFSObsSat(_UFSObsBase):
         by default 600.
     verbose : bool, optional
         Log basic progress information, by default True.
+    decode_workers : int | Literal["auto"], optional
+        Number of processes used to decode the fetched NetCDF files into
+        DataFrames, or "auto" to select from the available CPUs. Use 1 to
+        decode serially in the current process, by default "auto". Workers
+        use the 'spawn' start method, so as with any use of multiprocessing,
+        script entry points must be guarded by ``if __name__ == "__main__"``.
 
     Warning
     -------
@@ -701,6 +827,7 @@ class UFSObsSat(_UFSObsBase):
         cache: bool = True,
         async_timeout: int = 600,
         verbose: bool = True,
+        decode_workers: int | Literal["auto"] = "auto",
     ) -> None:
         if satellites is None:
             satellites = list(self.VALID_SATELLITES)
@@ -718,6 +845,7 @@ class UFSObsSat(_UFSObsBase):
             cache=cache,
             async_timeout=async_timeout,
             verbose=verbose,
+            decode_workers=decode_workers,
         )
 
     def _create_tasks(
@@ -778,8 +906,9 @@ class UFSObsSat(_UFSObsBase):
                 break
         return column_map
 
+    @classmethod
     def _transform_column(
-        self,
+        cls,
         name: str,
         values: np.ndarray,
         task: _GSIAsyncTask,
