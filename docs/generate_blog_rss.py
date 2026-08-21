@@ -113,9 +113,7 @@ def _parse_post(path: Path) -> BlogPost | None:
     title = str(meta.get("title") or "").strip() or _heading_title(body) or path.stem
     description = str(meta.get("description") or "").strip() or _excerpt(body)
     categories = tuple(
-        str(item).strip()
-        for item in meta.get("categories", [])
-        if str(item).strip()
+        str(item).strip() for item in meta.get("categories", []) if str(item).strip()
     )
     return BlogPost(
         title=title,
@@ -238,9 +236,7 @@ def _set_text(parent: ET.Element, tag: str, text: str) -> None:
 
 def _rfc822(value: date) -> str:
     """Return an RFC 822 timestamp at midnight UTC."""
-    published = datetime(
-        value.year, value.month, value.day, tzinfo=timezone.utc
-    )
+    published = datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
     return format_datetime(published)
 
 

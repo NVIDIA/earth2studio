@@ -56,8 +56,7 @@ EXCERPT_SPLIT = "<!-- more -->"
 
 BLOG_INTRO = "Earth-2 Product and Engineering Blog Posts and Updates."
 BLOG_SUBSCRIBE_BUTTON = (
-    "[:fontawesome-solid-rss: Subscribe via RSS](feed.xml)"
-    "{ .e2s-blog-subscribe }"
+    "[:fontawesome-solid-rss: Subscribe via RSS](feed.xml)" "{ .e2s-blog-subscribe }"
 )
 DEFAULT_CATEGORY_DESCRIPTION = "Posts filed under this topic."
 GENERATED_NOTICE = (
