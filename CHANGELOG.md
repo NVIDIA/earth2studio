@@ -86,6 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
+  `torch.backends.cudnn.benchmark` on and off around each coupled cycle
+  re-triggered cuDNN's GPU-timing-based algorithm search every cycle
 - Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
   unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
   step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
