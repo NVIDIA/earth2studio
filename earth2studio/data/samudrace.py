@@ -70,7 +70,10 @@ def _prep_time_inputs(time: datetime | list[datetime] | TimeArray) -> list[datet
         time = np.array([time])
     if isinstance(time, np.ndarray):
         return list(time.astype("datetime64[s]").astype(object))
-    return list(time)
+    return [
+        t.astype("datetime64[s]").item() if isinstance(t, np.datetime64) else t
+        for t in time
+    ]
 
 
 def _prep_variable_inputs(variable: str | list[str] | VariableArray) -> list[str]:
