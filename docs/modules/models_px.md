@@ -53,6 +53,7 @@ earth2studio.models.px.SFNO
 earth2studio.models.px.StormCast
 earth2studio.models.px.StormCastCONUS
 earth2studio.models.px.StormScopeGOES
+earth2studio.models.px.StormScopeMeteosatEU
 earth2studio.models.px.StormScopeMRMS
 earth2studio.models.px.UCast
 {% endautosummary %}
