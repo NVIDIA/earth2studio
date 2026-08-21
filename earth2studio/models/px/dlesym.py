@@ -83,6 +83,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     we provide convenience methods for retrieving the valid atmospheric and
     oceanic outputs.
 
+    The default package provided for this model contains the checkpoints used
+    in the ECMWF AI Weather Quest S2S competition. These checkpoints are trained
+    with CRPS loss and use sampled random noise to produce ensemble variability
+    each forward pass, seeded with the ``set_rng`` method.
+
     Parameters
     ----------
     atmos_model : torch.nn.Module
