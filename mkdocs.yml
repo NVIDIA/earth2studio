@@ -21,7 +21,6 @@ theme:
     text: NVIDIA Sans
     code: JetBrains Mono
   features:
-  - announce.dismiss
   - navigation.tabs
   - navigation.tabs.sticky
   - navigation.indexes
@@ -54,6 +53,7 @@ extra_css:
 - assets/stylesheets/nvidia-material.css
 - assets/stylesheets/earth2studio-gallery.css
 extra_javascript:
+- assets/javascripts/e2s-announce.js
 - assets/javascripts/e2s-landing.js
 - assets/javascripts/e2s-install-selector.js
 - assets/javascripts/e2s-catalog.js
@@ -66,6 +66,9 @@ extra:
   - icon: fontawesome/brands/github
     link: https://github.com/NVIDIA/earth2studio
     name: Earth2Studio on GitHub
+  - icon: fontawesome/solid/rss
+    link: https://nvidia.github.io/earth2studio/main/blog/feed.xml
+    name: Earth2Studio Blog RSS
 markdown_extensions:
 - mkdocs_badges.zensical
 - admonition
@@ -429,6 +432,8 @@ plugins:
     post_date_format: medium
     archive: true
     categories: true
+    authors: true
+    authors_file: '{blog}/.authors.yml'
 - mike:
     alias_type: redirect
 hooks:
@@ -489,16 +494,14 @@ nav:
   - Recipes: recipes/index.md
 - Blog:
   - Overview: blog/index.md
-  - Posts:
-    - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
   - Archive: blog/archive.md
-  - Categories:
-    - Overview: blog/categories.md
-    - Documentation: blog/categories/documentation.md
+  - Categories: blog/categories.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md
   modules/generated/**
   examples/**
+  blog/posts/**
+  blog/categories/*.md
   userguide/about/index.md
   userguide/about/intro.md

@@ -1,0 +1,7 @@
+# Optional category descriptions for generated blog listing pages.
+# Consumed by docs/generate_blog_index.py. Categories without an entry here
+# fall back to a generic description.
+Guide: How-to posts for contributing to Earth2Studio, including the blog.
+Documentation: >-
+  Updates about the Earth2Studio documentation system, site structure, and
+  developer-facing content.

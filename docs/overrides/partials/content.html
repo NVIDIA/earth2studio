@@ -1,0 +1,23 @@
+{#-
+  Overrides Zensical's built-in partials/content.html.
+
+  Zensical has no blog plugin, so it never renders an author byline on blog
+  posts. This override injects a byline (authors, date, categories) right
+  after the post title for pages that carry blog front matter (a `date` and
+  `authors`). The byline markup comes from a generated macro that bakes in the
+  `.authors.yml` data (see docs/generate_blog_index.py).
+-#}
+{% import "partials/_blog_byline.html" as e2sblog %}
+{% include "partials/actions.html" %}
+{% if "<h1" not in page.content %}
+  <h1 id="__skip">{{ page.title | d(config.site_name, true) }}</h1>
+{% endif %}
+{% if page.meta and page.meta.date and page.meta.authors %}
+  {{ page.content | replace("</h1>", "</h1>" ~ e2sblog.e2s_byline(page)) }}
+{% else %}
+  {{ page.content }}
+{% endif %}
+{% include "partials/tags.html" %}
+{% include "partials/source-file.html" %}
+{% include "partials/feedback.html" %}
+{% include "partials/comments.html" %}

@@ -98,6 +98,12 @@ cufile.log
 site/
 docs/assets/stylesheets/earth2studio-gallery.css
 docs/assets/data/
+docs/blog/feed.xml
+docs/blog/index.md
+docs/blog/archive.md
+docs/blog/categories.md
+docs/blog/categories/
+docs/overrides/partials/_blog_byline.html
 .e2sgallery/
 _build
 docs/modules/generated

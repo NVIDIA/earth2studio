@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 
+{% block extrahead %}
+  {{ super() }}
+  <link rel="alternate" type="application/rss+xml" title="Earth2Studio Blog RSS" href="{{ config.site_url }}main/blog/feed.xml">
+{% endblock %}
+
 {% block announce %}
   {% include "partials/announce.html" %}
 {% endblock %}
