@@ -25,7 +25,7 @@ import zarr
 
 icechunk = pytest.importorskip("icechunk", reason="icechunk not installed")
 
-from earth2studio.io import IceChunkBackend  # noqa: E402
+from earth2studio.io import AsyncZarrBackend, IceChunkBackend  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -146,6 +146,45 @@ def test_icechunk_empty_commit() -> None:
     io.commit("write again")
     xx, _ = io.read(total_coords, "fields")
     assert torch.allclose(x, xx)
+
+
+def test_icechunk_with_async_zarr_backend() -> None:
+    """An Icechunk session store is a Zarr store, so it can back the async
+    backend directly for non-blocking transactional writes."""
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = icechunk.Repository.open_or_create(
+            icechunk.local_filesystem_storage(os.path.join(td, "repo"))
+        )
+        session = repo.writable_session("main")
+
+        times = np.asarray([np.datetime64("2021-01-01")])
+        lead_times = np.asarray([np.timedelta64(6 * i, "h") for i in range(4)])
+        coords = OrderedDict(
+            {
+                "time": times,
+                "lead_time": lead_times,
+                "lat": np.linspace(90, -90, 32),
+                "lon": np.linspace(0, 360, 64, endpoint=False),
+            }
+        )
+
+        io = AsyncZarrBackend(
+            "unused",
+            parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+            store=session.store,
+        )
+        x = torch.randn(1, 4, 32, 64, dtype=torch.float32)
+        for i in range(4):
+            step_coords = OrderedDict(coords)
+            step_coords["lead_time"] = lead_times[i : i + 1]
+            io.write(x[:, i : i + 1], step_coords, "t2m")
+        io.close()
+        session.commit("async write")
+
+        readonly = repo.readonly_session("main")
+        root = zarr.open_group(readonly.store, mode="r")
+        assert np.allclose(root["t2m"][:], x.numpy())
 
 
 def test_icechunk_uncommitted_warning() -> None:

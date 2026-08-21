@@ -173,6 +173,38 @@ automatically (from the tip of `"main"`) if it does not already exist. This
 requires the `icechunk` optional dependency, install with `pip install
 earth2studio[data]`.
 
+### Non-blocking Icechunk writes with the Async Zarr Backend
+
+For workloads where write latency matters, `IceChunkBackend` is not the only
+option: `earth2studio.io.AsyncZarrBackend` accepts any constructed Zarr store
+through its `store` parameter, and an Icechunk session store is a Zarr store.
+This combines Icechunk's transactional snapshots with the async backend's
+non-blocking writes (and sharding):
+
+```python
+import icechunk
+from earth2studio.io import AsyncZarrBackend
+
+repo = icechunk.Repository.open_or_create(
+    icechunk.local_filesystem_storage("/path/to/repo")
+)
+session = repo.writable_session("main")
+
+io = AsyncZarrBackend(
+    "unused",  # location comes from the store
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    store=session.store,
+)
+# ... write forecast steps ...
+io.close()  # flush all in-flight writes BEFORE committing
+session.commit("forecast run")
+```
+
+The ordering matters: `io.close()` (or `flush()`) must complete before
+`session.commit()`, otherwise in-flight writes are silently excluded from the
+snapshot. Committing is your responsibility here — the session is managed
+outside the backend.
+
 !!! note
     Committing with no new writes raises an `IcechunkError`; pass
     `commit(message, allow_empty=True)` to create an empty snapshot instead.
