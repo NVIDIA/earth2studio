@@ -21,7 +21,6 @@ theme:
     text: NVIDIA Sans
     code: JetBrains Mono
   features:
-  - announce.dismiss
   - navigation.tabs
   - navigation.tabs.sticky
   - navigation.indexes
@@ -54,6 +53,7 @@ extra_css:
 - assets/stylesheets/nvidia-material.css
 - assets/stylesheets/earth2studio-gallery.css
 extra_javascript:
+- assets/javascripts/e2s-announce.js
 - assets/javascripts/e2s-landing.js
 - assets/javascripts/e2s-install-selector.js
 - assets/javascripts/e2s-catalog.js
