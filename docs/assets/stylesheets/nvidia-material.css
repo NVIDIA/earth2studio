@@ -2886,3 +2886,113 @@ body .md-grid {
   stroke-linejoin: round;
   stroke-width: 2;
 }
+
+/* Clickable category badges in the blog overview listing. */
+.md-typeset a.e2s-cat-badge {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid rgba(118, 185, 0, 0.4);
+  border-radius: 1rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--nv-green-2, #76b900);
+  text-decoration: none;
+}
+
+.md-typeset a.e2s-cat-badge:hover,
+.md-typeset a.e2s-cat-badge:focus {
+  background: rgba(118, 185, 0, 0.12);
+}
+
+/* Subscribe (RSS) button on the blog overview page. */
+.md-typeset .e2s-blog-subscribe {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(118, 185, 0, 0.5);
+  border-radius: 0.4rem;
+  background: rgba(118, 185, 0, 0.12);
+  color: var(--nv-green-2, #76b900);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.md-typeset .e2s-blog-subscribe:hover,
+.md-typeset .e2s-blog-subscribe:focus {
+  background: var(--nv-green-2, #76b900);
+  border-color: var(--nv-green-2, #76b900);
+  color: #fff;
+}
+
+.md-typeset .e2s-blog-subscribe .twemoji {
+  display: inline-flex;
+}
+
+.md-typeset .e2s-blog-subscribe .twemoji svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: currentcolor;
+}
+
+/* Blog post byline, rendered under the title by the content.html override. */
+.md-typeset .e2s-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  margin: -0.4rem 0 1.2rem;
+  font-size: 0.72rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .e2s-byline__authors {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.md-typeset .e2s-byline__author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .e2s-byline__author:hover {
+  color: var(--nv-green-2, #76b900);
+}
+
+.md-typeset .e2s-byline__avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.md-typeset .e2s-byline__date::before {
+  content: "";
+}
+
+.md-typeset .e2s-byline__cats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.md-typeset .e2s-byline__cat {
+  padding: 0.05rem 0.5rem;
+  border: 1px solid rgba(118, 185, 0, 0.4);
+  border-radius: 1rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--nv-green-2, #76b900);
+}
+
+.md-typeset .e2s-byline__cat:hover {
+  background: rgba(118, 185, 0, 0.12);
+}

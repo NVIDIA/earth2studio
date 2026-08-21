@@ -31,6 +31,8 @@ echo "Full docs-full log: ${main_log}"
 "${uv_docs[@]}" python docs/generate_api.py
 "${uv_docs[@]}" python docs/generate_catalog.py
 "${uv_docs[@]}" python docs/generate_install_options.py
+"${uv_docs[@]}" python docs/generate_blog_rss.py
+"${uv_docs[@]}" python docs/generate_blog_index.py
 
 # Rebuild examples from source, section by section, so stale examples are refreshed.
 rm -rf docs/examples examples/outputs

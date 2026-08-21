@@ -85,6 +85,8 @@ docs:
 	uv run python docs/generate_api.py
 	uv run python docs/generate_catalog.py
 	uv run python docs/generate_install_options.py
+	uv run python docs/generate_blog_rss.py
+	uv run python docs/generate_blog_index.py
 	uv run python docs/generate_gallery.py
 	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	rm -rf site/__pycache__ site/_build/html
@@ -105,6 +107,8 @@ docs-dev:
 	uv run python docs/generate_api.py
 	uv run python docs/generate_catalog.py
 	uv run python docs/generate_install_options.py
+	uv run python docs/generate_blog_rss.py
+	uv run python docs/generate_blog_index.py
 	@if [ -n "$(FILENAME)" ]; then \
 		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); \
 	fi
@@ -118,6 +122,8 @@ docs-build-version:
 	uv run python docs/generate_api.py
 	uv run python docs/generate_catalog.py
 	uv run python docs/generate_install_options.py
+	uv run python docs/generate_blog_rss.py
+	uv run python docs/generate_blog_index.py
 	uv run python docs/generate_gallery.py
 	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
 	rm -rf site/__pycache__ site/_build/html
@@ -139,6 +145,8 @@ docs-serve:
 	uv run python docs/generate_api.py
 	uv run python docs/generate_catalog.py
 	uv run python docs/generate_install_options.py
+	uv run python docs/generate_blog_rss.py
+	uv run python docs/generate_blog_index.py
 	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
 
 .PHONY: container-service

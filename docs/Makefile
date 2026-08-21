@@ -13,6 +13,8 @@ help:
 html build:
 	cd .. && python docs/generate_api.py
 	cd .. && python docs/generate_install_options.py
+	cd .. && python docs/generate_blog_rss.py
+	cd .. && python docs/generate_blog_index.py
 	rm -rf "$(BUILDDIR)"
 	cd .. && E2S_GALLERY_EXECUTE=never $(ZENSICAL) build --clean
 	mkdir -p _build
@@ -21,6 +23,8 @@ html build:
 serve:
 	cd .. && python docs/generate_api.py
 	cd .. && python docs/generate_install_options.py
+	cd .. && python docs/generate_blog_rss.py
+	cd .. && python docs/generate_blog_index.py
 	cd .. && E2S_GALLERY_EXECUTE=never $(ZENSICAL) serve -a 0.0.0.0:$(PORT)
 
 clean:
