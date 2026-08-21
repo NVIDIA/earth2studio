@@ -33,6 +33,7 @@ In this example you will learn:
 - Running the built in diagnostic workflow
 - Post-processing results
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -43,7 +44,7 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# For this example, the built in diagnostic workflow :py:meth:`earth2studio.run.diagnostic`
+# For this example, the built in diagnostic workflow [`earth2studio.run.diagnostic`][earth2studio.run.diagnostic]
 # will be used.
 
 # %%
@@ -56,12 +57,12 @@ In this example you will learn:
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Diagnostic Model: Use the built in precipitation AFNO model :py:class:`earth2studio.models.dx.PrecipitationAFNO`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
+# - Diagnostic Model: Use the built in precipitation AFNO model [`earth2studio.models.dx.PrecipitationAFNO`][earth2studio.models.dx.PrecipitationAFNO].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import os
 
 os.makedirs("outputs", exist_ok=True)
@@ -73,6 +74,7 @@ from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.models.px import FCN
+from earth2studio.utils.time import to_time_array
 
 # Load the default model package which downloads the check point from NGC
 package = FCN.load_default_package()
@@ -88,6 +90,21 @@ data = GFS()
 io = ZarrBackend()
 
 # %%
+# Fetch Data
+# ----------
+# You can easily fetch raw Xarray data from an initial condition data source with
+# a simple call. By default, this caches the data locally on your machine, so you
+# won't have to re-download it if you access it again or use it in an inference
+# pipeline.
+
+# %% tags=["e2sg-profile:setup"]
+sample = data(
+    to_time_array(["2024-01-01"]),
+    prognostic_model.input_coords()["variable"],
+)
+print(sample)
+
+# %%
 # Execute the Workflow
 # --------------------
 # With all components initialized, running the workflow is a single line of Python code.
@@ -95,12 +112,12 @@ io = ZarrBackend()
 # then post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 import earth2studio.run as run
 
 nsteps = 8
 io = run.diagnostic(
-    ["2021-06-01"], nsteps, prognostic_model, diagnostic_model, data, io
+    ["2024-01-01"], nsteps, prognostic_model, diagnostic_model, data, io
 )
 
 print(io.root.tree())
@@ -112,20 +129,20 @@ print(io.root.tree())
 # diagnostic models is that they allow the prediction of any variable from a pre-trained
 # prognostic model.
 #
-# .. note::
-#   The built in workflow will only save the direct outputs of the diagnostic. In this
-#   example only total precipitation is accessible for plotting. If you wish to save
-#   outputs of both the prognostic and diagnostic, we recommend writing a custom
-#   workflow.
+# !!! note
+#     The built in workflow will only save the direct outputs of the diagnostic. In this
+#     example only total precipitation is accessible for plotting. If you wish to save
+#     outputs of both the prognostic and diagnostic, we recommend writing a custom
+#     workflow.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 from datetime import datetime
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 
-forecast = datetime(2021, 6, 1)
+forecast = datetime(2024, 1, 1)
 variable = "tp"
 step = 8  # lead time = 48 hrs
 

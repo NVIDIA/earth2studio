@@ -72,6 +72,9 @@ def test_nnja_obs_sat_lexicon_routes_and_quantity_identity():
         "mhs": "mhs::TMBR",
         "amsua": "amsua::TMBR",
         "amsub": "amsub::TMBR",
+        "airs": "airs::TMBR",
+        "iasi": "iasi::SCRA",
+        "cris": "cris::SRAD",
     }
 
     frame = pd.DataFrame({"observation": [201.25]})

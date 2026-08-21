@@ -151,14 +151,13 @@ class PlanetaryComputerECMWFOpenDataIFSLexicon(metaclass=LexiconType):
 
     For available variables, inspect one of the index files:
 
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    import planetary_computer
 
-        import planetary_computer
+    url = "ttps://ai4edataeuwest.blob.core.windows.net/ecmwf/20251001/00z/ifs/0p25/oper/20251001000000-0h-oper-fc.index"
+    signed_url = planetary_computer.sign(url)  # use this URL to download the index file
 
-        url = "ttps://ai4edataeuwest.blob.core.windows.net/ecmwf/20251001/00z/ifs/0p25/oper/20251001000000-0h-oper-fc.index"
-        signed_url = planetary_computer.sign(url)  # use this URL to download the index file
-
+    ```
     """
 
     SFC_VARIABLES = {

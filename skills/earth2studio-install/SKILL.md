@@ -119,7 +119,7 @@ docs:
 |----------|---------------|
 | Prognostic (forecasting) | aifs, aurora, graphcast, pangu, sfno, stormcast, ... |
 | Diagnostic (post-processing) | corrdiff, climatenet, precip-afno, ... |
-| Data assimilation (beta) | da-healda, da-interp, da-stormcast |
+| Data assimilation (beta) | da-healda, da-interp, da-stormcast, da-cosmo |
 | Submodules | data, perturbation, statistics |
 
 The exact list comes from the live docs — cite those, not this table.
@@ -142,7 +142,8 @@ Key warnings to surface:
 - **pip-specific manual steps**: some models require
   `--no-build-isolation` or pre-installing packages like earth2grid,
   torch-harmonics, or makani
-- **Data assimilation models**: require CuPy + cuDF (CUDA 12)
+- **Data assimilation models**: require CuPy (+ cuDF for most; `da-cosmo` is
+  CuPy-only), defaulting to CUDA 13 (`cupy-cuda13x`, `cudf-cu13`)
 
 ### Step 6. Configuration (offer, don't force)
 

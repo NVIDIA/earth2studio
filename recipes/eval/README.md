@@ -39,6 +39,7 @@ Key features:
   - [Model selection](#model-selection)
   - [Ensemble runs](#ensemble-runs)
   - [Scoring](#scoring)
+  - [Online scoring](#online-scoring)
   - [Report](#report)
 - [Architecture](#architecture)
   - [Pipeline interface](#pipeline-interface)
@@ -113,7 +114,7 @@ python predownload.py predownload.verification.enabled=true
 Predownload creates the following stores in `<output.path>/`:
 
 | Store | Dimensions | Contents |
-|---|---|---|
+| --- | --- | --- |
 | `data.zarr` | `(time, variable, <spatial...>)` | IC data (plus verification if same source) |
 | `verification.zarr` | `(time, variable, <spatial...>)` | Only when verification source differs |
 | `obs_<name>.parquet/` | one parquet file per analysis time | DA pipelines only — observation DataFrames (see [Observation predownload](#observation-predownload)) |
@@ -169,7 +170,7 @@ usage by re-caching data that already exists locally.
 The two escape hatches are top-level config keys:
 
 | Key | What it overrides | Consumer |
-|---|---|---|
+| --- | --- | --- |
 | `ic_source` | The initial-condition source used during inference | `main.py` |
 | `verification_source` | The verification source used during scoring | `score.py` |
 
@@ -183,7 +184,7 @@ scaffolds one from a reference script.
 
 <!-- markdownlint-disable MD013 -->
 | ICs | Verification | Config |
-|---|---|---|
+| --- | --- | --- |
 | package | package | defaults — run `predownload.py`, then `main.py`, then `score.py` |
 | **user** | package | set `ic_source`; run `predownload.py predownload.verification.enabled=true` to cache verif |
 | package | **user** | set `verification_source`; run `predownload.py` (caches IC only) |
@@ -326,7 +327,7 @@ inference / scoring / report entry points:
 
 <!-- markdownlint-disable MD013 -->
 | Mode | Pipeline | Campaign example |
-|---|---|---|
+| --- | --- | --- |
 | Analysis vs. reanalysis | `src.pipelines.assimilation.AssimilationPipeline` | `healda_2024_analysis` |
 | DA-initialized forecast | `src.pipelines.assimilation.AssimilationForecastPipeline` | `healda_dlwp_2024_monthly`, `healda_fcn3_2024_monthly` |
 <!-- markdownlint-enable MD013 -->
@@ -516,13 +517,45 @@ When `resume=true`, the `output.overwrite` setting is ignored — existing
 data is never deleted.  When all items are complete, subsequent runs exit
 immediately with a success message.
 
+## IO backend and sharding
+
+By default the recipe writes through `AsyncZarrBackend`, which runs
+`output.thread_writers` writer threads of its own and supports Zarr v3
+sharding.  Setting `output.io_backend: zarr` falls back to `ZarrBackend`,
+which writes synchronously (`thread_writers` is ignored there).
+
+```yaml
+output:
+    io_backend: async_zarr
+    shard_coords: {lead_time: 8}
+    max_inflight_shards: 4
+```
+
+Note that larger *chunks* are not the alternative: `time`, `lead_time` and
+`ensemble` are written one slice at a time, so a chunk spanning several of them
+would let concurrent writes read-modify-write the same object and lose one of
+them.  `OutputManager` rejects a chunk size other than 1 on those axes.
+
+Only `lead_time` is safe to shard on a multi-rank run.  `time` and `ensemble`
+are the distributed axes, and shard buffering is per-process, so a shard
+spanning two ranks is written in full by both and the later write silently
+discards the other's data.  `OutputManager` rejects sharding those axes
+whenever the world size is greater than one.  Sharding also interacts with
+resume: `flush()` runs after every work item there, writing out any incomplete
+shard, and re-entering that shard later falls back to a read-modify-write of
+the whole object.  Sharding on `lead_time` only avoids this.  Predownload
+stores hold a single `lead_time` and are always written unsharded.
+
+Reading a sharded store requires zarr ≥ 3 (and a correspondingly recent
+xarray); readers on zarr 2.x fail with a codec error.
+
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).
 The config is organized into three layers:
 
 | Layer | Location | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | Base | `cfg/default.yaml` | Shared defaults (pipeline, data source, output, predownload) |
 | Model | `cfg/model/*.yaml` | Model architecture and checkpoint |
 | Campaign | `cfg/campaign/*.yaml` | ICs, ensemble, variables, forecast length |
@@ -643,6 +676,177 @@ per-(time, lead_time) RMSE values.  To compute aggregate RMSE across
 all IC times, use `sqrt(mean(rmse²))` in post-processing (equivalent
 to `sqrt(mean(MSE))`).  The report step handles this automatically.
 
+### Online scoring
+
+The flow above is *store-then-score*: `main.py` writes every
+(member, IC, lead, variable) field to `forecast.zarr` and `score.py`
+re-reads it.  At campaign scale that raw store is the binding constraint —
+a 50-member, 730-IC, 14-day global campaign is ~170 TB of raw fields to
+produce ~20 MB of scores.
+
+**Online scoring** reduces each forecast to sufficient statistics inside
+the inference loop, so no raw store is needed:
+
+```bash
+torchrun --nproc_per_node=$NGPU --standalone main.py \
+    campaign=fcn3_2024_monthly \
+    scoring.mode=online output.retain=none
+```
+
+This writes `stats.zarr` (~400 MB for the campaign above) and derives a
+`scores.zarr` from it that `report.py` reads unchanged.
+
+**How work is distributed.**  Ranks are partitioned into *ensemble
+groups*.  A group owns one IC at a time and its ranks carry disjoint
+slices of the ensemble — rank `g` runs members `[g*K, (g+1)*K)` where
+`G * K = ensemble_size` and `K` is `members_per_rank`.  ICs are
+distributed across **groups**, not ranks.  With the default `K = 1` you
+need `world_size >= ensemble_size`, and `run_item` — including per-member
+seeding — is untouched, so online runs reproduce offline forecasts
+bit-for-bit.
+
+<!-- markdownlint-disable MD013 -->
+| Setting | Meaning |
+| --- | --- |
+| `scoring.mode` | `offline` (default) · `online` |
+| `output.retain` | `all` (default) · `none` — drop `forecast.zarr` entirely; only legal with online scoring |
+| `scoring.online.scores_store` | Where the finalize step writes; `null` → `scoring.output.store_name` |
+| `scoring.online.ensemble_group_size` | Ranks per group `G`; `null` → `G = ensemble_size / K` |
+| `scoring.online.members_per_rank` | Members per rank `K`; `> 1` needs a pipeline with `run_item_batched` |
+| `scoring.online.stats_store` | The durable artifact (default `stats.zarr`) |
+| `scoring.online.climatology` | A `DataSource` on the verification grid; required for ACC |
+<!-- markdownlint-enable MD013 -->
+
+#### Members per rank (`K > 1`)
+
+`K = 1` is the simplest layout but spreads a group across `M` ranks —
+usually several nodes — which puts the CRPS member exchange on the
+inter-node fabric.  Running `K` members per rank shrinks the group to
+`M/K` ranks; once a group fits inside one node the exchange moves onto
+NVLink, roughly a 10× reduction in the dominant communication cost.  It
+also lets you run an ensemble at all when `world_size < ensemble_size`.
+
+```bash
+# 50 members, 8 ranks per group -> groups are node-local
+torchrun --nproc_per_node=8 --standalone main.py \
+    campaign=fcn3_2024_monthly scoring.mode=online output.retain=none \
+    ensemble_size=56 scoring.online.members_per_rank=7
+```
+
+`G * K` must equal `ensemble_size` exactly — ragged groups are rejected
+with a clear error rather than silently padded.
+
+Batched rollouts stack members on the model's batch axis, so a pipeline
+must implement `run_item_batched` to support them; `ForecastPipeline`
+(and everything deriving from it) does.  Perturbations are drawn per
+member under each member's own seed, so initial conditions still match a
+`K = 1` run exactly.  A **stochastic model's** internal RNG, however, is
+seeded once per batch — so with `set_rng`-bearing models (e.g. FCN3)
+individual members are a different draw than they would be at `K = 1`.
+The ensemble stays statistically valid; the pipeline logs a warning so
+this is never a silent difference.
+
+**Metrics.**  The online path does *not* use `scoring.metrics` — it
+accumulates a fixed set of mergeable sums and derives the metric set from
+them at finalize time:
+
+<!-- markdownlint-disable MD013 -->
+| Array in `scores.zarr` | Definition |
+| --- | --- |
+| `mse__{var}` | per-member MSE (with an `ensemble` axis when `M > 1`) |
+| `ensemble_mean_mse__{var}` | MSE of the ensemble mean |
+| `ensemble_variance__{var}` | Bessel-corrected ensemble variance (spread²) |
+| `crps__{var}` | fair (unbiased) CRPS |
+| `rank_reliability__{var}` | `sum_k \|p_k - 1/(M+1)\|` of the rank histogram |
+| `bias__{var}`, `corr__{var}` | mean error, centered spatial correlation |
+| `acc__{var}` | anomaly correlation — only when a climatology is configured |
+<!-- markdownlint-enable MD013 -->
+
+Spread and spread-skill ratio come out of the report's existing
+`ensemble_mean_mse` + `ensemble_variance` path.  The full rank histogram
+(with its `rank_bin` axis) stays in `stats.zarr`.
+
+#### The cost of CRPS
+
+Every online statistic except CRPS reduces spatially *before*
+communicating, so only scalars cross the wire.  CRPS's `E|X-X'|` term is
+the exception: every member has to meet every other member, costing
+`(G-1) * K * n_vars * field` bytes of egress per rank per lead step — for
+a 50-member 0.25° campaign, ~4 GB per lead step, dominating everything
+else by ~25×.  That single term is where an online run's communication
+budget goes.
+
+Four levers, roughly in order of leverage:
+
+<!-- markdownlint-disable MD013 -->
+| Setting | Effect |
+| --- | --- |
+| `defer_pairwise_one_step: true` (default) | Issues the exchange for step *n* asynchronously and finalizes it during step *n+1*'s model forward.  Nearly free; hides most of the cost. |
+| `members_per_rank: K` | A smaller group fits inside a node → NVLink instead of IB (~10× cheaper).  See above. |
+| `pairwise_comm_dtype: bfloat16` (default) | Halves the bytes.  Arithmetic upcasts to float64 on arrival, so the precision loss is far below ensemble sampling noise. |
+| `pairwise_variables: [z500, t2m]` | Restrict CRPS to the variables you actually report on; the moment-based metrics stay on the full set. |
+| `crps: false` | Drop it entirely — the run then needs no field-sized communication at all. |
+<!-- markdownlint-enable MD013 -->
+
+Members meet via a single all-gather per variable chunk, which is what
+makes the exchange deferrable; `variable_chunk` bounds both the payload
+and the float64 working set.
+
+**Re-deriving scores.**  `stats.zarr` holds *sums*, not scores, so
+re-deriving scores from the already-stored sums -- e.g. recomputing rank
+reliability from the stored rank counts, or bootstrap CIs over ICs --
+never requires re-running inference. Spatial weighting is baked into the
+sum at run time, though: cosine-latitude weighting is on or off for the
+whole grid for the entire run, and there is currently no per-region
+weighting exposed. So while a *new* metric that is derivable from the
+existing sums is free, evaluating a *different* spatial weighting/region,
+a genuinely new metric that needs its own accumulator, or anything else
+that needs the raw fields, all require re-running the inference portion --
+which is the main downside of online scoring. To consolidate the
+summation results in `stats.zarr` into the final scores, run:
+
+```bash
+python score.py campaign=fcn3_2024_monthly scoring.mode=online
+```
+
+In online mode `score.py` only re-runs the (single-process, cheap)
+finalize step.
+
+**Validating an online campaign.**  With `output.retain=all` (the
+default) an online run keeps its raw fields, so the very same forecasts
+can be scored the slow way and the two compared:
+
+```bash
+torchrun --nproc_per_node=$NGPU --standalone score.py \
+    campaign=fcn3_2024_monthly scoring.mode=offline \
+    scoring.output.store_name=scores_offline.zarr
+```
+
+The `store_name` override keeps the offline pass off `scores.zarr`, which
+the online finalize already wrote; setting
+`scoring.online.scores_store` moves the online store instead if you'd
+rather that change.
+
+**Resume.**  The unit of durability is the `(IC, group)` pair rather than
+the `(IC, member)` work item, so online runs use their own marker
+namespace (`.online_progress`).  A crash loses at most one IC per group;
+re-submit with `resume=true`.
+
+**Failure domain.**  A dead rank hangs its whole group rather than merely
+forfeiting its own items.  `scoring.online.nccl_timeout_s` (default 30 min)
+turns that into a clean job failure that `resume=true` picks up from.
+
+**Caveats.**
+
+- `verification.zarr` must be predownloaded; coverage of every
+  `(IC + lead)` valid time is checked before model weights load.
+- Online scoring prioritizes support for a fixed set of important metrics
+  amenable to the partial summation approach that produces `stats.zarr`.
+  Users with custom metrics will have to fall back to offline scoring,
+  or open an issue with a request to add new online metrics.
+- With `output.retain=none` the report's visualization sections have no
+  raw fields to plot and degrade gracefully.
+
 ### Report
 
 Generate a self-contained markdown report with summary tables, lead-time
@@ -758,7 +962,7 @@ is not installed, the projection setting is ignored with a warning.
 #### Section types
 
 | Type | Description | Key options |
-|---|---|---|
+| --- | --- | --- |
 | `header_visualization` | Hero prediction vs truth map | `variable`, `lead_time`, `time` |
 | `summary_table` | Scores at key lead times | `lead_times`, `variables` (subset) |
 | `lead_time_curves` | Metric vs lead time plots | `metrics`, `time_groups`, `title_suffix` |
@@ -789,7 +993,8 @@ recipes/eval/
 ├── src/
 │   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
 │   │   ├── base.py      #   Pipeline ABC, Predownload(Frame)Store, shared run loop
-│   │   ├── forecast.py  #   ForecastPipeline + DiagnosticPipeline
+│   │   ├── forecast.py  #   ForecastPipeline (prognostic rollout)
+│   │   ├── diagnostic.py #  DiagnosticPipeline (diagnostic-only)
 │   │   ├── assimilation.py # AssimilationPipeline + AssimilationForecastPipeline
 │   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
 │   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
@@ -800,6 +1005,7 @@ recipes/eval/
 │   │   └── main.py      #   generate_report orchestration
 │   ├── assimilation.py  # DA plumbing — model loader, obs sources, runners
 │   ├── scoring.py       # Scoring logic — metrics, data alignment, score loop
+│   ├── online.py        # Online scoring — ensemble groups, accumulators, stats.zarr
 │   ├── work.py          # WorkItem, distribution, resume markers
 │   ├── distributed.py   # Rank-ordered execution, logging setup
 │   ├── models.py        # Model loading (prognostic + diagnostic)
@@ -813,12 +1019,13 @@ Each source module has a specific scoped responsibilities:
 
 <!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
-|---|---|
+| --- | --- |
 | `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope) |
 | `assimilation.py` | DA plumbing — `load_assimilation`, `ObsSourceSet`, `AssimilationRunner`, analysis→tensor conversion |
 | `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 | `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |
-| `work.py` | Define work units; parse ICs from config; distribute across ranks |
+| `online.py` | In-loop scoring — ensemble-group comms, sufficient-statistic accumulators, `stats.zarr` → `scores.zarr` finalize |
+| `work.py` | Define work units; parse ICs from config; distribute across ranks and ensemble groups |
 | `distributed.py` | Rank-ordered execution primitive; logging setup |
 | `models.py` | Load prognostic/diagnostic models from config |
 | `output.py` | Zarr store creation, validation, threaded writes, consolidation |
@@ -834,10 +1041,19 @@ shared scaffolding (work iteration, output filtering, ensemble injection,
 zarr writes).  Subclasses implement three methods:
 
 | Method | Purpose |
-|---|---|
+| --- | --- |
 | `setup(cfg, device)` | Load models, move to device, cache coordinate metadata |
 | `build_total_coords(times, ensemble_size)` | Define the full zarr output coordinate system |
 | `run_item(item, data_source, device)` | Yield `(tensor, coords)` pairs for one work item |
+
+Two optional hooks matter for online scoring:
+
+<!-- markdownlint-disable MD013 -->
+| Hook | Purpose |
+| --- | --- |
+| `supports_online_scoring` | Class flag asserting that `run_item` yields an identical coord sequence for every ensemble member — the invariant an ensemble group's per-step reduction depends on |
+| `run_item_batched(items, ...)` | Roll `K` members of one IC forward together, yielding a leading `ensemble` axis.  Required for `members_per_rank > 1` |
+<!-- markdownlint-enable MD013 -->
 
 The base class `Pipeline.run()` handles everything else: iterating work
 items, building the output variable filter, injecting the ensemble dimension,
@@ -848,7 +1064,7 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
 - **`ForecastPipeline`** (`src.pipelines.forecast.ForecastPipeline`, the
   default) — prognostic rollout with optional diagnostic models.  Yields
   one output per lead-time step.
-- **`DiagnosticPipeline`** (`src.pipelines.forecast.DiagnosticPipeline`) —
+- **`DiagnosticPipeline`** (`src.pipelines.diagnostic.DiagnosticPipeline`) —
   diagnostic-only (no prognostic model).  Yields a single output per work
   item.
 - **`AssimilationPipeline`** (`src.pipelines.assimilation.AssimilationPipeline`)

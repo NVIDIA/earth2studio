@@ -14,15 +14,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
   initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
+- Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
+  CorrDiff-COSMO downscaler
+- Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added obstore support to `AsyncZarrBackend` via a new `store` parameter
+  (store URL, obstore store, or zarr store)
+- Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
+  `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
+  `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
+  new default)
+- Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
+  `NNJAObsSat`, returned as brightness temperature (K) with per-channel
+  wavenumbers alongside the existing microwave sensors
 
 ### Changed
 
+- Updated StormCast SDA example to use the `GHCNHourly` data source.
+- `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
+  waits for whichever write completes first rather than the oldest.
+- Migrated GOES data source from s3fs to obstore; hour-directory listings are
+  now async and memoized, so same-hour timestamps share one LIST request
+  (~30% faster)
+- Migrated GOES GLM data source from s3fs to obstore; listings of complete
+  hours are memoized per instance while the current hour is always re-listed
+- Migrated Himawari AHI data source from s3fs to obstore with memoized
+  minute-directory listings (scans older than an hour)
+- Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
+  station-scale requests now fetch per-station parquet files instead of
+  global by_year partitions (~25x faster), and their default
+  `async_workers` is raised from 16 to 32 since fetches are small,
+  latency-bound requests where throughput scales with concurrency
+  (roughly halves wall time again for large station lists)
+- Migrated JPSS VIIRS, ATMS, and CrIS data sources from s3fs to obstore;
+  day-directory listings of completed days are memoized per instance while
+  in-progress days are always re-listed, and the CrIS SDR/GEO dual listings
+  remain concurrent
+- Vectorized the JPSS ATMS BUFR decode (numpy column assembly + Arrow table
+  accumulation instead of per-row dicts), roughly halving end-to-end fetch
+  time; decoded output is bit-identical to the previous implementation
+- JPSS VIIRS HDF5 decode now runs in worker threads (serialized by an HDF5
+  lock) so decoding no longer blocks concurrent granule downloads
+- JPSS ATMS now decodes each BUFR file as soon as its download completes
+  (pipelined with in-flight downloads, one decode per unique file) instead
+  of decoding after all downloads finish
+- JPSS CrIS granule downloads now fetch large objects as concurrent byte
+  ranges (1 MiB x 8 streams per file) instead of one single-stream GET,
+  roughly halving fetch time for typical requests
+- Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
+  fsspec/s3fs to obstore
+- CFS reforecast grib decoding now resolves all requested variables in a
+  single pass over the file's messages instead of one `pygrib.select` scan
+  per variable (~20x faster for full-lexicon requests)
+- Consolidated the four identical per-source grib decode helpers
+  (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
+  `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
+  `earth2studio.data.utils`
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
+
 ### Deprecated
+
+- Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
+  `store`; the default local write path no longer uses fsspec
 
 ### Removed
 
 ### Fixed
 
+- Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
+  unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
+  step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
+  initial condition is yielded at `lead_time=[0h]`
+
+- Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
+  NCEI archive path; the reforecast archive moved to
+  `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
+- Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
+  collided. Cache names now include the resolution.
+- Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
+  for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
+  Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
+  of the reflectivity sentinel `-99.0 dBZ`.
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
 - Fixed `to_time_array` and `fetch_data` silently wrapping timestamps outside the
@@ -30,12 +105,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflows such as `run.deterministic` from using the model-year calendars of
   climate emulators (for example the CM4 initial conditions of `SamudrACE`).
   Nanosecond precision is still used whenever the times are representable.
+- Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
+  samples when processing multiple batches and initialization times.
+- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
+  future that had already completed was never resulted, so its error was swallowed
+- Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
+  metadata visibility, coordinate parsing, and shard buffer allocation.
 
 ### Security
 
+- Added `zizmor` static security auditing of GitHub Actions workflows (pre-commit
+  hook, `make zizmor` lint step, and a code scanning workflow)
+
 ### Dependencies
 
-## [0.17.0] - 2026-07-xx
+- Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
+  against its vendor-neutral store protocols
+- Updated GraphCast and GenCast optional dependencies to use WeatherNext.
+
+## [0.17.0] - 2026-07-30
 
 ### Added
 
@@ -58,6 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prognostic iterator interface.
 - Added NNJA satellite observation data frame source (`NNJAObsSat`)
 - Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) for diffusion
+  downscaling of ERA5 to COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km).
 
 ### Changed
 
@@ -140,10 +230,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reflectivity, rain rate, and 1-hour accumulation (`OPERA`)
 - Added support for cumulative variables in ARCO data source
 - Added DLESyM-v0-ISCCP-ERA5 climate model
-- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) and
-  `CosmoLexicon` for regression (mean) and diffusion downscaling of ERA5 to
-  COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km), with sub-domain support via
-  `set_domain`
 
 ### Changed
 

@@ -31,6 +31,7 @@ In this example you will learn:
 - Running iterative prognostic forecasts
 - Plotting a single GOES channel with MRMS overlay
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -44,8 +45,8 @@ In this example you will learn:
 # This example shows a minimal StormScope workflow with GOES satellite imagery
 # and MRMS radar data. We build two models:
 #
-# - :py:class:`earth2studio.models.px.StormScopeGOES` to forecast GOES channels.
-# - :py:class:`earth2studio.models.px.StormScopeMRMS` to forecast radar
+# - [`earth2studio.models.px.StormScopeGOES`][earth2studio.models.px.StormScopeGOES] to forecast GOES channels.
+# - [`earth2studio.models.px.StormScopeMRMS`][earth2studio.models.px.StormScopeMRMS] to forecast radar
 #   reflectivity (and a gridded GLM lightning channel).
 #
 # In the CONUS nowcasting (``3km_10min``) configuration the GOES model is
@@ -85,7 +86,7 @@ from earth2studio.models.px.stormscope import (
 # ``[refc, refc_base, glm_density]`` conditioned on GOES, and additionally
 # consumes a Geostationary Lightning Mapper (GLM) channel that is both an input
 # (observation history) and a predicted output. The GLM field comes from
-# :py:class:`earth2studio.data.GOESGLMGrid`, a gridded 0.1-degree lightning
+# [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid], a gridded 0.1-degree lightning
 # product; the model bilinearly regrids it onto the model grid internally.
 #
 # Other selectable variants (see ``StormScope*.list_available_models``):
@@ -168,8 +169,8 @@ x, x_coords = fetch_data(
 # Setup MRMS + GLM Data Sources and Assemble the State
 # ----------------------------------------------------
 # The MRMS+GLM model forecasts ``[refc, refc_base, glm_density]``. The radar
-# channels come from :py:class:`earth2studio.data.MRMS`; the GLM channel comes
-# from :py:class:`earth2studio.data.GOESGLMGrid`. Because we drive the rollout
+# channels come from [`earth2studio.data.MRMS`][earth2studio.data.MRMS]; the GLM channel comes
+# from [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid]. Because we drive the rollout
 # with ``call_with_conditioning`` (the coupled path), we own the full initial
 # state: we fetch radar and GLM, regrid each onto the shared model grid (GLM uses
 # bilinear regridding, unlike the nearest-neighbor radar/satellite path), and

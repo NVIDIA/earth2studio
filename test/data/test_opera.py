@@ -132,13 +132,25 @@ def test_opera_apply_linear_scaling_undetect_fill():
         "nodata": 0,
         "undetect": 2,
     }
-    scaled = OPERA._apply_linear_scaling(raw, what)
+    # DBZH: undetect → -99.0
+    scaled = OPERA._apply_linear_scaling(raw, what, "DBZH")
     assert scaled.dtype == np.float32
     np.testing.assert_allclose(scaled[0], np.nan)
     np.testing.assert_allclose(scaled[1], -31.5)
-    np.testing.assert_allclose(scaled[2], OPERA._NO_DETECTION_FILL)
+    np.testing.assert_allclose(scaled[2], -99.0)
     np.testing.assert_allclose(scaled[3], -30.5)
-    assert OPERA._NO_DETECTION_FILL == -99.0
+
+    # RATE: undetect → 0.0
+    scaled_rate = OPERA._apply_linear_scaling(raw, what, "RATE")
+    np.testing.assert_allclose(scaled_rate[2], 0.0)
+
+    # ACRR: undetect → 0.0
+    scaled_acrr = OPERA._apply_linear_scaling(raw, what, "ACRR")
+    np.testing.assert_allclose(scaled_acrr[2], 0.0)
+
+    # Unknown quantity: falls back to -99.0
+    scaled_unknown = OPERA._apply_linear_scaling(raw, what, "UNKN")
+    np.testing.assert_allclose(scaled_unknown[2], -99.0)
 
 
 # ==========================================================================

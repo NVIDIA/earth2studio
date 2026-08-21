@@ -147,8 +147,9 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:ds product:wind product:precip product:temp product:atmos
+    region:global class:downscaling product:wind product:precip product:temp product:atmos
     year:2023 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -1203,7 +1204,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
                         'coords["time"] must be array-like of numpy datetime64 (e.g., dtype="datetime64[ns]") '
                         f"or a list[datetime], but got {type(time_array)!r}"
                     )
-                valid_time_list = timearray_to_datetime(time_np)
+                valid_time_list = list(timearray_to_datetime(time_np))
         else:
             valid_time_list = [None] * out.shape[0]
 
@@ -1293,7 +1294,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:as class:ds product:wind product:precip product:temp product:atmos year:2023 gpu:40gb
+    region:as class:downscaling product:wind product:precip product:temp product:atmos year:2023 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

@@ -74,7 +74,8 @@ class InterpEquirectangular(torch.nn.Module):
 
     Badges
     ------
-    region:global region:na class:da product:atmos product:insitu
+    region:global region:na class:data-assimilation product:atmos product:insitu
+    provider:nvidia backend:pytorch
     """
 
     # Acceptable variables for this model
@@ -184,11 +185,6 @@ class InterpEquirectangular(torch.nn.Module):
     ]:
         """Creates a generator which accepts collection of input observations and
         outputs a collection of assimilated data.
-
-        Parameters
-        ----------
-        x : AssimilationInput
-            Input configuration for the assimilation model
 
         Yields
         ------

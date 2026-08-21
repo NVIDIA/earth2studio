@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import gzip
 import hashlib
 import os
@@ -25,12 +26,19 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pygrib
-import s3fs
 import xarray as xr
 from loguru import logger
+from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
+    prep_data_inputs,
+)
 from earth2studio.lexicon import MRMSLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -44,6 +52,46 @@ try:
 except ImportError:
     OptionalDependencyFailure("data")
     eccodes = None  # type: ignore[assignment]
+
+
+def _decode_mrms_grib(grib_file: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Decode field values and 1-D lat/lon axes from a single-message MRMS grib.
+
+    MRMS CONUS products are on a regular lat/lon grid, so the coordinate axes
+    are computed from the grid-definition header keys. ``latlons()`` decodes
+    full 2-D coordinate arrays and dominates fetch time (~8 s per 3500x7000
+    file vs ~0.1 ms for the header keys); it is kept only as a fallback for
+    non-regular grids.
+
+    Parameters
+    ----------
+    grib_file : str
+        Path to local single-message grib file.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        ``(values, lat, lon)`` with values of shape ``(len(lat), len(lon))``.
+    """
+    grbs = pygrib.open(grib_file)
+    try:
+        grb = grbs[1]
+        values = grb.values  # (ny, nx)
+        try:
+            lat0 = grb.latitudeOfFirstGridPointInDegrees
+            lon0 = grb.longitudeOfFirstGridPointInDegrees
+            dlat = grb.jDirectionIncrementInDegrees
+            dlon = grb.iDirectionIncrementInDegrees
+            lat_step = dlat if grb.jScansPositively else -dlat
+            lat = lat0 + lat_step * np.arange(grb.Nj)
+            lon = lon0 + dlon * np.arange(grb.Ni)
+        except (KeyError, RuntimeError):
+            lats, lons = grb.latlons()
+            lat = lats[:, 0]
+            lon = lons[0, :]
+        return values, lat, lon
+    finally:
+        grbs.close()
 
 
 @check_optional_dependencies("data")
@@ -116,14 +164,15 @@ class MRMS:
         self._verbose = verbose
         self._max_workers = max_workers
         self.async_timeout = async_timeout
-        # Set up S3 filesystem (deferred to first call)
-        self.fs: s3fs.S3FileSystem | None = None
+        # Object store is lazily initialized on first call
+        self.store: ObjectStore | None = None
+        # Memoized day-directory listings; completed (past) days never change
+        # so repeated fetches over the same day share one LIST request.
+        self._list_cache: dict[str, list[str]] = {}
 
     async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
-        )
+        """Async initialization of the obstore S3 store"""
+        self.store = obstore_store_from_url(f"s3://{self.MRMS_BUCKET_NAME}")
 
     def __call__(
         self,
@@ -178,7 +227,7 @@ class MRMS:
         xr.DataArray
             MRMS weather data array
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -187,9 +236,6 @@ class MRMS:
 
         # Create cache dir if needed
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         # Group variables by MRMS product and keep (var_index, modifier)
         product_to_vars: dict[str, list[tuple[int, Callable]]] = {}
@@ -263,10 +309,6 @@ class MRMS:
                 {f"actual_time_{v}": ("time", actual_time_by_var[v])}
             )
 
-        # Close aiohttp client if s3fs
-        if session:
-            await session.close()
-
         return out
 
     async def _fetch_task(
@@ -281,7 +323,11 @@ class MRMS:
         # Some MRMS objects can be malformed/truncated upstream; try the next-nearest candidate
         # rather than failing the entire time slice.
         candidates = await self._resolve_s3_time_candidates(
-            self.fs, time, product, self.max_offset_minutes  # type: ignore[arg-type]
+            self.store,  # type: ignore[arg-type]
+            time,
+            product,
+            self.max_offset_minutes,
+            list_cache=self._list_cache,
         )
         if not candidates:
             logger.warning(
@@ -298,20 +344,12 @@ class MRMS:
 
             grib_file = await self._download_and_decompress_async(s3_uri)
 
-            grbs = None
             try:
-                grbs = pygrib.open(grib_file)
-
-                grb = grbs[1]
-                values = grb.values  # (ny, nx)
-                lats, lons = grb.latlons()
-                lat = lats[:, 0]
-                lon = lons[0, :]
+                # pygrib decode is blocking; run in a thread so concurrent
+                # (time, product) tasks decode in parallel
+                values, lat, lon = await asyncio.to_thread(_decode_mrms_grib, grib_file)
             except Exception as e:
-                if grbs is None:
-                    logger.error(f"Failed to open grib file {grib_file}")
-                else:
-                    logger.error(f"Failed to read grib file {grib_file}")
+                logger.error(f"Failed to read grib file {grib_file}")
                 last_exc = e
                 if "End of resource reached when reading message" in str(
                     e
@@ -322,9 +360,6 @@ class MRMS:
                     )
                     continue
                 raise
-            finally:
-                if grbs is not None:
-                    grbs.close()
 
             return {
                 "time_index": time_index,
@@ -346,17 +381,25 @@ class MRMS:
 
     async def _download_and_decompress_async(self, s3_uri: str) -> str:
         """Async download of gzipped GRIB2 from S3 and decompress into cache; return path."""
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+        key = s3_uri.removeprefix(f"s3://{self.MRMS_BUCKET_NAME}/")
+
         # Cache filenames derived from key
-        key_hash = hashlib.sha256(s3_uri.encode()).hexdigest()
+        key_hash = hashlib.sha256(key.encode()).hexdigest()
         grib_path = os.path.join(self.cache, f"{key_hash}.grib2")
 
         # Download gz and decompress if not present
         if not pathlib.Path(grib_path).is_file():
-            # Read gzipped payload into memory and decompress to GRIB
-            data = await self.fs._cat_file(s3_uri)  # type: ignore[union-attr]
-            decompressed = gzip.decompress(data)
-            with open(grib_path, "wb") as fout:
-                fout.write(decompressed)
+            # Read gzipped payload into memory and decompress to GRIB;
+            # decompression and disk write are blocking, so run in a thread
+            data = await obstore_read_range(self.store, key)
+
+            def _decompress_to_disk() -> None:
+                with open(grib_path, "wb") as fout:
+                    fout.write(gzip.decompress(data))
+
+            await asyncio.to_thread(_decompress_to_disk)
 
         return grib_path
 
@@ -393,10 +436,11 @@ class MRMS:
     @classmethod
     async def _resolve_s3_time_candidates(
         cls,
-        fs: s3fs.S3FileSystem,
+        store: ObjectStore,
         time: datetime,
         product: str,
         max_offset_minutes: float = 10,
+        list_cache: dict[str, list[str]] | None = None,
     ) -> list[tuple[datetime, str]]:
         """Return all candidate MRMS objects within tolerance, sorted nearest-first."""
         # Normalize to timezone-aware UTC for robust datetime arithmetic.
@@ -412,19 +456,22 @@ class MRMS:
             time.strftime("%Y%m%d"),
             t_max.strftime("%Y%m%d"),
         }
+        # Day directories of past days never change and may be memoized; the
+        # current (UTC) day is still being filled and must be re-listed.
+        today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
 
         pattern = re.compile(
             rf"^MRMS_{re.escape(product)}_(\d{{8}})-(\d{{6}})\.grib2\.gz$"
         )
         out: list[tuple[float, datetime, str]] = []
         for date_str in sorted(candidate_dates):
-            dir_uri = (
-                f"s3://{cls.MRMS_BUCKET_NAME}/{cls.MRMS_REGION}/{product}/{date_str}/"
+            prefix = f"{cls.MRMS_REGION}/{product}/{date_str}/"
+            keys = await obstore_list_prefix(
+                store,
+                prefix,
+                cache=list_cache,
+                cacheable=(date_str < today_str),
             )
-            try:
-                keys = await fs._ls(dir_uri)
-            except FileNotFoundError:
-                continue
             for key_path in keys:
                 fname = os.path.basename(key_path)
                 m = pattern.match(fname)
@@ -442,9 +489,9 @@ class MRMS:
                 )
                 diff = abs((ts - time).total_seconds())
                 if diff <= max_offset_minutes * 60:
-                    uri = (
-                        key_path if key_path.startswith("s3://") else f"s3://{key_path}"
-                    )
+                    # Preserve the bucket-prefixed s3:// URI form so cache
+                    # hashes from the s3fs implementation remain valid
+                    uri = f"s3://{cls.MRMS_BUCKET_NAME}/{key_path}"
                     out.append((diff, ts, uri))
 
         out.sort(key=lambda x: (x[0], x[1]))
@@ -513,14 +560,9 @@ class MRMS:
         product = next(iter(products))
 
         async def _resolve_helper() -> bool:
-            fs = s3fs.S3FileSystem(
-                anon=True,
-                client_kwargs={},
-                asynchronous=True,
-                skip_instance_cache=False,
-            )
+            store = obstore_store_from_url(f"s3://{cls.MRMS_BUCKET_NAME}")
             resolved = await cls._resolve_s3_time_candidates(
-                fs, time, product, max_offset_minutes
+                store, time, product, max_offset_minutes
             )
             return len(resolved) > 0
 
