@@ -14,14 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -302,9 +303,16 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.atmos_output_lt_idx = [
             list(out_coords["lead_time"]).index(t) for t in self.atmos_output_times
         ]
-        self.ocean_output_lt_idx = [
-            list(out_coords["lead_time"]).index(t) for t in self.ocean_output_times
-        ]
+        self.register_buffer(
+            "ocean_output_lt_idx",
+            torch.tensor(
+                [
+                    list(out_coords["lead_time"]).index(t)
+                    for t in self.ocean_output_times
+                ],
+                dtype=torch.long,
+            ),
+        )
 
         # Setup the variable indices for [atmos, ocean]
         # Input-side indices select prognostic variables out of `x`, which
@@ -316,13 +324,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # instead of `ws10m`) that only exists before
         # `_prepare_derived_variables` converts it to the canonical set --
         # `prepare_input_data` itself only ever sees the canonical layout.
+        # `prognostic_variables` is `atmos_variables + ocean_variables` by
+        # construction, so each component's own indices within it are just
+        # the contiguous range it occupies.
         prognostic_variables = self.atmos_variables + self.ocean_variables
-        self.atmos_var_idx = [
-            prognostic_variables.index(var) for var in self.atmos_variables
-        ]
-        self.ocean_var_idx = [
-            prognostic_variables.index(var) for var in self.ocean_variables
-        ]
+        self.atmos_var_idx = list(range(len(self.atmos_variables)))
+        self.ocean_var_idx = list(
+            range(len(self.atmos_variables), len(prognostic_variables))
+        )
         self.atmos_coupling_var_idx = [
             prognostic_variables.index(var) for var in self.atmos_coupling_variables
         ]
@@ -338,25 +347,43 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Output-side indices scatter each component's raw output tensor
         # (channel layout [prognostics, diagnostics]) into the merged
         # output tensor, whose variable axis follows `out_coords["variable"]`.
-        self.atmos_output_var_idx = [
-            list(out_coords["variable"]).index(var)
-            for var in self.atmos_variables + self.atmos_diagnostic_variables
-        ]
-        self.ocean_output_var_idx = [
-            list(out_coords["variable"]).index(var)
-            for var in self.ocean_variables + self.ocean_diagnostic_variables
-        ]
+        # Registered as buffers (rather than plain lists) so they follow
+        # the module to whatever device it's moved to.
+        self.register_buffer(
+            "atmos_output_var_idx",
+            torch.tensor(
+                [
+                    list(out_coords["variable"]).index(var)
+                    for var in self.atmos_variables + self.atmos_diagnostic_variables
+                ],
+                dtype=torch.long,
+            ),
+        )
+        self.register_buffer(
+            "ocean_output_var_idx",
+            torch.tensor(
+                [
+                    list(out_coords["variable"]).index(var)
+                    for var in self.ocean_variables + self.ocean_diagnostic_variables
+                ],
+                dtype=torch.long,
+            ),
+        )
 
         # Diagnostic-only output variables are dropped before being fed
         # back in as the next step's input.
         self._has_diagnostic_variables = bool(self.atmos_diagnostic_variables) or bool(
             self.ocean_diagnostic_variables
         )
-        self._prognostic_out_idx = torch.tensor(
-            [
-                list(out_coords["variable"]).index(var)
-                for var in self.atmos_variables + self.ocean_variables
-            ]
+        self.register_buffer(
+            "_prognostic_out_idx",
+            torch.tensor(
+                [
+                    list(out_coords["variable"]).index(var)
+                    for var in self.atmos_variables + self.ocean_variables
+                ],
+                dtype=torch.long,
+            ),
         )
 
         # `self.center`/`self.scale` cover the full output variable set
@@ -446,19 +473,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Default DLESyM model package on NGC
 
-        The package's top-level ``config.yaml`` lists all available
-        checkpoint versions and marks one as ``default_version``. As of this
-        writing, that default is ``v1.1_08-31-2026``, the checkpoint
-        submitted to the ECMWF `AI Weather Quest
-        <https://aiweatherquest.ecmwf.int/>`_ competition -- it uses
-        conditional layer norm (a single set of weights, sampled per
-        forecast, instead of separate checkpoints per ensemble member) and
-        adds diagnostic output variables (``tp6``, ``msl``). The previous
-        checkpoint, ``v1.0_05-12-2025`` (multiple checkpoint pairs for
-        ensembling, prognostic-only output), is retained for
-        reproducibility but marked ``deprecated: true`` in its version
-        entry and is not loaded unless ``version="v1.0_05-12-2025"`` is
-        passed explicitly to :func:`load_model`.
+        The package's top-level ``config.yaml`` lists the available
+        checkpoint versions; see :func:`load_model` for how to select
+        between them.
         """
         # TODO: bump commit hash once the restructured (multi-version)
         # package layout is pushed to the HF repo.
@@ -478,7 +495,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         atmos_model_idx: int = 0,
         ocean_model_idx: int = 0,
-        version: str | None = None,
+        version: Literal["v1.0", "v1.1"] = "v1.1",
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -486,28 +503,22 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        version : str, optional
-            Checkpoint version to load, e.g. "v1.1_08-31-2026". Versions
-            are listed in the package's top-level `config.yaml`, each with
-            a `path` and optional `deprecated`/`deprecation_message`
-            fields. If None, uses the package's configured
-            `default_version` -- currently `v1.1_08-31-2026`, the
-            checkpoint submitted to the ECMWF AI Weather Quest competition
-            (https://aiweatherquest.ecmwf.int/). Passing
-            `version="v1.0_05-12-2025"` explicitly loads the previous,
-            deprecated checkpoint (kept for reproducibility; a
-            `DeprecationWarning` is raised), by default None
+        version : {"v1.0", "v1.1"}, optional
+            Checkpoint version to load; see each version's entry in the
+            package's `config.yaml` for details. `v1.1` is the checkpoint
+            submitted to the ECMWF AI Weather Quest competition
+            (https://aiweatherquest.ecmwf.int/). `v1.0` is the previous
+            checkpoint, kept for reproducibility; loading it logs a
+            deprecation warning, by default "v1.1"
         atmos_model_idx : int, optional
             Index of atmos model weights to load. Only meaningful for
             checkpoint versions that ship multiple atmos checkpoints
-            (used to build ensembles without conditional layer norm);
-            ignored, with a warning, for versions that ship a single
-            checkpoint, by default 0
+            (used to build ensembles without conditional layer norm), by
+            default 0
         ocean_model_idx : int, optional
             Index of ocean model weights to load. Only meaningful for
-            checkpoint versions that ship multiple ocean checkpoints;
-            ignored, with a warning, for versions that ship a single
-            checkpoint, by default 0
+            checkpoint versions that ship multiple ocean checkpoints, by
+            default 0
 
         Returns
         -------
@@ -517,8 +528,6 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         top_cfg = OmegaConf.load(Path(package.resolve("config.yaml")))
 
-        if version is None:
-            version = top_cfg.default_version
         if version not in top_cfg.versions:
             raise ValueError(
                 f"Unknown DLESyM checkpoint version '{version}', available "
@@ -527,13 +536,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         version_cfg = top_cfg.versions[version]
         if version_cfg.get("deprecated", False):
-            warnings.warn(
+            logger.warning(
                 version_cfg.get(
                     "deprecation_message",
                     f"DLESyM checkpoint version '{version}' is deprecated.",
-                ),
-                DeprecationWarning,
-                stacklevel=2,
+                )
             )
 
         version_path = version_cfg.path
@@ -543,21 +550,21 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         atmos_ckpts = cfg.models.atmos_model_checkpoints
         ocean_ckpts = cfg.models.ocean_model_checkpoints
         if atmos_model_idx != 0 and len(atmos_ckpts) == 1:
-            warnings.warn(
+            raise ValueError(
                 f"DLESyM checkpoint version '{version}' only ships a single "
-                "atmos checkpoint; 'atmos_model_idx' is ignored."
+                "atmos checkpoint; 'atmos_model_idx' must be 0."
             )
         if ocean_model_idx != 0 and len(ocean_ckpts) == 1:
-            warnings.warn(
+            raise ValueError(
                 f"DLESyM checkpoint version '{version}' only ships a single "
-                "ocean checkpoint; 'ocean_model_idx' is ignored."
+                "ocean checkpoint; 'ocean_model_idx' must be 0."
             )
 
         atmos_model_ckpt = package.resolve(
-            f"{version_path}/atmos/{atmos_ckpts[0 if len(atmos_ckpts) == 1 else atmos_model_idx]}"
+            f"{version_path}/atmos/{atmos_ckpts[atmos_model_idx]}"
         )
         ocean_model_ckpt = package.resolve(
-            f"{version_path}/ocean/{ocean_ckpts[0 if len(ocean_ckpts) == 1 else ocean_model_idx]}"
+            f"{version_path}/ocean/{ocean_ckpts[ocean_model_idx]}"
         )
 
         atmos_model = Module.from_checkpoint(atmos_model_ckpt)
@@ -909,11 +916,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             [t for t in coords["lead_time"] if t % self.ocean_output_times[0] == 0]
         )
 
-        ocean_outputs = x.index_select(
-            dim=var_dim, index=torch.tensor(self.ocean_output_var_idx, device=x.device)
-        )
+        ocean_outputs = x.index_select(dim=var_dim, index=self.ocean_output_var_idx)
         ocean_outputs = ocean_outputs.index_select(
-            dim=lead_dim, index=torch.tensor(self.ocean_output_lt_idx, device=x.device)
+            dim=lead_dim, index=self.ocean_output_lt_idx
         )
         return ocean_outputs, out_coords
 
@@ -947,9 +952,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.atmos_variables + self.atmos_diagnostic_variables
         )
 
-        atmos_outputs = x.index_select(
-            dim=var_dim, index=torch.tensor(self.atmos_output_var_idx, device=x.device)
-        )
+        atmos_outputs = x.index_select(dim=var_dim, index=self.atmos_output_var_idx)
 
         return atmos_outputs, out_coords
 
@@ -1109,9 +1112,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # of the model's input schema -- drop them before this tensor
             # is fed back in as the next step's input.
             var_dim = list(coords.keys()).index("variable")
-            next_x = next_x.index_select(
-                dim=var_dim, index=self._prognostic_out_idx.to(next_x.device)
-            )
+            next_x = next_x.index_select(dim=var_dim, index=self._prognostic_out_idx)
             next_coords["variable"] = np.array(
                 self.atmos_variables + self.ocean_variables
             )
@@ -1407,20 +1408,8 @@ class DLESyMLatLon(DLESyM):
         return ll_coords
 
     # Trailing window, in hours, over which the `ttr-3h` prognostic input
-    # variable (ERA5 top-of-atmosphere net thermal radiation, accumulated
-    # up to and including each atmos input time) is defined. `ttr-3h` is
-    # not a raw field any earth2studio data source provides directly, and
-    # ARCO's native 1h resolution is finer than the model's own 6h input
-    # grid, so it can't be produced by `_prepare_derived_variables` (which
-    # only combines variables already present at the same lead times as
-    # the rest of the input). `ttr_3h_query_times`/`compute_ttr_3h` below
-    # let a caller fetch just the raw `ttr` samples this needs, via a
-    # separate, narrowly-scoped query that never widens the model's main
-    # `input_coords()["lead_time"]` (and therefore never inflates the
-    # fetch payload for the other input variables). This is only needed to
-    # bootstrap the initial condition -- `ttr-3h` is itself one of
-    # `atmos_variables`, so on every step after the first it comes back
-    # around as part of the model's own autoregressive output.
+    # variable is accumulated. See `ttr_3h_query_times`/`compute_ttr_3h`
+    # below for why it needs its own fetch.
     TTR_3H_WINDOW_HOURS = 3
 
     def ttr_3h_query_times(self, lead_time: np.ndarray | None = None) -> np.ndarray:

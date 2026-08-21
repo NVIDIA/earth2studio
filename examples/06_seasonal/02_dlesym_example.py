@@ -148,17 +148,8 @@ ic_date = np.datetime64("2021-06-15")
 full_variables = list(in_coords_ll["variable"])
 
 if "ttr-3h" in full_variables:
-    # `ttr-3h` (ERA5 top-of-atmosphere net thermal radiation, accumulated
-    # over the 3h window up to and including each atmos input time) isn't
-    # a raw field any data source provides directly, so it can't be pulled
-    # through the main fetch below. Rather than widening the main fetch's
-    # lead_time axis (which would pull every other variable at those extra
-    # times too), fetch it separately using the narrowly-scoped raw `ttr`
-    # query described by `ttr_3h_query_times`, and reduce it with
-    # `compute_ttr_3h`. This is only needed to bootstrap the initial
-    # condition -- `ttr-3h` is itself one of the model's prognostic
-    # variables, so on every step after the first it comes back around as
-    # part of the model's own autoregressive output.
+    # The model needs `ttr-3h`, which we prepare separately via
+    # `ttr_3h_query_times`/`compute_ttr_3h` (see their docstrings).
     ttr_3h_idx = full_variables.index("ttr-3h")
     main_variables = [v for v in full_variables if v != "ttr-3h"]
 
@@ -182,11 +173,8 @@ if "ttr-3h" in full_variables:
     ttr_3h, ttr_3h_coords = model_ll.compute_ttr_3h(raw_ttr, raw_ttr_coords)
 
     # Splice ttr-3h back in at the position `in_coords_ll["variable"]`
-    # expects. It's only ever read by the model at the atmos input lead
-    # times, so the other lead-time slots are left as zero placeholders.
-    # Dimension positions are looked up dynamically (not assumed) since
-    # `fetch_data`'s returned tensor doesn't carry an explicit `batch` axis
-    # -- only `@batch_func()`-wrapped model calls add one.
+    # expects, zero-filled outside the atmos input lead times where the
+    # model doesn't read it.
     var_dim = list(coords.keys()).index("variable")
     lead_dim = list(coords.keys()).index("lead_time")
 
