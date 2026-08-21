@@ -25,6 +25,7 @@ from earth2studio.models.nn.atlas import (
     FourierEmbedder,
     PatchPad,
     PatchUnpad,
+    PhysicsNeMoModule,
     SInterpolantDownsampleProcessor,
     modulate,
     validate_patch_size,
@@ -148,7 +149,7 @@ class Conv2dReflectYCircularX(nn.Module):
 
 
 @check_optional_dependencies()
-class CRPSLatentDiT(torch.nn.Module):
+class CRPSLatentDiT(PhysicsNeMoModule):
     """CRPS trained latent diffusion transformer with two input streams.
 
     Predicts a normalized low-resolution residual from a history state (`x_1`) and a

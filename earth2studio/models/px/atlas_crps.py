@@ -16,7 +16,6 @@
 
 import json
 from collections.abc import Generator, Iterator
-from typing import Any
 
 import numpy as np
 import torch
@@ -38,11 +37,6 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module
-
-    from earth2studio.models.nn.atlas_crps import (
-        CRPSDownsampleProcessor,
-        CRPSLatentDiT,
-    )
 except ImportError:
     OptionalDependencyFailure("atlas")
     Module = None
@@ -442,20 +436,14 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Note
         ----
         The AtlasCRPS checkpoint is not published yet, this package points at a local
-        directory containing `model_best.pt` and `data_processor_best.pt`.
+        directory laid out like the Atlas package, with a `config.json` manifest and
+        the model and processor checkpoints under `genmodel`.
         """
         package = Package(
             "/lustre/fs11/portfolios/coreai/projects/coreai_climate_earth2"
             "/users/ishokar/Earth_2/earth2studio_packages/atlas_crps"
         )
         return package
-
-    @staticmethod
-    def _load_state_dict(file_path: str) -> dict[str, Any]:
-        """Load a training checkpoint state dict, dropping its metadata entry."""
-        state_dict = torch.load(file_path, map_location="cpu", weights_only=False)
-        state_dict.pop("_metadata", None)
-        return state_dict
 
     @classmethod
     @check_optional_dependencies()
@@ -465,19 +453,15 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         The autoencoder used to decode the low-resolution residual is shared with the
         Atlas model and loaded from the Atlas package.
         """
-        model = CRPSLatentDiT()
-        model.load_state_dict(cls._load_state_dict(package.resolve("model_best.pt")))
+        with open(package.resolve("config.json")) as f:
+            config = json.load(f)
+        genmodel_config = config["package"]["genmodel"]
+
+        model = Module.from_checkpoint(package.resolve(genmodel_config["model_path"]))
         model.eval()
 
-        model_processor = CRPSDownsampleProcessor(
-            normalizer_stats_shape=(1, len(VARIABLES), 1, 1),
-            static_channels_shape=(1, 3, 721, 1440),
-            cosine_zenith_angle=True,
-            input_grid_shape=(721, 1440),
-            downsample_grid_shape=(181, 360),
-        )
-        model_processor.load_state_dict(
-            cls._load_state_dict(package.resolve("data_processor_best.pt"))
+        model_processor = Module.from_checkpoint(
+            package.resolve(genmodel_config["processor_path"])
         )
         model_processor.eval()
 
