@@ -228,6 +228,19 @@ categories:
           - text: Requires ONNX Runtime GPU.
             href: https://onnxruntime.ai/docs/install/#python-installs
             label: ONNX Runtime GPU install docs
+      - id: samudrace
+        label: SamudrACE
+        extra: samudrace
+        summary: SamudrACE coupled atmosphere-ocean model dependencies.
+        api_refs:
+          - earth2studio.models.px.SamudrACE
+        warnings:
+          - text: Requires fme at the 2026.4.0 release. This extra conflicts with the
+              `ace2` extra, which pins fme to a pre-release commit, and with the
+              `atlas`, `fcn3`, `perturbation`, and `sfno` extras via fme's
+              torch-harmonics pin.
+            href: https://github.com/ai2cm/ace
+            label: fme
       - id: sfno
         label: SFNO
         extra: sfno
