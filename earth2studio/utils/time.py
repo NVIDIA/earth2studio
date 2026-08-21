@@ -43,7 +43,9 @@ def normalize_time_precision(time: np.ndarray) -> np.ndarray:
         The array as ``datetime64[ns]`` when representable, otherwise unchanged
     """
     valid = ~np.isnat(time)
-    if time.size == 0 or np.all((time[valid] >= _NS_TIME_MIN) & (time[valid] <= _NS_TIME_MAX)):
+    if time.size == 0 or np.all(
+        (time[valid] >= _NS_TIME_MIN) & (time[valid] <= _NS_TIME_MAX)
+    ):
         return time.astype("datetime64[ns]")
     return time
 
