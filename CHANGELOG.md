@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added model scorecards to the documentation (beta): one page per model with
+  interactive skill plots (RMSE, MAE, CRPS, spread, log spectral distance),
+  variable tables and run provenance, generated at docs build time from JSON
+  score exports produced by the new `recipes/eval/scorecard` campaigns
+  (FCN3 and Aurora to start)
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
   initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
@@ -83,6 +88,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed `lat_weight` returning a small negative weight at the poles in
+  float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
 
 - Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
   unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
