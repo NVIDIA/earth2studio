@@ -131,6 +131,9 @@ To execute and refresh a single example before serving the site, pass a gallery 
 make docs-dev FILENAME=01_getting_started/01_deterministic_workflow.py
 ```
 
+Only the selected example is executed. The complete gallery is then rendered from
+source and any retained execution artifacts.
+
 Build files are written to `site/`.
 
 The empty `docs/.nojekyll` file is intentionally kept in the MkDocs `docs_dir`.

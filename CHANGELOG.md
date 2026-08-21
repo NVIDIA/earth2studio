@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
+  initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
+- Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
+  CorrDiff-COSMO downscaler
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
 - Added obstore support to `AsyncZarrBackend` via a new `store` parameter
   (store URL, obstore store, or zarr store)
@@ -82,6 +86,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
+  unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
+  step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
+  initial condition is yielded at `lead_time=[0h]`
+
 - Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
   NCEI archive path; the reforecast archive moved to
   `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
@@ -93,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the reflectivity sentinel `-99.0 dBZ`.
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `to_time_array` and `fetch_data` silently wrapping timestamps outside the
+  `datetime64[ns]` range (roughly 1678-2262) to unrelated dates, which prevented
+  workflows such as `run.deterministic` from using the model-year calendars of
+  climate emulators (for example the CM4 initial conditions of `SamudrACE`).
+  Nanosecond precision is still used whenever the times are representable.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
   samples when processing multiple batches and initialization times.
 - Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
