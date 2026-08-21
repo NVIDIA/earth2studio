@@ -1293,6 +1293,79 @@
   {
     "badges": [
       "region:global",
+      "dataclass:simulation",
+      "product:temp",
+      "product:atmos",
+      "product:ocean"
+    ],
+    "chips": [
+      "Data Source",
+      "Numerical / AI Simulation",
+      "Surface Temperature",
+      "Atmosphere",
+      "Ocean"
+    ],
+    "filters": {
+      "data class": [
+        "Numerical / AI Simulation"
+      ],
+      "gpu": [],
+      "product": [
+        "Surface Temperature",
+        "Atmosphere",
+        "Ocean"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "Data Source",
+    "kind": "data",
+    "signature": "data.SamudrACEData(cache: bool = True, verbose: bool = True)",
+    "summary": "SamudrACE initial-condition data source.",
+    "title": "SamudrACEData",
+    "tone": "ocean",
+    "url": "../../../modules/generated/data/analysis/data_SamudrACEData"
+  },
+  {
+    "badges": [
+      "region:global",
+      "dataclass:simulation",
+      "product:temp",
+      "product:atmos"
+    ],
+    "chips": [
+      "Data Source",
+      "Numerical / AI Simulation",
+      "Surface Temperature",
+      "Atmosphere"
+    ],
+    "filters": {
+      "data class": [
+        "Numerical / AI Simulation"
+      ],
+      "gpu": [],
+      "product": [
+        "Surface Temperature",
+        "Atmosphere"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "Data Source",
+    "kind": "data",
+    "signature": "data.SamudrACEForcingData(scenario: str = '0311', cache: bool = True, verbose: bool = True)",
+    "summary": "SamudrACE exogenous forcing data source.",
+    "title": "SamudrACEForcingData",
+    "tone": "simulation",
+    "url": "../../../modules/generated/data/analysis/data_SamudrACEForcingData"
+  },
+  {
+    "badges": [
+      "region:global",
       "dataclass:reanalysis",
       "product:wind",
       "product:precip",
@@ -5857,6 +5930,28 @@
     "title": "SFNO",
     "tone": "model",
     "url": "../../../modules/generated/models/px/SFNO"
+  },
+  {
+    "badges": [],
+    "chips": [
+      "Prognostic"
+    ],
+    "filters": {
+      "backend": [],
+      "class": [],
+      "gpu": [],
+      "product": [],
+      "provider": [],
+      "region": [],
+      "year": []
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "SamudrACE(stepper: CoupledStepper, forcing_data_source: DataSource)",
+    "summary": "SamudrACE coupled climate emulator.",
+    "title": "SamudrACE",
+    "tone": "model",
+    "url": "../../../modules/generated/models/px/SamudrACE"
   },
   {
     "badges": [

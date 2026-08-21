@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/utils/7/data_prep_data_array/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/data/analysis/data_SamudrACEData/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>data.prep_data_array - Earth2Studio</title>
+        <title>data.SamudrACEData - Earth2Studio</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#dataprep_data_array" class="md-skip">
+        <a href="#datasamudracedata" class="md-skip">
           Skip to content
         </a>
       
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              data.prep_data_array
+              data.SamudrACEData
             
           </span>
         </div>
@@ -2704,6 +2704,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#earth2studio.data.SamudrACEData.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#earth2studio.data.SamudrACEData.fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;fetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2726,65 +2754,135 @@
   
 
 
-<h1 id="dataprep_data_array"><code>data.prep_data_array</code><a class="headerlink" href="#dataprep_data_array" title="Permanent link">&para;</a></h1>
-<p><strong>Import path:</strong> <code>earth2studio.data.prep_data_array</code></p>
-<p><span id="earth2studio.data.prep_data_array"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/utils.py#L247-L342" title="earth2studio/data/utils.py:247">View source on GitHub</a></p>
+<h1 id="datasamudracedata"><code>data.SamudrACEData</code><a class="headerlink" href="#datasamudracedata" title="Permanent link">&para;</a></h1>
+<p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="dataclass:simulation" data-badge-group="dataclass" style="--badge-color:#b451ed;--badge-text-color:#fff" title="Numerical / AI Simulation"><span class="mkdocs-badge__icon"><i class="fa-solid fa-microchip"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:ocean" data-badge-group="product" style="--badge-color:#1098ad;--badge-text-color:#fff" title="Ocean"><span class="mkdocs-badge__icon"><i class="fa-solid fa-water"></i></span></span></span></p>
+<p><strong>Import path:</strong> <code>earth2studio.data.SamudrACEData</code></p>
+<p><span id="earth2studio.data.SamudrACEData"></span>
+<span id="earth2studio.data.SamudrACEData.__call__"></span>
+<span id="earth2studio.data.SamudrACEData.fetch"></span></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/samudrace.py#L185-L395" title="earth2studio/data/samudrace.py:185">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
-<div class="doc doc-object doc-function">
+<div class="doc doc-object doc-class">
 
 
 
 
     <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="earth2studio.data.samudrace._SamudrACEBase">_SamudrACEBase</span></code></p>
 
-        <p>Prepares a data array from a data source for inference workflows by converting
-the data array to a torch tensor and the coordinate system to an OrderedDict.</p>
-<p>If desired, xarray interpolation/regridding in the spatial domain can be used
-by passing a target coordinate system via the optional <code>interp_to</code> argument.</p>
+
+
+        <p>SamudrACE initial-condition data source.</p>
+<p>Provides the combined atmosphere and ocean initial-condition variables of
+the SamudrACE coupled emulator from the <code>allenai/SamudrACE-CM4-piControl</code>
+HuggingFace repository, served with Earth2Studio variable names via the
+<code>SamudrACELexicon</code>.</p>
+<p>The SamudrACE checkpoint was trained on a GFDL CM4 preindustrial-control
+run, so initial conditions exist only at the published CM4 model-year
+timestamps (e.g. <code>0151-01-06T00:00:00</code>); requesting any other time
+raises an error. Because such model years are outside the range of
+nanosecond-precision timestamps, times should be provided as
+second-precision <code>np.datetime64</code> values or <code>datetime</code> objects, and the
+returned time coordinate is second precision.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-            <b><code>da</code></b>
-              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>Input data array</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>device</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.device" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device">device</a></code>, default:
-                  <code>&#39;cpu&#39;</code>
+            <b><code>cache</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>True</code>
 )
           –
           <div class="doc-md-description">
-            <p>Torch devive to load data tensor to, by default "cpu"</p>
+            <p>Cache downloaded files locally (via the shared HuggingFace hub
+cache), by default True.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>interp_to</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>, default:
-                  <code>None</code>
+            <b><code>verbose</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>True</code>
 )
           –
           <div class="doc-md-description">
-            <p>If provided, the fetched data will be interpolated to the coordinates
-specified by lat/lon arrays in this CoordSystem</p>
+            <p>Log download progress, by default True.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<details class="warning" open>
+  <summary>Warning</summary>
+  <p>Each initial condition consists of two NetCDF files of roughly 100 MB
+total that are downloaded on demand.</p>
+</details>
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>For more information see the following references:</p>
+<ul>
+<li>SamudrACE paper: <a href="https://arxiv.org/abs/2509.12490">arxiv.org/abs/2509.12490</a></li>
+<li>HuggingFace repo: <a href="https://huggingface.co/allenai/SamudrACE-CM4-piControl">huggingface.co/allenai/SamudrACE-CM4-piControl</a></li>
+</ul>
+</details>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="earth2studio.data.SamudrACEData.__call__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__call__</span>
+
+
+<a href="#earth2studio.data.SamudrACEData.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.TimeArray">TimeArray</span></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">variable</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.VariableArray">VariableArray</span></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Fetch initial-condition data.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>time</code></b>
+              (<code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a>] | <span title="earth2studio.utils.type.TimeArray">TimeArray</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Timestamps to return data for. Every requested time must be one
+of the published initial-condition timestamps.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>interp_method</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>, default:
-                  <code>&#39;nearest&#39;</code>
-)
+            <b><code>variable</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>] | <span title="earth2studio.utils.type.VariableArray">VariableArray</span></code>)
           –
           <div class="doc-md-description">
-            <p>Interpolation method to use with xarray (by default 'nearest')</p>
+            <p>Earth2Studio variable names (see <code>SamudrACELexicon</code>).</p>
           </div>
         </li>
     </ul>
@@ -2793,10 +2891,11 @@ specified by lat/lon arrays in this CoordSystem</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
+              <code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>
           –
           <div class="doc-md-description">
-            <p>Tuple containing output tensor and coordinate OrderedDict</p>
+            <p>Data array with dimensions <code>[time, variable, lat, lon]</code> and
+latitude ordered north to south.</p>
           </div>
         </li>
     </ul>
@@ -2804,7 +2903,83 @@ specified by lat/lon arrays in this CoordSystem</p>
 
     </div>
 
-</div><!-- e2sg-backreferences: earth2studio.data.prep_data_array -->
+</div>
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="earth2studio.data.SamudrACEData.fetch" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">fetch</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#earth2studio.data.SamudrACEData.fetch" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fetch</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.TimeArray">TimeArray</span></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">variable</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.VariableArray">VariableArray</span></span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Async wrapper for <code>__call__</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>time</code></b>
+              (<code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a>] | <span title="earth2studio.utils.type.TimeArray">TimeArray</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Timestamps to return data for.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>variable</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>] | <span title="earth2studio.utils.type.VariableArray">VariableArray</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Earth2Studio variable names.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>
+          –
+          <div class="doc-md-description">
+            <p>Data array with dimensions <code>[time, variable, lat, lon]</code>.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div><!-- e2sg-backreferences: earth2studio.data.SamudrACEData -->
+<!-- e2sg-backreferences: earth2studio.data.SamudrACEData.__call__ -->
+<!-- e2sg-backreferences: earth2studio.data.SamudrACEData.fetch -->
 
 
 

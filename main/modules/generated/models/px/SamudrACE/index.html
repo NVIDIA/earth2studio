@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/utils/7/data_prep_data_array/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/models/px/SamudrACE/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>data.prep_data_array - Earth2Studio</title>
+        <title>SamudrACE - Earth2Studio</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#dataprep_data_array" class="md-skip">
+        <a href="#samudrace" class="md-skip">
           Skip to content
         </a>
       
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              data.prep_data_array
+              SamudrACE
             
           </span>
         </div>
@@ -2704,6 +2704,56 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#px.samudrace.SamudrACE.__call__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px.samudrace.SamudrACE.create_iterator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_iterator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px.samudrace.SamudrACE.load_default_package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_default_package
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px.samudrace.SamudrACE.load_model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2726,65 +2776,150 @@
   
 
 
-<h1 id="dataprep_data_array"><code>data.prep_data_array</code><a class="headerlink" href="#dataprep_data_array" title="Permanent link">&para;</a></h1>
-<p><strong>Import path:</strong> <code>earth2studio.data.prep_data_array</code></p>
-<p><span id="earth2studio.data.prep_data_array"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/utils.py#L247-L342" title="earth2studio/data/utils.py:247">View source on GitHub</a></p>
+<h1 id="samudrace"><code>SamudrACE</code><a class="headerlink" href="#samudrace" title="Permanent link">&para;</a></h1>
+<p><strong>Import path:</strong> <code>earth2studio.models.px.SamudrACE</code></p>
+<p><span id="earth2studio.models.px.SamudrACE"></span>
+<span id="earth2studio.models.px.SamudrACE.__call__"></span>
+<span id="earth2studio.models.px.SamudrACE.create_iterator"></span>
+<span id="earth2studio.models.px.SamudrACE.load_default_package"></span>
+<span id="earth2studio.models.px.SamudrACE.load_model"></span></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/samudrace.py#L157-L967" title="earth2studio/models/px/samudrace.py:157">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=samudrace#install-command" title="category=prognostic item=samudrace">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
-<div class="doc doc-object doc-function">
+<div class="doc doc-object doc-class">
 
 
 
 
     <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a></code>, <code><span title="earth2studio.models.auto.AutoModelMixin">AutoModelMixin</span></code>, <code><span title="earth2studio.models.px.utils.PrognosticMixin">PrognosticMixin</span></code></p>
 
-        <p>Prepares a data array from a data source for inference workflows by converting
-the data array to a torch tensor and the coordinate system to an OrderedDict.</p>
-<p>If desired, xarray interpolation/regridding in the spatial domain can be used
-by passing a target coordinate system via the optional <code>interp_to</code> argument.</p>
+
+
+        <p>SamudrACE coupled climate emulator.</p>
+<p>Couples the ACE2 atmosphere emulator with the Samudra ocean emulator,
+driven by FME's <code>CoupledStepper</code>. The atmosphere advances in 6 hour
+steps and the ocean advances once per coupled (5 day) cycle; all coupling
+logic (SST prescription, flux exchange and averaging, ocean-fraction
+prediction, masking) is owned by FME via
+<code>CoupledStepper.predict</code>, which this wrapper calls exactly once
+per coupled cycle.</p>
+<p>The primary interface is <code>create_iterator</code>, which yields the initial
+condition followed by one atmosphere step at a time. Atmosphere output
+fields update on every step; ocean output fields update once per coupled
+cycle and are held constant between cycle boundaries. Ocean diagnostic
+(non-prognostic) fields are NaN until the first cycle boundary, as are
+atmosphere diagnostic fields at the initial condition step.</p>
+<p>The model is iterator-only: it has no single-step forward call. Its
+time-step is the coupled cycle, which spans <code>n_inner_steps</code> atmosphere
+steps, so advancing the model is not expressible as one 6 hour forward
+pass; calling the model raises <code>NotImplementedError</code>.</p>
+<p>Times are CM4 model years (e.g. year 151), which are outside the range of
+nanosecond-precision timestamps; provide time coordinates as
+second-precision <code>np.datetime64</code> values. Trajectories that cross a
+February 29 of the proleptic Gregorian time coordinate raise an error
+when the forcing is looked up, since that date has no counterpart on the
+no-leap forcing calendar.</p>
+<p>On GPU, cuDNN autotuning (<code>torch.backends.cudnn.benchmark</code>) is enabled for
+the duration of each coupled step and restored afterwards, matching FME's
+inference entrypoints.</p>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>For more information see the following references:</p>
+<ul>
+<li><a href="https://arxiv.org/abs/2509.12490">arxiv.org/abs/2509.12490</a></li>
+<li><a href="https://huggingface.co/allenai/SamudrACE-CM4-piControl">huggingface.co/allenai/SamudrACE-CM4-piControl</a></li>
+</ul>
+</details>
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>stepper</code></b>
+              (<code><span title="fme.coupled.stepper.CoupledStepper">CoupledStepper</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>FME coupled stepper holding the atmosphere and ocean component
+steppers and the coupling configuration. Both components must be on
+the same latitude-longitude grid.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>forcing_data_source</code></b>
+              (<code><span title="earth2studio.data.base.DataSource">DataSource</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Data source providing all exogenous forcing variables required by the
+coupled stepper (both atmosphere and ocean), on the model grid and
+with the model's Earth2Studio variable names (see
+<code>SamudrACELexicon</code>).</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="px.samudrace.SamudrACE.__call__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__call__</span>
+
+
+<a href="#px.samudrace.SamudrACE.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Not supported; SamudrACE is an iterator-only prognostic.</p>
+<p>The model's time-step is the coupled (ocean) step, which spans
+<code>n_inner_steps</code> atmosphere steps, so a single-step forward call
+cannot express advancing the model: advancing a full coupled cycle to
+return one 6 hour step would discard the remainder of the cycle and
+report ocean fields that have not advanced. Use
+<code>create_iterator</code> instead, which yields one atmosphere step at a
+time and runs the coupled stepper at each cycle boundary.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-            <b><code>da</code></b>
-              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
           –
           <div class="doc-md-description">
-            <p>Input data array</p>
+            <p>Input tensor</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>device</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.device" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device">device</a></code>, default:
-                  <code>&#39;cpu&#39;</code>
-)
+            <b><code>coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
           –
           <div class="doc-md-description">
-            <p>Torch devive to load data tensor to, by default "cpu"</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>interp_to</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>If provided, the fetched data will be interpolated to the coordinates
-specified by lat/lon arrays in this CoordSystem</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>interp_method</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>, default:
-                  <code>&#39;nearest&#39;</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Interpolation method to use with xarray (by default 'nearest')</p>
+            <p>Input coordinate system</p>
           </div>
         </li>
     </ul>
@@ -2796,7 +2931,19 @@ specified by lat/lon arrays in this CoordSystem</p>
               <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
           –
           <div class="doc-md-description">
-            <p>Tuple containing output tensor and coordinate OrderedDict</p>
+            <p>Never returns</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError">NotImplementedError</a></code>
+            –
+          <div class="doc-md-description">
+            <p>Always; use <code>create_iterator</code></p>
           </div>
         </li>
     </ul>
@@ -2804,7 +2951,212 @@ specified by lat/lon arrays in this CoordSystem</p>
 
     </div>
 
-</div><!-- e2sg-backreferences: earth2studio.data.prep_data_array -->
+</div>
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="px.samudrace.SamudrACE.create_iterator" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">create_iterator</span>
+
+
+<a href="#px.samudrace.SamudrACE.create_iterator" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_iterator</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Iterator" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator">Iterator</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Creates a iterator which can be used to perform time-integration of
+the prognostic model. Will return the initial condition first (0th
+step).</p>
+<p>The iterator yields one atmosphere (6 hour) step at a time. The
+coupled stepper runs lazily at each coupled cycle boundary; ocean
+output fields update once per cycle and are held constant between
+boundaries.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>x</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input tensor</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>coords</code></b>
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Input coordinate system</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Yields:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-external" title="collections.abc.Iterator" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator">Iterator</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]]</code>
+          –
+          <div class="doc-md-description">
+            <p>Iterator of output tensors and coordinate systems</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="px.samudrace.SamudrACE.load_default_package" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">load_default_package</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#px.samudrace.SamudrACE.load_default_package" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_default_package</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Load the default SamudrACE model package from HuggingFace.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="earth2studio.models.auto.Package">Package</span></code>
+          –
+          <div class="doc-md-description">
+            <p>Package holding the <code>allenai/SamudrACE-CM4-piControl</code>
+checkpoint, pinned to a specific repository revision</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="px.samudrace.SamudrACE.load_model" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">load_model</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#px.samudrace.SamudrACE.load_model" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_model</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">package</span><span class="p">:</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">forcing_data_source</span><span class="p">:</span> <span class="n"><span title="earth2studio.data.base.DataSource">DataSource</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">scenario</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;0311&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.utils.PrognosticMixin">PrognosticMixin</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Load SamudrACE prognostic from package.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>package</code></b>
+              (<code><span title="earth2studio.models.auto.Package">Package</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Package holding the coupled model checkpoint</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>forcing_data_source</code></b>
+              (<code><span title="earth2studio.data.base.DataSource">DataSource</span> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>External data source providing all exogenous forcing variables
+required by the coupled stepper, on the model grid and with the
+model's Earth2Studio variable names. If None, a
+<code>SamudrACEForcingData</code> source for the selected scenario is
+used, by default None</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>scenario</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>, default:
+                  <code>&#39;0311&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Forcing scenario for the default forcing data source, either
+"0151" or "0311"; ignored when <code>forcing_data_source</code> is
+provided, by default "0311"</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="earth2studio.models.px.utils.PrognosticMixin">PrognosticMixin</span></code>
+          –
+          <div class="doc-md-description">
+            <p>Prognostic model</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div><!-- e2sg-backreferences: earth2studio.models.px.SamudrACE -->
+<!-- e2sg-backreferences: earth2studio.models.px.SamudrACE.__call__ -->
+<!-- e2sg-backreferences: earth2studio.models.px.SamudrACE.create_iterator -->
+<!-- e2sg-backreferences: earth2studio.models.px.SamudrACE.load_default_package -->
+<!-- e2sg-backreferences: earth2studio.models.px.SamudrACE.load_model -->
 
 
 

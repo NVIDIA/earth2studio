@@ -979,6 +979,35 @@
     {
       "classifiers": [
         "region:global",
+        "dataclass:simulation",
+        "product:temp",
+        "product:atmos",
+        "product:ocean"
+      ],
+      "signature": "data.SamudrACEData(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/data_SamudrACEData.md",
+      "summary": "SamudrACE initial-condition data source.",
+      "symbol": "earth2studio.data.SamudrACEData",
+      "title": "data.SamudrACEData",
+      "url": "modules/generated/data/analysis/data_SamudrACEData/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "dataclass:simulation",
+        "product:temp",
+        "product:atmos"
+      ],
+      "signature": "data.SamudrACEForcingData(scenario: str = '0311', cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/data_SamudrACEForcingData.md",
+      "summary": "SamudrACE exogenous forcing data source.",
+      "symbol": "earth2studio.data.SamudrACEForcingData",
+      "title": "data.SamudrACEForcingData",
+      "url": "modules/generated/data/analysis/data_SamudrACEForcingData/"
+    },
+    {
+      "classifiers": [
+        "region:global",
         "dataclass:reanalysis",
         "product:wind",
         "product:precip",
@@ -2738,6 +2767,15 @@
       "symbol": "earth2studio.models.px.SFNO",
       "title": "SFNO",
       "url": "modules/generated/models/px/SFNO/"
+    },
+    {
+      "classifiers": [],
+      "signature": "SamudrACE(stepper: CoupledStepper, forcing_data_source: DataSource)",
+      "source": "modules/generated/models/px/SamudrACE.md",
+      "summary": "SamudrACE coupled climate emulator.",
+      "symbol": "earth2studio.models.px.SamudrACE",
+      "title": "SamudrACE",
+      "url": "modules/generated/models/px/SamudrACE/"
     },
     {
       "classifiers": [
