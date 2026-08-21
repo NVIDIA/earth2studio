@@ -638,10 +638,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ocean_output_times=np.array(
                 cfg.io.ocean_output_times, dtype="timedelta64[h]"
             ),
-            atmos_variables=cfg.io.atmos_variables,
-            ocean_variables=cfg.io.ocean_variables,
-            atmos_coupling_variables=cfg.io.atmos_coupling_variables,
-            ocean_coupling_variables=cfg.io.ocean_coupling_variables,
+            atmos_variables=list(cfg.io.atmos_variables),
+            ocean_variables=list(cfg.io.ocean_variables),
+            atmos_coupling_variables=list(cfg.io.atmos_coupling_variables),
+            ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
             atmos_diagnostic_variables=atmos_diagnostic_variables,
             ocean_diagnostic_variables=ocean_diagnostic_variables,
             use_cln=use_cln,
