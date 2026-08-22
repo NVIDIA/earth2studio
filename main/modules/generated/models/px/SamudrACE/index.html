@@ -2783,7 +2783,7 @@
 <span id="earth2studio.models.px.SamudrACE.create_iterator"></span>
 <span id="earth2studio.models.px.SamudrACE.load_default_package"></span>
 <span id="earth2studio.models.px.SamudrACE.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/samudrace.py#L157-L967" title="earth2studio/models/px/samudrace.py:157">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=samudrace#install-command" title="category=prognostic item=samudrace">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/samudrace.py#L129-L942" title="earth2studio/models/px/samudrace.py:129">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=samudrace#install-command" title="category=prognostic item=samudrace">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2822,9 +2822,13 @@ second-precision <code>np.datetime64</code> values. Trajectories that cross a
 February 29 of the proleptic Gregorian time coordinate raise an error
 when the forcing is looked up, since that date has no counterpart on the
 no-leap forcing calendar.</p>
-<p>On GPU, cuDNN autotuning (<code>torch.backends.cudnn.benchmark</code>) is enabled for
-the duration of each coupled step and restored afterwards, matching FME's
-inference entrypoints.</p>
+<p>cuDNN autotuning (<code>torch.backends.cudnn.benchmark</code>) is left at its
+default (disabled). Toggling it on and off around each coupled cycle was
+found to make inference non-reproducible run-to-run: with a run-specific,
+GPU-timing-based algorithm search re-triggered every cycle, cuDNN can
+select a different (numerically non-identical) algorithm on different
+runs, which the coupled system's chaotic dynamics then amplify over the
+forecast.</p>
 
 
 <details class="note" open>
