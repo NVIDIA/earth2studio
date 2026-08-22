@@ -2729,10 +2729,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-built-in-deterministic-workflow" class="md-nav__link">
+  <a href="#manual-forecast-loop" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Using Built-in Deterministic Workflow
+        Manual Forecast Loop
       
     </span>
   </a>
@@ -2824,8 +2824,8 @@ Also note the input and output variable set for each model.</p>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># Create the data source</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">data</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">()</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1"># Load the default model package which downloads the check point from NGC</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># We will instantiate both versions of the model to demonstrate usage of each.</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Load the default model package</span>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">package</span> <span class="o">=</span> <span class="n">DLESyMLatLon</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">model_ll</span> <span class="o">=</span> <span class="n">DLESyMLatLon</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">package</span> <span class="o">=</span> <span class="n">DLESyM</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
@@ -2850,7 +2850,7 @@ Also note the input and output variable set for each model.</p>
 <a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    <span class="n">model_hpx</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">in_coords_hpx</span><span class="p">)[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>47 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>53 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
     PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
@@ -2860,43 +2860,49 @@ WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built f
   Set XFORMERS_MORE_DETAILS=1 for more details
 CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
 
-Downloading config.yaml: 0%|          | 0.00/1.36k [00:00&lt;?, ?B/s]
-Downloading config.yaml: 100%|██████████| 1.36k/1.36k [00:00&lt;00:00, 9.06kB/s]
-Downloading config.yaml: 100%|██████████| 1.36k/1.36k [00:00&lt;00:00, 9.00kB/s]
+Downloading config.yaml: 0%|          | 0.00/955 [00:00&lt;?, ?B/s]
+Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 4.81kB/s]
+Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 4.78kB/s]
 
-Downloading atmos_model_0.mdlus: 0%|          | 0.00/37.6M [00:00&lt;?, ?B/s]
-Downloading atmos_model_0.mdlus: 27%|██▋       | 10.0M/37.6M [00:00&lt;00:02, 12.9MB/s]
-Downloading atmos_model_0.mdlus: 53%|█████▎    | 20.0M/37.6M [00:00&lt;00:00, 24.5MB/s]
-Downloading atmos_model_0.mdlus: 80%|███████▉  | 30.0M/37.6M [00:01&lt;00:00, 30.9MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 37.6M/37.6M [00:01&lt;00:00, 35.3MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 37.6M/37.6M [00:01&lt;00:00, 28.7MB/s]
+Downloading config.yaml: 0%|          | 0.00/1.50k [00:00&lt;?, ?B/s]
+Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 8.02kB/s]
+Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 7.94kB/s]
 
-Downloading ocean_model_0.mdlus: 0%|          | 0.00/2.97M [00:00&lt;?, ?B/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 6.10MB/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 6.01MB/s]
+Downloading atmos_model_0.mdlus: 0%|          | 0.00/19.7M [00:00&lt;?, ?B/s]
+Downloading atmos_model_0.mdlus: 51%|█████     | 10.0M/19.7M [00:01&lt;00:01, 6.09MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 12.4MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 10.7MB/s]
+
+Downloading ocean_model_0.mdlus: 0%|          | 0.00/18.6M [00:00&lt;?, ?B/s]
+Downloading ocean_model_0.mdlus: 54%|█████▎    | 10.0M/18.6M [00:00&lt;00:00, 11.2MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:01&lt;00:00, 19.0MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:01&lt;00:00, 16.8MB/s]
 
 Downloading hpx_lat.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 666kB/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 662kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 754kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 748kB/s]
 
 Downloading hpx_lon.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 875kB/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 868kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 923kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 915kB/s]
 
 Downloading land_sea_mask.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 382kB/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 380kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 307kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 306kB/s]
 
 Downloading topography.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 395kB/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 392kB/s]
-DLESyM LatLon input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (11,)), ('lat', (721,)), ('lon', (1440,))]
-DLESyM HPX input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (9,)), ('face', (12,)), ('height', (64,)), ('width', (64,))]
-Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'sst' 'u10m' 'v10m' 'z300'
- 'z700']
-Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
-HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']
-HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'sst']</code></pre></details>
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 359kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 357kB/s]
+DLESyM LatLon input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (12,)), ('lat', (721,)), ('lon', (1440,))]
+DLESyM HPX input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (10,)), ('face', (12,)), ('height', (64,)), ('width', (64,))]
+Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ttr-3h' 'sst' 'u10m' 'v10m'
+ 'z300' 'z700']
+Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+ 'tp6' 'msl' 'sst']
+HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+ 'sst']
+HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+ 'tp6' 'msl' 'sst']</code></pre></details>
 
 <h2 id="making-predictions-regridding-and-selecting-outputs">Making Predictions, Regridding, and Selecting Outputs<a class="headerlink" href="#making-predictions-regridding-and-selecting-outputs" title="Permanent link">&para;</a></h2>
 <p>Let's now pull some example data and make predictions with the model. As the
@@ -2912,75 +2918,188 @@ component. For convenience, we can use a method that selects only the valid outp
 for each of the atmosphere and ocean components.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ic_date</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2021-06-15&quot;</span><span class="p">)</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Fetch some example data</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ic_date</span><span class="p">]),</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">in_coords_ll</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">lead_time</span><span class="o">=</span><span class="n">in_coords_ll</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="c1"># Can call the `DLESyMLatLon` model directly with the input lat/lon data</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># Or, we can use the pre-processing and regridding utilities to regrid the data onto</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># the HEALPix grid, and then run directly with `DLESyM`, which expects HEALPix data</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">x_prep</span><span class="p">,</span> <span class="n">coords_prep</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">_prepare_derived_variables</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">x_hpx</span><span class="p">,</span> <span class="n">coords_hpx</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">to_hpx</span><span class="p">(</span><span class="n">x_prep</span><span class="p">),</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">coords_prep</span><span class="p">)</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">y_hpx</span><span class="p">,</span> <span class="n">y_coords_hpx</span> <span class="o">=</span> <span class="n">model_hpx</span><span class="p">(</span><span class="n">x_hpx</span><span class="p">,</span> <span class="n">coords_hpx</span><span class="p">)</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="c1"># Retrieve the valid outputs for atmos/ocean components from the predictions</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">y_atmos</span><span class="p">,</span> <span class="n">y_atmos_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">y_ocean</span><span class="p">,</span> <span class="n">y_ocean_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="nb">print</span><span class="p">(</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="s2">&quot;Atmosphere outputs (variables, lead_time [hrs]):&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="p">)</span>
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="nb">print</span><span class="p">(</span>
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    <span class="s2">&quot;Ocean outputs (variables, lead_time [hrs]):&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
-<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
-<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">full_variables</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">in_coords_ll</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">if</span> <span class="s2">&quot;ttr-3h&quot;</span> <span class="ow">in</span> <span class="n">full_variables</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="c1"># The model needs `ttr-3h`, which we prepare separately via</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="c1"># `ttr_3h_query_times`/`compute_ttr_3h` (see their docstrings).</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">ttr_3h_idx</span> <span class="o">=</span> <span class="n">full_variables</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;ttr-3h&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">main_variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">full_variables</span> <span class="k">if</span> <span class="n">v</span> <span class="o">!=</span> <span class="s2">&quot;ttr-3h&quot;</span><span class="p">]</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="c1"># Fetch every input variable except ttr-3h</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">x_main</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ic_date</span><span class="p">]),</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">main_variables</span><span class="p">),</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="n">lead_time</span><span class="o">=</span><span class="n">in_coords_ll</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="p">)</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="c1"># Fetch the raw ttr samples ttr-3h is derived from, and reduce them</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">raw_ttr</span><span class="p">,</span> <span class="n">raw_ttr_coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ic_date</span><span class="p">]),</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;ttr&quot;</span><span class="p">]),</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>        <span class="n">lead_time</span><span class="o">=</span><span class="n">model_ll</span><span class="o">.</span><span class="n">ttr_3h_query_times</span><span class="p">(),</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="p">)</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="n">ttr_3h</span><span class="p">,</span> <span class="n">ttr_3h_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">compute_ttr_3h</span><span class="p">(</span><span class="n">raw_ttr</span><span class="p">,</span> <span class="n">raw_ttr_coords</span><span class="p">)</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="c1"># Splice ttr-3h back in at the position `in_coords_ll[&quot;variable&quot;]`</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    <span class="c1"># expects, zero-filled outside the atmos input lead times where the</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="c1"># model doesn&#39;t read it.</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="n">var_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>    <span class="n">lead_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;lead_time&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>    <span class="n">ttr_3h_full</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>        <span class="n">x_main</span><span class="o">.</span><span class="n">index_select</span><span class="p">(</span><span class="n">var_dim</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">x_main</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="p">)</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>    <span class="n">lead_time_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>        <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ttr_3h_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]],</span>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>        <span class="n">device</span><span class="o">=</span><span class="n">x_main</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>    <span class="p">)</span>
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>    <span class="n">ttr_3h_full</span><span class="o">.</span><span class="n">index_copy_</span><span class="p">(</span><span class="n">lead_dim</span><span class="p">,</span> <span class="n">lead_time_idx</span><span class="p">,</span> <span class="n">ttr_3h</span><span class="p">)</span>
+<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>        <span class="p">[</span>
+<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>            <span class="n">x_main</span><span class="o">.</span><span class="n">narrow</span><span class="p">(</span><span class="n">var_dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ttr_3h_idx</span><span class="p">),</span>
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>            <span class="n">ttr_3h_full</span><span class="p">,</span>
+<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>            <span class="n">x_main</span><span class="o">.</span><span class="n">narrow</span><span class="p">(</span><span class="n">var_dim</span><span class="p">,</span> <span class="n">ttr_3h_idx</span><span class="p">,</span> <span class="n">x_main</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">var_dim</span><span class="p">]</span> <span class="o">-</span> <span class="n">ttr_3h_idx</span><span class="p">),</span>
+<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>        <span class="p">],</span>
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>        <span class="n">dim</span><span class="o">=</span><span class="n">var_dim</span><span class="p">,</span>
+<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>    <span class="p">)</span>
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>    <span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">full_variables</span><span class="p">)</span>
+<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>    <span class="c1"># v1.0 checkpoints don&#39;t use ttr-3h -- fetch everything directly.</span>
+<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a>        <span class="n">source</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a>        <span class="n">time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ic_date</span><span class="p">]),</span>
+<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>        <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">full_variables</span><span class="p">),</span>
+<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a>        <span class="n">lead_time</span><span class="o">=</span><span class="n">in_coords_ll</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a>        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a>    <span class="p">)</span>
+<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a>
+<a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a><span class="c1"># Can call the `DLESyMLatLon` model directly with the input lat/lon data</span>
+<a id="__codelineno-1-65" name="__codelineno-1-65" href="#__codelineno-1-65"></a><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-1-66" name="__codelineno-1-66" href="#__codelineno-1-66"></a>
+<a id="__codelineno-1-67" name="__codelineno-1-67" href="#__codelineno-1-67"></a><span class="c1"># Or, we can use the pre-processing and regridding utilities to regrid the data onto</span>
+<a id="__codelineno-1-68" name="__codelineno-1-68" href="#__codelineno-1-68"></a><span class="c1"># the HEALPix grid, and then run directly with `DLESyM`, which expects HEALPix data</span>
+<a id="__codelineno-1-69" name="__codelineno-1-69" href="#__codelineno-1-69"></a><span class="n">x_prep</span><span class="p">,</span> <span class="n">coords_prep</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">_prepare_derived_variables</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-1-70" name="__codelineno-1-70" href="#__codelineno-1-70"></a><span class="n">x_hpx</span><span class="p">,</span> <span class="n">coords_hpx</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">to_hpx</span><span class="p">(</span><span class="n">x_prep</span><span class="p">),</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">coords_prep</span><span class="p">)</span>
+<a id="__codelineno-1-71" name="__codelineno-1-71" href="#__codelineno-1-71"></a><span class="n">y_hpx</span><span class="p">,</span> <span class="n">y_coords_hpx</span> <span class="o">=</span> <span class="n">model_hpx</span><span class="p">(</span><span class="n">x_hpx</span><span class="p">,</span> <span class="n">coords_hpx</span><span class="p">)</span>
+<a id="__codelineno-1-72" name="__codelineno-1-72" href="#__codelineno-1-72"></a>
+<a id="__codelineno-1-73" name="__codelineno-1-73" href="#__codelineno-1-73"></a><span class="c1"># Retrieve the valid outputs for atmos/ocean components from the predictions</span>
+<a id="__codelineno-1-74" name="__codelineno-1-74" href="#__codelineno-1-74"></a><span class="n">y_atmos</span><span class="p">,</span> <span class="n">y_atmos_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+<a id="__codelineno-1-75" name="__codelineno-1-75" href="#__codelineno-1-75"></a><span class="n">y_ocean</span><span class="p">,</span> <span class="n">y_ocean_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_coords</span><span class="p">)</span>
+<a id="__codelineno-1-76" name="__codelineno-1-76" href="#__codelineno-1-76"></a>
+<a id="__codelineno-1-77" name="__codelineno-1-77" href="#__codelineno-1-77"></a><span class="nb">print</span><span class="p">(</span>
+<a id="__codelineno-1-78" name="__codelineno-1-78" href="#__codelineno-1-78"></a>    <span class="s2">&quot;Atmosphere outputs (variables, lead_time [hrs]):&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-79" name="__codelineno-1-79" href="#__codelineno-1-79"></a>    <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-80" name="__codelineno-1-80" href="#__codelineno-1-80"></a>    <span class="n">y_atmos_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
+<a id="__codelineno-1-81" name="__codelineno-1-81" href="#__codelineno-1-81"></a><span class="p">)</span>
+<a id="__codelineno-1-82" name="__codelineno-1-82" href="#__codelineno-1-82"></a><span class="nb">print</span><span class="p">(</span>
+<a id="__codelineno-1-83" name="__codelineno-1-83" href="#__codelineno-1-83"></a>    <span class="s2">&quot;Ocean outputs (variables, lead_time [hrs]):&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-84" name="__codelineno-1-84" href="#__codelineno-1-84"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
+<a id="__codelineno-1-85" name="__codelineno-1-85" href="#__codelineno-1-85"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
+<a id="__codelineno-1-86" name="__codelineno-1-86" href="#__codelineno-1-86"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>37 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.77it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.55it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>98 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.84it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.31it/s]
 
 Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.22it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.72it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.35it/s]
+
+Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.43it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.02it/s]
+
+Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 20.35it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 23.09it/s]
+
+Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.31it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 18.90it/s]
+
+Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.65it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.28it/s]
+
+Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.05it/s]
 Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.71it/s]
 
 Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.33it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.76it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.90it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.25it/s]
 
 Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.35it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.79it/s]
+Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.92it/s]
+Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.36it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.78it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.58it/s]
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.77it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.76it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 18.04it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.89it/s]
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  6.06it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  6.05it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.75it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.27it/s]
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.84it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.83it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.82it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.28it/s]
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 80.18it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 19.83it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 22.94it/s]
-Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.59it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.57it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.35it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.34it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.90it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.89it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 117.73it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.24it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.23it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.70it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.68it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.82it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.80it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 77.12it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.86it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.84it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.97it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.96it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.97it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.96it/s]
+
+Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 91.38it/s]
+Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+ 'tp6' 'msl'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
 Ocean outputs (variables, lead_time [hrs]): ['sst'] [48 96]</code></pre></details>
 
 <h2 id="model-iteration-for-longer-forecasts">Model Iteration for Longer Forecasts<a class="headerlink" href="#model-iteration-for-longer-forecasts" title="Permanent link">&para;</a></h2>
@@ -2992,23 +3111,29 @@ a total of 60 days.</p>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">model_iter_ll</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">model_iter_ll</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">x_step</span><span class="p">,</span> <span class="n">x_step_coords</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">model_iter_ll</span><span class="p">)</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># Don&#39;t retrieve the first step as it is the initial condition</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">x_atmos</span><span class="p">,</span> <span class="n">x_atmos_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="n">x_ocean</span><span class="p">,</span> <span class="n">x_ocean_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Completed forecast with </span><span class="si">{</span><span class="n">n_steps</span><span class="si">}</span><span class="s2"> steps&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">x_atmos</span><span class="p">,</span> <span class="n">x_atmos_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>            <span class="n">x_step</span><span class="p">,</span> <span class="n">x_step_coords</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="n">x_ocean</span><span class="p">,</span> <span class="n">x_ocean_coords</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="n">x_step</span><span class="p">,</span> <span class="n">x_step_coords</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="p">)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Completed forecast with </span><span class="si">{</span><span class="n">n_steps</span><span class="si">}</span><span class="s2"> steps&quot;</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>Completed forecast with 16 steps</code></pre></details>
 
-<h2 id="using-built-in-deterministic-workflow">Using Built-in Deterministic Workflow<a class="headerlink" href="#using-built-in-deterministic-workflow" title="Permanent link">&para;</a></h2>
-<p>Because the <code>DLESyMLatLon</code> model permits usage of data coming directly from an
-earth2studio data source, we can use the built-in deterministic workflow to generate
-a forecast as well. The only caveat is we need to explitcitly specify the output
-lead time coordinates that will be generated by the model, since it has different
-input and output lead time dimensions.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">run</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">KVBackend</span>
+<h2 id="manual-forecast-loop">Manual Forecast Loop<a class="headerlink" href="#manual-forecast-loop" title="Permanent link">&para;</a></h2>
+<p>earth2studio's built-in <code>run.deterministic</code> workflow fetches its own initial
+condition internally, using <code>fetch_data(variable=model.input_coords()["variable"],
+...)</code> against the raw data source -- it has no way to know that <code>ttr-3h</code> needs the
+dedicated derivation step from above rather than a direct fetch. Since we've
+already built a valid initial condition (<code>x</code>, <code>coords</code>) ourselves, we drive the
+forecast with <code>create_iterator</code> directly and write each step to the IO backend by
+hand instead, avoiding a second, incompatible fetch.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">KVBackend</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.coords</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_coords</span><span class="p">,</span> <span class="n">split_coords</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">io</span> <span class="o">=</span> <span class="n">KVBackend</span><span class="p">()</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
@@ -3019,94 +3144,36 @@ input and output lead time dimensions.</p>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">)</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">]</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">inp_lead_time</span><span class="p">,</span> <span class="o">*</span><span class="n">out_lead_times</span><span class="p">])</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="o">.</span><span class="n">deterministic</span><span class="p">(</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="p">[</span><span class="n">ic_date</span><span class="p">],</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">model_ll</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">output_coords</span><span class="o">=</span><span class="n">output_coords</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">)</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">to_xarray</span><span class="p">()</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="nb">print</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="n">total_coords</span> <span class="o">=</span> <span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">output_coords</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>  <span class="c1"># Scrub batch dims</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,):</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="k">del</span> <span class="n">total_coords</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">var_names</span> <span class="o">=</span> <span class="n">total_coords</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;variable&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="n">io</span><span class="o">.</span><span class="n">add_array</span><span class="p">(</span><span class="n">total_coords</span><span class="p">,</span> <span class="n">var_names</span><span class="p">)</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="n">model_iter</span> <span class="o">=</span> <span class="n">model_ll</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x_step</span><span class="p">,</span> <span class="n">coords_step</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model_iter</span><span class="p">):</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="c1"># The very first yield is the initial condition itself, whose variable</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="c1"># set is prognostic-only (e.g. no tp6/msl) -- every later yield is a</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="c1"># true model output and includes the diagnostic variables too. Map</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="c1"># against whichever of `output_coords`&#39;s variables this step actually</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>    <span class="c1"># has; the array&#39;s diagnostic columns stay at their zero-initialized</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>    <span class="c1"># default for this one step.</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>    <span class="n">step_output_coords</span> <span class="o">=</span> <span class="n">output_coords</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>    <span class="n">step_variables</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">coords_step</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">])</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="n">step_output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>        <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">output_coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">step_variables</span><span class="p">]</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>    <span class="p">)</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>    <span class="n">x_step</span><span class="p">,</span> <span class="n">coords_step</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x_step</span><span class="p">,</span> <span class="n">coords_step</span><span class="p">,</span> <span class="n">step_output_coords</span><span class="p">)</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>    <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="o">*</span><span class="n">split_coords</span><span class="p">(</span><span class="n">x_step</span><span class="p">,</span> <span class="n">coords_step</span><span class="p">))</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>    <span class="k">if</span> <span class="n">step</span> <span class="o">==</span> <span class="n">n_steps</span><span class="p">:</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>        <span class="k">break</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">to_xarray</span><span class="p">()</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="nb">print</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>97 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:34:47.662 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-19 21:34:47.662 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 20.48it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 23.60it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.40it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 18.94it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 20.40it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 22.40it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 18.24it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.03it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 13.99it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 16.22it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 18.93it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.01it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 15.56it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 17.89it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.88it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.69it/s]
-
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 26.89it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 26.68it/s]
-2026-08-19 21:34:52.285 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from ARCO
-2026-08-19 21:34:52.287 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
-
-
-Running inference:   0%|          | 0/17 [00:00&lt;?, ?it/s]
-
-Running inference:   6%|▌         | 1/17 [00:00&lt;00:13,  1.23it/s]
-
-Running inference:  12%|█▏        | 2/17 [00:01&lt;00:14,  1.03it/s]
-
-Running inference:  18%|█▊        | 3/17 [00:02&lt;00:14,  1.02s/it]
-
-Running inference:  24%|██▎       | 4/17 [00:04&lt;00:13,  1.07s/it]
-
-Running inference:  29%|██▉       | 5/17 [00:05&lt;00:13,  1.09s/it]
-
-Running inference:  35%|███▌      | 6/17 [00:06&lt;00:12,  1.11s/it]
-
-Running inference:  41%|████      | 7/17 [00:07&lt;00:11,  1.12s/it]
-
-Running inference:  47%|████▋     | 8/17 [00:08&lt;00:10,  1.13s/it]
-
-Running inference:  53%|█████▎    | 9/17 [00:09&lt;00:09,  1.15s/it]
-
-Running inference:  59%|█████▉    | 10/17 [00:11&lt;00:08,  1.15s/it]
-
-Running inference:  65%|██████▍   | 11/17 [00:12&lt;00:06,  1.16s/it]
-
-Running inference:  71%|███████   | 12/17 [00:13&lt;00:05,  1.15s/it]
-
-Running inference:  76%|███████▋  | 13/17 [00:14&lt;00:04,  1.15s/it]
-
-Running inference:  82%|████████▏ | 14/17 [00:15&lt;00:03,  1.15s/it]
-
-Running inference:  88%|████████▊ | 15/17 [00:16&lt;00:02,  1.15s/it]
-
-Running inference:  94%|█████████▍| 16/17 [00:17&lt;00:01,  1.16s/it]
-
-Running inference: 100%|██████████| 17/17 [00:19&lt;00:00,  1.17s/it]
-Running inference: 100%|██████████| 17/17 [00:19&lt;00:00,  1.13s/it]
-2026-08-19 21:35:11.440 | SUCCESS  | earth2studio.run:deterministic:189 - 
-Inference complete
-&lt;xarray.Dataset&gt; Size: 10GB
+<details class="e2sg-output" open><summary><span>Console output</span><small>20 lines</small></summary><pre class="no-copy"><code>&lt;xarray.Dataset&gt; Size: 13GB
 Dimensions:     (time: 1, lead_time: 265, lat: 721, lon: 1440)
 Coordinates:
   * time        (time) datetime64[s] 8B 2021-06-15
@@ -3114,15 +3181,18 @@ Coordinates:
   * lat         (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon         (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 Data variables:
-    z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.673e+04
-    tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.431e+04
-    z1000       (time, lead_time, lat, lon) float32 1GB 890.4 ... -1.518e+03
-    t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 223.7
-    tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... 0.5434
-    t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 237.6
-    z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 8.927e+04
-    ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 6.237
-    sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 272.2</code></pre></details>
+    z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.799e+04
+    tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.412e+04
+    z1000       (time, lead_time, lat, lon) float32 1GB 890.4 890.4 ... 101.0
+    t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 220.9
+    tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... 0.3829
+    t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 235.6
+    z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 8.983e+04
+    ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 6.43
+    ttr-3h      (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... -1.32e+06
+    tp6         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 6.897 6.897
+    msl         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 1.013e+05
+    sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 270.8</code></pre></details>
 
 <h2 id="plotting-the-outputs">Plotting the Outputs<a class="headerlink" href="#plotting-the-outputs" title="Permanent link">&para;</a></h2>
 <p>Let's plot some of the forecasted outputs for the atmosphere and ocean components.</p>
@@ -3192,9 +3262,9 @@ Data variables:
 </code></pre></div>
 <p><img alt="Output from Running DLESyM Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/06_seasonal-02_dlesym_example/001-cell-10.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 106.9s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 142.5s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 47s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 23s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

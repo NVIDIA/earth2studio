@@ -2784,7 +2784,7 @@
 <span id="earth2studio.models.px.DLESyM.create_iterator"></span>
 <span id="earth2studio.models.px.DLESyM.load_default_package"></span>
 <span id="earth2studio.models.px.DLESyM.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/dlesym.py#L73-L915" title="earth2studio/models/px/dlesym.py:73">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=dlesym#install-command" title="category=prognostic item=dlesym">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/dlesym.py#L75-L1192" title="earth2studio/models/px/dlesym.py:75">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=dlesym#install-command" title="category=prognostic item=dlesym">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2808,6 +2808,10 @@ the HEALPix grid. Because the atmosphere and ocean models are predicted at
 different times, not all entries in the output tensor are valid. As a result,
 we provide convenience methods for retrieving the valid atmospheric and
 oceanic outputs.</p>
+<p>The default package provided for this model contains the checkpoints used
+in the ECMWF AI Weather Quest S2S competition. These checkpoints are trained
+with CRPS loss and use sampled random noise to produce ensemble variability
+each forward pass, seeded with the <code>set_rng</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2857,7 +2861,9 @@ oceanic outputs.</p>
               (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
           –
           <div class="doc-md-description">
-            <p>Means of the input data, shape (1, 1, 1, num_variables, 1, 1, 1)</p>
+            <p>Means of the full output variable set (prognostics + diagnostics,
+in the same order as <code>output_coords</code>'s <code>variable</code> axis), shape
+(1, 1, 1, num_output_variables, 1, 1, 1)</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2865,7 +2871,8 @@ oceanic outputs.</p>
               (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
           –
           <div class="doc-md-description">
-            <p>Standard deviations of the input data, shape (1, 1, 1, num_variables, 1, 1, 1)</p>
+            <p>Standard deviations of the full output variable set, same shape
+and ordering as <code>center</code></p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -2938,6 +2945,52 @@ oceanic outputs.</p>
           –
           <div class="doc-md-description">
             <p>Ocean coupling variables</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_diagnostic_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Atmospheric diagnostic output variables. These are produced by the
+atmos model but, unlike <code>atmos_variables</code>, are not fed back in as
+input to the next autoregressive step, by default []</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_diagnostic_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Ocean diagnostic output variables, analogous to
+<code>atmos_diagnostic_variables</code>, by default []</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>use_cln</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether the atmos/ocean models use conditional layer norm, which
+requires sampling and passing noise to the model to produce
+ensemble variability from a single set of weights, by default False</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>condition_shape</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Dimension of the conditional layer norm noise vector. Required if
+<code>use_cln</code> is True, by default None</p>
           </div>
         </li>
     </ul>
@@ -3133,6 +3186,9 @@ output data tensor and coordinate system dictionary.</p>
     <div class="doc doc-contents ">
 
         <p>Default DLESyM model package on NGC</p>
+<p>The package's top-level <code>config.yaml</code> lists the available
+checkpoint versions; see <code>load_model</code> for how to select
+between them.</p>
 
 
     </div>
@@ -3160,7 +3216,8 @@ output data tensor and coordinate system dictionary.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">package</span><span class="p">:</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span><span class="p">,</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">atmos_model_idx</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">ocean_model_idx</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">version</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;v1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;v1.1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;v1.1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3179,13 +3236,31 @@ output data tensor and coordinate system dictionary.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
+            <b><code>version</code></b>
+              (<code>(&#39;v1.0&#39;, &#39;v1.1&#39;)</code>, default:
+                  <code>&#34;v1.0&#34;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Checkpoint version to load; see each version's entry in the
+package's <code>config.yaml</code> for details. <code>v1.1</code> is the checkpoint
+submitted to the ECMWF AI Weather Quest competition
+(<a href="https://aiweatherquest.ecmwf.int/">aiweatherquest.ecmwf.int/</a>). <code>v1.0</code> is the previous
+checkpoint, kept for reproducibility; loading it logs a
+deprecation warning, by default "v1.1"</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
             <b><code>atmos_model_idx</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
                   <code>0</code>
 )
           –
           <div class="doc-md-description">
-            <p>Index of atmos model weights in package to load, by default 0</p>
+            <p>Index of atmos model weights to load. Only meaningful for
+checkpoint versions that ship multiple atmos checkpoints
+(used to build ensembles without conditional layer norm), by
+default 0</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3195,7 +3270,9 @@ output data tensor and coordinate system dictionary.</p>
 )
           –
           <div class="doc-md-description">
-            <p>Index of ocean model weights in package to load, by default 0</p>
+            <p>Index of ocean model weights to load. Only meaningful for
+checkpoint versions that ship multiple ocean checkpoints, by
+default 0</p>
           </div>
         </li>
     </ul>

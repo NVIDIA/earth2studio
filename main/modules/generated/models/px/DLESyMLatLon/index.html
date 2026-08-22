@@ -2784,7 +2784,7 @@
 <span id="earth2studio.models.px.DLESyMLatLon.create_iterator"></span>
 <span id="earth2studio.models.px.DLESyMLatLon.load_default_package"></span>
 <span id="earth2studio.models.px.DLESyMLatLon.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/dlesym.py#L918-L1265" title="earth2studio/models/px/dlesym.py:918">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=dlesym#install-command" title="category=prognostic item=dlesym">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/dlesym.py#L1195-L1646" title="earth2studio/models/px/dlesym.py:1195">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=dlesym#install-command" title="category=prognostic item=dlesym">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -2998,6 +2998,9 @@ output data tensor and coordinate system dictionary.</p>
     <div class="doc doc-contents ">
 
         <p>Default DLESyM model package on NGC</p>
+<p>The package's top-level <code>config.yaml</code> lists the available
+checkpoint versions; see <code>load_model</code> for how to select
+between them.</p>
 
 
     </div>
@@ -3025,7 +3028,8 @@ output data tensor and coordinate system dictionary.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">package</span><span class="p">:</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span><span class="p">,</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">atmos_model_idx</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">ocean_model_idx</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">version</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;v1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;v1.1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;v1.1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3044,13 +3048,31 @@ output data tensor and coordinate system dictionary.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
+            <b><code>version</code></b>
+              (<code>(&#39;v1.0&#39;, &#39;v1.1&#39;)</code>, default:
+                  <code>&#34;v1.0&#34;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Checkpoint version to load; see each version's entry in the
+package's <code>config.yaml</code> for details. <code>v1.1</code> is the checkpoint
+submitted to the ECMWF AI Weather Quest competition
+(<a href="https://aiweatherquest.ecmwf.int/">aiweatherquest.ecmwf.int/</a>). <code>v1.0</code> is the previous
+checkpoint, kept for reproducibility; loading it logs a
+deprecation warning, by default "v1.1"</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
             <b><code>atmos_model_idx</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
                   <code>0</code>
 )
           –
           <div class="doc-md-description">
-            <p>Index of atmos model weights in package to load, by default 0</p>
+            <p>Index of atmos model weights to load. Only meaningful for
+checkpoint versions that ship multiple atmos checkpoints
+(used to build ensembles without conditional layer norm), by
+default 0</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3060,7 +3082,9 @@ output data tensor and coordinate system dictionary.</p>
 )
           –
           <div class="doc-md-description">
-            <p>Index of ocean model weights in package to load, by default 0</p>
+            <p>Index of ocean model weights to load. Only meaningful for
+checkpoint versions that ship multiple ocean checkpoints, by
+default 0</p>
           </div>
         </li>
     </ul>
