@@ -156,7 +156,7 @@ aurora = [
     "microsoft-aurora>=2.0.0",
 ]
 dlesym = [
-    "nvidia-physicsnemo>=1.0.1",
+    "nvidia-physicsnemo>=2.2.0a0", # TODO introduce a >=2.2 constraint and drop the git pin when PNM releases
     "earth2grid",
     "omegaconf>=2.3.0",
     "hydra-core>=1.3.2",
@@ -311,7 +311,7 @@ da-stormcast = [
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,dlesym,dlwp,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
+    "earth2studio[atlas,aurora,dlwp,dlesym,fcn,fcn3,fengwu,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
 ]
@@ -400,9 +400,9 @@ torch-harmonics = [
 ]
 # TODO: Remove with next PSN release
 nvidia-physicsnemo = [
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "bf0ad4f43275b84a7beab35127d57a99cd359260", extra = "cosmo"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "bf0ad4f43275b84a7beab35127d57a99cd359260", extra = "da-cosmo"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "bf0ad4f43275b84a7beab35127d57a99cd359260", extra = "stormcast-conus"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "94b355108cfd10e253d3d41cacdc0c0112b078e4", extra = "cosmo"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "94b355108cfd10e253d3d41cacdc0c0112b078e4", extra = "stormcast-conus"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "94b355108cfd10e253d3d41cacdc0c0112b078e4", extra = "dlesym"},
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }

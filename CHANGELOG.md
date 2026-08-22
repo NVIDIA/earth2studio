@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
   files are now downloaded once into the cache and shared across all
   (day, variable) slices instead of being streamed per slice over fsspec
+- Updated `DLESyM` and `DLESyMLatLon` default package to provide newer
+  CRPS-trained checkpoints used in the AI Weather Quest competition
 
 ### Deprecated
 
