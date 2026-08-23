@@ -48,7 +48,7 @@ In this example you will learn:
 #
 # Start with creating a simple inference workflow to use. We encourage
 # users to explore and experiment with their own custom workflows that borrow ideas from
-# built in workflows inside :py:obj:`earth2studio.run` or the examples.
+# built in workflows inside [`earth2studio.run`][earth2studio.run] or the examples.
 #
 # Creating our own generalizable workflow to use with statistics is easy when we rely on
 # the component interfaces defined in Earth2Studio (use dependency injection). Here we
@@ -177,10 +177,10 @@ def run_stats(
 #
 # We need the following:
 #
-# - Prognostic Model: Use the built in Pangu 24 hour model :py:class:`earth2studio.models.px.Pangu24`.
+# - Prognostic Model: Use the built in Pangu 24 hour model [`earth2studio.models.px.Pangu24`][earth2studio.models.px.Pangu24].
 # - statistic: We define our own statistic: the Southern Oscillation Index (SOI).
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a NetCDF4 store :py:class:`earth2studio.io.NetCDF4Backend`.
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a NetCDF4 store [`earth2studio.io.NetCDF4Backend`][earth2studio.io.NetCDF4Backend].
 
 # %%
 from collections import OrderedDict

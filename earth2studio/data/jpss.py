@@ -21,17 +21,30 @@ import hashlib
 import os
 import pathlib
 import shutil
+import threading
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import h5py  # type: ignore
 import numpy as np
-import s3fs
 import xarray as xr
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    AsyncListableStore,
+    _sync_async,
+    datasource_cache_root,
+    obstore_fetch_to_cache,
+    obstore_list_prefix,
+    obstore_store_from_url,
+    prep_data_inputs,
+)
 from earth2studio.lexicon.jpss import JPSSLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
+
+# HDF5 (netCDF4) is not thread-safe; serialize HDF5 reads across the
+# decode worker threads while downloads keep flowing on the event loop
+_HDF5_LOCK = threading.Lock()
 
 
 class JPSS:
@@ -108,11 +121,27 @@ class JPSS:
         self._verbose: bool = verbose
         self._async_timeout: int = async_timeout
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # Memoized S3 day-directory listings keyed by prefix. Only days that
+        # can no longer gain files are cached so near-real-time polling still
+        # sees newly arriving granules.
+        self._day_listing_cache: dict[str, list[str]] = {}
+
+        # Object store is lazily initialized on first call
+        self.store: AsyncListableStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(anon=True, client_kwargs={}, asynchronous=True)
+        """Async initialization of the object store
+
+        Note
+        ----
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
+        """
+        bucket = self.SATELLITE_BUCKETS[self._satellite]
+        self.store = obstore_store_from_url(
+            f"s3://{bucket}", max_pool_connections=self._max_workers
+        )
 
     def __call__(
         self,
@@ -164,7 +193,7 @@ class JPSS:
         xr.DataArray
             Data array containing the requested JPSS data
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         # Prepare data inputs
@@ -178,8 +207,6 @@ class JPSS:
 
         # Add lat/lon to the variable list
         extended_variables = list(variable) + ["_lat", "_lon"]
-
-        session = await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         # Determine array dimensions
         y_size, x_size = self.PRODUCT_DIMENSIONS[self._product_type]
@@ -240,13 +267,6 @@ class JPSS:
                     f"Data and geolocation timestamps do not match. Something is going wrong with this request! {time_diff}"
                 )
 
-        if session:
-            await session.close()
-
-        # Close aiohttp client cleanly as in GOES implementation
-        await self.fs.set_session(refresh=True)  # type: ignore[union-attr]
-        s3fs.S3FileSystem.close_session(asyncio.get_event_loop(), self.fs.s3)  # type: ignore[union-attr]
-
         return xr_array
 
     async def fetch_data_wrapper(
@@ -295,27 +315,44 @@ class JPSS:
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        # NetCDF file - use xarray
-        with h5py.File(local_file, "r") as h5:
-            # Get dataset from HDF5 file
-            if self._product_type in ["I", "M"]:
-                ds = h5["All_Data"][folder + "_All"][dataset_name]
-            else:
-                ds = h5[dataset_name]
-
-            # Get data from dataset
-            data = ds[...]
-
-            # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
-            filtered_data = self._filter_fill_values(data, ds)
-
-            # Apply CF-convention scaling (scale_factor / add_offset) when present
-            filtered_data = self._apply_cf_scaling(filtered_data, ds)
-
-            # Apply modifier
-            processed_data = modifier(filtered_data)
+        # HDF5 decode is CPU-bound and serialized by _HDF5_LOCK, so decodes
+        # gain nothing from each other -- but running them in a worker thread
+        # keeps the event loop free: a sync decode would stall every in-flight
+        # granule download for its duration, while here downloads keep
+        # overlapping with whichever decode holds the lock
+        processed_data = await asyncio.to_thread(
+            self._decode_data, local_file, folder, dataset_name, modifier
+        )
 
         return processed_data, timestamp, filename
+
+    def _decode_data(
+        self,
+        local_file: str,
+        folder: str,
+        dataset_name: str,
+        modifier: Callable,
+    ) -> np.ndarray:
+        """Decode a cached VIIRS HDF5 granule into a processed numpy array"""
+        with _HDF5_LOCK:
+            with h5py.File(local_file, "r") as h5:
+                # Get dataset from HDF5 file
+                if self._product_type in ["I", "M"]:
+                    ds = h5["All_Data"][folder + "_All"][dataset_name]
+                else:
+                    ds = h5[dataset_name]
+
+                # Get data from dataset
+                data = ds[...]
+
+                # Filter VIIRS fill values BEFORE converting to float32 to preserve original dtype
+                filtered_data = self._filter_fill_values(data, ds)
+
+                # Apply CF-convention scaling (scale_factor / add_offset) when present
+                filtered_data = self._apply_cf_scaling(filtered_data, ds)
+
+        # Apply modifier
+        return modifier(filtered_data)
 
     async def fetch_geolocation_wrapper(
         self,
@@ -348,15 +385,28 @@ class JPSS:
         # Fetch the file from S3
         local_file = await self._fetch_remote_file(s3_uri)
 
-        with h5py.File(local_file, "r") as h5:
-            lat_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]][
-                "Latitude"
-            ]  # Kind of a hacky way to get the lat/lon data
-            lon_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]]["Longitude"]
-            lat = np.asarray(lat_ds[...], dtype=np.float32)
-            lon = np.asarray(lon_ds[...], dtype=np.float32)
+        # HDF5 decode is CPU-bound and serialized by _HDF5_LOCK, so decodes
+        # gain nothing from each other -- but running them in a worker thread
+        # keeps the event loop free: a sync decode would stall every in-flight
+        # granule download for its duration, while here downloads keep
+        # overlapping with whichever decode holds the lock
+        lat, lon = await asyncio.to_thread(self._decode_geolocation, local_file)
 
         return lat, lon, timestamp, filename
+
+    @staticmethod
+    def _decode_geolocation(local_file: str) -> tuple[np.ndarray, np.ndarray]:
+        """Decode a cached VIIRS geolocation HDF5 file into lat/lon arrays"""
+        with _HDF5_LOCK:
+            with h5py.File(local_file, "r") as h5:
+                lat_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]][
+                    "Latitude"
+                ]  # Kind of a hacky way to get the lat/lon data
+                lon_ds = h5["All_Data"][list(h5["All_Data"].keys())[0]]["Longitude"]
+                lat = np.asarray(lat_ds[...], dtype=np.float32)
+                lon = np.asarray(lon_ds[...], dtype=np.float32)
+
+        return lat, lon
 
     def _filter_fill_values(
         self, data: np.ndarray, dataset: h5py.Dataset
@@ -529,11 +579,29 @@ class JPSS:
         )
 
         # List files in the directory and choose the closest timestamp file
-        if self.fs is None:  # type: ignore
-            raise ValueError("File system is not initialized")  # type: ignore
-        files = await self.fs._ls(base_url)
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+
+        # Day directories that can no longer gain files are memoized so
+        # repeated (time, variable) requests issue a single LIST; the
+        # bucket-prefixed paths match the historical cache-key scheme.
+        # Granules land in a day's directory after processing/upload latency,
+        # so a day only counts as closed once it is an hour past -- a
+        # conservative buffer against memoizing a still-filling listing.
+        day_end = datetime(time.year, time.month, time.day) + timedelta(days=1)
+        prefix = base_url.split(f"{bucket}/", 1)[1]
+        keys = await obstore_list_prefix(
+            self.store,
+            prefix,
+            cache=self._day_listing_cache,
+            cacheable=day_end + timedelta(hours=1)
+            <= datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        files = [f"{bucket}/{key}" for key in keys]
 
         # Filter for data files
+        # NOTE: obstore lists a missing prefix as empty rather than raising,
+        # which falls through to the FileNotFoundError below
         data_files = [f for f in files if f.endswith((".h5", ".nc"))]
 
         # Raise error if no matching files are found
@@ -585,19 +653,29 @@ class JPSS:
         return data_files[idx], time_stamps[idx]
 
     async def _fetch_remote_file(self, path: str) -> str:
-        """Fetch remote file into cache"""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-        sha = hashlib.sha256(path.encode()).hexdigest()
-        cache_path = os.path.join(self.cache, sha)
-        if not pathlib.Path(cache_path).is_file():
-            if self.fs.async_impl:
-                data = await self.fs._cat_file(path)
-            else:
-                data = await asyncio.to_thread(self.fs.read_block, path)
-            with open(cache_path, "wb") as f:
-                await asyncio.to_thread(f.write, data)
-        return cache_path
+        """Fetch remote file into cache
+
+        Parameters
+        ----------
+        path : str
+            Bucket-prefixed S3 path ("bucket/key") to fetch
+
+        Returns
+        -------
+        str
+            Local cache path
+        """
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+
+        # Hash the bucket-prefixed path (unchanged scheme) so warm caches
+        # populated before the obstore migration remain valid
+        cache_key = hashlib.sha256(path.encode()).hexdigest()
+        bucket = self.SATELLITE_BUCKETS[self._satellite]
+        key = path.removeprefix(bucket + "/")
+        return await obstore_fetch_to_cache(
+            self.store, key, self.cache, cache_key=cache_key
+        )
 
     @property
     def cache(self) -> str:
@@ -668,12 +746,14 @@ class JPSS:
             day=time.day,
         )
 
-        # List files in the directory and choose the closest timestamp file
-        try:
-            fs = s3fs.S3FileSystem(anon=True)
-            _ = fs.ls(base_url)
-            _ = fs.ls(geolocation_base_url)
-        except FileNotFoundError:
-            return False
+        # Verify data actually exists in S3 (handles outages / data gaps).
+        # obstore lists a missing prefix as empty rather than raising; one
+        # listed entry per prefix proves existence
+        store = obstore_store_from_url(f"s3://{bucket}")
+        for url in (base_url, geolocation_base_url):
+            prefix = url.split(f"{bucket}/", 1)[1]
+            chunk: list = next(iter(store.list(prefix=prefix, chunk_size=1)), [])
+            if len(chunk) == 0:
+                return False
 
         return True

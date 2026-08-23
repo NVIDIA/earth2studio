@@ -174,20 +174,19 @@ class GOESGLM:
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    from datetime import datetime
+    import numpy as np
+    from earth2studio.data import GOESGLM
 
-        from datetime import datetime
-        import numpy as np
-        from earth2studio.data import GOESGLM
+    ds = GOESGLM(
+        satellite="east",
+        lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
+        time_tolerance=np.timedelta64(5, "m"),
+    )
+    df = ds(datetime(2024, 6, 1, 18, 0), ["flashe", "flashc"])
 
-        ds = GOESGLM(
-            satellite="east",
-            lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
-            time_tolerance=np.timedelta64(5, "m"),
-        )
-        df = ds(datetime(2024, 6, 1, 18, 0), ["flashe", "flashc"])
-
+    ```
     Badges
     ------
     region:na region:sa dataclass:observation product:sat

@@ -153,16 +153,14 @@ class PlanetaryComputerECMWFOpenDataIFSLexicon(metaclass=LexiconType):
     ``index`` asset on any item of the ``ecmwf-forecast`` collection (one
     JSON-lines entry per GRIB message):
 
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    from pystac_client import Client
 
-        from pystac_client import Client
-
-        client = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
-        search = client.search(collections=["ecmwf-forecast"], max_items=1)
-        item = next(search.items())
-        print(item.assets["index"].href)  # requires a SAS token to download
-
+    client = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+    search = client.search(collections=["ecmwf-forecast"], max_items=1)
+    item = next(search.items())
+    print(item.assets["index"].href)  # requires a SAS token to download
+    ```
     """
 
     SFC_VARIABLES = {

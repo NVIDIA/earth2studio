@@ -108,8 +108,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:cm product:wind product:precip product:temp product:atmos
+    region:global class:climate product:wind product:precip product:temp product:atmos
     year:2025 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     output_variables = VARIABLES

@@ -549,6 +549,7 @@ class _PlanetaryComputerData:
             plan.key,
             str(plan.local_path.parent),
             cache_key=plan.local_path.name,
+            atomic=True,
         )
 
     def _locate_item(self, when: datetime) -> Item:

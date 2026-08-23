@@ -25,12 +25,18 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import s3fs
 import xarray as xr
 from loguru import logger
+from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
-from earth2studio.data.utils import _sync_async, datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    _sync_async,
+    datasource_cache_root,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
+    prep_data_inputs,
+)
 from earth2studio.lexicon.nclimgrid import NClimGridLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -96,18 +102,13 @@ class NClimGridDaily:
         self._verbose = verbose
         self._tmp_cache_hash: str | None = None
         self.async_timeout = async_timeout
-        self.fs: s3fs.S3FileSystem | None = None
+        self.store: ObjectStore | None = None
+        # Local paths of monthly NetCDF files downloaded for the current fetch
+        self._monthly_nc_paths: dict[str, str] = {}
 
     async def _async_init(self) -> None:
-        """Async initialization of filesystem.
-
-        Note
-        ----
-        Async fsspec expects initialization inside the execution loop.
-        """
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=False, skip_instance_cache=True
-        )
+        """Async initialization of the obstore S3 store"""
+        self.store = obstore_store_from_url(f"s3://{self.NCLIMGRID_BUCKET_NAME}")
 
     def __call__(
         self,
@@ -159,7 +160,7 @@ class NClimGridDaily:
         xr.DataArray
             NClimGrid weather data array with dimensions [time, variable, lat, lon].
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time_list, variable_list = prep_data_inputs(time, variable)
@@ -175,6 +176,21 @@ class NClimGridDaily:
         self._validate_time(time_list)
 
         tasks = self._create_tasks(time_list, variable_list)
+
+        # Download each needed monthly NetCDF once up front; every (day,
+        # variable) task for that month then reads the same local file. Only
+        # months whose per-slice caches are all warm skip the download.
+        missing_uris = sorted(
+            {
+                task.nc_uri
+                for task in tasks
+                if not os.path.exists(self._slice_cache_path(task))
+            }
+        )
+        monthly_paths = await asyncio.gather(
+            *(self._fetch_monthly_file(uri) for uri in missing_uris)
+        )
+        self._monthly_nc_paths = dict(zip(missing_uris, monthly_paths))
 
         async_tasks = [self.fetch_wrapper(task) for task in tasks]
         results = await tqdm.gather(
@@ -286,22 +302,14 @@ class NClimGridDaily:
             f"from {task.nc_uri}"
         )
 
-        # Build a cache key from the URI, variable, and date
-        sha = hashlib.sha256(
-            (str(task.nc_uri) + str(task.native_key) + str(task.target_date)).encode()
-        )
-        cache_path = os.path.join(self.cache, sha.hexdigest())
+        cache_path = self._slice_cache_path(task)
 
         if os.path.exists(cache_path):
             ds = xr.open_dataarray(cache_path, engine="h5netcdf", cache=False)
         else:
-            if self.fs is None:
-                raise ValueError(
-                    "File store is not initialized! If calling fetch directly "
-                    "make sure the data source is initialized inside the async loop."
-                )
+            nc_path = self._monthly_nc_paths[task.nc_uri]
             da = await asyncio.to_thread(
-                self._read_s3_variable, task.nc_uri, task.native_key, task.target_date
+                self._read_local_variable, nc_path, task.native_key, task.target_date
             )
 
             # Apply lexicon modifier (unit conversion)
@@ -327,19 +335,37 @@ class NClimGridDaily:
 
         return ds
 
-    def _read_s3_variable(
-        self, nc_uri: str, native_key: str, target_date: datetime
-    ) -> xr.DataArray:
-        """Read a variable from an S3-hosted NetCDF file synchronously.
+    def _slice_cache_path(self, task: NClimGridDailyAsyncTask) -> str:
+        """Cache file path for a single (variable, day) slice."""
+        sha = hashlib.sha256(
+            (str(task.nc_uri) + str(task.native_key) + str(task.target_date)).encode()
+        )
+        return os.path.join(self.cache, sha.hexdigest())
 
-        This must run in a worker thread (via ``asyncio.to_thread``) because
-        ``self.fs`` is a synchronous S3FileSystem whose ``open()`` call
-        internally uses ``fsspec.asyn.sync()`` — incompatible with being called
-        from fsspec's own IO loop.
+    async def _fetch_monthly_file(self, nc_uri: str) -> str:
+        """Download a monthly NetCDF into the cache and return its local path."""
+        if self.store is None:
+            raise ValueError(
+                "Object store is not initialized! If calling fetch directly "
+                "make sure the data source is initialized inside the async loop."
+            )
+        key = nc_uri.removeprefix(f"s3://{self.NCLIMGRID_BUCKET_NAME}/")
+        return await obstore_fetch_to_cache(
+            self.store,
+            key,
+            self.cache,
+            cache_key=hashlib.sha256(nc_uri.encode()).hexdigest() + ".nc",
+        )
+
+    def _read_local_variable(
+        self, nc_path: str, native_key: str, target_date: datetime
+    ) -> xr.DataArray:
+        """Read a variable slice from a locally cached monthly NetCDF file.
+
+        Runs in a worker thread (via ``asyncio.to_thread``) because h5netcdf
+        decode is blocking.
         """
-        assert self.fs is not None  # noqa: S101  # Guaranteed by caller check
-        with self.fs.open(nc_uri, "rb") as f:
-            dataset = xr.open_dataset(f, engine="h5netcdf", cache=False)
+        with xr.open_dataset(nc_path, engine="h5netcdf", cache=False) as dataset:
             da = dataset[native_key].sel(time=str(target_date))
             da = da.load()
         return da

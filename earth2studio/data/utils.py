@@ -56,6 +56,7 @@ from earth2studio.data.base import (
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
+    normalize_time_precision,
     timearray_to_datetime,
     to_time_array,
 )
@@ -76,6 +77,24 @@ try:
     import cudf
 except ImportError:
     cudf = None
+
+
+def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
+    """Offset times by a lead time, keeping nanosecond precision when possible.
+
+    Parameters
+    ----------
+    time : TimeArray
+        Timestamps to offset.
+    lead : np.timedelta64
+        Lead time to add to each timestamp.
+
+    Returns
+    -------
+    np.ndarray
+        Offset timestamps, as ``datetime64[ns]`` when representable.
+    """
+    return normalize_time_precision(np.array([t + lead for t in time]))
 
 
 def fetch_data(
@@ -131,7 +150,7 @@ def fetch_data(
     else:
         da = []
         for lead in lead_time:
-            adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+            adjust_times = _offset_times(time, lead)
             da0 = source(adjust_times, variable)  # type: ignore
             da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
             da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
@@ -473,7 +492,7 @@ def datasource_to_file(
 
     # Compile all times
     for lead in lead_time:
-        adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+        adjust_times = _offset_times(time, lead)
         time = np.concatenate([time, adjust_times], axis=0)
     time = np.unique(time)
 
@@ -684,11 +703,11 @@ async def managed_session(fs: Any) -> Any:
 
     Example
     -------
-    .. code-block:: python
-
-        async with managed_session(self.fs) as session:
-            # fetch data here - session will be closed even on error
-            await gather_with_concurrency(coros, ...)
+    ```python
+    async with managed_session(self.fs) as session:
+        # fetch data here - session will be closed even on error
+        await gather_with_concurrency(coros, ...)
+    ```
     """
     session = None
     try:
@@ -843,6 +862,47 @@ def resolve_async_workers(
     if async_workers is not None:
         return async_workers
     return max(1, min(n_tasks, cap))
+
+
+def decode_grib_message(grib_file: str, message_index: int = 1) -> np.ndarray:
+    """Decode one message from a local grib file into a numpy array.
+
+    Shared by the GRIB byte-range data sources (GFS, HRRR, GEFS, CFS), which
+    cache single-message (or few-submessage) slices to disk. Sync and
+    module-level so callers can dispatch it via ``cancellable_to_thread`` and
+    patch it in offline tests. Uses pygrib, which is faster and lower memory
+    than xarray/cfgrib for single-message slices.
+
+    Parameters
+    ----------
+    grib_file : str
+        Path to local grib file.
+    message_index : int, optional
+        1-based pygrib message index to extract, by default 1. Byte-range
+        slices hold a single message; vector wind packings (e.g. CFS
+        `UGRD`/`VGRD` siblings) hold multiple submessages.
+
+    Returns
+    -------
+    np.ndarray
+        Decoded 2-D field values.
+    """
+    # Local import keeps pygrib (a heavy C extension) out of the import path
+    # of data sources that do not read grib.
+    import pygrib
+
+    try:
+        grbs = pygrib.open(grib_file)
+    except Exception:
+        logger.error(f"Failed to open grib file {grib_file}")
+        raise
+    try:
+        return np.asarray(grbs[message_index].values)
+    except Exception:
+        logger.error(f"Failed to read grib file {grib_file} at message {message_index}")
+        raise
+    finally:
+        grbs.close()
 
 
 class AsyncReadableStore(
@@ -1035,6 +1095,78 @@ def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
         raise
 
 
+# Defaults for chunked whole-object reads. 1 MiB chunks with 8 in flight
+# measured ~5x faster and far less variable than a single whole-object GET on
+# tens-of-MB S3 objects (2--8 MiB chunks yield too few concurrent streams).
+# Callers that also parallelize across files should keep files x chunks near
+# their store's connection-pool size.
+_READ_CHUNK_SIZE_BYTES: int = 1024 * 1024
+_READ_CHUNK_CONCURRENCY: int = 8
+
+
+async def obstore_read_chunked(
+    store: AsyncReadableStore,
+    key: str,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+) -> bytes:
+    """Reads a whole object, fetching large objects as parallel byte ranges.
+
+    A single whole-object GET runs at single-stream throughput; splitting
+    large objects (e.g. tens-of-MB HDF5 granules) into ``chunk_size`` byte
+    ranges fetched concurrently recovers multi-stream throughput. Objects of
+    at most ``chunk_size`` bytes are read with a single range GET; larger
+    objects are split with at most ``max_concurrent`` ranges in flight, then
+    reassembled in order.
+
+    Parameters
+    ----------
+    store : AsyncReadableStore
+        obspec-conforming store to read from (e.g. an obstore store)
+    key : str
+        Object key (bucket-relative path)
+    chunk_size : int, optional
+        Byte-range size per GET, by default 1 MiB
+    max_concurrent : int, optional
+        Maximum concurrent range GETs for one object, by default 8
+
+    Returns
+    -------
+    bytes
+        The complete object payload
+
+    Raises
+    ------
+    FileNotFoundError
+        If the object does not exist. obstore's ``NotFoundError`` subclasses
+        plain ``Exception``, so it is translated here (mirroring
+        ``obstore_read_range``) to keep callers' retry semantics sane.
+    """
+    try:
+        meta = await store.head_async(key)
+        size = int(meta["size"])
+
+        if size <= chunk_size:
+            return bytes(await store.get_range_async(key, start=0, end=size))
+
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def _fetch_range(start: int) -> bytes:
+            async with semaphore:
+                return bytes(
+                    await store.get_range_async(
+                        key, start=start, end=min(start + chunk_size, size)
+                    )
+                )
+
+        chunks = await asyncio.gather(
+            *(_fetch_range(start) for start in range(0, size, chunk_size))
+        )
+    except (FileNotFoundError, obs.exceptions.NotFoundError):
+        raise FileNotFoundError(f"Object {key} not found in store") from None
+    return b"".join(chunks)
+
+
 async def obstore_fetch_to_cache(
     store: AsyncReadableStore,
     key: str,
@@ -1042,6 +1174,8 @@ async def obstore_fetch_to_cache(
     byte_offset: int = 0,
     byte_length: int | None = None,
     cache_key: str | None = None,
+    chunked: bool = False,
+    atomic: bool = False,
 ) -> str:
     """Fetches a byte range of an object into a local cache file.
 
@@ -1050,11 +1184,6 @@ async def obstore_fetch_to_cache(
     migrating from fsspec-based fetching should pass an explicit ``cache_key``
     hashed from their historical (e.g. bucket-prefixed) path so existing warm
     caches remain valid.
-
-    Whole-object fetches are streamed to disk chunk by chunk to bound memory
-    usage, and every fetch is published atomically (temp file + rename), so a
-    crash or concurrent fetch of the same object can never leave a partial
-    file behind as a poisoned cache entry.
 
     Parameters
     ----------
@@ -1070,41 +1199,39 @@ async def obstore_fetch_to_cache(
         Number of bytes to read, by default None (read to end)
     cache_key : str | None, optional
         Explicit cache file name, by default None (sha256 of key + offset)
+    chunked : bool, optional
+        Fetch the object as concurrent byte-range chunks via
+        :func:`obstore_read_chunked`. Only valid for whole-object fetches
+        (``byte_offset == 0`` and ``byte_length is None``), by default False
+    atomic : bool, optional
+        Publish the cache file atomically (same-directory temp file +
+        ``os.replace``) so an interrupted or concurrent fetch of the same
+        object can never leave a partial file behind as a poisoned cache
+        entry. Intended for callers whose cache entries are plausibly written
+        by several processes at once, by default False
 
     Returns
     -------
     str
         Path to the local cache file
     """
+    if chunked and (byte_offset != 0 or byte_length is not None):
+        raise ValueError("chunked fetches only support whole-object reads")
     if cache_key is None:
         cache_key = sha256((key + str(byte_offset)).encode()).hexdigest()
     cache_path = os.path.join(cache_dir, cache_key)
     if Path(cache_path).is_file():
         return cache_path
-    if byte_offset == 0 and byte_length is None:
-        # Whole object: stream chunks straight to a temp file so large assets
-        # are never buffered fully in memory, then publish atomically
-        try:
-            resp = await store.get_async(key)
-        except (FileNotFoundError, obs.exceptions.NotFoundError):
-            raise FileNotFoundError(f"Object {key} not found in store") from None
-        fd, tmp_path = await asyncio.to_thread(
-            tempfile.mkstemp, dir=cache_dir, suffix=".tmp"
-        )
-        try:
-            with os.fdopen(fd, "wb") as file:
-                async for chunk in resp:
-                    file.write(chunk)
-            await asyncio.to_thread(os.replace, tmp_path, cache_path)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_path)
-            raise
+    if chunked:
+        data = await obstore_read_chunked(store, key)
     else:
         data = await obstore_read_range(
             store, key, byte_offset=byte_offset, byte_length=byte_length
         )
+    if atomic:
         await asyncio.to_thread(atomic_write_bytes, cache_path, data)
+    else:
+        await asyncio.to_thread(Path(cache_path).write_bytes, data)
     return cache_path
 
 
@@ -1327,8 +1454,8 @@ def radiance_to_bt(
     Notes
     -----
     Uses NIST CODATA 2018 radiation constants:
-    - C1 = 1.191042953e-5 mW/(m²·sr·cm⁻⁴)
-    - C2 = 1.4387774 K·cm
+    - C1 = 1.191042972e-5 mW/(m²·sr·cm⁻⁴)
+    - C2 = 1.438776877 K·cm
 
     Examples
     --------
@@ -1346,9 +1473,12 @@ def radiance_to_bt(
     nu = np.asarray(wavenumber)
     nu3 = nu * nu * nu
 
-    # Compute inverse Planck, suppressing warnings for invalid radiance
+    # Compute inverse Planck, suppressing warnings for invalid radiance.
+    # log(1 + x) rather than log1p: the argument is e^(C2·nu/T) - 1, which
+    # never falls below ~16 over Earth scenes, so log1p buys no accuracy
+    # here and is measurably slower.
     with np.errstate(divide="ignore", invalid="ignore"):
-        t_star = PLANCK_C2 * nu / np.log1p(PLANCK_C1 * nu3 / radiance)
+        t_star = PLANCK_C2 * nu / np.log(1.0 + PLANCK_C1 * nu3 / radiance)
 
     # Mask invalid radiance (≤0 or NaN) → NaN in output
     invalid = ~(radiance > 0)

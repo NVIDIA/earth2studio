@@ -1,14 +1,13 @@
-(lexicon_userguide)=
+# Lexicon { #lexicon_userguide }
 
-# Lexicon
-
-As discussed in the {ref}`data_userguide` section, Earth2Studio tracks the
-geo-physical representation of tensor data inside workflows.
+As discussed in the [Data Movement](../about/overview.md#data_userguide)
+section, Earth2Studio tracks the geo-physical representation of tensor data
+inside workflows.
 This includes the name of the variable, parameter, and property the data represents, which
 is tracked explicitly using the Earth2Studios lexicon.
 Similar to ECMWF's [parameter database](https://codes.ecmwf.int/grib/param-db/),
 Earth2Studio's lexicon aims to provide an opinioned and explicit list of short variables
-names that is used across the package found in {py:obj}`earth2studio.lexicon.base.E2STUDIO_VOCAB`.
+names that is used across the package found in `earth2studio.lexicon.base.E2STUDIO_VOCAB`.
 Many of these names are based on ECMWF's parameter database but not all.
 
 Below are a few examples:
@@ -23,7 +22,7 @@ Below are a few examples:
 
 Additionally, the lexicon may also be used to track various metadata / coordinate
 fields.
-This is particularly relevant for {py:obj}`earth2studio.data.base.DataFrameSource` where
+This is particularly relevant for `earth2studio.data.base.DataFrameSource` where
 tabular data is used and variables map to the columns of a data frame.
 Earth2Studio takes a best-effort approach to make these metadata fields standardized
 across the package.
@@ -55,13 +54,12 @@ the following special-case suffixes:
 - No suffix: assumed to be pressure-level, as in `z500` for geo-potential at 500 hPa level
 - `m`: altitude in meters above the surface
 
-:::{warning}
-Only use custom vertical level data with caution. The definition of these vertical
-levels changes with each data source, model, or use-case, and thus they are not
-necessarily interoperable. Transforming between different custom vertical levels will
-likely require custom interpolation schemes, possibly using pressure-levels as an
-intermediate step.
-:::
+!!! warning
+    Only use custom vertical level data with caution. The definition of these vertical
+    levels changes with each data source, model, or use-case, and thus they are not
+    necessarily interoperable. Transforming between different custom vertical levels will
+    likely require custom interpolation schemes, possibly using pressure-levels as an
+    intermediate step.
 
 ## Datasource Lexicon
 
@@ -76,11 +74,10 @@ data store.
 
 The following snippet is part of the lexicon for the GFS dataset.
 The class has a `metaclass=LexiconType`, which is present in
-{py:mod}`earth2studio.lexicon.base` used for type checking.
+`earth2studio.lexicon.base` used for type checking.
 
-```{literalinclude} ../../../earth2studio/lexicon/gfs.py
-    :lines: 24-60
-    :language: python
+```python
+--8<-- "earth2studio/lexicon/gfs.py:gfs-lexicon-class"
 ```
 
 Values of each variable is left up to the data source.
@@ -90,10 +87,8 @@ For example, the variable `u100`, zonal winds at 100 hPa, the value `UGRD::100 m
 split into `UGRD` and `100 mb` which are then used with the remote Grib index file to
 fetch the correct data.
 
-```{literalinclude} ../../../earth2studio/data/gfs.py
-    :start-after: "# sphinx - lexicon start"
-    :end-before: "# sphinx - lexicon end"
-    :language: python
+```python
+--8<-- "earth2studio/data/gfs.py:gfs-lexicon-lookup"
 ```
 
 It is a common pattern for data source lexicons to contain a modifier function that is
@@ -102,14 +97,11 @@ A good example of this is the GFS dataset which uses the modifier function to tr
 GFS-supplied geo-potential height to geopotential to better align with other
 sources inside Earth2Studio.
 
-```{literalinclude} ../../../earth2studio/lexicon/gfs.py
-    :start-after: "# sphinx - modifier start"
-    :end-before: "# sphinx - modifier end"
-    :language: python
+```python
+--8<-- "earth2studio/lexicon/gfs.py:gfs-lexicon-modifier"
 ```
 
-:::{warning}
-The lexicon does not necessarily contain every variable inside the remote data store.
-Rather it explicitly lists what is available inside Earth2Studio. Observe a missing
-variable you would like to add? Open an issue!
-:::
+!!! warning
+    The lexicon does not necessarily contain every variable inside the remote data store.
+    Rather it explicitly lists what is available inside Earth2Studio. Observe a missing
+    variable you would like to add? Open an issue!

@@ -6,11 +6,9 @@ ARG PYTHON_VERSION=3.13.13
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
 ENV FLASH_ATTN_CUDA_ARCHS=90 \
-    NATTEN_CUDA_ARCH=9.0 \
+    NATTEN_CUDA_ARCH=8.6;9.0;10.0 \
     NATTEN_N_WORKERS=8 \
-    NVCC_THREADS=2 \
-    UV_CACHE_DIR=/opt/uv-cache \
-    UV_LINK_MODE=copy
+    UV_CACHE_DIR=/opt/uv-cache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -67,5 +65,6 @@ RUN uv venv --python="${PYTHON_VERSION}" \
     && for EXTRA in all aifs aifs2 aifs2ens aifsens stormcast-conus; do \
         uv sync --locked --no-install-project --extra "${EXTRA}"; \
     done \
-    && rm -rf .venv \
     && chmod -R a+rwX "${UV_CACHE_DIR}"
+
+RUN rm -rf .venv earth2studio pyproject.toml uv.lock README.md

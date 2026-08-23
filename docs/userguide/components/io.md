@@ -1,12 +1,10 @@
-(output_handling_userguide)=
-
-# Output Handling
+# Output Handling { #output_handling_userguide }
 
 IO backends handle writing model outputs to disk or memory. Use them when saving
 forecast results, ensemble data, or other workflow outputs.
 While input data handling is primarily managed by the data sources in
-{mod}`earth2studio.data`, output handling is managed by the IO backends available
-in {mod}`earth2studio.io`.
+`earth2studio.data`, output handling is managed by the IO backends available
+in `earth2studio.io`.
 These backends are designed to balance the ability for you to customize the arrays and
 metadata within the exposed backend while also simplifying the design of reusable
 workflows.
@@ -24,16 +22,14 @@ such as `"variable"` to act as individual arrays in the backend.
 The full requirements for a standard IO backend are defined explicitly in the
 `earth2studio/io/base.py`.
 
-```{literalinclude} ../../../earth2studio/io/base.py
-:lines: 24-
-:language: python
+```python
+--8<-- "earth2studio/io/base.py:io-backend-interface"
 ```
 
-:::{note}
-IO Backends do not need to inherit this protocol; this is used to define
-the required APIs. Some built-in IO backends may also offer additional functionality
-that is not universally supported (and hence not required).
-:::
+!!! note
+    IO Backends do not need to inherit this protocol; this is used to define
+    the required APIs. Some built-in IO backends may also offer additional functionality
+    that is not universally supported (and hence not required).
 
 There are two important methods that must be supported:
 
@@ -43,29 +39,27 @@ There are two important methods that must be supported:
 The `write` command can induce synchronization when the input tensor resides on the GPU
 and the store.
 
-The {mod}`earth2studio.io.kv` backend has the option for storing data on the GPU, which
+The `earth2studio.io.kv` backend has the option for storing data on the GPU, which
 can be done asynchronously.
 
 Most stores make a conversion from PyTorch to numpy in this process, and offer several
 additional utilities such as `__contains__`, `__getitem__`, `__len__`, and `__iter__`.
-Refer to the implementation in {mod}`earth2studio.io.ZarrBackend`:
+Refer to the implementation in `earth2studio.io.ZarrBackend`:
 
-```{literalinclude} ../../../earth2studio/io/zarr.py
-    :language: python
-    :start-after: sphinx - io zarr start
-    :end-before: sphinx - io zarr end
+```python
+--8<-- "earth2studio/io/zarr.py:zarr-backend-read"
 ```
 
-Common backends include {class}`earth2studio.io.ZarrBackend`,
-{class}`earth2studio.io.NetCDF4Backend`, and
-{class}`earth2studio.io.AsyncZarrBackend`.
+Common backends include `earth2studio.io.ZarrBackend`,
+`earth2studio.io.NetCDF4Backend`, and
+`earth2studio.io.AsyncZarrBackend`.
 Because of `datetime` compatibility, we recommend using the `ZarrBackend` as a default.
 
 ## Initializing a Store
 
 A common data pattern seen throughout our example workflows is to initialize the
 variables and dimensions of a backend using a complete `CoordSystem`, refer to
-{ref}`data_userguide` for the structure. For example:
+[Data Movement](../about/overview.md#data_userguide) for the structure. For example:
 
 ```python
 # Build a complete CoordSystem
@@ -135,18 +129,18 @@ io.write(x, coords, array_name)
 ```
 
 If, as above, you are extracting a dimension of the tensor to use as array names
-then you can make use of {mod}`earth2studio.utils.coords.split_coords`:
+then you can make use of `earth2studio.utils.coords.split_coords`:
 
 ```python
 io.write(*split_coords(x, coords, dim="variable"))
 ```
 
-For a complete workflow that uses IO backends, refer to {func}`earth2studio.run.deterministic`
+For a complete workflow that uses IO backends, refer to `earth2studio.run.deterministic`
 or the deterministic workflow example in the gallery.
 
 ## Sharding with the Async Zarr Backend
 
-{class}`earth2studio.io.AsyncZarrBackend` writes each forecast step as soon as it is
+`earth2studio.io.AsyncZarrBackend` writes each forecast step as soon as it is
 available, which keeps the GPU from blocking on disk IO. The cost is one file per chunk,
 and because the coordinates listed in `parallel_coords` are chunked with a size of 1,
 a large inference campaign can produce an enormous number of small files. This is a
@@ -221,13 +215,12 @@ size.
 
 ### Multiple processes writing one store
 
-:::{warning}
-A shard must never contain data owned by more than one process. The backend keeps each
-shard object to a single write by buffering its chunks in host memory, but that
-guarantee holds *within* a process only. Separate ranks have separate buffers, so if two
-ranks each hold part of the same shard they will both write that shard in full and the
-later write silently discards the other's data. This is not detected and does not raise.
-:::
+!!! warning
+    A shard must never contain data owned by more than one process. The backend keeps each
+    shard object to a single write by buffering its chunks in host memory, but that
+    guarantee holds *within* a process only. Separate ranks have separate buffers, so if two
+    ranks each hold part of the same shard they will both write that shard in full and the
+    later write silently discards the other's data. This is not detected and does not raise.
 
 The rule is that the set of parallel coordinate indices a rank writes must be a union of
 whole shards. In practice that makes one layout obviously correct and another
@@ -263,3 +256,33 @@ at one rank count and silently lose data at another, so prefer the first layout.
 Separately, and independent of sharding: arrays are created lazily on the first write, so
 several ranks writing a new array at once can race on its creation. Have one rank
 establish the arrays before the others begin writing.
+
+### Writing to cloud object storage
+
+For cloud outputs, pass the `store` parameter instead of `fs_factory`. This routes all
+writes through an [obstore](https://developmentseed.org/obstore/latest/)-backed
+`zarr.storage.ObjectStore`, which uses native put and multipart-upload requests rather
+than fsspec sessions. The parameter accepts a store URL, an obstore store instance, or
+an already constructed zarr store:
+
+```python
+# URL form: credentials resolved from the environment
+io = AsyncZarrBackend(
+    "unused",  # location comes from the store
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    store="s3://my-bucket/forecasts/run-001.zarr",
+    store_kwargs={"region": "us-east-1"},
+)
+
+# Instance form: full control over store construction
+from obstore.store import S3Store
+io = AsyncZarrBackend(
+    "unused",
+    parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
+    store=S3Store("my-bucket", prefix="forecasts/run-001.zarr"),
+)
+```
+
+`file_name` and `fs_factory` are ignored when `store` is set. Everything else —
+non-blocking writes, sharding, restarts — behaves identically; the loop pool shares a
+single store instance, matching the shared state of the remote bucket.

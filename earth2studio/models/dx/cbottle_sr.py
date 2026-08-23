@@ -132,8 +132,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:ds product:wind product:precip product:temp product:atmos
+    region:global class:downscaling product:wind product:precip product:temp product:atmos
     year:2025 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

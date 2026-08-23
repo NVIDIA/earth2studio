@@ -45,7 +45,7 @@ Domain handling:
 import json
 import warnings
 from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -80,6 +80,15 @@ except ImportError:
     cos_zenith_angle = None
 
 
+# Predictor functions take a noisy sample and noise level. An x0 predictor estimates
+# the clean sample; a score predictor gives the direction used by diffusion sampling.
+_X0Predictor = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+_ScorePredictor = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+# This factory lets _denoise combine its x0 predictor and noise scheduler into a
+# guided score predictor, for example one using DPS observation guidance.
+_ScorePredictorFactory = Callable[[_X0Predictor, "EDMNoiseScheduler"], _ScorePredictor]
+
+
 # Fixed background channel layout.
 # The order must match the network's trained channel layout -- do not reorder:
 #   [ ERA5 (z-scored) | sin_lat cos_lat sin_lon cos_lon | elevation_norm
@@ -89,17 +98,15 @@ except ImportError:
 # channels); land_fraction + continentality = identity; sin/cos + cos_zenith = raw.
 POS_VARIABLES = ("sin_lat", "cos_lat", "sin_lon", "cos_lon")
 COS_ZENITH_VARIABLE = "cos_zenith"
-# Downwelling shortwave fluxes: every one of these present in the output must be
-# covered by a solar gate (a dawn/dusk ramp) -- _parse_constraints validates
-# this so a shortwave channel can never be left without night handling.
+# Known downwelling shortwave fluxes. If metadata configures a solar gate for any
+# channel, _parse_constraints requires it to cover every shortwave output. With no
+# solar-gate metadata, all outputs remain ungated.
 SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 
-# COSMO output names -> Earth2Studio names live in ``CosmoLexicon``
-# (earth2studio/lexicon/cosmo.py). It is consumed ONLY at output_coords (internal
-# indexing keeps the interior COSMO names) via ``CosmoLexicon.to_e2studio``, which
-# returns the Earth2Studio name plus a unit scale (e.g. CLCT % -> tcc 0-1 fraction,
-# applied at the end of postprocess). Names with no canonical equivalent fall back
-# to their lowercased COSMO name.
+# CosmoLexicon maps native COSMO output names to public Earth2Studio names and unit
+# scales. Internal indexing keeps the native names; output_coords exposes the public
+# names, and postprocessing applies any unit scale (for example, CLCT percent to tcc
+# fraction). Unknown COSMO names fall back to lowercase with scale 1.
 
 # Supported COSMO-REA variants — "rea6" (~6 km) and "rea2" (~2.2 km). Each is a
 # distinct product with its own native grid, model, invariants, and transforms.
@@ -108,24 +115,16 @@ SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 # here because the native grid ships verbatim in the package.
 SUPPORTED_VARIANTS = ("rea6", "rea2")
 
-# Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
-# ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
-# rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
-# one URI serves all four models.
-DEFAULT_PACKAGE_URI: str = (
-    "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e"
-)
-
 
 def _points_in_grid_footprint(
     plat: np.ndarray, plon: np.ndarray, lat2d: np.ndarray, lon2d: np.ndarray
 ) -> np.ndarray:
     """Whether geographic points fall inside the (curvilinear) grid footprint.
 
-    The native rotated grid is a curved quad in geographic space, so a lat/lon
-    bounding box can poke outside it even while inside its lat/lon extent. This
-    runs a ray-cast point-in-polygon test against the grid's outer boundary ring
-    (the edge-cell centers, so it is conservative by ~half a cell). Assumes the
+    The rotated grid has curved edges in latitude/longitude, so its rectangular
+    bounds include some points outside the actual grid. This checks whether each
+    point lies inside the polygon formed by the boundary-cell centers. Points within
+    about half a cell of the outer edge may therefore be excluded. Assumes the
     footprint does not cross the antimeridian (true for the European domains).
 
     Parameters
@@ -151,9 +150,10 @@ def _points_in_grid_footprint(
     inside = np.zeros(plat.shape, dtype=bool)
     n = ring_lat.size
     j = n - 1
-    # Even-odd (crossing-number) ray cast: toggle `inside` each time the ring
-    # edge i-j straddles the point's latitude and crosses to its left. The
-    # 1e-30 avoids div-by-zero on horizontal edges.
+    # Test whether each point is inside the boundary polygon by counting where a
+    # horizontal ray from it crosses the boundary: an odd number means inside, an
+    # even number means outside. Toggling `inside` records this odd/even result. The
+    # small offset avoids division by zero for horizontal edges.
     for i in range(n):
         yi, yj = ring_lat[i], ring_lat[j]
         xi, xj = ring_lon[i], ring_lon[j]
@@ -248,7 +248,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     surface and model-level (3D) fields -- winds,
     temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
     variables with a canonical Earth2Studio name are relabelled via
-    :class:`~earth2studio.lexicon.CosmoLexicon` and COSMO-specific fields keep a
+    [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
 
@@ -352,7 +352,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:eu class:ds product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
+    region:eu class:downscaling product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -768,6 +769,33 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             for i, th, hw in self._sza_gate:
                 gate = ((cos_z - th + hw) / (2.0 * hw)).clamp(0.0, 1.0)
                 x[:, i] = (x[:, i] * gate).clamp(min=0.0)
+
+    @property
+    def _identity_output_indices(self) -> tuple[int, ...]:
+        """Indices of the trained output channels that use plain linear
+        normalization only -- no value transform and unit scale 1.0.
+
+        These are the channels an observation can be assimilated into directly: the
+        conversion into the model's internal (normalized) units is just
+        ``(obs - center) / scale``, which is only valid for such "plain" channels. A
+        value transform (e.g. log/logit) bends the values non-linearly, and a unit
+        scale != 1.0 (e.g. precip's mm->m) rescales them, so neither can be mapped
+        that way.
+
+        A channel is left out if it has any non-empty entry in ``channel_transforms``
+        -- so a new transform added later is excluded automatically, without updating
+        this list -- or a lexicon unit scale != 1.0. Only the trained
+        ``output_variables`` are considered, so the derived hub-height wind channels
+        (e.g. ``u100m``) are naturally excluded. Postprocess clamps / day-night gates
+        are intentionally ignored here: they run later (postprocessing) and are a
+        separate concern. Consumed by ``CorrDiffCosmoEra5SDA``.
+        """
+        scaled = {i for i, _ in self._output_unit_scale}
+        return tuple(
+            i
+            for i, v in enumerate(self.output_variables)
+            if not self._channel_transforms.get(v) and i not in scaled
+        )
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
@@ -1214,7 +1242,14 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 attn_kwargs={"latent_hw": latent_hw},
             ).float()
 
-    def _denoise(self, background: torch.Tensor, seed: int | None) -> torch.Tensor:
+    def _denoise(
+        self,
+        background: torch.Tensor,
+        seed: int | None,
+        *,
+        score_predictor_factory: _ScorePredictorFactory | None = None,
+        num_steps: int | None = None,
+    ) -> torch.Tensor:
         """One diffusion sample: EDM deterministic sampler over the DiT-RoPE
         conditioned on ``background`` -> [1, n_out, H, W] (normalized space;
         de-normalized + inverse-transformed in postprocess_output, as for the
@@ -1223,6 +1258,15 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         Full-domain single-forward — the DiT's NATTEN neighborhood attention +
         axial RoPE run at any crop size (the resolution is fixed). This is the
         single overridable seam for per-step cross-domain blending.
+
+        The plain path builds the denoiser from the ``x0_predictor`` under the
+        (autocast) inference context. A caller may pass ``score_predictor_factory``
+        -- a ``(x0_predictor, scheduler) -> score_predictor`` factory -- to inject a
+        guided (e.g. DPS) score predictor instead; that path runs under a plain
+        (non-autocast) context, matching the SDA's behaviour (DPS re-enables the
+        gradients it needs internally). ``num_steps`` overrides
+        ``self.number_of_steps`` when given. The defaults preserve the existing DX
+        behaviour; ``CorrDiffCosmoEra5SDA`` passes both overrides.
         """
         if self.diffusion_model is None:
             raise RuntimeError("diffusion_model is not loaded")
@@ -1264,13 +1308,21 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 attn_kwargs={"latent_hw": latent_hw},
             ).double()
 
-        denoiser = scheduler.get_denoiser(x0_predictor=x0_predictor)
-        with self._inference_context():
+        if score_predictor_factory is not None:
+            denoiser = scheduler.get_denoiser(
+                score_predictor=score_predictor_factory(x0_predictor, scheduler)
+            )
+            # guided path: plain (non-autocast) context; DPS re-enables grad itself
+            ctx: AbstractContextManager = nullcontext()
+        else:
+            denoiser = scheduler.get_denoiser(x0_predictor=x0_predictor)
+            ctx = self._inference_context()
+        with ctx:
             out = sample(
                 denoiser,
                 latents.double() * self.sigma_max,
                 scheduler,
-                num_steps=self.number_of_steps,
+                num_steps=num_steps if num_steps is not None else self.number_of_steps,
                 solver=self.solver,
             )
         return out.float()
@@ -1608,8 +1660,12 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         ``load_model(..., mode=, resolution=)`` (or rely on the ``mean``/``rea6``
         defaults through ``from_pretrained``).
         """
+        # Hosted URI for the combined (rea6/ + rea2/) downscaling package, used by
+        # ``load_default_package`` / ``from_pretrained``. The package nests rea6/ and
+        # rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
+        # one URI serves all four models.
         return Package(
-            DEFAULT_PACKAGE_URI,
+            "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cosmo_era5"),
                 # Include the resolution directory to distinguish files with
@@ -1651,6 +1707,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         package to carry a ``wind_levels`` metadata block (else requesting
         ``hub_heights`` raises). See the constructor.
         """
+
         # Validate the selectors up front so a bad value fails with a clear message
         # rather than a cryptic missing-file when resolving "<resolution>/...".
         if resolution not in SUPPORTED_VARIANTS:
