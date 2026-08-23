@@ -794,10 +794,12 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "variable",
     ]
     assert list(frame.columns) == NNJAObsSat.SCHEMA.names
-    assert str(frame["time"].dtype) == "datetime64[ns]"
+    # _rows_to_dataframe delegates to _table_to_dataframe, so every column is
+    # Arrow-backed — same dtype contract as the IR path
+    assert str(frame["time"].dtype) == "timestamp[ns][pyarrow]"
     assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
-    assert frame["lat"].dtype == np.float32
-    assert frame["observation"].dtype == np.float32
+    assert str(frame["lat"].dtype) == "float[pyarrow]"
+    assert str(frame["observation"].dtype) == "float[pyarrow]"
 
 
 @pytest.mark.parametrize(
@@ -1659,9 +1661,9 @@ def test_nnja_ir_batch_tables_concat_to_shared_dtypes():
         pa.Table.from_pylist([_row(714, 250.0)], schema=schema),
         pa.Table.from_pylist([_row(715, 251.0)], schema=schema),
     ]
-    df = ncep_microwave._table_to_dataframe(
-        pa.concat_tables(batch_tables).combine_chunks()
-    )
+    # Chunked on purpose: production hands _table_to_dataframe the
+    # concatenated table without consolidating it
+    df = ncep_microwave._table_to_dataframe(pa.concat_tables(batch_tables))
     assert list(df.columns) == schema.names
     assert len(df) == 2
     assert sorted(df["sensor_index"]) == [714, 715]

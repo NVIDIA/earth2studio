@@ -674,6 +674,7 @@ def _extract_gpsro_subset(
 def empty_dataframe(
     schema: pa.Schema = NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
 ) -> pd.DataFrame:
+    """Return an empty DataFrame with typed columns matching ``schema``."""
     # Build typed empty columns (not object-dtype ``None``) so ``pd.concat`` does
     # not emit "all-NA columns" FutureWarnings when frames from different
     # sub-archives are concatenated.
@@ -1738,14 +1739,18 @@ _IR_QUALITY_DESCRIPTOR: dict[str, int] = {
 
 
 class _NCEPIRSounderDecodeError(RuntimeError):
+    # Raised on the first decode batch containing failures, so
+    # ``failed_messages`` counts that batch only, not the whole file.
     def __init__(self, path: str, failed_messages: int, total_messages: int) -> None:
         self.context: dict[str, object] = {
             "path": path,
-            "decoded_messages": total_messages - failed_messages,
             "failed_messages": failed_messages,
             "total_messages": total_messages,
         }
-        super().__init__(f"Incomplete IR sounder BUFR decode: {self.context}")
+        super().__init__(
+            "Incomplete IR sounder BUFR decode (first failing batch): "
+            f"{self.context}"
+        )
 
 
 def _decode_ir_subset(
@@ -2097,8 +2102,11 @@ def _decode_ir_sounder_chunks(
     """Yield one Arrow table per completed decode batch for ``path``.
 
     Lets callers pipeline decode and downstream work (e.g. concat across
-    cycles) without waiting for all batches to finish.  Raises
-    ``_NCEPIRSounderDecodeError`` after the last yield if any messages failed.
+    cycles) without waiting for all batches to finish.  This body contains no
+    ``yield``, so argument validation and file I/O run eagerly at call time;
+    the returned iterator raises ``_NCEPIRSounderDecodeError`` on the first
+    batch containing failed messages, so a consumer that stops early cannot
+    silently accept a partial decode.
     """
     if sensor not in _IR_OBS_DESCRIPTOR:
         raise ValueError(
@@ -2121,30 +2129,55 @@ def _decode_ir_sounder_chunks(
         (sensor, batch, channels, datetime_min, datetime_max, sat_filter)
         for batch in batches
     ]
+    return _yield_ir_batches(
+        path, arguments, table_b, table_d, len(messages), decode_workers
+    )
 
-    failures = 0
-    if decode_workers > 1 and len(batches) > 1:
+
+def _yield_ir_batches(
+    path: str,
+    arguments: list[
+        tuple[
+            str,
+            list[tuple[int, bytes]],
+            frozenset[int] | None,
+            datetime,
+            datetime,
+            frozenset[str] | None,
+        ]
+    ],
+    table_b: dict[int, tuple[Any, ...]],
+    table_d: dict[int, tuple[Any, ...]],
+    message_count: int,
+    decode_workers: int,
+) -> Iterator[pa.Table]:
+    """Streaming half of ``_decode_ir_sounder_chunks``.
+
+    Raises on the first batch with failures rather than after the last yield,
+    so the completeness contract holds even if the consumer stops early.  The
+    reported failure count covers the first failing batch, not the whole file.
+    """
+    if decode_workers > 1 and len(arguments) > 1:
         with ProcessPoolExecutor(
-            max_workers=min(decode_workers, len(batches)),
+            max_workers=min(decode_workers, len(arguments)),
             initializer=_init_decode_worker,
             initargs=(table_b, table_d),
         ) as pool:
             for batch_table, batch_failures in pool.map(
                 _decode_ir_message_batch, arguments
             ):
+                if batch_failures:
+                    raise _NCEPIRSounderDecodeError(path, batch_failures, message_count)
                 if batch_table.num_rows:
                     yield batch_table
-                failures += batch_failures
     else:
         _init_decode_worker(table_b, table_d)
         for argument in arguments:
             batch_table, batch_failures = _decode_ir_message_batch(argument)
+            if batch_failures:
+                raise _NCEPIRSounderDecodeError(path, batch_failures, message_count)
             if batch_table.num_rows:
                 yield batch_table
-            failures += batch_failures
-
-    if failures:
-        raise _NCEPIRSounderDecodeError(path, failures, len(messages))
 
 
 def decode_ir_sounder(
