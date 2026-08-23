@@ -46,7 +46,8 @@ repos:
       exclude: |
             (?x)^(
                 ^test\/_license\/.*\.py$ |
-                ^test\/_ci\/.*\.py$
+                ^test\/_ci\/.*\.py$ |
+                ^test\/perf\/.*\.py$
             )$
 
 -   repo: https://github.com/asottile/pyupgrade
