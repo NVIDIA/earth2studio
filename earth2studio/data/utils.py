@@ -1453,7 +1453,7 @@ def table_to_dataframe(
         Table to convert. May be chunked; chunks are preserved.
     dict_string_columns : Collection[str], optional
         Names of low-cardinality string columns to dictionary-encode
-        (``dictionary<int8, string>``, at most 127 distinct values) before
+        (``dictionary<int8, string>``, at most 128 distinct values) before
         conversion, cutting per-row string overhead on large frames. Only
         pass columns with few distinct values — encoding a high-cardinality
         column costs memory instead of saving it. Names absent from the

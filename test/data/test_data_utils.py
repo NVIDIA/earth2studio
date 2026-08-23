@@ -1129,3 +1129,39 @@ async def test_local_caching_store_survives_cache_write_error(
 
     # Read still returns the remote data despite the cache write blowing up
     assert await cached.get("c/0/0", proto) is not None
+
+
+@pytest.mark.parametrize("chunked", [False, True])
+def test_table_to_dataframe(chunked):
+    import pyarrow as pa
+
+    from earth2studio.data.utils import table_to_dataframe
+
+    table = pa.table(
+        {
+            "satellite": pa.array(["npp", "npp", "n20"], pa.string()),
+            "station": pa.array(["A1", "B2", "C3"], pa.string()),
+            "lat": pa.array([10.0, 11.0, 12.0], pa.float32()),
+            "count": pa.array([1, 2, 3], pa.uint16()),
+        }
+    )
+    if chunked:
+        table = pa.concat_tables([table, table])
+
+    # Default: every column Arrow-backed, no dictionary encoding
+    df = table_to_dataframe(table)
+    assert str(df["lat"].dtype) == "float[pyarrow]"
+    assert str(df["count"].dtype) == "uint16[pyarrow]"
+    assert str(df["satellite"].dtype) == "string[pyarrow]"
+
+    # Requested string columns are dictionary-encoded with int8 indices;
+    # non-string and absent names are ignored rather than raising
+    df = table_to_dataframe(
+        table, dict_string_columns=("satellite", "lat", "not_a_column")
+    )
+    assert "dictionary" in str(df["satellite"].dtype)
+    assert "int8" in str(df["satellite"].dtype)
+    assert str(df["lat"].dtype) == "float[pyarrow]"
+    assert str(df["station"].dtype) == "string[pyarrow]"
+    assert list(df["satellite"][:3]) == ["npp", "npp", "n20"]
+    assert len(df) == (6 if chunked else 3)
