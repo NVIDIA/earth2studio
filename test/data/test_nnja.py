@@ -1631,38 +1631,35 @@ def test_nnja_ir_decode_failure_raises(monkeypatch, tmp_path):
     assert err.value.context["failed_messages"] == 1
 
 
-def _ir_table_row(sensor_index=714, observation=250.0):
-    # One decoded CrIS long-format row matching NCEP_MICROWAVE_OUTPUT_SCHEMA,
-    # shared by the batch-table tests below
-    return {
-        "time": np.datetime64("2019-01-01T00:00:00", "ns"),
-        "class": "rad",
-        "lat": 10.0,
-        "lon": 240.0,
-        "elev": np.nan,
-        "scan_angle": np.nan,
-        "scan_position": 7,
-        "scan_line": 8,
-        "sensor_index": sensor_index,
-        "wavenumber": 1210.0,
-        "solza": 90.0,
-        "solaza": 100.0,
-        "satellite_za": 50.0,
-        "satellite_aza": 200.0,
-        "quality": None,
-        "satellite": "npp",
-        "observation": observation,
-        "variable": "cris",
-    }
-
-
 def test_nnja_ir_batch_tables_concat_to_shared_dtypes():
     # Workers now return per-batch Arrow tables; this exercises the real
     # concat + conversion path those tables flow through in decode_ir_sounder
+    def _row(sensor_index, observation):
+        return {
+            "time": np.datetime64("2019-01-01T00:00:00", "ns"),
+            "class": "rad",
+            "lat": 10.0,
+            "lon": 240.0,
+            "elev": np.nan,
+            "scan_angle": np.nan,
+            "scan_position": 7,
+            "scan_line": 8,
+            "sensor_index": sensor_index,
+            "wavenumber": 1210.0,
+            "solza": 90.0,
+            "solaza": 100.0,
+            "satellite_za": 50.0,
+            "satellite_aza": 200.0,
+            "quality": None,
+            "satellite": "npp",
+            "observation": observation,
+            "variable": "cris",
+        }
+
     schema = ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
     batch_tables = [
-        pa.Table.from_pylist([_ir_table_row(714, 250.0)], schema=schema),
-        pa.Table.from_pylist([_ir_table_row(715, 251.0)], schema=schema),
+        pa.Table.from_pylist([_row(714, 250.0)], schema=schema),
+        pa.Table.from_pylist([_row(715, 251.0)], schema=schema),
     ]
     # Chunked on purpose: production hands _table_to_dataframe the
     # concatenated table without consolidating it
@@ -1691,8 +1688,28 @@ def test_nnja_ir_decode_sounder_concatenates_batch_tables(monkeypatch, tmp_path)
     )
     monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *a: None)
 
+    row = {
+        "time": np.datetime64("2019-01-01T00:00:00", "ns"),
+        "class": "rad",
+        "lat": 10.0,
+        "lon": 240.0,
+        "elev": np.nan,
+        "scan_angle": np.nan,
+        "scan_position": 7,
+        "scan_line": 8,
+        "sensor_index": 714,
+        "wavenumber": 1210.0,
+        "solza": 90.0,
+        "solaza": 100.0,
+        "satellite_za": 50.0,
+        "satellite_aza": 200.0,
+        "quality": None,
+        "satellite": "npp",
+        "observation": 250.0,
+        "variable": "cris",
+    }
     table = pa.Table.from_pylist(
-        [_ir_table_row()], schema=ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
+        [row], schema=ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
     )
     monkeypatch.setattr(
         ncep_microwave, "_decode_ir_message_batch", lambda argument: (table, 0)

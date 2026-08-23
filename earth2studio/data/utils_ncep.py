@@ -23,7 +23,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -2018,20 +2018,16 @@ def _decode_ir_subset(
     return rows
 
 
-# One IR decode-worker work item: (sensor, indexed messages, channel filter,
-# datetime_min, datetime_max, satellite filter). Pickled across the process
-# boundary, so it must stay a plain tuple.
-_IRBatchArgs: TypeAlias = tuple[
-    str,
-    list[tuple[int, bytes]],
-    frozenset[int] | None,
-    datetime,
-    datetime,
-    frozenset[str] | None,
-]
-
-
-def _decode_ir_message_batch(arguments: _IRBatchArgs) -> tuple[pa.Table, int]:
+def _decode_ir_message_batch(
+    arguments: tuple[
+        str,
+        list[tuple[int, bytes]],
+        frozenset[int] | None,
+        datetime,
+        datetime,
+        frozenset[str] | None,
+    ],
+) -> tuple[pa.Table, int]:
     """Decode one batch of IR messages into a single Arrow table.
 
     Row dicts are converted to Arrow per message and freed immediately, so
@@ -2133,7 +2129,16 @@ def _decode_ir_sounder_chunks(
 
 def _yield_ir_batches(
     path: str,
-    arguments: list[_IRBatchArgs],
+    arguments: list[
+        tuple[
+            str,
+            list[tuple[int, bytes]],
+            frozenset[int] | None,
+            datetime,
+            datetime,
+            frozenset[str] | None,
+        ]
+    ],
     table_b: dict[int, tuple[Any, ...]],
     table_d: dict[int, tuple[Any, ...]],
     message_count: int,
