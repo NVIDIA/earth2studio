@@ -23,14 +23,14 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 from loguru import logger
 
-from earth2studio.data.utils import radiance_to_bt
+from earth2studio.data.utils import radiance_to_bt, table_to_dataframe
 from earth2studio.data.utils_bufr import (
     HDR_DHR,
     HDR_ELV,
@@ -1593,21 +1593,14 @@ def _decode_message_batch(
     return rows, failures
 
 
+# This module's low-cardinality string columns: a handful of platform and
+# sensor names per frame, so int8 dictionary indices always suffice
 _DICT_STRING_COLUMNS = frozenset({"satellite", "variable", "class"})
-_DICT_STRING_TYPE = pa.dictionary(pa.int8(), pa.utf8())
 
 
 def _table_to_dataframe(table: pa.Table) -> pd.DataFrame:
-    # Dictionary-encode low-cardinality string columns before converting so
-    # pandas receives pd.ArrowDtype(dictionary(...)) instead of object dtype.
-    schema = table.schema
-    for col in _DICT_STRING_COLUMNS:
-        if col in schema.names and pa.types.is_string(schema.field(col).type):
-            idx = schema.get_field_index(col)
-            schema = schema.set(idx, schema.field(col).with_type(_DICT_STRING_TYPE))
-    if schema is not table.schema:
-        table = table.cast(schema)
-    return table.to_pandas(types_mapper=pd.ArrowDtype)
+    """Shared Arrow-to-pandas conversion with this module's string policy."""
+    return table_to_dataframe(table, dict_string_columns=_DICT_STRING_COLUMNS)
 
 
 def _rows_to_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
@@ -2025,16 +2018,20 @@ def _decode_ir_subset(
     return rows
 
 
-def _decode_ir_message_batch(
-    arguments: tuple[
-        str,
-        list[tuple[int, bytes]],
-        frozenset[int] | None,
-        datetime,
-        datetime,
-        frozenset[str] | None,
-    ],
-) -> tuple[pa.Table, int]:
+# One IR decode-worker work item: (sensor, indexed messages, channel filter,
+# datetime_min, datetime_max, satellite filter). Pickled across the process
+# boundary, so it must stay a plain tuple.
+_IRBatchArgs: TypeAlias = tuple[
+    str,
+    list[tuple[int, bytes]],
+    frozenset[int] | None,
+    datetime,
+    datetime,
+    frozenset[str] | None,
+]
+
+
+def _decode_ir_message_batch(arguments: _IRBatchArgs) -> tuple[pa.Table, int]:
     """Decode one batch of IR messages into a single Arrow table.
 
     Row dicts are converted to Arrow per message and freed immediately, so
@@ -2136,16 +2133,7 @@ def _decode_ir_sounder_chunks(
 
 def _yield_ir_batches(
     path: str,
-    arguments: list[
-        tuple[
-            str,
-            list[tuple[int, bytes]],
-            frozenset[int] | None,
-            datetime,
-            datetime,
-            frozenset[str] | None,
-        ]
-    ],
+    arguments: list[_IRBatchArgs],
     table_b: dict[int, tuple[Any, ...]],
     table_d: dict[int, tuple[Any, ...]],
     message_count: int,

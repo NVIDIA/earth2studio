@@ -22,7 +22,7 @@ import random
 import tempfile
 import uuid
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -36,6 +36,7 @@ import obspec
 import obstore as obs
 import obstore.store
 import pandas as pd
+import pyarrow as pa
 import torch
 import xarray as xr
 import zarr
@@ -1429,3 +1430,45 @@ def radiance_to_bt(
         bt = t_star
 
     return bt
+
+
+_DICT_STRING_TYPE = pa.dictionary(pa.int8(), pa.utf8())
+
+
+def table_to_dataframe(
+    table: pa.Table,
+    dict_string_columns: Collection[str] = (),
+) -> pd.DataFrame:
+    """Convert an Arrow table to a DataFrame with Arrow-backed dtypes.
+
+    Every column is converted with ``types_mapper=pd.ArrowDtype``, so the
+    returned frame holds the table's buffers directly — chunked columns
+    included, without consolidation — and ``pa.Table.from_pandas`` on the
+    result is zero-copy, letting consumers project, filter, and thin in
+    Arrow despite being handed a DataFrame.
+
+    Parameters
+    ----------
+    table : pa.Table
+        Table to convert. May be chunked; chunks are preserved.
+    dict_string_columns : Collection[str], optional
+        Names of low-cardinality string columns to dictionary-encode
+        (``dictionary<int8, string>``, at most 127 distinct values) before
+        conversion, cutting per-row string overhead on large frames. Only
+        pass columns with few distinct values — encoding a high-cardinality
+        column costs memory instead of saving it. Names absent from the
+        table, or present but not string-typed, are ignored.
+
+    Returns
+    -------
+    pd.DataFrame
+        Frame whose every column is a ``pd.ArrowDtype``.
+    """
+    schema = table.schema
+    for col in dict_string_columns:
+        if col in schema.names and pa.types.is_string(schema.field(col).type):
+            idx = schema.get_field_index(col)
+            schema = schema.set(idx, schema.field(col).with_type(_DICT_STRING_TYPE))
+    if schema is not table.schema:
+        table = table.cast(schema)
+    return table.to_pandas(types_mapper=pd.ArrowDtype)
