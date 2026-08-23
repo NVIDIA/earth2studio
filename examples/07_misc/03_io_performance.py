@@ -394,8 +394,10 @@ print(
 # [Icechunk](https://icechunk.io/) repository, which layers version control on top of a
 # Zarr store: writes accumulate in a transactional session and become durable when
 # committed as an immutable snapshot. This is useful for keeping an auditable history
-# of a store, or safely rolling back a bad run. The API is identical to the
-# `ZarrBackend` with one addition: call `commit` to persist. This requires the
+# of a store, or safely rolling back a bad run. The API matches `ZarrBackend` with
+# one addition: call `commit` to persist. Unlike `ZarrBackend`, `write` is
+# non-blocking by default (`read`/`__getitem__`/`commit` flush pending writes
+# first); pass `blocking=True` to write synchronously instead. This requires the
 # `icechunk` optional dependency, installed with the `data` extra
 # (Python >= 3.12).
 

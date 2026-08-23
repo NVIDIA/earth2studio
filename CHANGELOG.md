@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added `IceChunkBackend` IO backend for writing versioned, transactional
-  output to an Icechunk repository
+  output to an Icechunk repository, with non-blocking writes by default
+  (`blocking=True` to opt back into synchronous writes)
 - `ZarrBackend` (and `IceChunkBackend`) write/read now use basic slice
   indexing for contiguous coordinate subsets, ~7x faster than the previous
   fancy-indexing path on step-by-step forecast writes
