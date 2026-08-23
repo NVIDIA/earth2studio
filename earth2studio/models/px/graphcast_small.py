@@ -39,15 +39,15 @@ try:
     import chex
     import haiku as hk
     import jax
-    from graphcast import (
+    from weathernext.utils import (
         autoregressive,
         casting,
         checkpoint,
         data_utils,
-        graphcast,
         normalization,
         rollout,
     )
+    from weathernext.weathernext1_graph import graphcast
 except ImportError:
     OptionalDependencyFailure("graphcast")
     hk = None
@@ -178,11 +178,14 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    This model and checkpoint are based on the GraphCast architecture from DeepMind.
+    As of July 2026, GraphCast was renamed to WeatherNext 1-Graph in the
+    WeatherNext codebase. This Earth2Studio wrapper keeps the GraphCast name
+    for backwards compatibility.
+
     For more information see the following references:
 
     - https://arxiv.org/abs/2212.12794
-    - https://github.com/google-deepmind/graphcast
+    - https://github.com/google-deepmind/weathernext
     - https://www.science.org/doi/10.1126/science.adi2336
 
     Warning
@@ -208,8 +211,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Badges
     ------
     region:global class:medium-range product:wind product:precip product:temp product:atmos year:2022
-    gpu:40gb
-    provider:google backend:jax
+    gpu:40gb provider:google backend:jax
     """
 
     def __init__(
@@ -262,7 +264,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
         """This function is mostly copied from
-        https://github.com/google-deepmind/graphcast/tree/main
+        https://github.com/google-deepmind/weathernext/tree/main
 
         License info:
 
@@ -353,7 +355,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """This is used to construct the iterator for the prognostic model.
 
         This function is mostly copied from
-        https://github.com/google-deepmind/graphcast/tree/main
+        https://github.com/google-deepmind/weathernext/tree/main
 
         License info:
 

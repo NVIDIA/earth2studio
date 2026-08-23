@@ -414,6 +414,7 @@ plugins:
     examples_dir: examples
     output_dir: examples
     cache_dir: .e2sgallery
+    invalidate_on_lock_change: false
     execute: never
     jobs: 1
     fail_fast: true
@@ -483,7 +484,9 @@ nav:
   - Statistics: modules/statistics.md
   - Utilities: modules/utils_all.md
   - Workflows: modules/workflows.md
-- Examples: examples/index.md
+- Examples:
+  - examples/index.md
+  - Recipes: recipes/index.md
 - Blog:
   - Overview: blog/index.md
   - Posts:
@@ -492,7 +495,6 @@ nav:
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
-- Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

@@ -12,11 +12,11 @@ output: generated/statistics/1
 
 {% autosummary %}
 earth2studio.statistics.acc
-earth2studio.statistics.brier
+earth2studio.statistics.brier_score
 earth2studio.statistics.crps
 earth2studio.statistics.energy_score
 earth2studio.statistics.fss
-earth2studio.statistics.lsd
+earth2studio.statistics.log_spectral_distance
 earth2studio.statistics.mae
 earth2studio.statistics.mean
 earth2studio.statistics.rank_histogram
