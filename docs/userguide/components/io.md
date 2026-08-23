@@ -148,13 +148,6 @@ explicitly committed, producing an immutable, named snapshot that can be
 read back (or rolled back to) later. This is useful for inference campaigns
 where you want a persistent, auditable history of a store's contents.
 
-!!! warning
-    `IceChunkBackend.write` is synchronous and blocks until the write
-    completes, same as `ZarrBackend`. If your inference loop produces steps
-    faster than the store can absorb them, skip straight to
-    [Non-blocking Icechunk writes with the Async Zarr Backend](#non-blocking-icechunk-writes-with-the-async-zarr-backend)
-    below instead of using `IceChunkBackend` directly.
-
 `IceChunkBackend` subclasses `ZarrBackend`, so `add_array`, `write`, `read`,
 and the `__contains__`/`__getitem__`/`__len__`/`__iter__` helpers all behave
 identically. The one addition is `commit`, which must be called to persist
@@ -170,8 +163,9 @@ io = IceChunkBackend("/path/to/repo")
 io.add_array(total_coords, array_name)
 io.write(x, coords, array_name)
 
-# Writes are visible to `io` immediately, but are only persisted to the
-# Icechunk repository once committed
+# Writes are visible through `read`/`__getitem__`/`commit` immediately (each
+# flushes pending writes first), but are only persisted to the Icechunk
+# repository once committed
 io.commit("forecast run 2024-01-01T00Z")
 ```
 
@@ -180,13 +174,20 @@ automatically (from the tip of `"main"`) if it does not already exist. This
 requires the `icechunk` optional dependency, install with `pip install
 earth2studio[data]`.
 
-### Non-blocking Icechunk writes with the Async Zarr Backend
+!!! note
+    `write` is non-blocking by default: it submits the store write to a
+    background thread and returns immediately, so the inference loop can move
+    on to the next step while the previous step's write is still in flight.
+    `read`, `__getitem__` and `commit` all flush pending writes first. Pass
+    `blocking=True` to write synchronously instead.
 
-For workloads where write latency matters, `IceChunkBackend` is not the only
-option: `earth2studio.io.AsyncZarrBackend` accepts any constructed Zarr store
-through its `store` parameter, and an Icechunk session store is a Zarr store.
-This combines Icechunk's transactional snapshots with the async backend's
-non-blocking writes (and sharding):
+### Sharding Icechunk output with the Async Zarr Backend
+
+`IceChunkBackend` covers the common case, but `earth2studio.io.AsyncZarrBackend`
+accepts any constructed Zarr store through its `store` parameter, and an
+Icechunk session store is a Zarr store. Use this composition instead when you
+need Zarr v3 sharding to keep the file count of a large campaign down —
+`IceChunkBackend` does not support sharding:
 
 ```python
 import icechunk

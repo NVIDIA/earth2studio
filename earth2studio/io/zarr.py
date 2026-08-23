@@ -276,7 +276,15 @@ class ZarrBackend:
             if name not in self.root:
                 self.add_array(adjusted_coords, array_name)
 
-            self.root[name][selection] = xi.to("cpu", non_blocking=False).numpy()
+            self._write_array(name, selection, xi.to("cpu", non_blocking=False).numpy())
+
+    def _write_array(self, name: str, selection: tuple, data: np.ndarray) -> None:
+        """Assign `data` into `self.root[name][selection]`.
+
+        Split out from `write` so subclasses can override just the storage step,
+        e.g. to run it asynchronously.
+        """
+        self.root[name][selection] = data
 
     def _selection(self, adjusted_coords: CoordSystem) -> tuple:
         """Build an index selection locating `adjusted_coords` in the store.

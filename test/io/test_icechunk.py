@@ -308,3 +308,64 @@ def test_icechunk_uncommitted_warning() -> None:
         assert not messages
     finally:
         logger.remove(sink_id)
+
+
+def test_icechunk_nonblocking_write_by_default() -> None:
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 8),
+        }
+    )
+    x = torch.randn(1, 8)
+
+    # Default: write() submits to a background thread and returns immediately,
+    # leaving the write pending until a flush point.
+    io = IceChunkBackend()
+    assert io._blocking is False
+    assert io._executor is not None
+    io.add_array(total_coords, "fields")
+    io.write(x, total_coords, "fields")
+    assert len(io._pending) == 1
+
+    # read()/__getitem__/commit() all flush pending writes first
+    xx, _ = io.read(total_coords, "fields")
+    assert torch.allclose(x, xx)
+    assert len(io._pending) == 0
+
+    io.write(x, total_coords, "fields")
+    assert len(io._pending) == 1
+    assert np.allclose(io["fields"][:], x.numpy())
+    assert len(io._pending) == 0
+
+    io.write(x, total_coords, "fields")
+    io.commit("write fields")
+    assert len(io._pending) == 0
+
+    # blocking=True writes synchronously, same as ZarrBackend
+    io_blocking = IceChunkBackend(blocking=True)
+    assert io_blocking._executor is None
+    io_blocking.add_array(total_coords, "fields")
+    io_blocking.write(x, total_coords, "fields")
+    assert io_blocking._pending == []
+    assert np.allclose(io_blocking["fields"][:], x.numpy())
+
+
+def test_icechunk_nonblocking_write_error_surfaces_on_flush() -> None:
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "lat": np.linspace(-90, 90, 8),
+        }
+    )
+    io = IceChunkBackend()
+    io.add_array(total_coords, "fields")
+    io.write(torch.randn(1, 8), total_coords, "fields")
+
+    def _boom() -> None:
+        raise ZeroDivisionError("simulated background write failure")
+
+    io._pending.append(io._executor.submit(_boom))
+
+    with pytest.raises(ZeroDivisionError):
+        io.flush()
