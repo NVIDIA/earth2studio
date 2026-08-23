@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
+  persistent spawn-based process pool (new `decode_workers` parameter,
+  default `"auto"`); each file is decoded once per request window, frames are
+  assembled and time-masked inside the workers, and the fetch falls back to
+  serial decode if the workers cannot start. Output is unchanged; a warm
+  48-hour HealDA fetch decodes ~2x faster serially and further with workers
 - Updated StormCast SDA example to use the `GHCNHourly` data source.
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
