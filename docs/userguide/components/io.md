@@ -148,6 +148,13 @@ explicitly committed, producing an immutable, named snapshot that can be
 read back (or rolled back to) later. This is useful for inference campaigns
 where you want a persistent, auditable history of a store's contents.
 
+!!! warning
+    `IceChunkBackend.write` is synchronous and blocks until the write
+    completes, same as `ZarrBackend`. If your inference loop produces steps
+    faster than the store can absorb them, skip straight to
+    [Non-blocking Icechunk writes with the Async Zarr Backend](#non-blocking-icechunk-writes-with-the-async-zarr-backend)
+    below instead of using `IceChunkBackend` directly.
+
 `IceChunkBackend` subclasses `ZarrBackend`, so `add_array`, `write`, `read`,
 and the `__contains__`/`__getitem__`/`__len__`/`__iter__` helpers all behave
 identically. The one addition is `commit`, which must be called to persist

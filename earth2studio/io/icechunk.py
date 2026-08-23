@@ -46,6 +46,17 @@ class IceChunkBackend(ZarrBackend):
     visible to this backend but are lost if the process exits before committing
     (a warning is logged if the backend is destroyed with pending writes).
 
+    Warning
+    -------
+    ``write`` is synchronous and blocks until the write completes, same as
+    :class:`earth2studio.io.ZarrBackend`. If the inference loop produces steps
+    faster than the underlying store can absorb them, use
+    :class:`earth2studio.io.AsyncZarrBackend` with an Icechunk session's store
+    (``AsyncZarrBackend(store=session.store)``) instead, and call
+    ``session.commit()`` yourself after ``close()``/``flush()``. See
+    "Non-blocking Icechunk writes with the Async Zarr Backend" in the IO
+    user guide.
+
     Parameters
     ----------
     storage : icechunk.Storage | str, optional
