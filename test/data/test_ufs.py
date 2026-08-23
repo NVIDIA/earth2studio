@@ -420,7 +420,7 @@ def test_compile_dataframe_groups_tasks_by_file(monkeypatch, tmp_path):
 
     group_sizes = []
 
-    def fake_decode(cls, local_path, group, column_map, channel_fields, schema):
+    def fake_decode(cls, local_path, group, column_map, channel_fields):
         group_sizes.append(len(group))
         return [
             pd.DataFrame(
@@ -485,9 +485,12 @@ def test_compile_dataframe_broken_pool_falls_back_to_serial(
         def submit(self, *args, **kwargs):
             raise BrokenProcessPool("worker died during bootstrap")
 
+        def shutdown(self, wait=True):
+            pass
+
     monkeypatch.setattr(ds, "_get_decode_pool", lambda: BrokenPool())
 
-    def fake_decode(cls, local_path, group, column_map, channel_fields, schema):
+    def fake_decode(cls, local_path, group, column_map, channel_fields):
         return [
             pd.DataFrame(
                 {

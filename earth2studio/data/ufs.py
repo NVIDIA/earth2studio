@@ -57,7 +57,9 @@ class _GSIAsyncTask:
     datetime_max: datetime
     datetime_min: datetime
     gsi_obs_key: str
-    gsi_modifier: Callable
+    # None when shipped to decode workers (lexicon closures are unpicklable);
+    # the parent applies the real modifier to the returned frames
+    gsi_modifier: Callable | None
     gsi_obs_name: str
     e2s_obs_name: str
     satellite: str | None = None
@@ -92,14 +94,16 @@ def _hours_since_to_datetime(values: np.ndarray, origin: datetime) -> np.ndarray
     return result
 
 
-def _identity_modifier(df: pd.DataFrame) -> pd.DataFrame:
-    """Picklable stand-in for the lexicon modifier closures.
+def _repeated_string_column(value: str, length: int) -> pd.Categorical:
+    """Constant string column as a categorical.
 
-    Tasks sent to decode worker processes carry this no-op instead of the
-    (unpicklable) lexicon modifier; the real modifier is applied in the
-    parent process.
+    Pickles across the process boundary as one string plus a small code
+    array instead of ``length`` object pointers; the parent restores the
+    object dtype after the final concat.
     """
-    return df
+    return pd.Categorical.from_codes(
+        np.zeros(length, dtype=np.int8), categories=[value]
+    )
 
 
 def _decode_gsi_group(
@@ -108,13 +112,13 @@ def _decode_gsi_group(
     tasks: list[_GSIAsyncTask],
     column_map: dict[str, str],
     channel_indexed_fields: dict[str, str],
-    schema: pa.Schema,
 ) -> list[pd.DataFrame]:
     """Decode one cached GSI diag file into one DataFrame per task.
 
     This is the per-process unit of work for parallel decode: it must stay a
     module-level function taking only picklable arguments (in particular, the
-    tasks must not carry lexicon closures).
+    tasks must carry ``gsi_modifier=None`` in place of the unpicklable lexicon
+    closures, which the parent applies to the returned frames).
 
     All tasks in a group share a file and a time window (e.g. ``diag_conv_uv``
     holds both u and v), so the file is decoded once; each task then gets its
@@ -123,6 +127,8 @@ def _decode_gsi_group(
     the per-row work (string broadcasts, boolean masking) parallelizes across
     workers instead of serializing in the parent process.
     """
+    # Grouping guarantees a shared window; datetime_file is also shared because
+    # both it and the cache file derive from the same cycle timestamp
     task0 = tasks[0]
     obs_names = {task.gsi_obs_name for task in tasks}
     wanted = set(column_map) | obs_names
@@ -143,9 +149,8 @@ def _decode_gsi_group(
             if values.dtype.kind == "S" and values.ndim == 2:
                 values = values.view(f"S{values.shape[1]}").ravel()
                 values = np.char.rstrip(np.char.decode(values, "utf-8"), "\x00")
-            # Apply subclass-specific transformations (task-dependence is only
-            # datetime_file, which is shared across the group)
-            raw[name] = cls._transform_column(name, values, task0, ds)
+            # Apply subclass-specific transformations
+            raw[name] = cls._transform_column(name, values, task0.datetime_file)
 
         # Expand channel-indexed fields using Channel_Index as lookup
         if channel_index_raw is not None:
@@ -154,7 +159,7 @@ def _decode_gsi_group(
                 if gsi_name in ds.variables:
                     lut = np.asarray(
                         ds[gsi_name][:],
-                        dtype=schema.field(field_name).type.to_pandas_dtype(),
+                        dtype=cls.SCHEMA.field(field_name).type.to_pandas_dtype(),
                     )
                     raw[gsi_name] = lut[idx]
 
@@ -168,9 +173,9 @@ def _decode_gsi_group(
     if not mask.all():
         raw = {name: values[mask] for name, values in raw.items()}
 
-    # Arrow casts normalize dtypes to the schema (and pd.DataFrame converts
-    # Arrow arrays to numpy-backed columns without copying); cache the casts
-    # shared across tasks in the group
+    # Arrow casts normalize dtypes to the schema (pd.DataFrame then converts
+    # each Arrow array to a numpy-backed column); cache the casts shared
+    # across tasks in the group
     cast_cache: dict[tuple[str, str], pa.Array] = {}
 
     def as_field_array(name: str, target: str) -> pa.Array:
@@ -188,7 +193,7 @@ def _decode_gsi_group(
             if name in raw
         }
         df = pd.DataFrame(data)
-        df["variable"] = task.e2s_obs_name
+        df["variable"] = _repeated_string_column(task.e2s_obs_name, len(df))
         cls._add_task_columns(df, task)
         frames.append(df)
     return frames
@@ -405,8 +410,54 @@ class _UFSObsBase:
             key = (local_path, task.datetime_min, task.datetime_max)
             groups.setdefault(key, []).append((index, task))
 
-        cls = type(self)
         jobs = list(groups.items())
+        decoded = self._decode_groups(jobs, column_map, channel_indexed_fields)
+
+        # Apply lexicon modifiers here (they are unpicklable closures) and
+        # restore the original task order
+        ordered: list[pd.DataFrame | None] = [None] * len(async_tasks)
+        for (_, group), dfs in zip(jobs, decoded):
+            for (index, task), df in zip(group, dfs):
+                ordered[index] = task.gsi_modifier(df) if task.gsi_modifier else df
+        frames = [df for df in ordered if df is not None]
+
+        if not frames:
+            logger.warning(
+                "No observation files were available for this request; "
+                "returning an empty DataFrame."
+            )
+            return schema.empty_table().to_pandas()
+
+        result = pd.concat(frames, ignore_index=True)
+        # Broadcast columns travel from the workers as categoricals (cheap to
+        # pickle); restore the plain object dtype consumers expect. concat
+        # already coerces to object when frames carry different categories.
+        for name in ("variable", "satellite"):
+            if name in result.columns and isinstance(
+                result[name].dtype, pd.CategoricalDtype
+            ):
+                result[name] = result[name].astype(object)
+        result = result[[name for name in schema.names if name in result.columns]]
+        result.attrs["source"] = self.SOURCE_ID
+        return result
+
+    def _decode_groups(
+        self,
+        jobs: list[
+            tuple[tuple[str, datetime, datetime], list[tuple[int, _GSIAsyncTask]]]
+        ],
+        column_map: dict[str, str],
+        channel_indexed_fields: dict[str, str],
+    ) -> list[list[pd.DataFrame]]:
+        """Decode each (file, window) job group, in parallel when configured.
+
+        Falls back to serial decode for the current call if the worker pool
+        breaks (e.g. workers killed during spawn bootstrap by an unguarded
+        ``__main__`` in the calling script); the pool is rebuilt on the next
+        call, so a transient worker crash does not permanently disable
+        parallel decode.
+        """
+        cls = type(self)
 
         def decode_serial() -> list[list[pd.DataFrame]]:
             out: list[list[pd.DataFrame]] = []
@@ -419,78 +470,55 @@ class _UFSObsBase:
                             [task for _, task in group],
                             column_map,
                             channel_indexed_fields,
-                            schema,
                         )
                     )
-                except Exception as exc:  # pragma: no cover - defensive
-                    logger.error("Failed to read {}: {}", local_path, exc)
-                    raise exc
+                except Exception:  # pragma: no cover - defensive
+                    logger.error("Failed to read {}", local_path)
+                    raise
             return out
 
         if min(self._decode_worker_limit(), len(jobs)) <= 1:
-            decoded = decode_serial()
-        else:
-            try:
-                pool = self._get_decode_pool()
-                futures = [
-                    pool.submit(
-                        _decode_gsi_group,
-                        cls,
-                        local_path,
-                        [
-                            replace(task, gsi_modifier=_identity_modifier)
-                            for _, task in group
-                        ],
-                        column_map,
-                        channel_indexed_fields,
-                        schema,
-                    )
-                    for (local_path, _, _), group in jobs
-                ]
-                decoded = []
-                for ((local_path, _, _), group), future in zip(jobs, futures):
-                    try:
-                        decoded.append(future.result())
-                    except BrokenProcessPool:
-                        raise
-                    except Exception as exc:  # pragma: no cover - defensive
-                        logger.error("Failed to read {}: {}", local_path, exc)
-                        raise exc
-            except BrokenProcessPool:
-                # The 'spawn' start method re-imports the caller's __main__, so
-                # a script that invokes the data source at module top level
-                # (without an `if __name__ == "__main__":` guard) kills the
-                # workers during bootstrap. Degrade to serial decode instead of
-                # failing the fetch.
-                logger.warning(
-                    "Decode worker processes died before completing; if the "
-                    "calling script invokes this data source at module top "
-                    'level, wrap the call in an `if __name__ == "__main__":` '
-                    "guard (required by the 'spawn' start method). Falling "
-                    "back to serial decode."
+            return decode_serial()
+        try:
+            pool = self._get_decode_pool()
+            futures = [
+                pool.submit(
+                    _decode_gsi_group,
+                    cls,
+                    local_path,
+                    # Strip the unpicklable lexicon closures; the parent
+                    # applies the real modifiers to the returned frames
+                    [replace(task, gsi_modifier=None) for _, task in group],
+                    column_map,
+                    channel_indexed_fields,
                 )
-                self._decode_pool = None
-                decoded = decode_serial()
-
-        # Apply lexicon modifiers here (they are unpicklable closures) and
-        # restore the original task order
-        ordered: list[pd.DataFrame | None] = [None] * len(async_tasks)
-        for (_, group), dfs in zip(jobs, decoded):
-            for (index, task), df in zip(group, dfs):
-                ordered[index] = task.gsi_modifier(df)
-        frames = [df for df in ordered if df is not None]
-
-        if not frames:
+                for (local_path, _, _), group in jobs
+            ]
+            decoded: list[list[pd.DataFrame]] = []
+            for ((local_path, _, _), _), future in zip(jobs, futures):
+                try:
+                    decoded.append(future.result())
+                except BrokenProcessPool:
+                    raise
+                except Exception:  # pragma: no cover - defensive
+                    logger.error("Failed to read {}", local_path)
+                    raise
+            return decoded
+        except BrokenProcessPool:
+            # The 'spawn' start method re-imports the caller's __main__, so a
+            # script that invokes the data source at module top level (without
+            # an `if __name__ == "__main__":` guard) kills the workers during
+            # bootstrap. Degrade to serial decode instead of failing the fetch.
             logger.warning(
-                "No observation files were available for this request; "
-                "returning an empty DataFrame."
+                "Decode worker processes died before completing; if the "
+                "calling script invokes this data source at module top "
+                'level, wrap the call in an `if __name__ == "__main__":` '
+                "guard (required by the 'spawn' start method). Falling "
+                "back to serial decode."
             )
-            return schema.empty_table().to_pandas()
-
-        result = pd.concat(frames, ignore_index=True)
-        result = result[[name for name in schema.names if name in result.columns]]
-        result.attrs["source"] = self.SOURCE_ID
-        return result
+            pool.shutdown(wait=False)
+            self._decode_pool = None
+            return decode_serial()
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:
         """Build mapping from GSI column names to schema column names."""
@@ -509,8 +537,7 @@ class _UFSObsBase:
         cls,
         name: str,
         values: np.ndarray,
-        task: _GSIAsyncTask,
-        ds: h5netcdf.File,
+        datetime_file: datetime,
     ) -> np.ndarray:
         """Transform column values. Must be implemented by subclasses.
 
@@ -773,13 +800,12 @@ class UFSObsConv(_UFSObsBase):
         cls,
         name: str,
         values: np.ndarray,
-        task: _GSIAsyncTask,
-        ds: h5netcdf.File,
+        datetime_file: datetime,
     ) -> np.ndarray:
         """Transform column values for conventional data."""
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Time":
-            values = _hours_since_to_datetime(values, task.datetime_file)
+            values = _hours_since_to_datetime(values, datetime_file)
         # GSI stores Pressure in hPa (mb), convert to Pa
         elif name == "Pressure":
             values = values * 100.0
@@ -1009,16 +1035,16 @@ class UFSObsSat(_UFSObsBase):
         cls,
         name: str,
         values: np.ndarray,
-        task: _GSIAsyncTask,
-        ds: h5netcdf.File,
+        datetime_file: datetime,
     ) -> np.ndarray:
         """Transform column values for satellite data."""
         # Convert hours offset to timedelta, and add to datetime of file
         if name == "Obs_Time":
-            values = _hours_since_to_datetime(values, task.datetime_file)
+            values = _hours_since_to_datetime(values, datetime_file)
         return values
 
     @classmethod
     def _add_task_columns(cls, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add satellite column."""
-        df["satellite"] = task.satellite
+        if task.satellite is not None:
+            df["satellite"] = _repeated_string_column(task.satellite, len(df))
