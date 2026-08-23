@@ -275,7 +275,7 @@ class _UFSObsBase:
         """Max processes to decode across (before capping by file count)."""
         if self._decode_workers == "auto":
             try:
-                avail = len(os.sched_getaffinity(0))  # CPUs available to process
+                avail = len(os.sched_getaffinity(0))  # type: ignore[attr-defined] # CPUs available to process
             except AttributeError:  # pragma: no cover - platform dependent
                 avail = os.cpu_count() or 1
             return min(_DECODE_WORKERS_CAP, avail)
