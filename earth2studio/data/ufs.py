@@ -25,6 +25,7 @@ import shutil
 import uuid
 import weakref
 from collections.abc import Callable
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Literal
@@ -406,11 +407,12 @@ class _UFSObsBase:
 
         cls = type(self)
         jobs = list(groups.items())
-        decoded: list[list[pd.DataFrame]] = []
-        if min(self._decode_worker_limit(), len(jobs)) <= 1:
+
+        def decode_serial() -> list[list[pd.DataFrame]]:
+            out: list[list[pd.DataFrame]] = []
             for (local_path, _, _), group in jobs:
                 try:
-                    decoded.append(
+                    out.append(
                         _decode_gsi_group(
                             cls,
                             local_path,
@@ -423,29 +425,52 @@ class _UFSObsBase:
                 except Exception as exc:  # pragma: no cover - defensive
                     logger.error("Failed to read {}: {}", local_path, exc)
                     raise exc
+            return out
+
+        if min(self._decode_worker_limit(), len(jobs)) <= 1:
+            decoded = decode_serial()
         else:
-            pool = self._get_decode_pool()
-            futures = [
-                pool.submit(
-                    _decode_gsi_group,
-                    cls,
-                    local_path,
-                    [
-                        replace(task, gsi_modifier=_identity_modifier)
-                        for _, task in group
-                    ],
-                    column_map,
-                    channel_indexed_fields,
-                    schema,
+            try:
+                pool = self._get_decode_pool()
+                futures = [
+                    pool.submit(
+                        _decode_gsi_group,
+                        cls,
+                        local_path,
+                        [
+                            replace(task, gsi_modifier=_identity_modifier)
+                            for _, task in group
+                        ],
+                        column_map,
+                        channel_indexed_fields,
+                        schema,
+                    )
+                    for (local_path, _, _), group in jobs
+                ]
+                decoded = []
+                for ((local_path, _, _), group), future in zip(jobs, futures):
+                    try:
+                        decoded.append(future.result())
+                    except BrokenProcessPool:
+                        raise
+                    except Exception as exc:  # pragma: no cover - defensive
+                        logger.error("Failed to read {}: {}", local_path, exc)
+                        raise exc
+            except BrokenProcessPool:
+                # The 'spawn' start method re-imports the caller's __main__, so
+                # a script that invokes the data source at module top level
+                # (without an `if __name__ == "__main__":` guard) kills the
+                # workers during bootstrap. Degrade to serial decode instead of
+                # failing the fetch.
+                logger.warning(
+                    "Decode worker processes died before completing; if the "
+                    "calling script invokes this data source at module top "
+                    'level, wrap the call in an `if __name__ == "__main__":` '
+                    "guard (required by the 'spawn' start method). Falling "
+                    "back to serial decode."
                 )
-                for (local_path, _, _), group in jobs
-            ]
-            for ((local_path, _, _), group), future in zip(jobs, futures):
-                try:
-                    decoded.append(future.result())
-                except Exception as exc:  # pragma: no cover - defensive
-                    logger.error("Failed to read {}: {}", local_path, exc)
-                    raise exc
+                self._decode_pool = None
+                decoded = decode_serial()
 
         # Apply lexicon modifiers here (they are unpicklable closures) and
         # restore the original task order

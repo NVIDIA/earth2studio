@@ -441,3 +441,69 @@ def test_compile_dataframe_groups_tasks_by_file(monkeypatch, tmp_path):
     assert group_sizes == [2]  # one decode call served both tasks
     assert list(df["variable"]) == ["u", "v"]
     assert df.attrs["source"] == ds.SOURCE_ID
+
+
+def test_compile_dataframe_broken_pool_falls_back_to_serial(
+    monkeypatch, tmp_path, caplog
+):
+    """If decode workers die during bootstrap (e.g. an unguarded __main__
+    with the spawn start method), the fetch must degrade to serial decode
+    with a warning instead of raising."""
+    from concurrent.futures.process import BrokenProcessPool
+
+    import earth2studio.data.ufs as ufs_module
+
+    ds = UFSObsConv(cache=False, verbose=False, decode_workers=4)
+    schema = ds.resolve_fields(["time", "lat", "lon", "observation", "variable"])
+
+    fake_file = tmp_path / "diag_conv_t.nc4"
+    fake_file.touch()
+    monkeypatch.setattr(ds, "cache_path", lambda key: str(fake_file))
+
+    t0 = datetime(2024, 1, 1)
+    task = ufs_module._GSIAsyncTask(
+        datetime_file=t0,
+        datetime_min=t0 - timedelta(hours=1),
+        datetime_max=t0 + timedelta(hours=1),
+        gsi_obs_key="key",
+        gsi_modifier=lambda df: df,
+        gsi_obs_name="t_Observation",
+        e2s_obs_name="t",
+    )
+    # Two tasks in distinct groups so the parallel path is taken
+    task2 = ufs_module._GSIAsyncTask(
+        datetime_file=t0,
+        datetime_min=t0 - timedelta(hours=2),
+        datetime_max=t0 + timedelta(hours=2),
+        gsi_obs_key="key2",
+        gsi_modifier=lambda df: df,
+        gsi_obs_name="t_Observation",
+        e2s_obs_name="t",
+    )
+
+    class BrokenPool:
+        def submit(self, *args, **kwargs):
+            raise BrokenProcessPool("worker died during bootstrap")
+
+    monkeypatch.setattr(ds, "_get_decode_pool", lambda: BrokenPool())
+
+    def fake_decode(cls, local_path, group, column_map, channel_fields, schema):
+        return [
+            pd.DataFrame(
+                {
+                    "time": [t0],
+                    "lat": [0.0],
+                    "lon": [0.0],
+                    "observation": [1.0],
+                    "variable": [t.e2s_obs_name],
+                }
+            )
+            for t in group
+        ]
+
+    monkeypatch.setattr(ufs_module, "_decode_gsi_group", fake_decode)
+
+    df = ds._compile_dataframe([task, task2], ["t"], schema)
+    assert len(df) == 2
+    assert ds._decode_pool is None
+    assert "Falling back to serial decode" in caplog.text
