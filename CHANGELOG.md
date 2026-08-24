@@ -32,10 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
+- Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
+  conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
+  optional dictionary encoding of low-cardinality string columns
 
 ### Changed
 
 - Updated StormCast SDA example to use the `GHCNHourly` data source.
+- Vectorized the `NNJAObsSat` IR sounder decode (one NumPy pass per footprint
+  instead of per-channel operations; IASI ~7.8x, CrIS ~5.8x faster) and moved
+  decode workers to per-batch Arrow tables instead of pickled row dicts
+  (~6.2x less accumulation memory, near-zero cross-process serialization cost)
+- `NNJAObsSat` output DataFrames now use Arrow-backed dtypes for every column
+  across both microwave and IR sensors: floats as `float[pyarrow]`/
+  `double[pyarrow]`, times as `timestamp[ns][pyarrow]`, and the `satellite`,
+  `variable`, and `class` string columns dictionary-encoded
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
 - Migrated GOES data source from s3fs to obstore; hour-directory listings are
