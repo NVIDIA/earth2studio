@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import json
+import os
 from collections.abc import Generator, Iterator
 
 import numpy as np
@@ -458,6 +459,13 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Atlas model but described directly in the CRPS config's `package.autoencoders`
         entry, so it is loaded from the same package rather than a separate one.
         """
+        if os.environ.get("TORCH_ALLOW_TF32_CUBLAS_OVERRIDE") != "1":
+            logger.warning(
+                "AtlasCRPS inference expects TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1 for "
+                "best performance. Set this environment variable before starting "
+                "Python, as documented in the AtlasCRPS API docs."
+            )
+
         # Resolve the package-root config.json so HuggingFace records the download
         # (its content is not used here); tolerate its absence.
         try:
