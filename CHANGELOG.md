@@ -67,6 +67,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated Planetary Computer data sources from `planetary_computer.sign()` +
+  httpx streaming to obstore `AzureStore` with the
+  `PlanetaryComputerCredentialProvider`, which fetches and renews SAS tokens
+  automatically; the `planetary-computer` and `httpx` packages are no longer
+  required by the data extra
+- `PlanetaryComputerECMWFOpenDataIFS` now downloads only the GRIB messages for
+  the requested variables via byte ranges resolved from the item's GRIB index
+  asset (~6x faster and ~25-180x less transfer than the previous whole-file
+  download, depending on variable count), falling back to whole-file when an
+  item has no index asset
+- `obstore_fetch_to_cache` gained an opt-in `atomic` mode that publishes cache
+  files via temp file + rename, so interrupted or concurrent downloads cannot
+  leave a partial file as a poisoned cache entry; used by the Planetary
+  Computer sources' fetches. Off by default, leaving the other
+  obstore-migrated data sources' cache writes unchanged.
 - Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
   station-scale requests now fetch per-station parquet files instead of
   global by_year partitions (~25x faster), and their default

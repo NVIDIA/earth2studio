@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import random
 import tempfile
@@ -613,6 +614,7 @@ async def async_retry(
     backoff: float = 1.0,
     task_timeout: float | None = None,
     exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
+    no_retry: tuple[type[BaseException], ...] = (),
     **kwargs: Any,
 ) -> Any:
     """Retry an async callable with exponential backoff and jitter.
@@ -633,6 +635,11 @@ async def async_retry(
         Exception types to catch and retry on. Should be scoped to transient
         I/O errors (OSError, IOError, TimeoutError, ConnectionError), not
         broad Exception which would mask programming errors.
+    no_retry : tuple, optional
+        Exception types to re-raise immediately even when they subclass an
+        entry in ``exceptions``, for permanent failures that would otherwise
+        be retried uselessly (e.g. FileNotFoundError under OSError), by
+        default ()
     **kwargs : Any
         Keyword arguments for coro_func
 
@@ -662,6 +669,9 @@ async def async_retry(
             last_exc = asyncio.TimeoutError(
                 f"Attempt {attempt + 1}/{retries + 1} timed out after {task_timeout}s"
             )
+        except no_retry:
+            # Permanent failures: retrying cannot succeed
+            raise
         except exceptions as e:
             last_exc = e
         if attempt < retries:
@@ -1058,6 +1068,34 @@ async def obstore_read_range(
     return bytes(data)
 
 
+def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
+    """Writes bytes to a file atomically via a same-directory temp file.
+
+    Readers never observe a partially written file: content is written to a
+    unique temporary file in the destination directory and published with an
+    atomic ``os.replace``. Concurrent writers of the same path are safe (the
+    last writer wins with complete content), and interrupted writes leave the
+    destination untouched.
+
+    Parameters
+    ----------
+    path : str | os.PathLike
+        Destination file path
+    data : bytes
+        Content to write
+    """
+    path = os.fspath(path)
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path) or ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as file:
+            file.write(data)
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
+
+
 # Defaults for chunked whole-object reads. 1 MiB chunks with 8 in flight
 # measured ~5x faster and far less variable than a single whole-object GET on
 # tens-of-MB S3 objects (2--8 MiB chunks yield too few concurrent streams).
@@ -1138,6 +1176,7 @@ async def obstore_fetch_to_cache(
     byte_length: int | None = None,
     cache_key: str | None = None,
     chunked: bool = False,
+    atomic: bool = False,
 ) -> str:
     """Fetches a byte range of an object into a local cache file.
 
@@ -1165,6 +1204,12 @@ async def obstore_fetch_to_cache(
         Fetch the object as concurrent byte-range chunks via
         :func:`obstore_read_chunked`. Only valid for whole-object fetches
         (``byte_offset == 0`` and ``byte_length is None``), by default False
+    atomic : bool, optional
+        Publish the cache file atomically (same-directory temp file +
+        ``os.replace``) so an interrupted or concurrent fetch of the same
+        object can never leave a partial file behind as a poisoned cache
+        entry. Intended for callers whose cache entries are plausibly written
+        by several processes at once, by default False
 
     Returns
     -------
@@ -1184,7 +1229,10 @@ async def obstore_fetch_to_cache(
         data = await obstore_read_range(
             store, key, byte_offset=byte_offset, byte_length=byte_length
         )
-    await asyncio.to_thread(Path(cache_path).write_bytes, data)
+    if atomic:
+        await asyncio.to_thread(atomic_write_bytes, cache_path, data)
+    else:
+        await asyncio.to_thread(Path(cache_path).write_bytes, data)
     return cache_path
 
 
