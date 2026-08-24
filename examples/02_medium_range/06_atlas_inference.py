@@ -115,15 +115,19 @@ io = ZarrBackend()
 # %%
 # Manual Forward Pass
 # -------------------
-# For more control over the inference loop, Atlas-CRPS can be called directly using
-# [`earth2studio.data.utils.fetch_data`][earth2studio.data.utils.fetch_data] for initial conditions and
-# [`earth2studio.models.px.AtlasCRPS.prep_next_input`][earth2studio.models.px.AtlasCRPS.prep_next_input] to advance the
-# sliding window between steps. This is useful when you need access to intermediate tensors
-# or want to customize the rollout logic.
+# For more control over a *single* forecast step, Atlas-CRPS can be called directly
+# using [`earth2studio.data.utils.fetch_data`][earth2studio.data.utils.fetch_data] for
+# initial conditions. This is useful when you need access to intermediate tensors or
+# want to inspect the raw model output before any further rollout.
 #
-# !!! note
-#     For autoregressive rollouts longer than one step, prefer
-#     ``create_iterator`` which correctly manages the internal latent state.
+# !!! warning
+#     Do not chain repeated `__call__` + `prep_next_input` calls to perform a
+#     multi-step rollout. Atlas-CRPS keeps an internal low-resolution latent state
+#     that is only carried forward correctly by `create_iterator`; a direct `__call__`
+#     always recomputes that latent state from the high-resolution history instead of
+#     reusing the previous step's prediction, so chaining it across multiple steps is
+#     scientifically invalid and will silently diverge from the real model rollout.
+#     Use `create_iterator` (below) for any rollout longer than one step.
 
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -147,13 +151,10 @@ x = x.unsqueeze(0)
 coords["batch"] = np.arange(1)
 coords.move_to_end("batch", last=False)
 
-# Run two forward steps manually
-n_manual_steps = 2
-for step in range(n_manual_steps):
-    y, y_coords = model(x, coords)
-    lead_hrs = y_coords["lead_time"][0] / np.timedelta64(1, "h")
-    print(f"Step {step + 1}: lead_time = {lead_hrs:.0f}h, shape = {y.shape}")
-    x, coords = model.prep_next_input(y, y_coords, x, coords)
+# Single manual forward step (see warning above for why this must not be chained)
+y, y_coords = model(x, coords)
+lead_hrs = y_coords["lead_time"][0] / np.timedelta64(1, "h")
+print(f"Manual step: lead_time = {lead_hrs:.0f}h, shape = {y.shape}")
 
 
 # %%
