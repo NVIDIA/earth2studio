@@ -72,7 +72,5 @@ RUN uv venv --python="${PYTHON_VERSION}" \
 
 RUN rm -rf .venv earth2studio pyproject.toml uv.lock README.md
 
-# GitHub Actions runs container steps with bash, which automatically sources
-# BASH_ENV before each step. This exposes the version captured above without
-# inspecting or activating the warmed uv cache during CI.
+# Expose the cached Torch version to GitHub Actions bash steps via BASH_ENV.
 ENV BASH_ENV=/opt/earth2studio-ci-env
