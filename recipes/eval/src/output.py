@@ -352,10 +352,22 @@ class OutputManager:
         If provided, overrides ``output.overwrite`` from config.
     resume : bool | None
         If provided, overrides the top-level ``resume`` from config.
+    chunks : dict[str, int] | None
+        If provided, overrides ``output.chunks`` from config.  Used by
+        stores whose natural chunking differs from the forecast store's
+        (e.g. the online-scoring statistics store, which is small enough
+        to keep a whole IC trajectory in one chunk).
     shard_coords : dict[str, int] | None
         If provided, overrides ``output.shard_coords`` from config.  Pass an
         empty dict for stores that sharding cannot help, such as the
         single-``lead_time`` predownload stores.
+    io_backend : str | None
+        If provided, overrides ``output.io_backend`` from config (``"zarr"``
+        or ``"async_zarr"``).  Used by stores that manage their own zarr
+        arrays directly against the synchronous backend API — the
+        online-scoring statistics store (see ``add_stats_arrays`` in
+        ``src/online.py``) — rather than through :meth:`add_array`, since
+        that low-level access has no async-safe equivalent today.
     """
 
     def __init__(
@@ -364,7 +376,9 @@ class OutputManager:
         store_name: str = "forecast.zarr",
         overwrite: bool | None = None,
         resume: bool | None = None,
+        chunks: dict[str, int] | None = None,
         shard_coords: dict[str, int] | None = None,
+        io_backend: str | None = None,
     ) -> None:
         output_cfg = cfg.output
         self._dist = DistributedManager()
@@ -376,10 +390,15 @@ class OutputManager:
         self._resume = resume if resume is not None else cfg.get("resume", False)
         self._thread_io = output_cfg.get("thread_writers", 0)
         self._chunks: dict[str, int] = dict(
-            output_cfg.get("chunks", {"time": 1, "lead_time": 1})
+            chunks
+            if chunks is not None
+            else output_cfg.get("chunks", {"time": 1, "lead_time": 1})
         )
 
-        self._backend = str(output_cfg.get("io_backend", "async_zarr"))
+        if io_backend is not None:
+            self._backend = str(io_backend)
+        else:
+            self._backend = str(output_cfg.get("io_backend", "async_zarr"))
         if self._backend not in ("zarr", "async_zarr"):
             raise ValueError(
                 f"output.io_backend must be 'zarr' or 'async_zarr', "

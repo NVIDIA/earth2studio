@@ -97,4 +97,5 @@ At the minimum we expect the model to abide by the defined interface and meet
 the requirements set forth in our contribution guide. Typically, you are expected
 to provide the weights of the model in a downloadable location that can be fetched.
 
-Open an issue when you have an initial implementation you would like us to review.
+[Open an issue](https://github.com/NVIDIA/earth2studio/issues) when you have an initial
+implementation you would like us to review.
