@@ -94,18 +94,6 @@ def _hours_since_to_datetime(values: np.ndarray, origin: datetime) -> np.ndarray
     return result
 
 
-def _repeated_string_column(value: str, length: int) -> pd.Categorical:
-    """Constant string column as a categorical.
-
-    Pickles across the process boundary as one string plus a small code
-    array instead of ``length`` object pointers; the parent restores the
-    object dtype after the final concat.
-    """
-    return pd.Categorical.from_codes(
-        np.zeros(length, dtype=np.int8), categories=[value]
-    )
-
-
 def _decode_gsi_group(
     cls: type[_UFSObsBase],
     local_path: str,
@@ -193,7 +181,7 @@ def _decode_gsi_group(
             if name in raw
         }
         df = pd.DataFrame(data)
-        df["variable"] = _repeated_string_column(task.e2s_obs_name, len(df))
+        df["variable"] = task.e2s_obs_name
         cls._add_task_columns(df, task)
         frames.append(df)
     return frames
@@ -429,14 +417,6 @@ class _UFSObsBase:
             return schema.empty_table().to_pandas()
 
         result = pd.concat(frames, ignore_index=True)
-        # Broadcast columns travel from the workers as categoricals (cheap to
-        # pickle); restore the plain object dtype consumers expect. concat
-        # already coerces to object when frames carry different categories.
-        for name in ("variable", "satellite"):
-            if name in result.columns and isinstance(
-                result[name].dtype, pd.CategoricalDtype
-            ):
-                result[name] = result[name].astype(object)
         result = result[[name for name in schema.names if name in result.columns]]
         result.attrs["source"] = self.SOURCE_ID
         return result
@@ -1047,4 +1027,4 @@ class UFSObsSat(_UFSObsBase):
     def _add_task_columns(cls, df: pd.DataFrame, task: _GSIAsyncTask) -> None:
         """Add satellite column."""
         if task.satellite is not None:
-            df["satellite"] = _repeated_string_column(task.satellite, len(df))
+            df["satellite"] = task.satellite
