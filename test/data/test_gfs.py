@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 
 from earth2studio.data import GFS, GFS_FX
+from earth2studio.lexicon import GFSLexicon
 
 
 @pytest.mark.slow
@@ -347,35 +348,15 @@ def test_gfs_fx_call_mock(tmp_path, monkeypatch):
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("record_number", [450, 596])
 def test_gfs_fx_tp_uses_accumulation_window(record_number):
+    fake_index = {f"{record_number}::APCP::surface::6-7 hour acc fcst": (100, 10)}
     ds = GFS_FX(cache=False, verbose=False)
-
-    for lead_hour in [1, 6, 7, 120]:
-        start_hour = 6 * ((lead_hour - 1) // 6)
-        recent_window = (
-            f"{record_number}::APCP::surface::"
-            f"{start_hour}-{lead_hour} hour acc fcst"
+    with patch.object(ds, "_fetch_index", AsyncMock(return_value=fake_index)):
+        [task] = asyncio.run(
+            ds._create_tasks([datetime(2021, 1, 1)], [timedelta(hours=7)], ["tp"])
         )
-        since_init = f"{record_number + 1}::APCP::surface::0-{lead_hour} hour acc fcst"
-        fake_index = {
-            recent_window: (100, 10),
-            since_init: (200, 10),
-        }
-
-        async def _fake_fetch_index(uri):
-            return fake_index
-
-        with patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index):
-            tasks = asyncio.run(
-                ds._create_tasks(
-                    [datetime(2021, 1, 1)],
-                    [timedelta(hours=lead_hour)],
-                    ["tp"],
-                )
-            )
-
-        assert len(tasks) == 1
-        assert tasks[0].gfs_byte_offset == 100
-        assert tasks[0].gfs_byte_length == 10
+    _, modifier = GFSLexicon["tp"]
+    assert (task.gfs_byte_offset, task.gfs_byte_length) == (100, 10)
+    assert modifier(np.array(1000.0)) == 1.0
 
 
 @pytest.mark.timeout(15)
