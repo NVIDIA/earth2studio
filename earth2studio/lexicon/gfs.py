@@ -49,7 +49,7 @@ class GFSLexicon(metaclass=LexiconType):
         "sp": "PRES::surface",
         "msl": "PRMSL::mean sea level",
         "tcwv": "PWAT::entire atmosphere (considered as a single layer)",
-        "tp": "596::APCP::surface",  # 3 hour acc
+        "tp": "APCP::surface",
         "2d": "DPT::2 m above ground",
         "fg10m": "GUST::surface",  # Surface
         "refc": "REFC::entire atmosphere",

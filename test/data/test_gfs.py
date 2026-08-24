@@ -242,9 +242,9 @@ def test_gfs_index_parser(tmp_path):
 
     # Last record is dropped (no next line to compute its length from)
     assert len(table) == 3
-    assert table["1::PRMSL::mean sea level"] == (0, 65300)
-    assert table["2::HGT::500 mb"] == (65300, 96515 - 65300)
-    assert table["3::TMP::2 m above ground"] == (96515, 147274 - 96515)
+    assert table["1::PRMSL::mean sea level::anl"] == (0, 65300)
+    assert table["2::HGT::500 mb::anl"] == (65300, 96515 - 65300)
+    assert table["3::TMP::2 m above ground::anl"] == (96515, 147274 - 96515)
 
 
 @pytest.mark.timeout(10)
@@ -342,6 +342,40 @@ def test_gfs_fx_call_mock(tmp_path, monkeypatch):
     for j in range(2):
         np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("record_number", [450, 596])
+def test_gfs_fx_tp_uses_accumulation_window(record_number):
+    ds = GFS_FX(cache=False, verbose=False)
+
+    for lead_hour in [1, 6, 7, 120]:
+        start_hour = 6 * ((lead_hour - 1) // 6)
+        recent_window = (
+            f"{record_number}::APCP::surface::"
+            f"{start_hour}-{lead_hour} hour acc fcst"
+        )
+        since_init = f"{record_number + 1}::APCP::surface::0-{lead_hour} hour acc fcst"
+        fake_index = {
+            recent_window: (100, 10),
+            since_init: (200, 10),
+        }
+
+        async def _fake_fetch_index(uri):
+            return fake_index
+
+        with patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index):
+            tasks = asyncio.run(
+                ds._create_tasks(
+                    [datetime(2021, 1, 1)],
+                    [timedelta(hours=lead_hour)],
+                    ["tp"],
+                )
+            )
+
+        assert len(tasks) == 1
+        assert tasks[0].gfs_byte_offset == 100
+        assert tasks[0].gfs_byte_length == 10
 
 
 @pytest.mark.timeout(15)

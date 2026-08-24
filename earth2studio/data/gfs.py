@@ -314,6 +314,14 @@ class GFS:
                             """Modify data (if necessary)."""
                             return x
 
+                    lead_hour = int(lt.total_seconds() // 3600)
+                    if v == "tp" and lead_hour > 0:
+                        # GFS restarts precipitation accumulation every six hours. For
+                        # leads 1-6, duplicate descriptions resolve to the first (recent
+                        # accumulation window) record in the index.
+                        start_hour = 6 * ((lead_hour - 1) // 6)
+                        gfs_name = f"{gfs_name}::{start_hour}-{lead_hour} hour acc fcst"
+
                     byte_offset = None
                     byte_length = None
                     for key, value in index_file.items():
@@ -446,7 +454,7 @@ class GFS:
             nlsplit = index_lines[i + 1].split(":")
             byte_length = int(nlsplit[1]) - int(lsplit[1])
             byte_offset = int(lsplit[1])
-            key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}"
+            key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}::{lsplit[5]}"
             if byte_length > self.MAX_BYTE_SIZE:
                 raise ValueError(
                     f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
