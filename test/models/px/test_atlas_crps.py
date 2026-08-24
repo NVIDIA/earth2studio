@@ -23,7 +23,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AtlasCRPS
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
 
 
 class PhooAtlasCRPSModel(torch.nn.Module):
@@ -307,6 +307,53 @@ def test_atlas_crps_prep_next_input(atlas_crps_test_components, batch_size, devi
     assert np.array_equal(coords_next["lon"], coords["lon"])
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, device):
+    """Test prep_next_input with ensemble dimension."""
+    p = AtlasCRPS(**atlas_crps_test_components).to(device)
+
+    # Create input data with ensemble dimension
+    ensemble_size = 3
+    batch_size = 2
+    time_steps = 2
+    n_vars = 75
+    lat = 721
+    lon = 1440
+
+    # Input state at t-6h and t=0 with ensemble
+    x = torch.randn(
+        ensemble_size, batch_size, 1, time_steps, n_vars, lat, lon, device=device
+    )
+    coords = p.input_coords()
+    coords.update({"ensemble": np.arange(ensemble_size)})
+    coords.move_to_end("ensemble", last=False)
+    coords["batch"] = np.arange(batch_size)
+    coords["time"] = np.array([np.datetime64("2020-01-01T00:00")] * batch_size)
+
+    # Prediction at t+6h
+    x_pred = torch.randn(
+        ensemble_size, batch_size, 1, 1, n_vars, lat, lon, device=device
+    )
+    coords_pred = p.output_coords(coords)
+    coords_pred.update({"ensemble": coords["ensemble"]})
+    coords_pred.move_to_end("ensemble", last=False)
+    coords_pred["batch"] = coords["batch"]
+    coords_pred["time"] = coords["time"]
+
+    # Call prep_next_input
+    x_next, coords_next = p.prep_next_input(x_pred, coords_pred, x, coords)
+
+    # Check shapes
+    assert x_next.shape == x.shape
+
+    # Check that sliding window works correctly with ensemble dimension
+    assert torch.allclose(x_next[:, :, :, -1:], x_pred[:, :, :, :1])
+    assert torch.allclose(x_next[:, :, :, :-1], x[:, :, :, 1:])
+
+    # Check ensemble coordinate is preserved
+    assert np.array_equal(coords_next["ensemble"], coords["ensemble"])
+
+
 def test_atlas_crps_input_coords(atlas_crps_test_components):
     """Test that input_coords returns expected coordinate system."""
     p = AtlasCRPS(**atlas_crps_test_components)
@@ -363,3 +410,47 @@ def test_atlas_crps_output_coords(atlas_crps_test_components):
     # Check spatial dimensions match input
     assert len(output_coords["lat"]) == len(input_coords["lat"])
     assert len(output_coords["lon"]) == len(input_coords["lon"])
+
+
+@pytest.mark.package
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_atlas_crps_package(device):
+    """Test that AtlasCRPS loads from package and runs a forward pass."""
+    torch.cuda.empty_cache()
+
+    model = AtlasCRPS.load_model(AtlasCRPS.load_default_package()).to(device)
+
+    batch_size = 1
+    time = np.array([np.datetime64("2020-01-01T00:00")])
+    input_coords = model.input_coords()
+    lead_time = input_coords["lead_time"]
+    variable = input_coords["variable"]
+    lat = len(input_coords["lat"])
+    lon = len(input_coords["lon"])
+
+    x = torch.randn(
+        batch_size,
+        len(time),
+        len(lead_time),
+        len(variable),
+        lat,
+        lon,
+        device=device,
+    )
+
+    input_coords["batch"] = np.arange(batch_size)
+    input_coords["time"] = time
+
+    output, output_coords = model(x, input_coords)
+    expected_coords = model.output_coords(input_coords)
+
+    assert output.shape == (
+        batch_size,
+        len(time),
+        len(expected_coords["lead_time"]),
+        len(variable),
+        lat,
+        lon,
+    )
+    for key in expected_coords:
+        handshake_coords(output_coords, expected_coords, key)

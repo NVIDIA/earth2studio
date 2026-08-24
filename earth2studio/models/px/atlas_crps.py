@@ -22,13 +22,12 @@ import torch
 import torch.nn as nn
 from loguru import logger
 
-from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.models.auto.package import Package
+from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.atlas import VARIABLES, Atlas, npdt64_to_naive_utc
+from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -435,13 +434,18 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Note
         ----
-        The AtlasCRPS checkpoint is not published yet, this package points at a local
-        directory laid out like the Atlas package, with a `config.json` manifest and
-        the model and processor checkpoints under `genmodel`.
+        This package is the same merged Atlas-SI / Atlas-CRPS HuggingFace package used
+        by :func:`earth2studio.models.px.Atlas.load_default_package`, laid out with a
+        `crps/config.json` manifest and the CRPS model and processor checkpoints under
+        `crps/genmodel`, sharing the `autoencoders/` directory with the Atlas (SI)
+        `si/` subtree.
         """
         package = Package(
-            "/lustre/fs11/portfolios/coreai/projects/coreai_climate_earth2"
-            "/users/ishokar/Earth_2/earth2studio_packages/atlas_crps"
+            "hf://nvidia/atlas-era5@893a38550aa313c97c41382a5003d209d60a840b",
+            cache_options={
+                "cache_storage": Package.default_cache("atlas"),
+                "same_names": False,  # prevents overwrites from files with same name in different directories
+            },
         )
         return package
 
@@ -451,9 +455,17 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Instantiate and load AtlasCRPS from a package.
 
         The autoencoder used to decode the low-resolution residual is shared with the
-        Atlas model and loaded from the Atlas package.
+        Atlas model but described directly in the CRPS config's `package.autoencoders`
+        entry, so it is loaded from the same package rather than a separate one.
         """
-        with open(package.resolve("config.json")) as f:
+        # Resolve the package-root config.json so HuggingFace records the download
+        # (its content is not used here); tolerate its absence.
+        try:
+            package.resolve("config.json")
+        except FileNotFoundError:
+            pass
+
+        with open(package.resolve("crps/config.json")) as f:
             config = json.load(f)
         genmodel_config = config["package"]["genmodel"]
 
@@ -465,16 +477,16 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         model_processor.eval()
 
-        atlas_package = Atlas.load_default_package()
-        with open(atlas_package.resolve("config.json")) as f:
-            atlas_config = json.load(f)
-        autoencoder_config = atlas_config["package"]["autoencoders"][0]
+        autoencoder_config = config["package"]["autoencoders"][0]
         autoencoder = Module.from_checkpoint(
-            atlas_package.resolve(autoencoder_config["model_path"])
+            package.resolve(autoencoder_config["model_path"])
         )
+        autoencoder.eval()
+
         autoencoder_processor = Module.from_checkpoint(
-            atlas_package.resolve(autoencoder_config["processor_path"])
+            package.resolve(autoencoder_config["processor_path"])
         )
+        autoencoder_processor.eval()
 
         return cls(
             model=model,
