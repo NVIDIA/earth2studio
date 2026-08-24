@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added model scorecards to the documentation (beta): one page per model with
+  interactive skill plots (RMSE, MAE, CRPS, spread, log spectral distance),
+  variable tables and run provenance, generated at docs build time from JSON
+  score exports produced by the new `recipes/eval/scorecard` campaigns
+  (FCN3 and Aurora to start)
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added `IceChunkBackend` IO backend for writing versioned, transactional
   output to an Icechunk repository, with non-blocking writes by default
@@ -102,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed `lat_weight` returning a small negative weight at the poles in
+  float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
 
 - Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
   `torch.backends.cudnn.benchmark` on and off around each coupled cycle
