@@ -8,7 +8,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 ENV FLASH_ATTN_CUDA_ARCHS=90 \
     NATTEN_CUDA_ARCH=8.6;9.0;10.0 \
     NATTEN_N_WORKERS=8 \
-    UV_CACHE_DIR=/opt/uv-cache
+    UV_CACHE_DIR=/opt/uv-cache \
+    UV_PYTHON=${PYTHON_VERSION}
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -50,7 +51,7 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
 # Install tox for venv managment
 RUN uv tool install tox --with tox-uv
 
-RUN /usr/bin/uv python install "${PYTHON_VERSION}"
+RUN /usr/bin/uv python install "${UV_PYTHON}"
 
 # Build this image from the repository root so these lock files are in context:
 #   docker build -f test/Dockerfile .

@@ -27,13 +27,17 @@ if [[ -z "${TORCH_VERSION:-}" ]]; then
     exit 0
 fi
 
-python_version="${UV_PYTHON:-3.13.13}"
+if [[ -z "${UV_PYTHON:-}" ]]; then
+    echo "UV_PYTHON is not set by the test container."
+    exit 1
+fi
+
 locked_torch_version="$(
     uv tree \
         --frozen \
         --no-cache \
         --quiet \
-        --python-version "${python_version}" \
+        --python-version "${UV_PYTHON}" \
         --package torch \
         --depth 0 \
         | sed -n 's/^torch v//p'
