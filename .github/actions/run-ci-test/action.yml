@@ -28,6 +28,41 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Verify test container Torch version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [[ -z "${TORCH_VERSION:-}" ]]; then
+          echo "The test container does not expose its installed TORCH_VERSION."
+          exit 1
+        fi
+
+        locked_torch_version="$(
+          awk '
+            /^\[\[package\]\]$/ { in_torch_package = 0 }
+            /^name = "torch"$/ { in_torch_package = 1; next }
+            in_torch_package && /^version = / {
+              version = $0
+              sub(/^version = "/, "", version)
+              sub(/"$/, "", version)
+              print version
+              exit
+            }
+          ' uv.lock
+        )"
+        if [[ -z "$locked_torch_version" ]]; then
+          echo "Unable to determine the locked Torch version from uv.lock."
+          exit 1
+        fi
+
+        if [[ "$locked_torch_version" != "$TORCH_VERSION" ]]; then
+          echo "Torch version mismatch: container has $TORCH_VERSION, but uv.lock requires $locked_torch_version."
+          exit 1
+        fi
+
+        echo "Test container Torch $TORCH_VERSION matches uv.lock."
+
     - name: Configure git safe directory
       shell: bash
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"

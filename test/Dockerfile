@@ -65,6 +65,13 @@ RUN uv venv --python="${PYTHON_VERSION}" \
     && for EXTRA in all aifs aifs2 aifs2ens aifsens stormcast-conus; do \
         uv sync --locked --no-install-project --extra "${EXTRA}"; \
     done \
+    && TORCH_VERSION="$(.venv/bin/python -c 'from importlib.metadata import version; print(version("torch"))')" \
+    && printf 'export TORCH_VERSION=%s\n' "${TORCH_VERSION}" > /opt/earth2studio-ci-env \
     && chmod -R a+rwX "${UV_CACHE_DIR}"
 
 RUN rm -rf .venv earth2studio pyproject.toml uv.lock README.md
+
+# GitHub Actions runs container steps with bash, which automatically sources
+# BASH_ENV before each step. This exposes the version captured above without
+# inspecting or activating the warmed uv cache during CI.
+ENV BASH_ENV=/opt/earth2studio-ci-env
