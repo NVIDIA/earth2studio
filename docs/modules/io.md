@@ -12,6 +12,7 @@ output: generated/io/1
 
 {% autosummary %}
 earth2studio.io.AsyncZarrBackend
+earth2studio.io.IceChunkBackend
 earth2studio.io.KVBackend
 earth2studio.io.NetCDF4Backend
 earth2studio.io.XarrayBackend
