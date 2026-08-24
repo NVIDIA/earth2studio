@@ -31,10 +31,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
+- Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
+  conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
+  optional dictionary encoding of low-cardinality string columns
 
 ### Changed
 
 - Updated StormCast SDA example to use the `GHCNHourly` data source.
+- Vectorized the `NNJAObsSat` IR sounder decode (one NumPy pass per footprint
+  instead of per-channel operations; IASI ~7.8x, CrIS ~5.8x faster) and moved
+  decode workers to per-batch Arrow tables instead of pickled row dicts
+  (~6.2x less accumulation memory, near-zero cross-process serialization cost)
+- `NNJAObsSat` output DataFrames now use Arrow-backed dtypes for every column
+  across both microwave and IR sensors: floats as `float[pyarrow]`/
+  `double[pyarrow]`, times as `timestamp[ns][pyarrow]`, and the `satellite`,
+  `variable`, and `class` string columns dictionary-encoded
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
 - Migrated GOES data source from s3fs to obstore; hour-directory listings are
@@ -79,6 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
   files are now downloaded once into the cache and shared across all
   (day, variable) slices instead of being streamed per slice over fsspec
+- Updated `DLESyM` and `DLESyMLatLon` default package to provide newer
+  CRPS-trained checkpoints used in the AI Weather Quest competition
 
 ### Deprecated
 
@@ -92,6 +105,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
 
+- Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
+  `torch.backends.cudnn.benchmark` on and off around each coupled cycle
+  re-triggered cuDNN's GPU-timing-based algorithm search every cycle
 - Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
   unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
   step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
