@@ -32,8 +32,8 @@ For every such pair this writes, under the git-ignored ``generated/`` folder:
   docs/scorecard/generated/index.md           the section index with cards
   docs/_static/scorecard/plot.html            ONE shared interactive plot
 
-The Makefile ``docs`` target runs this script before the site build, so the
-pages always exist on the fly and are never committed. Adding a model is:
+The Makefile ``docs-generate`` target runs this script before each site build, so
+the pages always exist on the fly and are never committed. Adding a model is:
 export its JSON, add its ``config/<model>.md``, list it in ``mkdocs.yml``.
 
 The plot holds no data: it fetches eval_scores_<model>.json (selected by its

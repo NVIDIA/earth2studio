@@ -18,19 +18,14 @@
 set -Eeuo pipefail
 
 docs_jobs="${DOCS_JOBS:-1}"
-uv_docs=(uv run --locked --extra all --group docs)
+uv_docs=(uv run --locked --group docs)
 log_dir="${DOCS_EXAMPLE_LOG_DIR:-docs/_build/example-logs}"
-main_log="${log_dir}/docs-full.log"
+main_log="${log_dir}/docs-examples.log"
 
 mkdir -p "${log_dir}"
 exec > >(tee -a "${main_log}") 2>&1
 
-echo "Full docs-full log: ${main_log}"
-
-# Generate metadata pages used by the docs build.
-"${uv_docs[@]}" python docs/generate_api.py
-"${uv_docs[@]}" python docs/generate_catalog.py
-"${uv_docs[@]}" python docs/generate_install_options.py
+echo "Example execution log: ${main_log}"
 
 # Rebuild examples from source, section by section, so stale examples are refreshed.
 rm -rf docs/examples examples/outputs
@@ -45,10 +40,3 @@ for section in "${sections[@]}"; do
     fi
     echo "::endgroup::"
 done
-
-# Render the final gallery index and build the MkDocs/Zensical site.
-"${uv_docs[@]}" e2s-gallery render
-
-E2S_GALLERY_EXECUTE=never "${uv_docs[@]}" zensical build --clean
-rm -rf site/__pycache__ site/_build/html
-find site -maxdepth 1 -type f -name "*.py" -delete
