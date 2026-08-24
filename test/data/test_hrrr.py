@@ -385,6 +385,67 @@ def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
         np.testing.assert_allclose(data.values[0, j, 0], fake_grid)
 
 
+@pytest.mark.timeout(10)
+def test_hrrr_fx_special_variable_lookups():
+    variables = ["tp", "tcc", "sd", "sde", "snowc"]
+    fake_index = {
+        "84::APCP::surface::0-0 day acc fcst": (100, 10),
+        "84::APCP::surface::0-1 hour acc fcst": (110, 10),
+        "116::TCDC::entire atmosphere::anl": (200, 10),
+        "116::TCDC::entire atmosphere::1 hour fcst": (210, 10),
+        "68::WEASD::surface::anl": (300, 10),
+        "68::WEASD::surface::1 hour fcst": (310, 10),
+        "70::SNOD::surface::anl": (400, 10),
+        "70::SNOD::surface::1 hour fcst": (410, 10),
+        "69::SNOWC::surface::anl": (500, 10),
+        "69::SNOWC::surface::1 hour fcst": (510, 10),
+    }
+
+    async def _fake_fetch_index(uri):
+        return fake_index
+
+    ds = HRRR_FX(cache=False, verbose=False)
+    with patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index):
+        tasks = asyncio.run(
+            ds._create_tasks(
+                [datetime(2026, 7, 20)],
+                [timedelta(0), timedelta(hours=1)],
+                variables,
+            )
+        )
+
+    offsets = {task.data_array_indices: task.hrrr_byte_offset for task in tasks}
+    assert offsets == {
+        (0, 0, 0): 100,
+        (0, 0, 1): 200,
+        (0, 0, 2): 300,
+        (0, 0, 3): 400,
+        (0, 0, 4): 500,
+        (0, 1, 0): 110,
+        (0, 1, 1): 210,
+        (0, 1, 2): 310,
+        (0, 1, 3): 410,
+        (0, 1, 4): 510,
+    }
+
+
+@pytest.mark.timeout(10)
+def test_hrrr_tp_analysis_lookup():
+    fake_index = {"84::APCP::surface::0-0 day acc fcst": (100, 10)}
+
+    async def _fake_fetch_index(uri):
+        return fake_index
+
+    ds = HRRR(cache=False, verbose=False)
+    with patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index):
+        tasks = asyncio.run(
+            ds._create_tasks([datetime(2026, 7, 20)], [timedelta(0)], ["tp"])
+        )
+
+    assert len(tasks) == 1
+    assert tasks[0].hrrr_byte_offset == 100
+
+
 @pytest.mark.timeout(15)
 def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
     # If the requested variable is absent from the .idx, _create_tasks warns
