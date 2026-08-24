@@ -32,12 +32,14 @@ In this example you will learn:
 - Initializing, creating arrays and writing with the Zarr IO backend
 - Initializing, creating arrays and writing with the NetCDF IO backend
 - Initializing and writing with the Asynchronous Non-blocking Zarr IO backend
+- Writing versioned output with the Icechunk IO backend, standalone and combined
+  with the asynchronous backend
 - Discussing performance implications and strategies that can be used
 """
 
 # /// script
 # dependencies = [
-#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[dlwp,data] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "matplotlib",
 # ]
 # ///
@@ -383,6 +385,72 @@ print(
 )
 print(
     f"Compressed non-blocking async zarr store size: {get_folder_size('outputs/17_io_nonblocking_async.zarr'):.2f} MB"
+)
+
+# %%
+# Versioned Icechunk IO
+# ---------------------
+# The [`earth2studio.io.IceChunkBackend`][earth2studio.io.IceChunkBackend] writes to an
+# [Icechunk](https://icechunk.io/) repository, which layers version control on top of a
+# Zarr store: writes accumulate in a transactional session and become durable when
+# committed as an immutable snapshot. This is useful for keeping an auditable history
+# of a store, or safely rolling back a bad run. The API matches `ZarrBackend` with
+# one addition: call `commit` to persist. Unlike `ZarrBackend`, `write` is
+# non-blocking by default (`read`/`__getitem__`/`commit` flush pending writes
+# first); pass `blocking=True` to write synchronously instead. This requires the
+# `icechunk` optional dependency, installed with the `data` extra
+# (Python >= 3.12).
+
+# %%
+
+import icechunk
+
+from earth2studio.io import IceChunkBackend
+
+io = IceChunkBackend("outputs/17_io_icechunk")
+start_time = time.time()
+christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
+# Writes are only durable once committed as a snapshot
+io.commit("Christmas 2022 ensemble")
+icechunk_clock = time.time() - start_time
+
+print(f"\nIcechunk store inference time: {icechunk_clock}s")
+print(f"Icechunk repository size: {get_folder_size('outputs/17_io_icechunk'):.2f} MB")
+
+# %%
+# Non-Blocking Async Zarr into Icechunk
+# -------------------------------------
+# The two approaches compose: an Icechunk session store is a Zarr store, so it can be
+# passed to the async backend's `store` parameter. This combines non-blocking writes
+# with transactional snapshots. The ordering at the end matters — `close()` must
+# complete before `commit()`, otherwise in-flight writes are silently excluded from
+# the snapshot.
+
+# %%
+
+repo = icechunk.Repository.open_or_create(
+    icechunk.local_filesystem_storage("outputs/17_io_icechunk_async")
+)
+session = repo.writable_session("main")
+io = AsyncZarrBackend(
+    None,
+    parallel_coords=parallel_coords,
+    blocking=False,
+    store=session.store,
+    zarr_codecs=zarr.codecs.BloscCodec(
+        cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
+    ),
+)
+start_time = time.time()
+christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
+# IMPORTANT: close first to flush in-flight writes, then commit the snapshot
+io.close()
+session.commit("Christmas 2022 ensemble")
+icechunk_async_clock = time.time() - start_time
+
+print(f"\nNon-blocking async Icechunk inference time: {icechunk_async_clock}s")
+print(
+    f"Compressed Icechunk repository size: {get_folder_size('outputs/17_io_icechunk_async'):.2f} MB"
 )
 
 # %%
