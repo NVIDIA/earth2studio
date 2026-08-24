@@ -2993,7 +2993,7 @@
 <p><span id="earth2studio.data.UFSObsSat"></span>
 <span id="earth2studio.data.UFSObsSat.__call__"></span>
 <span id="earth2studio.data.UFSObsSat.fetch"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ufs.py#L579-L796" title="earth2studio/data/ufs.py:579">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/ufs.py#L803-L1030" title="earth2studio/data/ufs.py:803">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3074,6 +3074,20 @@ by default 600.</p>
           –
           <div class="doc-md-description">
             <p>Log basic progress information, by default True.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>decode_workers</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | <a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a>[&#39;auto&#39;]</code>, default:
+                  <code>&#39;auto&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Number of processes used to decode the fetched NetCDF files into
+DataFrames, or "auto" to select from the available CPUs. Use 1 to
+decode serially in the current process, by default "auto". Workers
+use the 'spawn' start method, so as with any use of multiprocessing,
+script entry points must be guarded by <code>if __name__ == "__main__"</code>.</p>
           </div>
         </li>
     </ul>

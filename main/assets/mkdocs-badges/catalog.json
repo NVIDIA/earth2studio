@@ -1318,7 +1318,7 @@
         "product:atmos",
         "product:sat"
       ],
-      "signature": "data.UFSObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, max_workers: int = 24, cache: bool = True, async_timeout: int = 600, verbose: bool = True)",
+      "signature": "data.UFSObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, max_workers: int = 24, cache: bool = True, async_timeout: int = 600, verbose: bool = True, decode_workers: int | Literal['auto'] = 'auto')",
       "source": "modules/generated/data/dataframe/data_UFSObsSat.md",
       "summary": "NOAA UFS GEFS-v13 replay observations satellite data",
       "symbol": "earth2studio.data.UFSObsSat",
