@@ -39,9 +39,10 @@ class energy_score:
     Energy Score captures whether the ensemble preserves spatial correlations
     across variables and grid points.
 
-    .. warning::
-        Setting ``multivariate_dimensions`` to large spatial grids (e.g.,
-        ``['lat', 'lon']`` with 721x1440 = ~1M elements) produces a feature
+    !!! warning
+
+        Setting `multivariate_dimensions` to large spatial grids (e.g.,
+        `['lat', 'lon']` with 721x1440 = ~1M elements) produces a feature
         vector of that size per ensemble member. For M=50 members this requires
         ~200 MB per tensor in float32. Prefer selecting a subset of dimensions
         unless full-field verification is explicitly needed.

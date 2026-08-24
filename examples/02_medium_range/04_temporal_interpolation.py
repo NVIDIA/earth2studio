@@ -38,7 +38,7 @@ In this example you will learn:
 
 # /// script
 # dependencies = [
-#   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[sfno,interp-modafno] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "matplotlib",
 # ]
@@ -54,9 +54,9 @@ In this example you will learn:
 #
 # This example needs the following:
 #
-# - Interpolation Model: :py:class:`earth2studio.models.px.InterpModAFNO`.
-# - Prognostic Base Model: Use SFNO model :py:class:`earth2studio.models.px.SFNO`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
+# - Interpolation Model: [`earth2studio.models.px.InterpModAFNO`][earth2studio.models.px.InterpModAFNO].
+# - Prognostic Base Model: Use SFNO model [`earth2studio.models.px.SFNO`][earth2studio.models.px.SFNO].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
 
 # %%
 import os

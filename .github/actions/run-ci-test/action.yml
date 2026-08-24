@@ -28,9 +28,17 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Verify test container Torch version
+      shell: bash
+      run: test/_ci/check_torch_version.sh
+
     - name: Configure git safe directory
       shell: bash
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Prepare runner temp model cache
+      shell: bash
+      run: mkdir -p "${RUNNER_TEMP}/earth2studio-models"
 
     - name: Restore testmon cache
       id: testmon-cache
@@ -44,6 +52,8 @@ runs:
 
     - name: Prepare CI directories
       shell: bash
+      env:
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
       run: python3 test/_ci/prepare_ci_paths.py
 
     - name: Show GPU information
@@ -58,6 +68,7 @@ runs:
       shell: bash
       env:
         TOX_ENV: ${{ inputs.tox-env }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
       run: make pytest-ci
 
     - name: Upload coverage data

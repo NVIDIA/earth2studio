@@ -31,11 +31,10 @@ defaults:
     shell: bash
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
   E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
-  EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
   EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
   EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
   EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
@@ -54,7 +53,7 @@ jobs:
     timeout-minutes: 120
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +106,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -130,7 +129,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -153,7 +152,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -176,7 +175,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -199,7 +198,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -222,7 +221,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -245,7 +244,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -268,7 +267,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -291,7 +290,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

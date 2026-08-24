@@ -33,7 +33,7 @@ start_times:
 # ---------------------------------------------------------------------------
 # Fully qualified class path, or a {_target_: ...} block.  Built-in options:
 #   src.pipelines.forecast.ForecastPipeline     — prognostic rollout (default)
-#   src.pipelines.forecast.DiagnosticPipeline   — diagnostic-only (e.g. CorrDiff)
+#   src.pipelines.diagnostic.DiagnosticPipeline — diagnostic-only (e.g. CorrDiff)
 #   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
 #   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
 #   src.pipelines.assimilation.AssimilationPipeline
@@ -124,9 +124,36 @@ output:
         - z500
     overwrite: true
     thread_writers: 4   # 0 = synchronous writes
+    # time/lead_time/ensemble must keep chunk size 1 with async_zarr: they are
+    # written one slice per step, and a larger chunk would let concurrent writes
+    # read-modify-write the same object. Use shard_coords to cut file count.
     chunks:
         time: 1
         lead_time: 1
+    # How much raw forecast data to keep.  'all' (the default) writes
+    # forecast.zarr as usual.  'none' skips it entirely and is only legal
+    # with scoring.mode=online — that is the setting that makes
+    # campaign-scale ensembles affordable (~170 TB of raw fields become
+    # ~400 MB of sufficient statistics).  Note that the report's
+    # visualization sections need the raw store and degrade gracefully
+    # without it.
+    retain: all         # all | none
+
+    # --- IO backend ---------------------------------------------------------
+    # async_zarr : AsyncZarrBackend (default), owns its writer threads and
+    #              supports Zarr v3 sharding.
+    # zarr       : ZarrBackend, fully synchronous.
+    io_backend: async_zarr
+
+    # --- sharding (async_zarr only) -----------------------------------------
+    # Sharding packs many chunks into one storage object, cutting file count
+    # without changing the chunk layout readers see.
+    # Only lead_time is safe to shard on a multi-rank run
+    shard_coords: {}          # e.g. {lead_time: 8}
+    # Host memory per rank is roughly
+    #   max_inflight_shards * 4 * prod(shard_shape) * itemsize
+    # plus thread_writers in-flight copies of one write each
+    max_inflight_shards: 4
 
 # ---------------------------------------------------------------------------
 # Pre-download settings (used by predownload.py, consulted by score.py)
@@ -164,6 +191,16 @@ predownload:
 # Run with: python score.py [campaign=...]
 # Requires inference (main.py) and predownload with verification enabled.
 scoring:
+    # offline — store-then-score: main.py writes forecast.zarr, score.py reads it.
+    # online  — main.py reduces each forecast to sufficient statistics in the
+    #           inference loop and writes stats.zarr; no raw store is needed
+    #           (see output.retain).  score.py then only re-derives scores.zarr.
+    #
+    # To validate the two against each other, run online with the raw store
+    # kept (output.retain=all, the default), then score offline into its own
+    # store:  score.py scoring.mode=offline
+    #                  scoring.output.store_name=scores_offline.zarr
+    mode: offline                      # offline | online
     variables: ${output.variables}     # score the same variables as inference
     metrics:
         rmse:
@@ -171,6 +208,74 @@ scoring:
             reduction_dimensions: [lat, lon]
     lat_weights: true                  # apply cosine latitude weighting
     lead_time_chunk_size: 8            # lead times per chunk (memory control)
+
+    # ----------------------------------------------------------------------
+    # Online scoring (used when mode is 'online')
+    # ----------------------------------------------------------------------
+    # Ranks are partitioned into ensemble groups of `ensemble_group_size`
+    # (G) ranks; a group owns one IC at a time and rank g carries members
+    # [g*K, (g+1)*K) where K = members_per_rank and G * K = ensemble_size.
+    # ICs are distributed across groups, not ranks.  The default (G = M,
+    # K = 1) needs world_size >= ensemble_size and leaves run_item — and
+    # therefore per-member seeding — bit-for-bit identical to offline runs.
+    #
+    # `metrics` above does NOT apply to the online path: online scoring
+    # accumulates a fixed set of sufficient statistics and derives the
+    # metric set from them at finalize time (mse, ensemble_mean_mse,
+    # ensemble_variance, crps, rank_reliability, bias, corr, and acc when
+    # a climatology is configured).
+    online:
+        ensemble_group_size: null      # null -> G = ensemble_size / K
+        members_per_rank: 1            # K > 1 needs Pipeline.run_item_batched
+        stats_store: stats.zarr        # the durable artifact
+        # Where the finalize step writes.  null -> scoring.output.store_name.
+        # Set it when also scoring the same run offline, so the two stores
+        # sit side by side rather than one overwriting the other.
+        scores_store: null
+        # Memory under one-sample-per-GPU (members_per_rank=1,
+        # ensemble_group_size=ensemble_size): CRPS's abs-diff temporary
+        # (bounded by pairwise_member_tile x variable_chunk, below) and this
+        # field-sized moment reduction are the two float64 terms with no
+        # other knob.  float32 halves the moment reduction's wire volume.
+        moment_comm_dtype: float64
+        verification_cache_size: 4     # valid times held per rank
+        validate_coords: true          # cross-check lead steps within a group
+        nccl_timeout_s: 1800           # a dead rank hangs its whole group
+        # DataSource supplying climatology on the verification grid; required
+        # for ACC, which is otherwise skipped.
+        climatology: null
+
+        # ------------------------------------------------------------------
+        # Fair CRPS
+        # ------------------------------------------------------------------
+        # CRPS is the only online statistic that puts *fields* on the wire:
+        # its E|X-X'| term needs every member to meet every other member,
+        # costing (G-1) * K * n_vars * field bytes of egress per rank per
+        # lead step.  Everything else reduces spatially first and sends
+        # scalars.  So this block is where an online run's communication
+        # cost is decided.
+        #
+        # Three levers, in order of leverage:
+        #   1. defer_pairwise_one_step — overlap the exchange with the next
+        #      step's model forward.  Nearly free, hides most of the cost.
+        #   2. members_per_rank > 1 (above) — a smaller group fits inside a
+        #      node, moving the exchange onto NVLink (~10x cheaper).
+        #   3. pairwise_comm_dtype / pairwise_variables — halve the bytes,
+        #      or restrict CRPS to the variables you actually report on.
+        crps: true
+        pairwise_comm_dtype: bfloat16  # arithmetic upcasts to fp64 on arrival
+        defer_pairwise_one_step: true  # overlap the exchange with the next step
+        variable_chunk: 4              # variables per exchange + compute step
+        pairwise_variables: null       # null -> every scored variable
+        # Members per float64 abs-diff tile — the scorer's own dominant
+        # memory term, and the one with no other knob.  Binds when a model
+        # is large enough to force members_per_rank=1 (one sample per GPU):
+        # the temporary is sized pairwise_member_tile x variable_chunk x
+        # field x 8 bytes.  Lower alongside variable_chunk=1 for a
+        # memory-constrained run (e.g. 2 brings a 4-variable, M=16, ~1.9M
+        # point CONUS-scale run from ~1.5GB to well under 250MB, at some
+        # throughput cost).
+        pairwise_member_tile: 8
     output:
         store_name: scores.zarr
         overwrite: true

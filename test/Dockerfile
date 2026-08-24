@@ -6,11 +6,10 @@ ARG PYTHON_VERSION=3.13.13
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
 ENV FLASH_ATTN_CUDA_ARCHS=90 \
-    NATTEN_CUDA_ARCH=9.0 \
+    NATTEN_CUDA_ARCH=8.6;9.0;10.0 \
     NATTEN_N_WORKERS=8 \
-    NVCC_THREADS=2 \
     UV_CACHE_DIR=/opt/uv-cache \
-    UV_LINK_MODE=copy
+    UV_PYTHON=${PYTHON_VERSION}
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -52,7 +51,7 @@ RUN for PIP_CONF in "/etc/xdg/pip/pip.conf" "/root/.pip/pip.conf" "/usr/pip.conf
 # Install tox for venv managment
 RUN uv tool install tox --with tox-uv
 
-RUN /usr/bin/uv python install "${PYTHON_VERSION}"
+RUN /usr/bin/uv python install "${UV_PYTHON}"
 
 # Build this image from the repository root so these lock files are in context:
 #   docker build -f test/Dockerfile .
@@ -67,5 +66,11 @@ RUN uv venv --python="${PYTHON_VERSION}" \
     && for EXTRA in all aifs aifs2 aifs2ens aifsens stormcast-conus; do \
         uv sync --locked --no-install-project --extra "${EXTRA}"; \
     done \
-    && rm -rf .venv \
+    && TORCH_VERSION="$(.venv/bin/python -c 'from importlib.metadata import version; print(version("torch"))')" \
+    && printf 'export TORCH_VERSION=%s\n' "${TORCH_VERSION}" > /opt/earth2studio-ci-env \
     && chmod -R a+rwX "${UV_CACHE_DIR}"
+
+RUN rm -rf .venv earth2studio pyproject.toml uv.lock README.md
+
+# Expose the cached Torch version to GitHub Actions bash steps via BASH_ENV.
+ENV BASH_ENV=/opt/earth2studio-ci-env
