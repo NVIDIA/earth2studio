@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added model scorecards to the documentation (beta): one page per model with
+  interactive skill plots (RMSE, MAE, CRPS, spread, log spectral distance),
+  variable tables and run provenance, generated at docs build time from JSON
+  score exports produced by the new `recipes/eval/scorecard` campaigns
+  (FCN3 and Aurora to start)
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
 - Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
   initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
@@ -32,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
+  persistent spawn-based process pool (new `decode_workers` parameter,
+  default `"auto"`); each file is decoded once per request window, frames are
+  assembled and time-masked inside the workers, and the fetch falls back to
+  serial decode if the workers cannot start. Output is unchanged; a warm
+  48-hour HealDA fetch decodes ~2x faster serially and further with workers
 - Updated StormCast SDA example to use the `GHCNHourly` data source.
 - Vectorized the `NNJAObsSat` IR sounder decode (one NumPy pass per footprint
   instead of per-channel operations; IASI ~7.8x, CrIS ~5.8x faster) and moved
@@ -96,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed `lat_weight` returning a small negative weight at the poles in
+  float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
 
 - Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
   `torch.backends.cudnn.benchmark` on and off around each coupled cycle
