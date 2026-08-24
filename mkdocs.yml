@@ -8,6 +8,8 @@ docs_dir: docs
 exclude_docs: |
   _build/**
   overrides/**
+  scorecard/config/**
+  **/__pycache__/
 site_dir: site
 strict: false
 copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
@@ -495,6 +497,11 @@ nav:
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
+- Scorecards:
+  - scorecard/generated/index.md
+  - Prognostic models:
+    - FCN3: scorecard/generated/fcn3.md
+    - Aurora: scorecard/generated/aurora.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md
