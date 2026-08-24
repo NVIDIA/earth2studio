@@ -112,12 +112,19 @@ To build the documentation locally, use:
 make docs
 ```
 
-For the full documentation environment, including package extras and executed examples,
-use:
+This generates the API, catalog, installation, scorecard, and gallery pages from retained
+example results before building the site.
+
+To execute stale examples and build the complete documentation, use:
 
 ```bash
 make docs-full
 ```
+
+The full build runs the same page generation, executes stale examples section by section, then
+regenerates the gallery before the final site build. Project-mode examples synchronize their
+declared extras against the repository's `uv.lock`; the documentation environment does not
+preinstall every project extra.
 
 For local development with live reload, use:
 
@@ -130,6 +137,9 @@ To execute and refresh a single example before serving the site, pass a gallery 
 ```bash
 make docs-dev FILENAME=01_getting_started/01_deterministic_workflow.py
 ```
+
+Only the selected example is executed. The complete gallery is then rendered from
+source and any retained execution artifacts.
 
 Build files are written to `site/`.
 

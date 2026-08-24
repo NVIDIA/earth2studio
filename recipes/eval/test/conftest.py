@@ -24,6 +24,7 @@ import torch
 from omegaconf import OmegaConf
 
 from earth2studio.data import Random
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px import Persistence
 from earth2studio.utils.type import CoordSystem
 
@@ -84,6 +85,101 @@ class FakeDiagnostic(torch.nn.Module):
         y = torch.zeros(out_shape, device=x.device, dtype=x.dtype)
         out_coords = self.output_coords(coords)
         return y, out_coords
+
+
+class FakeGenerativeDiagnostic(torch.nn.Module):
+    """Minimal CorrDiff-shaped diagnostic for testing.
+
+    Emits its own leading ``sample`` axis (size ``number_of_samples``)
+    rather than expressing ensemble draws through the pipeline's own
+    machinery — the same contract as ``earth2studio.models.dx.CorrDiff``.
+    Decorated with the real ``@batch_func()`` so its
+    compress/decompress behavior — where a pass-through leading dim like
+    ``lead_time`` lands relative to the model's own declared ``sample``
+    axis — matches a real generative diagnostic exactly, not a
+    hand-rolled approximation of it.
+    """
+
+    def __init__(
+        self,
+        input_variables: list[str],
+        output_variables: list[str],
+        domain_coords: OrderedDict | None = None,
+        number_of_samples: int = 1,
+        seed: int | None = 0,
+    ) -> None:
+        super().__init__()
+        self._input_variables = input_variables
+        self._output_variables = output_variables
+        self._domain = domain_coords or OrderedDict(
+            {"lat": SMALL_LAT, "lon": SMALL_LON}
+        )
+        self.number_of_samples = number_of_samples
+        self.seed = seed
+
+    def input_coords(self) -> CoordSystem:
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "variable": np.array(self._input_variables),
+                "lat": self._domain["lat"],
+                "lon": self._domain["lon"],
+            }
+        )
+
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "sample": np.arange(self.number_of_samples),
+                "variable": np.array(self._output_variables),
+                "lat": self._domain["lat"],
+                "lon": self._domain["lon"],
+            }
+        )
+
+    @batch_func()
+    @torch.inference_mode()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        # `coords` here is already batch-compressed by @batch_func — any
+        # pass-through dims (e.g. time, lead_time) the pipeline carried
+        # have been flattened into `coords["batch"]`.
+        batch = x.shape[0]
+        n_out = len(self._output_variables)
+        y = torch.randn(
+            batch,
+            self.number_of_samples,
+            n_out,
+            len(self._domain["lat"]),
+            len(self._domain["lon"]),
+            device=x.device,
+            dtype=x.dtype,
+        )
+        out_coords = OrderedDict(
+            {
+                "batch": coords["batch"],
+                "sample": np.arange(self.number_of_samples),
+                "variable": np.array(self._output_variables),
+                "lat": self._domain["lat"],
+                "lon": self._domain["lon"],
+            }
+        )
+        return y, out_coords
+
+
+@pytest.fixture()
+def fake_generative_diagnostic(small_domain) -> FakeGenerativeDiagnostic:
+    """A CorrDiff-shaped diagnostic: t2m+z500 in, one 'sample_out' channel
+    with its own leading 'sample' axis out."""
+    return FakeGenerativeDiagnostic(
+        input_variables=["t2m", "z500"],
+        output_variables=["sample_out"],
+        domain_coords=small_domain,
+    )
 
 
 @pytest.fixture()

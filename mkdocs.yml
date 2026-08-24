@@ -8,6 +8,8 @@ docs_dir: docs
 exclude_docs: |
   _build/**
   overrides/**
+  scorecard/config/**
+  **/__pycache__/
 site_dir: site
 strict: false
 copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
@@ -414,6 +416,7 @@ plugins:
     examples_dir: examples
     output_dir: examples
     cache_dir: .e2sgallery
+    invalidate_on_lock_change: false
     execute: never
     jobs: 1
     fail_fast: true
@@ -483,7 +486,9 @@ nav:
   - Statistics: modules/statistics.md
   - Utilities: modules/utils_all.md
   - Workflows: modules/workflows.md
-- Examples: examples/index.md
+- Examples:
+  - examples/index.md
+  - Recipes: recipes/index.md
 - Blog:
   - Overview: blog/index.md
   - Posts:
@@ -492,7 +497,11 @@ nav:
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
-- Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
+- Scorecards:
+  - scorecard/generated/index.md
+  - Prognostic models:
+    - FCN3: scorecard/generated/fcn3.md
+    - Aurora: scorecard/generated/aurora.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

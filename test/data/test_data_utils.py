@@ -204,6 +204,38 @@ def test_fetch_data(time, lead_time, device):
     assert not torch.isnan(x).any()
 
 
+def test_fetch_data_out_of_ns_range():
+    """Times outside the datetime64[ns] range must reach the source unwrapped.
+
+    Climate emulators trained on model-year calendars (such as SamudrACE, whose
+    CM4 initial conditions are at model year 151-319) fall outside the
+    nanosecond-precision range, which numpy wraps silently rather than raising.
+    """
+    domain = OrderedDict({"lat": np.random.randn(8), "lon": np.random.randn(16)})
+    random_source = Random(domain)
+    received: list[np.ndarray] = []
+
+    class RecordingSource:
+        """Data source that records the times it is asked for."""
+
+        def __call__(self, time, variable):
+            """Record the requested times and delegate to a Random source."""
+            received.append(np.asarray(time))
+            return random_source(time, variable)
+
+    time = np.array([np.datetime64("0311-01-01T00:00:00", "s")])
+    variable = np.array(["a"])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+
+    x, coords = fetch_data(RecordingSource(), time, variable, lead_time)
+
+    assert len(received) == len(lead_time)
+    assert received[0][0] == time[0]
+    assert received[1][0] == time[0] + np.timedelta64(6, "h")
+    assert np.all(coords["time"] == time)
+    assert not torch.isnan(x).any()
+
+
 @pytest.mark.parametrize(
     "device",
     [
@@ -1129,3 +1161,39 @@ async def test_local_caching_store_survives_cache_write_error(
 
     # Read still returns the remote data despite the cache write blowing up
     assert await cached.get("c/0/0", proto) is not None
+
+
+@pytest.mark.parametrize("chunked", [False, True])
+def test_table_to_dataframe(chunked):
+    import pyarrow as pa
+
+    from earth2studio.data.utils import table_to_dataframe
+
+    table = pa.table(
+        {
+            "satellite": pa.array(["npp", "npp", "n20"], pa.string()),
+            "station": pa.array(["A1", "B2", "C3"], pa.string()),
+            "lat": pa.array([10.0, 11.0, 12.0], pa.float32()),
+            "count": pa.array([1, 2, 3], pa.uint16()),
+        }
+    )
+    if chunked:
+        table = pa.concat_tables([table, table])
+
+    # Default: every column Arrow-backed, no dictionary encoding
+    df = table_to_dataframe(table)
+    assert str(df["lat"].dtype) == "float[pyarrow]"
+    assert str(df["count"].dtype) == "uint16[pyarrow]"
+    assert str(df["satellite"].dtype) == "string[pyarrow]"
+
+    # Requested string columns are dictionary-encoded with int8 indices;
+    # non-string and absent names are ignored rather than raising
+    df = table_to_dataframe(
+        table, dict_string_columns=("satellite", "lat", "not_a_column")
+    )
+    assert "dictionary" in str(df["satellite"].dtype)
+    assert "int8" in str(df["satellite"].dtype)
+    assert str(df["lat"].dtype) == "float[pyarrow]"
+    assert str(df["station"].dtype) == "string[pyarrow]"
+    assert list(df["satellite"][:3]) == ["npp", "npp", "n20"]
+    assert len(df) == (6 if chunked else 3)

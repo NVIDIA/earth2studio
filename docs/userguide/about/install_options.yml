@@ -154,7 +154,12 @@ categories:
             - 'pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"'
             - 'pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"'
           uv:
-            - 'export FORCE_CUDA_EXTENSION=1'
+            default:
+              - 'export FORCE_CUDA_EXTENSION=1'
+            pypi:
+              - 'export FORCE_CUDA_EXTENSION=1'
+              - 'uv add --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"'
+              - 'uv add "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"'
         notes:
           - CUDA extensions are recommended for best performance.
       - id: fengwu
@@ -183,6 +188,14 @@ categories:
         summary: Google DeepMind GenCast model dependencies.
         api_refs:
           - earth2studio.models.px.GenCastMini
+        preinstall:
+          pip:
+            - 'pip install "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+          uv:
+            pypi:
+              - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+        notes:
+          - GenCast uses WeatherNext and requires Python 3.12 or newer.
       - id: graphcast
         label: GraphCast
         extra: graphcast
@@ -190,6 +203,14 @@ categories:
         api_refs:
           - earth2studio.models.px.GraphCastOperational
           - earth2studio.models.px.GraphCastSmall
+        preinstall:
+          pip:
+            - 'pip install "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+          uv:
+            pypi:
+              - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+        notes:
+          - GraphCast uses WeatherNext and requires Python 3.12 or newer.
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
@@ -208,6 +229,19 @@ categories:
           - text: Requires ONNX Runtime GPU.
             href: https://onnxruntime.ai/docs/install/#python-installs
             label: ONNX Runtime GPU install docs
+      - id: samudrace
+        label: SamudrACE
+        extra: samudrace
+        summary: SamudrACE coupled atmosphere-ocean model dependencies.
+        api_refs:
+          - earth2studio.models.px.SamudrACE
+        warnings:
+          - text: Requires fme at the 2026.4.0 release. This extra conflicts with the
+              `ace2` extra, which pins fme to a pre-release commit, and with the
+              `atlas`, `fcn3`, `perturbation`, and `sfno` extras via fme's
+              torch-harmonics pin.
+            href: https://github.com/ai2cm/ace
+            label: fme
       - id: sfno
         label: SFNO
         extra: sfno
@@ -218,6 +252,10 @@ categories:
           pip:
             - 'pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"'
             - 'pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"'
+          uv:
+            pypi:
+              - 'uv add --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"'
+              - 'uv add "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"'
       - id: stormcast
         label: StormCast
         extra: stormcast
@@ -230,6 +268,13 @@ categories:
         summary: StormCast-CONUS model dependencies.
         api_refs:
           - earth2studio.models.px.StormCastCONUS
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
@@ -283,6 +328,13 @@ categories:
         summary: CorrDiff COSMO-ERA5 model dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffCosmoEra5
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
         warnings:
           - Depends on natten for Python versions before 3.14.
       - id: cyclone
@@ -347,6 +399,21 @@ categories:
       - Data assimilation APIs are currently in beta and may change in future releases.
       - Data assimilation extras install CUDA-dependent CuPy and cuDF packages.
     items:
+      - id: da-cosmo
+        label: CorrDiff COSMO SDA
+        extra: da-cosmo
+        summary: CorrDiff COSMO-ERA5 data assimilation dependencies.
+        api_refs:
+          - earth2studio.models.da.CorrDiffCosmoEra5SDA
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+        warnings:
+          - Depends on natten for Python versions before 3.14.
       - id: da-healda
         label: HealDA
         extra: da-healda

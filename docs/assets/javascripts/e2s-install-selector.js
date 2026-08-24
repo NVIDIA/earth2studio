@@ -120,7 +120,9 @@
   }
 
   function selectedPreinstallCommands(item) {
-    return item.preinstall?.[state.manager] || [];
+    const preinstall = item.preinstall?.[state.manager];
+    if (Array.isArray(preinstall)) return preinstall;
+    return preinstall?.[state.source] || preinstall?.default || [];
   }
 
   function writeClipboard(text) {

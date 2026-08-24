@@ -31,7 +31,7 @@ defaults:
     shell: bash
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.5
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
   E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
