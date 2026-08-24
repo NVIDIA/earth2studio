@@ -16,7 +16,7 @@ Used for fetching initial conditions for inference and validation data for scori
 ## Available Data Sources
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: datasource
 output: generated/data/analysis
 -->
@@ -70,7 +70,7 @@ earth2studio.data.DataArrayPathList
 ## AI Data Sources
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: diagnostic
 output: generated/data/analysis
 -->

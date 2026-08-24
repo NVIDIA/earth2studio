@@ -5,9 +5,9 @@
 IO Backends for saving your inference results for further post processing.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.io
 template: io
-output: generated/io/1
+output: generated/io
 -->
 
 {% autosummary %}
