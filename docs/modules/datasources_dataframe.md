@@ -7,7 +7,7 @@
 Data sources that provide tabular data as DataFrames.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: datasource
 output: generated/data/dataframe
 -->

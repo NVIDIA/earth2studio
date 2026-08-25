@@ -35,7 +35,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.5
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   DOC_PUBLIC_BUILD: "false"
   DOCS_PAGES_BRANCH: gh-pages
@@ -92,7 +92,6 @@ jobs:
           artifact-name: docs-light-html
           artifact-retention-days: "1"
           gallery-cache-name: main
-          data-cache-name: main
           save-caches: "true"
           upload-artifact: "false"
         env:

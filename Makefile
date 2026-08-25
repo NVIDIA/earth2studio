@@ -79,20 +79,33 @@ coverage:
 	uv run coverage combine || true
 	uv run coverage report --fail-under=90 || true
 
+UV_DOCS := uv run --locked --group docs
+
+.PHONY: docs-generate
+docs-generate:
+	$(UV_DOCS) python docs/generate_api.py
+	$(UV_DOCS) python docs/generate_catalog.py
+	$(UV_DOCS) python docs/generate_install_options.py
+	$(UV_DOCS) python docs/generate_scorecard.py
+	$(UV_DOCS) python docs/generate_gallery.py
+
 .PHONY: docs
 docs:
-	uv sync --group docs
-	uv run python docs/generate_api.py
-	uv run python docs/generate_catalog.py
-	uv run python docs/generate_install_options.py
-	uv run python docs/generate_gallery.py
-	E2S_GALLERY_EXECUTE=never uv run zensical build --clean
+	uv sync --locked --group docs
+	$(MAKE) docs-generate
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical build --clean
 	rm -rf site/__pycache__ site/_build/html
 	find site -maxdepth 1 -type f -name "*.py" -delete
 
 .PHONY: docs-full
 docs-full:
+	uv sync --locked --group docs
+	$(MAKE) docs-generate
 	$(MAKE) docs-build-examples
+	$(UV_DOCS) python docs/generate_gallery.py
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical build --clean
+	rm -rf site/__pycache__ site/_build/html
+	find site -maxdepth 1 -type f -name "*.py" -delete
 
 .PHONY: docs-build-examples
 docs-build-examples:
@@ -101,25 +114,20 @@ docs-build-examples:
 DOCS_JOBS ?= 1
 .PHONY: docs-dev
 docs-dev:
-	uv sync --extra all --group docs
-	uv run python docs/generate_api.py
-	uv run python docs/generate_catalog.py
-	uv run python docs/generate_install_options.py
+	uv sync --locked --group docs
+	$(MAKE) docs-generate
 	@if [ -n "$(FILENAME)" ]; then \
-		uv run e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); \
+		$(UV_DOCS) e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); \
+		$(UV_DOCS) python docs/generate_gallery.py; \
 	fi
-	uv run e2s-gallery render
-	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical serve -a 0.0.0.0:$(PORT)
 
 DOC_VERSION ?= main
 .PHONY: docs-build-version
 docs-build-version:
-	uv sync --group docs
-	uv run python docs/generate_api.py
-	uv run python docs/generate_catalog.py
-	uv run python docs/generate_install_options.py
-	uv run python docs/generate_gallery.py
-	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never uv run zensical build --clean
+	uv sync --locked --group docs
+	$(MAKE) docs-generate
+	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical build --clean
 	rm -rf site/__pycache__ site/_build/html
 	find site -maxdepth 1 -type f -name "*.py" -delete
 
@@ -129,17 +137,15 @@ docs-deploy-version:
 
 .PHONY: docs-version-serve
 docs-version-serve:
-	uv sync --group docs
-	uv run mike serve
+	uv sync --locked --group docs
+	$(UV_DOCS) mike serve
 
 PORT ?= 8001
 .PHONY: docs-serve
 docs-serve:
-	uv sync --group docs
-	uv run python docs/generate_api.py
-	uv run python docs/generate_catalog.py
-	uv run python docs/generate_install_options.py
-	E2S_GALLERY_EXECUTE=never uv run zensical serve -a 0.0.0.0:$(PORT)
+	uv sync --locked --group docs
+	$(MAKE) docs-generate
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical serve -a 0.0.0.0:$(PORT)
 
 .PHONY: container-service
 # Example DOCKER_REPO?=nvcr.io/dycvht5ows21
