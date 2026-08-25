@@ -118,6 +118,7 @@ def from_torch(
     coords: CoordSystem,
     name: Hashable | None = None,
     attrs: Mapping[Any, Any] | None = None,
+    preserve_grad: bool = False,
 ) -> xr.DataArray:
     """Wrap a Torch tensor and coordinate system in an xarray DataArray.
 
@@ -134,6 +135,8 @@ def from_torch(
         DataArray name, by default None
     attrs : Mapping[Any, Any] | None, optional
         DataArray attributes, by default None
+    preserve_grad : bool, optional
+        Preserve the Torch autograd graph, by default False
 
     Returns
     -------
@@ -148,7 +151,14 @@ def from_torch(
         If the tensor is not on a CPU or CUDA device.
     ImportError
         If a CUDA tensor is provided without CuPy installed.
+    NotImplementedError
+        If ``preserve_grad`` is True.
     """
+    if preserve_grad:
+        raise NotImplementedError(
+            "Gradient-preserving Torch conversion is not implemented"
+        )
+
     if len(coords) != tensor.ndim:
         raise ValueError("Coordinate dimensions do not match the tensor rank")
 
@@ -225,8 +235,13 @@ class Earth2StudioAccessor:
             return _replace_data(self._array, self._array.data)
         return self._array.as_numpy()
 
-    def to_torch(self) -> tuple[torch.Tensor, CoordSystem]:
+    def to_torch(self, preserve_grad: bool = False) -> tuple[torch.Tensor, CoordSystem]:
         """Convert to the legacy Torch tensor and coordinate representation.
+
+        Parameters
+        ----------
+        preserve_grad : bool, optional
+            Preserve the Torch autograd graph, by default False
 
         Returns
         -------
@@ -237,7 +252,14 @@ class Earth2StudioAccessor:
         ------
         TypeError
             If the DataArray is not backed by NumPy or CuPy.
+        NotImplementedError
+            If ``preserve_grad`` is True.
         """
+        if preserve_grad:
+            raise NotImplementedError(
+                "Gradient-preserving Torch conversion is not implemented"
+            )
+
         data = self._array.data
         if isinstance(data, np.ndarray):
             tensor = torch.from_numpy(data)
