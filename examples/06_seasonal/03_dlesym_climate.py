@@ -78,7 +78,6 @@ import torch
 
 from earth2studio.data import ARCO
 from earth2studio.data.utils import fetch_data
-from earth2studio.models.auto import Package
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5LatLon
 
