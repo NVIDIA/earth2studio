@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 from collections import OrderedDict
 from collections.abc import Iterable
 
@@ -629,3 +630,56 @@ def test_stormscope_meteosat_exceptions():
     )
     with pytest.raises(ValueError):
         model.output_coords(bad_grid_size)
+
+
+@pytest.mark.package
+def test_stormscope_meteosat_package():
+    """Integration test with real StormScopeMeteosatEU model weights.
+
+    Arbitrary Gaussian noise is not a physically valid raw MTG pixel count, so
+    the input is instead a constant field at each channel's raw-count
+    normalization mean -- a documented, model-appropriate neutral state.
+    """
+    package = StormScopeMeteosatEU.load_default_package()
+    model = StormScopeMeteosatEU.load_model(package)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = model.to(device)
+
+    # Reduce diffusion steps to keep the integration test fast
+    model.num_diffusion_steps = 2
+
+    time = np.array([np.datetime64("2024-06-01T00:00")])
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+
+    dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
+    r = Random(dc)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = x.unsqueeze(0)
+    coords.update({"batch": np.arange(1)})
+    coords.move_to_end("batch", last=False)
+
+    # Overwrite the random field with a stable, physically valid raw MTG
+    # state: a constant field at each channel's raw-count normalization mean.
+    means = model.means.to(device=x.device, dtype=x.dtype).view(1, 1, 1, -1, 1, 1)
+    x = means.expand_as(x).clone()
+
+    out, out_coords = model(x, coords)
+
+    h, w = len(model.mtg_y), len(model.mtg_x)
+    assert out.shape == torch.Size([1, len(time), 1, len(variable), h, w])
+    assert torch.isfinite(out).all()
+    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    assert np.all(out_coords["time"] == time)
+    handshake_dim(out_coords, "x", 5)
+    handshake_dim(out_coords, "y", 4)
+    handshake_dim(out_coords, "variable", 3)
+    handshake_dim(out_coords, "lead_time", 2)
+    handshake_dim(out_coords, "time", 1)
+    handshake_dim(out_coords, "batch", 0)
+
+    del model
+    gc.collect()
+    if device != "cpu":
+        torch.cuda.empty_cache()
