@@ -20,6 +20,7 @@ import pathlib
 import re
 import shutil
 import uuid
+import warnings
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime
@@ -37,14 +38,14 @@ from earth2studio.data.utils import (
     obstore_zarr_store,
     prep_data_inputs,
 )
-from earth2studio.lexicon import ARCOLexicon
+from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
-class ARCO:
-    """Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data
-    currated by Google. This data is stored in Zarr format and contains 31 surface
+class ARCO_ERA5:
+    """Analysis-Ready, Cloud Optimized (ARCO) ERA5 is a reanalysis data source
+    curated by Google. This data is stored in Zarr format and contains 31 surface
     variables, pressure level variables defined on 37 pressure levels, and model level
     variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat
     lon grid. Temporal resolution is 1 hour.
@@ -129,7 +130,7 @@ class ARCO:
         self.zarr_group = await zarr.api.asynchronous.open(store=zstore, mode="r")
 
         if "valid_time_stop" in self.zarr_group.attrs:
-            ARCO.ARCO_TIME_STOP = datetime.strptime(
+            ARCO_ERA5.ARCO_TIME_STOP = datetime.strptime(
                 self.zarr_group.attrs["valid_time_stop"], "%Y-%m-%d"
             )
 
@@ -155,12 +156,12 @@ class ARCO:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO lexicon.
+            return. Must be in the ARCO_ERA5Lexicon.
 
         Returns
         -------
         xr.DataArray
-            ERA5 weather data array from ARCO
+            ERA5 weather data array from ARCO_ERA5
         """
 
         try:
@@ -187,12 +188,12 @@ class ARCO:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO lexicon.
+            return. Must be in the ARCO_ERA5Lexicon.
 
         Returns
         -------
         xr.DataArray
-            ERA5 weather data array from ARCO
+            ERA5 weather data array from ARCO_ERA5
         """
         if self.zarr_group is None:
             await self._async_init()
@@ -222,9 +223,9 @@ class ARCO:
         )
         for j, v in enumerate(variable):
             try:
-                arco_name, modifier = ARCOLexicon[v]
+                arco_name, modifier = ARCO_ERA5Lexicon[v]  # type: ignore[misc]
             except KeyError:
-                logger.error(f"variable id {v} not found in ARCO lexicon")
+                logger.error(f"variable id {v} not found in ARCO_ERA5Lexicon")
                 raise
             parts = arco_name.split("::")
             arco_variable = parts[0]
@@ -243,7 +244,7 @@ class ARCO:
         )
 
         await tqdm.gather(
-            *func_map, desc="Fetching ARCO data", disable=(not self._verbose)
+            *func_map, desc="Fetching ARCO_ERA5 data", disable=(not self._verbose)
         )
         return xr_array
 
@@ -290,7 +291,7 @@ class ARCO:
             data = None
             for var_name, var_idx, level, modifier in var_entries:
                 accumulation_hours = ACCUMULATION_HOURS.get(var_name)
-                # Sum hourly ARCO fields to support cumulative variables.
+                # Sum hourly ARCO_ERA5 fields to support cumulative variables.
                 if accumulation_hours is not None:
                     start_index = time_index - accumulation_hours + 1
                     if start_index < 0:
@@ -341,9 +342,9 @@ class ARCO:
             f"Fetching ARCO zarr array for variable: {variable} at {time.isoformat()}"
         )
         try:
-            arco_name, modifier = ARCOLexicon[variable]
+            arco_name, modifier = ARCO_ERA5Lexicon[variable]  # type: ignore[misc]
         except KeyError as e:
-            logger.error(f"variable id {variable} not found in ARCO lexicon")
+            logger.error(f"variable id {variable} not found in ARCO_ERA5Lexicon")
             raise e
 
         parts = arco_name.split("::")
@@ -364,7 +365,7 @@ class ARCO:
         # Surface variable
         elif len(shape) == 3:
             accumulation_hours = ACCUMULATION_HOURS.get(variable)
-            # Sum hourly ARCO fields to support cumulative variables.
+            # Sum hourly ARCO_ERA5 fields to support cumulative variables.
             if accumulation_hours is not None:
                 start_index = time_index - accumulation_hours + 1
                 if start_index < 0:
@@ -400,7 +401,7 @@ class ARCO:
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
-        """Verify if date time is valid for ARCO
+        """Verify if date time is valid for ARCO_ERA5.
 
         Parameters
         ----------
@@ -410,21 +411,21 @@ class ARCO:
         for time in times:
             if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
-                    f"Requested date time {time} needs to be 1 hour interval for ARCO"
+                    f"Requested date time {time} needs to be 1 hour interval for ARCO_ERA5"
                 )
 
             if time < datetime(year=1940, month=1, day=1):
                 raise ValueError(
-                    f"Requested date time {time} needs to be after January 1st, 1940 for ARCO"
+                    f"Requested date time {time} needs to be after January 1st, 1940 for ARCO_ERA5"
                 )
 
             if time > cls.ARCO_TIME_STOP:
                 raise ValueError(
-                    f"Requested date time {time} needs to be on or before {cls.ARCO_TIME_STOP.strftime('%B %d, %Y')} for ARCO"
+                    f"Requested date time {time} needs to be on or before {cls.ARCO_TIME_STOP.strftime('%B %d, %Y')} for ARCO_ERA5"
                 )
 
             # if not self.available(time):
-            #     raise ValueError(f"Requested date time {time} not available in ARCO")
+            #     raise ValueError(f"Requested date time {time} not available in ARCO_ERA5")
 
     @classmethod
     def _get_time_index(cls, time: datetime) -> int:
@@ -440,7 +441,7 @@ class ARCO:
         Returns
         -------
         int
-            Time coordinate index of ARCO data
+            Time coordinate index of ARCO_ERA5 data
         """
         start_date = datetime(year=1900, month=1, day=1)
         duration = time - start_date
@@ -464,7 +465,7 @@ class ARCO:
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
-        """Checks if given date time is avaliable in the ARCO data source
+        """Checks if given date time is avaliable in the ARCO_ERA5 data source
 
         Parameters
         ----------
@@ -495,3 +496,17 @@ class ARCO:
         time_index = cls._get_time_index(time)
         max_index = zarr_group["time"][-1]
         return time_index >= 0 and time_index <= max_index
+
+
+def ARCO(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+) -> ARCO_ERA5:
+    """Instantiate the deprecated :class:`ARCO_ERA5` alias."""
+    warnings.warn(
+        "ARCO has been renamed to ARCO_ERA5 and may be removed in a future release.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return ARCO_ERA5(cache=cache, verbose=verbose, async_timeout=async_timeout)

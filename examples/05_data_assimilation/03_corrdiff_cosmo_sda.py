@@ -40,7 +40,7 @@ ensemble does not guarantee improvement.
 In this example you will learn:
 
 - Load ``CorrDiffCosmoEra5SDA`` on a COSMO-REA2 sub-domain
-- Fetch an ERA5 driving state (ARCO) and regrid it onto the downscaler's input grid
+- Fetch an ERA5 driving state (ARCO_ERA5) and regrid it onto the downscaler's input grid
 - Fetch GHCNHourly 10 m wind observations over the model domain
 - Produce a prior (free, no-obs) downscaling and an observation-guided analysis
 - Compare both fields to held-out stations (prior vs analysis RMSE)
@@ -105,7 +105,7 @@ os.makedirs("outputs", exist_ok=True)
 # output channels -- here the 10 m wind, which matches the station reports' height.
 
 # %% tags=["e2sg-profile:setup"]
-from earth2studio.data import ARCO, GHCNHourly, fetch_data
+from earth2studio.data import ARCO_ERA5, GHCNHourly, fetch_data
 from earth2studio.models.da import CorrDiffCosmoEra5SDA
 
 package = CorrDiffCosmoEra5SDA.load_default_package()
@@ -127,7 +127,7 @@ sda.seed = 0
 # %%
 # Fetch Coarse-Resolution State
 # ------------------------------
-# Fetch an ERA5 analysis (ARCO) for the historical time and regrid it onto the
+# Fetch an ERA5 reanalysis for the historical time and regrid it onto the
 # downscaler's regional input grid. The result is an ``xr.DataArray`` with dims
 # ``(time, variable, lat, lon)`` -- the same driving state the downscaler
 # conditions on; the ``time`` coord also drives its day/night (solar) input.
@@ -162,7 +162,7 @@ dlat, dlon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
 
 t = np.array([np.datetime64(INIT_TIME)])
 x_src, c_src = fetch_data(
-    ARCO(),
+    ARCO_ERA5(),
     time=t,
     variable=np.array(dvars),
     lead_time=np.array([np.timedelta64(0, "h")]),

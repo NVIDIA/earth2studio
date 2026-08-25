@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections.abc import Callable
 
 import numpy as np
@@ -21,7 +22,7 @@ import numpy as np
 from .base import LexiconType
 
 
-class CDSLexicon(metaclass=LexiconType):
+class CDS_ERA5Lexicon(metaclass=LexiconType):
     """Climate Data Store Lexicon
     CDS specified <dataset>::<Variable ID>::<Pressure Level>
 
@@ -163,3 +164,16 @@ class CDSLexicon(metaclass=LexiconType):
             return x
 
         return cds_key, mod
+
+
+def __getattr__(name: str) -> type[CDS_ERA5Lexicon]:
+    """Return deprecated lexicon aliases."""
+    if name == "CDSLexicon":
+        warnings.warn(
+            "CDSLexicon has been renamed to CDS_ERA5Lexicon and may be removed in "
+            "a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return CDS_ERA5Lexicon
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -22,7 +22,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from earth2studio.data import CDS
+from earth2studio.data import CDS, CDS_ERA5
 
 CDS_API_URL = "https://cds.climate.copernicus.eu/api"
 
@@ -49,7 +49,7 @@ def _set_cdsapi_url(monkeypatch):
 @pytest.mark.parametrize("variable", ["tcwv", ["sp", "w500"]])
 def test_cds_fetch(time, variable):
 
-    ds = CDS(cache=False)
+    ds = CDS_ERA5(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -78,7 +78,7 @@ def test_cds_fetch(time, variable):
 )
 def test_cds_tp06_fetch(time):
 
-    ds = CDS(cache=False)
+    ds = CDS_ERA5(cache=False)
     data = ds(time, "tp06")
     shape = data.shape
 
@@ -106,7 +106,7 @@ def test_cds_tp06_fetch(time):
 @pytest.mark.parametrize("cache", [True, False])
 def test_cds_cache(time, variable, cache):
 
-    ds = CDS(cache=cache)
+    ds = CDS_ERA5(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
@@ -147,7 +147,7 @@ def test_cds_cache(time, variable, cache):
 @pytest.mark.parametrize("variable", ["mpl"])
 def test_cds_available(time, variable):
     with pytest.raises(ValueError):
-        ds = CDS()
+        ds = CDS_ERA5()
         ds(time, variable)
 
 
@@ -156,10 +156,18 @@ def test_cds_lazy_client_init(mock_cdsapi, tmp_path, monkeypatch):
     """Test that cdsapi.Client is created lazily, not during __init__."""
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
-    ds = CDS()
+    ds = CDS_ERA5()
     assert ds._cds_client is None
     mock_cdsapi.Client.assert_not_called()
 
     # Access the property to trigger lazy init
     _ = ds.cds_client
     mock_cdsapi.Client.assert_called_once()
+
+
+def test_cds_deprecation_warning():
+    """The legacy CDS alias instantiates the ERA5 data source with a warning."""
+    with pytest.warns(DeprecationWarning, match="CDS has been renamed to CDS_ERA5"):
+        data_source = CDS()
+
+    assert type(data_source) is CDS_ERA5

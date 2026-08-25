@@ -70,7 +70,7 @@ from datetime import datetime, timedelta
 
 import torch
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import SFNO
 from earth2studio.utils.time import to_time_array
@@ -83,7 +83,7 @@ package = SFNO.load_default_package()
 prognostic = SFNO.load_model(package)
 
 # Create the data source
-data = ARCO()
+data = ARCO_ERA5()
 
 nsteps = 16  # Number of steps to run the tracker for into future
 start_time = datetime(2009, 8, 5)  # Start date for inference
@@ -111,7 +111,7 @@ for step, time in enumerate(times):
     da = data(time, tracker.input_coords()["variable"])
     x, coords = prep_data_array(da, device=device)
     output, output_coords = tracker(x, coords)
-    print(f"Step {step}: ARCO tracks output shape {output.shape}")
+    print(f"Step {step}: ARCO_ERA5 tracks output shape {output.shape}")
 
 era5_tracks = output.cpu()
 torch.save(era5_tracks, "outputs/13_era5_paths.pt")

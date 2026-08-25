@@ -67,7 +67,7 @@ resume: true
 perturbation: null
 require_predownload: true
 data_source:
-  _target_: earth2studio.data.ARCO
+  _target_: earth2studio.data.ARCO_ERA5
   cache: false
   verbose: false
 output:
@@ -166,7 +166,7 @@ predownload:
   verification:
     enabled: true
     source:
-      _target_: earth2studio.data.ARCO
+      _target_: earth2studio.data.ARCO_ERA5
       cache: false
       verbose: false
 pipeline:

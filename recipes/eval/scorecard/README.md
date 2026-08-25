@@ -3,7 +3,7 @@
 Generates the source score JSON files behind the documentation's
 [Scorecards pages](../../../docs/scorecard). Each model is evaluated on the
 same campaign — 24 initial conditions (1st and 15th of each month of 2025,
-00 UTC), 14-day horizon, ERA5 verification via ARCO — using the eval recipe.
+00 UTC), 14-day horizon, ERA5 verification via ARCO_ERA5 — using the eval recipe.
 
 ## Layout
 

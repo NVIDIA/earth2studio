@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.lexicon import ARCOLexicon
+from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.lexicon.base import E2STUDIO_VOCAB
 
@@ -38,7 +38,7 @@ from earth2studio.lexicon.base import E2STUDIO_VOCAB
 def test_arco_lexicon(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
-        label, modifier = ARCOLexicon[v]
+        label, modifier = ARCO_ERA5Lexicon[v]
         output = modifier(input)
         assert isinstance(label, str)
         assert input.shape == output.shape
@@ -70,7 +70,7 @@ def test_arco_lexicon(variable, device):
     ],
 )
 def test_arco_aifs_aliases(variable, expected):
-    assert ARCOLexicon.VOCAB[variable] == expected
+    assert ARCO_ERA5Lexicon.VOCAB[variable] == expected
 
 
 def test_new_arco_aliases_are_in_base_vocab():
@@ -119,8 +119,20 @@ def test_arco_accumulation_aliases():
 
 def test_arco_wave_direction_modifiers():
     degrees = np.array([0.0, 90.0, 180.0, 270.0])
-    _, cos_modifier = ARCOLexicon["cos_mwd"]
-    _, sin_modifier = ARCOLexicon["sin_mwd"]
+    _, cos_modifier = ARCO_ERA5Lexicon["cos_mwd"]
+    _, sin_modifier = ARCO_ERA5Lexicon["sin_mwd"]
 
     assert np.allclose(cos_modifier(degrees), np.array([1.0, 0.0, -1.0, 0.0]))
     assert np.allclose(sin_modifier(degrees), np.array([0.0, 1.0, 0.0, -1.0]))
+
+
+def test_arco_lexicon_deprecation_warning():
+    """The legacy lexicon alias returns the canonical lexicon with a warning."""
+    import earth2studio.lexicon as lexicon
+
+    with pytest.warns(
+        DeprecationWarning, match="ARCOLexicon has been renamed to ARCO_ERA5Lexicon"
+    ):
+        data_source_lexicon = lexicon.ARCOLexicon
+
+    assert data_source_lexicon is ARCO_ERA5Lexicon

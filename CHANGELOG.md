@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
+  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
+  emit a warning and may be removed in a future release.
 - `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
   persistent spawn-based process pool (new `decode_workers` parameter,
   default `"auto"`); each file is decoded once per request window, frames are

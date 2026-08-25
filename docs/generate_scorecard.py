@@ -267,7 +267,7 @@ Pick a metric and variable; hover for exact values at each lead time.
 {summary}
 
 Scores are latitude-weighted (cos φ) and aggregated over the initial
-conditions. Evaluation is done against ERA5 fetched from ARCO.
+conditions. Evaluation is done against ERA5 fetched from ARCO_ERA5.
 
 | | |
 |---|---|
@@ -313,7 +313,7 @@ INDEX_MD = """\
 Forecast skill of Earth2Studio models, one scorecard per model. These show
 each model's own skill, not a comparison between models. Every model was evaluated on the
 same campaign: {n_ic} initial conditions ({years}), 14-day horizon, ERA5
-verification via ARCO. Pages are generated from per-model score (JSON) exports
+verification via ARCO_ERA5. Pages are generated from per-model score (JSON) exports
 produced by the
 [scorecard recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval/scorecard),
 which documents how to generate a scorecard for any model; the

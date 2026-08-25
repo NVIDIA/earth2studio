@@ -22,8 +22,8 @@ output: generated/data/analysis
 -->
 <!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true labels=label hidden="product" -->
 {% autosummary %}
-earth2studio.data.ARCO
-earth2studio.data.CDS
+earth2studio.data.ARCO_ERA5
+earth2studio.data.CDS_ERA5
 earth2studio.data.CMIP6
 earth2studio.data.CMIP6MultiRealm
 earth2studio.data.DynamicalAIFS
