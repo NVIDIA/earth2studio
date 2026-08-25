@@ -135,15 +135,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed intermittent repeated FengWu forecast timesteps by synchronizing ONNX
+  Runtime I/O buffers with PyTorch.
 - Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
   snow depth, snow cover, and total cloud cover at positive forecast lead
   times.
 - Fixed the March 22, 2021 GFS archive cutoff and historical `GFS_FX` total
   precipitation lookups.
-
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
-
 - Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
   `torch.backends.cudnn.benchmark` on and off around each coupled cycle
   re-triggered cuDNN's GPU-timing-based algorithm search every cycle
@@ -151,7 +151,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
   step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
   initial condition is yielded at `lead_time=[0h]`
-
 - Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
   NCEI archive path; the reforecast archive moved to
   `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs

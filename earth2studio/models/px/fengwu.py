@@ -308,7 +308,9 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Forward pass, fengwu onnx supports batched
         bind_input("input", x)
         output = bind_output("output", like=x)
+        binding.synchronize_inputs()
         ort_session.run_with_iobinding(binding)
+        binding.synchronize_outputs()
 
         # ONNX model outputs two time-steps, take the first
         output_tensor = output[:].contiguous()
