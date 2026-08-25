@@ -404,7 +404,11 @@ class HRRR:
                         # could do this better with templates, but this is single instance
                         if variable_name == "APCP":
                             hours = int(lt.total_seconds() // 3600)
-                            hrrr_key = f"{variable_name}::{level}::{hours-1:d}-{hours:d} hour acc fcst"
+                            if hours == 0:
+                                accumulation = "0-0 day acc fcst"
+                            else:
+                                accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
+                            hrrr_key = f"{variable_name}::{level}::{accumulation}"
 
                     except KeyError as e:
                         logger.error(

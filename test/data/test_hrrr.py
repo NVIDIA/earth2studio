@@ -18,7 +18,7 @@ import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -384,6 +384,39 @@ def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
     for j in range(2):
         np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(10)
+def test_hrrr_special_variable_lookups():
+    fake_index = {
+        "84::APCP::surface::0-0 day acc fcst": (100, 10),
+        "84::APCP::surface::0-1 hour acc fcst": (110, 10),
+        "116::TCDC::entire atmosphere::1 hour fcst": (210, 10),
+        "68::WEASD::surface::1 hour fcst": (310, 10),
+        "70::SNOD::surface::1 hour fcst": (410, 10),
+        "69::SNOWC::surface::1 hour fcst": (510, 10),
+    }
+    time = [datetime(2026, 7, 20)]
+    analysis = HRRR(cache=False, verbose=False)
+    forecast = HRRR_FX(cache=False, verbose=False)
+    fetch_index = AsyncMock(return_value=fake_index)
+    with (
+        patch.object(analysis, "_fetch_index", new=fetch_index),
+        patch.object(forecast, "_fetch_index", new=fetch_index),
+    ):
+        [analysis_task] = asyncio.run(
+            analysis._create_tasks(time, [timedelta(0)], ["tp"])
+        )
+        forecast_tasks = asyncio.run(
+            forecast._create_tasks(
+                time,
+                [timedelta(hours=1)],
+                ["tp", "tcc", "sd", "sde", "snowc"],
+            )
+        )
+    offsets = [task.hrrr_byte_offset for task in forecast_tasks]
+    assert analysis_task.hrrr_byte_offset == 100
+    assert offsets == [110, 210, 310, 410, 510]
 
 
 @pytest.mark.timeout(15)

@@ -134,6 +134,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
+  snow depth, snow cover, and total cloud cover at positive forecast lead
+  times.
+
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
 
