@@ -132,6 +132,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2306.12873
     - https://github.com/tpys/FuXi
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
