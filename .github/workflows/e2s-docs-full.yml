@@ -111,6 +111,7 @@ jobs:
           artifact-retention-days: "10"
           gallery-cache-name: ${{ github.ref_name }}
           data-cache-name: ${{ github.ref_name }}
+          execute-examples: "true"
           save-caches: "true"
           upload-artifact: "false"
         env:
