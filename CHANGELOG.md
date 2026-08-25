@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
   conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
   optional dictionary encoding of low-cardinality string columns
+- Added `StormScopeMeteoSatEU` European domain satellite nowcasting model
 
 ### Changed
 
