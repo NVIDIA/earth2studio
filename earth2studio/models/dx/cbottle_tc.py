@@ -75,15 +75,12 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+    - https://huggingface.co/nvidia/cbottle
 
     Note
     ----
     This model provides the function :py:func:`model.create_guidance_tensor`
     as a utility to create the input guidance tensor.
-
-    Note
-    ----
-    https://huggingface.co/nvidia/cbottle
 
     Parameters
     ----------

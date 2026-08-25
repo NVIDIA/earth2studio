@@ -153,10 +153,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     ``earth2studio.data.UFSObsConv`` and ``earth2studio.data.UFSObsSat`` and
     produces a global analysis field.
 
-    Note
-    ----
-    https://huggingface.co/nvidia/healda
-
     Parameters
     ----------
     model : torch.nn.Module

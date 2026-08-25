@@ -252,10 +252,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
 
-    Note
-    ----
-    https://huggingface.co/nvidia/corrdiff-cosmo-era5
-
     Parameters
     ----------
     era5_variables : Sequence[str]
@@ -353,6 +349,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     * COSMO-REA6 (~6 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
     * COSMO-REA2 (~2.2 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
     * ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
+    * https://huggingface.co/nvidia/corrdiff-cosmo-era5
 
     Badges
     ------

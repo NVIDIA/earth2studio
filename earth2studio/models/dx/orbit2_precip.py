@@ -122,6 +122,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     following references:
 
     - https://dl.acm.org/doi/10.1145/3712285.3771989
+    - https://huggingface.co/jychoi-hpc/ORBIT-2
 
     Note
     ----
@@ -130,10 +131,6 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum.
     - ``t2m`` and ``sst`` are combined to represent global surface temperature.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
-
-    Note
-    ----
-    https://huggingface.co/jychoi-hpc/ORBIT-2
 
     Parameters
     ----------

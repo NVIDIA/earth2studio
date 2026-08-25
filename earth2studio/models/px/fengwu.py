@@ -129,15 +129,12 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2304.02948
     - https://github.com/OpenEarthLab/FengWu
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
     To avoid ONNX init session overhead of this model we recommend setting the default
     Pytorch device to the correct target prior to model construction.
-
-    Note
-    ----
-    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------

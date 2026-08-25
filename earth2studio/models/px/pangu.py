@@ -344,6 +344,7 @@ class Pangu24(PanguBase):
 
     - https://doi.org/10.1038/s41586-023-06185-3
     - https://github.com/198808xc/Pangu-Weather
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -354,10 +355,6 @@ class Pangu24(PanguBase):
     -------
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
-
-    Note
-    ----
-    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------
@@ -452,6 +449,7 @@ class Pangu6(PanguBase):
 
     - https://doi.org/10.1038/s41586-023-06185-3
     - https://github.com/198808xc/Pangu-Weather
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -462,10 +460,6 @@ class Pangu6(PanguBase):
     -------
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
-
-    Note
-    ----
-    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------
@@ -577,6 +571,7 @@ class Pangu3(PanguBase):
 
     - https://doi.org/10.1038/s41586-023-06185-3
     - https://github.com/198808xc/Pangu-Weather
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -587,10 +582,6 @@ class Pangu3(PanguBase):
     -------
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
-
-    Note
-    ----
-    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------

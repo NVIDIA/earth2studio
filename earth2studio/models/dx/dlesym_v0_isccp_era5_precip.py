@@ -163,10 +163,6 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] output, which is
     already in OLR space.
 
-    Note
-    ----
-    https://huggingface.co/nvidia/dlesym-v0-isccp-era5
-
     Parameters
     ----------
     core_model : torch.nn.Module
@@ -214,6 +210,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     - https://github.com/AtmosSci-DLESM/DLESyM
     - https://arxiv.org/abs/2409.16247 (the published paper backing this
       checkpoint set)
+    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
 
     Badges
     ------

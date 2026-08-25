@@ -168,10 +168,6 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     the model package, each indexed by ``(dayofyear, face, height, width)``.
     When ``use_ttr=False``, supply pre-transformed OLR (``rlut``) directly.
 
-    Note
-    ----
-    https://huggingface.co/nvidia/dlesym-v0-isccp-era5
-
     Parameters
     ----------
     *args
@@ -202,6 +198,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
     - https://github.com/AtmosSci-DLESM/DLESyM
     - https://arxiv.org/abs/2409.16247 (Cresswell-Clay et al. 2024)
+    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
 
     See [`DLESyM`][earth2studio.models.px.dlesym.DLESyM] for details on the
     coupled rollout, ``retrieve_valid_atmos_outputs`` /
@@ -565,10 +562,6 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     applied once. Derived variables (``ws10m`` from ``u10m``/``v10m`` and
     ``tau300-700`` from ``z300``/``z700``) and SST NaN-interpolation are
     handled identically to [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon].
-
-    Note
-    ----
-    https://huggingface.co/nvidia/dlesym-v0-isccp-era5
 
     Parameters
     ----------

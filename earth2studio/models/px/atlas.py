@@ -139,10 +139,6 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Atlas consumes two input lead times (t-6h and t) and predicts a single step at
     t+6h on a 721x1440 latitude-longitude grid.
 
-    Note
-    ----
-    https://huggingface.co/nvidia/atlas-era5
-
     Parameters
     ----------
     autoencoders : nn.ModuleList

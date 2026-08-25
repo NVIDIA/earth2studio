@@ -132,15 +132,12 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2306.12873
     - https://github.com/tpys/FuXi
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
     To avoid ONNX init session overhead of this model we recommend setting the default
     Pytorch device to the correct target prior to model construction.
-
-    Note
-    ----
-    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------
