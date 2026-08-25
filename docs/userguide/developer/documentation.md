@@ -128,13 +128,13 @@ preinstall every project extra.
 
 In CI, pull-request and main-branch documentation builds run `make docs` and never execute
 examples. The manually dispatched `e2s-docs-full` workflow runs the selected example sections as
-sequential jobs. Each section restores its own data and model caches, then publishes an updated
-shared Gallery cache for the next section. A final job renders and deploys the complete site from
-that Gallery cache without rerunning examples. The workflow can execute all sections or one
-selected section; retained results for other sections remain available to the final render.
+sequential jobs. Each section restores its own data cache, then publishes an updated shared
+Gallery cache for the next section. Model downloads remain local to the section runner and are not
+saved. A final job renders and deploys the complete site from that Gallery cache without rerunning
+examples. The workflow can execute all sections or one selected section; retained results for
+other sections remain available to the final render.
 
-The `util-clear-cache` workflow can clear Gallery, docs data, and docs model caches independently,
-or clear both section asset cache families with the `docs-assets` option.
+The `util-clear-cache` workflow can clear Gallery and section data caches independently.
 
 For local development with live reload, use:
 

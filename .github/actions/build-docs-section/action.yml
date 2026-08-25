@@ -15,7 +15,7 @@
 # limitations under the License.
 
 name: Build docs example section
-description: Execute one example section and update its caches.
+description: Execute one example section and update its data and gallery caches.
 
 inputs:
   section:
@@ -27,9 +27,6 @@ inputs:
   data-cache-name:
     description: Stable section data cache scope.
     default: main
-  model-cache-name:
-    description: Stable section model cache scope.
-    default: main
 
 runs:
   using: composite
@@ -38,11 +35,11 @@ runs:
       shell: bash
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-    - name: Prepare section cache directories
+    - name: Prepare section directories
       shell: bash
       env:
         SECTION: ${{ inputs.section }}
-      run: mkdir -p "docs-data/${SECTION}" "docs-models/${SECTION}"
+      run: mkdir -p "docs-data/${SECTION}" "${RUNNER_TEMP}/earth2studio-models"
 
     # Lookup and restore are separate so a normal miss is allowed while a failed download fails the job.
     - name: Find section data cache
@@ -62,25 +59,6 @@ runs:
       with:
         path: docs-data/${{ inputs.section }}
         key: ${{ steps.docs-data-cache-lookup.outputs.cache-matched-key }}
-        fail-on-cache-miss: true
-
-    - name: Find section model cache
-      id: docs-model-cache-lookup
-      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-      with:
-        path: docs-models/${{ inputs.section }}
-        key: e2s-docs-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}
-        restore-keys: |
-          e2s-docs-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ inputs.section }}-
-          e2s-docs-model-${{ runner.os }}-main-${{ inputs.section }}-
-        lookup-only: true
-
-    - name: Restore section model cache
-      if: steps.docs-model-cache-lookup.outputs.cache-matched-key != ''
-      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
-      with:
-        path: docs-models/${{ inputs.section }}
-        key: ${{ steps.docs-model-cache-lookup.outputs.cache-matched-key }}
         fail-on-cache-miss: true
 
     - name: Find rolling gallery cache
@@ -110,16 +88,14 @@ runs:
         SECTION: ${{ inputs.section }}
       run: |
         data_bytes=$(du -sb "docs-data/${SECTION}" | cut -f1)
-        model_bytes=$(du -sb "docs-models/${SECTION}" | cut -f1)
         echo "data-bytes=${data_bytes}" >> "${GITHUB_OUTPUT}"
-        echo "model-bytes=${model_bytes}" >> "${GITHUB_OUTPUT}"
 
     - name: Prepare CI directories
       shell: bash
       env:
-        EARTH2STUDIO_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        EARTH2STUDIO_CACHE: ${{ runner.temp }}/earth2studio-models
         EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data/${{ inputs.section }}
-        EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
       run: python3 test/_ci/prepare_ci_paths.py
 
     - name: Show GPU information
@@ -133,9 +109,9 @@ runs:
     - name: Execute example section
       shell: bash
       env:
-        EARTH2STUDIO_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        EARTH2STUDIO_CACHE: ${{ runner.temp }}/earth2studio-models
         EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data/${{ inputs.section }}
-        EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
         SECTION: ${{ inputs.section }}
         UV_LINK_MODE: symlink
       run: test/_ci/build_docs_examples.sh "${SECTION}"
@@ -145,7 +121,6 @@ runs:
       shell: bash
       env:
         DATA_BYTES_BEFORE: ${{ steps.restored-cache-size.outputs.data-bytes }}
-        MODEL_BYTES_BEFORE: ${{ steps.restored-cache-size.outputs.model-bytes }}
         SECTION: ${{ inputs.section }}
       run: |
         if ! find .e2sgallery -type f -print -quit 2>/dev/null | grep -q .; then
@@ -154,20 +129,12 @@ runs:
         fi
 
         data_bytes_after=$(du -sb "docs-data/${SECTION}" | cut -f1)
-        model_bytes_after=$(du -sb "docs-models/${SECTION}" | cut -f1)
 
         if find "docs-data/${SECTION}" -type f -print -quit | grep -q . && \
           [ "${data_bytes_after}" != "${DATA_BYTES_BEFORE}" ]; then
           echo "data-changed=true" >> "${GITHUB_OUTPUT}"
         else
           echo "data-changed=false" >> "${GITHUB_OUTPUT}"
-        fi
-
-        if find "docs-models/${SECTION}" -type f -print -quit | grep -q . && \
-          [ "${model_bytes_after}" != "${MODEL_BYTES_BEFORE}" ]; then
-          echo "model-changed=true" >> "${GITHUB_OUTPUT}"
-        else
-          echo "model-changed=false" >> "${GITHUB_OUTPUT}"
         fi
 
     - name: Save rolling gallery cache
@@ -183,11 +150,3 @@ runs:
       with:
         path: docs-data/${{ inputs.section }}
         key: e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-    - name: Save section model cache
-      if: steps.updated-cache-state.outputs.model-changed == 'true'
-      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
-      continue-on-error: true
-      with:
-        path: docs-models/${{ inputs.section }}
-        key: e2s-docs-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}

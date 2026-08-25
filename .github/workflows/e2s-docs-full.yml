@@ -141,7 +141,6 @@ jobs:
           section: ${{ matrix.section }}
           gallery-cache-name: ${{ github.ref_name }}
           data-cache-name: ${{ github.ref_name }}
-          model-cache-name: ${{ github.ref_name }}
         env:
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
           EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
