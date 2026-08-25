@@ -255,9 +255,7 @@ PAGE_MD = """\
 
 Pick a metric and variable; hover for exact values at each lead time.
 
-<!-- The marker limits Mike's path adjustment to scorecard plot iframes. -->
-
-<iframe data-e2s-scorecard-plot src="../../_static/scorecard/plot.html?model={model_q}&label={label_q}" title="{label} skill"
+<iframe src="../../../_static/scorecard/plot.html?model={model_q}&label={label_q}" title="{label} skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 

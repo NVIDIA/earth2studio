@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from functools import lru_cache
 from html import escape
@@ -63,10 +62,6 @@ EXAMPLES_GALLERY_DESCRIPTION = (
     "Runnable examples, grouped by topic. Each card opens the complete source, "
     "output, and captured figures."
 )
-SCORECARD_PLOT_IFRAME = (
-    '<iframe data-e2s-scorecard-plot src="../../_static/scorecard/plot.html?'
-)
-
 CALLOUT_KINDS = {
     "note",
     "warning",
@@ -101,22 +96,10 @@ KNOWN_TYPES = {
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
     """Convert legacy Sphinx/MyST blocks before Python-Markdown renders pages."""
     page = kwargs.get("page")
-    markdown = _rewrite_scorecard_plot_url(markdown)
     markdown = _render_install_selector(markdown)
     markdown = _render_catalog(markdown, page)
     markdown = _remove_examples_gallery_description(markdown, page)
     return _convert_legacy_blocks(markdown, page)
-
-
-def _rewrite_scorecard_plot_url(markdown: str) -> str:
-    """Adjust the marked scorecard iframe path for a Mike build."""
-    if not os.getenv("MIKE_DOCS_VERSION"):
-        return markdown
-    return markdown.replace(
-        SCORECARD_PLOT_IFRAME,
-        "<iframe data-e2s-scorecard-plot " 'src="../../../_static/scorecard/plot.html?',
-    )
-
 
 def _remove_examples_gallery_description(markdown: str, page: object | None) -> str:
     """Remove the generated examples index description."""
