@@ -86,14 +86,14 @@ def test_batch_copy_and_validation():
         array.e2s.batch(("a",), batch_dim="b")
     with pytest.raises(ValueError, match="does not contain"):
         array.e2s.unbatch()
-    with pytest.raises(NotImplementedError, match="Gradient-preserving"):
+    with pytest.raises(NotImplementedError, match="requires_grad=True"):
         from_torch(
             torch.zeros(2, requires_grad=True),
             OrderedDict((("a", np.arange(2)),)),
-            preserve_grad=True,
+            requires_grad=True,
         )
-    with pytest.raises(NotImplementedError, match="Gradient-preserving"):
-        array.e2s.to_torch(preserve_grad=True)
+    with pytest.raises(NotImplementedError, match="requires_grad=True"):
+        array.e2s.to_torch(requires_grad=True)
     with pytest.raises(ValueError, match="rank"):
         from_torch(torch.zeros(2, 3), OrderedDict((("a", np.arange(2)),)))
     with pytest.raises(ValueError, match="dimension size"):
