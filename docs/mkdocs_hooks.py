@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from functools import lru_cache
 from html import escape
@@ -97,10 +98,21 @@ KNOWN_TYPES = {
 def on_page_markdown(markdown: str, **kwargs: object) -> str:
     """Convert legacy Sphinx/MyST blocks before Python-Markdown renders pages."""
     page = kwargs.get("page")
+    markdown = _rewrite_scorecard_plot_url(markdown)
     markdown = _render_install_selector(markdown)
     markdown = _render_catalog(markdown, page)
     markdown = _remove_examples_gallery_description(markdown, page)
     return _convert_legacy_blocks(markdown, page)
+
+
+def _rewrite_scorecard_plot_url(markdown: str) -> str:
+    """Adjust the scorecard plot path when Mike builds a versioned site."""
+    if not os.getenv("MIKE_DOCS_VERSION"):
+        return markdown
+    return markdown.replace(
+        'src="../../_static/scorecard/plot.html?',
+        'src="../../../_static/scorecard/plot.html?',
+    )
 
 
 def _remove_examples_gallery_description(markdown: str, page: object | None) -> str:

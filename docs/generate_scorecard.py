@@ -255,20 +255,12 @@ PAGE_MD = """\
 
 Pick a metric and variable; hover for exact values at each lead time.
 
-<!-- Resolve from the published page so version prefixes are preserved by
-     both MkDocs and Zensical builds. -->
+<!-- src is SOURCE-relative (docs/scorecard/generated/ -> docs/_static);
+     the Mike build hook adjusts it for the final versioned page location. -->
 
-<iframe title="{label} skill"
+<iframe src="../../_static/scorecard/plot.html?model={model_q}&label={label_q}" title="{label} skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
-<script>
-(() => {{
-  const frame = document.currentScript.previousElementSibling;
-  const plot = new URL("../../../_static/scorecard/plot.html", window.location.href);
-  plot.search = "model={model_q}&label={label_q}";
-  frame.src = plot;
-}})();
-</script>
 
 ## Evaluation
 
