@@ -1481,6 +1481,10 @@ class StormScopeGOES(StormScopeBase):
     window of input timesteps and predict one output timestep; others use a single
     input timestep and predict one output timestep.
 
+    Note
+    ----
+    https://huggingface.co/nvidia/stormscope-goes-mrms
+
     Parameters
     ----------
     model_spec : list[dict[str, Any]]
@@ -1825,6 +1829,10 @@ class StormScopeMRMS(StormScopeBase):
     predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
     method. Otherwise, the user must provide a conditioning data source for the model
     to use during inference.
+
+    Note
+    ----
+    https://huggingface.co/nvidia/stormscope-goes-mrms
 
     Parameters
     ----------

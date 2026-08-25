@@ -355,6 +355,10 @@ class Pangu24(PanguBase):
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
 
+    Note
+    ----
+    https://huggingface.co/NickGeneva/earth_ai
+
     Parameters
     ----------
     ort_24hr : str
@@ -458,6 +462,10 @@ class Pangu6(PanguBase):
     -------
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
+
+    Note
+    ----
+    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------
@@ -579,6 +587,10 @@ class Pangu3(PanguBase):
     -------
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
+
+    Note
+    ----
+    https://huggingface.co/NickGeneva/earth_ai
 
     Parameters
     ----------

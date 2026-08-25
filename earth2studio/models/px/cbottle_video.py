@@ -95,6 +95,10 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
 
+    Note
+    ----
+    https://huggingface.co/nvidia/cbottle
+
     Parameters
     ----------
     core_model : torch.nn.Module

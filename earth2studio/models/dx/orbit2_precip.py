@@ -131,6 +131,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     - ``t2m`` and ``sst`` are combined to represent global surface temperature.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
 
+    Note
+    ----
+    https://huggingface.co/jychoi-hpc/ORBIT-2
+
     Parameters
     ----------
     core_model : torch.nn.Module

@@ -106,6 +106,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
     - HEALPix: https://healpix.sourceforge.io/
 
+    Note
+    ----
+    https://huggingface.co/nvidia/cbottle
+
     Parameters
     ----------
     sr_model : torch.nn.Module
