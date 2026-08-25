@@ -298,14 +298,15 @@ class HRRR:
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
-            data=np.zeros(
+            data=np.full(
                 (
                     len(time),
                     1,
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
@@ -839,14 +840,15 @@ class HRRR_FX(HRRR):
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
