@@ -70,6 +70,9 @@ _ATMOS_OUTPUT_TIMES = np.array(
 )
 _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
+# Normalize variable names in the model package to match e2studio's lexicon
+_ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
+
 
 @check_optional_dependencies()
 class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -635,9 +638,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ocean_output_times=np.array(
                 cfg.io.ocean_output_times, dtype="timedelta64[h]"
             ),
-            atmos_variables=list(cfg.io.atmos_variables),
+            atmos_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v) for v in cfg.io.atmos_variables
+            ],
             ocean_variables=list(cfg.io.ocean_variables),
-            atmos_coupling_variables=list(cfg.io.atmos_coupling_variables),
+            atmos_coupling_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v)
+                for v in cfg.io.atmos_coupling_variables
+            ],
             ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
             atmos_diagnostic_variables=atmos_diagnostic_variables,
             ocean_diagnostic_variables=ocean_diagnostic_variables,

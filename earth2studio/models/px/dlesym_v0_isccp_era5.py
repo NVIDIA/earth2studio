@@ -231,6 +231,20 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         olr_floor: float = 0.0,
         **kwargs: Any,
     ):
+        # The upstream model variable space uses Earth2Studio's ``rlut`` (the
+        # user-space swap to ``ttr`` happens in ``input_coords`` when
+        # ``use_ttr=True``). Validate before super().__init__(): the parent's
+        # __init__ builds `ocean_coupling_var_idx` by looking up "rlut" (among
+        # others) in atmos_variables, so a missing "rlut" would otherwise
+        # surface as an opaque `list.index` ValueError from deep inside the
+        # parent instead of this clear message.
+        atmos_variables = kwargs.get("atmos_variables")
+        if atmos_variables is not None and "rlut" not in list(atmos_variables):
+            raise ValueError(
+                "DLESyMv0_ISCCP_ERA5 expects 'rlut' to be present in atmos_variables. "
+                f"Got {list(atmos_variables)}. Check the package's config.yaml."
+            )
+
         # Set before super().__init__() because the parent __init__ calls
         # self.input_coords(), which (via Python dispatch) hits this subclass's
         # override and reads self.use_ttr.
@@ -238,16 +252,6 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         super().__init__(*args, **kwargs)
 
         self.olr_floor = float(olr_floor)
-
-        # The upstream model variable space uses Earth2Studio's ``rlut`` (the
-        # user-space swap to ``ttr`` happens in ``input_coords`` when
-        # ``use_ttr=True``). Validate up-front so a misconfigured config.yaml
-        # fails at load time rather than during forward.
-        if "rlut" not in list(self.atmos_variables):
-            raise ValueError(
-                "DLESyMv0_ISCCP_ERA5 expects 'rlut' to be present in atmos_variables. "
-                f"Got {list(self.atmos_variables)}. Check the package's config.yaml."
-            )
 
         if use_ttr:
             for name, arr in (
