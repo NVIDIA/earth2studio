@@ -140,6 +140,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
   snow depth, snow cover, and total cloud cover at positive forecast lead
   times.
+- Fixed the March 22, 2021 GFS archive cutoff and historical `GFS_FX` total
+  precipitation lookups.
 
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
