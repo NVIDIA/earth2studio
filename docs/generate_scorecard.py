@@ -255,12 +255,20 @@ PAGE_MD = """\
 
 Pick a metric and variable; hover for exact values at each lead time.
 
-<!-- src is SOURCE-relative (docs/scorecard/generated/ -> docs/_static);
-     the site build rewrites it for the final page location. -->
+<!-- Resolve from the published page so version prefixes are preserved by
+     both MkDocs and Zensical builds. -->
 
-<iframe src="../../_static/scorecard/plot.html?model={model}&label={label_q}" title="{label} skill"
+<iframe title="{label} skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
+<script>
+(() => {{
+  const frame = document.currentScript.previousElementSibling;
+  const plot = new URL("../../../_static/scorecard/plot.html", window.location.href);
+  plot.search = "model={model_q}&label={label_q}";
+  frame.src = plot;
+}})();
+</script>
 
 ## Evaluation
 
@@ -520,6 +528,7 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
     )
     md = PAGE_MD.format(
         model=model,
+        model_q=quote(model),
         label=label,
         summary=summary,
         kind=kind,
