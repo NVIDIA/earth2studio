@@ -124,3 +124,45 @@ def test_batch_copy_and_validation(monkeypatch):
         batched.transpose("b", "batch", "c").e2s.unbatch()
     with pytest.raises(ValueError, match="size does not match"):
         batched.isel(batch=slice(1)).e2s.unbatch()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_cupy_torch_and_batch_round_trip():
+    cp = pytest.importorskip(
+        "cupy", reason="CuPy is required for GPU integration tests"
+    )
+    array = xr.DataArray(
+        np.arange(24, dtype=np.float32).reshape(2, 3, 4),
+        dims=("member", "time", "variable"),
+        coords={
+            "member": np.arange(2),
+            "time": np.arange(3),
+            "variable": ["a", "b", "c", "d"],
+        },
+    ).e2s.as_cupy(device=0)
+    assert array.e2s.is_cupy
+    assert array.e2s.as_cupy().data is array.data
+
+    tensor, coords = array.e2s.to_torch()
+    assert tensor.data_ptr() == array.data.data.ptr
+    tensor[0, 0, 0] = -1
+    assert int(array.data[0, 0, 0]) == -1
+
+    restored = from_torch(tensor, coords)
+    assert restored.data.data.ptr == tensor.data_ptr()
+    assert restored.e2s.is_cupy
+
+    batched = restored.e2s.batch(("member", "time"), contiguous=False)
+    assert cp.shares_memory(batched.data, restored.data)
+    unbatched = batched.e2s.unbatch(contiguous=False)
+    assert cp.shares_memory(unbatched.data, batched.data)
+    cp.testing.assert_array_equal(unbatched.data, restored.data)
+
+    host = unbatched.e2s.as_numpy()
+    assert isinstance(host.data, np.ndarray)
+    np.testing.assert_array_equal(host.data, cp.asnumpy(restored.data))
+
+    reordered = restored.transpose("variable", "member", "time")
+    copied = reordered.e2s.batch(("variable", "time"))
+    assert copied.data.flags.c_contiguous
+    cp.testing.assert_array_equal(copied.e2s.unbatch().data, reordered.data)
