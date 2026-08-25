@@ -6322,6 +6322,40 @@
   },
   {
     "badges": [
+      "region:eu",
+      "class:nwc",
+      "product:sat"
+    ],
+    "chips": [
+      "Prognostic",
+      "Nwc",
+      "Satellite"
+    ],
+    "filters": {
+      "backend": [],
+      "class": [
+        "Nwc"
+      ],
+      "gpu": [],
+      "product": [
+        "Satellite"
+      ],
+      "provider": [],
+      "region": [
+        "Europe"
+      ],
+      "year": []
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "StormScopeMeteosatEU(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, scale_factor: torch.Tensor, add_offset: torch.Tensor, invariants: torch.Tensor, lat: torch.Tensor, lon: torch.Tensor, earth_mask: torch.Tensor, mtg_y: np.ndarray, mtg_x: np.ndarray, mtg_ylim: tuple[int, int] = Model_FCI_BBox[0], mtg_xlim: tuple[int, int] = Model_FCI_BBox[1], inference_mtg_box: tuple[tuple[int, int], tuple[int, int]] = Model_FCI_BBox, variables: np.ndarray = np.array(VARIABLES), sampler_args: dict[str, float | int] | None = None, input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, 'm'), output_times: np.ndarray = np.array([np.timedelta64(10, 'm')]), ir_38_warm_scale_factor: float = 0.024222141, ir_38_warm_threshold: float = 4095.0, num_diffusion_steps: int = 48, batch_size: int = 1, use_amp: bool = True)",
+    "summary": "Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.",
+    "title": "StormScopeMeteosatEU",
+    "tone": "satellite",
+    "url": "../../../modules/generated/models/px/StormScopeMeteosatEU"
+  },
+  {
+    "badges": [
       "region:global",
       "class:medium-range",
       "product:wind",

@@ -101,6 +101,10 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://nvidia.github.io/earth2studio/main/examples/04_nowcasting/04_stormscope_meteosat_example/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://nvidia.github.io/earth2studio/main/examples/05_data_assimilation/01_stormcast_sda/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
@@ -826,6 +830,10 @@
     </url>
     <url>
          <loc>https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormScopeMRMS/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormScopeMeteosatEU/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>

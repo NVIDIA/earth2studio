@@ -228,6 +228,15 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "examples/04_nowcasting/04_stormscope_meteosat_example.md",
+      "summary": "This example will demonstrate how to run inference to generate nowcasts of Meteosat Third Generation (MTG-I1) FCI satellite imagery using StormScopeMeteosatEU, a generative diffusion model that predicts the next 10-minute FCI frame from a sliding window of recent observations.",
+      "symbol": "",
+      "title": "StormScope Meteosat FCI Nowcasting",
+      "url": "examples/04_nowcasting/04_stormscope_meteosat_example/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "examples/05_data_assimilation/01_stormcast_sda.md",
       "summary": "This example demonstrates how to use the StormCast-CONUS generative model with score-based data assimilation (SDA) over the Continental United States.",
       "symbol": "",
@@ -2928,6 +2937,19 @@
     },
     {
       "classifiers": [
+        "region:eu",
+        "class:nwc",
+        "product:sat"
+      ],
+      "signature": "StormScopeMeteosatEU(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, scale_factor: torch.Tensor, add_offset: torch.Tensor, invariants: torch.Tensor, lat: torch.Tensor, lon: torch.Tensor, earth_mask: torch.Tensor, mtg_y: np.ndarray, mtg_x: np.ndarray, mtg_ylim: tuple[int, int] = Model_FCI_BBox[0], mtg_xlim: tuple[int, int] = Model_FCI_BBox[1], inference_mtg_box: tuple[tuple[int, int], tuple[int, int]] = Model_FCI_BBox, variables: np.ndarray = np.array(VARIABLES), sampler_args: dict[str, float | int] | None = None, input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, 'm'), output_times: np.ndarray = np.array([np.timedelta64(10, 'm')]), ir_38_warm_scale_factor: float = 0.024222141, ir_38_warm_threshold: float = 4095.0, num_diffusion_steps: int = 48, batch_size: int = 1, use_amp: bool = True)",
+      "source": "modules/generated/models/px/StormScopeMeteosatEU.md",
+      "summary": "Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.",
+      "symbol": "earth2studio.models.px.StormScopeMeteosatEU",
+      "title": "StormScopeMeteosatEU",
+      "url": "modules/generated/models/px/StormScopeMeteosatEU/"
+    },
+    {
+      "classifiers": [
         "region:global",
         "class:medium-range",
         "product:wind",
@@ -3745,6 +3767,17 @@
       "name": "Nowcasting",
       "text_color": "#fff",
       "tooltip": "Nowcasting"
+    },
+    "class:nwc": {
+      "color": "#6c757d",
+      "group": "class",
+      "hidden": false,
+      "hide_in": [],
+      "icon": "",
+      "label": "Nwc",
+      "name": "Nwc",
+      "text_color": "#fff",
+      "tooltip": ""
     },
     "class:subseasonal-seasonal": {
       "color": "#6610f2",
