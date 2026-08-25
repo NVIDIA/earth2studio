@@ -366,3 +366,147 @@ def test_gsi_cache_path():
     assert path1 != path2
     assert path2 != path3
     assert all(p.startswith(ds.cache) for p in [path1, path2, path3])
+
+
+def test_hours_since_to_datetime_bit_exact():
+    """The numpy fast path must be bit-exact with the pandas conversion it
+    replaced (``pd.to_timedelta(values, unit="h") + origin``), including
+    negative offsets, float32 noise near hour boundaries and NaN -> NaT."""
+    import earth2studio.data.ufs as ufs_module
+
+    rng = np.random.default_rng(0)
+    vals = np.concatenate(
+        [
+            rng.uniform(-6, 6, 20000),
+            np.array([0.0, -3.0, 2.9999999, -0.0000001, 5.5, np.nan]),
+        ]
+    ).astype(np.float32)
+    origin = datetime(2024, 1, 1, 6)
+
+    expected = (pd.to_timedelta(vals, unit="h") + origin).values
+    got = ufs_module._hours_since_to_datetime(vals, origin)
+
+    assert got.dtype == expected.dtype
+    np.testing.assert_array_equal(got.view(np.int64), expected.view(np.int64))
+
+
+def test_compile_dataframe_groups_tasks_by_file(monkeypatch, tmp_path):
+    """Tasks sharing a file and window (e.g. u and v in ``diag_conv_uv``)
+    must be decoded in one group, and the result must preserve task order."""
+    import earth2studio.data.ufs as ufs_module
+
+    ds = UFSObsConv(cache=False, verbose=False, decode_workers=1)
+    schema = ds.resolve_fields(["time", "lat", "lon", "observation", "variable"])
+
+    fake_file = tmp_path / "diag_conv_uv.nc4"
+    fake_file.touch()
+    monkeypatch.setattr(ds, "cache_path", lambda key: str(fake_file))
+
+    t0 = datetime(2024, 1, 1)
+    tmin, tmax = t0 - timedelta(hours=1), t0 + timedelta(hours=1)
+
+    def make_task(gsi_obs_name, e2s_obs_name):
+        return ufs_module._GSIAsyncTask(
+            datetime_file=t0,
+            datetime_min=tmin,
+            datetime_max=tmax,
+            gsi_obs_key="key",
+            gsi_modifier=lambda df: df,
+            gsi_obs_name=gsi_obs_name,
+            e2s_obs_name=e2s_obs_name,
+        )
+
+    tasks = [make_task("u_Observation", "u"), make_task("v_Observation", "v")]
+
+    group_sizes = []
+
+    def fake_decode(cls, local_path, group, column_map, channel_fields):
+        group_sizes.append(len(group))
+        return [
+            pd.DataFrame(
+                {
+                    "time": [t0],
+                    "lat": [0.0],
+                    "lon": [0.0],
+                    "observation": [1.0],
+                    "variable": [task.e2s_obs_name],
+                }
+            )
+            for task in group
+        ]
+
+    monkeypatch.setattr(ufs_module, "_decode_gsi_group", fake_decode)
+    df = ds._compile_dataframe(tasks, ["u", "v"], schema)
+
+    assert group_sizes == [2]  # one decode call served both tasks
+    assert list(df["variable"]) == ["u", "v"]
+    assert df.attrs["source"] == ds.SOURCE_ID
+
+
+def test_compile_dataframe_broken_pool_falls_back_to_serial(
+    monkeypatch, tmp_path, caplog
+):
+    """If decode workers die during bootstrap (e.g. an unguarded __main__
+    with the spawn start method), the fetch must degrade to serial decode
+    with a warning instead of raising."""
+    from concurrent.futures.process import BrokenProcessPool
+
+    import earth2studio.data.ufs as ufs_module
+
+    ds = UFSObsConv(cache=False, verbose=False, decode_workers=4)
+    schema = ds.resolve_fields(["time", "lat", "lon", "observation", "variable"])
+
+    fake_file = tmp_path / "diag_conv_t.nc4"
+    fake_file.touch()
+    monkeypatch.setattr(ds, "cache_path", lambda key: str(fake_file))
+
+    t0 = datetime(2024, 1, 1)
+    task = ufs_module._GSIAsyncTask(
+        datetime_file=t0,
+        datetime_min=t0 - timedelta(hours=1),
+        datetime_max=t0 + timedelta(hours=1),
+        gsi_obs_key="key",
+        gsi_modifier=lambda df: df,
+        gsi_obs_name="t_Observation",
+        e2s_obs_name="t",
+    )
+    # Two tasks in distinct groups so the parallel path is taken
+    task2 = ufs_module._GSIAsyncTask(
+        datetime_file=t0,
+        datetime_min=t0 - timedelta(hours=2),
+        datetime_max=t0 + timedelta(hours=2),
+        gsi_obs_key="key2",
+        gsi_modifier=lambda df: df,
+        gsi_obs_name="t_Observation",
+        e2s_obs_name="t",
+    )
+
+    class BrokenPool:
+        def submit(self, *args, **kwargs):
+            raise BrokenProcessPool("worker died during bootstrap")
+
+        def shutdown(self, wait=True):
+            pass
+
+    monkeypatch.setattr(ds, "_get_decode_pool", lambda: BrokenPool())
+
+    def fake_decode(cls, local_path, group, column_map, channel_fields):
+        return [
+            pd.DataFrame(
+                {
+                    "time": [t0],
+                    "lat": [0.0],
+                    "lon": [0.0],
+                    "observation": [1.0],
+                    "variable": [t.e2s_obs_name],
+                }
+            )
+            for t in group
+        ]
+
+    monkeypatch.setattr(ufs_module, "_decode_gsi_group", fake_decode)
+
+    df = ds._compile_dataframe([task, task2], ["t"], schema)
+    assert len(df) == 2
+    assert ds._decode_pool is None
+    assert "Falling back to serial decode" in caplog.text

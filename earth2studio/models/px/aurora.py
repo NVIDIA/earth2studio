@@ -405,7 +405,11 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.output_coords(coords)
 
-        yield x[:, :, 1:], coords
+        # First yield is the initial condition: drop the t-6h history frame
+        # from the tensor AND the coords, so lead_time matches the data.
+        coords_out = coords.copy()
+        coords_out["lead_time"] = coords["lead_time"][1:]
+        yield x[:, :, 1:], coords_out
 
         while True:
             # Front hook

@@ -88,6 +88,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_aifs2.py": ["aifs2"],
     "test/models/px/test_aifs2ens.py": ["aifs2ens"],
     "test/models/px/test_atlas.py": ["atlas"],
+    "test/models/px/test_atlas_crps.py": ["atlas"],
     "test/models/px/test_aurora.py": ["aurora"],
     "test/models/px/test_cbottle_video.py": ["cbottle"],
     "test/models/px/test_dlesym.py": ["dlesym"],
@@ -116,6 +117,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/da/test_da_healda.py": ["da-healda"],
     "test/models/da/test_da_interp.py": ["da-interp"],
     "test/models/da/test_da_sda_stormcast.py": ["da-stormcast"],
+    "test/models/da/test_da_sda_corrdiff_cosmo_era5.py": ["da-cosmo"],
     # Serve tests
     "test/serve/client/test_serve_client.py": ["serve"],
     "test/serve/client/test_serve_e2client.py": ["serve"],

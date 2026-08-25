@@ -184,7 +184,7 @@ def declare_single_source_stores(
 
     Implements the shared IC/verification store resolution used by
     :class:`~src.pipelines.forecast.ForecastPipeline`,
-    :class:`~src.pipelines.forecast.DiagnosticPipeline`, and
+    :class:`~src.pipelines.diagnostic.DiagnosticPipeline`, and
     :class:`~src.pipelines.dlesym.DLESyMPipeline`.  Returns 0, 1, or 2
     :class:`~src.pipelines.base.PredownloadStore` entries based on:
 

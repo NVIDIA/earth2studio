@@ -9,38 +9,9 @@ interchangeable with standard data sources.
 Typically used in intercomparison workflows.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: datasource
 output: generated/data/forecast
-badges:
-- region:global
-- region:na
-- region:eu
-- region:as
-- region:au
-- region:af
-- region:sa
-- dataclass:analysis
-- dataclass:reanalysis
-- dataclass:observation
-- dataclass:simulation
-- product:wind
-- product:precip
-- product:temp
-- product:atmos
-- product:ocean
-- product:land
-- product:veg
-- product:solar
-- product:radar
-- product:sat
-- product:insitu
-filter:
-  mode: or
-  order: fixed
-  toggle: 'true'
-  labels: label
-  hidden: product
 -->
 <!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa dataclass:analysis dataclass:reanalysis dataclass:observation dataclass:simulation product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu mode=or order=fixed toggle=true labels=label hidden="product" -->
 {% autosummary %}
