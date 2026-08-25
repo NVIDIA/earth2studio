@@ -96,6 +96,9 @@ def test_batch_copy_and_validation(monkeypatch):
         array.e2s.batch(("a", "a"))
     with pytest.raises(ValueError, match="not found"):
         array.e2s.batch(("missing",))
+    mixed_coord = array.assign_coords(mixed=(("a", "c"), np.ones((2, 4))))
+    with pytest.raises(NotImplementedError, match="batched and unbatched"):
+        mixed_coord.e2s.batch(("a", "b"))
     with pytest.raises(ValueError, match="Recursive batching"):
         array.e2s.batch(("a",), batch_dim="b")
     with pytest.raises(ValueError, match="coordinate 'batch' already exists"):

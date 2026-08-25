@@ -298,6 +298,8 @@ class Earth2StudioAccessor:
         ValueError
             If dimensions are invalid, the array is already batched, or copying is
             required while ``contiguous`` is False.
+        NotImplementedError
+            If a coordinate spans batched and unbatched dimensions.
         TypeError
             If the DataArray is not backed by NumPy or CuPy.
         """
@@ -313,6 +315,17 @@ class Earth2StudioAccessor:
         missing = [dim for dim in batch_dims if dim not in self._array.dims]
         if missing:
             raise ValueError(f"Batch dimensions not found: {missing}")
+        unsupported_coords = [
+            name
+            for name, coord in self._array.coords.items()
+            if not set(coord.dims).isdisjoint(batch_dims)
+            and not set(coord.dims).issubset(batch_dims)
+        ]
+        if unsupported_coords:
+            raise NotImplementedError(
+                "Batching coordinates that span batched and unbatched dimensions "
+                f"is not supported: {unsupported_coords}"
+            )
 
         remaining_dims = tuple(dim for dim in self._array.dims if dim not in batch_dims)
         transposed = self._array.transpose(*(batch_dims + remaining_dims))
@@ -391,22 +404,12 @@ class Earth2StudioAccessor:
             metadata.batch_shape + tuple(self._array.shape[1:]),
             contiguous,
         )
-        sizes = dict(zip(raw_dims, data.shape, strict=True))
         coords: dict[Hashable, Any] = {
             name: coord.variable
             for name, coord in self._array.coords.items()
             if name != metadata.batch_dim
         }
-        coords.update(
-            {
-                name: variable
-                for name, variable in metadata.coordinates.items()
-                if all(
-                    dim in sizes and sizes[dim] == variable.sizes[dim]
-                    for dim in variable.dims
-                )
-            }
-        )
+        coords.update(metadata.coordinates)
 
         attrs = self._array.attrs.copy()
         del attrs[_BATCH_METADATA_KEY]
