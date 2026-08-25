@@ -191,10 +191,9 @@ jobs:
       - name: Build docs
         uses: ./.github/actions/build-light-docs
         with:
-          artifact-name: docs-pr-html
-          artifact-retention-days: "10"
           gallery-cache-name: main
           save-caches: "false"
+          upload-artifact: "false"
 
   test:
     name: Test
