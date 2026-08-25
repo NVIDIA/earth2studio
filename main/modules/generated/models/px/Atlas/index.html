@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3017,7 +3000,7 @@
 <span id="earth2studio.models.px.Atlas.create_iterator"></span>
 <span id="earth2studio.models.px.Atlas.load_default_package"></span>
 <span id="earth2studio.models.px.Atlas.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/atlas.py#L137-L591" title="earth2studio/models/px/atlas.py:137">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=atlas#install-command" title="category=prognostic item=atlas">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/atlas.py#L136-L615" title="earth2studio/models/px/atlas.py:136">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=atlas#install-command" title="category=prognostic item=atlas">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3028,7 +3011,7 @@
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a></code>, <code><span title="earth2studio.models.auto.mixin.AutoModelMixin">AutoModelMixin</span></code>, <code><span title="earth2studio.models.px.utils.PrognosticMixin">PrognosticMixin</span></code></p>
+              Bases: <code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a></code>, <code><span title="earth2studio.models.auto.AutoModelMixin">AutoModelMixin</span></code>, <code><span title="earth2studio.models.px.utils.PrognosticMixin">PrognosticMixin</span></code></p>
 
 
 
@@ -3257,7 +3240,7 @@ to the coordinate system. Lead times expected: [-6h, 0h].</p>
   </span>
 
 <a href="#px.atlas.Atlas.load_default_package" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_default_package</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.auto.package.Package">Package</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_default_package</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3286,7 +3269,7 @@ to the coordinate system. Lead times expected: [-6h, 0h].</p>
   </span>
 
 <a href="#px.atlas.Atlas.load_model" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">:</span> <span class="n"><span title="earth2studio.models.auto.package.Package">Package</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">:</span> <span class="n"><span title="earth2studio.models.auto.Package">Package</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3311,7 +3294,7 @@ to the coordinate system. Lead times expected: [-6h, 0h].</p>
 <section class="e2sg-backreferences" data-e2sg-object="earth2studio.models.px.Atlas">
 <h2>Examples using <code>earth2studio.models.px.Atlas</code></h2>
 <div class="e2sg-gallery-grid">
-<a class="e2sg-gallery-card" href="../../../../examples/02_medium_range/06_atlas_inference/"><img class="e2sg-card-image" src="../../../../examples/_assets/02_medium_range-06_atlas_inference/thumbnail.webp" alt="Preview of Running Atlas Inference" loading="lazy"><span class="e2sg-card-body"><strong>Running Atlas Inference</strong><span class="e2sg-card-summary">Deterministic inference using the Atlas prognostic model.</span></span></a>
+<a class="e2sg-gallery-card" href="../../../../../examples/02_medium_range/06_atlas_inference/"><img class="e2sg-card-image" src="../../../../../examples/_assets/02_medium_range-06_atlas_inference/thumbnail.webp" alt="Preview of Running Atlas-CRPS Inference" loading="lazy"><span class="e2sg-card-body"><strong>Running Atlas-CRPS Inference</strong><span class="e2sg-card-summary">Deterministic inference using the Atlas-CRPS prognostic model.</span></span></a>
 </div>
 </section>
 <!-- markdownlint-enable MD033 -->

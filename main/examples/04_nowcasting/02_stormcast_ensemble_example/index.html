@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -2992,7 +2975,7 @@ see</p>
 <h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
 <p>All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, let's take a look at the most basic ensemble workflow:
-<a href="../../../modules/generated/workflows/1/run_ensemble/#earth2studio.run.ensemble"><code>earth2studio.run.ensemble</code></a>.</p>
+<a href="../../../modules/generated/workflows/ensemble/#earth2studio.run.ensemble"><code>earth2studio.run.ensemble</code></a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
@@ -3532,13 +3515,13 @@ handed to them. In this example, let's take a look at the most basic ensemble wo
 <p>Thus, we need the following:</p>
 <ul>
 <li>Prognostic Model: Use the built in StormCast-CONUS Model <a href="../../../modules/generated/models/px/StormCastCONUS/#earth2studio.models.px.StormCastCONUS"><code>earth2studio.models.px.StormCastCONUS</code></a>.</li>
-<li>perturbation_method: Use the Zero Method <a href="../../../modules/generated/perturbation/1/perturbation_Zero/#earth2studio.perturbation.Zero"><code>earth2studio.perturbation.Zero</code></a>. We will not
+<li>perturbation_method: Use the Zero Method <a href="../../../modules/generated/perturbation/Zero/#earth2studio.perturbation.Zero"><code>earth2studio.perturbation.Zero</code></a>. We will not
    perturb the initial data because StormCast has stochastic generation of  ensemble members.</li>
-<li>Datasource: Pull data from the HRRR data api <a href="../../../modules/generated/data/analysis/data_HRRR/#earth2studio.data.HRRR"><code>earth2studio.data.HRRR</code></a>.</li>
-<li>IO Backend: Let's save the outputs into a Zarr store <a href="../../../modules/generated/io/1/io_ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
+<li>Datasource: Pull data from the HRRR data api <a href="../../../modules/generated/data/analysis/HRRR/#earth2studio.data.HRRR"><code>earth2studio.data.HRRR</code></a>.</li>
+<li>IO Backend: Let's save the outputs into a Zarr store <a href="../../../modules/generated/io/ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
 </ul>
 <p>StormCast-CONUS also requires a global conditioning data source. We use
-GFS_FX <a href="../../../modules/generated/data/forecast/data_GFS_FX/#earth2studio.data.GFS_FX"><code>earth2studio.data.GFS_FX</code></a> (the default).</p>
+GFS_FX <a href="../../../modules/generated/data/forecast/GFS_FX/#earth2studio.data.GFS_FX"><code>earth2studio.data.GFS_FX</code></a> (the default).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>

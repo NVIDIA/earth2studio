@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3045,9 +3028,9 @@ data assimilation: one without observations and one with GHCNh surface station d
 <ul>
 <li>Prognostic Model: StormCast-CONUS <a href="../../../modules/generated/models/px/StormCastCONUS/#earth2studio.models.px.StormCastCONUS"><code>earth2studio.models.px.StormCastCONUS</code></a>
   configured with SDA parameters.</li>
-<li>Datasource (state): HRRR analysis <a href="../../../modules/generated/data/analysis/data_HRRR/#earth2studio.data.HRRR"><code>earth2studio.data.HRRR</code></a>.</li>
+<li>Datasource (state): HRRR analysis <a href="../../../modules/generated/data/analysis/HRRR/#earth2studio.data.HRRR"><code>earth2studio.data.HRRR</code></a>.</li>
 <li>Datasource (obs): NOAA GHCNh surface stations
-  <a href="../../../modules/generated/data/dataframe/data_GHCNHourly/#earth2studio.data.GHCNHourly"><code>earth2studio.data.GHCNHourly</code></a>.</li>
+  <a href="../../../modules/generated/data/dataframe/GHCNHourly/#earth2studio.data.GHCNHourly"><code>earth2studio.data.GHCNHourly</code></a>.</li>
 </ul>
 <p>StormCast-CONUS extends the StormCast generative architecture to the full CONUS
 HRRR domain at 3 km resolution. When an observation DataFrame is passed to each

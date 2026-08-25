@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3034,7 +3017,7 @@ source to use in a built in workflow.</p>
 [<code>earth2studio.data.base.DataSource</code>][] which requires just a call function.
 For this example, we will consider extending an existing remote data source with
 another atmospheric field we can calculate.</p>
-<p>The <a href="../../../modules/generated/data/analysis/data_ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a> data source provides the ERA5 dataset in a cloud
+<p>The <a href="../../../modules/generated/data/analysis/ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a> data source provides the ERA5 dataset in a cloud
 optimized format, however it only provides specific humidity. This is a problem for
 models that may use relative humidity as an input. Based on ECMWF documentation we can
 calculate the relative humidity based on temperature and geo-potential.</p>
@@ -3262,7 +3245,7 @@ we are using ARCO, we can run inference for a time quite far back in time.</p>
 <ul>
 <li>Prognostic Model: Use the built in FourCastNet Model <a href="../../../modules/generated/models/px/FCN/#earth2studio.models.px.FCN"><code>earth2studio.models.px.FCN</code></a>.</li>
 <li>Datasource: Custom data source above</li>
-<li>IO Backend: Save the outputs into a Zarr store <a href="../../../modules/generated/io/1/io_ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
+<li>IO Backend: Save the outputs into a Zarr store <a href="../../../modules/generated/io/ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>

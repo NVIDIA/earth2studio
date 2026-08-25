@@ -67,7 +67,7 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/index.md",
-      "summary": "<div class=\"e2sg-gallery-grid\"> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/01_deterministic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-01_deterministic_workflow/thumbnail.webp\" alt=\"Preview of Running Deterministic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Deterministic Inference</strong><span class=\"e2sg-card-summary\">Basic deterministic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/02_diagnostic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-02_diagnostic_workflow/thumbnail.webp\" alt=\"Preview of Running Diagnostic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Diagnostic Inference</strong><span class=\"e2sg-card-summary\">Basic prognostic + diagnostic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/03_ensemble_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-03_ensemble_workflow/thumbnail.webp\" alt=\"Preview of Running Ensemble Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Ensemble Inference</strong><span class=\"e2sg-card-summary\">Simple ensemble inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/04_checkpoint_restart/\"><div class=\"e2sg-card-placeholder\" aria-hidden=\"true\"><span class=\"e2sg-card-placeholder-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2\"/></svg></span></div><span class=\"e2sg-card-body\"><strong>Checkpointing a Deterministic Forecast</strong><span class=\"e2sg-card-summary\">Basic inference workflow checkpointing.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> </div>",
+      "summary": "<div class=\"e2sg-gallery-grid\"> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/01_deterministic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-01_deterministic_workflow/thumbnail.webp\" alt=\"Preview of Running Deterministic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Deterministic Inference</strong><span class=\"e2sg-card-summary\">Basic deterministic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/02_diagnostic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-02_diagnostic_workflow/thumbnail.webp\" alt=\"Preview of Running Diagnostic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Diagnostic Inference</strong><span class=\"e2sg-card-summary\">Basic prognostic + diagnostic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/03_ensemble_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-03_ensemble_workflow/thumbnail.webp\" alt=\"Preview of Running Ensemble Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Ensemble Inference</strong><span class=\"e2sg-card-summary\">Simple ensemble inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/04_checkpoint_restart/\"><div class=\"e2sg-card-placeholder\" aria-hidden=\"true\"><span class=\"e2sg-card-placeholder-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2\"/></svg></span></div><span class=\"e2sg-card-body\"><strong>Checkpointing a Deterministic Forecast</strong><span class=\"e2sg-card-summary\">Basic inference workflow checkpointing.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> </div>",
       "symbol": "",
       "title": "Example gallery",
       "url": "examples/"
@@ -103,7 +103,7 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/01_getting_started/04_checkpoint_restart.md",
-      "summary": "This example shows how to use [`earth2studio.utils.checkpoint.Checkpoint`](../../modules/generated/utils/5/utils_checkpoint_Checkpoint.md#earth2studio.utils.checkpoint.Checkpoint) to restart a deterministic forecast after it stops partway through a run.",
+      "summary": "This example shows how to use [`earth2studio.utils.checkpoint.Checkpoint`](../../modules/generated/utils/checkpoint/Checkpoint.md#earth2studio.utils.checkpoint.Checkpoint) to restart a deterministic forecast after it stops partway through a run.",
       "symbol": "",
       "title": "Checkpointing a Deterministic Forecast",
       "url": "examples/01_getting_started/04_checkpoint_restart/"
@@ -157,9 +157,9 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/02_medium_range/06_atlas_inference.md",
-      "summary": "This example demonstrates how to run a single-member forecast using the Atlas model, a generative AI weather model that uses stochastic interpolants and autoencoders to produce 6-hour forecasts on a 0.25 degree global grid.",
+      "summary": "This example demonstrates how to run a single-member forecast using the Atlas-CRPS model, a generative AI weather model that uses a CRPS-trained latent transformer and an autoencoder to produce 6-hour forecasts on a 0.25 degree global grid.",
       "symbol": "",
-      "title": "Running Atlas Inference",
+      "title": "Running Atlas-CRPS Inference",
       "url": "examples/02_medium_range/06_atlas_inference/"
     },
     {
@@ -460,6 +460,33 @@
       "url": "modules/workflows/"
     },
     {
+      "classifiers": [],
+      "signature": "datasource_to_file(file_name: str, source: DataSource, time: list[str] | list[datetime] | TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), backend: Literal['netcdf', 'zarr'] = 'netcdf', chunks: dict[str, int] = {'variable': 1}, dtype: np.dtype | None = None, backend_kwargs: dict[str, Any] = {}) -> None",
+      "source": "modules/generated/data/datasource_to_file.md",
+      "summary": "Utility function that can be used for building a local data store needed for an inference request. This file can then be used with the [`earth2studio.data.DataArrayFile`][earth2studio.data.DataArrayFile] data source to load data from file. This is useful when multiple runs of the same input data is needed.",
+      "symbol": "earth2studio.data.datasource_to_file",
+      "title": "datasource_to_file",
+      "url": "modules/generated/data/datasource_to_file/"
+    },
+    {
+      "classifiers": [],
+      "signature": "fetch_data(source: DataSource | ForecastSource, time: TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest', legacy: bool = True) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray",
+      "source": "modules/generated/data/fetch_data.md",
+      "summary": "Utility function to fetch data arrays from particular sources and load data on the target device. If desired, xarray interpolation/regridding in the spatial domain can be used by passing a target coordinate system via the optional `interp_to` argument.",
+      "symbol": "earth2studio.data.fetch_data",
+      "title": "fetch_data",
+      "url": "modules/generated/data/fetch_data/"
+    },
+    {
+      "classifiers": [],
+      "signature": "prep_data_array(da: xr.DataArray, device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest') -> tuple[torch.Tensor, CoordSystem]",
+      "source": "modules/generated/data/prep_data_array.md",
+      "summary": "Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.",
+      "symbol": "earth2studio.data.prep_data_array",
+      "title": "prep_data_array",
+      "url": "modules/generated/data/prep_data_array/"
+    },
+    {
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
@@ -468,12 +495,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.ARCO(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_ARCO.md",
+      "signature": "ARCO(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/ARCO.md",
       "summary": "Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data currated by Google. This data is stored in Zarr format and contains 31 surface variables, pressure level variables defined on 37 pressure levels, and model level variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat lon grid. Temporal resolution is 1 hour.",
       "symbol": "earth2studio.data.ARCO",
-      "title": "data.ARCO",
-      "url": "modules/generated/data/analysis/data_ARCO/"
+      "title": "ARCO",
+      "url": "modules/generated/data/analysis/ARCO/"
     },
     {
       "classifiers": [
@@ -485,12 +512,12 @@
         "product:atmos",
         "product:ocean"
       ],
-      "signature": "data.CBottle3D(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5, cache: bool = False, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_CBottle3D.md",
+      "signature": "CBottle3D(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5, cache: bool = False, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/CBottle3D.md",
       "summary": "Climate in a bottle data source Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source uses the a globally-trained coarse-resolution image diffusion model that generates 100km (50k-pixel) fields given monthly average sea surface temperatures and solar conditioning.",
       "symbol": "earth2studio.data.CBottle3D",
-      "title": "data.CBottle3D",
-      "url": "modules/generated/data/analysis/data_CBottle3D/"
+      "title": "CBottle3D",
+      "url": "modules/generated/data/analysis/CBottle3D/"
     },
     {
       "classifiers": [
@@ -501,12 +528,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.CDS(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_CDS.md",
+      "signature": "CDS(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/CDS.md",
       "summary": "The climate data source (CDS) serving ERA5 re-analysis data. This data source requires users to have a CDS API access key which can be obtained for free on the CDS webpage.",
       "symbol": "earth2studio.data.CDS",
-      "title": "data.CDS",
-      "url": "modules/generated/data/analysis/data_CDS/"
+      "title": "CDS",
+      "url": "modules/generated/data/analysis/CDS/"
     },
     {
       "classifiers": [
@@ -518,12 +545,12 @@
         "product:atmos",
         "product:ocean"
       ],
-      "signature": "data.CMIP6(experiment_id: str, source_id: str, table_id: str, variant_label: str, file_start: str | None = None, file_end: str | None = None, cache: bool = True, verbose: bool = True, exact_time_match: bool = False, pressure_level_tolerance: int = 0)",
-      "source": "modules/generated/data/analysis/data_CMIP6.md",
+      "signature": "CMIP6(experiment_id: str, source_id: str, table_id: str, variant_label: str, file_start: str | None = None, file_end: str | None = None, cache: bool = True, verbose: bool = True, exact_time_match: bool = False, pressure_level_tolerance: int = 0)",
+      "source": "modules/generated/data/analysis/CMIP6.md",
       "summary": "CMIP6 data source for Earth2Studio.",
       "symbol": "earth2studio.data.CMIP6",
-      "title": "data.CMIP6",
-      "url": "modules/generated/data/analysis/data_CMIP6/"
+      "title": "CMIP6",
+      "url": "modules/generated/data/analysis/CMIP6/"
     },
     {
       "classifiers": [
@@ -535,39 +562,39 @@
         "product:atmos",
         "product:ocean"
       ],
-      "signature": "data.CMIP6MultiRealm(cmip6_source_list: list[CMIP6])",
-      "source": "modules/generated/data/analysis/data_CMIP6MultiRealm.md",
+      "signature": "CMIP6MultiRealm(cmip6_source_list: list[CMIP6])",
+      "source": "modules/generated/data/analysis/CMIP6MultiRealm.md",
       "summary": "CMIP6 data source for Earth2Studio with multiple realms.",
       "symbol": "earth2studio.data.CMIP6MultiRealm",
-      "title": "data.CMIP6MultiRealm",
-      "url": "modules/generated/data/analysis/data_CMIP6MultiRealm/"
+      "title": "CMIP6MultiRealm",
+      "url": "modules/generated/data/analysis/CMIP6MultiRealm/"
     },
     {
       "classifiers": [],
-      "signature": "data.DataArrayFile(file_path: str, **xr_args: Any)",
-      "source": "modules/generated/data/analysis/data_DataArrayFile.md",
+      "signature": "DataArrayFile(file_path: str, **xr_args: Any)",
+      "source": "modules/generated/data/analysis/DataArrayFile.md",
       "summary": "A local xarray dataarray file data source. This file should be compatible with xarray. For example, a netCDF file.",
       "symbol": "earth2studio.data.DataArrayFile",
-      "title": "data.DataArrayFile",
-      "url": "modules/generated/data/analysis/data_DataArrayFile/"
+      "title": "DataArrayFile",
+      "url": "modules/generated/data/analysis/DataArrayFile/"
     },
     {
       "classifiers": [],
-      "signature": "data.DataArrayPathList(paths: str | list[str], **xr_args: Any)",
-      "source": "modules/generated/data/analysis/data_DataArrayPathList.md",
+      "signature": "DataArrayPathList(paths: str | list[str], **xr_args: Any)",
+      "source": "modules/generated/data/analysis/DataArrayPathList.md",
       "summary": "A local xarray dataarray directory data source that handles multiple files.",
       "symbol": "earth2studio.data.DataArrayPathList",
-      "title": "data.DataArrayPathList",
-      "url": "modules/generated/data/analysis/data_DataArrayPathList/"
+      "title": "DataArrayPathList",
+      "url": "modules/generated/data/analysis/DataArrayPathList/"
     },
     {
       "classifiers": [],
-      "signature": "data.DataSetFile(file_path: str, array_name: str, **xr_args: Any)",
-      "source": "modules/generated/data/analysis/data_DataSetFile.md",
+      "signature": "DataSetFile(file_path: str, array_name: str, **xr_args: Any)",
+      "source": "modules/generated/data/analysis/DataSetFile.md",
       "summary": "A local xarray dataset file data source. This file should be compatible with xarray. For example, a netCDF file.",
       "symbol": "earth2studio.data.DataSetFile",
-      "title": "data.DataSetFile",
-      "url": "modules/generated/data/analysis/data_DataSetFile/"
+      "title": "DataSetFile",
+      "url": "modules/generated/data/analysis/DataSetFile/"
     },
     {
       "classifiers": [
@@ -577,12 +604,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalAIFS(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalAIFS.md",
+      "signature": "DynamicalAIFS(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalAIFS.md",
       "summary": "ECMWF AIFS Single analysis view from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalAIFS",
-      "title": "data.DynamicalAIFS",
-      "url": "modules/generated/data/analysis/data_DynamicalAIFS/"
+      "title": "DynamicalAIFS",
+      "url": "modules/generated/data/analysis/DynamicalAIFS/"
     },
     {
       "classifiers": [
@@ -592,12 +619,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalAIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalAIFS_ENS.md",
+      "signature": "DynamicalAIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalAIFS_ENS.md",
       "summary": "ECMWF AIFS ENS analysis view from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalAIFS_ENS",
-      "title": "data.DynamicalAIFS_ENS",
-      "url": "modules/generated/data/analysis/data_DynamicalAIFS_ENS/"
+      "title": "DynamicalAIFS_ENS",
+      "url": "modules/generated/data/analysis/DynamicalAIFS_ENS/"
     },
     {
       "classifiers": [
@@ -607,12 +634,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalGEFS(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalGEFS.md",
+      "signature": "DynamicalGEFS(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalGEFS.md",
       "summary": "NOAA GEFS analysis from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalGEFS",
-      "title": "data.DynamicalGEFS",
-      "url": "modules/generated/data/analysis/data_DynamicalGEFS/"
+      "title": "DynamicalGEFS",
+      "url": "modules/generated/data/analysis/DynamicalGEFS/"
     },
     {
       "classifiers": [
@@ -622,12 +649,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalGFS(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalGFS.md",
+      "signature": "DynamicalGFS(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalGFS.md",
       "summary": "NOAA GFS analysis from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalGFS",
-      "title": "data.DynamicalGFS",
-      "url": "modules/generated/data/analysis/data_DynamicalGFS/"
+      "title": "DynamicalGFS",
+      "url": "modules/generated/data/analysis/DynamicalGFS/"
     },
     {
       "classifiers": [
@@ -638,12 +665,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalHRRR(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalHRRR.md",
+      "signature": "DynamicalHRRR(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalHRRR.md",
       "summary": "NOAA HRRR analysis from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalHRRR",
-      "title": "data.DynamicalHRRR",
-      "url": "modules/generated/data/analysis/data_DynamicalHRRR/"
+      "title": "DynamicalHRRR",
+      "url": "modules/generated/data/analysis/DynamicalHRRR/"
     },
     {
       "classifiers": [
@@ -653,12 +680,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalIFS_ENS.md",
+      "signature": "DynamicalIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalIFS_ENS.md",
       "summary": "ECMWF IFS ENS analysis view from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalIFS_ENS",
-      "title": "data.DynamicalIFS_ENS",
-      "url": "modules/generated/data/analysis/data_DynamicalIFS_ENS/"
+      "title": "DynamicalIFS_ENS",
+      "url": "modules/generated/data/analysis/DynamicalIFS_ENS/"
     },
     {
       "classifiers": [
@@ -667,12 +694,12 @@
         "product:precip",
         "product:radar"
       ],
-      "signature": "data.DynamicalMRMS(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_DynamicalMRMS.md",
+      "signature": "DynamicalMRMS(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/DynamicalMRMS.md",
       "summary": "NOAA MRMS CONUS analysis from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalMRMS",
-      "title": "data.DynamicalMRMS",
-      "url": "modules/generated/data/analysis/data_DynamicalMRMS/"
+      "title": "DynamicalMRMS",
+      "url": "modules/generated/data/analysis/DynamicalMRMS/"
     },
     {
       "classifiers": [
@@ -684,12 +711,12 @@
         "product:ocean",
         "product:land"
       ],
-      "signature": "data.EarthMoverBrightBandIFS(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_EarthMoverBrightBandIFS.md",
+      "signature": "EarthMoverBrightBandIFS(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/EarthMoverBrightBandIFS.md",
       "summary": "Brightband ECMWF IFS 0.25 degree initial-condition data source on Earthmover Arraylake.",
       "symbol": "earth2studio.data.EarthMoverBrightBandIFS",
-      "title": "data.EarthMoverBrightBandIFS",
-      "url": "modules/generated/data/analysis/data_EarthMoverBrightBandIFS/"
+      "title": "EarthMoverBrightBandIFS",
+      "url": "modules/generated/data/analysis/EarthMoverBrightBandIFS/"
     },
     {
       "classifiers": [
@@ -701,12 +728,12 @@
         "product:atmos",
         "product:solar"
       ],
-      "signature": "data.EarthMoverERA5(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_EarthMoverERA5.md",
+      "signature": "EarthMoverERA5(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/EarthMoverERA5.md",
       "summary": "Earthmover ERA5 0.25 degree reanalysis data source.",
       "symbol": "earth2studio.data.EarthMoverERA5",
-      "title": "data.EarthMoverERA5",
-      "url": "modules/generated/data/analysis/data_EarthMoverERA5/"
+      "title": "EarthMoverERA5",
+      "url": "modules/generated/data/analysis/EarthMoverERA5/"
     },
     {
       "classifiers": [
@@ -717,12 +744,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.GFS(source: str = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_GFS.md",
+      "signature": "GFS(source: str = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/analysis/GFS.md",
       "summary": "The global forecast service (GFS) initial state data source provided on an equirectangular grid. GFS is a weather forecast model developed by NOAA. This data source is provided on a 0.25 degree lat lon grid at 6-hour intervals spanning from Jan 1st 2021 to present date.",
       "symbol": "earth2studio.data.GFS",
-      "title": "data.GFS",
-      "url": "modules/generated/data/analysis/data_GFS/"
+      "title": "GFS",
+      "url": "modules/generated/data/analysis/GFS/"
     },
     {
       "classifiers": [
@@ -730,12 +757,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.GOES(satellite: str = 'goes16', scan_mode: str = 'F', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_GOES.md",
+      "signature": "GOES(satellite: str = 'goes16', scan_mode: str = 'F', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, retries: int = 3)",
+      "source": "modules/generated/data/analysis/GOES.md",
       "summary": "GOES (Geostationary Operational Environmental Satellite) data source.",
       "symbol": "earth2studio.data.GOES",
-      "title": "data.GOES",
-      "url": "modules/generated/data/analysis/data_GOES/"
+      "title": "GOES",
+      "url": "modules/generated/data/analysis/GOES/"
     },
     {
       "classifiers": [
@@ -743,12 +770,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.GOESGLMGrid(satellite: str = 'east', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_GOESGLMGrid.md",
+      "signature": "GOESGLMGrid(satellite: str = 'east', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
+      "source": "modules/generated/data/analysis/GOESGLMGrid.md",
       "summary": "Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.",
       "symbol": "earth2studio.data.GOESGLMGrid",
-      "title": "data.GOESGLMGrid",
-      "url": "modules/generated/data/analysis/data_GOESGLMGrid/"
+      "title": "GOESGLMGrid",
+      "url": "modules/generated/data/analysis/GOESGLMGrid/"
     },
     {
       "classifiers": [
@@ -760,12 +787,12 @@
         "product:atmos",
         "product:radar"
       ],
-      "signature": "data.HRRR(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_HRRR.md",
+      "signature": "HRRR(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/analysis/HRRR.md",
       "summary": "High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American weather analysis data developed by NOAA (used to initialize the HRRR forecast model). This data source is provided on a Lambert conformal 3km grid at 1-hour intervals. The spatial dimensionality of HRRR data is [1059, 1799].",
       "symbol": "earth2studio.data.HRRR",
-      "title": "data.HRRR",
-      "url": "modules/generated/data/analysis/data_HRRR/"
+      "title": "HRRR",
+      "url": "modules/generated/data/analysis/HRRR/"
     },
     {
       "classifiers": [
@@ -774,12 +801,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.HimawariAHI(satellite: str = 'himawari9', lat_lon_bbox: tuple[float, float, float, float] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_HimawariAHI.md",
+      "signature": "HimawariAHI(satellite: str = 'himawari9', lat_lon_bbox: tuple[float, float, float, float] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
+      "source": "modules/generated/data/analysis/HimawariAHI.md",
       "summary": "Himawari-8/9 AHI (Advanced Himawari Imager) data source.",
       "symbol": "earth2studio.data.HimawariAHI",
-      "title": "data.HimawariAHI",
-      "url": "modules/generated/data/analysis/data_HimawariAHI/"
+      "title": "HimawariAHI",
+      "url": "modules/generated/data/analysis/HimawariAHI/"
     },
     {
       "classifiers": [
@@ -790,12 +817,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.IFS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_IFS.md",
+      "signature": "IFS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/IFS.md",
       "summary": "Integrated forecast system (IFS) HRES initial state (analysis) data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
       "symbol": "earth2studio.data.IFS",
-      "title": "data.IFS",
-      "url": "modules/generated/data/analysis/data_IFS/"
+      "title": "IFS",
+      "url": "modules/generated/data/analysis/IFS/"
     },
     {
       "classifiers": [
@@ -806,12 +833,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.IFS_ENS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_IFS_ENS.md",
+      "signature": "IFS_ENS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/IFS_ENS.md",
       "summary": "Integrated forecast system (IFS) ensemble (ENS) initial state data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
       "symbol": "earth2studio.data.IFS_ENS",
-      "title": "data.IFS_ENS",
-      "url": "modules/generated/data/analysis/data_IFS_ENS/"
+      "title": "IFS_ENS",
+      "url": "modules/generated/data/analysis/IFS_ENS/"
     },
     {
       "classifiers": [
@@ -819,12 +846,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.JPSS(satellite: str = 'noaa-20', product_type: str = 'I', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_JPSS.md",
+      "signature": "JPSS(satellite: str = 'noaa-20', product_type: str = 'I', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/JPSS.md",
       "summary": "JPSS VIIRS data source for NOAA-20, NOAA-21, and Suomi-NPP supporting both SDR (L1) and EDR (L2) products.",
       "symbol": "earth2studio.data.JPSS",
-      "title": "data.JPSS",
-      "url": "modules/generated/data/analysis/data_JPSS/"
+      "title": "JPSS",
+      "url": "modules/generated/data/analysis/JPSS/"
     },
     {
       "classifiers": [
@@ -832,12 +859,12 @@
         "dataclass:observation",
         "product:radar"
       ],
-      "signature": "data.MRMS(max_offset_minutes: float = 10, cache: bool = True, verbose: bool = True, max_workers: int = 24, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_MRMS.md",
+      "signature": "MRMS(max_offset_minutes: float = 10, cache: bool = True, verbose: bool = True, max_workers: int = 24, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/MRMS.md",
       "summary": "NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.",
       "symbol": "earth2studio.data.MRMS",
-      "title": "data.MRMS",
-      "url": "modules/generated/data/analysis/data_MRMS/"
+      "title": "MRMS",
+      "url": "modules/generated/data/analysis/MRMS/"
     },
     {
       "classifiers": [
@@ -846,12 +873,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.MeteosatFCI(resolution: Literal['2km', '1km', '500m'] = '2km', lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None, pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None, flip_north_south: bool = False, cache: bool = True, verbose: bool = True, async_timeout: int = 1200, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_MeteosatFCI.md",
+      "signature": "MeteosatFCI(resolution: Literal['2km', '1km', '500m'] = '2km', lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None, pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None, flip_north_south: bool = False, cache: bool = True, verbose: bool = True, async_timeout: int = 1200, retries: int = 3)",
+      "source": "modules/generated/data/analysis/MeteosatFCI.md",
       "summary": "EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source.",
       "symbol": "earth2studio.data.MeteosatFCI",
-      "title": "data.MeteosatFCI",
-      "url": "modules/generated/data/analysis/data_MeteosatFCI/"
+      "title": "MeteosatFCI",
+      "url": "modules/generated/data/analysis/MeteosatFCI/"
     },
     {
       "classifiers": [
@@ -862,12 +889,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.NCAR_ERA5(max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_NCAR_ERA5.md",
+      "signature": "NCAR_ERA5(max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/analysis/NCAR_ERA5.md",
       "summary": "ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5 is the fifth generation of the ECMWF global reanalysis and available on a 0.25 degree WGS84 grid at hourly intervals spanning from 1940 to the present.",
       "symbol": "earth2studio.data.NCAR_ERA5",
-      "title": "data.NCAR_ERA5",
-      "url": "modules/generated/data/analysis/data_NCAR_ERA5/"
+      "title": "NCAR_ERA5",
+      "url": "modules/generated/data/analysis/NCAR_ERA5/"
     },
     {
       "classifiers": [
@@ -876,12 +903,12 @@
         "product:temp",
         "product:precip"
       ],
-      "signature": "data.NClimGridDaily(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_NClimGridDaily.md",
+      "signature": "NClimGridDaily(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/NClimGridDaily.md",
       "summary": "NOAA NClimGrid daily gridded climate data source.",
       "symbol": "earth2studio.data.NClimGridDaily",
-      "title": "data.NClimGridDaily",
-      "url": "modules/generated/data/analysis/data_NClimGridDaily/"
+      "title": "NClimGridDaily",
+      "url": "modules/generated/data/analysis/NClimGridDaily/"
     },
     {
       "classifiers": [
@@ -890,12 +917,12 @@
         "product:precip",
         "product:radar"
       ],
-      "signature": "data.OPERA(cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
-      "source": "modules/generated/data/analysis/data_OPERA.md",
+      "signature": "OPERA(cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
+      "source": "modules/generated/data/analysis/OPERA.md",
       "summary": "EUMETNET OPERA European weather radar composite data source.",
       "symbol": "earth2studio.data.OPERA",
-      "title": "data.OPERA",
-      "url": "modules/generated/data/analysis/data_OPERA/"
+      "title": "OPERA",
+      "url": "modules/generated/data/analysis/OPERA/"
     },
     {
       "classifiers": [
@@ -906,12 +933,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.PlanetaryComputerECMWFOpenDataIFS(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
-      "source": "modules/generated/data/analysis/data_PlanetaryComputerECMWFOpenDataIFS.md",
+      "signature": "PlanetaryComputerECMWFOpenDataIFS(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
+      "source": "modules/generated/data/analysis/PlanetaryComputerECMWFOpenDataIFS.md",
       "summary": "IFS analysis data from the ECMWF Open Data repository.",
       "symbol": "earth2studio.data.PlanetaryComputerECMWFOpenDataIFS",
-      "title": "data.PlanetaryComputerECMWFOpenDataIFS",
-      "url": "modules/generated/data/analysis/data_PlanetaryComputerECMWFOpenDataIFS/"
+      "title": "PlanetaryComputerECMWFOpenDataIFS",
+      "url": "modules/generated/data/analysis/PlanetaryComputerECMWFOpenDataIFS/"
     },
     {
       "classifiers": [
@@ -919,12 +946,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.PlanetaryComputerGOES(satellite: str = 'goes16', scan_mode: str = 'F', cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
-      "source": "modules/generated/data/analysis/data_PlanetaryComputerGOES.md",
+      "signature": "PlanetaryComputerGOES(satellite: str = 'goes16', scan_mode: str = 'F', cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
+      "source": "modules/generated/data/analysis/PlanetaryComputerGOES.md",
       "summary": "GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.",
       "symbol": "earth2studio.data.PlanetaryComputerGOES",
-      "title": "data.PlanetaryComputerGOES",
-      "url": "modules/generated/data/analysis/data_PlanetaryComputerGOES/"
+      "title": "PlanetaryComputerGOES",
+      "url": "modules/generated/data/analysis/PlanetaryComputerGOES/"
     },
     {
       "classifiers": [
@@ -933,12 +960,12 @@
         "product:land",
         "product:sat"
       ],
-      "signature": "data.PlanetaryComputerMODISFire(tile: str = 'h35v10', cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
-      "source": "modules/generated/data/analysis/data_PlanetaryComputerMODISFire.md",
+      "signature": "PlanetaryComputerMODISFire(tile: str = 'h35v10', cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
+      "source": "modules/generated/data/analysis/PlanetaryComputerMODISFire.md",
       "summary": "MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).",
       "symbol": "earth2studio.data.PlanetaryComputerMODISFire",
-      "title": "data.PlanetaryComputerMODISFire",
-      "url": "modules/generated/data/analysis/data_PlanetaryComputerMODISFire/"
+      "title": "PlanetaryComputerMODISFire",
+      "url": "modules/generated/data/analysis/PlanetaryComputerMODISFire/"
     },
     {
       "classifiers": [
@@ -946,12 +973,12 @@
         "dataclass:observation",
         "product:ocean"
       ],
-      "signature": "data.PlanetaryComputerOISST(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
-      "source": "modules/generated/data/analysis/data_PlanetaryComputerOISST.md",
+      "signature": "PlanetaryComputerOISST(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
+      "source": "modules/generated/data/analysis/PlanetaryComputerOISST.md",
       "summary": "Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer.",
       "symbol": "earth2studio.data.PlanetaryComputerOISST",
-      "title": "data.PlanetaryComputerOISST",
-      "url": "modules/generated/data/analysis/data_PlanetaryComputerOISST/"
+      "title": "PlanetaryComputerOISST",
+      "url": "modules/generated/data/analysis/PlanetaryComputerOISST/"
     },
     {
       "classifiers": [
@@ -960,21 +987,21 @@
         "product:atmos",
         "product:sat"
       ],
-      "signature": "data.PlanetaryComputerSentinel3AOD(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
-      "source": "modules/generated/data/analysis/data_PlanetaryComputerSentinel3AOD.md",
+      "signature": "PlanetaryComputerSentinel3AOD(cache: bool = True, verbose: bool = True, max_workers: int = 24, request_timeout: int = _PlanetaryComputerData.DEFAULT_TIMEOUT, max_retries: int = _PlanetaryComputerData.DEFAULT_RETRIES, async_timeout: int = _PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT)",
+      "source": "modules/generated/data/analysis/PlanetaryComputerSentinel3AOD.md",
       "summary": "Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.",
       "symbol": "earth2studio.data.PlanetaryComputerSentinel3AOD",
-      "title": "data.PlanetaryComputerSentinel3AOD",
-      "url": "modules/generated/data/analysis/data_PlanetaryComputerSentinel3AOD/"
+      "title": "PlanetaryComputerSentinel3AOD",
+      "url": "modules/generated/data/analysis/PlanetaryComputerSentinel3AOD/"
     },
     {
       "classifiers": [],
-      "signature": "data.Random(domain_coords: OrderedDict[str, np.ndarray])",
-      "source": "modules/generated/data/analysis/data_Random.md",
+      "signature": "Random(domain_coords: OrderedDict[str, np.ndarray])",
+      "source": "modules/generated/data/analysis/Random.md",
       "summary": "A randomly generated normally distributed data. Primarily useful for testing.",
       "symbol": "earth2studio.data.Random",
-      "title": "data.Random",
-      "url": "modules/generated/data/analysis/data_Random/"
+      "title": "Random",
+      "url": "modules/generated/data/analysis/Random/"
     },
     {
       "classifiers": [
@@ -984,12 +1011,12 @@
         "product:atmos",
         "product:ocean"
       ],
-      "signature": "data.SamudrACEData(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_SamudrACEData.md",
+      "signature": "SamudrACEData(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/SamudrACEData.md",
       "summary": "SamudrACE initial-condition data source.",
       "symbol": "earth2studio.data.SamudrACEData",
-      "title": "data.SamudrACEData",
-      "url": "modules/generated/data/analysis/data_SamudrACEData/"
+      "title": "SamudrACEData",
+      "url": "modules/generated/data/analysis/SamudrACEData/"
     },
     {
       "classifiers": [
@@ -998,12 +1025,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.SamudrACEForcingData(scenario: str = '0311', cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/data_SamudrACEForcingData.md",
+      "signature": "SamudrACEForcingData(scenario: str = '0311', cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/SamudrACEForcingData.md",
       "summary": "SamudrACE exogenous forcing data source.",
       "symbol": "earth2studio.data.SamudrACEForcingData",
-      "title": "data.SamudrACEForcingData",
-      "url": "modules/generated/data/analysis/data_SamudrACEForcingData/"
+      "title": "SamudrACEForcingData",
+      "url": "modules/generated/data/analysis/SamudrACEForcingData/"
     },
     {
       "classifiers": [
@@ -1014,12 +1041,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.WB2Climatology(climatology_zarr_store: ClimatologyZarrStore = '1990-2017_6h_1440x721.zarr', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_WB2Climatology.md",
+      "signature": "WB2Climatology(climatology_zarr_store: ClimatologyZarrStore = '1990-2017_6h_1440x721.zarr', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/WB2Climatology.md",
       "summary": "Climatology provided by WeatherBench2,",
       "symbol": "earth2studio.data.WB2Climatology",
-      "title": "data.WB2Climatology",
-      "url": "modules/generated/data/analysis/data_WB2Climatology/"
+      "title": "WB2Climatology",
+      "url": "modules/generated/data/analysis/WB2Climatology/"
     },
     {
       "classifiers": [
@@ -1030,12 +1057,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.WB2ERA5(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_WB2ERA5.md",
+      "signature": "WB2ERA5(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/WB2ERA5.md",
       "summary": "ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the WeatherBench2 data repository.",
       "symbol": "earth2studio.data.WB2ERA5",
-      "title": "data.WB2ERA5",
-      "url": "modules/generated/data/analysis/data_WB2ERA5/"
+      "title": "WB2ERA5",
+      "url": "modules/generated/data/analysis/WB2ERA5/"
     },
     {
       "classifiers": [
@@ -1046,12 +1073,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.WB2ERA5_121x240(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_WB2ERA5_121x240.md",
+      "signature": "WB2ERA5_121x240(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/WB2ERA5_121x240.md",
       "summary": "ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the WeatherBench2 data repository.",
       "symbol": "earth2studio.data.WB2ERA5_121x240",
-      "title": "data.WB2ERA5_121x240",
-      "url": "modules/generated/data/analysis/data_WB2ERA5_121x240/"
+      "title": "WB2ERA5_121x240",
+      "url": "modules/generated/data/analysis/WB2ERA5_121x240/"
     },
     {
       "classifiers": [
@@ -1062,12 +1089,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.WB2ERA5_32x64(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/data_WB2ERA5_32x64.md",
+      "signature": "WB2ERA5_32x64(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/WB2ERA5_32x64.md",
       "summary": "ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the WeatherBench2 data repository.",
       "symbol": "earth2studio.data.WB2ERA5_32x64",
-      "title": "data.WB2ERA5_32x64",
-      "url": "modules/generated/data/analysis/data_WB2ERA5_32x64/"
+      "title": "WB2ERA5_32x64",
+      "url": "modules/generated/data/analysis/WB2ERA5_32x64/"
     },
     {
       "classifiers": [
@@ -1080,12 +1107,12 @@
         "product:solar",
         "product:insitu"
       ],
-      "signature": "data.GHCNDaily(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_GHCNDaily.md",
+      "signature": "GHCNDaily(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/GHCNDaily.md",
       "summary": "NOAA's Global Historical Climatology Network Daily (GHCN-D) is a dataset that contains daily climate summaries from land surface stations across the globe.",
       "symbol": "earth2studio.data.GHCNDaily",
-      "title": "data.GHCNDaily",
-      "url": "modules/generated/data/dataframe/data_GHCNDaily/"
+      "title": "GHCNDaily",
+      "url": "modules/generated/data/dataframe/GHCNDaily/"
     },
     {
       "classifiers": [
@@ -1096,12 +1123,12 @@
         "product:temp",
         "product:insitu"
       ],
-      "signature": "data.GHCNHourly(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_GHCNHourly.md",
+      "signature": "GHCNHourly(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/GHCNHourly.md",
       "summary": "NOAA's Global Historical Climatology Network Hourly (GHCNh) is a global database of hourly surface observations that supersedes the Integrated Surface Database (ISD). It compiles observations from thousands of stations worldwide into a common data model with consistent CSV encoding.",
       "symbol": "earth2studio.data.GHCNHourly",
-      "title": "data.GHCNHourly",
-      "url": "modules/generated/data/dataframe/data_GHCNHourly/"
+      "title": "GHCNHourly",
+      "url": "modules/generated/data/dataframe/GHCNHourly/"
     },
     {
       "classifiers": [
@@ -1110,12 +1137,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.GOESGLM(satellite: str = 'east', lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(2, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_GOESGLM.md",
+      "signature": "GOESGLM(satellite: str = 'east', lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(2, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/GOESGLM.md",
       "summary": "NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning Cluster-Filter Algorithm (LCFA) event data source.",
       "symbol": "earth2studio.data.GOESGLM",
-      "title": "data.GOESGLM",
-      "url": "modules/generated/data/dataframe/data_GOESGLM/"
+      "title": "GOESGLM",
+      "url": "modules/generated/data/dataframe/GOESGLM/"
     },
     {
       "classifiers": [
@@ -1124,12 +1151,12 @@
         "product:wind",
         "product:atmos"
       ],
-      "signature": "data.IBTrACS(region: str | list[str] = 'ALL', time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_IBTrACS.md",
+      "signature": "IBTrACS(region: str | list[str] = 'ALL', time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/IBTrACS.md",
       "summary": "International Best Track Archive for Climate Stewardship (IBTrACS) data source.",
       "symbol": "earth2studio.data.IBTrACS",
-      "title": "data.IBTrACS",
-      "url": "modules/generated/data/dataframe/data_IBTrACS/"
+      "title": "IBTrACS",
+      "url": "modules/generated/data/dataframe/IBTrACS/"
     },
     {
       "classifiers": [
@@ -1141,12 +1168,12 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "data.IEM_ASOS(stations: str | list[str] | None = None, networks: str | list[str] | None = None, report_types: tuple[int, ...] = (3, 4), time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_IEM_ASOS.md",
+      "signature": "IEM_ASOS(stations: str | list[str] | None = None, networks: str | list[str] | None = None, report_types: tuple[int, ...] = (3, 4), time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/IEM_ASOS.md",
       "summary": "IEM archive of parsed ASOS, AWOS, and METAR station observations.",
       "symbol": "earth2studio.data.IEM_ASOS",
-      "title": "data.IEM_ASOS",
-      "url": "modules/generated/data/dataframe/data_IEM_ASOS/"
+      "title": "IEM_ASOS",
+      "url": "modules/generated/data/dataframe/IEM_ASOS/"
     },
     {
       "classifiers": [
@@ -1157,12 +1184,12 @@
         "product:temp",
         "product:insitu"
       ],
-      "signature": "data.ISD(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/dataframe/data_ISD.md",
+      "signature": "ISD(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/dataframe/ISD.md",
       "summary": "NOAA's Integrated Surface Database (ISD) is a global database that consists of hourly and synoptic surface observations compiled from numerous sources into a common data model.",
       "symbol": "earth2studio.data.ISD",
-      "title": "data.ISD",
-      "url": "modules/generated/data/dataframe/data_ISD/"
+      "title": "ISD",
+      "url": "modules/generated/data/dataframe/ISD/"
     },
     {
       "classifiers": [
@@ -1170,12 +1197,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.JPSS_ATMS(satellites: list[str] | None = None, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_workers: int = 24, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_JPSS_ATMS.md",
+      "signature": "JPSS_ATMS(satellites: list[str] | None = None, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_workers: int = 24, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/JPSS_ATMS.md",
       "summary": "JPSS ATMS (Advanced Technology Microwave Sounder) Level 1 BUFR brightness-temperature observations served from NOAA Open Data on AWS.",
       "symbol": "earth2studio.data.JPSS_ATMS",
-      "title": "data.JPSS_ATMS",
-      "url": "modules/generated/data/dataframe/data_JPSS_ATMS/"
+      "title": "JPSS_ATMS",
+      "url": "modules/generated/data/dataframe/JPSS_ATMS/"
     },
     {
       "classifiers": [
@@ -1183,12 +1210,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.JPSS_CRIS(satellites: list[str] | None = None, subsample: int = 1, apodize: bool = True, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_workers: int = 24, retries: int = 3, sensor_indices: list[int] | np.ndarray | None = None)",
-      "source": "modules/generated/data/dataframe/data_JPSS_CRIS.md",
+      "signature": "JPSS_CRIS(satellites: list[str] | None = None, subsample: int = 1, apodize: bool = True, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_workers: int = 24, retries: int = 3, sensor_indices: list[int] | np.ndarray | None = None)",
+      "source": "modules/generated/data/dataframe/JPSS_CRIS.md",
       "summary": "JPSS CrIS (Cross-track Infrared Sounder) Full Spectral Resolution (FSR) Level 1 brightness temperature observations served from NOAA Open Data on AWS.",
       "symbol": "earth2studio.data.JPSS_CRIS",
-      "title": "data.JPSS_CRIS",
-      "url": "modules/generated/data/dataframe/data_JPSS_CRIS/"
+      "title": "JPSS_CRIS",
+      "url": "modules/generated/data/dataframe/JPSS_CRIS/"
     },
     {
       "classifiers": [
@@ -1196,12 +1223,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.MetOpAMSUA(satellite: str | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/dataframe/data_MetOpAMSUA.md",
+      "signature": "MetOpAMSUA(satellite: str | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/dataframe/MetOpAMSUA.md",
       "summary": "EUMETSAT MetOp AMSU-A Level 1B brightness temperature observations.",
       "symbol": "earth2studio.data.MetOpAMSUA",
-      "title": "data.MetOpAMSUA",
-      "url": "modules/generated/data/dataframe/data_MetOpAMSUA/"
+      "title": "MetOpAMSUA",
+      "url": "modules/generated/data/dataframe/MetOpAMSUA/"
     },
     {
       "classifiers": [
@@ -1209,12 +1236,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.MetOpAVHRR(satellite: str | None = None, subsample: int = 1, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/dataframe/data_MetOpAVHRR.md",
+      "signature": "MetOpAVHRR(satellite: str | None = None, subsample: int = 1, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/dataframe/MetOpAVHRR.md",
       "summary": "EUMETSAT MetOp AVHRR Level 1B radiance and brightness temperature observations.",
       "symbol": "earth2studio.data.MetOpAVHRR",
-      "title": "data.MetOpAVHRR",
-      "url": "modules/generated/data/dataframe/data_MetOpAVHRR/"
+      "title": "MetOpAVHRR",
+      "url": "modules/generated/data/dataframe/MetOpAVHRR/"
     },
     {
       "classifiers": [
@@ -1222,12 +1249,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.MetOpIASI(satellite: str | None = None, sensor_indices: list[int] | np.ndarray | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/dataframe/data_MetOpIASI.md",
+      "signature": "MetOpIASI(satellite: str | None = None, sensor_indices: list[int] | np.ndarray | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/dataframe/MetOpIASI.md",
       "summary": "EUMETSAT MetOp IASI Level 1C brightness temperature observations.",
       "symbol": "earth2studio.data.MetOpIASI",
-      "title": "data.MetOpIASI",
-      "url": "modules/generated/data/dataframe/data_MetOpIASI/"
+      "title": "MetOpIASI",
+      "url": "modules/generated/data/dataframe/MetOpIASI/"
     },
     {
       "classifiers": [
@@ -1235,12 +1262,12 @@
         "dataclass:observation",
         "product:sat"
       ],
-      "signature": "data.MetOpMHS(satellite: str | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/dataframe/data_MetOpMHS.md",
+      "signature": "MetOpMHS(satellite: str | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/dataframe/MetOpMHS.md",
       "summary": "EUMETSAT MetOp MHS Level 1B brightness temperature observations.",
       "symbol": "earth2studio.data.MetOpMHS",
-      "title": "data.MetOpMHS",
-      "url": "modules/generated/data/dataframe/data_MetOpMHS/"
+      "title": "MetOpMHS",
+      "url": "modules/generated/data/dataframe/MetOpMHS/"
     },
     {
       "classifiers": [
@@ -1251,12 +1278,12 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "data.NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_NNJAObsConv.md",
+      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/NNJAObsConv.md",
       "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
       "symbol": "earth2studio.data.NNJAObsConv",
-      "title": "data.NNJAObsConv",
-      "url": "modules/generated/data/dataframe/data_NNJAObsConv/"
+      "title": "NNJAObsConv",
+      "url": "modules/generated/data/dataframe/NNJAObsConv/"
     },
     {
       "classifiers": [
@@ -1265,12 +1292,12 @@
         "product:atmos",
         "product:sat"
       ],
-      "signature": "data.NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None)",
-      "source": "modules/generated/data/dataframe/data_NNJAObsSat.md",
+      "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None)",
+      "source": "modules/generated/data/dataframe/NNJAObsSat.md",
       "summary": "NNJA historical NCEP aggregate satellite observations.",
       "symbol": "earth2studio.data.NNJAObsSat",
-      "title": "data.NNJAObsSat",
-      "url": "modules/generated/data/dataframe/data_NNJAObsSat/"
+      "title": "NNJAObsSat",
+      "url": "modules/generated/data/dataframe/NNJAObsSat/"
     },
     {
       "classifiers": [
@@ -1281,21 +1308,21 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "data.NomadsGDASObsConv(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, decode_workers: int = 8, retries: int = 3)",
-      "source": "modules/generated/data/dataframe/data_NomadsGDASObsConv.md",
+      "signature": "NomadsGDASObsConv(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, decode_workers: int = 8, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/NomadsGDASObsConv.md",
       "summary": "Real-time GDAS conventional observations from NOAA NOMADS.",
       "symbol": "earth2studio.data.NomadsGDASObsConv",
-      "title": "data.NomadsGDASObsConv",
-      "url": "modules/generated/data/dataframe/data_NomadsGDASObsConv/"
+      "title": "NomadsGDASObsConv",
+      "url": "modules/generated/data/dataframe/NomadsGDASObsConv/"
     },
     {
       "classifiers": [],
-      "signature": "data.RandomDataFrame(n_obs: int = 10, tolerance: timedelta | np.timedelta64 = np.timedelta64(0), schema: pa.Schema | None = None, field_generators: dict[str, Callable[[], Any]] | None = None)",
-      "source": "modules/generated/data/dataframe/data_RandomDataFrame.md",
+      "signature": "RandomDataFrame(n_obs: int = 10, tolerance: timedelta | np.timedelta64 = np.timedelta64(0), schema: pa.Schema | None = None, field_generators: dict[str, Callable[[], Any]] | None = None)",
+      "source": "modules/generated/data/dataframe/RandomDataFrame.md",
       "summary": "A randomly generated DataFrame source. Primarily useful for testing.",
       "symbol": "earth2studio.data.RandomDataFrame",
-      "title": "data.RandomDataFrame",
-      "url": "modules/generated/data/dataframe/data_RandomDataFrame/"
+      "title": "RandomDataFrame",
+      "url": "modules/generated/data/dataframe/RandomDataFrame/"
     },
     {
       "classifiers": [
@@ -1304,12 +1331,12 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "data.UFSObsConv()",
-      "source": "modules/generated/data/dataframe/data_UFSObsConv.md",
+      "signature": "UFSObsConv()",
+      "source": "modules/generated/data/dataframe/UFSObsConv.md",
       "summary": "NOAA UFS GEFS-v13 replay observations in-situ data",
       "symbol": "earth2studio.data.UFSObsConv",
-      "title": "data.UFSObsConv",
-      "url": "modules/generated/data/dataframe/data_UFSObsConv/"
+      "title": "UFSObsConv",
+      "url": "modules/generated/data/dataframe/UFSObsConv/"
     },
     {
       "classifiers": [
@@ -1318,12 +1345,12 @@
         "product:atmos",
         "product:sat"
       ],
-      "signature": "data.UFSObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, max_workers: int = 24, cache: bool = True, async_timeout: int = 600, verbose: bool = True, decode_workers: int | Literal['auto'] = 'auto')",
-      "source": "modules/generated/data/dataframe/data_UFSObsSat.md",
+      "signature": "UFSObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, max_workers: int = 24, cache: bool = True, async_timeout: int = 600, verbose: bool = True, decode_workers: int | Literal['auto'] = 'auto')",
+      "source": "modules/generated/data/dataframe/UFSObsSat.md",
       "summary": "NOAA UFS GEFS-v13 replay observations satellite data",
       "symbol": "earth2studio.data.UFSObsSat",
-      "title": "data.UFSObsSat",
-      "url": "modules/generated/data/dataframe/data_UFSObsSat/"
+      "title": "UFSObsSat",
+      "url": "modules/generated/data/dataframe/UFSObsSat/"
     },
     {
       "classifiers": [
@@ -1334,12 +1361,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.AIFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 0, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/forecast/data_AIFS_ENS_FX.md",
+      "signature": "AIFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 0, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/forecast/AIFS_ENS_FX.md",
       "summary": "Artificial intelligence forecast system (AIFS) ENS forecast data on an equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
       "symbol": "earth2studio.data.AIFS_ENS_FX",
-      "title": "data.AIFS_ENS_FX",
-      "url": "modules/generated/data/forecast/data_AIFS_ENS_FX/"
+      "title": "AIFS_ENS_FX",
+      "url": "modules/generated/data/forecast/AIFS_ENS_FX/"
     },
     {
       "classifiers": [
@@ -1350,12 +1377,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.AIFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/forecast/data_AIFS_FX.md",
+      "signature": "AIFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/forecast/AIFS_FX.md",
       "summary": "Artificial intelligence forecast system (AIFS) SINGLE forecast data on an equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
       "symbol": "earth2studio.data.AIFS_FX",
-      "title": "data.AIFS_FX",
-      "url": "modules/generated/data/forecast/data_AIFS_FX/"
+      "title": "AIFS_FX",
+      "url": "modules/generated/data/forecast/AIFS_FX/"
     },
     {
       "classifiers": [
@@ -1365,12 +1392,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.CAMS_FX(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_CAMS_FX.md",
+      "signature": "CAMS_FX(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/CAMS_FX.md",
       "summary": "CAMS Global atmospheric composition forecast data source.",
       "symbol": "earth2studio.data.CAMS_FX",
-      "title": "data.CAMS_FX",
-      "url": "modules/generated/data/forecast/data_CAMS_FX/"
+      "title": "CAMS_FX",
+      "url": "modules/generated/data/forecast/CAMS_FX/"
     },
     {
       "classifiers": [
@@ -1380,12 +1407,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.CFS_FX(member: int = 1, source: str = 'nomads', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/forecast/data_CFS_FX.md",
+      "signature": "CFS_FX(member: int = 1, source: str = 'nomads', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/forecast/CFS_FX.md",
       "summary": "NCEP Climate Forecast System v2 (CFSv2) pressure-level forecast source.",
       "symbol": "earth2studio.data.CFS_FX",
-      "title": "data.CFS_FX",
-      "url": "modules/generated/data/forecast/data_CFS_FX/"
+      "title": "CFS_FX",
+      "url": "modules/generated/data/forecast/CFS_FX/"
     },
     {
       "classifiers": [
@@ -1397,12 +1424,12 @@
         "product:atmos",
         "product:land"
       ],
-      "signature": "data.CFS_FX_Flux()",
-      "source": "modules/generated/data/forecast/data_CFS_FX_Flux.md",
+      "signature": "CFS_FX_Flux()",
+      "source": "modules/generated/data/forecast/CFS_FX_Flux.md",
       "summary": "NCEP Climate Forecast System v2 surface-flux forecast source.",
       "symbol": "earth2studio.data.CFS_FX_Flux",
-      "title": "data.CFS_FX_Flux",
-      "url": "modules/generated/data/forecast/data_CFS_FX_Flux/"
+      "title": "CFS_FX_Flux",
+      "url": "modules/generated/data/forecast/CFS_FX_Flux/"
     },
     {
       "classifiers": [
@@ -1412,12 +1439,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.CFS_Reforecast_FX(cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
-      "source": "modules/generated/data/forecast/data_CFS_Reforecast_FX.md",
+      "signature": "CFS_Reforecast_FX(cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
+      "source": "modules/generated/data/forecast/CFS_Reforecast_FX.md",
       "summary": "NCEP CFSv2 6-hourly 9-month reforecast (pressure-level product).",
       "symbol": "earth2studio.data.CFS_Reforecast_FX",
-      "title": "data.CFS_Reforecast_FX",
-      "url": "modules/generated/data/forecast/data_CFS_Reforecast_FX/"
+      "title": "CFS_Reforecast_FX",
+      "url": "modules/generated/data/forecast/CFS_Reforecast_FX/"
     },
     {
       "classifiers": [
@@ -1427,12 +1454,12 @@
         "product:land",
         "product:atmos"
       ],
-      "signature": "data.CFS_Reforecast_FX_Flux()",
-      "source": "modules/generated/data/forecast/data_CFS_Reforecast_FX_Flux.md",
+      "signature": "CFS_Reforecast_FX_Flux()",
+      "source": "modules/generated/data/forecast/CFS_Reforecast_FX_Flux.md",
       "summary": "NCEP CFSv2 6-hourly 9-month reforecast (surface-flux product).",
       "symbol": "earth2studio.data.CFS_Reforecast_FX_Flux",
-      "title": "data.CFS_Reforecast_FX_Flux",
-      "url": "modules/generated/data/forecast/data_CFS_Reforecast_FX_Flux/"
+      "title": "CFS_Reforecast_FX_Flux",
+      "url": "modules/generated/data/forecast/CFS_Reforecast_FX_Flux/"
     },
     {
       "classifiers": [
@@ -1442,12 +1469,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalAIFSENS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalAIFSENS_FX.md",
+      "signature": "DynamicalAIFSENS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalAIFSENS_FX.md",
       "summary": "ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalAIFSENS_FX",
-      "title": "data.DynamicalAIFSENS_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalAIFSENS_FX/"
+      "title": "DynamicalAIFSENS_FX",
+      "url": "modules/generated/data/forecast/DynamicalAIFSENS_FX/"
     },
     {
       "classifiers": [
@@ -1457,12 +1484,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalAIFS_FX(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalAIFS_FX.md",
+      "signature": "DynamicalAIFS_FX(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalAIFS_FX.md",
       "summary": "ECMWF AIFS Single forecast from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalAIFS_FX",
-      "title": "data.DynamicalAIFS_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalAIFS_FX/"
+      "title": "DynamicalAIFS_FX",
+      "url": "modules/generated/data/forecast/DynamicalAIFS_FX/"
     },
     {
       "classifiers": [
@@ -1472,12 +1499,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalGEFS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalGEFS_FX.md",
+      "signature": "DynamicalGEFS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalGEFS_FX.md",
       "summary": "NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalGEFS_FX",
-      "title": "data.DynamicalGEFS_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalGEFS_FX/"
+      "title": "DynamicalGEFS_FX",
+      "url": "modules/generated/data/forecast/DynamicalGEFS_FX/"
     },
     {
       "classifiers": [
@@ -1487,12 +1514,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalGFS_FX(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalGFS_FX.md",
+      "signature": "DynamicalGFS_FX(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalGFS_FX.md",
       "summary": "NOAA GFS forecast from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalGFS_FX",
-      "title": "data.DynamicalGFS_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalGFS_FX/"
+      "title": "DynamicalGFS_FX",
+      "url": "modules/generated/data/forecast/DynamicalGFS_FX/"
     },
     {
       "classifiers": [
@@ -1503,12 +1530,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalHRRR_FX(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalHRRR_FX.md",
+      "signature": "DynamicalHRRR_FX(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalHRRR_FX.md",
       "summary": "NOAA HRRR 48-hour virtual forecast from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalHRRR_FX",
-      "title": "data.DynamicalHRRR_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalHRRR_FX/"
+      "title": "DynamicalHRRR_FX",
+      "url": "modules/generated/data/forecast/DynamicalHRRR_FX/"
     },
     {
       "classifiers": [
@@ -1519,12 +1546,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalICON_EU_FX(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalICON_EU_FX.md",
+      "signature": "DynamicalICON_EU_FX(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalICON_EU_FX.md",
       "summary": "DWD ICON-EU 5-day forecast from the dynamical.org catalog.",
       "symbol": "earth2studio.data.DynamicalICON_EU_FX",
-      "title": "data.DynamicalICON_EU_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalICON_EU_FX/"
+      "title": "DynamicalICON_EU_FX",
+      "url": "modules/generated/data/forecast/DynamicalICON_EU_FX/"
     },
     {
       "classifiers": [
@@ -1534,12 +1561,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.DynamicalIFS_ENS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_DynamicalIFS_ENS_FX.md",
+      "signature": "DynamicalIFS_ENS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/DynamicalIFS_ENS_FX.md",
       "summary": "ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.",
       "symbol": "earth2studio.data.DynamicalIFS_ENS_FX",
-      "title": "data.DynamicalIFS_ENS_FX",
-      "url": "modules/generated/data/forecast/data_DynamicalIFS_ENS_FX/"
+      "title": "DynamicalIFS_ENS_FX",
+      "url": "modules/generated/data/forecast/DynamicalIFS_ENS_FX/"
     },
     {
       "classifiers": [
@@ -1550,12 +1577,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.EarthMoverBrightBandIFS_FX(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/forecast/data_EarthMoverBrightBandIFS_FX.md",
+      "signature": "EarthMoverBrightBandIFS_FX(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/forecast/EarthMoverBrightBandIFS_FX.md",
       "summary": "Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover Arraylake.",
       "symbol": "earth2studio.data.EarthMoverBrightBandIFS_FX",
-      "title": "data.EarthMoverBrightBandIFS_FX",
-      "url": "modules/generated/data/forecast/data_EarthMoverBrightBandIFS_FX/"
+      "title": "EarthMoverBrightBandIFS_FX",
+      "url": "modules/generated/data/forecast/EarthMoverBrightBandIFS_FX/"
     },
     {
       "classifiers": [
@@ -1566,12 +1593,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.GEFS_FX(member: str = 'gec00', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/forecast/data_GEFS_FX.md",
+      "signature": "GEFS_FX(member: str = 'gec00', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/forecast/GEFS_FX.md",
       "summary": "The Global Ensemble Forecast System (GEFS) forecast source is a 30 member ensemble forecast provided on an 0.5 degree equirectangular grid.  GEFS is a weather forecast model developed by  National Centers for Environmental Prediction (NCEP). This forecast source has data at 6-hour intervals spanning from Sept 23rd 2020 to present date. Each forecast provides 3-hourly predictions up to 10 days (240 hours) and 6 hourly predictions for another 6 days (384 hours).",
       "symbol": "earth2studio.data.GEFS_FX",
-      "title": "data.GEFS_FX",
-      "url": "modules/generated/data/forecast/data_GEFS_FX/"
+      "title": "GEFS_FX",
+      "url": "modules/generated/data/forecast/GEFS_FX/"
     },
     {
       "classifiers": [
@@ -1582,12 +1609,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.GEFS_FX_721x1440(member: str = 'gec00', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/forecast/data_GEFS_FX_721x1440.md",
+      "signature": "GEFS_FX_721x1440(member: str = 'gec00', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/forecast/GEFS_FX_721x1440.md",
       "summary": "The Global Ensemble Forecast System (GEFS) forecast source is a 30 member ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a weather forecast model developed by  National Centers for Environmental Prediction (NCEP). This data source provides the select variables of GEFS served on a higher resolution grid t 6-hour intervals spanning from Sept 23rd 2020 to present date. Each forecast provides 3-hourly predictions up to 10 days (240 hours) and 6 hourly predictions for another 6 days (384 hours).",
       "symbol": "earth2studio.data.GEFS_FX_721x1440",
-      "title": "data.GEFS_FX_721x1440",
-      "url": "modules/generated/data/forecast/data_GEFS_FX_721x1440/"
+      "title": "GEFS_FX_721x1440",
+      "url": "modules/generated/data/forecast/GEFS_FX_721x1440/"
     },
     {
       "classifiers": [
@@ -1598,12 +1625,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.GFS_FX()",
-      "source": "modules/generated/data/forecast/data_GFS_FX.md",
+      "signature": "GFS_FX()",
+      "source": "modules/generated/data/forecast/GFS_FX.md",
       "summary": "The global forecast service (GFS) forecast source provided on an equirectangular grid. GFS is a weather forecast model developed by NOAA. This data source is on a 0.25 degree lat lon grid at 6-hour intervals spanning from Feb 26th 2021 to present date. Each forecast provides hourly predictions up to 16 days (384 hours).",
       "symbol": "earth2studio.data.GFS_FX",
-      "title": "data.GFS_FX",
-      "url": "modules/generated/data/forecast/data_GFS_FX/"
+      "title": "GFS_FX",
+      "url": "modules/generated/data/forecast/GFS_FX/"
     },
     {
       "classifiers": [
@@ -1615,12 +1642,12 @@
         "product:atmos",
         "product:radar"
       ],
-      "signature": "data.HRRR_FX(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
-      "source": "modules/generated/data/forecast/data_HRRR_FX.md",
+      "signature": "HRRR_FX(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
+      "source": "modules/generated/data/forecast/HRRR_FX.md",
       "summary": "High-Resolution Rapid Refresh (HRRR) forecast source provides a North-American weather forecasts with hourly forecast runs developed by NOAA. This forecast source has hourly forecast steps up to a lead time of 48 hours. Data is provided on a Lambert conformal 3km grid at 1-hour intervals. The spatial dimensionality of HRRR data is [1059, 1799].",
       "symbol": "earth2studio.data.HRRR_FX",
-      "title": "data.HRRR_FX",
-      "url": "modules/generated/data/forecast/data_HRRR_FX/"
+      "title": "HRRR_FX",
+      "url": "modules/generated/data/forecast/HRRR_FX/"
     },
     {
       "classifiers": [
@@ -1631,12 +1658,12 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.IFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/forecast/data_IFS_ENS_FX.md",
+      "signature": "IFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/forecast/IFS_ENS_FX.md",
       "summary": "Integrated forecast system (IFS) ensemble (ENS) forecast data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
       "symbol": "earth2studio.data.IFS_ENS_FX",
-      "title": "data.IFS_ENS_FX",
-      "url": "modules/generated/data/forecast/data_IFS_ENS_FX/"
+      "title": "IFS_ENS_FX",
+      "url": "modules/generated/data/forecast/IFS_ENS_FX/"
     },
     {
       "classifiers": [
@@ -1647,57 +1674,84 @@
         "product:temp",
         "product:atmos"
       ],
-      "signature": "data.IFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/forecast/data_IFS_FX.md",
+      "signature": "IFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/forecast/IFS_FX.md",
       "summary": "Integrated forecast system (IFS) HRES forecast data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
       "symbol": "earth2studio.data.IFS_FX",
-      "title": "data.IFS_FX",
-      "url": "modules/generated/data/forecast/data_IFS_FX/"
+      "title": "IFS_FX",
+      "url": "modules/generated/data/forecast/IFS_FX/"
     },
     {
       "classifiers": [],
-      "signature": "io.AsyncZarrBackend(file_name: str | None, parallel_coords: CoordSystem, fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None = None, blocking: bool = True, pool_size: int = 8, async_timeout: int = 600, zarr_kwargs: dict[str, Any] = {'mode': 'a'}, zarr_codecs: CompressorsLike = None, chunked_coords: dict[str, int] = {}, shard_coords: dict[str, int] = {}, max_inflight_shards: int = 4, store: 'str | zarr.abc.store.Store | obstore.store.ObjectStore | None' = None, store_kwargs: dict[str, Any] = {})",
-      "source": "modules/generated/io/1/io_AsyncZarrBackend.md",
+      "signature": "AsyncZarrBackend(file_name: str | None, parallel_coords: CoordSystem, fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None = None, blocking: bool = True, pool_size: int = 8, async_timeout: int = 600, zarr_kwargs: dict[str, Any] = {'mode': 'a'}, zarr_codecs: CompressorsLike = None, chunked_coords: dict[str, int] = {}, shard_coords: dict[str, int] = {}, max_inflight_shards: int = 4, store: 'str | zarr.abc.store.Store | obstore.store.ObjectStore | None' = None, store_kwargs: dict[str, Any] = {})",
+      "source": "modules/generated/io/AsyncZarrBackend.md",
       "summary": "Async Zarr v3 IO Backend",
       "symbol": "earth2studio.io.AsyncZarrBackend",
-      "title": "io.AsyncZarrBackend",
-      "url": "modules/generated/io/1/io_AsyncZarrBackend/"
+      "title": "AsyncZarrBackend",
+      "url": "modules/generated/io/AsyncZarrBackend/"
     },
     {
       "classifiers": [],
-      "signature": "io.KVBackend(device: str = 'cpu')",
-      "source": "modules/generated/io/1/io_KVBackend.md",
+      "signature": "IceChunkBackend(storage: 'icechunk.Storage | str | None' = None, branch: str = 'main', repo_kwargs: dict[str, Any] = {}, chunks: dict[str, int] = {'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1}, backend_kwargs: dict[str, Any] = {'overwrite': False}, zarr_codecs: CompressorsLike = None, blocking: bool = False, pool_size: int = 8)",
+      "source": "modules/generated/io/IceChunkBackend.md",
+      "summary": "A backend that writes to an [Icechunk ](https://icechunk.io/) repository.",
+      "symbol": "earth2studio.io.IceChunkBackend",
+      "title": "IceChunkBackend",
+      "url": "modules/generated/io/IceChunkBackend/"
+    },
+    {
+      "classifiers": [],
+      "signature": "KVBackend(device: str = 'cpu')",
+      "source": "modules/generated/io/KVBackend.md",
       "summary": "A key-value (dict) backend.",
       "symbol": "earth2studio.io.KVBackend",
-      "title": "io.KVBackend",
-      "url": "modules/generated/io/1/io_KVBackend/"
+      "title": "KVBackend",
+      "url": "modules/generated/io/KVBackend/"
     },
     {
       "classifiers": [],
-      "signature": "io.NetCDF4Backend(file_name: str, backend_kwargs: dict[str, Any] = {'mode': 'r+', 'diskless': False})",
-      "source": "modules/generated/io/1/io_NetCDF4Backend.md",
+      "signature": "NetCDF4Backend(file_name: str, backend_kwargs: dict[str, Any] = {'mode': 'r+', 'diskless': False})",
+      "source": "modules/generated/io/NetCDF4Backend.md",
       "summary": "A backend that supports the NetCDF4 format.",
       "symbol": "earth2studio.io.NetCDF4Backend",
-      "title": "io.NetCDF4Backend",
-      "url": "modules/generated/io/1/io_NetCDF4Backend/"
+      "title": "NetCDF4Backend",
+      "url": "modules/generated/io/NetCDF4Backend/"
     },
     {
       "classifiers": [],
-      "signature": "io.XarrayBackend(coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any)",
-      "source": "modules/generated/io/1/io_XarrayBackend.md",
+      "signature": "XarrayBackend(coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any)",
+      "source": "modules/generated/io/XarrayBackend.md",
       "summary": "An xarray backed IO object.",
       "symbol": "earth2studio.io.XarrayBackend",
-      "title": "io.XarrayBackend",
-      "url": "modules/generated/io/1/io_XarrayBackend/"
+      "title": "XarrayBackend",
+      "url": "modules/generated/io/XarrayBackend/"
     },
     {
       "classifiers": [],
-      "signature": "io.ZarrBackend(file_name: str = None, chunks: dict[str, int] = {'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1}, backend_kwargs: dict[str, Any] = {'overwrite': False}, zarr_codecs: CompressorsLike = None)",
-      "source": "modules/generated/io/1/io_ZarrBackend.md",
+      "signature": "ZarrBackend(file_name: str = None, chunks: dict[str, int] = {'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1}, backend_kwargs: dict[str, Any] = {'overwrite': False}, zarr_codecs: CompressorsLike = None)",
+      "source": "modules/generated/io/ZarrBackend.md",
       "summary": "A backend that supports the zarr format.",
       "symbol": "earth2studio.io.ZarrBackend",
-      "title": "io.ZarrBackend",
-      "url": "modules/generated/io/1/io_ZarrBackend/"
+      "title": "ZarrBackend",
+      "url": "modules/generated/io/ZarrBackend/"
+    },
+    {
+      "classifiers": [],
+      "signature": "Package(root: str, fs: AbstractFileSystem | None = None, fs_options: dict = {}, cache: bool | None = None, cache_options: dict = {})",
+      "source": "modules/generated/models/auto/Package.md",
+      "summary": "A generic file system abstraction with local caching, uses Fsspec WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote resources, particularly checkpoint files for pre-trained models. Presently supports public folders on NGC, huggingface repos, s3 and any other built in file system Fsspec supports.",
+      "symbol": "earth2studio.models.auto.Package",
+      "title": "Package",
+      "url": "modules/generated/models/auto/Package/"
+    },
+    {
+      "classifiers": [],
+      "signature": "batch_func()",
+      "source": "modules/generated/models/batch/batch_func.md",
+      "summary": "Batch utility decorator which can be added to prognostic and diagnostic models to help enable support for automatic batching of data. This class contains a decorator function which should be added to calls where this functionality is desired.",
+      "symbol": "earth2studio.models.batch.batch_func",
+      "title": "batch_func",
+      "url": "modules/generated/models/batch/batch_func/"
     },
     {
       "classifiers": [
@@ -2322,6 +2376,26 @@
         "region:global",
         "class:medium-range",
         "product:wind",
+        "product:precip",
+        "product:temp",
+        "product:atmos",
+        "year:2026",
+        "gpu:80gb",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "AtlasCRPS(model: nn.Module, model_processor: nn.Module, autoencoder: nn.Module, autoencoder_processor: nn.Module)",
+      "source": "modules/generated/models/px/AtlasCRPS.md",
+      "summary": "Atlas CRPS ensemble prognostic model for ERA5 variables on a 0.25 degree global lat-lon grid.",
+      "symbol": "earth2studio.models.px.AtlasCRPS",
+      "title": "AtlasCRPS",
+      "url": "modules/generated/models/px/AtlasCRPS/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:wind",
         "product:temp",
         "product:atmos",
         "year:2024",
@@ -2873,399 +2947,354 @@
     },
     {
       "classifiers": [],
-      "signature": "perturbation.BredVector(model: Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, CoordSystem]], noise_amplitude: float | torch.Tensor = 0.05, integration_steps: int = 20, ensemble_perturb: bool = False, seeding_perturbation_method: Perturbation = Brown())",
-      "source": "modules/generated/perturbation/1/perturbation_BredVector.md",
+      "signature": "BredVector(model: Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, CoordSystem]], noise_amplitude: float | torch.Tensor = 0.05, integration_steps: int = 20, ensemble_perturb: bool = False, seeding_perturbation_method: Perturbation = Brown())",
+      "source": "modules/generated/perturbation/BredVector.md",
       "summary": "Bred Vector perturbation method, a classical technique for pertubations in ensemble forecasting.",
       "symbol": "earth2studio.perturbation.BredVector",
-      "title": "perturbation.BredVector",
-      "url": "modules/generated/perturbation/1/perturbation_BredVector/"
+      "title": "BredVector",
+      "url": "modules/generated/perturbation/BredVector/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.Brown(noise_amplitude: float | torch.Tensor = 0.05, reddening: int = 2)",
-      "source": "modules/generated/perturbation/1/perturbation_Brown.md",
+      "signature": "Brown(noise_amplitude: float | torch.Tensor = 0.05, reddening: int = 2)",
+      "source": "modules/generated/perturbation/Brown.md",
       "summary": "Lat/Lon 2D brown noise",
       "symbol": "earth2studio.perturbation.Brown",
-      "title": "perturbation.Brown",
-      "url": "modules/generated/perturbation/1/perturbation_Brown/"
+      "title": "Brown",
+      "url": "modules/generated/perturbation/Brown/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.CorrelatedSphericalGaussian(noise_amplitude: float | torch.Tensor, sigma: float = 1.0, length_scale: float = 500000.0, time_scale: float = 48.0)",
-      "source": "modules/generated/perturbation/1/perturbation_CorrelatedSphericalGaussian.md",
+      "signature": "CorrelatedSphericalGaussian(noise_amplitude: float | torch.Tensor, sigma: float = 1.0, length_scale: float = 500000.0, time_scale: float = 48.0)",
+      "source": "modules/generated/perturbation/CorrelatedSphericalGaussian.md",
       "summary": "Produces Gaussian random field on the sphere with Matern covariance peturbation method output to a lat lon grid.",
       "symbol": "earth2studio.perturbation.CorrelatedSphericalGaussian",
-      "title": "perturbation.CorrelatedSphericalGaussian",
-      "url": "modules/generated/perturbation/1/perturbation_CorrelatedSphericalGaussian/"
+      "title": "CorrelatedSphericalGaussian",
+      "url": "modules/generated/perturbation/CorrelatedSphericalGaussian/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.Gaussian(noise_amplitude: float | torch.Tensor = 0.05, seed: int | None = None)",
-      "source": "modules/generated/perturbation/1/perturbation_Gaussian.md",
+      "signature": "Gaussian(noise_amplitude: float | torch.Tensor = 0.05, seed: int | None = None)",
+      "source": "modules/generated/perturbation/Gaussian.md",
       "summary": "Standard Gaussian peturbation",
       "symbol": "earth2studio.perturbation.Gaussian",
-      "title": "perturbation.Gaussian",
-      "url": "modules/generated/perturbation/1/perturbation_Gaussian/"
+      "title": "Gaussian",
+      "url": "modules/generated/perturbation/Gaussian/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.HemisphericCentredBredVector(model: PrognosticModel, data: DataSource, seeding_perturbation_method: Perturbation, noise_amplitude: float | torch.Tensor = 0.35, integration_steps: int = 3)",
-      "source": "modules/generated/perturbation/1/perturbation_HemisphericCentredBredVector.md",
+      "signature": "HemisphericCentredBredVector(model: PrognosticModel, data: DataSource, seeding_perturbation_method: Perturbation, noise_amplitude: float | torch.Tensor = 0.35, integration_steps: int = 3)",
+      "source": "modules/generated/perturbation/HemisphericCentredBredVector.md",
       "summary": "Bred Vector perturbation method, following the approach introduced in 'Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators'. The vector is bred by advancing in time. The bred vector is scaled seperately in the northern and southern extra-tropics and interpolated in the tropics. Additionally, it applies a centred perturbation, ie generating two perturbed stated by adding and subtracting the bred vector, respecitvely.",
       "symbol": "earth2studio.perturbation.HemisphericCentredBredVector",
-      "title": "perturbation.HemisphericCentredBredVector",
-      "url": "modules/generated/perturbation/1/perturbation_HemisphericCentredBredVector/"
+      "title": "HemisphericCentredBredVector",
+      "url": "modules/generated/perturbation/HemisphericCentredBredVector/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.LaggedEnsemble(source: DataSource, lags: LeadTimeArray)",
-      "source": "modules/generated/perturbation/1/perturbation_LaggedEnsemble.md",
+      "signature": "LaggedEnsemble(source: DataSource, lags: LeadTimeArray)",
+      "source": "modules/generated/perturbation/LaggedEnsemble.md",
       "summary": "Lagged Ensemble perturbation method. This method creates an ensemble by collecting initial conditions from different times, but verifying at the same time.",
       "symbol": "earth2studio.perturbation.LaggedEnsemble",
-      "title": "perturbation.LaggedEnsemble",
-      "url": "modules/generated/perturbation/1/perturbation_LaggedEnsemble/"
+      "title": "LaggedEnsemble",
+      "url": "modules/generated/perturbation/LaggedEnsemble/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.SphericalGaussian(noise_amplitude: float | torch.Tensor = 0.05, alpha: float = 2.0, tau: float = 3.0, sigma: float | None = None)",
-      "source": "modules/generated/perturbation/1/perturbation_SphericalGaussian.md",
+      "signature": "SphericalGaussian(noise_amplitude: float | torch.Tensor = 0.05, alpha: float = 2.0, tau: float = 3.0, sigma: float | None = None)",
+      "source": "modules/generated/perturbation/SphericalGaussian.md",
       "summary": "Gaussian random field on the sphere with Matern covariance peturbation method output to a lat lon grid",
       "symbol": "earth2studio.perturbation.SphericalGaussian",
-      "title": "perturbation.SphericalGaussian",
-      "url": "modules/generated/perturbation/1/perturbation_SphericalGaussian/"
+      "title": "SphericalGaussian",
+      "url": "modules/generated/perturbation/SphericalGaussian/"
     },
     {
       "classifiers": [],
-      "signature": "perturbation.Zero()",
-      "source": "modules/generated/perturbation/1/perturbation_Zero.md",
+      "signature": "Zero()",
+      "source": "modules/generated/perturbation/Zero.md",
       "summary": "No perturbation scheme",
       "symbol": "earth2studio.perturbation.Zero",
-      "title": "perturbation.Zero",
-      "url": "modules/generated/perturbation/1/perturbation_Zero/"
+      "title": "Zero",
+      "url": "modules/generated/perturbation/Zero/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.acc(reduction_dimensions: list[str], climatology: DataSource | None = None, weights: torch.Tensor | None = None)",
-      "source": "modules/generated/statistics/1/statistics_acc.md",
+      "signature": "acc(reduction_dimensions: list[str], climatology: DataSource | None = None, weights: torch.Tensor | None = None)",
+      "source": "modules/generated/statistics/acc.md",
       "summary": "Statistic for calculating the anomaly correlation coefficient of two tensors over a set of given dimensions, with respect to some optional climatology.",
       "symbol": "earth2studio.statistics.acc",
-      "title": "statistics.acc",
-      "url": "modules/generated/statistics/1/statistics_acc/"
+      "title": "acc",
+      "url": "modules/generated/statistics/acc/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.brier_score(reduction_dimensions: list[str], thresholds: ArrayLike, ensemble_dimension: str | None = None, batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_brier_score.md",
+      "signature": "brier_score(reduction_dimensions: list[str], thresholds: ArrayLike, ensemble_dimension: str | None = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/brier_score.md",
       "summary": "Statistic for calculating the Brier score (BS) of one tensors with respect to another over a set of given dimensions.",
       "symbol": "earth2studio.statistics.brier_score",
-      "title": "statistics.brier_score",
-      "url": "modules/generated/statistics/1/statistics_brier_score/"
+      "title": "brier_score",
+      "url": "modules/generated/statistics/brier_score/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.crps(ensemble_dimension: str, reduction_dimensions: list[str] | None = None, weights: torch.Tensor = None, fair: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_crps.md",
+      "signature": "crps(ensemble_dimension: str, reduction_dimensions: list[str] | None = None, weights: torch.Tensor = None, fair: bool = False)",
+      "source": "modules/generated/statistics/crps.md",
       "summary": "Compute the Continuous Ranked Probability Score (CRPS).",
       "symbol": "earth2studio.statistics.crps",
-      "title": "statistics.crps",
-      "url": "modules/generated/statistics/1/statistics_crps/"
+      "title": "crps",
+      "url": "modules/generated/statistics/crps/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.energy_score(ensemble_dimension: str, multivariate_dimensions: list[str], reduction_dimensions: list[str] | None = None, weights: torch.Tensor = None, fair: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_energy_score.md",
+      "signature": "energy_score(ensemble_dimension: str, multivariate_dimensions: list[str], reduction_dimensions: list[str] | None = None, weights: torch.Tensor = None, fair: bool = False)",
+      "source": "modules/generated/statistics/energy_score.md",
       "summary": "Compute the Energy Score for multivariate ensemble forecast verification.",
       "symbol": "earth2studio.statistics.energy_score",
-      "title": "statistics.energy_score",
-      "url": "modules/generated/statistics/1/statistics_energy_score/"
+      "title": "energy_score",
+      "url": "modules/generated/statistics/energy_score/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.fss(reduction_dimensions: list[str], window_sizes: ArrayLike, thresholds: ArrayLike, spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_fss.md",
+      "signature": "fss(reduction_dimensions: list[str], window_sizes: ArrayLike, thresholds: ArrayLike, spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/fss.md",
       "summary": "Statistic for calculating the fractions skill score (FSS) of one tensors with respect to another over a set of given dimensions.",
       "symbol": "earth2studio.statistics.fss",
-      "title": "statistics.fss",
-      "url": "modules/generated/statistics/1/statistics_fss/"
+      "title": "fss",
+      "url": "modules/generated/statistics/fss/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.log_spectral_distance(reduction_dimensions: list[str] = [], spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, wavenumber_cutoff: int | None = None, batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_log_spectral_distance.md",
+      "signature": "log_spectral_distance(reduction_dimensions: list[str] = [], spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, wavenumber_cutoff: int | None = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/log_spectral_distance.md",
       "summary": "Statistic for calculating the radially averaged 2D log spectral distance (LSD) of one tensor with respect to another over a set of given dimensions. This is given in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).",
       "symbol": "earth2studio.statistics.log_spectral_distance",
-      "title": "statistics.log_spectral_distance",
-      "url": "modules/generated/statistics/1/statistics_log_spectral_distance/"
+      "title": "log_spectral_distance",
+      "url": "modules/generated/statistics/log_spectral_distance/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.mae()",
-      "source": "modules/generated/statistics/1/statistics_mae.md",
+      "signature": "mae()",
+      "source": "modules/generated/statistics/mae.md",
       "summary": "Statistic for calculating the mean absolute error of two tensors over a set of given dimensions.",
       "symbol": "earth2studio.statistics.mae",
-      "title": "statistics.mae",
-      "url": "modules/generated/statistics/1/statistics_mae/"
+      "title": "mae",
+      "url": "modules/generated/statistics/mae/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.mean(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_mean.md",
+      "signature": "mean(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/mean.md",
       "summary": "Statistic for calculating the sample mean over a set of given dimensions.",
       "symbol": "earth2studio.statistics.mean",
-      "title": "statistics.mean",
-      "url": "modules/generated/statistics/1/statistics_mean/"
+      "title": "mean",
+      "url": "modules/generated/statistics/mean/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.rank_histogram(ensemble_dimension: str, reduction_dimensions: list[str], number_of_bins: int | None = None, randomize_ties: bool = True)",
-      "source": "modules/generated/statistics/1/statistics_rank_histogram.md",
+      "signature": "rank_histogram(ensemble_dimension: str, reduction_dimensions: list[str], number_of_bins: int | None = None, randomize_ties: bool = True)",
+      "source": "modules/generated/statistics/rank_histogram.md",
       "summary": "Compute the Rank Histogram for a given set of ensemble forecasts.",
       "symbol": "earth2studio.statistics.rank_histogram",
-      "title": "statistics.rank_histogram",
-      "url": "modules/generated/statistics/1/statistics_rank_histogram/"
+      "title": "rank_histogram",
+      "url": "modules/generated/statistics/rank_histogram/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.rmse(reduction_dimensions: list[str], weights: torch.Tensor | None = None, batch_update: bool = False, ensemble_dimension: str | None = None)",
-      "source": "modules/generated/statistics/1/statistics_rmse.md",
+      "signature": "rmse(reduction_dimensions: list[str], weights: torch.Tensor | None = None, batch_update: bool = False, ensemble_dimension: str | None = None)",
+      "source": "modules/generated/statistics/rmse.md",
       "summary": "Statistic for calculating the root mean squared error of two tensors over a set of given dimensions.",
       "symbol": "earth2studio.statistics.rmse",
-      "title": "statistics.rmse",
-      "url": "modules/generated/statistics/1/statistics_rmse/"
+      "title": "rmse",
+      "url": "modules/generated/statistics/rmse/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.spread_skill_ratio(ensemble_dimension: str, reduction_dimensions: list[str], ensemble_weights: torch.Tensor | None = None, reduction_weights: torch.Tensor = None, ensemble_batch_update: bool = False, reduction_batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_spread_skill_ratio.md",
+      "signature": "spread_skill_ratio(ensemble_dimension: str, reduction_dimensions: list[str], ensemble_weights: torch.Tensor | None = None, reduction_weights: torch.Tensor = None, ensemble_batch_update: bool = False, reduction_batch_update: bool = False)",
+      "source": "modules/generated/statistics/spread_skill_ratio.md",
       "summary": "Metric for calculating the spread/skill ratio of an ensemble forecast.",
       "symbol": "earth2studio.statistics.spread_skill_ratio",
-      "title": "statistics.spread_skill_ratio",
-      "url": "modules/generated/statistics/1/statistics_spread_skill_ratio/"
+      "title": "spread_skill_ratio",
+      "url": "modules/generated/statistics/spread_skill_ratio/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.std(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_std.md",
+      "signature": "std(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/std.md",
       "summary": "Statistic for calculating the sample standard deviation over a set of given dimensions.",
       "symbol": "earth2studio.statistics.std",
-      "title": "statistics.std",
-      "url": "modules/generated/statistics/1/statistics_std/"
+      "title": "std",
+      "url": "modules/generated/statistics/std/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.variance(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
-      "source": "modules/generated/statistics/1/statistics_variance.md",
+      "signature": "variance(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
+      "source": "modules/generated/statistics/variance.md",
       "summary": "Statistic for calculating the sample variance over a set of given dimensions.",
       "symbol": "earth2studio.statistics.variance",
-      "title": "statistics.variance",
-      "url": "modules/generated/statistics/1/statistics_variance/"
+      "title": "variance",
+      "url": "modules/generated/statistics/variance/"
     },
     {
       "classifiers": [],
-      "signature": "statistics.weights.lat_weight(lat: T) -> T",
-      "source": "modules/generated/statistics/2/statistics_weights_lat_weight.md",
+      "signature": "lat_weight(lat: T) -> T",
+      "source": "modules/generated/statistics/weights/lat_weight.md",
       "summary": "Compute the cosine-based latitude weighting for a given tensor representing latitude coordinates. The latitude coordinates are assumed to be in degrees.",
       "symbol": "earth2studio.statistics.weights.lat_weight",
-      "title": "statistics.weights.lat_weight",
-      "url": "modules/generated/statistics/2/statistics_weights_lat_weight/"
+      "title": "lat_weight",
+      "url": "modules/generated/statistics/weights/lat_weight/"
     },
     {
       "classifiers": [],
-      "signature": "utils.coords.handshake_coords(input_coords: CoordSystem, target_coords: CoordSystem, required_dim: str | list[str]) -> None",
-      "source": "modules/generated/utils/1/utils_coords_handshake_coords.md",
-      "summary": "Simple check to see if the required dimensions have the same coordinate system",
-      "symbol": "earth2studio.utils.coords.handshake_coords",
-      "title": "utils.coords.handshake_coords",
-      "url": "modules/generated/utils/1/utils_coords_handshake_coords/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.coords.handshake_dim(input_coords: CoordSystem, required_dim: str, required_index: int | None = None) -> None",
-      "source": "modules/generated/utils/1/utils_coords_handshake_dim.md",
-      "summary": "Simple check to see if coordinate system has a dimension in a particular index",
-      "symbol": "earth2studio.utils.coords.handshake_dim",
-      "title": "utils.coords.handshake_dim",
-      "url": "modules/generated/utils/1/utils_coords_handshake_dim/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.coords.handshake_size(input_coords: CoordSystem, required_dim: str, required_size: int) -> None",
-      "source": "modules/generated/utils/1/utils_coords_handshake_size.md",
-      "summary": "Simple check to see if a coordinate system of a given dimension is a required size",
-      "symbol": "earth2studio.utils.coords.handshake_size",
-      "title": "utils.coords.handshake_size",
-      "url": "modules/generated/utils/1/utils_coords_handshake_size/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.coords.map_coords(x: torch.Tensor, input_coords: CoordSystem, output_coords: CoordSystem, method: Literal['nearest'] = 'nearest') -> tuple[torch.Tensor, CoordSystem]",
-      "source": "modules/generated/utils/1/utils_coords_map_coords.md",
-      "summary": "A basic interpolation util to map between coordinate systems with common dimensions. Namely, `output_coords` should consist of keys are present in `input_coords`. Note that `output_coords` do not need have all the dimensions of the `input_coords`. Does not support more advanced interpolation, such as between a regular and curvilinear grid. For such use-cases, use `fetch_data` or `prep_data_array` from `data/utils`.",
-      "symbol": "earth2studio.utils.coords.map_coords",
-      "title": "utils.coords.map_coords",
-      "url": "modules/generated/utils/1/utils_coords_map_coords/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.coords.split_coords(x: torch.Tensor, coords: CoordSystem, dim: str = 'variable') -> tuple[list[torch.Tensor], CoordSystem, np.ndarray]",
-      "source": "modules/generated/utils/1/utils_coords_split_coords.md",
-      "summary": "A utility function to split a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and the dimension that extract from coords.",
-      "symbol": "earth2studio.utils.coords.split_coords",
-      "title": "utils.coords.split_coords",
-      "url": "modules/generated/utils/1/utils_coords_split_coords/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.interp.LatLonInterpolation(lat_in: torch.Tensor | ArrayLike, lon_in: torch.Tensor | ArrayLike, lat_out: torch.Tensor | ArrayLike, lon_out: torch.Tensor | ArrayLike)",
-      "source": "modules/generated/utils/2/utils_interp_LatLonInterpolation.md",
-      "summary": "Bilinear interpolation between arbitrary grids.",
-      "symbol": "earth2studio.utils.interp.LatLonInterpolation",
-      "title": "utils.interp.LatLonInterpolation",
-      "url": "modules/generated/utils/2/utils_interp_LatLonInterpolation/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.obs.ObsGridMapping(grid_variables: np.ndarray, grid_lat: np.ndarray | torch.Tensor, grid_lon: np.ndarray | torch.Tensor, device: torch.device | str | None = None)",
-      "source": "modules/generated/utils/3/utils_obs_ObsGridMapping.md",
-      "summary": "Maps point observations to and from a 2-D model grid.",
-      "symbol": "earth2studio.utils.obs.ObsGridMapping",
-      "title": "utils.obs.ObsGridMapping",
-      "url": "modules/generated/utils/3/utils_obs_ObsGridMapping/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.time.timearray_to_datetime(time: TimeArray) -> list[datetime]",
-      "source": "modules/generated/utils/4/utils_time_timearray_to_datetime.md",
-      "summary": "Simple converter from numpy datetime64 array into a list of datetimes.",
-      "symbol": "earth2studio.utils.time.timearray_to_datetime",
-      "title": "utils.time.timearray_to_datetime",
-      "url": "modules/generated/utils/4/utils_time_timearray_to_datetime/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.time.to_time_array(time: list[str] | list[datetime] | TimeArray) -> TimeArray",
-      "source": "modules/generated/utils/4/utils_time_to_time_array.md",
-      "summary": "A general converter for various time iterables into a numpy datetime64 array",
-      "symbol": "earth2studio.utils.time.to_time_array",
-      "title": "utils.time.to_time_array",
-      "url": "modules/generated/utils/4/utils_time_to_time_array/"
-    },
-    {
-      "classifiers": [],
-      "signature": "utils.checkpoint.Checkpoint(name: str, path: str | Path | None = None, mode: Literal['overwrite', 'append'] = 'overwrite', flush_interval: int | None = 1, history_size: int | None = None, level: CheckpointLevel = 2, rank: int | None = None, world_size: int | None = None, device: str | torch.device = torch.device('cpu'))",
-      "source": "modules/generated/utils/5/utils_checkpoint_Checkpoint.md",
+      "signature": "Checkpoint(name: str, path: str | Path | None = None, mode: Literal['overwrite', 'append'] = 'overwrite', flush_interval: int | None = 1, history_size: int | None = None, level: CheckpointLevel = 2, rank: int | None = None, world_size: int | None = None, device: str | torch.device = torch.device('cpu'))",
+      "source": "modules/generated/utils/checkpoint/Checkpoint.md",
       "summary": "Catalog of restart checkpoints for a named inference run.",
       "symbol": "earth2studio.utils.checkpoint.Checkpoint",
-      "title": "utils.checkpoint.Checkpoint",
-      "url": "modules/generated/utils/5/utils_checkpoint_Checkpoint/"
+      "title": "Checkpoint",
+      "url": "modules/generated/utils/checkpoint/Checkpoint/"
     },
     {
       "classifiers": [],
-      "signature": "utils.checkpoint.CheckpointSession(catalog: Checkpoint, entry: CheckpointEntry | None = None)",
-      "source": "modules/generated/utils/5/utils_checkpoint_CheckpointSession.md",
+      "signature": "CheckpointSession(catalog: Checkpoint, entry: CheckpointEntry | None = None)",
+      "source": "modules/generated/utils/checkpoint/CheckpointSession.md",
       "summary": "Active checkpoint row or new checkpoint session.",
       "symbol": "earth2studio.utils.checkpoint.CheckpointSession",
-      "title": "utils.checkpoint.CheckpointSession",
-      "url": "modules/generated/utils/5/utils_checkpoint_CheckpointSession/"
+      "title": "CheckpointSession",
+      "url": "modules/generated/utils/checkpoint/CheckpointSession/"
     },
     {
       "classifiers": [],
-      "signature": "utils.checkpoint.CheckpointState(state: T, checkpoint: Checkpoint | None = None, session: CheckpointSession | None = None, state_loaded: bool = False)",
-      "source": "modules/generated/utils/5/utils_checkpoint_CheckpointState.md",
+      "signature": "CheckpointState(state: T, checkpoint: Checkpoint | None = None, session: CheckpointSession | None = None, state_loaded: bool = False)",
+      "source": "modules/generated/utils/checkpoint/CheckpointState.md",
       "summary": "Bound checkpoint state proxy returned by [`bind_checkpoint_state`][bind_checkpoint_state].",
       "symbol": "earth2studio.utils.checkpoint.CheckpointState",
-      "title": "utils.checkpoint.CheckpointState",
-      "url": "modules/generated/utils/5/utils_checkpoint_CheckpointState/"
+      "title": "CheckpointState",
+      "url": "modules/generated/utils/checkpoint/CheckpointState/"
     },
     {
       "classifiers": [],
-      "signature": "utils.checkpoint.NullCheckpoint()",
-      "source": "modules/generated/utils/5/utils_checkpoint_NullCheckpoint.md",
+      "signature": "NullCheckpoint()",
+      "source": "modules/generated/utils/checkpoint/NullCheckpoint.md",
       "summary": "No-op checkpoint used when checkpointing is disabled.",
       "symbol": "earth2studio.utils.checkpoint.NullCheckpoint",
-      "title": "utils.checkpoint.NullCheckpoint",
-      "url": "modules/generated/utils/5/utils_checkpoint_NullCheckpoint/"
+      "title": "NullCheckpoint",
+      "url": "modules/generated/utils/checkpoint/NullCheckpoint/"
     },
     {
       "classifiers": [],
-      "signature": "utils.checkpoint.bind_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]",
-      "source": "modules/generated/utils/6/utils_checkpoint_bind_checkpoint_state.md",
+      "signature": "bind_checkpoint_state(state: T | CheckpointState[T]) -> CheckpointState[T]",
+      "source": "modules/generated/utils/checkpoint/bind_checkpoint_state.md",
       "summary": "Bind a dataclass instance to checkpoint state metadata.",
       "symbol": "earth2studio.utils.checkpoint.bind_checkpoint_state",
-      "title": "utils.checkpoint.bind_checkpoint_state",
-      "url": "modules/generated/utils/6/utils_checkpoint_bind_checkpoint_state/"
+      "title": "bind_checkpoint_state",
+      "url": "modules/generated/utils/checkpoint/bind_checkpoint_state/"
     },
     {
       "classifiers": [],
-      "signature": "data.datasource_to_file(file_name: str, source: DataSource, time: list[str] | list[datetime] | TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), backend: Literal['netcdf', 'zarr'] = 'netcdf', chunks: dict[str, int] = {'variable': 1}, dtype: np.dtype | None = None, backend_kwargs: dict[str, Any] = {}) -> None",
-      "source": "modules/generated/utils/7/data_datasource_to_file.md",
-      "summary": "Utility function that can be used for building a local data store needed for an inference request. This file can then be used with the [`earth2studio.data.DataArrayFile`][earth2studio.data.DataArrayFile] data source to load data from file. This is useful when multiple runs of the same input data is needed.",
-      "symbol": "earth2studio.data.datasource_to_file",
-      "title": "data.datasource_to_file",
-      "url": "modules/generated/utils/7/data_datasource_to_file/"
+      "signature": "handshake_coords(input_coords: CoordSystem, target_coords: CoordSystem, required_dim: str | list[str]) -> None",
+      "source": "modules/generated/utils/coords/handshake_coords.md",
+      "summary": "Simple check to see if the required dimensions have the same coordinate system",
+      "symbol": "earth2studio.utils.coords.handshake_coords",
+      "title": "handshake_coords",
+      "url": "modules/generated/utils/coords/handshake_coords/"
     },
     {
       "classifiers": [],
-      "signature": "data.fetch_data(source: DataSource | ForecastSource, time: TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest', legacy: bool = True) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray",
-      "source": "modules/generated/utils/7/data_fetch_data.md",
-      "summary": "Utility function to fetch data arrays from particular sources and load data on the target device. If desired, xarray interpolation/regridding in the spatial domain can be used by passing a target coordinate system via the optional `interp_to` argument.",
-      "symbol": "earth2studio.data.fetch_data",
-      "title": "data.fetch_data",
-      "url": "modules/generated/utils/7/data_fetch_data/"
+      "signature": "handshake_dim(input_coords: CoordSystem, required_dim: str, required_index: int | None = None) -> None",
+      "source": "modules/generated/utils/coords/handshake_dim.md",
+      "summary": "Simple check to see if coordinate system has a dimension in a particular index",
+      "symbol": "earth2studio.utils.coords.handshake_dim",
+      "title": "handshake_dim",
+      "url": "modules/generated/utils/coords/handshake_dim/"
     },
     {
       "classifiers": [],
-      "signature": "data.prep_data_array(da: xr.DataArray, device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest') -> tuple[torch.Tensor, CoordSystem]",
-      "source": "modules/generated/utils/7/data_prep_data_array.md",
-      "summary": "Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.",
-      "symbol": "earth2studio.data.prep_data_array",
-      "title": "data.prep_data_array",
-      "url": "modules/generated/utils/7/data_prep_data_array/"
+      "signature": "handshake_size(input_coords: CoordSystem, required_dim: str, required_size: int) -> None",
+      "source": "modules/generated/utils/coords/handshake_size.md",
+      "summary": "Simple check to see if a coordinate system of a given dimension is a required size",
+      "symbol": "earth2studio.utils.coords.handshake_size",
+      "title": "handshake_size",
+      "url": "modules/generated/utils/coords/handshake_size/"
     },
     {
       "classifiers": [],
-      "signature": "auto.Package(root: str, fs: AbstractFileSystem | None = None, fs_options: dict = {}, cache: bool | None = None, cache_options: dict = {})",
-      "source": "modules/generated/utils/8/auto_Package.md",
-      "summary": "A generic file system abstraction with local caching, uses Fsspec WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote resources, particularly checkpoint files for pre-trained models. Presently supports public folders on NGC, huggingface repos, s3 and any other built in file system Fsspec supports.",
-      "symbol": "earth2studio.models.auto.Package",
-      "title": "auto.Package",
-      "url": "modules/generated/utils/8/auto_Package/"
+      "signature": "map_coords(x: torch.Tensor, input_coords: CoordSystem, output_coords: CoordSystem, method: Literal['nearest'] = 'nearest') -> tuple[torch.Tensor, CoordSystem]",
+      "source": "modules/generated/utils/coords/map_coords.md",
+      "summary": "A basic interpolation util to map between coordinate systems with common dimensions. Namely, `output_coords` should consist of keys are present in `input_coords`. Note that `output_coords` do not need have all the dimensions of the `input_coords`. Does not support more advanced interpolation, such as between a regular and curvilinear grid. For such use-cases, use `fetch_data` or `prep_data_array` from `data/utils`.",
+      "symbol": "earth2studio.utils.coords.map_coords",
+      "title": "map_coords",
+      "url": "modules/generated/utils/coords/map_coords/"
     },
     {
       "classifiers": [],
-      "signature": "batch.batch_func()",
-      "source": "modules/generated/utils/8/batch_batch_func.md",
-      "summary": "Batch utility decorator which can be added to prognostic and diagnostic models to help enable support for automatic batching of data. This class contains a decorator function which should be added to calls where this functionality is desired.",
-      "symbol": "earth2studio.models.batch.batch_func",
-      "title": "batch.batch_func",
-      "url": "modules/generated/utils/8/batch_batch_func/"
+      "signature": "split_coords(x: torch.Tensor, coords: CoordSystem, dim: str = 'variable') -> tuple[list[torch.Tensor], CoordSystem, np.ndarray]",
+      "source": "modules/generated/utils/coords/split_coords.md",
+      "summary": "A utility function to split a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and the dimension that extract from coords.",
+      "symbol": "earth2studio.utils.coords.split_coords",
+      "title": "split_coords",
+      "url": "modules/generated/utils/coords/split_coords/"
     },
     {
       "classifiers": [],
-      "signature": "run.deterministic(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, prognostic: PrognosticModel, data: DataSource, io: IOBackend, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
-      "source": "modules/generated/workflows/1/run_deterministic.md",
+      "signature": "LatLonInterpolation(lat_in: torch.Tensor | ArrayLike, lon_in: torch.Tensor | ArrayLike, lat_out: torch.Tensor | ArrayLike, lon_out: torch.Tensor | ArrayLike)",
+      "source": "modules/generated/utils/interp/LatLonInterpolation.md",
+      "summary": "Bilinear interpolation between arbitrary grids.",
+      "symbol": "earth2studio.utils.interp.LatLonInterpolation",
+      "title": "LatLonInterpolation",
+      "url": "modules/generated/utils/interp/LatLonInterpolation/"
+    },
+    {
+      "classifiers": [],
+      "signature": "ObsGridMapping(grid_variables: np.ndarray, grid_lat: np.ndarray | torch.Tensor, grid_lon: np.ndarray | torch.Tensor, device: torch.device | str | None = None)",
+      "source": "modules/generated/utils/obs/ObsGridMapping.md",
+      "summary": "Maps point observations to and from a 2-D model grid.",
+      "symbol": "earth2studio.utils.obs.ObsGridMapping",
+      "title": "ObsGridMapping",
+      "url": "modules/generated/utils/obs/ObsGridMapping/"
+    },
+    {
+      "classifiers": [],
+      "signature": "timearray_to_datetime(time: TimeArray) -> list[datetime]",
+      "source": "modules/generated/utils/time/timearray_to_datetime.md",
+      "summary": "Simple converter from numpy datetime64 array into a list of datetimes.",
+      "symbol": "earth2studio.utils.time.timearray_to_datetime",
+      "title": "timearray_to_datetime",
+      "url": "modules/generated/utils/time/timearray_to_datetime/"
+    },
+    {
+      "classifiers": [],
+      "signature": "to_time_array(time: list[str] | list[datetime] | TimeArray) -> TimeArray",
+      "source": "modules/generated/utils/time/to_time_array.md",
+      "summary": "A general converter for various time iterables into a numpy datetime64 array",
+      "symbol": "earth2studio.utils.time.to_time_array",
+      "title": "to_time_array",
+      "url": "modules/generated/utils/time/to_time_array/"
+    },
+    {
+      "classifiers": [],
+      "signature": "deterministic(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, prognostic: PrognosticModel, data: DataSource, io: IOBackend, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
+      "source": "modules/generated/workflows/deterministic.md",
       "summary": "Built in deterministic workflow. This workflow creates a determinstic inference pipeline to produce a forecast prediction using a prognostic model.",
       "symbol": "earth2studio.run.deterministic",
-      "title": "run.deterministic",
-      "url": "modules/generated/workflows/1/run_deterministic/"
+      "title": "deterministic",
+      "url": "modules/generated/workflows/deterministic/"
     },
     {
       "classifiers": [],
-      "signature": "run.diagnostic(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, prognostic: PrognosticModel, diagnostic: DiagnosticModel, data: DataSource | ForecastSource, io: IOBackend, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
-      "source": "modules/generated/workflows/1/run_diagnostic.md",
+      "signature": "diagnostic(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, prognostic: PrognosticModel, diagnostic: DiagnosticModel, data: DataSource | ForecastSource, io: IOBackend, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
+      "source": "modules/generated/workflows/diagnostic.md",
       "summary": "Built in diagnostic workflow. This workflow creates a determinstic inference pipeline that couples a prognostic model with a diagnostic model.",
       "symbol": "earth2studio.run.diagnostic",
-      "title": "run.diagnostic",
-      "url": "modules/generated/workflows/1/run_diagnostic/"
+      "title": "diagnostic",
+      "url": "modules/generated/workflows/diagnostic/"
     },
     {
       "classifiers": [],
-      "signature": "run.ensemble(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, nensemble: int, prognostic: PrognosticModel, data: DataSource, io: IOBackend, perturbation: Perturbation, batch_size: int | None = None, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
-      "source": "modules/generated/workflows/1/run_ensemble.md",
+      "signature": "ensemble(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, nensemble: int, prognostic: PrognosticModel, data: DataSource, io: IOBackend, perturbation: Perturbation, batch_size: int | None = None, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
+      "source": "modules/generated/workflows/ensemble.md",
       "summary": "Built in ensemble workflow.",
       "symbol": "earth2studio.run.ensemble",
-      "title": "run.ensemble",
-      "url": "modules/generated/workflows/1/run_ensemble/"
+      "title": "ensemble",
+      "url": "modules/generated/workflows/ensemble/"
     },
     {
       "classifiers": [],
@@ -3275,6 +3304,33 @@
       "symbol": "",
       "title": "Recipes",
       "url": "recipes/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "scorecard/generated/index.md",
+      "summary": "<!-- Generated by docs/generate_scorecard.py -- do not hand-edit.",
+      "symbol": "",
+      "title": "Index",
+      "url": "scorecard/generated/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "scorecard/generated/aurora.md",
+      "summary": "<!-- Generated by docs/generate_scorecard.py from _static/scorecard/eval_scores_aurora.json -- do not hand-edit.",
+      "symbol": "",
+      "title": "Aurora",
+      "url": "scorecard/generated/aurora/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "scorecard/generated/fcn3.md",
+      "summary": "<!-- Generated by docs/generate_scorecard.py from _static/scorecard/eval_scores_fcn3.json -- do not hand-edit.",
+      "symbol": "",
+      "title": "FCN3",
+      "url": "scorecard/generated/fcn3/"
     },
     {
       "classifiers": [],
@@ -3478,7 +3534,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/developer/documentation.md",
-      "summary": "1.",
+      "summary": "The docs generators also create the model catalog, installation options, and scorecard pages.",
       "symbol": "",
       "title": "Documentation",
       "url": "userguide/developer/documentation/"

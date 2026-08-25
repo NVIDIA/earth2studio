@@ -368,7 +368,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2820,6 +2820,8 @@
     
       
         
+          
+        
       
         
       
@@ -2837,8 +2839,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2852,8 +2855,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2866,32 +2875,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2957,7 +2940,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2985,7 +2968,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3186,75 +3169,83 @@
 <h2 id="coordinate-utilities">Coordinate Utilities<a class="headerlink" href="#coordinate-utilities" title="Permanent link">&para;</a></h2>
 <p>A collection of utilities to manipulate and check coordinate systems dictionaries.</p>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.coords
 template: function
-output: generated/utils/1
+output: generated/utils/coords
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/1/utils_coords_handshake_dim.md" data-page-url="modules/generated/utils/1/utils_coords_handshake_dim/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/1/utils_coords_handshake_dim/"><code>utils.coords.handshake_dim</code></a></td><td>Simple check to see if coordinate system has a dimension in a particular index</td></tr><tr data-page-src="modules/generated/utils/1/utils_coords_handshake_coords.md" data-page-url="modules/generated/utils/1/utils_coords_handshake_coords/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/1/utils_coords_handshake_coords/"><code>utils.coords.handshake_coords</code></a></td><td>Simple check to see if the required dimensions have the same coordinate system</td></tr><tr data-page-src="modules/generated/utils/1/utils_coords_handshake_size.md" data-page-url="modules/generated/utils/1/utils_coords_handshake_size/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/1/utils_coords_handshake_size/"><code>utils.coords.handshake_size</code></a></td><td>Simple check to see if a coordinate system of a given dimension is a required size</td></tr><tr data-page-src="modules/generated/utils/1/utils_coords_map_coords.md" data-page-url="modules/generated/utils/1/utils_coords_map_coords/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/1/utils_coords_map_coords/"><code>utils.coords.map_coords</code></a></td><td>A basic interpolation util to map between coordinate systems with common dimensions.</td></tr><tr data-page-src="modules/generated/utils/1/utils_coords_split_coords.md" data-page-url="modules/generated/utils/1/utils_coords_split_coords/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/1/utils_coords_split_coords/"><code>utils.coords.split_coords</code></a></td><td>A utility function to split a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and the dimension that extract from coords.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/coords/handshake_dim.md" data-page-url="modules/generated/utils/coords/handshake_dim/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/coords/handshake_dim/"><code>handshake_dim</code></a></td><td>Simple check to see if coordinate system has a dimension in a particular index</td></tr><tr data-page-src="modules/generated/utils/coords/handshake_coords.md" data-page-url="modules/generated/utils/coords/handshake_coords/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/coords/handshake_coords/"><code>handshake_coords</code></a></td><td>Simple check to see if the required dimensions have the same coordinate system</td></tr><tr data-page-src="modules/generated/utils/coords/handshake_size.md" data-page-url="modules/generated/utils/coords/handshake_size/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/coords/handshake_size/"><code>handshake_size</code></a></td><td>Simple check to see if a coordinate system of a given dimension is a required size</td></tr><tr data-page-src="modules/generated/utils/coords/map_coords.md" data-page-url="modules/generated/utils/coords/map_coords/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/coords/map_coords/"><code>map_coords</code></a></td><td>A basic interpolation util to map between coordinate systems with common dimensions.</td></tr><tr data-page-src="modules/generated/utils/coords/split_coords.md" data-page-url="modules/generated/utils/coords/split_coords/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/coords/split_coords/"><code>split_coords</code></a></td><td>A utility function to split a dimension from a (x,coords) pair and convert it into a list of tensors, a CoordSystem, and the dimension that extract from coords.</td></tr></tbody></table>
 
 <h2 id="grid-interpolation">Grid Interpolation<a class="headerlink" href="#grid-interpolation" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.interp
 template: class
-output: generated/utils/2
+output: generated/utils/interp
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/2/utils_interp_LatLonInterpolation.md" data-page-url="modules/generated/utils/2/utils_interp_LatLonInterpolation/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/2/utils_interp_LatLonInterpolation/"><code>utils.interp.LatLonInterpolation</code></a></td><td>Bilinear interpolation between arbitrary grids.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/interp/LatLonInterpolation.md" data-page-url="modules/generated/utils/interp/LatLonInterpolation/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/interp/LatLonInterpolation/"><code>LatLonInterpolation</code></a></td><td>Bilinear interpolation between arbitrary grids.</td></tr></tbody></table>
 
 <h2 id="observation-utilities">Observation Utilities<a class="headerlink" href="#observation-utilities" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.obs
 template: class
-output: generated/utils/3
+output: generated/utils/obs
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/3/utils_obs_ObsGridMapping.md" data-page-url="modules/generated/utils/3/utils_obs_ObsGridMapping/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/3/utils_obs_ObsGridMapping/"><code>utils.obs.ObsGridMapping</code></a></td><td>Maps point observations to and from a 2-D model grid.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/obs/ObsGridMapping.md" data-page-url="modules/generated/utils/obs/ObsGridMapping/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/obs/ObsGridMapping/"><code>ObsGridMapping</code></a></td><td>Maps point observations to and from a 2-D model grid.</td></tr></tbody></table>
 
 <h2 id="time-utilities">Time Utilities<a class="headerlink" href="#time-utilities" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.time
 template: function
-output: generated/utils/4
+output: generated/utils/time
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/4/utils_time_timearray_to_datetime.md" data-page-url="modules/generated/utils/4/utils_time_timearray_to_datetime/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/4/utils_time_timearray_to_datetime/"><code>utils.time.timearray_to_datetime</code></a></td><td>Simple converter from numpy datetime64 array into a list of datetimes.</td></tr><tr data-page-src="modules/generated/utils/4/utils_time_to_time_array.md" data-page-url="modules/generated/utils/4/utils_time_to_time_array/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/4/utils_time_to_time_array/"><code>utils.time.to_time_array</code></a></td><td>A general converter for various time iterables into a numpy datetime64 array</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/time/timearray_to_datetime.md" data-page-url="modules/generated/utils/time/timearray_to_datetime/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/time/timearray_to_datetime/"><code>timearray_to_datetime</code></a></td><td>Simple converter from numpy datetime64 array into a list of datetimes.</td></tr><tr data-page-src="modules/generated/utils/time/to_time_array.md" data-page-url="modules/generated/utils/time/to_time_array/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/time/to_time_array/"><code>to_time_array</code></a></td><td>A general converter for various time iterables into a numpy datetime64 array</td></tr></tbody></table>
 
 <h2 id="checkpoint-classes">Checkpoint Classes<a class="headerlink" href="#checkpoint-classes" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.checkpoint
 template: class
-output: generated/utils/5
+output: generated/utils/checkpoint
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/5/utils_checkpoint_Checkpoint.md" data-page-url="modules/generated/utils/5/utils_checkpoint_Checkpoint/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/5/utils_checkpoint_Checkpoint/"><code>utils.checkpoint.Checkpoint</code></a></td><td>Catalog of restart checkpoints for a named inference run.</td></tr><tr data-page-src="modules/generated/utils/5/utils_checkpoint_CheckpointSession.md" data-page-url="modules/generated/utils/5/utils_checkpoint_CheckpointSession/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/5/utils_checkpoint_CheckpointSession/"><code>utils.checkpoint.CheckpointSession</code></a></td><td>Active checkpoint row or new checkpoint session.</td></tr><tr data-page-src="modules/generated/utils/5/utils_checkpoint_CheckpointState.md" data-page-url="modules/generated/utils/5/utils_checkpoint_CheckpointState/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/5/utils_checkpoint_CheckpointState/"><code>utils.checkpoint.CheckpointState</code></a></td><td>Bound checkpoint state proxy returned by `bind_checkpoint_state`.</td></tr><tr data-page-src="modules/generated/utils/5/utils_checkpoint_NullCheckpoint.md" data-page-url="modules/generated/utils/5/utils_checkpoint_NullCheckpoint/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/5/utils_checkpoint_NullCheckpoint/"><code>utils.checkpoint.NullCheckpoint</code></a></td><td>No-op checkpoint used when checkpointing is disabled.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/checkpoint/Checkpoint.md" data-page-url="modules/generated/utils/checkpoint/Checkpoint/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/checkpoint/Checkpoint/"><code>Checkpoint</code></a></td><td>Catalog of restart checkpoints for a named inference run.</td></tr><tr data-page-src="modules/generated/utils/checkpoint/CheckpointSession.md" data-page-url="modules/generated/utils/checkpoint/CheckpointSession/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/checkpoint/CheckpointSession/"><code>CheckpointSession</code></a></td><td>Active checkpoint row or new checkpoint session.</td></tr><tr data-page-src="modules/generated/utils/checkpoint/CheckpointState.md" data-page-url="modules/generated/utils/checkpoint/CheckpointState/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/checkpoint/CheckpointState/"><code>CheckpointState</code></a></td><td>Bound checkpoint state proxy returned by `bind_checkpoint_state`.</td></tr><tr data-page-src="modules/generated/utils/checkpoint/NullCheckpoint.md" data-page-url="modules/generated/utils/checkpoint/NullCheckpoint/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/checkpoint/NullCheckpoint/"><code>NullCheckpoint</code></a></td><td>No-op checkpoint used when checkpointing is disabled.</td></tr></tbody></table>
 
 <h2 id="checkpoint-helpers">Checkpoint Helpers<a class="headerlink" href="#checkpoint-helpers" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.checkpoint
 template: function
-output: generated/utils/6
+output: generated/utils/checkpoint
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/6/utils_checkpoint_bind_checkpoint_state.md" data-page-url="modules/generated/utils/6/utils_checkpoint_bind_checkpoint_state/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/6/utils_checkpoint_bind_checkpoint_state/"><code>utils.checkpoint.bind_checkpoint_state</code></a></td><td>Bind a dataclass instance to checkpoint state metadata.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/checkpoint/bind_checkpoint_state.md" data-page-url="modules/generated/utils/checkpoint/bind_checkpoint_state/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/checkpoint/bind_checkpoint_state/"><code>bind_checkpoint_state</code></a></td><td>Bind a dataclass instance to checkpoint state metadata.</td></tr></tbody></table>
 
 <h2 id="data-utilities">Data Utilities<a class="headerlink" href="#data-utilities" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: function
-output: generated/utils/7
+output: generated/data
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/7/data_datasource_to_file.md" data-page-url="modules/generated/utils/7/data_datasource_to_file/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/7/data_datasource_to_file/"><code>data.datasource_to_file</code></a></td><td>Utility function that can be used for building a local data store needed for an inference request.</td></tr><tr data-page-src="modules/generated/utils/7/data_fetch_data.md" data-page-url="modules/generated/utils/7/data_fetch_data/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/7/data_fetch_data/"><code>data.fetch_data</code></a></td><td>Utility function to fetch data arrays from particular sources and load data on the target device.</td></tr><tr data-page-src="modules/generated/utils/7/data_prep_data_array.md" data-page-url="modules/generated/utils/7/data_prep_data_array/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/7/data_prep_data_array/"><code>data.prep_data_array</code></a></td><td>Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/data/datasource_to_file.md" data-page-url="modules/generated/data/datasource_to_file/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/data/datasource_to_file/"><code>datasource_to_file</code></a></td><td>Utility function that can be used for building a local data store needed for an inference request.</td></tr><tr data-page-src="modules/generated/data/fetch_data.md" data-page-url="modules/generated/data/fetch_data/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/data/fetch_data/"><code>fetch_data</code></a></td><td>Utility function to fetch data arrays from particular sources and load data on the target device.</td></tr><tr data-page-src="modules/generated/data/prep_data_array.md" data-page-url="modules/generated/data/prep_data_array/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/data/prep_data_array/"><code>prep_data_array</code></a></td><td>Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.</td></tr></tbody></table>
 
 <h2 id="model-utilities">Model Utilities<a class="headerlink" href="#model-utilities" title="Permanent link">&para;</a></h2>
 <!-- e2s-autosummary
-currentmodule: earth2studio.models
+currentmodule: earth2studio.models.auto
 template: class
-output: generated/utils/8
+output: generated/models/auto
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/utils/8/auto_Package.md" data-page-url="modules/generated/utils/8/auto_Package/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/8/auto_Package/"><code>auto.Package</code></a></td><td>A generic file system abstraction with local caching, uses Fsspec WholeFileCacheFileSystem to manage files.</td></tr><tr data-page-src="modules/generated/utils/8/batch_batch_func.md" data-page-url="modules/generated/utils/8/batch_batch_func/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/utils/8/batch_batch_func/"><code>batch.batch_func</code></a></td><td>Batch utility decorator which can be added to prognostic and diagnostic models to help enable support for automatic batching of data.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/models/auto/Package.md" data-page-url="modules/generated/models/auto/Package/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/models/auto/Package/"><code>Package</code></a></td><td>A generic file system abstraction with local caching, uses Fsspec WholeFileCacheFileSystem to manage files.</td></tr></tbody></table>
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.models.batch
+template: function
+output: generated/models/batch
+-->
+
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/models/batch/batch_func.md" data-page-url="modules/generated/models/batch/batch_func/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/models/batch/batch_func/"><code>batch_func</code></a></td><td>Batch utility decorator which can be added to prognostic and diagnostic models to help enable support for automatic batching of data.</td></tr></tbody></table>
 
 
 

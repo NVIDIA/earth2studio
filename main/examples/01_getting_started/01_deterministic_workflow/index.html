@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3007,7 +2990,7 @@ Studio.</p>
 <h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
 <p>All workflows inside Earth2Studio require constructed components to be
 handed to them. In this example, let's take a look at the most basic:
-<a href="../../../modules/generated/workflows/1/run_deterministic/#earth2studio.run.deterministic"><code>earth2studio.run.deterministic</code></a>.</p>
+<a href="../../../modules/generated/workflows/deterministic/#earth2studio.run.deterministic"><code>earth2studio.run.deterministic</code></a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION &amp; AFFILIATES.</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># SPDX-FileCopyrightText: All rights reserved.</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
@@ -3547,8 +3530,8 @@ handed to them. In this example, let's take a look at the most basic:
 <p>Thus, we need the following:</p>
 <ul>
 <li>Prognostic Model: Use the built in FourCastNet Model <a href="../../../modules/generated/models/px/FCN/#earth2studio.models.px.FCN"><code>earth2studio.models.px.FCN</code></a>.</li>
-<li>Datasource: Pull data from the GFS data api <a href="../../../modules/generated/data/analysis/data_GFS/#earth2studio.data.GFS"><code>earth2studio.data.GFS</code></a>.</li>
-<li>IO Backend: Let's save the outputs into a Zarr store <a href="../../../modules/generated/io/1/io_ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
+<li>Datasource: Pull data from the GFS data api <a href="../../../modules/generated/data/analysis/GFS/#earth2studio.data.GFS"><code>earth2studio.data.GFS</code></a>.</li>
+<li>IO Backend: Let's save the outputs into a Zarr store <a href="../../../modules/generated/io/ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>

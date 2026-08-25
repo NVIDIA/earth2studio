@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3077,7 +3060,7 @@ ABI channels from their recent history. The MRMS model forecasts
 <code>[refc, refc_base, glm_density]</code> conditioned on GOES, and additionally
 consumes a Geostationary Lightning Mapper (GLM) channel that is both an input
 (observation history) and a predicted output. The GLM field comes from
-<a href="../../../modules/generated/data/analysis/data_GOESGLMGrid/#earth2studio.data.GOESGLMGrid"><code>earth2studio.data.GOESGLMGrid</code></a>, a gridded 0.1-degree lightning
+<a href="../../../modules/generated/data/analysis/GOESGLMGrid/#earth2studio.data.GOESGLMGrid"><code>earth2studio.data.GOESGLMGrid</code></a>, a gridded 0.1-degree lightning
 product; the model bilinearly regrids it onto the model grid internally.</p>
 <p>Other selectable variants (see <code>StormScope*.list_available_models</code>):</p>
 <ul>
@@ -3734,8 +3717,8 @@ Fetching GOES data: 100%|██████████| 1/1 [00:00&lt;00:00,  1
 
 <h2 id="setup-mrms-glm-data-sources-and-assemble-the-state">Setup MRMS + GLM Data Sources and Assemble the State<a class="headerlink" href="#setup-mrms-glm-data-sources-and-assemble-the-state" title="Permanent link">&para;</a></h2>
 <p>The MRMS+GLM model forecasts <code>[refc, refc_base, glm_density]</code>. The radar
-channels come from <a href="../../../modules/generated/data/analysis/data_MRMS/#earth2studio.data.MRMS"><code>earth2studio.data.MRMS</code></a>; the GLM channel comes
-from <a href="../../../modules/generated/data/analysis/data_GOESGLMGrid/#earth2studio.data.GOESGLMGrid"><code>earth2studio.data.GOESGLMGrid</code></a>. Because we drive the rollout
+channels come from <a href="../../../modules/generated/data/analysis/MRMS/#earth2studio.data.MRMS"><code>earth2studio.data.MRMS</code></a>; the GLM channel comes
+from <a href="../../../modules/generated/data/analysis/GOESGLMGrid/#earth2studio.data.GOESGLMGrid"><code>earth2studio.data.GOESGLMGrid</code></a>. Because we drive the rollout
 with <code>call_with_conditioning</code> (the coupled path), we own the full initial
 state: we fetch radar and GLM, regrid each onto the shared model grid (GLM uses
 bilinear regridding, unlike the nearest-neighbor radar/satellite path), and

@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3016,8 +2999,8 @@ CBottleSR super resolution model. The workflow demonstrates two approaches:</p>
 </ol>
 <p>We need the following components:</p>
 <ul>
-<li>Datasource: Generate data from the CBottle3D data api <a href="../../../modules/generated/data/analysis/data_CBottle3D/#earth2studio.data.CBottle3D"><code>earth2studio.data.CBottle3D</code></a>.</li>
-<li>Datasource: Pull data from the WeatherBench2 data api <a href="../../../modules/generated/data/analysis/data_WB2ERA5/#earth2studio.data.WB2ERA5"><code>earth2studio.data.WB2ERA5</code></a>.</li>
+<li>Datasource: Generate data from the CBottle3D data api <a href="../../../modules/generated/data/analysis/CBottle3D/#earth2studio.data.CBottle3D"><code>earth2studio.data.CBottle3D</code></a>.</li>
+<li>Datasource: Pull data from the WeatherBench2 data api <a href="../../../modules/generated/data/analysis/WB2ERA5/#earth2studio.data.WB2ERA5"><code>earth2studio.data.WB2ERA5</code></a>.</li>
 <li>Diagnostic Model: Use the built in CBottle Infill Model <a href="../../../modules/generated/models/dx/CBottleInfill/#earth2studio.models.dx.CBottleInfill"><code>earth2studio.models.dx.CBottleInfill</code></a>.</li>
 <li>Super Resolution Model: Use the CBottleSR super resolution model <a href="../../../modules/generated/models/dx/CBottleSR/#earth2studio.models.dx.CBottleSR"><code>earth2studio.models.dx.CBottleSR</code></a>.</li>
 </ul>

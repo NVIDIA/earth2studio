@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3156,13 +3139,13 @@ section of the user guide.</p>
 </div>
 <h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
 <p>With the custom diagnostic model defined, the next step is to set up and run a
-workflow. We will use the built in workflow <a href="../../../modules/generated/workflows/1/run_diagnostic/#earth2studio.run.diagnostic"><code>earth2studio.run.diagnostic</code></a>.</p>
+workflow. We will use the built in workflow <a href="../../../modules/generated/workflows/diagnostic/#earth2studio.run.diagnostic"><code>earth2studio.run.diagnostic</code></a>.</p>
 <p>Lets instantiate the components needed.</p>
 <ul>
 <li>Prognostic Model: Use the built in DLWP model <a href="../../../modules/generated/models/px/DLWP/#earth2studio.models.px.DLWP"><code>earth2studio.models.px.DLWP</code></a>.</li>
 <li>Diagnostic Model: The custom diagnostic model defined above</li>
-<li>Datasource: Pull data from the GFS data api <a href="../../../modules/generated/data/analysis/data_GFS/#earth2studio.data.GFS"><code>earth2studio.data.GFS</code></a>.</li>
-<li>IO Backend: Save the outputs into a Zarr store <a href="../../../modules/generated/io/1/io_ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
+<li>Datasource: Pull data from the GFS data api <a href="../../../modules/generated/data/analysis/GFS/#earth2studio.data.GFS"><code>earth2studio.data.GFS</code></a>.</li>
+<li>IO Backend: Save the outputs into a Zarr store <a href="../../../modules/generated/io/ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>

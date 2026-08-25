@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -2674,6 +2674,8 @@
     
       
         
+          
+        
       
         
       
@@ -2691,8 +2693,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2706,8 +2709,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2720,32 +2729,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2811,7 +2794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2839,7 +2822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -2993,14 +2976,14 @@ the full CONUS HRRR domain. For details about the model see</p>
 <ul>
 <li>How to instantiate StormCast-CONUS from a model package</li>
 <li>Creating an HRRR initial-condition data source and a GFS forecast conditioning source</li>
-<li>Running a deterministic forecast with <a href="../../../modules/generated/workflows/1/run_deterministic/#earth2studio.run.deterministic"><code>earth2studio.run.deterministic</code></a></li>
+<li>Running a deterministic forecast with <a href="../../../modules/generated/workflows/deterministic/#earth2studio.run.deterministic"><code>earth2studio.run.deterministic</code></a></li>
 <li>Post-processing and plotting composite reflectivity and 2-m temperature</li>
 </ul>
 <h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
 <p>StormCast-CONUS requires a low-resolution global conditioning source. We use
-<a href="../../../modules/generated/data/forecast/data_GFS_FX/#earth2studio.data.GFS_FX"><code>earth2studio.data.GFS_FX</code></a> (the default), which provides GFS forecast
+<a href="../../../modules/generated/data/forecast/GFS_FX/#earth2studio.data.GFS_FX"><code>earth2studio.data.GFS_FX</code></a> (the default), which provides GFS forecast
 fields interpolated to the HRRR grid. An analysis source such as
-<a href="../../../modules/generated/data/analysis/data_ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a> can also be used.</p>
+<a href="../../../modules/generated/data/analysis/ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a> can also be used.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>

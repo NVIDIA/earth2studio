@@ -368,7 +368,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../scorecard/generated/index.md" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -1448,10 +1448,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#api-documentation" class="md-nav__link">
+  <a href="#source-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        API Documentation
+        Source layout
       
     </span>
   </a>
@@ -1459,10 +1459,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-documentation" class="md-nav__link">
+  <a href="#docstrings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example Documentation
+        Docstrings
       
     </span>
   </a>
@@ -1470,10 +1470,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#building-documentation" class="md-nav__link">
+  <a href="#local-builds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building Documentation
+        Local builds
       
     </span>
   </a>
@@ -1481,10 +1481,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#versioning" class="md-nav__link">
+  <a href="#ci-builds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Versioning
+        CI builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Pages
       
     </span>
   </a>
@@ -2778,6 +2789,8 @@
     
       
         
+          
+        
       
         
       
@@ -2795,8 +2808,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -2810,8 +2824,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
@@ -2824,32 +2844,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../scorecard/generated/index.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    None
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -2915,7 +2909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/fcn3.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2943,7 +2937,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../scorecard/generated/aurora.md" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -3033,10 +3027,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#api-documentation" class="md-nav__link">
+  <a href="#source-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        API Documentation
+        Source layout
       
     </span>
   </a>
@@ -3044,10 +3038,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-documentation" class="md-nav__link">
+  <a href="#docstrings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example Documentation
+        Docstrings
       
     </span>
   </a>
@@ -3055,10 +3049,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#building-documentation" class="md-nav__link">
+  <a href="#local-builds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building Documentation
+        Local builds
       
     </span>
   </a>
@@ -3066,10 +3060,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#versioning" class="md-nav__link">
+  <a href="#ci-builds" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Versioning
+        CI builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Pages
       
     </span>
   </a>
@@ -3097,142 +3102,75 @@
 
 
 <h1 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h1>
-<p>Earth2Studio uses <a href="https://www.mkdocs.org/">MkDocs</a> with the
-<a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a> theme to build
-static documentation hosted on GitHub Pages. The docs are organized around three
-main areas:</p>
-<ol>
-<li>
-<p>API documentation is required for public Earth2Studio classes and functions.
-   <a href="https://github.com/econchick/interrogate">Interrogate</a> is used to enforce that
-   public methods are documented.</p>
-</li>
-<li>
-<p>Examples are rendered with <code>earth2studio-gallery</code>, which executes percent-format
-   Python examples in the project documentation environment and then renders the
-   retained results into a MkDocs Material gallery.</p>
-</li>
-<li>
-<p>API landing pages are Markdown files in <code>docs/modules/</code> with autosummary
-   blocks read by <code>docs/generate_api.py</code>. Model and data-source badges are rendered
-   and filtered with <code>mkdocs-badges</code>.</p>
-</li>
-<li>
-<p>The user guide is written in Markdown and documents concepts that cannot be fully
-   communicated in examples.</p>
-</li>
-</ol>
-<h2 id="api-documentation">API Documentation<a class="headerlink" href="#api-documentation" title="Permanent link">&para;</a></h2>
-<p>API documentation or doc-strings are a requirement for public Earth2Studio classes and
-functions. Consistent documentation styling improves user and developer experience. To
-make doc-strings between different parts of the code as consistent as possible, the
-following styles are used:</p>
+<p>Earth2Studio builds its documentation with
+<a href="https://www.mkdocs.org/">MkDocs</a> and
+<a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a>.</p>
+<h2 id="source-layout">Source layout<a class="headerlink" href="#source-layout" title="Permanent link">&para;</a></h2>
 <ul>
-<li>
-<p><a href="https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html">NumPy style</a>
-  doc-strings are used in all Python files.</p>
-</li>
-<li>
-<p>The doc string description starts on the same line as the first <code>"""</code>.</p>
-</li>
-<li>
-<p>Class doc-strings are placed under the class definition not the <code>__init__</code> function.</p>
-</li>
-<li>
-<p>Type hints are included in the doc strings for each input argument / returned object.</p>
-</li>
-<li>
-<p>Optional/keyword arguments are denoted by <code>optional</code> following the type hint. The
-  default value is provided by adding ", by default [default value]" to the end of the
-  doc string.</p>
-</li>
-<li>
-<p>Periods should be used at the end of complete sentences, but are not required at the
-  end of "by default [default value]" or incomplete sentences.</p>
-</li>
+<li><code>docs/modules/</code>: API landing pages consumed by <code>docs/generate_api.py</code>.</li>
+<li><code>docs/userguide/</code>: conceptual and developer guides.</li>
+<li><code>examples/</code>: executable gallery sources.</li>
+<li><code>docs/examples/</code>: generated gallery pages; do not edit these directly.</li>
 </ul>
-<p>For VSCode users, the
-<a href="https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring">autoDocstring extension</a>
-is highly encouraged. Refer to the following doc-string samples for guidance:</p>
+<p>The docs generators also create the model catalog, installation options, and scorecard pages.
+<code>earth2studio-gallery</code> renders examples and retained execution results without Sphinx.</p>
+<h2 id="docstrings">Docstrings<a class="headerlink" href="#docstrings" title="Permanent link">&para;</a></h2>
+<p>Public classes and functions require docstrings; Interrogate enforces coverage. Use
+<a href="https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html">NumPy-style docstrings</a>
+with these conventions:</p>
+<ul>
+<li>Start the summary on the opening <code>"""</code> line.</li>
+<li>Document classes on the class definition, not <code>__init__</code>.</li>
+<li>Include argument and return types.</li>
+<li>Mark optional arguments and state their defaults.</li>
+<li>End complete sentences with periods.</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">timearray_to_datetime</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n">TimeArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple converter from numpy datetime64 array into a list of datetimes.</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a NumPy datetime64 array into Python datetimes.</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="sd">    Parameters</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="sd">    ----------</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">    time : TimeArray</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">        Numpy datetime64 array</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">        NumPy datetime64 array.</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">    Returns</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="sd">    -------</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="sd">    list[datetime]</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="sd">        List of datetime object</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="sd">        Converted datetime objects.</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="sd">    &quot;&quot;&quot;</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CorrelatedSphericalGaussian</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Produces Gaussian random field on the sphere with Matern covariance peturbation</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sd">    method output to a lat lon grid.</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="sd">    Warning</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="sd">    -------</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="sd">    Presently this method generates noise on equirectangular grid of size [N, 2*N] when</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="sd">    N is even or [N+1, 2*N] when N is odd.</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="sd">    ----------</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="sd">    noise_amplitude : float | torch.Tensor</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="sd">        Overall amplitude scaling factor for the noise field. Must be provided.</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="sd">    sigma : float, optional</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="sd">        Standard deviation of the noise field, by default 1.0</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="sd">    length_scale : float, optional</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="sd">        Spatial correlation length scale in meters, by default 5.0e5</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="sd">    time_scale : float, optional</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="sd">        Temporal correlation scale in hours for the AR(1) process, by default 48.0</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="sd">    Raises</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="sd">    ------</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="sd">        If noise_amplitude is not provided</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="o">...</span>
+<h2 id="local-builds">Local builds<a class="headerlink" href="#local-builds" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>make docs</code>: generate all pages and build from retained example results.</li>
+<li><code>make docs-full</code>: execute stale examples, regenerate the gallery, and build.</li>
+<li><code>make docs-dev</code>: serve locally with live reload.</li>
+<li><code>make docs-dev FILENAME=&lt;selector&gt;</code>: execute one example, then serve the complete gallery.</li>
+</ul>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FILENAME</span><span class="o">=</span>01_getting_started/01_deterministic_workflow.py
 </code></pre></div>
-<h2 id="example-documentation">Example Documentation<a class="headerlink" href="#example-documentation" title="Permanent link">&para;</a></h2>
-<p>Examples in Earth2Studio are created with the intent to teach or demonstrate a specific
-feature, workflow, concept, or use case to users. If you are interested in contributing
-an example, reach out to us in a GitHub issue to discuss further. The example scripts
-used to populate the documentation are placed in the
-<a href="https://github.com/NVIDIA/earth2studio/tree/main/examples">examples</a> folder of the repo.</p>
-<p>The MkDocs documentation uses <code>earth2studio-gallery</code> instead of Sphinx Gallery. The
-source examples remain in the repository under <code>examples/</code>, and generated gallery pages
-are written to <code>docs/examples/</code> during the docs build.</p>
-<h2 id="building-documentation">Building Documentation<a class="headerlink" href="#building-documentation" title="Permanent link">&para;</a></h2>
-<p>To build the documentation locally, use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>make<span class="w"> </span>docs
+<p>Build output is written to <code>site/</code>. Project-mode examples use the repository's <code>pyproject.toml</code>
+and <code>uv.lock</code>, syncing only their declared extras.</p>
+<h2 id="ci-builds">CI builds<a class="headerlink" href="#ci-builds" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Pull requests run <code>make docs</code> only. They do not execute examples, upload the site, write caches,
+  or deploy.</li>
+<li>Pushes to <code>main</code> run the cache-only docs workflow and deploy the site.</li>
+<li>The manual full workflow publishes the cache-only site, runs all eight example sections
+  sequentially, then publishes the site again with the updated Gallery results.</li>
+</ul>
+<p>Each example section has its own data cache. Gallery results use one rolling cache passed between
+sections. Missing caches are valid cold starts; interrupted restores fail the job. Model downloads
+are not cached. The remaining sections continue after a section failure, but the final publish
+requires every section to succeed.</p>
+<p>Use the <code>util-clear-cache</code> workflow to clear Gallery or docs-data caches.</p>
+<h2 id="github-pages">GitHub Pages<a class="headerlink" href="#github-pages" title="Permanent link">&para;</a></h2>
+<p>Keep <code>docs/.nojekyll</code> in the source tree. It allows GitHub Pages to serve generated directories
+such as <code>_static/</code> and <code>examples/_assets/</code>.</p>
+<p>Versioned deployments use <a href="https://github.com/jimporter/mike">Mike</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">DOC_VERSION</span><span class="o">=</span><span class="m">0</span>.18.0<span class="w"> </span><span class="nv">DOC_ALIAS</span><span class="o">=</span>latest<span class="w"> </span>make<span class="w"> </span>docs-deploy-version
 </code></pre></div>
-<p>For the full documentation environment, including package extras and executed examples,
-use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make<span class="w"> </span>docs-full
-</code></pre></div>
-<p>For local development with live reload, use:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>docs-dev
-</code></pre></div>
-<p>To execute and refresh a single example before serving the site, pass a gallery selector:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>docs-dev<span class="w"> </span><span class="nv">FILENAME</span><span class="o">=</span>01_getting_started/01_deterministic_workflow.py
-</code></pre></div>
-<p>Only the selected example is executed. The complete gallery is then rendered from
-source and any retained execution artifacts.</p>
-<p>Build files are written to <code>site/</code>.</p>
-<p>The empty <code>docs/.nojekyll</code> file is intentionally kept in the MkDocs <code>docs_dir</code>.
-MkDocs copies it to the root of the built site, which tells GitHub Pages to serve
-asset directories such as <code>_static/</code> and <code>examples/_assets/</code> without Jekyll
-filtering. Keep this as a source file rather than adding a custom copy step to the
-docs build pipeline.</p>
-<h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
-<p>Documentation versioning uses <a href="https://github.com/jimporter/mike">Mike</a>. To build and
-publish a versioned docs tree from a release branch, set <code>DOC_VERSION</code> and optionally
-<code>DOC_ALIAS</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">DOC_VERSION</span><span class="o">=</span><span class="m">0</span>.18.0<span class="w"> </span><span class="nv">DOC_ALIAS</span><span class="o">=</span>latest<span class="w"> </span>make<span class="w"> </span>docs-deploy-version
-</code></pre></div>
-<p>Versioned docs are deployed under the <code>v/</code> prefix on the <code>gh-pages</code> branch.</p>
+<p>Versions are published beneath <code>v/</code> on the <code>gh-pages</code> branch.</p>
 
 
 
