@@ -35,18 +35,10 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
 try:
-    import torch_harmonics
     from makani.models.model_package import load_model_package
-    from packaging.version import Version
+    from torch_harmonics.disco import cuda_kernels_is_available
 
-    if Version(torch_harmonics.__version__) >= Version("0.8.1"):
-        from torch_harmonics.disco import cuda_kernels_is_available
-
-        _cuda_extension_available = cuda_kernels_is_available()
-    else:
-        from importlib.util import find_spec
-
-        _cuda_extension_available = find_spec("disco_cuda_extension") is not None
+    _cuda_extension_available = cuda_kernels_is_available()
 except ImportError:
     OptionalDependencyFailure("fcn3")
     load_model_package = None

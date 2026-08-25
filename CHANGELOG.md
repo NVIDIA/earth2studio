@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated torch-harmonics to 0.9.1 and Makani for their latest spectral APIs.
+
 - GFS, HRRR, and GEFS GRIB sources now fill unresolved output regions with
   `NaN` instead of zeros or uninitialized memory, making missing index records
   detectable

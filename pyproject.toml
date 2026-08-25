@@ -324,6 +324,14 @@ all = [
 conflicts = [
   [
     { extra = "ace2" },
+    { extra = "all" },
+  ],
+  [
+    { extra = "samudrace" },
+    { extra = "all" },
+  ],
+  [
+    { extra = "ace2" },
     { extra = "atlas" },
   ],
   [
@@ -369,6 +377,14 @@ default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 override-dependencies = []
+# torch-harmonics derives its version dynamically, which is unavailable when uv
+# resolves metadata for a no-build-isolation Git source.
+dependency-metadata = [
+  { name = "torch-harmonics", version = "0.9.1", requires-dist = [
+    "numpy>=1.22.4",
+    "torch>=2.6.0",
+  ], requires-python = ">=3.9" },
+]
 
 [[tool.uv.index]]
 name = "ort-cuda-13-nightly"
@@ -377,6 +393,7 @@ explicit = true
 
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
+torch-harmonics = ["torch"]
 flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
@@ -387,7 +404,7 @@ onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
-makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
+makani = { git = "https://github.com/NVIDIA/makani.git", rev = "cdc22adaabbcb00316214cad9f6d406ee7d9c256"}
 weathernext = { git = "https://github.com/google-deepmind/weathernext.git", rev = "9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
 # `ace2` needs an fme git pin; `samudrace` uses the fme 2026.4.0 PyPI release
@@ -396,10 +413,10 @@ pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev
 fme = { git = "https://github.com/ai2cm/ace.git", rev = "e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d", extra = "ace2" }
 # Specific source for each of the current torch-harmonics models, avoiding ace2 conflicts until they update torch-harmonics
 torch-harmonics = [
-  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "perturbation"},
-  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "atlas"},
-  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
-  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "18b2aa008029e7c77f78ff73d2fbcd2c479e9a63", extra = "perturbation"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "18b2aa008029e7c77f78ff73d2fbcd2c479e9a63", extra = "atlas"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "18b2aa008029e7c77f78ff73d2fbcd2c479e9a63", extra = "fcn3"},
+  { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "18b2aa008029e7c77f78ff73d2fbcd2c479e9a63", extra = "sfno"},
 ]
 # TODO: Remove the pins for cosmo, stormcast-conus with next PSN release (2.2.0)
 # TODO: Remove the pin for DLESyM after PNM 2.3.0 release (needs changes more recent than 2.2.0)
@@ -421,6 +438,7 @@ build = [
     "hatchling",
     "ninja>=1.11.1.4",
     "setuptools>=70.0.0",
+    "setuptools-scm>=10.2.1",
 ]
 dev = [
     "black==26.5.1",
