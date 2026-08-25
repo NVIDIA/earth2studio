@@ -63,6 +63,9 @@ EXAMPLES_GALLERY_DESCRIPTION = (
     "Runnable examples, grouped by topic. Each card opens the complete source, "
     "output, and captured figures."
 )
+SCORECARD_PLOT_IFRAME = (
+    '<iframe data-e2s-scorecard-plot src="../../_static/scorecard/plot.html?'
+)
 
 CALLOUT_KINDS = {
     "note",
@@ -106,12 +109,12 @@ def on_page_markdown(markdown: str, **kwargs: object) -> str:
 
 
 def _rewrite_scorecard_plot_url(markdown: str) -> str:
-    """Adjust the scorecard plot path when Mike builds a versioned site."""
+    """Adjust the marked scorecard iframe path for a Mike build."""
     if not os.getenv("MIKE_DOCS_VERSION"):
         return markdown
     return markdown.replace(
-        'src="../../_static/scorecard/plot.html?',
-        'src="../../../_static/scorecard/plot.html?',
+        SCORECARD_PLOT_IFRAME,
+        "<iframe data-e2s-scorecard-plot " 'src="../../../_static/scorecard/plot.html?',
     )
 
 
