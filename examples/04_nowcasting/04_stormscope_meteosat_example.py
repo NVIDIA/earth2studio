@@ -84,7 +84,6 @@ from earth2studio.data.meteosat_fci import (
     SEMI_MINOR_AXIS,
     MeteosatFCI,
 )
-from earth2studio.models.auto import Package
 from earth2studio.models.px.stormscope_meteosat import StormScopeMeteosatEU
 from earth2studio.utils.coords import map_coords
 
@@ -96,19 +95,7 @@ from earth2studio.utils.coords import map_coords
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Load the model package from a local path or remote URI.
-# Set STORMSCOPE_METEOSAT_MODEL_PATH to override the default location.
-model_path = os.environ.get("STORMSCOPE_METEOSAT_MODEL_PATH")
-if model_path is None:
-    package = StormScopeMeteosatEU.load_default_package()
-else:
-    package = Package(
-        model_path,
-        cache_options={
-            "cache_storage": Package.default_cache("stormscope-meteosat"),
-            "same_names": True,
-        },
-    )
+package = StormScopeMeteosatEU.load_default_package()
 model = StormScopeMeteosatEU.load_model(package=package)
 model = model.to(device)
 model.eval()
