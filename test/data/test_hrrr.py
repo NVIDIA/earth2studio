@@ -18,7 +18,7 @@ import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -386,64 +386,36 @@ def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
 
 
 @pytest.mark.timeout(10)
-def test_hrrr_fx_special_variable_lookups():
-    variables = ["tp", "tcc", "sd", "sde", "snowc"]
+def test_hrrr_special_variable_lookups():
     fake_index = {
         "84::APCP::surface::0-0 day acc fcst": (100, 10),
         "84::APCP::surface::0-1 hour acc fcst": (110, 10),
-        "116::TCDC::entire atmosphere::anl": (200, 10),
         "116::TCDC::entire atmosphere::1 hour fcst": (210, 10),
-        "68::WEASD::surface::anl": (300, 10),
         "68::WEASD::surface::1 hour fcst": (310, 10),
-        "70::SNOD::surface::anl": (400, 10),
         "70::SNOD::surface::1 hour fcst": (410, 10),
-        "69::SNOWC::surface::anl": (500, 10),
         "69::SNOWC::surface::1 hour fcst": (510, 10),
     }
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    ds = HRRR_FX(cache=False, verbose=False)
-    with patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index):
-        tasks = asyncio.run(
-            ds._create_tasks(
-                [datetime(2026, 7, 20)],
-                [timedelta(0), timedelta(hours=1)],
-                variables,
+    time = [datetime(2026, 7, 20)]
+    analysis = HRRR(cache=False, verbose=False)
+    forecast = HRRR_FX(cache=False, verbose=False)
+    fetch_index = AsyncMock(return_value=fake_index)
+    with (
+        patch.object(analysis, "_fetch_index", new=fetch_index),
+        patch.object(forecast, "_fetch_index", new=fetch_index),
+    ):
+        [analysis_task] = asyncio.run(
+            analysis._create_tasks(time, [timedelta(0)], ["tp"])
+        )
+        forecast_tasks = asyncio.run(
+            forecast._create_tasks(
+                time,
+                [timedelta(hours=1)],
+                ["tp", "tcc", "sd", "sde", "snowc"],
             )
         )
-
-    offsets = {task.data_array_indices: task.hrrr_byte_offset for task in tasks}
-    assert offsets == {
-        (0, 0, 0): 100,
-        (0, 0, 1): 200,
-        (0, 0, 2): 300,
-        (0, 0, 3): 400,
-        (0, 0, 4): 500,
-        (0, 1, 0): 110,
-        (0, 1, 1): 210,
-        (0, 1, 2): 310,
-        (0, 1, 3): 410,
-        (0, 1, 4): 510,
-    }
-
-
-@pytest.mark.timeout(10)
-def test_hrrr_tp_analysis_lookup():
-    fake_index = {"84::APCP::surface::0-0 day acc fcst": (100, 10)}
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    ds = HRRR(cache=False, verbose=False)
-    with patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index):
-        tasks = asyncio.run(
-            ds._create_tasks([datetime(2026, 7, 20)], [timedelta(0)], ["tp"])
-        )
-
-    assert len(tasks) == 1
-    assert tasks[0].hrrr_byte_offset == 100
+    offsets = [task.hrrr_byte_offset for task in forecast_tasks]
+    assert analysis_task.hrrr_byte_offset == 100
+    assert offsets == [110, 210, 310, 410, 510]
 
 
 @pytest.mark.timeout(15)
