@@ -573,6 +573,10 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
 
     Note
     ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
+
     See :class:`DLESyMv0_ISCCP_ERA5` and
     [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon] for details. Model
     hooks applied during iteration operate on the HEALPix grid, as with
