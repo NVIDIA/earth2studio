@@ -134,6 +134,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed intermittent repeated FengWu forecast timesteps by synchronizing ONNX
+  Runtime I/O buffers with PyTorch.
+
 - Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
   snow depth, snow cover, and total cloud cover at positive forecast lead
   times.
