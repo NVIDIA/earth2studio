@@ -412,11 +412,13 @@ class CDS_ERA5:
         return cache_location
 
 
-def CDS(cache: bool = True, verbose: bool = True) -> CDS_ERA5:
-    """Instantiate the deprecated :class:`CDS_ERA5` alias."""
-    warnings.warn(
-        "CDS has been renamed to CDS_ERA5 and may be removed in a future release.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return CDS_ERA5(cache=cache, verbose=verbose)
+class CDS(CDS_ERA5):
+    """Deprecated alias for :class:`CDS_ERA5`."""
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        warnings.warn(
+            "CDS has been renamed to CDS_ERA5 and may be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(cache=cache, verbose=verbose)

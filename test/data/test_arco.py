@@ -124,4 +124,6 @@ def test_arco_deprecation_warning():
     with pytest.warns(DeprecationWarning, match="ARCO has been renamed to ARCO_ERA5"):
         data_source = ARCO()
 
-    assert type(data_source) is ARCO_ERA5
+    assert isinstance(data_source, ARCO_ERA5)
+    assert isinstance(data_source, ARCO)
+    assert ARCO.available(datetime.datetime(1939, 2, 25)) is False

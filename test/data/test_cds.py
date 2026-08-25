@@ -170,4 +170,5 @@ def test_cds_deprecation_warning():
     with pytest.warns(DeprecationWarning, match="CDS has been renamed to CDS_ERA5"):
         data_source = CDS()
 
-    assert type(data_source) is CDS_ERA5
+    assert isinstance(data_source, CDS_ERA5)
+    assert isinstance(data_source, CDS)

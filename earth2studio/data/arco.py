@@ -498,15 +498,19 @@ class ARCO_ERA5:
         return time_index >= 0 and time_index <= max_index
 
 
-def ARCO(
-    cache: bool = True,
-    verbose: bool = True,
-    async_timeout: int = 600,
-) -> ARCO_ERA5:
-    """Instantiate the deprecated :class:`ARCO_ERA5` alias."""
-    warnings.warn(
-        "ARCO has been renamed to ARCO_ERA5 and may be removed in a future release.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return ARCO_ERA5(cache=cache, verbose=verbose, async_timeout=async_timeout)
+class ARCO(ARCO_ERA5):
+    """Deprecated alias for :class:`ARCO_ERA5`."""
+
+    def __init__(
+        self,
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+    ) -> None:
+        warnings.warn(
+            "ARCO has been renamed to ARCO_ERA5 and may be removed in a future "
+            "release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(cache=cache, verbose=verbose, async_timeout=async_timeout)
