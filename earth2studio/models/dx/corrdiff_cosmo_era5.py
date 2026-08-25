@@ -346,9 +346,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     The models are trained on ERA5 (global input) paired with COSMO-REA regional
     reanalysis (high-resolution target) over Europe:
 
-    * COSMO-REA6 (~6 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
-    * COSMO-REA2 (~2.2 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
-    * ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
+    - COSMO-REA6 (~6 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
+    - COSMO-REA2 (~2.2 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
+    - ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
+    - https://huggingface.co/nvidia/corrdiff-cosmo-era5
 
     Badges
     ------

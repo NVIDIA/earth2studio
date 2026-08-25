@@ -198,6 +198,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
     - https://github.com/AtmosSci-DLESM/DLESyM
     - https://arxiv.org/abs/2409.16247 (Cresswell-Clay et al. 2024)
+    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
 
     See [`DLESyM`][earth2studio.models.px.dlesym.DLESyM] for details on the
     coupled rollout, ``retrieve_valid_atmos_outputs`` /
@@ -572,6 +573,10 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
 
     Note
     ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
+
     See :class:`DLESyMv0_ISCCP_ERA5` and
     [`DLESyMLatLon`][earth2studio.models.px.dlesym.DLESyMLatLon] for details. Model
     hooks applied during iteration operate on the HEALPix grid, as with

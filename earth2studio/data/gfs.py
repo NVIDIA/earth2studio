@@ -241,8 +241,9 @@ class GFS:
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.zeros(
-                (len(time), 1, len(variable), len(self.GFS_LAT), len(self.GFS_LON))
+            data=np.full(
+                (len(time), 1, len(variable), len(self.GFS_LAT), len(self.GFS_LON)),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
@@ -660,14 +661,15 @@ class GFS_FX(GFS):
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.zeros(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.GFS_LAT),
                     len(self.GFS_LON),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={

@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- GFS, HRRR, and GEFS GRIB sources now fill unresolved output regions with
+  `NaN` instead of zeros or uninitialized memory, making missing index records
+  detectable
 - `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
   persistent spawn-based process pool (new `decode_workers` parameter,
   default `"auto"`); each file is decoded once per request window, frames are
@@ -130,6 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
+  snow depth, snow cover, and total cloud cover at positive forecast lead
+  times.
 
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
