@@ -1,162 +1,87 @@
 # Documentation
 
-Earth2Studio uses [MkDocs](https://www.mkdocs.org/) with the
-[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) theme to build
-static documentation hosted on GitHub Pages. The docs are organized around three
-main areas:
+Earth2Studio builds its documentation with
+[MkDocs](https://www.mkdocs.org/) and
+[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/).
 
-1. API documentation is required for public Earth2Studio classes and functions.
-   [Interrogate](https://github.com/econchick/interrogate) is used to enforce that
-   public methods are documented.
+## Source layout
 
-2. Examples are rendered with `earth2studio-gallery`, which executes percent-format
-   Python examples in the project documentation environment and then renders the
-   retained results into a MkDocs Material gallery.
+- `docs/modules/`: API landing pages consumed by `docs/generate_api.py`.
+- `docs/userguide/`: conceptual and developer guides.
+- `examples/`: executable gallery sources.
+- `docs/examples/`: generated gallery pages; do not edit these directly.
 
-3. API landing pages are Markdown files in `docs/modules/` with autosummary
-   blocks read by `docs/generate_api.py`. Model and data-source badges are rendered
-   and filtered with `mkdocs-badges`.
+The docs generators also create the model catalog, installation options, and scorecard pages.
+`earth2studio-gallery` renders examples and retained execution results without Sphinx.
 
-4. The user guide is written in Markdown and documents concepts that cannot be fully
-   communicated in examples.
+## Docstrings
 
-## API Documentation
+Public classes and functions require docstrings; Interrogate enforces coverage. Use
+[NumPy-style docstrings](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
+with these conventions:
 
-API documentation or doc-strings are a requirement for public Earth2Studio classes and
-functions. Consistent documentation styling improves user and developer experience. To
-make doc-strings between different parts of the code as consistent as possible, the
-following styles are used:
-
-- [NumPy style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
-  doc-strings are used in all Python files.
-
-- The doc string description starts on the same line as the first `"""`.
-
-- Class doc-strings are placed under the class definition not the `__init__` function.
-
-- Type hints are included in the doc strings for each input argument / returned object.
-
-- Optional/keyword arguments are denoted by `optional` following the type hint. The
-  default value is provided by adding ", by default [default value]" to the end of the
-  doc string.
-
-- Periods should be used at the end of complete sentences, but are not required at the
-  end of "by default [default value]" or incomplete sentences.
-
-For VSCode users, the
-[autoDocstring extension](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring)
-is highly encouraged. Refer to the following doc-string samples for guidance:
+- Start the summary on the opening `"""` line.
+- Document classes on the class definition, not `__init__`.
+- Include argument and return types.
+- Mark optional arguments and state their defaults.
+- End complete sentences with periods.
 
 ```python
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
-    """Simple converter from numpy datetime64 array into a list of datetimes.
+    """Convert a NumPy datetime64 array into Python datetimes.
 
     Parameters
     ----------
     time : TimeArray
-        Numpy datetime64 array
+        NumPy datetime64 array.
 
     Returns
     -------
     list[datetime]
-        List of datetime object
+        Converted datetime objects.
     """
 ```
 
-```python
-class CorrelatedSphericalGaussian:
-    """Produces Gaussian random field on the sphere with Matern covariance peturbation
-    method output to a lat lon grid.
+## Local builds
 
-    Warning
-    -------
-    Presently this method generates noise on equirectangular grid of size [N, 2*N] when
-    N is even or [N+1, 2*N] when N is odd.
+- `make docs`: generate all pages and build from retained example results.
+- `make docs-full`: execute stale examples, regenerate the gallery, and build.
+- `make docs-dev`: serve locally with live reload.
+- `make docs-dev FILENAME=<selector>`: execute one example, then serve the complete gallery.
 
-    Parameters
-    ----------
-    noise_amplitude : float | torch.Tensor
-        Overall amplitude scaling factor for the noise field. Must be provided.
-    sigma : float, optional
-        Standard deviation of the noise field, by default 1.0
-    length_scale : float, optional
-        Spatial correlation length scale in meters, by default 5.0e5
-    time_scale : float, optional
-        Temporal correlation scale in hours for the AR(1) process, by default 48.0
-
-    Raises
-    ------
-    ValueError
-        If noise_amplitude is not provided
-    """
-    ...
-```
-
-## Example Documentation
-
-Examples in Earth2Studio are created with the intent to teach or demonstrate a specific
-feature, workflow, concept, or use case to users. If you are interested in contributing
-an example, reach out to us in a GitHub issue to discuss further. The example scripts
-used to populate the documentation are placed in the
-[examples](https://github.com/NVIDIA/earth2studio/tree/main/examples) folder of the repo.
-
-The MkDocs documentation uses `earth2studio-gallery` instead of Sphinx Gallery. The
-source examples remain in the repository under `examples/`, and generated gallery pages
-are written to `docs/examples/` during the docs build.
-
-## Building Documentation
-
-To build the documentation locally, use:
-
-```bash
-make docs
-```
-
-This generates the API, catalog, installation, scorecard, and gallery pages from retained
-example results before building the site.
-
-To execute stale examples and build the complete documentation, use:
-
-```bash
-make docs-full
-```
-
-The full build runs the same page generation, executes stale examples section by section, then
-regenerates the gallery before the final site build. Project-mode examples synchronize their
-declared extras against the repository's `uv.lock`; the documentation environment does not
-preinstall every project extra.
-
-For local development with live reload, use:
-
-```bash
-make docs-dev
-```
-
-To execute and refresh a single example before serving the site, pass a gallery selector:
+For example:
 
 ```bash
 make docs-dev FILENAME=01_getting_started/01_deterministic_workflow.py
 ```
 
-Only the selected example is executed. The complete gallery is then rendered from
-source and any retained execution artifacts.
+Build output is written to `site/`. Project-mode examples use the repository's `pyproject.toml`
+and `uv.lock`, syncing only their declared extras.
 
-Build files are written to `site/`.
+## CI builds
 
-The empty `docs/.nojekyll` file is intentionally kept in the MkDocs `docs_dir`.
-MkDocs copies it to the root of the built site, which tells GitHub Pages to serve
-asset directories such as `_static/` and `examples/_assets/` without Jekyll
-filtering. Keep this as a source file rather than adding a custom copy step to the
-docs build pipeline.
+- Pull requests run `make docs` only. They do not execute examples, upload the site, write caches,
+  or deploy.
+- Pushes to `main` run the cache-only docs workflow and deploy the site.
+- The manual full workflow publishes the cache-only site, runs all eight example sections
+  sequentially, then publishes the site again with the updated Gallery results.
 
-## Versioning
+Each example section has its own data cache. Gallery results use one rolling cache passed between
+sections. Missing caches are valid cold starts; interrupted restores fail the job. Model downloads
+are not cached. The remaining sections continue after a section failure, but the final publish
+requires every section to succeed.
 
-Documentation versioning uses [Mike](https://github.com/jimporter/mike). To build and
-publish a versioned docs tree from a release branch, set `DOC_VERSION` and optionally
-`DOC_ALIAS`:
+Use the `util-clear-cache` workflow to clear Gallery or docs-data caches.
+
+## GitHub Pages
+
+Keep `docs/.nojekyll` in the source tree. It allows GitHub Pages to serve generated directories
+such as `_static/` and `examples/_assets/`.
+
+Versioned deployments use [Mike](https://github.com/jimporter/mike):
 
 ```bash
 DOC_VERSION=0.18.0 DOC_ALIAS=latest make docs-deploy-version
 ```
 
-Versioned docs are deployed under the `v/` prefix on the `gh-pages` branch.
+Versions are published beneath `v/` on the `gh-pages` branch.
