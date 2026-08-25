@@ -219,6 +219,17 @@ def test_gfs_fx_available(lead_time):
 # ----------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("hour,uses_atmos", [(6, False), (12, True)])
+def test_gfs_layout_cutoff(hour, uses_atmos):
+    time = datetime(2021, 3, 22, hour)
+    ds = GFS(cache=False)
+    uris = [
+        ds._grib_uri(time, timedelta()),
+        ds._grib_index_uri(time, timedelta()),
+    ]
+    assert all(("/atmos/" in uri) is uses_atmos for uri in uris)
+
+
 _MOCK_PGRB2_IDX = (
     "1:0:d=2024010100:PRMSL:mean sea level:anl:\n"
     "2:65300:d=2024010100:HGT:500 mb:anl:\n"

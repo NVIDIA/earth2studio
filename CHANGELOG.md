@@ -137,9 +137,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
   snow depth, snow cover, and total cloud cover at positive forecast lead
   times.
-- Fixed `GFS_FX` total precipitation (`tp`) returning an all-zero field for
-  supported dates before March 23, 2021, by selecting accumulation windows
-  instead of layout-dependent GRIB record numbers.
+- Fixed GFS archive layout selection for March 22, 2021 at 12z and 18z, and
+  `GFS_FX` total precipitation (`tp`) returning an all-zero field for dates
+  using the historical layout by selecting accumulation windows instead of
+  layout-dependent GRIB record numbers.
 
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
