@@ -78,6 +78,7 @@ import torch
 
 from earth2studio.data import ARCO
 from earth2studio.data.utils import fetch_data
+from earth2studio.models.auto import Package
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5LatLon
 
@@ -89,8 +90,11 @@ if not torch.cuda.is_available():
 data = ARCO()
 
 # Load the coupled prognostic (lat/lon variant) and the precip diagnostic.
-package = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
+package = Package(
+    "/lustre/fsw/portfolios/coreai/users/pharrington/model_pkg/" "dlesym-v0-isccp-era5/"
+)
 model = DLESyMv0_ISCCP_ERA5LatLon.load_model(package).to(device)
+
 
 # The prognostic output is already in OLR space, so we load the precip
 # diagnostic with ``use_ttr=False`` -- no further TTR -> OLR transform is needed

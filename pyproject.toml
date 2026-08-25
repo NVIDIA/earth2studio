@@ -398,11 +398,12 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-# TODO: Remove with next PSN release
+# TODO: Remove the pins for cosmo, stormcast-conus with next PSN release (2.2.0)
+# TODO: Remove the pin for DLESyM after PNM 2.3.0 release (needs changes more recent than 2.2.0)
 nvidia-physicsnemo = [
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "94b355108cfd10e253d3d41cacdc0c0112b078e4", extra = "cosmo"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "94b355108cfd10e253d3d41cacdc0c0112b078e4", extra = "stormcast-conus"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "94b355108cfd10e253d3d41cacdc0c0112b078e4", extra = "dlesym"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "cosmo"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "stormcast-conus"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "dlesym"},
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }

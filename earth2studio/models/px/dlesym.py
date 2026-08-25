@@ -70,6 +70,9 @@ _ATMOS_OUTPUT_TIMES = np.array(
 )
 _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
+# Normalize variable names in the model package to match e2studio's lexicon
+_ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
+
 
 @check_optional_dependencies()
 class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -635,9 +638,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ocean_output_times=np.array(
                 cfg.io.ocean_output_times, dtype="timedelta64[h]"
             ),
-            atmos_variables=list(cfg.io.atmos_variables),
+            atmos_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v) for v in cfg.io.atmos_variables
+            ],
             ocean_variables=list(cfg.io.ocean_variables),
-            atmos_coupling_variables=list(cfg.io.atmos_coupling_variables),
+            atmos_coupling_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v)
+                for v in cfg.io.atmos_coupling_variables
+            ],
             ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
             atmos_diagnostic_variables=atmos_diagnostic_variables,
             ocean_diagnostic_variables=ocean_diagnostic_variables,
@@ -1408,102 +1416,6 @@ class DLESyMLatLon(DLESyM):
         for dim in ["lat", "lon"]:
             ll_coords.move_to_end(dim)
         return ll_coords
-
-    # Trailing window, in hours, over which the `ttr-3h` prognostic input
-    # variable is accumulated. See `ttr_3h_query_times`/`compute_ttr_3h`
-    # below for why it needs its own fetch.
-    TTR_3H_WINDOW_HOURS = 3
-
-    def ttr_3h_query_times(self, lead_time: np.ndarray | None = None) -> np.ndarray:
-        """Hourly lead times (relative to the same reference time as
-        `lead_time`) of raw `ttr` samples needed to compute `ttr-3h` via
-        `compute_ttr_3h`.
-
-        Fetch raw `ttr` (not `ttr-3h`) at exactly these lead times from a
-        data source -- independently of, and without expanding, the
-        model's main `input_coords()["lead_time"]` fetch.
-
-        Parameters
-        ----------
-        lead_time : np.ndarray, optional
-            Lead times `ttr-3h` will be computed at, by default
-            `self.atmos_input_times`
-
-        Returns
-        -------
-        np.ndarray
-            Sorted, de-duplicated hourly lead time offsets (`timedelta64[h]`)
-        """
-        if lead_time is None:
-            lead_time = self.atmos_input_times
-        offsets = np.concatenate(
-            [
-                lt + np.arange(-self.TTR_3H_WINDOW_HOURS, 1, dtype="timedelta64[h]")
-                for lt in lead_time
-            ]
-        )
-        return np.unique(offsets)
-
-    def compute_ttr_3h(
-        self,
-        raw_ttr: torch.Tensor,
-        raw_coords: CoordSystem,
-        target_lead_time: np.ndarray | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Reduce raw hourly `ttr` samples into the `ttr-3h` accumulated
-        input variable at each of `target_lead_time`.
-
-        ERA5's `ttr` is accumulated since the most recent 00/12 UTC
-        forecast-cycle start and is exactly 0 at each cycle boundary, so
-        the accumulation over the trailing `TTR_3H_WINDOW_HOURS` window
-        ending at `t` is `raw_ttr[t] - raw_ttr[t - TTR_3H_WINDOW_HOURS]`.
-
-        Warning
-        -------
-        This has not been verified against the AIWQ training pipeline's
-        own `ttr-3h` computation -- confirm the two agree (e.g. for a
-        known date) before trusting model output that depends on it.
-
-        Parameters
-        ----------
-        raw_ttr : torch.Tensor
-            Raw `ttr` tensor, with a `lead_time` axis covering at least
-            `ttr_3h_query_times(target_lead_time)`
-        raw_coords : CoordSystem
-            Coordinates for `raw_ttr`
-        target_lead_time : np.ndarray, optional
-            Lead times to compute `ttr-3h` at, by default
-            `self.atmos_input_times`
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            `ttr-3h` tensor and coordinates, with `lead_time` set to
-            `target_lead_time`
-        """
-        if target_lead_time is None:
-            target_lead_time = self.atmos_input_times
-
-        lead_dim = list(raw_coords.keys()).index("lead_time")
-        lt_list = list(raw_coords["lead_time"])
-
-        end_idx = [lt_list.index(t) for t in target_lead_time]
-        start_idx = [
-            lt_list.index(t - np.timedelta64(self.TTR_3H_WINDOW_HOURS, "h"))
-            for t in target_lead_time
-        ]
-
-        end_vals = raw_ttr.index_select(
-            dim=lead_dim, index=torch.tensor(end_idx, device=raw_ttr.device)
-        )
-        start_vals = raw_ttr.index_select(
-            dim=lead_dim, index=torch.tensor(start_idx, device=raw_ttr.device)
-        )
-        ttr_3h = end_vals - start_vals
-
-        out_coords = raw_coords.copy()
-        out_coords["lead_time"] = np.array(target_lead_time)
-        return ttr_3h, out_coords
 
     def _nan_interpolate_sst(
         self, sst: torch.Tensor, coords: CoordSystem
