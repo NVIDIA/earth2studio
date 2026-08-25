@@ -377,12 +377,13 @@ def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
         data = ds(
             datetime(2024, 1, 1),
             [timedelta(hours=0), timedelta(hours=6)],
-            ["t2m"],
+            ["t2m", "z500"],
         )
 
-    assert data.shape == (1, 2, 1, 1059, 1799)
+    assert data.shape == (1, 2, 2, 1059, 1799)
     for j in range(2):
-        np.testing.assert_allclose(data.values[0, j, 0], fake_grid)
+        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
+    assert np.isnan(data.sel(variable="z500").values).all()
 
 
 @pytest.mark.timeout(10)
@@ -421,7 +422,7 @@ def test_hrrr_special_variable_lookups():
 @pytest.mark.timeout(15)
 def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
     # If the requested variable is absent from the .idx, _create_tasks warns
-    # and skips it — the output slot keeps its zero initialization.
+    # and skips it, so the output slot must remain detectably missing.
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
     # Index only has t2m; z500 is missing on purpose.
@@ -443,5 +444,4 @@ def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
         data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
 
     np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
-    # Skipped variable keeps the zero fill.
-    assert (data.sel(variable="z500").values == 0.0).all()
+    assert np.isnan(data.sel(variable="z500").values).all()
