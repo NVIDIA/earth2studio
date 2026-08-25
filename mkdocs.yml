@@ -433,6 +433,7 @@ plugins:
     categories: true
 - mike:
     alias_type: redirect
+    canonical_version: null
 hooks:
 - docs/mkdocs_hooks.py
 nav:
