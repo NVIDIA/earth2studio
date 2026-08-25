@@ -122,6 +122,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     following references:
 
     - https://dl.acm.org/doi/10.1145/3712285.3771989
+    - https://huggingface.co/jychoi-hpc/ORBIT-2
 
     Note
     ----
