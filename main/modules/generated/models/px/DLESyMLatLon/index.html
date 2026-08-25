@@ -2924,6 +2924,50 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#px.dlesym.DLESyMLatLon--x-and-coords-are-data-defined-on-appropriate-latlon-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        x and coords are data defined on appropriate lat/lon grid
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px.dlesym.DLESyMLatLon--run-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px.dlesym.DLESyMLatLon--lat-lon-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lat-lon outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px.dlesym.DLESyMLatLon--healpix-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HEALPix outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#px.dlesym.DLESyMLatLon.__call__" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3000,7 +3044,7 @@
 <span id="earth2studio.models.px.DLESyMLatLon.create_iterator"></span>
 <span id="earth2studio.models.px.DLESyMLatLon.load_default_package"></span>
 <span id="earth2studio.models.px.DLESyMLatLon.load_model"></span></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/dlesym.py#L1203-L1654" title="earth2studio/models/px/dlesym.py:1203">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=dlesym#install-command" title="category=prognostic item=dlesym">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/dlesym.py#L1205-L1702" title="earth2studio/models/px/dlesym.py:1205">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=dlesym#install-command" title="category=prognostic item=dlesym">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3022,6 +3066,196 @@ Regridding is done using the <code>earth2grid</code> package. For convenience, w
 regridding methods that are accessible as <code>.to_hpx</code> and <code>.to_ll</code>.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_model</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Atmosphere model</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_model</code></b>
+              (<code><a class="autorefs autorefs-external" title="torch.nn.Module" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module">Module</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ocean model</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>hpx_lat</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>HEALPix latitude coordinates, shape (12, nside, nside)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>hpx_lon</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>HEALPix longitude coordinates, shape (12, nside, nside)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>nside</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>HEALPix nside</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>center</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Means of the full output variable set (prognostics + diagnostics,
+in the same order as <code>output_coords</code>'s <code>variable</code> axis), shape
+(1, 1, 1, num_output_variables, 1, 1, 1)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>scale</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Standard deviations of the full output variable set, same shape
+and ordering as <code>center</code></p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_constants</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Constants for the atmosphere model, shape (12, num_atmos_constants, nside, nside)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_constants</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Constants for the ocean model, shape (12, num_ocean_constants, nside, nside)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_input_times</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Atmospheric input times, shape (num_atmos_input_times,)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_input_times</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ocean input times, shape (num_ocean_input_times,)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_output_times</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Atmospheric output times, shape (num_atmos_output_times,)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_output_times</code></b>
+              (<code><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Ocean output times, shape (num_ocean_output_times,)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Atmospheric variables</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Ocean variables</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_coupling_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Atmospheric coupling variables</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_coupling_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Ocean coupling variables</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>atmos_diagnostic_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Atmospheric diagnostic output variables. These are produced by the
+atmos model but, unlike <code>atmos_variables</code>, are not fed back in as
+input to the next autoregressive step, by default []</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ocean_diagnostic_variables</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Ocean diagnostic output variables, analogous to
+<code>atmos_diagnostic_variables</code>, by default []</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>use_cln</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether the atmos/ocean models use conditional layer norm, which
+requires sampling and passing noise to the model to produce
+ensemble variability from a single set of weights, by default False</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>condition_shape</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Dimension of the conditional layer norm noise vector. Required if
+<code>use_cln</code> is True, by default None</p>
+          </div>
+        </li>
+    </ul>
+
+
 <details class="note" open>
   <summary>Note</summary>
   <p>See <code>DLESyM</code> for more information about the prognostic model. Due to the internal
@@ -3030,31 +3264,19 @@ regridding, model hooks applied during iteration will need to operate on the HEA
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">pkg</span> <span class="o">=</span> <span class="n">DLESyMLatLon</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">model</span> <span class="o">=</span> <span class="n">DLESyMLatLon</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">pkg</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># x and coords are data defined on appropriate lat/lon grid</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Run model</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Lat-lon outputs</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">atmos_outputs</span><span class="p">,</span> <span class="n">atmos_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_atmos_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">ocean_outputs</span><span class="p">,</span> <span class="n">ocean_coords</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">retrieve_valid_ocean_outputs</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># HEALPix outputs</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">atmos_outputs_hpx</span><span class="p">,</span> <span class="n">atmos_coords_hpx</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_hpx</span><span class="p">(</span><span class="n">atmos_outputs</span><span class="p">),</span> <span class="n">model</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">atmos_coords</span><span class="p">)</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">ocean_outputs_hpx</span><span class="p">,</span> <span class="n">ocean_coords_hpx</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_hpx</span><span class="p">(</span><span class="n">ocean_outputs</span><span class="p">),</span> <span class="n">model</span><span class="o">.</span><span class="n">coords_to_hpx</span><span class="p">(</span><span class="n">ocean_coords</span><span class="p">)</span>
-</code></pre></div>
-</details>
-
-<details class="args" open>
-  <summary>Args</summary>
-  <p><em>args
-    Arguments for <code>DLESyM</code>
-</em>*kwargs
-    Keyword arguments for <code>DLESyM</code></p>
+  <p>```python
+pkg = DLESyMLatLon.load_default_package()
+model = DLESyMLatLon.load_model(pkg)</p>
+<h3 id="px.dlesym.DLESyMLatLon--x-and-coords-are-data-defined-on-appropriate-latlon-grid">x and coords are data defined on appropriate lat/lon grid<a class="headerlink" href="#px.dlesym.DLESyMLatLon--x-and-coords-are-data-defined-on-appropriate-latlon-grid" title="Permanent link">&para;</a></h3>
+<p>x, coords = fetch_data(...)</p>
+<h3 id="px.dlesym.DLESyMLatLon--run-model">Run model<a class="headerlink" href="#px.dlesym.DLESyMLatLon--run-model" title="Permanent link">&para;</a></h3>
+<p>x, coords = model(x, coords)</p>
+<h3 id="px.dlesym.DLESyMLatLon--lat-lon-outputs">Lat-lon outputs<a class="headerlink" href="#px.dlesym.DLESyMLatLon--lat-lon-outputs" title="Permanent link">&para;</a></h3>
+<p>atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)</p>
+<h3 id="px.dlesym.DLESyMLatLon--healpix-outputs">HEALPix outputs<a class="headerlink" href="#px.dlesym.DLESyMLatLon--healpix-outputs" title="Permanent link">&para;</a></h3>
+<p>atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
+ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)</p>
 </details>
 
 
