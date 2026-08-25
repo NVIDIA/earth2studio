@@ -18,22 +18,6 @@ name: e2s-docs-full
 
 on:
   workflow_dispatch:
-    inputs:
-      section:
-        description: Example section to execute
-        required: true
-        default: all
-        type: choice
-        options:
-          - all
-          - 01_getting_started
-          - 02_medium_range
-          - 03_downscaling
-          - 04_nowcasting
-          - 05_data_assimilation
-          - 06_seasonal
-          - 07_misc
-          - 08_extend
 
 permissions:
   contents: read
@@ -63,13 +47,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       doc-version: ${{ steps.docs-meta.outputs.doc-version }}
-      sections: ${{ steps.docs-meta.outputs.sections }}
     steps:
-      - name: Resolve docs version and sections
+      - name: Resolve docs version
         id: docs-meta
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          SELECTED_SECTION: ${{ inputs.section }}
         run: |
           set -euo pipefail
 
@@ -85,37 +67,88 @@ jobs:
             exit 1
           fi
 
-          case "$SELECTED_SECTION" in
-            all)
-              sections='["01_getting_started","02_medium_range","03_downscaling","04_nowcasting","05_data_assimilation","06_seasonal","07_misc","08_extend"]'
-              ;;
-            01_getting_started|02_medium_range|03_downscaling|04_nowcasting|05_data_assimilation|06_seasonal|07_misc|08_extend)
-              sections="[\"${SELECTED_SECTION}\"]"
-              ;;
-            *)
-              echo "Unknown example section: ${SELECTED_SECTION}" >&2
-              exit 1
-              ;;
-          esac
-
           echo "doc-version=${doc_version}" >> "$GITHUB_OUTPUT"
-          echo "sections=${sections}" >> "$GITHUB_OUTPUT"
 
           echo "### Full docs build" >> "$GITHUB_STEP_SUMMARY"
           echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Sections: \`${SELECTED_SECTION}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-api-docs:
+    name: Publish API docs from gallery cache
+    needs: metadata
+    permissions:
+      contents: write
+      packages: read
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      DOC_VERSION: ${{ needs.metadata.outputs.doc-version }}
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Build API docs from retained gallery results
+        uses: ./.github/actions/build-light-docs
+        with:
+          artifact-name: docs-api-html
+          artifact-retention-days: "10"
+          gallery-cache-name: ${{ github.ref_name }}
+          save-caches: "false"
+          upload-artifact: "true"
+
+      - name: Deploy API docs
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
+          uv run mike deploy "${DOC_VERSION}" \
+            --title "${DOC_VERSION}" \
+            --branch "${DOCS_PAGES_BRANCH}" \
+            --message "Deploy cached docs ${DOC_VERSION} for ${GITHUB_SHA}" \
+            --push
+          if [[ "${DOC_VERSION}" == "main" ]]; then
+            uv run mike set-default main \
+              --branch "${DOCS_PAGES_BRANCH}" \
+              --message "Set default docs version to main" \
+              --push
+          fi
 
   execute-sections:
     name: Execute ${{ matrix.section }}
-    needs: metadata
+    needs:
+      - metadata
+      - publish-api-docs
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 180
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        section: ${{ fromJSON(needs.metadata.outputs.sections) }}
+        section:
+          - 01_getting_started
+          - 02_medium_range
+          - 03_downscaling
+          - 04_nowcasting
+          - 05_data_assimilation
+          - 06_seasonal
+          - 07_misc
+          - 08_extend
     container:
       image: *e2s_ci_image
       options: --shm-size=20g --cap-add=SYS_NICE

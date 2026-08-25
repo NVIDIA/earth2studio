@@ -127,12 +127,13 @@ declared extras against the repository's `uv.lock`; the documentation environmen
 preinstall every project extra.
 
 In CI, pull-request and main-branch documentation builds run `make docs` and never execute
-examples. The manually dispatched `e2s-docs-full` workflow runs the selected example sections as
-sequential jobs. Each section restores its own data cache, then publishes an updated shared
+examples. The manually dispatched `e2s-docs-full` workflow first builds, uploads, and deploys the
+API site from the latest available Gallery cache. A missing Gallery cache is allowed. This initial
+publish gates eight sequential section jobs, ensuring that an API update remains published even if
+a later example fails. Each section restores its own data cache, then publishes an updated shared
 Gallery cache for the next section. Model downloads remain local to the section runner and are not
-saved. A final job renders and deploys the complete site from that Gallery cache without rerunning
-examples. The workflow can execute all sections or one selected section; retained results for
-other sections remain available to the final render.
+saved. After every section succeeds, a final job renders and deploys the complete site from the
+updated Gallery cache without rerunning examples.
 
 The `util-clear-cache` workflow can clear Gallery and section data caches independently.
 
