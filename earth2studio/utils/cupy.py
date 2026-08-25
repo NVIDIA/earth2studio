@@ -302,6 +302,10 @@ class Earth2StudioAccessor:
             If the DataArray is not backed by NumPy or CuPy.
         """
         batch_dims = tuple(dims)
+        if _BATCH_METADATA_KEY in self._array.attrs or batch_dim in self._array.dims:
+            raise ValueError("Recursive batching is not supported")
+        if batch_dim in self._array.coords:
+            raise ValueError(f"Batch coordinate '{batch_dim}' already exists")
         if not batch_dims:
             raise ValueError("At least one batch dimension is required")
         if len(set(batch_dims)) != len(batch_dims):
@@ -309,10 +313,6 @@ class Earth2StudioAccessor:
         missing = [dim for dim in batch_dims if dim not in self._array.dims]
         if missing:
             raise ValueError(f"Batch dimensions not found: {missing}")
-        if batch_dim in self._array.dims and batch_dim not in batch_dims:
-            raise ValueError(f"Batch dimension '{batch_dim}' already exists")
-        if _BATCH_METADATA_KEY in self._array.attrs:
-            raise ValueError("DataArray already contains Earth2Studio batch metadata")
 
         remaining_dims = tuple(dim for dim in self._array.dims if dim not in batch_dims)
         transposed = self._array.transpose(*(batch_dims + remaining_dims))

@@ -16,11 +16,13 @@
 
 from collections import OrderedDict
 
+import dask.array as da
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 
+from earth2studio.utils import cupy as cupy_utils
 from earth2studio.utils.cupy import from_torch
 
 
@@ -47,23 +49,21 @@ def test_numpy_torch_and_batch_round_trip():
 
     restored = from_torch(tensor, coords, name=array.name, attrs=array.attrs)
     assert restored.data.ctypes.data == tensor.data_ptr()
-    assert restored.name == array.name
+    assert restored.name == array.name and restored.attrs == array.attrs
     assert array.e2s.as_numpy().data is array.data
 
-    unlabeled = xr.DataArray(np.ones((2, 3)), dims=("x", "y"))
-    _, generated_coords = unlabeled.e2s.to_torch()
+    _, generated_coords = xr.DataArray(np.ones((2, 3)), dims=("x", "y")).e2s.to_torch()
     np.testing.assert_array_equal(generated_coords["x"], np.arange(2))
 
     batched = array.e2s.batch(("member", "time"), contiguous=False)
     assert batched.dims == ("batch", "variable")
     assert np.shares_memory(batched.data, array.data)
     unbatched = batched.e2s.unbatch(contiguous=False)
-    assert unbatched.dims == array.dims
     assert np.shares_memory(unbatched.data, batched.data)
     xr.testing.assert_identical(unbatched, array)
 
 
-def test_batch_copy_and_validation():
+def test_batch_copy_and_validation(monkeypatch):
     array = xr.DataArray(
         np.arange(24).reshape(2, 3, 4),
         dims=("a", "b", "c"),
@@ -76,40 +76,50 @@ def test_batch_copy_and_validation():
     assert batched.data.flags.c_contiguous
     xr.testing.assert_identical(batched.e2s.unbatch(), array)
 
+    lazy = xr.DataArray(da.arange(2, chunks=1), dims=("a",))
+    assert isinstance(lazy.e2s.as_numpy().data, np.ndarray)
+    for operation in (lambda: lazy.e2s.batch(("a",)), lazy.e2s.to_torch):
+        with pytest.raises(TypeError, match="only NumPy- or CuPy"):
+            operation()
+
+    def missing_cupy(_: str) -> None:
+        raise ImportError
+
+    monkeypatch.setattr(cupy_utils, "import_module", missing_cupy)
+    with pytest.raises(ImportError, match="CuPy is required"):
+        array.e2s.as_cupy()
+    assert not array.e2s.is_cupy
+
     with pytest.raises(ValueError, match="At least one"):
         array.e2s.batch(())
     with pytest.raises(ValueError, match="unique"):
         array.e2s.batch(("a", "a"))
     with pytest.raises(ValueError, match="not found"):
         array.e2s.batch(("missing",))
-    with pytest.raises(ValueError, match="already exists"):
+    with pytest.raises(ValueError, match="Recursive batching"):
         array.e2s.batch(("a",), batch_dim="b")
+    with pytest.raises(ValueError, match="coordinate 'batch' already exists"):
+        array.assign_coords(batch=1).e2s.batch(("a",))
     with pytest.raises(ValueError, match="does not contain"):
         array.e2s.unbatch()
+    coords = OrderedDict((("a", np.arange(2)),))
     with pytest.raises(NotImplementedError, match="requires_grad=True"):
-        from_torch(
-            torch.zeros(2, requires_grad=True),
-            OrderedDict((("a", np.arange(2)),)),
-            requires_grad=True,
-        )
+        from_torch(torch.zeros(2, requires_grad=True), coords, requires_grad=True)
     with pytest.raises(NotImplementedError, match="requires_grad=True"):
         array.e2s.to_torch(requires_grad=True)
     with pytest.raises(ValueError, match="rank"):
-        from_torch(torch.zeros(2, 3), OrderedDict((("a", np.arange(2)),)))
+        from_torch(torch.zeros(2, 3), coords)
     with pytest.raises(ValueError, match="dimension size"):
         from_torch(
             torch.zeros(2, 3),
             OrderedDict((("a", np.arange(2)), ("b", np.arange(2)))),
         )
     with pytest.raises(TypeError, match="Unsupported Torch device"):
-        from_torch(
-            torch.empty(2, device="meta"),
-            OrderedDict((("a", np.arange(2)),)),
-        )
+        from_torch(torch.empty(2, device="meta"), coords)
 
     batched = array.e2s.batch(("a",))
-    with pytest.raises(ValueError, match="already contains"):
-        batched.e2s.batch(("batch",))
+    with pytest.raises(ValueError, match="Recursive batching"):
+        batched.e2s.batch(("missing",))
     with pytest.raises(ValueError, match="leading dimension"):
         batched.transpose("b", "batch", "c").e2s.unbatch()
     with pytest.raises(ValueError, match="size does not match"):
