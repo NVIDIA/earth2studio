@@ -60,16 +60,18 @@ RUN uv pip install --system --break-system-packages "aiohttp>=3.13.4"
 RUN uv pip install --system --break-system-packages "onnx>=1.21.0" \
     && rm -rf /opt/pytorch/pytorch/third_party/onnx/onnx.egg-info
 
-# HIGH CVE fixes — Ubuntu system libraries.
+# HIGH/CRITICAL CVE fixes — Ubuntu system libraries.
 RUN apt-get update && apt-get install -y \
         curl \
         libcurl4 \
+        libcurl3t64-gnutls \
         libexpat1 \
         libc6 \
         libc-bin \
+        libgnutls30t64 \
         libpng16-16 \
         openssl \
-        libssl3 \
+        libssl3t64 \
         libssh-4 \
         python3-minimal \
         protobuf-compiler \
@@ -79,15 +81,31 @@ RUN apt-get update && apt-get install -y \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# HIGH CVE fixes — Python packages.
+# CRITICAL CVE fixes — Slurm runtime libs (CVE-2023-41914, -49933, -49937, -49938, CVE-2025-43904).
+# No patched Ubuntu package available; packages are unused by the serve stack.
+RUN apt-get update \
+    && apt-get remove -y --purge libslurm40t64 libpmi2-0t64 libpmi2-0-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# HIGH/CRITICAL CVE fixes — Python packages.
 RUN uv pip install --system --break-system-packages \
     "pip>=25.0" \
     "setuptools>=78.1.1" \
     "wheel>=0.46.2" \
-    "pillow>=12.2.0" \
+    "aiohttp>=3.14.3" \
+    "jupyter_server>=2.20.0" \
+    "jupyterlab>=4.5.10" \
+    "mistune>=3.3.0" \
+    "msgpack>=1.2.1" \
     "nbconvert>=7.17.0" \
+    "notebook>=7.5.6" \
+    "pillow>=12.3.0" \
     "protobuf>=6.33.5" \
-    "tornado>=6.5.5" \
+    "pyarrow>=23.0.1" \
+    "soupsieve>=2.8.4" \
+    "tornado>=6.5.6" \
+    "urllib3>=2.7.0" \
     "black>=26.3.1" \
     && find /usr/lib /usr/local/lib -name "wheel-0.45*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true
 
