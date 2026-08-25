@@ -3034,15 +3034,239 @@ prognostic or diagnostic model.</p>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Create the ground truth data source</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">era5_ds</span> <span class="o">=</span> <span class="n">WB2ERA5</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]
-WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>233 lines</small></summary><pre class="no-copy"><code>Downloading training-state-000512000.checkpoint: 0%|          | 0.00/568M [00:00&lt;?, ?B/s]
+Downloading training-state-000512000.checkpoint: 2%|▏         | 10.0M/568M [00:01&lt;00:59, 9.88MB/s]
+Downloading training-state-000512000.checkpoint: 4%|▎         | 20.0M/568M [00:01&lt;00:32, 17.7MB/s]
+Downloading training-state-000512000.checkpoint: 5%|▌         | 30.0M/568M [00:01&lt;00:20, 27.9MB/s]
+Downloading training-state-000512000.checkpoint: 7%|▋         | 40.0M/568M [00:01&lt;00:15, 34.9MB/s]
+Downloading training-state-000512000.checkpoint: 9%|▉         | 50.0M/568M [00:01&lt;00:13, 40.9MB/s]
+Downloading training-state-000512000.checkpoint: 11%|█         | 60.0M/568M [00:02&lt;00:12, 44.2MB/s]
+Downloading training-state-000512000.checkpoint: 12%|█▏        | 70.0M/568M [00:02&lt;00:13, 38.6MB/s]
+Downloading training-state-000512000.checkpoint: 16%|█▌        | 90.0M/568M [00:02&lt;00:08, 56.4MB/s]
+Downloading training-state-000512000.checkpoint: 18%|█▊        | 100M/568M [00:02&lt;00:07, 63.6MB/s] 
+Downloading training-state-000512000.checkpoint: 21%|██        | 120M/568M [00:02&lt;00:06, 76.2MB/s]
+Downloading training-state-000512000.checkpoint: 25%|██▍       | 140M/568M [00:03&lt;00:05, 85.8MB/s]
+Downloading training-state-000512000.checkpoint: 26%|██▋       | 150M/568M [00:03&lt;00:04, 88.5MB/s]
+Downloading training-state-000512000.checkpoint: 30%|██▉       | 170M/568M [00:03&lt;00:04, 92.5MB/s]
+Downloading training-state-000512000.checkpoint: 33%|███▎      | 190M/568M [00:03&lt;00:04, 96.9MB/s]
+Downloading training-state-000512000.checkpoint: 35%|███▌      | 200M/568M [00:03&lt;00:04, 82.2MB/s]
+Downloading training-state-000512000.checkpoint: 37%|███▋      | 210M/568M [00:04&lt;00:05, 68.0MB/s]
+Downloading training-state-000512000.checkpoint: 39%|███▊      | 220M/568M [00:04&lt;00:05, 71.9MB/s]
+Downloading training-state-000512000.checkpoint: 41%|████      | 230M/568M [00:04&lt;00:05, 62.4MB/s]
+Downloading training-state-000512000.checkpoint: 42%|████▏     | 240M/568M [00:04&lt;00:06, 54.2MB/s]
+Downloading training-state-000512000.checkpoint: 44%|████▍     | 250M/568M [00:04&lt;00:05, 61.7MB/s]
+Downloading training-state-000512000.checkpoint: 46%|████▌     | 260M/568M [00:05&lt;00:06, 51.0MB/s]
+Downloading training-state-000512000.checkpoint: 48%|████▊     | 270M/568M [00:05&lt;00:06, 49.7MB/s]
+Downloading training-state-000512000.checkpoint: 49%|████▉     | 280M/568M [00:05&lt;00:06, 49.9MB/s]
+Downloading training-state-000512000.checkpoint: 51%|█████     | 290M/568M [00:05&lt;00:05, 52.5MB/s]
+Downloading training-state-000512000.checkpoint: 53%|█████▎    | 300M/568M [00:05&lt;00:06, 42.0MB/s]
+Downloading training-state-000512000.checkpoint: 55%|█████▍    | 310M/568M [00:06&lt;00:06, 40.3MB/s]
+Downloading training-state-000512000.checkpoint: 56%|█████▋    | 320M/568M [00:06&lt;00:05, 44.1MB/s]
+Downloading training-state-000512000.checkpoint: 60%|█████▉    | 340M/568M [00:06&lt;00:03, 61.4MB/s]
+Downloading training-state-000512000.checkpoint: 63%|██████▎   | 360M/568M [00:06&lt;00:02, 75.2MB/s]
+Downloading training-state-000512000.checkpoint: 67%|██████▋   | 380M/568M [00:07&lt;00:02, 86.2MB/s]
+Downloading training-state-000512000.checkpoint: 69%|██████▊   | 390M/568M [00:07&lt;00:02, 75.3MB/s]
+Downloading training-state-000512000.checkpoint: 72%|███████▏  | 410M/568M [00:07&lt;00:02, 76.5MB/s]
+Downloading training-state-000512000.checkpoint: 76%|███████▌  | 430M/568M [00:07&lt;00:01, 75.2MB/s]
+Downloading training-state-000512000.checkpoint: 77%|███████▋  | 440M/568M [00:07&lt;00:01, 79.0MB/s]
+Downloading training-state-000512000.checkpoint: 79%|███████▉  | 450M/568M [00:08&lt;00:01, 68.6MB/s]
+Downloading training-state-000512000.checkpoint: 83%|████████▎ | 470M/568M [00:08&lt;00:01, 81.4MB/s]
+Downloading training-state-000512000.checkpoint: 86%|████████▋ | 490M/568M [00:08&lt;00:00, 92.8MB/s]
+Downloading training-state-000512000.checkpoint: 90%|████████▉ | 510M/568M [00:08&lt;00:00, 99.0MB/s]
+Downloading training-state-000512000.checkpoint: 92%|█████████▏| 520M/568M [00:08&lt;00:00, 95.7MB/s]
+Downloading training-state-000512000.checkpoint: 93%|█████████▎| 530M/568M [00:08&lt;00:00, 96.1MB/s]
+Downloading training-state-000512000.checkpoint: 95%|█████████▌| 540M/568M [00:09&lt;00:00, 92.0MB/s]
+Downloading training-state-000512000.checkpoint: 97%|█████████▋| 550M/568M [00:09&lt;00:00, 85.4MB/s]
+Downloading training-state-000512000.checkpoint: 100%|██████████| 568M/568M [00:09&lt;00:00, 99.3MB/s]
+Downloading training-state-000512000.checkpoint: 100%|██████████| 568M/568M [00:09&lt;00:00, 64.0MB/s]
+
+Downloading training-state-002048000.checkpoint: 0%|          | 0.00/568M [00:00&lt;?, ?B/s]
+Downloading training-state-002048000.checkpoint: 2%|▏         | 10.0M/568M [00:01&lt;01:06, 8.82MB/s]
+Downloading training-state-002048000.checkpoint: 5%|▌         | 30.0M/568M [00:01&lt;00:20, 28.0MB/s]
+Downloading training-state-002048000.checkpoint: 7%|▋         | 40.0M/568M [00:01&lt;00:16, 33.3MB/s]
+Downloading training-state-002048000.checkpoint: 11%|█         | 60.0M/568M [00:01&lt;00:11, 47.7MB/s]
+Downloading training-state-002048000.checkpoint: 12%|█▏        | 70.0M/568M [00:01&lt;00:09, 53.7MB/s]
+Downloading training-state-002048000.checkpoint: 16%|█▌        | 90.0M/568M [00:02&lt;00:08, 61.5MB/s]
+Downloading training-state-002048000.checkpoint: 18%|█▊        | 100M/568M [00:02&lt;00:07, 68.1MB/s] 
+Downloading training-state-002048000.checkpoint: 21%|██        | 120M/568M [00:02&lt;00:05, 78.3MB/s]
+Downloading training-state-002048000.checkpoint: 23%|██▎       | 130M/568M [00:02&lt;00:05, 79.5MB/s]
+Downloading training-state-002048000.checkpoint: 26%|██▋       | 150M/568M [00:02&lt;00:05, 86.9MB/s]
+Downloading training-state-002048000.checkpoint: 30%|██▉       | 170M/568M [00:03&lt;00:04, 98.3MB/s]
+Downloading training-state-002048000.checkpoint: 33%|███▎      | 190M/568M [00:03&lt;00:03, 106MB/s] 
+Downloading training-state-002048000.checkpoint: 37%|███▋      | 210M/568M [00:03&lt;00:04, 83.8MB/s]
+Downloading training-state-002048000.checkpoint: 41%|████      | 230M/568M [00:03&lt;00:03, 93.5MB/s]
+Downloading training-state-002048000.checkpoint: 44%|████▍     | 250M/568M [00:03&lt;00:03, 99.5MB/s]
+Downloading training-state-002048000.checkpoint: 48%|████▊     | 270M/568M [00:04&lt;00:03, 104MB/s] 
+Downloading training-state-002048000.checkpoint: 51%|█████     | 290M/568M [00:04&lt;00:02, 108MB/s]
+Downloading training-state-002048000.checkpoint: 55%|█████▍    | 310M/568M [00:04&lt;00:02, 111MB/s]
+Downloading training-state-002048000.checkpoint: 58%|█████▊    | 330M/568M [00:04&lt;00:02, 108MB/s]
+Downloading training-state-002048000.checkpoint: 62%|██████▏   | 350M/568M [00:04&lt;00:01, 114MB/s]
+Downloading training-state-002048000.checkpoint: 65%|██████▌   | 370M/568M [00:04&lt;00:01, 117MB/s]
+Downloading training-state-002048000.checkpoint: 69%|██████▊   | 390M/568M [00:05&lt;00:01, 96.4MB/s]
+Downloading training-state-002048000.checkpoint: 72%|███████▏  | 410M/568M [00:05&lt;00:01, 101MB/s] 
+Downloading training-state-002048000.checkpoint: 76%|███████▌  | 430M/568M [00:05&lt;00:01, 97.0MB/s]
+Downloading training-state-002048000.checkpoint: 79%|███████▉  | 450M/568M [00:05&lt;00:01, 103MB/s] 
+Downloading training-state-002048000.checkpoint: 83%|████████▎ | 470M/568M [00:06&lt;00:00, 109MB/s]
+Downloading training-state-002048000.checkpoint: 86%|████████▋ | 490M/568M [00:06&lt;00:00, 114MB/s]
+Downloading training-state-002048000.checkpoint: 90%|████████▉ | 510M/568M [00:06&lt;00:00, 118MB/s]
+Downloading training-state-002048000.checkpoint: 93%|█████████▎| 530M/568M [00:06&lt;00:00, 98.8MB/s]
+Downloading training-state-002048000.checkpoint: 97%|█████████▋| 550M/568M [00:06&lt;00:00, 98.4MB/s]
+Downloading training-state-002048000.checkpoint: 100%|██████████| 568M/568M [00:07&lt;00:00, 105MB/s]
+Downloading training-state-002048000.checkpoint: 100%|██████████| 568M/568M [00:07&lt;00:00, 84.8MB/s]
+
+Downloading training-state-009856000.checkpoint: 0%|          | 0.00/1.66G [00:00&lt;?, ?B/s]
+Downloading training-state-009856000.checkpoint: 1%|          | 10.0M/1.66G [00:01&lt;03:05, 9.56MB/s]
+Downloading training-state-009856000.checkpoint: 1%|          | 20.0M/1.66G [00:01&lt;01:40, 17.6MB/s]
+Downloading training-state-009856000.checkpoint: 2%|▏         | 30.0M/1.66G [00:01&lt;01:02, 27.9MB/s]
+Downloading training-state-009856000.checkpoint: 2%|▏         | 40.0M/1.66G [00:01&lt;00:53, 32.4MB/s]
+Downloading training-state-009856000.checkpoint: 3%|▎         | 50.0M/1.66G [00:02&lt;00:55, 31.3MB/s]
+Downloading training-state-009856000.checkpoint: 4%|▎         | 60.0M/1.66G [00:02&lt;00:47, 36.1MB/s]
+Downloading training-state-009856000.checkpoint: 4%|▍         | 70.0M/1.66G [00:02&lt;00:41, 41.5MB/s]
+Downloading training-state-009856000.checkpoint: 5%|▌         | 90.0M/1.66G [00:02&lt;00:31, 53.4MB/s]
+Downloading training-state-009856000.checkpoint: 6%|▌         | 100M/1.66G [00:02&lt;00:28, 58.2MB/s] 
+Downloading training-state-009856000.checkpoint: 6%|▋         | 110M/1.66G [00:02&lt;00:26, 62.6MB/s]
+Downloading training-state-009856000.checkpoint: 7%|▋         | 120M/1.66G [00:03&lt;00:24, 67.1MB/s]
+Downloading training-state-009856000.checkpoint: 8%|▊         | 130M/1.66G [00:03&lt;00:24, 66.1MB/s]
+Downloading training-state-009856000.checkpoint: 9%|▉         | 150M/1.66G [00:03&lt;00:28, 57.6MB/s]
+Downloading training-state-009856000.checkpoint: 10%|▉         | 170M/1.66G [00:03&lt;00:23, 69.1MB/s]
+Downloading training-state-009856000.checkpoint: 11%|█         | 180M/1.66G [00:04&lt;00:22, 71.5MB/s]
+Downloading training-state-009856000.checkpoint: 11%|█         | 190M/1.66G [00:04&lt;00:21, 72.6MB/s]
+Downloading training-state-009856000.checkpoint: 12%|█▏        | 200M/1.66G [00:04&lt;00:25, 61.3MB/s]
+Downloading training-state-009856000.checkpoint: 12%|█▏        | 210M/1.66G [00:04&lt;00:23, 66.0MB/s]
+Downloading training-state-009856000.checkpoint: 13%|█▎        | 220M/1.66G [00:04&lt;00:26, 59.8MB/s]
+Downloading training-state-009856000.checkpoint: 13%|█▎        | 230M/1.66G [00:04&lt;00:22, 67.4MB/s]
+Downloading training-state-009856000.checkpoint: 15%|█▍        | 250M/1.66G [00:05&lt;00:19, 77.5MB/s]
+Downloading training-state-009856000.checkpoint: 15%|█▌        | 260M/1.66G [00:05&lt;00:23, 65.2MB/s]
+Downloading training-state-009856000.checkpoint: 16%|█▋        | 280M/1.66G [00:05&lt;00:18, 80.0MB/s]
+Downloading training-state-009856000.checkpoint: 18%|█▊        | 300M/1.66G [00:05&lt;00:16, 90.4MB/s]
+Downloading training-state-009856000.checkpoint: 19%|█▉        | 320M/1.66G [00:05&lt;00:15, 92.3MB/s]
+Downloading training-state-009856000.checkpoint: 20%|█▉        | 340M/1.66G [00:06&lt;00:14, 96.1MB/s]
+Downloading training-state-009856000.checkpoint: 21%|██        | 360M/1.66G [00:06&lt;00:14, 95.2MB/s]
+Downloading training-state-009856000.checkpoint: 22%|██▏       | 380M/1.66G [00:06&lt;00:15, 90.8MB/s]
+Downloading training-state-009856000.checkpoint: 23%|██▎       | 390M/1.66G [00:06&lt;00:15, 87.2MB/s]
+Downloading training-state-009856000.checkpoint: 24%|██▍       | 410M/1.66G [00:06&lt;00:14, 96.6MB/s]
+Downloading training-state-009856000.checkpoint: 25%|██▌       | 430M/1.66G [00:07&lt;00:14, 94.3MB/s]
+Downloading training-state-009856000.checkpoint: 26%|██▌       | 440M/1.66G [00:07&lt;00:17, 75.4MB/s]
+Downloading training-state-009856000.checkpoint: 26%|██▋       | 450M/1.66G [00:07&lt;00:16, 79.4MB/s]
+Downloading training-state-009856000.checkpoint: 28%|██▊       | 470M/1.66G [00:07&lt;00:14, 86.8MB/s]
+Downloading training-state-009856000.checkpoint: 29%|██▉       | 490M/1.66G [00:07&lt;00:13, 95.5MB/s]
+Downloading training-state-009856000.checkpoint: 30%|██▉       | 510M/1.66G [00:08&lt;00:12, 102MB/s] 
+Downloading training-state-009856000.checkpoint: 31%|███       | 520M/1.66G [00:08&lt;00:13, 95.1MB/s]
+Downloading training-state-009856000.checkpoint: 32%|███▏      | 540M/1.66G [00:08&lt;00:13, 93.7MB/s]
+Downloading training-state-009856000.checkpoint: 33%|███▎      | 560M/1.66G [00:08&lt;00:13, 88.6MB/s]
+Downloading training-state-009856000.checkpoint: 33%|███▎      | 570M/1.66G [00:08&lt;00:13, 86.7MB/s]
+Downloading training-state-009856000.checkpoint: 34%|███▍      | 580M/1.66G [00:08&lt;00:15, 78.5MB/s]
+Downloading training-state-009856000.checkpoint: 35%|███▌      | 600M/1.66G [00:09&lt;00:12, 90.1MB/s]
+Downloading training-state-009856000.checkpoint: 36%|███▋      | 620M/1.66G [00:09&lt;00:12, 91.0MB/s]
+Downloading training-state-009856000.checkpoint: 38%|███▊      | 640M/1.66G [00:09&lt;00:12, 87.6MB/s]
+Downloading training-state-009856000.checkpoint: 38%|███▊      | 650M/1.66G [00:09&lt;00:12, 87.9MB/s]
+Downloading training-state-009856000.checkpoint: 39%|███▊      | 660M/1.66G [00:09&lt;00:12, 89.4MB/s]
+Downloading training-state-009856000.checkpoint: 39%|███▉      | 670M/1.66G [00:10&lt;00:12, 88.1MB/s]
+Downloading training-state-009856000.checkpoint: 40%|███▉      | 680M/1.66G [00:10&lt;00:12, 85.7MB/s]
+Downloading training-state-009856000.checkpoint: 40%|████      | 690M/1.66G [00:10&lt;00:12, 82.6MB/s]
+Downloading training-state-009856000.checkpoint: 41%|████      | 700M/1.66G [00:10&lt;00:12, 85.9MB/s]
+Downloading training-state-009856000.checkpoint: 42%|████▏     | 710M/1.66G [00:10&lt;00:14, 70.5MB/s]
+Downloading training-state-009856000.checkpoint: 43%|████▎     | 730M/1.66G [00:10&lt;00:14, 71.3MB/s]
+Downloading training-state-009856000.checkpoint: 44%|████▍     | 750M/1.66G [00:11&lt;00:13, 74.2MB/s]
+Downloading training-state-009856000.checkpoint: 45%|████▌     | 770M/1.66G [00:11&lt;00:13, 73.3MB/s]
+Downloading training-state-009856000.checkpoint: 46%|████▋     | 790M/1.66G [00:11&lt;00:11, 83.6MB/s]
+Downloading training-state-009856000.checkpoint: 48%|████▊     | 810M/1.66G [00:11&lt;00:10, 91.7MB/s]
+Downloading training-state-009856000.checkpoint: 49%|████▊     | 830M/1.66G [00:11&lt;00:09, 99.7MB/s]
+Downloading training-state-009856000.checkpoint: 49%|████▉     | 840M/1.66G [00:12&lt;00:09, 98.1MB/s]
+Downloading training-state-009856000.checkpoint: 50%|████▉     | 850M/1.66G [00:12&lt;00:09, 98.7MB/s]
+Downloading training-state-009856000.checkpoint: 50%|█████     | 860M/1.66G [00:12&lt;00:08, 98.9MB/s]
+Downloading training-state-009856000.checkpoint: 52%|█████▏    | 880M/1.66G [00:12&lt;00:09, 95.4MB/s]
+Downloading training-state-009856000.checkpoint: 53%|█████▎    | 900M/1.66G [00:12&lt;00:10, 84.1MB/s]
+Downloading training-state-009856000.checkpoint: 54%|█████▍    | 920M/1.66G [00:13&lt;00:09, 87.5MB/s]
+Downloading training-state-009856000.checkpoint: 55%|█████▍    | 930M/1.66G [00:13&lt;00:09, 86.5MB/s]
+Downloading training-state-009856000.checkpoint: 55%|█████▌    | 940M/1.66G [00:13&lt;00:09, 86.6MB/s]
+Downloading training-state-009856000.checkpoint: 56%|█████▋    | 960M/1.66G [00:13&lt;00:10, 74.8MB/s]
+Downloading training-state-009856000.checkpoint: 58%|█████▊    | 980M/1.66G [00:13&lt;00:09, 80.3MB/s]
+Downloading training-state-009856000.checkpoint: 59%|█████▊    | 0.98G/1.66G [00:14&lt;00:08, 88.5MB/s]
+Downloading training-state-009856000.checkpoint: 60%|█████▉    | 1.00G/1.66G [00:14&lt;00:07, 95.5MB/s]
+Downloading training-state-009856000.checkpoint: 60%|██████    | 1.01G/1.66G [00:14&lt;00:08, 80.0MB/s]
+Downloading training-state-009856000.checkpoint: 61%|██████    | 1.02G/1.66G [00:14&lt;00:08, 83.8MB/s]
+Downloading training-state-009856000.checkpoint: 62%|██████▏   | 1.04G/1.66G [00:14&lt;00:07, 94.5MB/s]
+Downloading training-state-009856000.checkpoint: 63%|██████▎   | 1.04G/1.66G [00:14&lt;00:07, 89.5MB/s]
+Downloading training-state-009856000.checkpoint: 63%|██████▎   | 1.05G/1.66G [00:15&lt;00:07, 84.4MB/s]
+Downloading training-state-009856000.checkpoint: 64%|██████▍   | 1.06G/1.66G [00:15&lt;00:09, 64.9MB/s]
+Downloading training-state-009856000.checkpoint: 65%|██████▍   | 1.07G/1.66G [00:15&lt;00:09, 70.3MB/s]
+Downloading training-state-009856000.checkpoint: 66%|██████▌   | 1.09G/1.66G [00:15&lt;00:07, 83.9MB/s]
+Downloading training-state-009856000.checkpoint: 66%|██████▋   | 1.10G/1.66G [00:15&lt;00:07, 77.5MB/s]
+Downloading training-state-009856000.checkpoint: 67%|██████▋   | 1.11G/1.66G [00:16&lt;00:14, 41.6MB/s]
+Downloading training-state-009856000.checkpoint: 67%|██████▋   | 1.12G/1.66G [00:16&lt;00:12, 47.8MB/s]
+Downloading training-state-009856000.checkpoint: 68%|██████▊   | 1.13G/1.66G [00:16&lt;00:10, 53.8MB/s]
+Downloading training-state-009856000.checkpoint: 69%|██████▊   | 1.14G/1.66G [00:16&lt;00:09, 60.3MB/s]
+Downloading training-state-009856000.checkpoint: 70%|██████▉   | 1.16G/1.66G [00:16&lt;00:07, 76.6MB/s]
+Downloading training-state-009856000.checkpoint: 71%|███████   | 1.18G/1.66G [00:17&lt;00:05, 90.7MB/s]
+Downloading training-state-009856000.checkpoint: 72%|███████▏  | 1.19G/1.66G [00:17&lt;00:06, 78.6MB/s]
+Downloading training-state-009856000.checkpoint: 73%|███████▎  | 1.21G/1.66G [00:17&lt;00:05, 89.0MB/s]
+Downloading training-state-009856000.checkpoint: 74%|███████▍  | 1.23G/1.66G [00:17&lt;00:05, 90.0MB/s]
+Downloading training-state-009856000.checkpoint: 75%|███████▌  | 1.25G/1.66G [00:18&lt;00:05, 79.0MB/s]
+Downloading training-state-009856000.checkpoint: 76%|███████▌  | 1.26G/1.66G [00:18&lt;00:05, 81.8MB/s]
+Downloading training-state-009856000.checkpoint: 76%|███████▋  | 1.27G/1.66G [00:18&lt;00:04, 85.3MB/s]
+Downloading training-state-009856000.checkpoint: 77%|███████▋  | 1.28G/1.66G [00:18&lt;00:04, 87.7MB/s]
+Downloading training-state-009856000.checkpoint: 77%|███████▋  | 1.29G/1.66G [00:18&lt;00:05, 80.3MB/s]
+Downloading training-state-009856000.checkpoint: 78%|███████▊  | 1.30G/1.66G [00:18&lt;00:04, 85.1MB/s]
+Downloading training-state-009856000.checkpoint: 79%|███████▊  | 1.31G/1.66G [00:18&lt;00:04, 85.9MB/s]
+Downloading training-state-009856000.checkpoint: 79%|███████▉  | 1.32G/1.66G [00:19&lt;00:05, 66.5MB/s]
+Downloading training-state-009856000.checkpoint: 80%|████████  | 1.34G/1.66G [00:19&lt;00:04, 76.4MB/s]
+Downloading training-state-009856000.checkpoint: 81%|████████  | 1.35G/1.66G [00:19&lt;00:04, 69.8MB/s]
+Downloading training-state-009856000.checkpoint: 82%|████████▏ | 1.36G/1.66G [00:19&lt;00:04, 69.4MB/s]
+Downloading training-state-009856000.checkpoint: 82%|████████▏ | 1.37G/1.66G [00:19&lt;00:04, 72.3MB/s]
+Downloading training-state-009856000.checkpoint: 83%|████████▎ | 1.38G/1.66G [00:20&lt;00:05, 55.4MB/s]
+Downloading training-state-009856000.checkpoint: 84%|████████▍ | 1.40G/1.66G [00:20&lt;00:03, 72.0MB/s]
+Downloading training-state-009856000.checkpoint: 85%|████████▌ | 1.42G/1.66G [00:20&lt;00:03, 75.6MB/s]
+Downloading training-state-009856000.checkpoint: 86%|████████▌ | 1.43G/1.66G [00:20&lt;00:03, 78.8MB/s]
+Downloading training-state-009856000.checkpoint: 86%|████████▋ | 1.44G/1.66G [00:20&lt;00:03, 72.8MB/s]
+Downloading training-state-009856000.checkpoint: 87%|████████▋ | 1.45G/1.66G [00:20&lt;00:03, 59.8MB/s]
+Downloading training-state-009856000.checkpoint: 87%|████████▋ | 1.46G/1.66G [00:21&lt;00:03, 62.2MB/s]
+Downloading training-state-009856000.checkpoint: 89%|████████▊ | 1.47G/1.66G [00:21&lt;00:02, 71.3MB/s]
+Downloading training-state-009856000.checkpoint: 90%|████████▉ | 1.49G/1.66G [00:21&lt;00:02, 81.0MB/s]
+Downloading training-state-009856000.checkpoint: 90%|█████████ | 1.50G/1.66G [00:21&lt;00:02, 65.7MB/s]
+Downloading training-state-009856000.checkpoint: 92%|█████████▏| 1.52G/1.66G [00:22&lt;00:02, 70.8MB/s]
+Downloading training-state-009856000.checkpoint: 92%|█████████▏| 1.53G/1.66G [00:22&lt;00:02, 69.0MB/s]
+Downloading training-state-009856000.checkpoint: 93%|█████████▎| 1.54G/1.66G [00:22&lt;00:01, 73.9MB/s]
+Downloading training-state-009856000.checkpoint: 93%|█████████▎| 1.55G/1.66G [00:22&lt;00:01, 75.1MB/s]
+Downloading training-state-009856000.checkpoint: 94%|█████████▍| 1.56G/1.66G [00:22&lt;00:01, 65.7MB/s]
+Downloading training-state-009856000.checkpoint: 94%|█████████▍| 1.57G/1.66G [00:22&lt;00:01, 72.7MB/s]
+Downloading training-state-009856000.checkpoint: 96%|█████████▌| 1.59G/1.66G [00:23&lt;00:00, 86.9MB/s]
+Downloading training-state-009856000.checkpoint: 96%|█████████▋| 1.60G/1.66G [00:23&lt;00:00, 90.0MB/s]
+Downloading training-state-009856000.checkpoint: 97%|█████████▋| 1.62G/1.66G [00:23&lt;00:00, 98.8MB/s]
+Downloading training-state-009856000.checkpoint: 98%|█████████▊| 1.63G/1.66G [00:23&lt;00:00, 93.2MB/s]
+Downloading training-state-009856000.checkpoint: 99%|█████████▉| 1.65G/1.66G [00:23&lt;00:00, 101MB/s] 
+Downloading training-state-009856000.checkpoint: 100%|██████████| 1.66G/1.66G [00:23&lt;00:00, 107MB/s]
+Downloading training-state-009856000.checkpoint: 100%|██████████| 1.66G/1.66G [00:23&lt;00:00, 75.2MB/s]
+
+Downloading config.json: 0%|          | 0.00/25.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 168B/s]
+Downloading config.json: 100%|██████████| 25.0/25.0 [00:00&lt;00:00, 165B/s]
+
+Downloading amip_midmonth_sst.nc: 0%|          | 0.00/454M [00:00&lt;?, ?B/s]
+Downloading amip_midmonth_sst.nc: 2%|▏         | 10.0M/454M [00:00&lt;00:41, 11.3MB/s]
+Downloading amip_midmonth_sst.nc: 7%|▋         | 30.0M/454M [00:01&lt;00:12, 34.9MB/s]
+Downloading amip_midmonth_sst.nc: 11%|█         | 50.0M/454M [00:01&lt;00:07, 57.0MB/s]
+Downloading amip_midmonth_sst.nc: 15%|█▌        | 70.0M/454M [00:01&lt;00:05, 76.7MB/s]
+Downloading amip_midmonth_sst.nc: 20%|█▉        | 90.0M/454M [00:01&lt;00:04, 91.9MB/s]
+Downloading amip_midmonth_sst.nc: 24%|██▍       | 110M/454M [00:01&lt;00:03, 101MB/s]  
+Downloading amip_midmonth_sst.nc: 29%|██▊       | 130M/454M [00:01&lt;00:03, 108MB/s]
+Downloading amip_midmonth_sst.nc: 33%|███▎      | 150M/454M [00:02&lt;00:02, 116MB/s]
+Downloading amip_midmonth_sst.nc: 37%|███▋      | 170M/454M [00:02&lt;00:02, 120MB/s]
+Downloading amip_midmonth_sst.nc: 42%|████▏     | 190M/454M [00:02&lt;00:02, 123MB/s]
+Downloading amip_midmonth_sst.nc: 46%|████▌     | 210M/454M [00:02&lt;00:02, 125MB/s]
+Downloading amip_midmonth_sst.nc: 51%|█████     | 230M/454M [00:02&lt;00:01, 129MB/s]
+Downloading amip_midmonth_sst.nc: 55%|█████▌    | 250M/454M [00:02&lt;00:01, 135MB/s]
+Downloading amip_midmonth_sst.nc: 59%|█████▉    | 270M/454M [00:02&lt;00:01, 140MB/s]
+Downloading amip_midmonth_sst.nc: 64%|██████▍   | 290M/454M [00:03&lt;00:01, 140MB/s]
+Downloading amip_midmonth_sst.nc: 68%|██████▊   | 310M/454M [00:03&lt;00:01, 136MB/s]
+Downloading amip_midmonth_sst.nc: 73%|███████▎  | 330M/454M [00:03&lt;00:00, 131MB/s]
+Downloading amip_midmonth_sst.nc: 77%|███████▋  | 350M/454M [00:03&lt;00:00, 127MB/s]
+Downloading amip_midmonth_sst.nc: 81%|████████▏ | 370M/454M [00:03&lt;00:00, 131MB/s]
+Downloading amip_midmonth_sst.nc: 86%|████████▌ | 390M/454M [00:03&lt;00:00, 133MB/s]
+Downloading amip_midmonth_sst.nc: 90%|█████████ | 410M/454M [00:04&lt;00:00, 134MB/s]
+Downloading amip_midmonth_sst.nc: 95%|█████████▍| 430M/454M [00:04&lt;00:00, 139MB/s]
+Downloading amip_midmonth_sst.nc: 99%|█████████▉| 450M/454M [00:04&lt;00:00, 140MB/s]
+Downloading amip_midmonth_sst.nc: 100%|██████████| 454M/454M [00:04&lt;00:00, 109MB/s]</code></pre></details>
 
 <h2 id="generating-synthetic-weather-data">Generating Synthetic Weather Data<a class="headerlink" href="#generating-synthetic-weather-data" title="Permanent link">&para;</a></h2>
 <p>Once loaded, generating data from cBottle is as easy as any other data source.
@@ -3064,13 +3288,14 @@ generate different fields that are reflective of the requested time and SST stat
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">era5_da</span><span class="p">)</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">cbottle_da</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>87 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00, 48.90it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>88 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  50%|█████     | 1/2 [00:00&lt;00:00,  2.40it/s]
+Fetching WB2 data: 100%|██████████| 2/2 [00:00&lt;00:00,  4.16it/s]
 
 Generating cBottle Data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Generating cBottle Data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.27s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  5.86s/it]
-Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  6.23s/it]
+Generating cBottle Data:  50%|█████     | 1/2 [00:08&lt;00:08,  8.18s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  5.82s/it]
+Generating cBottle Data: 100%|██████████| 2/2 [00:12&lt;00:00,  6.18s/it]
 &lt;xarray.DataArray (time: 1, variable: 2, lat: 721, lon: 1440)&gt; Size: 17MB
 array([[[[1.01743422e+05, 1.01743422e+05, 1.01743422e+05, ...,
           1.01743422e+05, 1.01743422e+05, 1.01743422e+05],
@@ -3105,47 +3330,47 @@ Coordinates:
   * lat       (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon       (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 &lt;xarray.DataArray (time: 5, variable: 2, lat: 721, lon: 1440)&gt; Size: 83MB
-array([[[[ 1.00579015e+05,  1.00579015e+05,  1.00579015e+05, ...,
-           1.00579015e+05,  1.00579015e+05,  1.00579015e+05],
-         [ 1.00567175e+05,  1.00567048e+05,  1.00566921e+05, ...,
-           1.00567557e+05,  1.00567429e+05,  1.00567302e+05],
-         [ 1.00555335e+05,  1.00555081e+05,  1.00554826e+05, ...,
-           1.00556098e+05,  1.00555844e+05,  1.00555590e+05],
+array([[[[ 1.01586902e+05,  1.01586902e+05,  1.01586902e+05, ...,
+           1.01586902e+05,  1.01586902e+05,  1.01586902e+05],
+         [ 1.01572542e+05,  1.01572290e+05,  1.01572039e+05, ...,
+           1.01573297e+05,  1.01573046e+05,  1.01572794e+05],
+         [ 1.01558182e+05,  1.01557679e+05,  1.01557175e+05, ...,
+           1.01559693e+05,  1.01559189e+05,  1.01558686e+05],
          ...,
-         [ 9.94134702e+04,  9.94134578e+04,  9.94134453e+04, ...,
-           9.94135077e+04,  9.94134952e+04,  9.94134827e+04],
-         [ 9.93714624e+04,  9.93714562e+04,  9.93714499e+04, ...,
-           9.93714811e+04,  9.93714749e+04,  9.93714686e+04],
-         [ 9.93294546e+04,  9.93294546e+04,  9.93294546e+04, ...,
-           9.93294546e+04,  9.93294546e+04,  9.93294546e+04]],
+         [ 1.01518211e+05,  1.01518045e+05,  1.01517879e+05, ...,
+           1.01518708e+05,  1.01518542e+05,  1.01518376e+05],
+         [ 1.01464108e+05,  1.01464025e+05,  1.01463942e+05, ...,
+           1.01464356e+05,  1.01464274e+05,  1.01464191e+05],
+         [ 1.01410005e+05,  1.01410005e+05,  1.01410005e+05, ...,
+           1.01410005e+05,  1.01410005e+05,  1.01410005e+05]],
 
-        [[ 1.00518364e+01,  1.00518364e+01,  1.00518364e+01, ...,
-           1.00518364e+01,  1.00518364e+01,  1.00518364e+01],
-         [ 9.72932979e+00,  9.73005704e+00,  9.73078430e+00, ...,
-           9.72714802e+00,  9.72787528e+00,  9.72860253e+00],
-         [ 9.40682314e+00,  9.40827765e+00,  9.40973216e+00, ...,
-           9.40245962e+00,  9.40391413e+00,  9.40536864e+00],
+        [[ 6.66633608e+00,  6.66633608e+00,  6.66633608e+00, ...,
+           6.66633608e+00,  6.66633608e+00,  6.66633608e+00],
+         [ 6.48878357e+00,  6.48563303e+00,  6.48248248e+00, ...,
+           6.49823521e+00,  6.49508466e+00,  6.49193412e+00],
+         [ 6.31123106e+00,  6.30492997e+00,  6.29862888e+00, ...,
+           6.33013433e+00,  6.32383324e+00,  6.31753215e+00],
 ...
-         [ 9.90252797e+04,  9.90255691e+04,  9.90258584e+04, ...,
-           9.90244115e+04,  9.90247009e+04,  9.90249903e+04],
-         [ 9.90503409e+04,  9.90504856e+04,  9.90506303e+04, ...,
-           9.90499068e+04,  9.90500515e+04,  9.90501962e+04],
-         [ 9.90754021e+04,  9.90754021e+04,  9.90754021e+04, ...,
-           9.90754021e+04,  9.90754021e+04,  9.90754021e+04]],
+         [ 9.96186255e+04,  9.96185161e+04,  9.96184068e+04, ...,
+           9.96189536e+04,  9.96188442e+04,  9.96187349e+04],
+         [ 9.96241625e+04,  9.96241078e+04,  9.96240531e+04, ...,
+           9.96243265e+04,  9.96242718e+04,  9.96242171e+04],
+         [ 9.96296994e+04,  9.96296994e+04,  9.96296994e+04, ...,
+           9.96296994e+04,  9.96296994e+04,  9.96296994e+04]],
 
-        [[ 8.60659253e+00,  8.60659253e+00,  8.60659253e+00, ...,
-           8.60659253e+00,  8.60659253e+00,  8.60659253e+00],
-         [ 8.77743512e+00,  8.77945145e+00,  8.78146779e+00, ...,
-           8.77138611e+00,  8.77340245e+00,  8.77541878e+00],
-         [ 8.94827770e+00,  8.95231037e+00,  8.95634304e+00, ...,
-           8.93617969e+00,  8.94021236e+00,  8.94424503e+00],
+        [[ 1.17968530e+01,  1.17968530e+01,  1.17968530e+01, ...,
+           1.17968530e+01,  1.17968530e+01,  1.17968530e+01],
+         [ 1.17677147e+01,  1.17660230e+01,  1.17643313e+01, ...,
+           1.17727897e+01,  1.17710980e+01,  1.17694064e+01],
+         [ 1.17385763e+01,  1.17351930e+01,  1.17318096e+01, ...,
+           1.17487264e+01,  1.17453430e+01,  1.17419597e+01],
          ...,
-         [-6.30440280e-01, -6.30373932e-01, -6.30307584e-01, ...,
-          -6.30639325e-01, -6.30572976e-01, -6.30506628e-01],
-         [-5.59549842e-01, -5.59516668e-01, -5.59483494e-01, ...,
-          -5.59649365e-01, -5.59616191e-01, -5.59583017e-01],
-         [-4.88659405e-01, -4.88659405e-01, -4.88659405e-01, ...,
-          -4.88659405e-01, -4.88659405e-01, -4.88659405e-01]]]])
+         [-2.24226318e+00, -2.24403348e+00, -2.24580377e+00, ...,
+          -2.23695229e+00, -2.23872259e+00, -2.24049288e+00],
+         [-2.16469055e+00, -2.16557569e+00, -2.16646084e+00, ...,
+          -2.16203510e+00, -2.16292025e+00, -2.16380540e+00],
+         [-2.08711791e+00, -2.08711791e+00, -2.08711791e+00, ...,
+          -2.08711791e+00, -2.08711791e+00, -2.08711791e+00]]]])
 Coordinates:
   * time      (time) datetime64[ns] 40B 2022-09-05 2022-09-05 ... 2022-09-05
   * variable  (variable) &lt;U4 32B 'msl' 'tcwv'
@@ -3199,6 +3424,9 @@ data.</p>
 <a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/15_tcwv_cbottle_datasource.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/cartopy/io/__init__.py:242: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/110m_physical/ne_110m_coastline.zip
+  warnings.warn(f'Downloading: {url}', DownloadWarning)</code></pre></details>
+
 <p><img alt="Output from CBottle Data Generation and Infilling" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-02_cbottle_generation/001-cell-7.jpg" /></p>
 <h2 id="variable-infilling-with-cbottleinfill-diagnostic">Variable Infilling with CBottleInfill Diagnostic<a class="headerlink" href="#variable-infilling-with-cbottleinfill-diagnostic" title="Permanent link">&para;</a></h2>
 <p>Next lets look at using the same model but for variable infilling.
@@ -3230,8 +3458,9 @@ variables.</p>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">output_0</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_0</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 161.69it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/10 [00:00&lt;?, ?it/s]
+Fetching WB2 data:  10%|█         | 1/10 [00:00&lt;00:03,  2.85it/s]
+Fetching WB2 data: 100%|██████████| 10/10 [00:00&lt;00:00, 25.06it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
 <p>Now repeat the process above but with an expanded set of variables.
@@ -3265,12 +3494,22 @@ information.</p>
 <a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="n">output_1</span><span class="p">,</span> <span class="n">output_coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="nb">print</span><span class="p">(</span><span class="n">output_1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:16,  3.87it/s]
-Fetching WB2 data:   8%|▊         | 5/65 [00:00&lt;00:04, 14.68it/s]
-Fetching WB2 data:  17%|█▋        | 11/65 [00:00&lt;00:02, 24.97it/s]
-Fetching WB2 data:  29%|██▉       | 19/65 [00:00&lt;00:01, 34.53it/s]
-Fetching WB2 data: 100%|██████████| 65/65 [00:00&lt;00:00, 87.45it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/65 [00:00&lt;?, ?it/s]
+Fetching WB2 data:   2%|▏         | 1/65 [00:00&lt;00:08,  7.27it/s]
+Fetching WB2 data:  25%|██▍       | 16/65 [00:00&lt;00:01, 30.46it/s]
+Fetching WB2 data:  32%|███▏      | 21/65 [00:00&lt;00:02, 20.01it/s]
+Fetching WB2 data:  38%|███▊      | 25/65 [00:01&lt;00:01, 22.46it/s]
+Fetching WB2 data:  48%|████▊     | 31/65 [00:01&lt;00:01, 28.85it/s]
+Fetching WB2 data:  57%|█████▋    | 37/65 [00:01&lt;00:00, 34.90it/s]
+Fetching WB2 data:  65%|██████▍   | 42/65 [00:01&lt;00:00, 33.51it/s]
+Fetching WB2 data:  71%|███████   | 46/65 [00:01&lt;00:00, 31.22it/s]
+Fetching WB2 data:  77%|███████▋  | 50/65 [00:01&lt;00:00, 25.71it/s]
+Fetching WB2 data:  82%|████████▏ | 53/65 [00:02&lt;00:00, 15.05it/s]
+Fetching WB2 data:  86%|████████▌ | 56/65 [00:02&lt;00:00, 15.83it/s]
+Fetching WB2 data:  91%|█████████ | 59/65 [00:02&lt;00:00, 16.70it/s]
+Fetching WB2 data:  95%|█████████▌| 62/65 [00:02&lt;00:00, 16.91it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:02&lt;00:00, 17.61it/s]
+Fetching WB2 data: 100%|██████████| 65/65 [00:02&lt;00:00, 21.70it/s]
 torch.Size([5, 1, 45, 721, 1440])</code></pre></details>
 
 <h2 id="post-processing-cbottleinfill">Post Processing CBottleInfill<a class="headerlink" href="#post-processing-cbottleinfill" title="Permanent link">&para;</a></h2>
@@ -3332,13 +3571,13 @@ truth due the additional information provided.</p>
 <a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/15_tcwv_cbottle_infill.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>Fetching WB2 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 229.76it/s]</code></pre></details>
+Fetching WB2 data: 100%|██████████| 1/1 [00:00&lt;00:00, 229.62it/s]</code></pre></details>
 
 <p><img alt="Output from CBottle Data Generation and Infilling" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-02_cbottle_generation/003-cell-13.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 111.3s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-02_cbottle_generation/02_cbottle_generation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 163.0s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 51s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 43s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

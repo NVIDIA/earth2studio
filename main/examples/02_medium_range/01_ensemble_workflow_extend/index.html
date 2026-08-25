@@ -3548,15 +3548,10 @@ handed to them. In this example, we will use the built in ensemble workflow
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Create the data source</span>
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]
-WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
+Downloading dlwp_cubesphere.zip: 34%|███▍      | 22.9M/67.2M [00:00&lt;00:00, 238MB/s]
+Downloading dlwp_cubesphere.zip: 77%|███████▋  | 51.6M/67.2M [00:00&lt;00:00, 275MB/s]
+Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 269MB/s]</code></pre></details>
 
 <p>The perturbation method in <a href="../../01_getting_started/03_ensemble_workflow/">03 ensemble workflow</a>
 is naive because it applies the same noise amplitude to every variable. We can create
@@ -3618,18 +3613,21 @@ members which will be ran in 2 batches with batch size 4.</p>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">output_coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;tcwv&quot;</span><span class="p">])},</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>77 lines</small></summary><pre class="no-copy"><code>2026-08-19 20:25:03.009 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
-2026-08-19 20:25:03.009 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>58 lines</small></summary><pre class="no-copy"><code>2026-08-25 09:12:40.840 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
+2026-08-25 09:12:40.840 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.07it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 27.30it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:02,  2.35it/s]
+Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:01,  3.15it/s]
+Fetching GFS data:  57%|█████▋    | 4/7 [00:00&lt;00:00,  6.30it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  8.74it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.29it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 29.88it/s]
-2026-08-19 20:25:03.619 | SUCCESS  | earth2studio.run:ensemble:422 - Fetched data from GFS
-2026-08-19 20:25:03.674 | INFO     | earth2studio.run:ensemble:466 - Starting 8 Member Ensemble Inference with             2 number of batches.
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.63it/s]
+Fetching GFS data:  71%|███████▏  | 5/7 [00:00&lt;00:00, 17.56it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.03it/s]
+2026-08-25 09:12:42.833 | SUCCESS  | earth2studio.run:ensemble:422 - Fetched data from GFS
+2026-08-25 09:12:42.877 | INFO     | earth2studio.run:ensemble:466 - Starting 8 Member Ensemble Inference with             2 number of batches.
 
 
 
@@ -3637,63 +3635,41 @@ Total Ensemble Batches:   0%|          | 0/2 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:04,  2.22it/s]
+Running batch 0 inference:   9%|▉         | 1/11 [00:00&lt;00:01,  7.36it/s]
 
-Running batch 0 inference:  18%|█▊        | 2/11 [00:01&lt;00:04,  1.85it/s]
+Running batch 0 inference:  18%|█▊        | 2/11 [00:00&lt;00:01,  4.84it/s]
 
-Running batch 0 inference:  27%|██▋       | 3/11 [00:01&lt;00:03,  2.20it/s]
+Running batch 0 inference:  36%|███▋      | 4/11 [00:00&lt;00:00,  8.08it/s]
 
-Running batch 0 inference:  36%|███▋      | 4/11 [00:01&lt;00:03,  2.30it/s]
+Running batch 0 inference:  55%|█████▍    | 6/11 [00:00&lt;00:00,  9.91it/s]
 
-Running batch 0 inference:  45%|████▌     | 5/11 [00:02&lt;00:02,  2.41it/s]
+Running batch 0 inference:  73%|███████▎  | 8/11 [00:00&lt;00:00, 11.13it/s]
 
-Running batch 0 inference:  55%|█████▍    | 6/11 [00:02&lt;00:02,  2.49it/s]
-
-Running batch 0 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.55it/s]
-
-Running batch 0 inference:  73%|███████▎  | 8/11 [00:03&lt;00:01,  2.55it/s]
-
-Running batch 0 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  2.59it/s]
-
-Running batch 0 inference:  91%|█████████ | 10/11 [00:04&lt;00:00,  2.61it/s]
-
-Running batch 0 inference: 100%|██████████| 11/11 [00:04&lt;00:00,  2.53it/s]
+Running batch 0 inference:  91%|█████████ | 10/11 [00:00&lt;00:00, 11.82it/s]
 
 
 
 
-Total Ensemble Batches:  50%|█████     | 1/2 [00:05&lt;00:05,  5.72s/it]
+Total Ensemble Batches:  50%|█████     | 1/2 [00:02&lt;00:02,  2.62s/it]
 
 Running batch 4 inference:   0%|          | 0/11 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   9%|▉         | 1/11 [00:00&lt;00:03,  2.90it/s]
+Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:00, 13.96it/s]
 
-Running batch 4 inference:  18%|█▊        | 2/11 [00:00&lt;00:03,  2.57it/s]
+Running batch 4 inference:  36%|███▋      | 4/11 [00:00&lt;00:00, 12.80it/s]
 
-Running batch 4 inference:  27%|██▋       | 3/11 [00:01&lt;00:02,  2.75it/s]
+Running batch 4 inference:  55%|█████▍    | 6/11 [00:00&lt;00:00, 14.16it/s]
 
-Running batch 4 inference:  36%|███▋      | 4/11 [00:01&lt;00:02,  2.67it/s]
+Running batch 4 inference:  73%|███████▎  | 8/11 [00:00&lt;00:00, 14.10it/s]
 
-Running batch 4 inference:  45%|████▌     | 5/11 [00:01&lt;00:02,  2.77it/s]
-
-Running batch 4 inference:  55%|█████▍    | 6/11 [00:02&lt;00:01,  2.75it/s]
-
-Running batch 4 inference:  64%|██████▎   | 7/11 [00:02&lt;00:01,  2.87it/s]
-
-Running batch 4 inference:  73%|███████▎  | 8/11 [00:02&lt;00:00,  3.05it/s]
-
-Running batch 4 inference:  82%|████████▏ | 9/11 [00:03&lt;00:00,  3.10it/s]
-
-Running batch 4 inference:  91%|█████████ | 10/11 [00:03&lt;00:00,  3.18it/s]
-
-Running batch 4 inference: 100%|██████████| 11/11 [00:03&lt;00:00,  3.09it/s]
+Running batch 4 inference:  91%|█████████ | 10/11 [00:00&lt;00:00, 14.50it/s]
 
 
 
 
-Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.21s/it]
-Total Ensemble Batches: 100%|██████████| 2/2 [00:10&lt;00:00,  5.29s/it]
-2026-08-19 20:25:14.249 | SUCCESS  | earth2studio.run:ensemble:536 - 
+Total Ensemble Batches: 100%|██████████| 2/2 [00:04&lt;00:00,  2.22s/it]
+Total Ensemble Batches: 100%|██████████| 2/2 [00:04&lt;00:00,  2.28s/it]
+2026-08-25 09:12:47.432 | SUCCESS  | earth2studio.run:ensemble:536 - 
 Inference complete</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
@@ -3772,9 +3748,9 @@ perturbing the temperature field.</p>
 </code></pre></div>
 <p><img alt="Output from Single Variable Perturbation Method" class="e2sg-output-image" loading="lazy" src="../../_assets/02_medium_range-01_ensemble_workflow_extend/003-cell-12.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 44.8s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-01_ensemble_workflow_extend/01_ensemble_workflow_extend.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 40.0s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>44.8 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>40.0 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

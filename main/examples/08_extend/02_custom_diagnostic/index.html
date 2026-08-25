@@ -3113,9 +3113,6 @@ to get the required <code>to(device)</code> method for free.</p>
 <a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a>        <span class="n">out</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="mf">273.15</span>  <span class="c1"># To celcius</span>
 <a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a>        <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">out_coords</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]</code></pre></details>
-
 <h3 id="inputoutput-coordinates">Input/Output Coordinates<a class="headerlink" href="#inputoutput-coordinates" title="Permanent link">&para;</a></h3>
 <p>Defining the input/output coordinate systems is essential for any model in
 Earth2Studio since this is how both the package and users can learn what type of data
@@ -3168,13 +3165,10 @@ workflow. We will use the built in workflow <a href="../../../modules/generated/
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>7 lines</small></summary><pre class="no-copy"><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
+Downloading dlwp_cubesphere.zip: 21%|██        | 13.8M/67.2M [00:00&lt;00:00, 145MB/s]
+Downloading dlwp_cubesphere.zip: 80%|███████▉  | 53.7M/67.2M [00:00&lt;00:00, 301MB/s]
+Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 285MB/s]</code></pre></details>
 
 <h2 id="execute-the-workflow">Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Permanent link">&para;</a></h2>
 <p>Running our workflow with a build in prognostic model and a custom diagnostic is the
@@ -3186,39 +3180,33 @@ same as running a built in diagnostic.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre class="no-copy"><code>2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
-2026-08-19 21:53:50.301 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>34 lines</small></summary><pre class="no-copy"><code>2026-08-25 13:39:51.869 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
+2026-08-25 13:39:51.870 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.09it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.02it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:03,  1.81it/s]
+Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:01,  3.20it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  9.09it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  4.66it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 31.58it/s]
-2026-08-19 21:53:51.002 | SUCCESS  | earth2studio.run:diagnostic:307 - Fetched data from GFS
-2026-08-19 21:53:51.003 | INFO     | earth2studio.run:diagnostic:312 - Inference starting!
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.63it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.07it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 17.46it/s]
+2026-08-25 13:39:53.719 | SUCCESS  | earth2studio.run:diagnostic:307 - Fetched data from GFS
+2026-08-25 13:39:53.720 | INFO     | earth2studio.run:diagnostic:312 - Inference starting!
 
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:04,  4.69it/s]
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:03,  5.12it/s]
 
-Running inference:  19%|█▉        | 4/21 [00:00&lt;00:02,  7.53it/s]
+Running inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 18.94it/s]
 
-Running inference:  29%|██▊       | 6/21 [00:00&lt;00:01,  9.98it/s]
+Running inference:  67%|██████▋   | 14/21 [00:00&lt;00:00, 29.34it/s]
 
-Running inference:  43%|████▎     | 9/21 [00:00&lt;00:00, 14.22it/s]
-
-Running inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 15.09it/s]
-
-Running inference:  71%|███████▏  | 15/21 [00:01&lt;00:00, 17.44it/s]
-
-Running inference:  81%|████████  | 17/21 [00:01&lt;00:00, 17.21it/s]
-
-Running inference:  90%|█████████ | 19/21 [00:01&lt;00:00, 17.83it/s]
-Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 14.57it/s]
-2026-08-19 21:53:52.445 | SUCCESS  | earth2studio.run:diagnostic:340 - 
+Running inference:  95%|█████████▌| 20/21 [00:00&lt;00:00, 36.90it/s]
+Running inference: 100%|██████████| 21/21 [00:00&lt;00:00, 28.60it/s]
+2026-08-25 13:39:54.455 | SUCCESS  | earth2studio.run:diagnostic:340 - 
 Inference complete
 /
 ├── lat (721,) float64
@@ -3278,9 +3266,9 @@ Inference complete
 </code></pre></div>
 <p><img alt="Output from Extending Diagnostic Models" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-02_custom_diagnostic/001-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 56.6s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 62.0s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>56.6 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 2s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

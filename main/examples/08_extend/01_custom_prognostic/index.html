@@ -3165,9 +3165,6 @@ different devices. If your model is PyTorch, then this will be easy.</p>
 <a id="__codelineno-0-128" name="__codelineno-0-128" href="#__codelineno-0-128"></a>
 <a id="__codelineno-0-129" name="__codelineno-0-129" href="#__codelineno-0-129"></a>        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_generator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]</code></pre></details>
-
 <h3 id="inputoutput-coordinates">Input/Output Coordinates<a class="headerlink" href="#inputoutput-coordinates" title="Permanent link">&para;</a></h3>
 <p>Defining the input/output coordinate systems is essential for any model in
 Earth2Studio since this is how both the package and users can learn what type of data
@@ -3259,52 +3256,26 @@ just like any other model.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>54 lines</small></summary><pre class="no-copy"><code>WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
-2026-08-19 21:53:15.294 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-19 21:53:15.295 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>28 lines</small></summary><pre class="no-copy"><code>2026-08-25 13:39:22.165 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-25 13:39:22.756 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching GFS data:  50%|█████     | 1/2 [00:00&lt;00:00,  7.49it/s]
-Fetching GFS data: 100%|██████████| 2/2 [00:00&lt;00:00, 14.90it/s]
-2026-08-19 21:53:15.551 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from GFS
-2026-08-19 21:53:15.552 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching GFS data:  50%|█████     | 1/2 [00:00&lt;00:00,  1.99it/s]
+Fetching GFS data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.75it/s]
+Fetching GFS data: 100%|██████████| 2/2 [00:00&lt;00:00,  3.31it/s]
+2026-08-25 13:39:24.278 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from GFS
+2026-08-25 13:39:24.279 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/25 [00:00&lt;?, ?it/s]
 
-Running inference:   4%|▍         | 1/25 [00:00&lt;00:04,  5.83it/s]
+Running inference:  20%|██        | 5/25 [00:00&lt;00:00, 45.28it/s]
 
-Running inference:   8%|▊         | 2/25 [00:00&lt;00:03,  6.39it/s]
+Running inference:  48%|████▊     | 12/25 [00:00&lt;00:00, 55.25it/s]
 
-Running inference:  16%|█▌        | 4/25 [00:00&lt;00:02,  9.55it/s]
-
-Running inference:  24%|██▍       | 6/25 [00:00&lt;00:01, 11.49it/s]
-
-Running inference:  32%|███▏      | 8/25 [00:00&lt;00:01, 12.77it/s]
-
-Running inference:  40%|████      | 10/25 [00:00&lt;00:01, 13.57it/s]
-
-Running inference:  48%|████▊     | 12/25 [00:00&lt;00:00, 14.06it/s]
-
-Running inference:  56%|█████▌    | 14/25 [00:01&lt;00:00, 14.38it/s]
-
-Running inference:  64%|██████▍   | 16/25 [00:01&lt;00:00, 14.61it/s]
-
-Running inference:  72%|███████▏  | 18/25 [00:01&lt;00:00, 14.74it/s]
-
-Running inference:  80%|████████  | 20/25 [00:01&lt;00:00, 14.76it/s]
-
-Running inference:  88%|████████▊ | 22/25 [00:01&lt;00:00, 13.60it/s]
-
-Running inference:  96%|█████████▌| 24/25 [00:01&lt;00:00, 12.50it/s]
-Running inference: 100%|██████████| 25/25 [00:01&lt;00:00, 12.59it/s]
-2026-08-19 21:53:17.540 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference:  76%|███████▌  | 19/25 [00:00&lt;00:00, 57.82it/s]
+Running inference: 100%|██████████| 25/25 [00:00&lt;00:00, 57.23it/s]
+2026-08-25 13:39:24.717 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── lat (721,) float64
@@ -3348,9 +3319,9 @@ become progressively more noisy as time progresses.</p>
 </code></pre></div>
 <p><img alt="Output from Extending Prognostic Models" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-01_custom_prognostic/001-cell-13.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-01_custom_prognostic/01_custom_prognostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-01_custom_prognostic/01_custom_prognostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 35.2s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-01_custom_prognostic/01_custom_prognostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-01_custom_prognostic/01_custom_prognostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 21.3s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>35.2 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>21.3 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

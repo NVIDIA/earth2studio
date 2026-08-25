@@ -3082,15 +3082,433 @@ toward the observed values.</p>
 <a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
 <a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="n">hrrr</span> <span class="o">=</span> <span class="n">HRRR</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]
-WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>427 lines</small></summary><pre class="no-copy"><code>Downloading config.json: 0%|          | 0.00/37.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 306B/s]
+Downloading config.json: 100%|██████████| 37.0/37.0 [00:00&lt;00:00, 301B/s]
+
+Downloading model.yaml: 0%|          | 0.00/122 [00:00&lt;?, ?B/s]
+Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 1.21kB/s]
+Downloading model.yaml: 100%|██████████| 122/122 [00:00&lt;00:00, 1.18kB/s]
+
+Downloading StormCastCONUS-high.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-high.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:08, 8.21MB/s]
+Downloading StormCastCONUS-high.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:04, 16.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:44, 23.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:33, 30.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:26, 37.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:23, 42.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:20, 48.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:18, 54.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:18, 53.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:16, 57.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:16, 57.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:16, 55.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:16, 55.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:16, 56.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 15%|█▍        | 150M/0.99G [00:03&lt;00:16, 56.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 16%|█▌        | 160M/0.99G [00:03&lt;00:15, 58.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:14, 59.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:14, 60.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:13, 62.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:14, 59.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 21%|██        | 210M/0.99G [00:04&lt;00:14, 56.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:13, 60.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 23%|██▎       | 230M/0.99G [00:05&lt;00:14, 58.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 24%|██▎       | 240M/0.99G [00:05&lt;00:13, 59.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 25%|██▍       | 250M/0.99G [00:05&lt;00:14, 55.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:14, 56.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 27%|██▋       | 270M/0.99G [00:05&lt;00:13, 57.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:12, 61.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 29%|██▊       | 290M/0.99G [00:06&lt;00:11, 63.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 30%|██▉       | 300M/0.99G [00:06&lt;00:12, 62.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:12, 60.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 32%|███▏      | 320M/0.99G [00:06&lt;00:12, 58.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 33%|███▎      | 330M/0.99G [00:06&lt;00:12, 58.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:12, 58.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 35%|███▍      | 350M/0.99G [00:07&lt;00:12, 57.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 36%|███▌      | 360M/0.99G [00:07&lt;00:11, 58.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 370M/0.99G [00:07&lt;00:11, 58.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 37%|███▋      | 380M/0.99G [00:07&lt;00:10, 62.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 38%|███▊      | 390M/0.99G [00:08&lt;00:10, 59.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 39%|███▉      | 400M/0.99G [00:08&lt;00:09, 64.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 40%|████      | 410M/0.99G [00:08&lt;00:10, 61.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 41%|████▏     | 420M/0.99G [00:08&lt;00:09, 66.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 42%|████▏     | 430M/0.99G [00:08&lt;00:09, 64.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 43%|████▎     | 440M/0.99G [00:08&lt;00:09, 62.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 44%|████▍     | 450M/0.99G [00:09&lt;00:10, 58.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 45%|████▌     | 460M/0.99G [00:09&lt;00:10, 57.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 46%|████▋     | 470M/0.99G [00:09&lt;00:09, 60.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 47%|████▋     | 480M/0.99G [00:09&lt;00:09, 60.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 48%|████▊     | 490M/0.99G [00:09&lt;00:09, 56.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 49%|████▉     | 500M/0.99G [00:09&lt;00:08, 60.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 50%|█████     | 510M/0.99G [00:10&lt;00:08, 59.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 51%|█████▏    | 520M/0.99G [00:10&lt;00:08, 57.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 52%|█████▏    | 530M/0.99G [00:10&lt;00:09, 55.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 53%|█████▎    | 540M/0.99G [00:10&lt;00:08, 59.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 54%|█████▍    | 550M/0.99G [00:10&lt;00:08, 59.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 55%|█████▌    | 560M/0.99G [00:11&lt;00:07, 59.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 56%|█████▌    | 570M/0.99G [00:11&lt;00:07, 60.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 57%|█████▋    | 580M/0.99G [00:11&lt;00:07, 59.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 58%|█████▊    | 590M/0.99G [00:11&lt;00:10, 41.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 59%|█████▉    | 600M/0.99G [00:11&lt;00:09, 45.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 60%|██████    | 610M/0.99G [00:12&lt;00:08, 49.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 61%|██████    | 620M/0.99G [00:12&lt;00:07, 52.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 62%|██████▏   | 630M/0.99G [00:12&lt;00:07, 51.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 63%|██████▎   | 640M/0.99G [00:12&lt;00:07, 52.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 64%|██████▍   | 650M/0.99G [00:12&lt;00:06, 54.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 65%|██████▌   | 660M/0.99G [00:13&lt;00:06, 53.9MB/s]
+Downloading StormCastCONUS-high.mdlus: 66%|██████▌   | 670M/0.99G [00:13&lt;00:06, 56.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 67%|██████▋   | 680M/0.99G [00:13&lt;00:05, 58.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 68%|██████▊   | 690M/0.99G [00:13&lt;00:06, 56.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 69%|██████▉   | 700M/0.99G [00:13&lt;00:05, 58.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 70%|███████   | 710M/0.99G [00:13&lt;00:05, 59.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 71%|███████   | 720M/0.99G [00:14&lt;00:05, 59.5MB/s]
+Downloading StormCastCONUS-high.mdlus: 72%|███████▏  | 730M/0.99G [00:14&lt;00:04, 62.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 73%|███████▎  | 740M/0.99G [00:14&lt;00:04, 62.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 74%|███████▍  | 750M/0.99G [00:14&lt;00:04, 60.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 75%|███████▍  | 760M/0.99G [00:14&lt;00:04, 60.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 76%|███████▌  | 770M/0.99G [00:15&lt;00:04, 57.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 77%|███████▋  | 780M/0.99G [00:15&lt;00:04, 60.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 78%|███████▊  | 790M/0.99G [00:15&lt;00:03, 62.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 79%|███████▉  | 800M/0.99G [00:15&lt;00:03, 61.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 80%|███████▉  | 810M/0.99G [00:15&lt;00:03, 60.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 81%|████████  | 820M/0.99G [00:15&lt;00:03, 61.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 82%|████████▏ | 830M/0.99G [00:16&lt;00:03, 55.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 83%|████████▎ | 840M/0.99G [00:16&lt;00:03, 57.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 84%|████████▍ | 850M/0.99G [00:16&lt;00:02, 61.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 85%|████████▍ | 860M/0.99G [00:16&lt;00:02, 64.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 86%|████████▌ | 870M/0.99G [00:16&lt;00:02, 65.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 87%|████████▋ | 880M/0.99G [00:16&lt;00:02, 66.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 88%|████████▊ | 890M/0.99G [00:17&lt;00:02, 61.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 89%|████████▉ | 900M/0.99G [00:17&lt;00:01, 60.8MB/s]
+Downloading StormCastCONUS-high.mdlus: 90%|████████▉ | 910M/0.99G [00:17&lt;00:01, 60.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 91%|█████████ | 920M/0.99G [00:17&lt;00:01, 60.7MB/s]
+Downloading StormCastCONUS-high.mdlus: 92%|█████████▏| 930M/0.99G [00:17&lt;00:01, 61.0MB/s]
+Downloading StormCastCONUS-high.mdlus: 93%|█████████▎| 940M/0.99G [00:17&lt;00:01, 64.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 94%|█████████▎| 950M/0.99G [00:18&lt;00:01, 66.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 95%|█████████▍| 960M/0.99G [00:18&lt;00:00, 65.3MB/s]
+Downloading StormCastCONUS-high.mdlus: 96%|█████████▌| 970M/0.99G [00:18&lt;00:00, 64.2MB/s]
+Downloading StormCastCONUS-high.mdlus: 97%|█████████▋| 980M/0.99G [00:18&lt;00:00, 59.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 98%|█████████▊| 990M/0.99G [00:18&lt;00:00, 62.6MB/s]
+Downloading StormCastCONUS-high.mdlus: 99%|█████████▊| 0.98G/0.99G [00:18&lt;00:00, 65.4MB/s]
+Downloading StormCastCONUS-high.mdlus: 100%|█████████▉| 0.99G/0.99G [00:19&lt;00:00, 64.1MB/s]
+Downloading StormCastCONUS-high.mdlus: 100%|██████████| 0.99G/0.99G [00:19&lt;00:00, 55.6MB/s]
+
+Downloading StormCastCONUS-pz-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-pz-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;01:59, 8.79MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:04, 16.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:45, 22.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:34, 29.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 5%|▍         | 50.0M/0.99G [00:02&lt;00:28, 35.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:23, 42.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:20, 47.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:20, 47.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:18, 51.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:17, 55.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:17, 52.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:18, 50.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:16, 55.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:17, 52.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 15%|█▍        | 150M/0.99G [00:03&lt;00:17, 52.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 16%|█▌        | 160M/0.99G [00:04&lt;00:16, 55.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:15, 58.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:15, 56.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:15, 55.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:16, 52.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 21%|██        | 210M/0.99G [00:05&lt;00:16, 52.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:15, 52.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 23%|██▎       | 230M/0.99G [00:05&lt;00:15, 52.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 24%|██▎       | 240M/0.99G [00:05&lt;00:15, 52.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 25%|██▍       | 250M/0.99G [00:05&lt;00:16, 49.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 26%|██▌       | 260M/0.99G [00:06&lt;00:17, 45.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 27%|██▋       | 270M/0.99G [00:06&lt;00:17, 45.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:16, 47.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 29%|██▊       | 290M/0.99G [00:06&lt;00:15, 48.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 30%|██▉       | 300M/0.99G [00:07&lt;00:14, 51.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 31%|███       | 310M/0.99G [00:07&lt;00:14, 50.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 32%|███▏      | 320M/0.99G [00:07&lt;00:15, 48.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 33%|███▎      | 330M/0.99G [00:07&lt;00:15, 47.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:14, 49.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 35%|███▍      | 350M/0.99G [00:08&lt;00:14, 47.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 36%|███▌      | 360M/0.99G [00:08&lt;00:22, 30.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 37%|███▋      | 370M/0.99G [00:08&lt;00:19, 34.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 37%|███▋      | 380M/0.99G [00:09&lt;00:17, 37.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 38%|███▊      | 390M/0.99G [00:09&lt;00:15, 41.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 39%|███▉      | 400M/0.99G [00:09&lt;00:15, 42.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 40%|████      | 410M/0.99G [00:09&lt;00:14, 43.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 41%|████▏     | 420M/0.99G [00:10&lt;00:18, 32.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 42%|████▏     | 430M/0.99G [00:10&lt;00:16, 36.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 43%|████▎     | 440M/0.99G [00:10&lt;00:15, 39.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 44%|████▍     | 450M/0.99G [00:10&lt;00:13, 42.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 45%|████▌     | 460M/0.99G [00:11&lt;00:13, 43.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 46%|████▋     | 470M/0.99G [00:11&lt;00:12, 44.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 47%|████▋     | 480M/0.99G [00:11&lt;00:11, 47.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 48%|████▊     | 490M/0.99G [00:11&lt;00:11, 48.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 49%|████▉     | 500M/0.99G [00:12&lt;00:11, 48.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 50%|█████     | 510M/0.99G [00:12&lt;00:10, 48.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 51%|█████▏    | 520M/0.99G [00:12&lt;00:10, 49.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 52%|█████▏    | 530M/0.99G [00:12&lt;00:09, 52.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 53%|█████▎    | 540M/0.99G [00:12&lt;00:10, 47.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 54%|█████▍    | 550M/0.99G [00:13&lt;00:10, 45.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 55%|█████▌    | 560M/0.99G [00:13&lt;00:13, 35.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 56%|█████▌    | 570M/0.99G [00:13&lt;00:12, 37.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 57%|█████▋    | 580M/0.99G [00:14&lt;00:11, 38.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 58%|█████▊    | 590M/0.99G [00:14&lt;00:11, 39.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 59%|█████▉    | 600M/0.99G [00:14&lt;00:11, 39.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 60%|██████    | 610M/0.99G [00:14&lt;00:11, 38.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 61%|██████    | 620M/0.99G [00:15&lt;00:10, 38.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 62%|██████▏   | 630M/0.99G [00:15&lt;00:12, 32.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 63%|██████▎   | 640M/0.99G [00:16&lt;00:14, 27.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 64%|██████▍   | 650M/0.99G [00:16&lt;00:15, 24.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 65%|██████▌   | 660M/0.99G [00:17&lt;00:15, 23.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 66%|██████▌   | 670M/0.99G [00:17&lt;00:16, 21.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 67%|██████▋   | 680M/0.99G [00:18&lt;00:16, 20.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 68%|██████▊   | 690M/0.99G [00:18&lt;00:16, 20.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 69%|██████▉   | 700M/0.99G [00:19&lt;00:16, 20.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 70%|███████   | 710M/0.99G [00:19&lt;00:15, 21.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 71%|███████   | 720M/0.99G [00:20&lt;00:14, 21.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 72%|███████▏  | 730M/0.99G [00:20&lt;00:13, 22.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 73%|███████▎  | 740M/0.99G [00:21&lt;00:11, 24.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 74%|███████▍  | 750M/0.99G [00:21&lt;00:10, 26.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 75%|███████▍  | 760M/0.99G [00:21&lt;00:09, 27.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 76%|███████▌  | 770M/0.99G [00:21&lt;00:08, 29.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 77%|███████▋  | 780M/0.99G [00:22&lt;00:08, 27.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 78%|███████▊  | 790M/0.99G [00:22&lt;00:07, 31.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 79%|███████▉  | 800M/0.99G [00:22&lt;00:06, 33.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 80%|███████▉  | 810M/0.99G [00:23&lt;00:05, 37.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 81%|████████  | 820M/0.99G [00:23&lt;00:05, 36.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 82%|████████▏ | 830M/0.99G [00:24&lt;00:07, 26.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 83%|████████▎ | 840M/0.99G [00:24&lt;00:05, 31.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 84%|████████▍ | 850M/0.99G [00:24&lt;00:04, 34.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 85%|████████▍ | 860M/0.99G [00:24&lt;00:04, 40.2MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 86%|████████▌ | 870M/0.99G [00:24&lt;00:03, 45.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 87%|████████▋ | 880M/0.99G [00:25&lt;00:02, 49.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 88%|████████▊ | 890M/0.99G [00:25&lt;00:02, 46.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 89%|████████▉ | 900M/0.99G [00:25&lt;00:02, 46.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 90%|████████▉ | 910M/0.99G [00:25&lt;00:02, 49.0MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 91%|█████████ | 920M/0.99G [00:25&lt;00:01, 50.9MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 92%|█████████▏| 930M/0.99G [00:26&lt;00:01, 50.3MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 93%|█████████▎| 940M/0.99G [00:26&lt;00:01, 51.1MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 94%|█████████▎| 950M/0.99G [00:26&lt;00:01, 45.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 95%|█████████▍| 960M/0.99G [00:26&lt;00:01, 51.5MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 96%|█████████▌| 970M/0.99G [00:26&lt;00:00, 48.8MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 97%|█████████▋| 980M/0.99G [00:27&lt;00:00, 51.7MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 98%|█████████▊| 990M/0.99G [00:27&lt;00:00, 46.6MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:27&lt;00:00, 41.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:27&lt;00:00, 43.4MB/s]
+Downloading StormCastCONUS-pz-low.mdlus: 100%|██████████| 0.99G/0.99G [00:28&lt;00:00, 37.9MB/s]
+
+Downloading StormCastCONUS-tq-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-tq-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;02:26, 7.18MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;01:26, 12.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 3%|▎         | 30.0M/0.99G [00:02&lt;01:05, 15.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 4%|▍         | 40.0M/0.99G [00:03&lt;01:07, 15.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 5%|▍         | 50.0M/0.99G [00:03&lt;00:59, 16.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 6%|▌         | 60.0M/0.99G [00:04&lt;00:53, 18.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 7%|▋         | 70.0M/0.99G [00:04&lt;00:51, 19.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 8%|▊         | 80.0M/0.99G [00:05&lt;00:54, 18.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 9%|▉         | 90.0M/0.99G [00:05&lt;00:50, 19.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 10%|▉         | 100M/0.99G [00:06&lt;00:46, 20.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 11%|█         | 110M/0.99G [00:06&lt;00:44, 21.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 12%|█▏        | 120M/0.99G [00:07&lt;00:46, 20.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 13%|█▎        | 130M/0.99G [00:07&lt;00:48, 19.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 14%|█▍        | 140M/0.99G [00:08&lt;00:44, 20.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 15%|█▍        | 150M/0.99G [00:08&lt;00:40, 22.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 16%|█▌        | 160M/0.99G [00:08&lt;00:36, 24.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 17%|█▋        | 170M/0.99G [00:09&lt;00:36, 24.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 18%|█▊        | 180M/0.99G [00:09&lt;00:35, 24.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 19%|█▊        | 190M/0.99G [00:10&lt;00:34, 25.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 20%|█▉        | 200M/0.99G [00:10&lt;00:34, 24.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 21%|██        | 210M/0.99G [00:10&lt;00:33, 25.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 22%|██▏       | 220M/0.99G [00:11&lt;00:31, 26.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 23%|██▎       | 230M/0.99G [00:11&lt;00:32, 25.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 24%|██▎       | 240M/0.99G [00:12&lt;00:35, 23.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 25%|██▍       | 250M/0.99G [00:12&lt;00:37, 21.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 26%|██▌       | 260M/0.99G [00:13&lt;00:42, 18.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 27%|██▋       | 270M/0.99G [00:14&lt;00:40, 19.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 28%|██▊       | 280M/0.99G [00:14&lt;00:40, 19.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 29%|██▊       | 290M/0.99G [00:15&lt;00:39, 19.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 30%|██▉       | 300M/0.99G [00:15&lt;00:38, 19.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 31%|███       | 310M/0.99G [00:16&lt;00:35, 20.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 32%|███▏      | 320M/0.99G [00:16&lt;00:33, 21.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 33%|███▎      | 330M/0.99G [00:17&lt;00:31, 23.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 34%|███▎      | 340M/0.99G [00:17&lt;00:29, 24.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 35%|███▍      | 350M/0.99G [00:17&lt;00:27, 25.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 36%|███▌      | 360M/0.99G [00:18&lt;00:26, 25.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 370M/0.99G [00:18&lt;00:24, 27.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 37%|███▋      | 380M/0.99G [00:18&lt;00:24, 27.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 38%|███▊      | 390M/0.99G [00:19&lt;00:25, 26.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 39%|███▉      | 400M/0.99G [00:19&lt;00:24, 26.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 40%|████      | 410M/0.99G [00:20&lt;00:23, 26.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 41%|████▏     | 420M/0.99G [00:20&lt;00:21, 28.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 42%|████▏     | 430M/0.99G [00:20&lt;00:22, 26.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 43%|████▎     | 440M/0.99G [00:21&lt;00:27, 22.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 44%|████▍     | 450M/0.99G [00:22&lt;00:27, 21.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 45%|████▌     | 460M/0.99G [00:22&lt;00:29, 19.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 46%|████▋     | 470M/0.99G [00:23&lt;00:29, 19.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 47%|████▋     | 480M/0.99G [00:23&lt;00:32, 17.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 48%|████▊     | 490M/0.99G [00:24&lt;00:29, 18.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 49%|████▉     | 500M/0.99G [00:24&lt;00:26, 20.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 50%|█████     | 510M/0.99G [00:25&lt;00:22, 23.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 51%|█████▏    | 520M/0.99G [00:25&lt;00:21, 24.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 52%|█████▏    | 530M/0.99G [00:25&lt;00:20, 25.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 53%|█████▎    | 540M/0.99G [00:26&lt;00:18, 26.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 54%|█████▍    | 550M/0.99G [00:26&lt;00:19, 25.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 55%|█████▌    | 560M/0.99G [00:27&lt;00:18, 26.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 56%|█████▌    | 570M/0.99G [00:27&lt;00:17, 26.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 57%|█████▋    | 580M/0.99G [00:27&lt;00:17, 25.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 58%|█████▊    | 590M/0.99G [00:28&lt;00:18, 24.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 59%|█████▉    | 600M/0.99G [00:28&lt;00:16, 26.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 60%|██████    | 610M/0.99G [00:29&lt;00:15, 27.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 61%|██████    | 620M/0.99G [00:29&lt;00:13, 30.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 62%|██████▏   | 630M/0.99G [00:29&lt;00:12, 33.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 63%|██████▎   | 640M/0.99G [00:29&lt;00:11, 35.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 64%|██████▍   | 650M/0.99G [00:30&lt;00:10, 38.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 65%|██████▌   | 660M/0.99G [00:30&lt;00:09, 37.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 66%|██████▌   | 670M/0.99G [00:30&lt;00:11, 31.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 67%|██████▋   | 680M/0.99G [00:31&lt;00:11, 30.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 68%|██████▊   | 690M/0.99G [00:31&lt;00:12, 28.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 69%|██████▉   | 700M/0.99G [00:31&lt;00:11, 29.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 70%|███████   | 710M/0.99G [00:32&lt;00:10, 30.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 71%|███████   | 720M/0.99G [00:32&lt;00:09, 32.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 72%|███████▏  | 730M/0.99G [00:32&lt;00:08, 34.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 73%|███████▎  | 740M/0.99G [00:33&lt;00:08, 35.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 74%|███████▍  | 750M/0.99G [00:33&lt;00:07, 35.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 75%|███████▍  | 760M/0.99G [00:33&lt;00:07, 35.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 76%|███████▌  | 770M/0.99G [00:33&lt;00:06, 37.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 77%|███████▋  | 780M/0.99G [00:34&lt;00:08, 30.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 78%|███████▊  | 790M/0.99G [00:34&lt;00:07, 32.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 79%|███████▉  | 800M/0.99G [00:34&lt;00:06, 33.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 80%|███████▉  | 810M/0.99G [00:35&lt;00:06, 33.9MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 81%|████████  | 820M/0.99G [00:35&lt;00:06, 32.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 82%|████████▏ | 830M/0.99G [00:35&lt;00:06, 30.8MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 83%|████████▎ | 840M/0.99G [00:36&lt;00:05, 31.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 84%|████████▍ | 850M/0.99G [00:36&lt;00:04, 34.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 85%|████████▍ | 860M/0.99G [00:36&lt;00:04, 36.2MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 86%|████████▌ | 870M/0.99G [00:36&lt;00:03, 40.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 87%|████████▋ | 880M/0.99G [00:37&lt;00:03, 45.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 88%|████████▊ | 890M/0.99G [00:37&lt;00:02, 43.3MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 89%|████████▉ | 900M/0.99G [00:37&lt;00:02, 45.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 90%|████████▉ | 910M/0.99G [00:37&lt;00:02, 45.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 91%|█████████ | 920M/0.99G [00:38&lt;00:02, 46.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 92%|█████████▏| 930M/0.99G [00:38&lt;00:01, 46.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 93%|█████████▎| 940M/0.99G [00:38&lt;00:01, 46.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 94%|█████████▎| 950M/0.99G [00:38&lt;00:01, 45.1MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 95%|█████████▍| 960M/0.99G [00:38&lt;00:01, 45.5MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 96%|█████████▌| 970M/0.99G [00:39&lt;00:01, 45.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 97%|█████████▋| 980M/0.99G [00:39&lt;00:00, 51.7MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 98%|█████████▊| 990M/0.99G [00:39&lt;00:00, 52.4MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:39&lt;00:00, 51.0MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:39&lt;00:00, 49.6MB/s]
+Downloading StormCastCONUS-tq-low.mdlus: 100%|██████████| 0.99G/0.99G [00:40&lt;00:00, 26.5MB/s]
+
+Downloading StormCastCONUS-uv-low.mdlus: 0%|          | 0.00/0.99G [00:00&lt;?, ?B/s]
+Downloading StormCastCONUS-uv-low.mdlus: 1%|          | 10.0M/0.99G [00:01&lt;01:56, 9.05MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 2%|▏         | 20.0M/0.99G [00:01&lt;00:59, 17.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 3%|▎         | 30.0M/0.99G [00:01&lt;00:39, 25.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 4%|▍         | 40.0M/0.99G [00:01&lt;00:30, 33.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 5%|▍         | 50.0M/0.99G [00:01&lt;00:24, 40.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 6%|▌         | 60.0M/0.99G [00:02&lt;00:23, 41.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 7%|▋         | 70.0M/0.99G [00:02&lt;00:22, 43.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 8%|▊         | 80.0M/0.99G [00:02&lt;00:21, 46.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 9%|▉         | 90.0M/0.99G [00:02&lt;00:19, 50.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 10%|▉         | 100M/0.99G [00:02&lt;00:19, 50.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 11%|█         | 110M/0.99G [00:03&lt;00:18, 51.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 12%|█▏        | 120M/0.99G [00:03&lt;00:16, 56.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 13%|█▎        | 130M/0.99G [00:03&lt;00:15, 60.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 14%|█▍        | 140M/0.99G [00:03&lt;00:14, 61.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 15%|█▍        | 150M/0.99G [00:03&lt;00:15, 58.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 16%|█▌        | 160M/0.99G [00:03&lt;00:16, 52.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 17%|█▋        | 170M/0.99G [00:04&lt;00:16, 54.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 18%|█▊        | 180M/0.99G [00:04&lt;00:16, 54.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 19%|█▊        | 190M/0.99G [00:04&lt;00:15, 54.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 20%|█▉        | 200M/0.99G [00:04&lt;00:15, 55.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 21%|██        | 210M/0.99G [00:04&lt;00:15, 54.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 22%|██▏       | 220M/0.99G [00:05&lt;00:15, 52.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 23%|██▎       | 230M/0.99G [00:05&lt;00:15, 54.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 24%|██▎       | 240M/0.99G [00:05&lt;00:14, 56.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 25%|██▍       | 250M/0.99G [00:05&lt;00:14, 55.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 26%|██▌       | 260M/0.99G [00:05&lt;00:14, 54.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 27%|██▋       | 270M/0.99G [00:06&lt;00:13, 56.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 28%|██▊       | 280M/0.99G [00:06&lt;00:13, 55.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 29%|██▊       | 290M/0.99G [00:06&lt;00:14, 51.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 30%|██▉       | 300M/0.99G [00:06&lt;00:14, 51.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 31%|███       | 310M/0.99G [00:06&lt;00:14, 49.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 32%|███▏      | 320M/0.99G [00:07&lt;00:16, 43.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 33%|███▎      | 330M/0.99G [00:07&lt;00:17, 41.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 34%|███▎      | 340M/0.99G [00:07&lt;00:16, 42.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 35%|███▍      | 350M/0.99G [00:08&lt;00:19, 35.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 36%|███▌      | 360M/0.99G [00:08&lt;00:26, 25.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 37%|███▋      | 370M/0.99G [00:09&lt;00:30, 21.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 37%|███▋      | 380M/0.99G [00:09&lt;00:26, 25.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 38%|███▊      | 390M/0.99G [00:10&lt;00:23, 28.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 39%|███▉      | 400M/0.99G [00:10&lt;00:19, 32.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 40%|████      | 410M/0.99G [00:10&lt;00:18, 33.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 41%|████▏     | 420M/0.99G [00:10&lt;00:16, 36.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 42%|████▏     | 430M/0.99G [00:10&lt;00:14, 42.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 43%|████▎     | 440M/0.99G [00:11&lt;00:13, 44.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 44%|████▍     | 450M/0.99G [00:11&lt;00:12, 47.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 45%|████▌     | 460M/0.99G [00:11&lt;00:11, 49.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 46%|████▋     | 470M/0.99G [00:11&lt;00:12, 47.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 47%|████▋     | 480M/0.99G [00:12&lt;00:15, 37.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 48%|████▊     | 490M/0.99G [00:12&lt;00:14, 37.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 49%|████▉     | 500M/0.99G [00:12&lt;00:12, 42.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 50%|█████     | 510M/0.99G [00:12&lt;00:11, 45.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 51%|█████▏    | 520M/0.99G [00:12&lt;00:10, 49.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 52%|█████▏    | 530M/0.99G [00:13&lt;00:10, 49.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 53%|█████▎    | 540M/0.99G [00:13&lt;00:10, 46.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 54%|█████▍    | 550M/0.99G [00:13&lt;00:10, 46.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 55%|█████▌    | 560M/0.99G [00:13&lt;00:09, 49.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 56%|█████▌    | 570M/0.99G [00:14&lt;00:09, 51.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 57%|█████▋    | 580M/0.99G [00:14&lt;00:08, 54.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 58%|█████▊    | 590M/0.99G [00:14&lt;00:08, 54.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 59%|█████▉    | 600M/0.99G [00:14&lt;00:07, 54.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 60%|██████    | 610M/0.99G [00:14&lt;00:07, 59.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 61%|██████    | 620M/0.99G [00:14&lt;00:06, 62.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 62%|██████▏   | 630M/0.99G [00:15&lt;00:07, 56.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 63%|██████▎   | 640M/0.99G [00:15&lt;00:07, 49.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 64%|██████▍   | 650M/0.99G [00:15&lt;00:07, 48.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 65%|██████▌   | 660M/0.99G [00:15&lt;00:07, 50.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 66%|██████▌   | 670M/0.99G [00:16&lt;00:07, 46.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 67%|██████▋   | 680M/0.99G [00:16&lt;00:07, 49.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 68%|██████▊   | 690M/0.99G [00:16&lt;00:06, 55.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 69%|██████▉   | 700M/0.99G [00:16&lt;00:05, 57.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 70%|███████   | 710M/0.99G [00:16&lt;00:05, 59.6MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 71%|███████   | 720M/0.99G [00:16&lt;00:04, 64.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 72%|███████▏  | 730M/0.99G [00:17&lt;00:04, 62.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 73%|███████▎  | 740M/0.99G [00:17&lt;00:04, 66.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 74%|███████▍  | 750M/0.99G [00:17&lt;00:04, 64.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 75%|███████▍  | 760M/0.99G [00:17&lt;00:04, 64.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 76%|███████▌  | 770M/0.99G [00:17&lt;00:04, 61.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 77%|███████▋  | 780M/0.99G [00:18&lt;00:05, 47.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 78%|███████▊  | 790M/0.99G [00:18&lt;00:05, 46.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 79%|███████▉  | 800M/0.99G [00:18&lt;00:05, 39.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 80%|███████▉  | 810M/0.99G [00:18&lt;00:05, 40.0MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 81%|████████  | 820M/0.99G [00:19&lt;00:04, 44.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 82%|████████▏ | 830M/0.99G [00:19&lt;00:04, 43.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 83%|████████▎ | 840M/0.99G [00:19&lt;00:04, 43.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 84%|████████▍ | 850M/0.99G [00:19&lt;00:03, 45.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 85%|████████▍ | 860M/0.99G [00:20&lt;00:03, 41.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 86%|████████▌ | 870M/0.99G [00:20&lt;00:03, 43.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 87%|████████▋ | 880M/0.99G [00:20&lt;00:03, 40.5MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 88%|████████▊ | 890M/0.99G [00:20&lt;00:02, 45.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 89%|████████▉ | 900M/0.99G [00:20&lt;00:02, 45.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 90%|████████▉ | 910M/0.99G [00:21&lt;00:02, 45.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 91%|█████████ | 920M/0.99G [00:21&lt;00:02, 45.4MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 92%|█████████▏| 930M/0.99G [00:21&lt;00:02, 42.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 93%|█████████▎| 940M/0.99G [00:21&lt;00:01, 43.8MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 94%|█████████▎| 950M/0.99G [00:22&lt;00:01, 44.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 95%|█████████▍| 960M/0.99G [00:22&lt;00:01, 34.2MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 96%|█████████▌| 970M/0.99G [00:22&lt;00:01, 38.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 97%|█████████▋| 980M/0.99G [00:23&lt;00:00, 41.3MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 98%|█████████▊| 990M/0.99G [00:23&lt;00:00, 42.7MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 99%|█████████▊| 0.98G/0.99G [00:23&lt;00:00, 41.1MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 100%|█████████▉| 0.99G/0.99G [00:23&lt;00:00, 44.9MB/s]
+Downloading StormCastCONUS-uv-low.mdlus: 100%|██████████| 0.99G/0.99G [00:23&lt;00:00, 44.7MB/s]
+
+Downloading metadata.nc: 0%|          | 0.00/8.56M [00:00&lt;?, ?B/s]
+Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 12.2MB/s]
+Downloading metadata.nc: 100%|██████████| 8.56M/8.56M [00:00&lt;00:00, 12.1MB/s]</code></pre></details>
 
 <h2 id="fetch-initial-conditions">Fetch Initial Conditions<a class="headerlink" href="#fetch-initial-conditions" title="Permanent link">&para;</a></h2>
 <p>Pull HRRR analysis data for 17 April 2026, a date that saw a significant tornado
@@ -3107,11 +3525,25 @@ coordinate system.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">map_coords</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>5 lines</small></summary><pre class="no-copy"><code>Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
-Fetching HRRR data:   1%|          | 1/99 [00:03&lt;06:22,  3.90s/it]
-Fetching HRRR data:   3%|▎         | 3/99 [00:05&lt;02:37,  1.64s/it]
-Fetching HRRR data:  67%|██████▋   | 66/99 [00:06&lt;00:01, 18.13it/s]
-Fetching HRRR data: 100%|██████████| 99/99 [00:06&lt;00:00, 16.29it/s]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>19 lines</small></summary><pre class="no-copy"><code>Fetching HRRR data:   0%|          | 0/99 [00:00&lt;?, ?it/s]
+Fetching HRRR data:   1%|          | 1/99 [00:00&lt;00:48,  2.03it/s]
+Fetching HRRR data:   2%|▏         | 2/99 [00:00&lt;00:25,  3.79it/s]
+Fetching HRRR data:   3%|▎         | 3/99 [00:00&lt;00:20,  4.69it/s]
+Fetching HRRR data:   5%|▌         | 5/99 [00:00&lt;00:12,  7.68it/s]
+Fetching HRRR data:   9%|▉         | 9/99 [00:01&lt;00:06, 13.18it/s]
+Fetching HRRR data:  11%|█         | 11/99 [00:01&lt;00:08, 10.89it/s]
+Fetching HRRR data:  17%|█▋        | 17/99 [00:01&lt;00:07, 11.06it/s]
+Fetching HRRR data:  19%|█▉        | 19/99 [00:01&lt;00:06, 12.18it/s]
+Fetching HRRR data:  24%|██▍       | 24/99 [00:02&lt;00:08,  9.26it/s]
+Fetching HRRR data:  33%|███▎      | 33/99 [00:03&lt;00:05, 11.53it/s]
+Fetching HRRR data:  48%|████▊     | 48/99 [00:03&lt;00:02, 19.19it/s]
+Fetching HRRR data:  63%|██████▎   | 62/99 [00:04&lt;00:01, 23.86it/s]
+Fetching HRRR data:  71%|███████   | 70/99 [00:04&lt;00:01, 27.65it/s]
+Fetching HRRR data:  83%|████████▎ | 82/99 [00:04&lt;00:00, 34.82it/s]
+Fetching HRRR data:  91%|█████████ | 90/99 [00:04&lt;00:00, 36.77it/s]
+Fetching HRRR data:  96%|█████████▌| 95/99 [00:05&lt;00:00, 18.23it/s]
+Fetching HRRR data: 100%|██████████| 99/99 [00:08&lt;00:00,  6.15it/s]
+Fetching HRRR data: 100%|██████████| 99/99 [00:08&lt;00:00, 12.17it/s]</code></pre></details>
 
 <h2 id="run-without-observations">Run Without Observations<a class="headerlink" href="#run-without-observations" title="Permanent link">&para;</a></h2>
 <p>Step the model forward 6 hours without any observations. This uses the
@@ -3140,74 +3572,144 @@ used for comparison.</p>
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">gen</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">no_obs_fields</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">no_obs_fields</span><span class="p">)</span>  <span class="c1"># (nsteps, H, W)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre class="no-copy"><code>No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>138 lines</small></summary><pre class="no-copy"><code>No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
-2026-08-19 21:20:26.077 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 1/6
+2026-08-25 11:36:25.855 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 1/6
 
 No-obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:17,  1.41it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 36.04it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:11,  2.18it/s]
 
-No-obs forecast:  17%|█▋        | 1/6 [00:04&lt;00:23,  4.73s/it]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.54it/s]
 
-2026-08-19 21:20:30.804 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 2/6
+Fetching GFS data:  23%|██▎       | 6/26 [00:00&lt;00:02,  7.48it/s]
 
-No-obs forecast:  17%|█▋        | 1/6 [00:04&lt;00:23,  4.73s/it]
+Fetching GFS data:  69%|██████▉   | 18/26 [00:01&lt;00:00, 23.77it/s]
 
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:02&lt;00:00, 13.84it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:02&lt;00:00, 12.65it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:16,  1.52it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 39.03it/s]
+No-obs forecast:  17%|█▋        | 1/6 [00:06&lt;00:34,  6.91s/it]
 
-No-obs forecast:  33%|███▎      | 2/6 [00:09&lt;00:18,  4.56s/it]
+2026-08-25 11:36:32.766 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 2/6
 
-2026-08-19 21:20:35.249 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 3/6
-
-No-obs forecast:  33%|███▎      | 2/6 [00:09&lt;00:18,  4.56s/it]
+No-obs forecast:  17%|█▋        | 1/6 [00:06&lt;00:34,  6.91s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.30it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 33.65it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.98it/s]
 
-No-obs forecast:  50%|█████     | 3/6 [00:13&lt;00:13,  4.55s/it]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:06,  3.74it/s]
 
-2026-08-19 21:20:39.783 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 4/6
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:02,  9.29it/s]
 
-No-obs forecast:  50%|█████     | 3/6 [00:13&lt;00:13,  4.55s/it]
+Fetching GFS data:  38%|███▊      | 10/26 [00:00&lt;00:00, 16.42it/s]
 
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:  65%|██████▌   | 17/26 [00:00&lt;00:00, 28.23it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.30it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 33.03it/s]
+Fetching GFS data:  81%|████████  | 21/26 [00:01&lt;00:00, 23.47it/s]
 
-No-obs forecast:  67%|██████▋   | 4/6 [00:18&lt;00:09,  4.55s/it]
+Fetching GFS data:  92%|█████████▏| 24/26 [00:01&lt;00:00, 10.93it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 13.09it/s]
 
-2026-08-19 21:20:44.343 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 5/6
+No-obs forecast:  33%|███▎      | 2/6 [00:13&lt;00:26,  6.59s/it]
 
-No-obs forecast:  67%|██████▋   | 4/6 [00:18&lt;00:09,  4.55s/it]
+2026-08-25 11:36:39.139 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 3/6
 
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:16,  1.51it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 38.83it/s]
-
-No-obs forecast:  83%|████████▎ | 5/6 [00:22&lt;00:04,  4.52s/it]
-
-2026-08-19 21:20:48.794 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 6/6
-
-No-obs forecast:  83%|████████▎ | 5/6 [00:22&lt;00:04,  4.52s/it]
+No-obs forecast:  33%|███▎      | 2/6 [00:13&lt;00:26,  6.59s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:15,  1.57it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 39.89it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:07,  3.41it/s]
 
-No-obs forecast: 100%|██████████| 6/6 [00:27&lt;00:00,  4.50s/it]
-No-obs forecast: 100%|██████████| 6/6 [00:27&lt;00:00,  4.53s/it]</code></pre></details>
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:01, 12.91it/s]
+
+Fetching GFS data:  42%|████▏     | 11/26 [00:00&lt;00:00, 25.65it/s]
+
+Fetching GFS data:  62%|██████▏   | 16/26 [00:00&lt;00:00, 23.22it/s]
+
+Fetching GFS data:  73%|███████▎  | 19/26 [00:01&lt;00:00, 19.34it/s]
+
+Fetching GFS data:  85%|████████▍ | 22/26 [00:02&lt;00:00,  6.09it/s]
+
+Fetching GFS data:  92%|█████████▏| 24/26 [00:02&lt;00:00,  6.19it/s]
+
+Fetching GFS data: 100%|██████████| 26/26 [00:03&lt;00:00,  5.29it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:03&lt;00:00,  7.99it/s]
+
+No-obs forecast:  50%|█████     | 3/6 [00:20&lt;00:21,  7.04s/it]
+
+2026-08-25 11:36:46.703 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 4/6
+
+No-obs forecast:  50%|█████     | 3/6 [00:20&lt;00:21,  7.04s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:14,  1.74it/s]
+
+Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:03,  6.99it/s]
+
+Fetching GFS data:  27%|██▋       | 7/26 [00:00&lt;00:01, 10.83it/s]
+
+Fetching GFS data:  62%|██████▏   | 16/26 [00:01&lt;00:00, 24.03it/s]
+
+Fetching GFS data:  77%|███████▋  | 20/26 [00:02&lt;00:00,  9.01it/s]
+
+Fetching GFS data:  88%|████████▊ | 23/26 [00:02&lt;00:00,  9.16it/s]
+
+Fetching GFS data:  96%|█████████▌| 25/26 [00:03&lt;00:00,  5.45it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:04&lt;00:00,  6.25it/s]
+
+No-obs forecast:  67%|██████▋   | 4/6 [00:29&lt;00:15,  7.61s/it]
+
+2026-08-25 11:36:55.182 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 5/6
+
+No-obs forecast:  67%|██████▋   | 4/6 [00:29&lt;00:15,  7.61s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:15,  1.58it/s]
+
+Fetching GFS data:  15%|█▌        | 4/26 [00:00&lt;00:03,  6.51it/s]
+
+Fetching GFS data:  23%|██▎       | 6/26 [00:00&lt;00:02,  8.40it/s]
+
+Fetching GFS data:  58%|█████▊    | 15/26 [00:01&lt;00:00, 23.05it/s]
+
+Fetching GFS data:  81%|████████  | 21/26 [00:01&lt;00:00, 25.64it/s]
+
+Fetching GFS data:  96%|█████████▌| 25/26 [00:01&lt;00:00, 14.69it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:02&lt;00:00, 12.03it/s]
+
+No-obs forecast:  83%|████████▎ | 5/6 [00:35&lt;00:07,  7.24s/it]
+
+2026-08-25 11:37:01.773 | INFO     | __main__:&lt;module&gt;:16 - Running no-obs forecast step 6/6
+
+No-obs forecast:  83%|████████▎ | 5/6 [00:35&lt;00:07,  7.24s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.64it/s]
+
+Fetching GFS data:  19%|█▉        | 5/26 [00:00&lt;00:01, 14.80it/s]
+
+Fetching GFS data:  38%|███▊      | 10/26 [00:00&lt;00:00, 25.22it/s]
+
+Fetching GFS data:  62%|██████▏   | 16/26 [00:00&lt;00:00, 25.38it/s]
+
+Fetching GFS data:  73%|███████▎  | 19/26 [00:01&lt;00:00, 13.51it/s]
+
+Fetching GFS data:  85%|████████▍ | 22/26 [00:01&lt;00:00, 13.05it/s]
+
+Fetching GFS data:  92%|█████████▏| 24/26 [00:01&lt;00:00, 10.89it/s]
+
+Fetching GFS data: 100%|██████████| 26/26 [00:02&lt;00:00,  6.26it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:02&lt;00:00, 10.09it/s]
+
+No-obs forecast: 100%|██████████| 6/6 [00:42&lt;00:00,  7.12s/it]
+No-obs forecast: 100%|██████████| 6/6 [00:42&lt;00:00,  7.14s/it]</code></pre></details>
 
 <h2 id="fetch-observations-and-plot-station-locations">Fetch Observations and Plot Station Locations<a class="headerlink" href="#fetch-observations-and-plot-station-locations" title="Permanent link">&para;</a></h2>
 <p>Fetch GHCNh surface observations covering the model domain. The bounding box
@@ -3296,72 +3798,72 @@ observation DataFrame is sent to the generator. Zero-value wind reports
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>68 lines</small></summary><pre class="no-copy"><code>Obs forecast:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
-2026-08-19 21:21:41.232 | INFO     | __main__:&lt;module&gt;:24 - Step 1/6 — 3281 obs
+2026-08-25 11:39:01.169 | INFO     | __main__:&lt;module&gt;:24 - Step 1/6 — 4055 obs
 
-Obs forecast:   0%|          | 0/6 [00:22&lt;?, ?it/s]
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:13,  1.83it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 45.31it/s]
-
-Obs forecast:  17%|█▋        | 1/6 [01:16&lt;06:20, 76.18s/it]
-
-2026-08-19 21:22:57.061 | INFO     | __main__:&lt;module&gt;:24 - Step 2/6 — 3293 obs
-
-Obs forecast:  17%|█▋        | 1/6 [01:38&lt;06:20, 76.18s/it]
+Obs forecast:   0%|          | 0/6 [00:14&lt;?, ?it/s]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:17,  1.43it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 36.80it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:14,  1.68it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 43.03it/s]
 
-Obs forecast:  33%|███▎      | 2/6 [02:35&lt;05:11, 77.98s/it]
+Obs forecast:  17%|█▋        | 1/6 [01:12&lt;06:02, 72.49s/it]
 
-2026-08-19 21:24:17.250 | INFO     | __main__:&lt;module&gt;:24 - Step 3/6 — 3191 obs
+2026-08-25 11:40:14.635 | INFO     | __main__:&lt;module&gt;:24 - Step 2/6 — 4055 obs
 
-Obs forecast:  33%|███▎      | 2/6 [02:58&lt;05:11, 77.98s/it]
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:13,  1.89it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 47.59it/s]
-
-Obs forecast:  50%|█████     | 3/6 [03:58&lt;04:00, 80.27s/it]
-
-2026-08-19 21:25:39.314 | INFO     | __main__:&lt;module&gt;:24 - Step 4/6 — 3288 obs
-
-Obs forecast:  50%|█████     | 3/6 [04:20&lt;04:00, 80.27s/it]
+Obs forecast:  17%|█▋        | 1/6 [01:27&lt;06:02, 72.49s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:17,  1.41it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 35.20it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:13,  1.82it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 46.80it/s]
 
-Obs forecast:  67%|██████▋   | 4/6 [05:21&lt;02:42, 81.32s/it]
+Obs forecast:  33%|███▎      | 2/6 [02:18&lt;04:35, 68.88s/it]
 
-2026-08-19 21:27:04.141 | INFO     | __main__:&lt;module&gt;:24 - Step 5/6 — 3342 obs
+2026-08-25 11:41:21.837 | INFO     | __main__:&lt;module&gt;:24 - Step 3/6 — 3975 obs
 
-Obs forecast:  67%|██████▋   | 4/6 [05:45&lt;02:42, 81.32s/it]
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:16,  1.49it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 38.23it/s]
-
-Obs forecast:  83%|████████▎ | 5/6 [06:45&lt;01:22, 82.24s/it]
-
-2026-08-19 21:28:25.133 | INFO     | __main__:&lt;module&gt;:24 - Step 6/6 — 3104 obs
-
-Obs forecast:  83%|████████▎ | 5/6 [07:06&lt;01:22, 82.24s/it]
+Obs forecast:  33%|███▎      | 2/6 [02:34&lt;04:35, 68.88s/it]
 
 Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
 
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:17,  1.43it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 37.12it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:12,  2.07it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 53.68it/s]
 
-Obs forecast: 100%|██████████| 6/6 [08:07&lt;00:00, 82.16s/it]
-Obs forecast: 100%|██████████| 6/6 [08:07&lt;00:00, 81.20s/it]</code></pre></details>
+Obs forecast:  50%|█████     | 3/6 [03:26&lt;03:24, 68.28s/it]
+
+2026-08-25 11:42:29.719 | INFO     | __main__:&lt;module&gt;:24 - Step 4/6 — 4039 obs
+
+Obs forecast:  50%|█████     | 3/6 [03:42&lt;03:24, 68.28s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:13,  1.92it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 49.75it/s]
+
+Obs forecast:  67%|██████▋   | 4/6 [04:34&lt;02:16, 68.23s/it]
+
+2026-08-25 11:43:35.918 | INFO     | __main__:&lt;module&gt;:24 - Step 5/6 — 4112 obs
+
+Obs forecast:  67%|██████▋   | 4/6 [04:49&lt;02:16, 68.23s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:13,  1.87it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 48.48it/s]
+
+Obs forecast:  83%|████████▎ | 5/6 [05:40&lt;01:07, 67.54s/it]
+
+2026-08-25 11:44:43.009 | INFO     | __main__:&lt;module&gt;:24 - Step 6/6 — 4056 obs
+
+Obs forecast:  83%|████████▎ | 5/6 [05:56&lt;01:07, 67.54s/it]
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:13,  1.81it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 45.57it/s]
+
+Obs forecast: 100%|██████████| 6/6 [06:48&lt;00:00, 67.47s/it]
+Obs forecast: 100%|██████████| 6/6 [06:48&lt;00:00, 68.04s/it]</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>Compare the two forecasts. The top row shows the baseline (no observations),
@@ -3500,23 +4002,29 @@ improves accuracy relative to the actual analysis.</p>
 <a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="n">no_obs_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">no_obs_fields</span> <span class="o">-</span> <span class="n">truth_fields</span><span class="p">)</span>
 <a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="n">obs_err</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">obs_fields</span> <span class="o">-</span> <span class="n">truth_fields</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre class="no-copy"><code>Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 47.55it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>23 lines</small></summary><pre class="no-copy"><code>Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.47it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.47it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 36.98it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.03it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.03it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 38.43it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.22it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.22it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 38.28it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  4.42it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  4.41it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 38.45it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  4.06it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  4.05it/s]
 
 Fetching HRRR data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00, 38.81it/s]</code></pre></details>
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.81it/s]
+Fetching HRRR data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.80it/s]</code></pre></details>
 
 <p>Plot absolute errors between the StormCast-CONUS predictions and HRRR
 analysis ground truth. In later time-steps the assimilated forecast typically
@@ -3591,9 +4099,9 @@ shows lower errors near the observation stations.</p>
 </code></pre></div>
 <p><img alt="Output from StormCast-CONUS Score-Based Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-01_stormcast_sda/005-cell-17.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 615.2s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-01_stormcast_sda/01_stormcast_sda.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 752.4s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>10m 15s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>12m 32s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

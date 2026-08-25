@@ -3007,14 +3007,8 @@ The difference being the underlying algorithm used to identify the center.</p>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">nsteps</span> <span class="o">=</span> <span class="mi">16</span>  <span class="c1"># Number of steps to run the tracker for into future</span>
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">2009</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>  <span class="c1"># Start date for inference</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>3 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
-WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
 CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature</code></pre></details>
 
 <h2 id="tracking-analysis-data">Tracking Analysis Data<a class="headerlink" href="#tracking-analysis-data" title="Permanent link">&para;</a></h2>
@@ -3039,89 +3033,134 @@ We can fetch a small time range from the data source and provide it to our model
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">era5_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">era5_tracks</span><span class="p">,</span> <span class="s2">&quot;outputs/13_era5_paths.pt&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>84 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.72it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 12.08it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>129 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  5.39it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  6.00it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.47it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.54it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.83it/s]
 Step 0: ARCO tracks output shape torch.Size([1, 7, 1, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 10.27it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 12.75it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.32it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:01,  2.95it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.17it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.65it/s]
 Step 1: ARCO tracks output shape torch.Size([1, 7, 2, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 10.33it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 12.83it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:01,  2.54it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:01,  2.85it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.18it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.12it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.11it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.38it/s]
 Step 2: ARCO tracks output shape torch.Size([1, 7, 3, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 13.35it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.97it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.65it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.21it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.49it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.50it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.67it/s]
 Step 3: ARCO tracks output shape torch.Size([1, 8, 4, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00,  9.79it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 12.16it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.20it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  5.32it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.35it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:07&lt;00:00,  2.09s/it]
+Fetching ARCO data: 100%|██████████| 5/5 [00:07&lt;00:00,  1.43s/it]
 Step 4: ARCO tracks output shape torch.Size([1, 9, 5, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 11.91it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 14.79it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.99it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  3.64it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.21it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.46it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.64it/s]
 Step 5: ARCO tracks output shape torch.Size([1, 10, 6, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 12.38it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.80it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  5.73it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  5.55it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.32it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.57it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.80it/s]
 Step 6: ARCO tracks output shape torch.Size([1, 11, 7, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 11.04it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.71it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  5.95it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  7.83it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.10it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.45it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.66it/s]
 Step 7: ARCO tracks output shape torch.Size([1, 12, 8, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 10.71it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.31it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.97it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  5.27it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.16it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.81it/s]
 Step 8: ARCO tracks output shape torch.Size([1, 13, 9, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 12.32it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 15.29it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.43it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:03&lt;00:00,  1.07it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:04&lt;00:00,  1.21it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:04&lt;00:00,  1.24it/s]
 Step 9: ARCO tracks output shape torch.Size([1, 14, 10, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 12.11it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 15.03it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.10it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  7.18it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.56it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.09it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.93it/s]
 Step 10: ARCO tracks output shape torch.Size([1, 15, 11, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 11.15it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.83it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  9.57it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.75it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.18it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.82it/s]
 Step 11: ARCO tracks output shape torch.Size([1, 16, 12, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 12.43it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.84it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  8.18it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  4.73it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.16it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.48it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.67it/s]
 Step 12: ARCO tracks output shape torch.Size([1, 17, 13, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 10.99it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.64it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  6.92it/s]
+Fetching ARCO data:  40%|████      | 2/5 [00:00&lt;00:00,  3.45it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.34it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.91it/s]
 Step 13: ARCO tracks output shape torch.Size([1, 18, 14, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 10.16it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 12.62it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  5.98it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.31it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.67it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.64it/s]
 Step 14: ARCO tracks output shape torch.Size([1, 19, 15, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 11.30it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 14.03it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  6.61it/s]
+Fetching ARCO data:  60%|██████    | 3/5 [00:00&lt;00:00,  5.37it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.12it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.25it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:03&lt;00:00,  1.47it/s]
 Step 15: ARCO tracks output shape torch.Size([1, 20, 16, 4])
 
 Fetching ARCO data:   0%|          | 0/5 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  80%|████████  | 4/5 [00:00&lt;00:00, 11.98it/s]
-Fetching ARCO data: 100%|██████████| 5/5 [00:00&lt;00:00, 13.26it/s]
+Fetching ARCO data:  20%|██        | 1/5 [00:00&lt;00:00,  7.97it/s]
+Fetching ARCO data:  80%|████████  | 4/5 [00:02&lt;00:00,  1.64it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.97it/s]
+Fetching ARCO data: 100%|██████████| 5/5 [00:02&lt;00:00,  1.97it/s]
 Step 16: ARCO tracks output shape torch.Size([1, 21, 17, 4])</code></pre></details>
 
 <p>Notice that the output tensor grows as iterations are performed.
@@ -3167,46 +3206,49 @@ inference loop.</p>
 <a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="n">sfno_tracks</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
 <a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sfno_tracks</span><span class="p">,</span> <span class="s2">&quot;outputs/13_sfno_paths.pt&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>40 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  69%|██████▉   | 9/13 [00:00&lt;00:00, 17.67it/s]
-Fetching ARCO data: 100%|██████████| 13/13 [00:00&lt;00:00, 22.99it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>43 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  31%|███       | 4/13 [00:00&lt;00:00, 31.88it/s]
+Fetching ARCO data:  62%|██████▏   | 8/13 [00:00&lt;00:00, 22.64it/s]
+Fetching ARCO data:  85%|████████▍ | 11/13 [00:02&lt;00:00,  3.35it/s]
+Fetching ARCO data: 100%|██████████| 13/13 [00:02&lt;00:00,  4.05it/s]
+Fetching ARCO data: 100%|██████████| 13/13 [00:02&lt;00:00,  4.89it/s]
 
 Running inference:   0%|          | 0/17 [00:00&lt;?, ?it/s]Step 0: SFNO tracks output shape torch.Size([1, 7, 1, 4])
 
-Running inference:   6%|▌         | 1/17 [00:00&lt;00:05,  3.10it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
+Running inference:   6%|▌         | 1/17 [00:00&lt;00:03,  5.19it/s]Step 1: SFNO tracks output shape torch.Size([1, 8, 2, 4])
 
-Running inference:  12%|█▏        | 2/17 [00:02&lt;00:20,  1.38s/it]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
+Running inference:  12%|█▏        | 2/17 [00:02&lt;00:20,  1.37s/it]Step 2: SFNO tracks output shape torch.Size([1, 8, 3, 4])
 
-Running inference:  18%|█▊        | 3/17 [00:02&lt;00:12,  1.12it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
+Running inference:  18%|█▊        | 3/17 [00:02&lt;00:12,  1.14it/s]Step 3: SFNO tracks output shape torch.Size([1, 9, 4, 4])
 
-Running inference:  24%|██▎       | 4/17 [00:03&lt;00:08,  1.53it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
+Running inference:  24%|██▎       | 4/17 [00:02&lt;00:08,  1.58it/s]Step 4: SFNO tracks output shape torch.Size([1, 10, 5, 4])
 
-Running inference:  29%|██▉       | 5/17 [00:03&lt;00:06,  1.92it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
+Running inference:  29%|██▉       | 5/17 [00:03&lt;00:06,  1.99it/s]Step 5: SFNO tracks output shape torch.Size([1, 10, 6, 4])
 
-Running inference:  35%|███▌      | 6/17 [00:03&lt;00:04,  2.22it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
+Running inference:  35%|███▌      | 6/17 [00:03&lt;00:04,  2.32it/s]Step 6: SFNO tracks output shape torch.Size([1, 10, 7, 4])
 
-Running inference:  41%|████      | 7/17 [00:03&lt;00:03,  2.58it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
+Running inference:  41%|████      | 7/17 [00:03&lt;00:03,  2.68it/s]Step 7: SFNO tracks output shape torch.Size([1, 11, 8, 4])
 
-Running inference:  47%|████▋     | 8/17 [00:04&lt;00:03,  2.78it/s]Step 8: SFNO tracks output shape torch.Size([1, 12, 9, 4])
+Running inference:  47%|████▋     | 8/17 [00:04&lt;00:03,  2.91it/s]Step 8: SFNO tracks output shape torch.Size([1, 12, 9, 4])
 
-Running inference:  53%|█████▎    | 9/17 [00:04&lt;00:02,  2.89it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
+Running inference:  53%|█████▎    | 9/17 [00:04&lt;00:02,  3.07it/s]Step 9: SFNO tracks output shape torch.Size([1, 13, 10, 4])
 
-Running inference:  59%|█████▉    | 10/17 [00:04&lt;00:02,  3.11it/s]Step 10: SFNO tracks output shape torch.Size([1, 13, 11, 4])
+Running inference:  59%|█████▉    | 10/17 [00:04&lt;00:02,  3.29it/s]Step 10: SFNO tracks output shape torch.Size([1, 13, 11, 4])
 
-Running inference:  65%|██████▍   | 11/17 [00:05&lt;00:01,  3.37it/s]Step 11: SFNO tracks output shape torch.Size([1, 14, 12, 4])
+Running inference:  65%|██████▍   | 11/17 [00:04&lt;00:01,  3.52it/s]Step 11: SFNO tracks output shape torch.Size([1, 14, 12, 4])
 
-Running inference:  71%|███████   | 12/17 [00:05&lt;00:01,  3.48it/s]Step 12: SFNO tracks output shape torch.Size([1, 15, 13, 4])
+Running inference:  71%|███████   | 12/17 [00:05&lt;00:01,  3.61it/s]Step 12: SFNO tracks output shape torch.Size([1, 15, 13, 4])
 
-Running inference:  76%|███████▋  | 13/17 [00:05&lt;00:01,  3.45it/s]Step 13: SFNO tracks output shape torch.Size([1, 16, 14, 4])
+Running inference:  76%|███████▋  | 13/17 [00:05&lt;00:01,  3.58it/s]Step 13: SFNO tracks output shape torch.Size([1, 16, 14, 4])
 
-Running inference:  82%|████████▏ | 14/17 [00:05&lt;00:00,  3.42it/s]Step 14: SFNO tracks output shape torch.Size([1, 17, 15, 4])
+Running inference:  82%|████████▏ | 14/17 [00:05&lt;00:00,  3.58it/s]Step 14: SFNO tracks output shape torch.Size([1, 17, 15, 4])
 
-Running inference:  88%|████████▊ | 15/17 [00:06&lt;00:00,  3.58it/s]Step 15: SFNO tracks output shape torch.Size([1, 18, 16, 4])
+Running inference:  88%|████████▊ | 15/17 [00:05&lt;00:00,  3.69it/s]Step 15: SFNO tracks output shape torch.Size([1, 18, 16, 4])
 
-Running inference:  94%|█████████▍| 16/17 [00:06&lt;00:00,  3.54it/s]Step 16: SFNO tracks output shape torch.Size([1, 19, 17, 4])
+Running inference:  94%|█████████▍| 16/17 [00:06&lt;00:00,  3.68it/s]Step 16: SFNO tracks output shape torch.Size([1, 19, 17, 4])
 
-Running inference: 100%|██████████| 17/17 [00:06&lt;00:00,  3.43it/s]
-Running inference: 100%|██████████| 17/17 [00:06&lt;00:00,  2.52it/s]</code></pre></details>
+Running inference: 100%|██████████| 17/17 [00:06&lt;00:00,  3.62it/s]
+Running inference: 100%|██████████| 17/17 [00:06&lt;00:00,  2.64it/s]</code></pre></details>
 
 <p>Note that before the inference loop of the AI model, the path buffer of the tracker
 was reset which refreshes the tracker's path state starting from scratch.
@@ -3303,9 +3345,9 @@ threshold or other geography based filters.</p>
 <p>No cyclone tracker is perfect, we encourage users to experiment and tune the tracker
 as needed.</p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-05_cyclone_tracking/05_cyclone_tracking.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-05_cyclone_tracking/05_cyclone_tracking.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 107.5s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-05_cyclone_tracking/05_cyclone_tracking.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-05_cyclone_tracking/05_cyclone_tracking.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 161.7s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 47s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 42s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 
