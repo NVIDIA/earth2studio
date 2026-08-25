@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
+- Added Atlas CRPS ensemble prognostic model (`AtlasCRPS`), which generates ensemble
+  members from noise conditioned transformer blocks and shares the Atlas autoencoder
 - Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
   conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
   optional dictionary encoding of low-cardinality string columns
@@ -166,6 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   future that had already completed was never resulted, so its error was swallowed
 - Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
   metadata visibility, coordinate parsing, and shard buffer allocation.
+- Fixed Atlas models using incorrect total precipitation accumulation, now models
+  correctly use `tp06`.
 
 ### Security
 
