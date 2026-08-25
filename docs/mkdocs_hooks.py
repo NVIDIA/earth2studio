@@ -62,7 +62,6 @@ EXAMPLES_GALLERY_DESCRIPTION = (
     "Runnable examples, grouped by topic. Each card opens the complete source, "
     "output, and captured figures."
 )
-
 CALLOUT_KINDS = {
     "note",
     "warning",
