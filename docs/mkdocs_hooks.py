@@ -101,6 +101,7 @@ def on_page_markdown(markdown: str, **kwargs: object) -> str:
     markdown = _remove_examples_gallery_description(markdown, page)
     return _convert_legacy_blocks(markdown, page)
 
+
 def _remove_examples_gallery_description(markdown: str, page: object | None) -> str:
     """Remove the generated examples index description."""
     if str(getattr(page, "url", "") or "") != "examples/":
