@@ -18,6 +18,22 @@ name: e2s-docs-full
 
 on:
   workflow_dispatch:
+    inputs:
+      section:
+        description: Example section to execute
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - 01_getting_started
+          - 02_medium_range
+          - 03_downscaling
+          - 04_nowcasting
+          - 05_data_assimilation
+          - 06_seasonal
+          - 07_misc
+          - 08_extend
 
 permissions:
   contents: read
@@ -37,25 +53,72 @@ env:
   DOC_PUBLIC_BUILD: "false"
   DOCS_PAGES_BRANCH: gh-pages
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
-  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
 
 jobs:
-  build-docs:
-    name: Build and publish full docs
+  metadata:
+    name: Resolve docs build
     if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc'))
-    permissions:
-      contents: write
-      packages: read
+    runs-on: ubuntu-latest
     outputs:
       doc-version: ${{ steps.docs-meta.outputs.doc-version }}
-      is-rc: ${{ steps.docs-meta.outputs.is-rc }}
+      sections: ${{ steps.docs-meta.outputs.sections }}
+    steps:
+      - name: Resolve docs version and sections
+        id: docs-meta
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          SELECTED_SECTION: ${{ inputs.section }}
+        run: |
+          set -euo pipefail
+
+          ref_name="${GITHUB_REF_NAME##*/}"
+          doc_version="main"
+
+          if [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]; then
+            :
+          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-rc$ ]]; then
+            doc_version="${BASH_REMATCH[1]}"
+          else
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted docs publication ref." >&2
+            exit 1
+          fi
+
+          case "$SELECTED_SECTION" in
+            all)
+              sections='["01_getting_started","02_medium_range","03_downscaling","04_nowcasting","05_data_assimilation","06_seasonal","07_misc","08_extend"]'
+              ;;
+            01_getting_started|02_medium_range|03_downscaling|04_nowcasting|05_data_assimilation|06_seasonal|07_misc|08_extend)
+              sections="[\"${SELECTED_SECTION}\"]"
+              ;;
+            *)
+              echo "Unknown example section: ${SELECTED_SECTION}" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "doc-version=${doc_version}" >> "$GITHUB_OUTPUT"
+          echo "sections=${sections}" >> "$GITHUB_OUTPUT"
+
+          echo "### Full docs build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Sections: \`${SELECTED_SECTION}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  execute-sections:
+    name: Execute ${{ matrix.section }}
+    needs: metadata
     runs-on: linux-amd64-gpu-h100-latest-1
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        section: ${{ fromJSON(needs.metadata.outputs.sections) }}
     container:
       image: *e2s_ci_image
-      options: --shm-size=20g
+      options: --shm-size=20g --cap-add=SYS_NICE
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -66,54 +129,19 @@ jobs:
       NATTEN_N_WORKERS: "8"
       NVCC_THREADS: "2"
     steps:
-      - name: Resolve docs version
-        id: docs-meta
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -euo pipefail
-
-          ref_name="${GITHUB_REF_NAME##*/}"
-          doc_version="main"
-          is_rc="false"
-
-          if [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]; then
-            :
-          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-rc$ ]]; then
-            doc_version="${BASH_REMATCH[1]}"
-            is_rc="true"
-          else
-            echo "Ref '${GITHUB_REF_NAME}' is not a trusted docs publication ref." >&2
-            exit 1
-          fi
-
-          echo "DOC_VERSION=${doc_version}" >> "$GITHUB_ENV"
-          echo "doc-version=${doc_version}" >> "$GITHUB_OUTPUT"
-          echo "is-rc=${is_rc}" >> "$GITHUB_OUTPUT"
-
-          echo "### Full docs build" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
-      - name: Configure git safe directory
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Build full Zensical site
-        uses: ./.github/actions/build-light-docs
+      - name: Execute example section
+        uses: ./.github/actions/build-docs-section
         with:
-          artifact-name: docs-full-html
-          artifact-retention-days: "10"
+          section: ${{ matrix.section }}
           gallery-cache-name: ${{ github.ref_name }}
           data-cache-name: ${{ github.ref_name }}
-          execute-examples: "true"
-          save-caches: "true"
-          upload-artifact: "false"
+          model-cache-name: ${{ github.ref_name }}
         env:
           CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
           EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
@@ -121,6 +149,43 @@ jobs:
           EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
           EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+  render-docs:
+    name: Render and publish full docs
+    needs:
+      - metadata
+      - execute-sections
+    permissions:
+      contents: write
+      packages: read
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      DOC_VERSION: ${{ needs.metadata.outputs.doc-version }}
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Build Zensical site from gallery cache
+        uses: ./.github/actions/build-light-docs
+        with:
+          gallery-cache-name: ${{ github.ref_name }}
+          save-caches: "false"
+          upload-artifact: "false"
 
       - name: Deploy full docs
         run: |

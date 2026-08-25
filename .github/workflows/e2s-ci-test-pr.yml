@@ -194,7 +194,6 @@ jobs:
           artifact-name: docs-pr-html
           artifact-retention-days: "10"
           gallery-cache-name: main
-          data-cache-name: main
           save-caches: "false"
 
   test:

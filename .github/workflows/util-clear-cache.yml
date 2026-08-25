@@ -30,7 +30,9 @@ on:
           - pre-commit
           - model
           - gallery
+          - docs-assets
           - docs-data
+          - docs-models
           - testmon
       dry_run:
         description: List matching caches without deleting them
@@ -57,7 +59,7 @@ jobs:
 
           case "$CACHE_GROUP" in
             all)
-              key_regex="^e2s-(uv|pre-commit|model|gallery|docs-data|testmon)-"
+              key_regex="^e2s-(uv|pre-commit|model|gallery|docs-(data|model)|testmon)-"
               ;;
             uv)
               key_regex="^e2s-uv-"
@@ -71,8 +73,14 @@ jobs:
             gallery)
               key_regex="^e2s-gallery-"
               ;;
+            docs-assets)
+              key_regex="^e2s-docs-(data|model)-"
+              ;;
             docs-data)
               key_regex="^e2s-docs-data-"
+              ;;
+            docs-models)
+              key_regex="^e2s-docs-model-"
               ;;
             testmon)
               key_regex="^e2s-testmon-"

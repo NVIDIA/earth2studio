@@ -1,0 +1,193 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build docs example section
+description: Execute one example section and update its caches.
+
+inputs:
+  section:
+    description: Top-level example section to execute.
+    required: true
+  gallery-cache-name:
+    description: Stable gallery cache scope shared by all sections.
+    default: main
+  data-cache-name:
+    description: Stable section data cache scope.
+    default: main
+  model-cache-name:
+    description: Stable section model cache scope.
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git safe directory
+      shell: bash
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+    - name: Prepare section cache directories
+      shell: bash
+      env:
+        SECTION: ${{ inputs.section }}
+      run: mkdir -p "docs-data/${SECTION}" "docs-models/${SECTION}"
+
+    # Lookup and restore are separate so a normal miss is allowed while a failed download fails the job.
+    - name: Find section data cache
+      id: docs-data-cache-lookup
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: docs-data/${{ inputs.section }}
+        key: e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-${{ inputs.section }}-
+          e2s-docs-data-${{ runner.os }}-main-${{ inputs.section }}-
+        lookup-only: true
+
+    - name: Restore section data cache
+      if: steps.docs-data-cache-lookup.outputs.cache-matched-key != ''
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: docs-data/${{ inputs.section }}
+        key: ${{ steps.docs-data-cache-lookup.outputs.cache-matched-key }}
+        fail-on-cache-miss: true
+
+    - name: Find section model cache
+      id: docs-model-cache-lookup
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: docs-models/${{ inputs.section }}
+        key: e2s-docs-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          e2s-docs-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ inputs.section }}-
+          e2s-docs-model-${{ runner.os }}-main-${{ inputs.section }}-
+        lookup-only: true
+
+    - name: Restore section model cache
+      if: steps.docs-model-cache-lookup.outputs.cache-matched-key != ''
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: docs-models/${{ inputs.section }}
+        key: ${{ steps.docs-model-cache-lookup.outputs.cache-matched-key }}
+        fail-on-cache-miss: true
+
+    - name: Find rolling gallery cache
+      id: gallery-cache-lookup
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: .e2sgallery
+        key: e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.section }}
+        restore-keys: |
+          e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}-
+          e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-
+          e2s-gallery-${{ runner.os }}-main-
+        lookup-only: true
+
+    - name: Restore rolling gallery cache
+      if: steps.gallery-cache-lookup.outputs.cache-matched-key != ''
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: .e2sgallery
+        key: ${{ steps.gallery-cache-lookup.outputs.cache-matched-key }}
+        fail-on-cache-miss: true
+
+    - name: Measure restored section caches
+      id: restored-cache-size
+      shell: bash
+      env:
+        SECTION: ${{ inputs.section }}
+      run: |
+        data_bytes=$(du -sb "docs-data/${SECTION}" | cut -f1)
+        model_bytes=$(du -sb "docs-models/${SECTION}" | cut -f1)
+        echo "data-bytes=${data_bytes}" >> "${GITHUB_OUTPUT}"
+        echo "model-bytes=${model_bytes}" >> "${GITHUB_OUTPUT}"
+
+    - name: Prepare CI directories
+      shell: bash
+      env:
+        EARTH2STUDIO_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data/${{ inputs.section }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+      run: python3 test/_ci/prepare_ci_paths.py
+
+    - name: Show GPU information
+      shell: bash
+      run: nvidia-smi
+
+    - name: Check uv lockfile
+      shell: bash
+      run: uv lock --check
+
+    - name: Execute example section
+      shell: bash
+      env:
+        EARTH2STUDIO_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data/${{ inputs.section }}
+        EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/docs-models/${{ inputs.section }}
+        SECTION: ${{ inputs.section }}
+        UV_LINK_MODE: symlink
+      run: test/_ci/build_docs_examples.sh "${SECTION}"
+
+    - name: Inspect updated caches
+      id: updated-cache-state
+      shell: bash
+      env:
+        DATA_BYTES_BEFORE: ${{ steps.restored-cache-size.outputs.data-bytes }}
+        MODEL_BYTES_BEFORE: ${{ steps.restored-cache-size.outputs.model-bytes }}
+        SECTION: ${{ inputs.section }}
+      run: |
+        if ! find .e2sgallery -type f -print -quit 2>/dev/null | grep -q .; then
+          echo "Example execution did not produce a gallery cache." >&2
+          exit 1
+        fi
+
+        data_bytes_after=$(du -sb "docs-data/${SECTION}" | cut -f1)
+        model_bytes_after=$(du -sb "docs-models/${SECTION}" | cut -f1)
+
+        if find "docs-data/${SECTION}" -type f -print -quit | grep -q . && \
+          [ "${data_bytes_after}" != "${DATA_BYTES_BEFORE}" ]; then
+          echo "data-changed=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "data-changed=false" >> "${GITHUB_OUTPUT}"
+        fi
+
+        if find "docs-models/${SECTION}" -type f -print -quit | grep -q . && \
+          [ "${model_bytes_after}" != "${MODEL_BYTES_BEFORE}" ]; then
+          echo "model-changed=true" >> "${GITHUB_OUTPUT}"
+        else
+          echo "model-changed=false" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - name: Save rolling gallery cache
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: .e2sgallery
+        key: e2s-gallery-${{ runner.os }}-${{ inputs.gallery-cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.section }}
+
+    - name: Save section data cache
+      if: steps.updated-cache-state.outputs.data-changed == 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: docs-data/${{ inputs.section }}
+        key: e2s-docs-data-${{ runner.os }}-${{ inputs.data-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    - name: Save section model cache
+      if: steps.updated-cache-state.outputs.model-changed == 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      continue-on-error: true
+      with:
+        path: docs-models/${{ inputs.section }}
+        key: e2s-docs-model-${{ runner.os }}-${{ inputs.model-cache-name }}-${{ inputs.section }}-${{ github.run_id }}-${{ github.run_attempt }}
