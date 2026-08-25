@@ -81,7 +81,7 @@ such as `_static/` and `examples/_assets/`.
 Versioned deployments use [Mike](https://github.com/jimporter/mike):
 
 ```bash
-DOC_VERSION=0.18.0 DOC_ALIAS=latest make docs-deploy-version
+DOC_VERSION=0.18.0 make docs-deploy-version
 ```
 
-Versions are published beneath `v/` on the `gh-pages` branch.
+Versions are published at `https://nvidia.github.io/earth2studio/<version>/`.
