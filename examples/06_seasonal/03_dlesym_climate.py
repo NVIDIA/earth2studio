@@ -90,9 +90,7 @@ if not torch.cuda.is_available():
 data = ARCO()
 
 # Load the coupled prognostic (lat/lon variant) and the precip diagnostic.
-package = Package(
-    "/lustre/fsw/portfolios/coreai/users/pharrington/model_pkg/" "dlesym-v0-isccp-era5/"
-)
+package = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
 model = DLESyMv0_ISCCP_ERA5LatLon.load_model(package).to(device)
 
 
