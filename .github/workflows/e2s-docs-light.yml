@@ -92,7 +92,6 @@ jobs:
           artifact-name: docs-light-html
           artifact-retention-days: "1"
           gallery-cache-name: main
-          data-cache-name: main
           save-caches: "true"
           upload-artifact: "false"
         env:

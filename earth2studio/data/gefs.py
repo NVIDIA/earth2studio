@@ -236,14 +236,15 @@ class GEFS_FX:
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.GEFS_LAT),
                     len(self.GEFS_LON),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={

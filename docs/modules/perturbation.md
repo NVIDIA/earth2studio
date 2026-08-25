@@ -7,9 +7,9 @@ with some random noise. This is commonly done to perturb initial state fields wh
 creating ensemble forecasts.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.perturbation
 template: perturbation
-output: generated/perturbation/1
+output: generated/perturbation
 -->
 
 {% autosummary %}

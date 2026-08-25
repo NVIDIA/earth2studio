@@ -108,6 +108,7 @@ categories:
         summary: NVIDIA Atlas model dependencies.
         api_refs:
           - earth2studio.models.px.Atlas
+          - earth2studio.models.px.AtlasCRPS
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.

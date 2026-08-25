@@ -37,12 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
+- Added Atlas CRPS ensemble prognostic model (`AtlasCRPS`), which generates ensemble
+  members from noise conditioned transformer blocks and shares the Atlas autoencoder
 - Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
   conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
   optional dictionary encoding of low-cardinality string columns
 
 ### Changed
 
+- GFS, HRRR, and GEFS GRIB sources now fill unresolved output regions with
+  `NaN` instead of zeros or uninitialized memory, making missing index records
+  detectable
 - `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
   persistent spawn-based process pool (new `decode_workers` parameter,
   default `"auto"`); each file is decoded once per request window, frames are
@@ -129,6 +134,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
+  snow depth, snow cover, and total cloud cover at positive forecast lead
+  times.
+
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
 
@@ -162,6 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   future that had already completed was never resulted, so its error was swallowed
 - Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
   metadata visibility, coordinate parsing, and shard buffer allocation.
+- Fixed Atlas models using incorrect total precipitation accumulation, now models
+  correctly use `tp06`.
 
 ### Security
 

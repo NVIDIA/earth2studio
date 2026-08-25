@@ -9,7 +9,7 @@ interchangeable with standard data sources.
 Typically used in intercomparison workflows.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: datasource
 output: generated/data/forecast
 -->

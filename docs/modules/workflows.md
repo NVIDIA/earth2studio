@@ -11,9 +11,9 @@ use cases.
     these are starting points.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.run
 template: function
-output: generated/workflows/1
+output: generated/workflows
 -->
 
 {% autosummary %}

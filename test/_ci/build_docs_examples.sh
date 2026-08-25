@@ -21,6 +21,22 @@ docs_jobs="${DOCS_JOBS:-1}"
 uv_docs=(uv run --locked --group docs)
 log_dir="${DOCS_EXAMPLE_LOG_DIR:-docs/_build/example-logs}"
 main_log="${log_dir}/docs-examples.log"
+requested_section="${1:-}"
+
+if [ "$#" -gt 1 ]; then
+    echo "Usage: $0 [SECTION]" >&2
+    exit 2
+fi
+if [ -n "${requested_section}" ]; then
+    if [[ ! "${requested_section}" =~ ^[0-9][0-9]_[A-Za-z0-9_-]+$ ]]; then
+        echo "Invalid example section: ${requested_section}" >&2
+        exit 2
+    fi
+    if [ ! -d "examples/${requested_section}" ]; then
+        echo "Example section does not exist: ${requested_section}" >&2
+        exit 2
+    fi
+fi
 
 mkdir -p "${log_dir}"
 exec > >(tee -a "${main_log}") 2>&1
@@ -30,7 +46,14 @@ echo "Example execution log: ${main_log}"
 # Rebuild examples from source, section by section, so stale examples are refreshed.
 rm -rf docs/examples examples/outputs
 
-mapfile -t sections < <(find examples -mindepth 1 -maxdepth 1 -type d -name "[0-9]*" | sort)
+if [ -n "${requested_section}" ]; then
+    sections=("examples/${requested_section}")
+else
+    mapfile -t sections < <(
+        find examples -mindepth 1 -maxdepth 1 -type d -name "[0-9]*" | sort
+    )
+fi
+
 for section in "${sections[@]}"; do
     selector="${section#examples/}"
     echo "::group::Build docs examples: ${selector}"
