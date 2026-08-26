@@ -96,37 +96,37 @@ class acc:
         y_coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """
-            Apply metric to data `x` and `y`, checking that their coordinates
-            are broadcastable.
+        Apply metric to data `x` and `y`, checking that their coordinates
+        are broadcastable.
 
-            Parameters
-            ----------
-            x : torch.Tensor
-                Input tensor, typically the forecast or prediction tensor, but ACC is
-                symmetric with respect to `x` and `y`.
-            x_coords : CoordSystem
-                Ordered dict representing coordinate system that describes the `x` tensor.
-                `reduction_dimensions` must be in coords.
-                "time" and "variable" must be in x_coords.
-            y : torch.Tensor
-                Input tensor #2 intended to be used as validation data, but ACC is symmetric
-                with respect to `x` and `y`.
-            y_coords : CoordSystem
-                Ordered dict representing coordinate system that describes the `y` tensor.
-                `reduction_dimensions` must be in coords.
-                "time" and "variable" must be in y_coords.
-                If "lead_time" is in x_coords, then "lead_time" must also be in y_coords. The
-                intention, in this case, is that users will use `fetch_data` to make it easier
-                to match validation times.
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor, typically the forecast or prediction tensor, but ACC is
+            symmetric with respect to `x` and `y`.
+        x_coords : CoordSystem
+            Ordered dict representing coordinate system that describes the `x` tensor.
+            `reduction_dimensions` must be in coords.
+            "time" and "variable" must be in x_coords.
+        y : torch.Tensor
+            Input tensor #2 intended to be used as validation data, but ACC is symmetric
+            with respect to `x` and `y`.
+        y_coords : CoordSystem
+            Ordered dict representing coordinate system that describes the `y` tensor.
+            `reduction_dimensions` must be in coords.
+            "time" and "variable" must be in y_coords.
+            If "lead_time" is in x_coords, then "lead_time" must also be in y_coords. The
+            intention, in this case, is that users will use `fetch_data` to make it easier
+            to match validation times.
 
-            Returns
-            -------
-            tuple[torch.Tensor, CoordSystem]
-                Returns anomaly correlation coefficient tensor with appropriate reduced coordinates.
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Returns anomaly correlation coefficient tensor with appropriate reduced coordinates.
 
-            Note
-            ----
-            Reference: https://confluence.ecmwf.int/spaces/FUG/pages/673550781/Section%2B6.2.2%2BAnomaly%2BCorrelation%2BCoefficient
+        Note
+        ----
+        Reference: https://confluence.ecmwf.int/spaces/FUG/pages/673550781/Section%2B6.2.2%2BAnomaly%2BCorrelation%2BCoefficient
         """
 
         # Input coordinate checking
