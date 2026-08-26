@@ -29,20 +29,20 @@ from earth2studio.utils.type import CoordSystem
 
 class DerivedWS(torch.nn.Module):
     """Calculates the Wind Speed (WS) magnitude from eastward and northward wind
-        components for specified levels. The calculation is based on the formula:
-        ws = sqrt(u^2 + v^2)
-    ƒdoi
-        Parameters
-        ----------
-        levels : list[int  |  str], optional
-            Pressure / height levels to compute WS for. The resulting expected input fields
-            are u and v wind components pairs for each level. E.g. for level 100 the input
-            fields should be [u100, v100], by default [100]
+    components for specified levels. The calculation is based on the formula:
+    ws = sqrt(u^2 + v^2)
+    
+    Parameters
+    ----------
+    levels : list[int  |  str], optional
+        Pressure / height levels to compute WS for. The resulting expected input fields
+        are u and v wind components pairs for each level. E.g. for level 100 the input
+        fields should be [u100, v100], by default [100]
 
-        Badges
-        ------
-        region:global product:wind product:atmos
-        provider:nvidia backend:pytorch
+    Badges
+    ------
+    region:global product:wind product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
