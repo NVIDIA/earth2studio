@@ -72,7 +72,6 @@ markdown_extensions:
 - mkdocs_badges.zensical
 - admonition
 - attr_list
-- docs.markdown_api_aliases
 - md_in_html
 - tables
 - toc:
