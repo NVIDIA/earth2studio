@@ -49,10 +49,12 @@ from earth2studio.utils.type import TimeArray, VariableArray
 try:
     import eumdac
     import netCDF4
+    import urllib3
 except ImportError:
     OptionalDependencyFailure("data")
     eumdac = None  # type: ignore[assignment]
     netCDF4 = None  # type: ignore[assignment]
+    urllib3 = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +546,13 @@ class MeteosatFCI:
                 collection,
                 retries=self._retries,
                 backoff=2.0,
-                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+                exceptions=(
+                    OSError,
+                    IOError,
+                    TimeoutError,
+                    ConnectionError,
+                    urllib3.exceptions.ProtocolError,
+                ),
             )
             for (t, collection) in downloads
         ]
