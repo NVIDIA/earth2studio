@@ -63,6 +63,12 @@ the following special-case suffixes:
 
 ## Datasource Lexicon
 
+<!-- markdownlint-disable MD042 -->
+[](){ #earth2studio.lexicon.CFSLexicon }
+[](){ #earth2studio.lexicon.CFSFluxLexicon }
+[](){ #earth2studio.lexicon.CosmoLexicon }
+<!-- markdownlint-enable MD042 -->
+
 A common challenge when working with different sources of weather and climate data is that
 variables used may be named or denoted in different ways.
 The Lexicon is also used to track the translation between Earth2Studios naming scheme
