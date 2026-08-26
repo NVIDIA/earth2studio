@@ -104,7 +104,7 @@ class GFS:
 
     Badges
     ------
-    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis dataset:gfs product:wind product:precip product:temp product:atmos
     """
 
     GFS_BUCKET_NAME = "noaa-gfs-bdp-pds"
@@ -593,7 +593,7 @@ class GFS_FX(GFS):
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos
     """
 
     def __call__(  # type: ignore[override]

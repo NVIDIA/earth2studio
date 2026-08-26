@@ -21,7 +21,7 @@
   };
   const groupOrder = {
     model: ["class", "provider", "backend", "region"],
-    data: ["data class", "product", "region", "gpu", "year"],
+    data: ["data class", "dataset family", "product", "region", "gpu", "year"],
   };
   const pageSize = 10;
 

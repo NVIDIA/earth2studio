@@ -134,6 +134,7 @@ plugins:
       provider: Provider
       backend: Backend
       dataclass: Data Class
+      dataset: Dataset Family
       year: Release
       product: Product
       gpu:
@@ -297,6 +298,42 @@ plugins:
         color: '#b451ed'
         text_color: '#fff'
         tooltip: Numerical / AI Simulation
+      dataset:era5:
+        label: ERA5
+        name: ERA5
+        color: '#4263eb'
+        text_color: '#fff'
+        tooltip: ECMWF Reanalysis v5
+      dataset:aifs:
+        label: AIFS
+        name: AIFS
+        color: '#5f3dc4'
+        text_color: '#fff'
+        tooltip: Artificial Intelligence Forecasting System
+      dataset:ifs:
+        label: IFS
+        name: IFS
+        color: '#364fc7'
+        text_color: '#fff'
+        tooltip: ECMWF Integrated Forecasting System
+      dataset:gfs:
+        label: GFS
+        name: GFS
+        color: '#1971c2'
+        text_color: '#fff'
+        tooltip: Global Forecast System family, including GEFS
+      dataset:hrrr:
+        label: HRRR
+        name: HRRR
+        color: '#087f5b'
+        text_color: '#fff'
+        tooltip: High-Resolution Rapid Refresh
+      dataset:cmip6:
+        label: CMIP6
+        name: CMIP6
+        color: '#e67700'
+        text_color: '#fff'
+        tooltip: Coupled Model Intercomparison Project Phase 6
       year:2021:
         label: '2021'
         color: '#F2F2F2'

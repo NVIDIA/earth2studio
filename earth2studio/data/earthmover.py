@@ -603,7 +603,7 @@ class EarthMoverERA5(_EarthMoverBase):
 
     Badges
     ------
-    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos product:solar
+    region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos product:solar
     """
 
     LEXICON = EarthMoverERA5Lexicon
@@ -757,7 +757,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Badges
     ------
-    region:global dataclass:analysis product:wind product:temp product:atmos product:ocean product:land
+    region:global dataclass:analysis dataset:ifs product:wind product:temp product:atmos product:ocean product:land
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
@@ -902,7 +902,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos
     """
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04"

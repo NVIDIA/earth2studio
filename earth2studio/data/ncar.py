@@ -100,7 +100,7 @@ class NCAR_ERA5:
 
     Badges
     ------
-    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos
     """
 
     NCAR_ERA5_BUCKET_NAME = "nsf-ncar-era5"
