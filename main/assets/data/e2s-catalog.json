@@ -5301,7 +5301,7 @@
     "group": "Prognostic",
     "kind": "model",
     "signature": "DLESyMv0_ISCCP_ERA5LatLon()",
-    "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5].",
+    "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5].",
     "title": "DLESyMv0_ISCCP_ERA5LatLon",
     "tone": "ocean",
     "url": "../../../modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon"

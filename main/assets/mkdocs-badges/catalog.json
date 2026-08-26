@@ -1703,7 +1703,7 @@
       "classifiers": [],
       "signature": "IceChunkBackend(storage: 'icechunk.Storage | str | None' = None, branch: str = 'main', repo_kwargs: dict[str, Any] = {}, chunks: dict[str, int] = {'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1}, backend_kwargs: dict[str, Any] = {'overwrite': False}, zarr_codecs: CompressorsLike = None, blocking: bool = False, pool_size: int = 8)",
       "source": "modules/generated/io/IceChunkBackend.md",
-      "summary": "A backend that writes to an [Icechunk ](https://icechunk.io/) repository.",
+      "summary": "A backend that writes to an [Icechunk](https://icechunk.io/) repository.",
       "symbol": "earth2studio.io.IceChunkBackend",
       "title": "IceChunkBackend",
       "url": "modules/generated/io/IceChunkBackend/"
@@ -2561,7 +2561,7 @@
       ],
       "signature": "DLESyMv0_ISCCP_ERA5LatLon()",
       "source": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon.md",
-      "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][DLESyMv0_ISCCP_ERA5].",
+      "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5].",
       "symbol": "earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon",
       "title": "DLESyMv0_ISCCP_ERA5LatLon",
       "url": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon/"
@@ -3187,7 +3187,7 @@
       "classifiers": [],
       "signature": "CheckpointState(state: T, checkpoint: Checkpoint | None = None, session: CheckpointSession | None = None, state_loaded: bool = False)",
       "source": "modules/generated/utils/checkpoint/CheckpointState.md",
-      "summary": "Bound checkpoint state proxy returned by [`bind_checkpoint_state`][bind_checkpoint_state].",
+      "summary": "Bound checkpoint state proxy returned by [`bind_checkpoint_state`][earth2studio.utils.checkpoint.bind_checkpoint_state].",
       "symbol": "earth2studio.utils.checkpoint.CheckpointState",
       "title": "CheckpointState",
       "url": "modules/generated/utils/checkpoint/CheckpointState/"

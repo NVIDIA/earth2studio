@@ -2984,10 +2984,10 @@
 <h1 id="jpss_atms"><code>JPSS_ATMS</code><a class="headerlink" href="#jpss_atms" title="Permanent link">&para;</a></h1>
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="dataclass:observation" data-badge-group="dataclass" style="--badge-color:#15803d;--badge-text-color:#fff" title="Direct Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-binoculars"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:sat" data-badge-group="product" style="--badge-color:#1c7ed6;--badge-text-color:#fff" title="Satellite"><span class="mkdocs-badge__icon"><i class="fa-solid fa-satellite"></i></span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.data.JPSS_ATMS</code></p>
-<p><span id="earth2studio.data.JPSS_ATMS"></span>
-<span id="earth2studio.data.JPSS_ATMS.__call__"></span>
-<span id="earth2studio.data.JPSS_ATMS.fetch"></span>
-<span id="earth2studio.data.JPSS_ATMS.available"></span></p>
+<p><a href="" id="earth2studio.data.JPSS_ATMS"></a>
+<a href=""></a>{ #earth2studio.data.JPSS_ATMS.<strong>call</strong> }
+<a href="" id="earth2studio.data.JPSS_ATMS.fetch"></a>
+<a href="" id="earth2studio.data.JPSS_ATMS.available"></a></p>
 <p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/jpss_atms.py#L214-L1050" title="earth2studio/data/jpss_atms.py:214">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
@@ -3006,7 +3006,7 @@ brightness-temperature observations served from NOAA Open Data on AWS.</p>
 <p>Each BUFR file contains a single scan line with 96 cross-track
 field-of-view (FOV) positions and 22 microwave channels.
 The returned <code>DataFrame</code> has one row per FOV per channel,
-following the same convention as [<code>UFSObsSat</code>][earth2studio.data.UFSObsSat].</p>
+following the same convention as <a class="autorefs autorefs-internal" href="../UFSObsSat/#earth2studio.data.UFSObsSat"><code>UFSObsSat</code></a>.</p>
 <p>ATMS has 22 channels spanning 23.8--183.31 GHz.  The <code>sensor_index</code>
 column (1--22) identifies each channel:</p>
 <p>.. list-table:: ATMS Channel Specification
@@ -3277,7 +3277,7 @@ of data to your local machine for large requests.</p>
 </ul>
 <p>ATMS channel specification and BUFR SDR format:</p>
 <ul>
-<li><a href="https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf">www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf</a></li>
+<li><a href="https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf">www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf</a></li>
 </ul>
 </details>
 
