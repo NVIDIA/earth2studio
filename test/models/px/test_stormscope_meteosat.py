@@ -669,7 +669,9 @@ def test_stormscope_meteosat_package():
 
     h, w = len(model.mtg_y), len(model.mtg_x)
     assert out.shape == torch.Size([1, len(time), 1, len(variable), h, w])
-    assert torch.isfinite(out).all()
+    # Off-Earth pixels are intentionally masked to NaN in denormalize(); only
+    # on-Earth pixels are expected to be finite.
+    assert torch.isfinite(out[..., model.earth_mask]).all()
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "x", 5)
