@@ -764,7 +764,10 @@ def write_object(page: ObjectPage) -> None:
         page.full_name,
         *(f"{page.full_name}.{member.name}" for member in page.members),
     ]
-    body.extend(f'<span id="{target}"></span>' for target in backreference_targets)
+    # Markdown anchors are registered by mkdocs-autorefs, unlike raw HTML spans.
+    # Register the public import path aliases so docstrings can cross-reference
+    # generated API objects without knowing their documentation page paths.
+    body.extend(f"[](){{ #{target} }}" for target in backreference_targets)
     body.append("")
     actions = [
         action

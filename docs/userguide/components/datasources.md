@@ -25,6 +25,9 @@ the API documentation [earth2studio.data.analysis](../../modules/datasources_ana
 
 ## Data Source Interface
 
+<!-- markdownlint-disable-next-line MD042 -->
+[](){ #earth2studio.data.DataSource }
+
 The full requirements for a standard diagnostic model are defined explicitly in the
 `earth2studio/models/dx/base.py`.
 

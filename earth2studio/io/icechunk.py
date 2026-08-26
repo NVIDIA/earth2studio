@@ -40,7 +40,7 @@ except ImportError:
 
 @check_optional_dependencies()
 class IceChunkBackend(ZarrBackend):
-    """A backend that writes to an `Icechunk <https://icechunk.io/>`_ repository.
+    """A backend that writes to an [Icechunk](https://icechunk.io/) repository.
 
     Icechunk is a transactional storage engine for Zarr that adds version control
     (commits, branches, tags) on top of a regular object store. This backend

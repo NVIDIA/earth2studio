@@ -168,9 +168,9 @@ class GOESGLM:
     ----
     Additional information on the data repository:
 
-    - https://www.goes-r.gov/products/baseline-LCFA.html
+    - https://www.goes-r.gov/products/baseline-lightning-detection.html
     - https://registry.opendata.aws/noaa-goes/
-    - https://www.ncei.noaa.gov/products/satellite/goes-glm
+    - https://www.ncei.noaa.gov/products/goes-terrestrial-weather-abi-glm
 
     Example
     -------
