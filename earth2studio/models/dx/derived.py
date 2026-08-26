@@ -31,7 +31,7 @@ class DerivedWS(torch.nn.Module):
     """Calculates the Wind Speed (WS) magnitude from eastward and northward wind
     components for specified levels. The calculation is based on the formula:
     ws = sqrt(u^2 + v^2)
-    
+
     Parameters
     ----------
     levels : list[int  |  str], optional
