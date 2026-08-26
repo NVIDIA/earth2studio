@@ -309,7 +309,7 @@ plugins:
         name: AIFS
         color: '#5f3dc4'
         text_color: '#fff'
-        tooltip: Artificial Intelligence Forecasting System
+        tooltip: ECMWF AI Forecasting System
       dataset:ifs:
         label: IFS
         name: IFS
@@ -321,13 +321,13 @@ plugins:
         name: GFS
         color: '#1971c2'
         text_color: '#fff'
-        tooltip: Global Forecast System family, including GEFS
+        tooltip: NOAA Global Forecast System
       dataset:hrrr:
         label: HRRR
         name: HRRR
         color: '#087f5b'
         text_color: '#fff'
-        tooltip: High-Resolution Rapid Refresh
+        tooltip: NOAA High-Resolution Rapid Refresh
       dataset:cmip6:
         label: CMIP6
         name: CMIP6
