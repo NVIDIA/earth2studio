@@ -410,7 +410,7 @@ nvidia-physicsnemo = [
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
-earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "ae47e99a68e2ed40c7f3dd18e399dd06c56fbb8b" }
+earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "23608550091f6ffb6256c3830514c6489f11fd90" }
 
 
 [exclude.uv.workspace]
