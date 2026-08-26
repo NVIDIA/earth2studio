@@ -37,7 +37,7 @@ class GOESGLMLexicon(metaclass=LexiconType):
     Variable reference:
 
     - GLM Product Definition and User's Guide:
-      https://www.goes-r.gov/products/baseline-LCFA.html
+    https://www.goes-r.gov/products/baseline-lightning-detection.html
     """
 
     VOCAB = {

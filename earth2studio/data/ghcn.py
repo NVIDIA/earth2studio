@@ -932,7 +932,7 @@ class GHCNHourly(_GHCNBase):
     Additional information on the data repository can be referenced here:
 
     - https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
-    - https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/
+    - https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
 
     Example
     -------

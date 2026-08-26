@@ -126,7 +126,7 @@ class acc:
 
         Note
         ----
-        Reference: https://www.atmos.albany.edu/daes/atmclasses/atm401/spring_2016/ppts_pdfs/ECMWF_ACC_definition.pdf
+    Reference: https://confluence.ecmwf.int/spaces/FUG/pages/673550781/Section%2B6.2.2%2BAnomaly%2BCorrelation%2BCoefficient
         """
 
         # Input coordinate checking

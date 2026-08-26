@@ -136,7 +136,7 @@ class GHCNHourlyLexicon(metaclass=LexiconType):
     Additional resources:
 
     - https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
-    - https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/
+    - https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
     """
 
     # Maps e2s variable name → GHCNh parquet column name (None = derived).

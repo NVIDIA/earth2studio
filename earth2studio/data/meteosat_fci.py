@@ -329,7 +329,7 @@ class MeteosatFCI:
     Additional information on the data repository:
 
     - https://data.eumetsat.int/product/EO:EUM:DAT:0662
-    - https://www.eumetsat.int/mtg-fci-level-1c-full-disk
+    - https://user.eumetsat.int/resources/user-guides/mtg-fci-level-1c-data-guide
 
     Badges
     ------

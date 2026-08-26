@@ -99,7 +99,7 @@ _SAT_START_DATE: dict[str, datetime] = {
 # Source: JPSS ATMS SDR Algorithm Theoretical Basis Document (ATBD),
 #   D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B, Version 1, 2022-04-27,
 #   Section 3 ("Instrument Description"), pp. 8-9.
-#   https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
+#   https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf
 #
 # The antenna completes 3 revolutions in 8 seconds (scan period = 8/3 s).
 # Each scan cycle samples 96 Earth-scene FOVs at ~18 ms integration each,
@@ -218,7 +218,7 @@ class JPSS_ATMS:
     Each BUFR file contains a single scan line with 96 cross-track
     field-of-view (FOV) positions and 22 microwave channels.
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
-    following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
+    following the same convention as [`UFSObsSat`](UFSObsSat.md).
 
     ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``sensor_index``
     column (1--22) identifies each channel:
@@ -339,7 +339,7 @@ class JPSS_ATMS:
 
     ATMS channel specification and BUFR SDR format:
 
-    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf
 
 
     Badges

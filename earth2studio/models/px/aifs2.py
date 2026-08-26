@@ -62,7 +62,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - Extended pressure levels to 10 hPa
     - Vertical velocity (W) changed from prognostic to diagnostic
 
-    It is recommended to use the [`IFS`][earth2studio.data.IFS] data source to
+    It is recommended to use the [`IFS`](../../data/analysis/IFS.md) data source to
     prepare model inputs given the variable set required.
 
     Note

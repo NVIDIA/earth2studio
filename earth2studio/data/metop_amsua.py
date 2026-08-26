@@ -401,7 +401,7 @@ class MetOpAMSUA:
     L1B products due to quality filtering.
 
     The returned :class:`~pandas.DataFrame` has one row per FOV per channel,
-    following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
+    following the same convention as [`UFSObsSat`](UFSObsSat.md).
     The ``sensor_index`` column (1--15) identifies each channel.
 
     This data source downloads Level 1B products from the EUMETSAT Data Store

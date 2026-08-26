@@ -631,7 +631,7 @@ class MetOpAVHRR:
     and 3B cannot operate simultaneously.
 
     The returned :class:`~pandas.DataFrame` has one row per pixel per channel,
-    following the same convention as [`UFSObsSat`][earth2studio.data.UFSObsSat].
+    following the same convention as [`UFSObsSat`](UFSObsSat.md).
     The ``sensor_index`` column (1--6) identifies each channel.  The ``class``
     column differentiates observation types: ``"refl"`` for visible/NIR
     channels (1, 2, 3A) and ``"rad"`` for thermal IR channels (3B, 4, 5).

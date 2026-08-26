@@ -248,7 +248,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     surface and model-level (3D) fields -- winds,
     temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
     variables with a canonical Earth2Studio name are relabelled via
-    [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
+    ``CosmoLexicon`` and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
 
