@@ -493,6 +493,7 @@ nav:
   - Overview: blog/index.md
   - Posts:
     - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
+    - A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI: blog/posts/earth2_soil_health_prediction.md
   - Archive: blog/archive.md
   - Categories:
     - Overview: blog/categories.md
