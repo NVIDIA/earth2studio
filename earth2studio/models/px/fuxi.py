@@ -375,7 +375,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             np.tile(coords["time"] + coords["lead_time"][-1], x.shape[0])
         )
         # reshape, not view: x is the caller's tensor and may be non-contiguous
-        x = x.reshape(-1, *x.shape[2:])
+        x = x.reshape(-1, *x.shape[2:]).contiguous()
 
         # Not sure if FuXi supports batching atm
         output = torch.empty_like(x)
