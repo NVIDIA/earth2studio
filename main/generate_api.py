@@ -760,13 +760,9 @@ def write_object(page: ObjectPage) -> None:
     if page.badges:
         body.extend(["{% badges " + " ".join(page.badges) + " %}", ""])
     body.extend([f"**Import path:** `{page.full_name}`", ""])
-    backreference_targets = [
-        page.full_name,
-        *(f"{page.full_name}.{member.name}" for member in page.members),
-    ]
+    backreference_targets = [page.full_name]
     # Markdown anchors are registered by mkdocs-autorefs, unlike raw HTML spans.
-    # Register the public import path aliases so docstrings can cross-reference
-    # generated API objects without knowing their documentation page paths.
+    # Register the public import path alias for the documented object only.
     body.extend(f"[](){{ #{target} }}" for target in backreference_targets)
     body.append("")
     actions = [
