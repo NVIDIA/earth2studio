@@ -127,7 +127,7 @@ class acc:
         Note
         ----
         For more information see the following references:
-        
+
         - https://confluence.ecmwf.int/spaces/FUG/pages/673550781/Section%2B6.2.2%2BAnomaly%2BCorrelation%2BCoefficient
         """
 
