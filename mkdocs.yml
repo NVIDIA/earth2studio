@@ -304,36 +304,42 @@ plugins:
         color: '#4263eb'
         text_color: '#fff'
         tooltip: ECMWF Reanalysis v5
+        hide_in: [autosummary, filter]
       dataset:aifs:
         label: AIFS
         name: AIFS
         color: '#5f3dc4'
         text_color: '#fff'
         tooltip: ECMWF AI Forecasting System
+        hide_in: [autosummary, filter]
       dataset:ifs:
         label: IFS
         name: IFS
         color: '#364fc7'
         text_color: '#fff'
         tooltip: ECMWF Integrated Forecasting System
+        hide_in: [autosummary, filter]
       dataset:gfs:
         label: GFS
         name: GFS
         color: '#1971c2'
         text_color: '#fff'
         tooltip: NOAA Global Forecast System
+        hide_in: [autosummary, filter]
       dataset:hrrr:
         label: HRRR
         name: HRRR
         color: '#087f5b'
         text_color: '#fff'
         tooltip: NOAA High-Resolution Rapid Refresh
+        hide_in: [autosummary, filter]
       dataset:cmip6:
         label: CMIP6
         name: CMIP6
         color: '#e67700'
         text_color: '#fff'
         tooltip: Coupled Model Intercomparison Project Phase 6
+        hide_in: [autosummary, filter]
       year:2021:
         label: '2021'
         color: '#F2F2F2'
