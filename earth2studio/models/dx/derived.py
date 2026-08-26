@@ -31,7 +31,7 @@ class DerivedWS(torch.nn.Module):
     """Calculates the Wind Speed (WS) magnitude from eastward and northward wind
     components for specified levels. The calculation is based on the formula:
     ws = sqrt(u^2 + v^2)
-
+ƒdoi
     Parameters
     ----------
     levels : list[int  |  str], optional
@@ -229,7 +229,7 @@ class DerivedRHDewpoint(torch.nn.Module):
 
     - https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)
     - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)
-    - [Alduchov and Eskridge (1996)](https://doi.org/10.1175/1520-0450%281996%29035%3C0601%3AIMFAOS%3E2.0.CO%3B2) (Eq. 21)
+    - https://doi.org/10.1175/1520-0450%281996%29035%3C0601%3AIMFAOS%3E2.0.CO%3B2 (Eq. 21)
     - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
 
     Badges
