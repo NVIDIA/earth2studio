@@ -34,7 +34,7 @@ In this example you will learn:
 
 # /// script
 # dependencies = [
-#   "earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[data,stormscope] @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0",
 #   "cartopy",
 # ]
 # ///

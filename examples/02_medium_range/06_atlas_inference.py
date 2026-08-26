@@ -53,7 +53,7 @@ In this example you will learn:
 # /// script
 # dependencies = [
 #   "torch==2.13.0",
-#   "earth2studio[atlas] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[atlas] @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0",
 #   "cartopy",
 #   "matplotlib",
 # ]
