@@ -135,6 +135,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed deterministic workflows with data sources that provide leading batch
+  dimensions such as ensemble.
+
 - Fixed intermittent repeated FengWu forecast timesteps by synchronizing ONNX
   Runtime I/O buffers with PyTorch.
 - Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
