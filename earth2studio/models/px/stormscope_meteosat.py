@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import types
 from collections import OrderedDict
 from collections.abc import Callable, Generator
 from datetime import datetime
@@ -40,6 +41,7 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import CoordSystem
 
 try:
+    import physicsnemo.nn.module.dit_layers as _dit_layers
     from omegaconf import OmegaConf
     from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
@@ -788,9 +790,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
         package = Package(
-            "hf://nvidia/stormcast-conus@17148d712f7ef2c0b48355032dcad85173dd230e",
+            "hf://nvidia/stormscope-meteosat@17148d712f7ef2c0b48355032dcad85173dd230e",
             cache_options={
-                "cache_storage": Package.default_cache("stormcast-conus"),
+                "cache_storage": Package.default_cache("stormscope-meteosat"),
                 "same_names": True,
             },
         )
@@ -825,16 +827,35 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # load model registry:
         config = OmegaConf.load(package.resolve("config.yaml"))
 
-        model_spec = [
-            {
-                "sigma_min": float(spec["sigma_min"]),
-                "sigma_max": float(spec["sigma_max"]),
-                "model": EDMPreconditioner.from_checkpoint(
-                    package.resolve(spec["path"])
-                ).eval(),
-            }
-            for spec in config["model_spec"]
-        ]
+        # Checkpoints embed layernorm_backend=apex in the model constructors, which will
+        # fail if apex is not installed. Here we patch APEX_AVAILABLE in physicsnemo
+        # dit_layers to avoid the import error. FusedLayerNorm uses elementwise_affine=False
+        # (no learned parameters), so torch.nn.LayerNorm is state-dict-compatible.
+        # TODO remove when upstream physicsnemo falls back to torch with a warning.
+        _apex_restore: tuple | None = None
+        if not _dit_layers.APEX_AVAILABLE:
+            _apex_restore = (_dit_layers.APEX_AVAILABLE, _dit_layers.apex_normalization)
+            _dit_layers.APEX_AVAILABLE = True
+            _dit_layers.apex_normalization = types.SimpleNamespace(
+                FusedLayerNorm=torch.nn.LayerNorm
+            )
+
+        try:
+            model_spec = [
+                {
+                    "sigma_min": float(spec["sigma_min"]),
+                    "sigma_max": float(spec["sigma_max"]),
+                    "model": EDMPreconditioner.from_checkpoint(
+                        package.resolve(spec["path"])
+                    ).eval(),
+                }
+                for spec in config["model_spec"]
+            ]
+        finally:
+            if _apex_restore is not None:
+                _dit_layers.APEX_AVAILABLE, _dit_layers.apex_normalization = (
+                    _apex_restore
+                )
 
         # Load metadata: means, stds, grid
         with xr.open_dataset(package.resolve("metadata.nc")) as metadata:

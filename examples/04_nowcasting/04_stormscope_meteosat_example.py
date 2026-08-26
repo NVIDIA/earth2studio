@@ -92,7 +92,7 @@ from earth2studio.utils.coords import map_coords
 # ----------
 # Load StormScopeMeteosatEU from a package.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 package = StormScopeMeteosatEU.load_default_package()
@@ -117,7 +117,7 @@ model.compile_model()
 # The 1 km grid is exactly 2 times the pixels of the 2 km grid, so we get
 # the 1 km bounding box by doubling the 2 km bounding box.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 bbox_2km = StormScopeMeteosatEU.Model_FCI_BBox
 FCI_BBox = {"2km": bbox_2km}
 FCI_BBox["1km"] = (
@@ -141,11 +141,11 @@ fci = {
 # ``StormScopeMeteosatEU.combine_1km_2km_inputs`` to resize the channels
 # retrieved from the 1 km data source.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 # Start time; replace with any time for which MTG-I1 FCI data is available.
 # StormScopeMeteosatEU was trained on November 2024 - May 2026 data; start times
 # should generally be outside that period.
-start_time = np.datetime64(datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc))
+start_time = np.datetime64(datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
 variables = in_coords["variable"]
 
@@ -180,7 +180,7 @@ with torch.no_grad():
 # Up to GPU memory limits, ``ensemble_size`` can be increased to produce multiple
 # independent ensemble members in a single forward pass.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 ensemble_size = 1
 x = x.expand(ensemble_size, -1, -1, -1, -1, -1)
 coords["ensemble"] = np.arange(ensemble_size)
@@ -193,7 +193,7 @@ coords.move_to_end("ensemble", last=False)
 # yielded value is the (unchanged) initial condition, and each subsequent
 # value advances the prediction by one 10-minute interval.
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 n_steps = 12  # 2 hours of 10-minute forecast steps
 
 for step, (x_pred, coords_pred) in enumerate(
@@ -209,7 +209,7 @@ for step, (x_pred, coords_pred) in enumerate(
 # 0.5 / 0.4 µm) in geostationary projection. Off-Earth pixels are already set
 # to NaN by ``denormalize``.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 rgb_channels = ["fci06vis", "fci05vis", "fci04vis"]
 ch_idx = [list(model.variables).index(ch) for ch in rgb_channels]
 
