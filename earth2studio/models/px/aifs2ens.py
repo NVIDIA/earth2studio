@@ -64,7 +64,7 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - New snow variable (snowc - snow coverage)
     - Extended pressure levels to 10 hPa
 
-    It is recommended to use the [`IFS`](../../data/analysis/IFS.md) data source to
+    It is recommended to use the [`IFS`][earth2studio.data.IFS] data source to
     prepare model inputs given the variable set required.
 
     Note

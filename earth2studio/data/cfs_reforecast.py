@@ -160,8 +160,8 @@ class CFS_Reforecast_FX:
 
     This class exposes the pressure-level (``pgbf``) product on the same
     1 degree regular lat-lon grid (181 x 360) as the operational
-    [`CFS_FX`](CFS_FX.md). Variable definitions are taken
-    verbatim from ``CFSLexicon``, which the
+    [`CFS_FX`][earth2studio.data.CFS_FX]. Variable definitions are taken
+    verbatim from [`CFSLexicon`][earth2studio.lexicon.CFSLexicon], which the
     grib2 inventories match.
 
     Parameters
@@ -591,7 +591,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
     Same archive and access pattern as :class:`CFS_Reforecast_FX` but
     exposes the ``flxf`` product on the native T126 Gaussian grid
     (190 x 384). Variable inventory mirrors
-    ``CFSFluxLexicon`` (which the reforecast
+    [`CFSFluxLexicon`][earth2studio.lexicon.CFSFluxLexicon] (which the reforecast
     grib2 inventories match).
 
     Parameters
