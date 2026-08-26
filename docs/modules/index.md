@@ -1,3 +1,7 @@
+---
+title: API Index
+---
+
 <!-- markdownlint-disable MD033 -->
 
 # API Reference
