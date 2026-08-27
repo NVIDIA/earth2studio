@@ -224,7 +224,9 @@ proj = ccrs.Geostationary(
 )
 extent = MeteosatFCI.projection_extent(resolution="2km", pixel_bbox=bbox_2km)
 
-fig = plt.figure(figsize=(8, 8))
+aspect = (extent[1] - extent[0]) / (extent[3] - extent[2])
+fig_height = 8
+fig = plt.figure(figsize=(fig_height * aspect, fig_height))
 ax = fig.add_subplot(1, 1, 1, projection=proj)
 ax.set_xlim(extent[0], extent[1])
 ax.set_ylim(extent[2], extent[3])
