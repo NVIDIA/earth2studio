@@ -271,7 +271,11 @@ def test_stormscope_iter(batch, device):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
+    ic_x, ic_coords = next(p_iter)  # First yield should return the initial condition
+    assert ic_x.shape == torch.Size([batch, len(time), 1, nvar, h, w])
+    assert ic_coords["lead_time"].shape == (1,)
+    assert ic_coords["lead_time"][0] == lead_time[-1]
+
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
