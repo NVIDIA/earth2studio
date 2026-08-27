@@ -119,9 +119,7 @@ def test_declarative_driver_matches_hand_computed_values():
     assert torch.allclose(z.data, torch.full(ATMOS_GRID, 19.2336), atol=1e-4)
     sst = driver.components["ocean"].export_state["sea_surface_temperature"]
     assert torch.allclose(sst.data, torch.full((16, 32), 2.180147), atol=1e-6)
-    zmean = driver.components["med"].export_state[
-        "geopotential_at_1000hpa_48h_mean"
-    ]
+    zmean = driver.components["med"].export_state["geopotential_at_1000hpa_48h_mean"]
     assert torch.allclose(zmean.data, torch.full(ATMOS_GRID, 13.8147), atol=1e-4)
 
 

@@ -25,8 +25,9 @@ torch, so autograd graphs survive the exchange.
 """
 
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import replace
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 import torch
@@ -244,7 +245,9 @@ class Connector:
             del entry_dst
         return self._matched
 
-    def _match_windowed(self, src_exports: list[str], dst_imports: list[str]) -> list[str]:
+    def _match_windowed(
+        self, src_exports: list[str], dst_imports: list[str]
+    ) -> list[str]:
         """Pair source exports with the destination's derived imports.
 
         A source export `base` maps to a destination import whose dictionary

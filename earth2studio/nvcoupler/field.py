@@ -123,7 +123,9 @@ class Field:
         return tuple(parts)
 
     def __repr__(self) -> str:
-        dims = ", ".join(f"{k}: {len(v) if v.ndim else 0}" for k, v in self.coords.items())
+        dims = ", ".join(
+            f"{k}: {len(v) if v.ndim else 0}" for k, v in self.coords.items()
+        )
         t = f", valid_time={self.valid_time}" if self.valid_time is not None else ""
         return f"Field({self.standard_name!r} [{self.units}], {dims}{t})"
 

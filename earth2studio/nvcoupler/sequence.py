@@ -249,9 +249,7 @@ def _toposort(
     while pending:
         ready = [n for n in pending if deps[n] <= placed]
         if not ready:
-            cycle_edges = [
-                (s, d) for s, d in edges if s in pending and d in pending
-            ]
+            cycle_edges = [(s, d) for s, d in edges if s in pending and d in pending]
             raise SequenceError(
                 f"Sequential coupling cycle among components {sorted(pending)} "
                 f"at cadence {fmt_timedelta(interval)}: connections "
@@ -326,9 +324,7 @@ def derive_sequence(
     is_mediator = {
         name: isinstance(comp, Mediator) for name, comp in components.items()
     }
-    seq_edges = [
-        p for p in pairs if not is_lagged(p) and not is_mediator[p[0]]
-    ]
+    seq_edges = [p for p in pairs if not is_lagged(p) and not is_mediator[p[0]]]
 
     slots: list[Slot] = []
     for interval in sorted({cadence[n] for n in components}, key=ns):
@@ -354,13 +350,9 @@ def derive_sequence(
         runs = [n for n in here if not is_mediator[n]]
         for name in _toposort(runs, seq_edges, interval):
             actions.append(RunAction(name))
-            actions.extend(
-                ConnectAction(s, d) for s, d in seq_edges if s == name
-            )
+            actions.extend(ConnectAction(s, d) for s, d in seq_edges if s == name)
         if actions:
             slots.append(Slot(interval, actions))
     if not slots:
-        raise SequenceError(
-            "Cannot derive a run sequence from an empty component dict"
-        )
+        raise SequenceError("Cannot derive a run sequence from an empty component dict")
     return RunSequence(slots)

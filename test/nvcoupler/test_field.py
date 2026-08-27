@@ -83,7 +83,10 @@ def test_state_mapping_and_subset():
 def test_as_tensor_from_tensor_roundtrip():
     s = State(
         "exports",
-        [_field("sea_surface_temperature", "K", 1.0), _field("air_temperature_2m", "K", 2.0)],
+        [
+            _field("sea_surface_temperature", "K", 1.0),
+            _field("air_temperature_2m", "K", 2.0),
+        ],
     )
     x, coords = s.as_tensor(["sea_surface_temperature", "air_temperature_2m"])
     # variable inserted before spatial dims
@@ -106,7 +109,9 @@ def test_as_tensor_grid_mismatch_raises():
 
 
 def test_from_tensor_alias_resolution_and_strict():
-    coords = OrderedDict({"variable": np.array(["sst", "mystery_var"]), **_grid_coords()})
+    coords = OrderedDict(
+        {"variable": np.array(["sst", "mystery_var"]), **_grid_coords()}
+    )
     x = torch.zeros(2, 8, 16)
     with pytest.raises(UnknownFieldError):
         State.from_tensor("s", x, coords, DEFAULT_DICTIONARY)

@@ -52,7 +52,9 @@ class UnknownFieldError(CouplingError):
 class UnmatchedImportError(CouplingError):
     """A component advertises an import that no other component exports."""
 
-    def __init__(self, component: str, field: str, available_exports: dict[str, list[str]]):
+    def __init__(
+        self, component: str, field: str, available_exports: dict[str, list[str]]
+    ):
         exports_flat = [f for fields in available_exports.values() for f in fields]
         listing = (
             "; ".join(

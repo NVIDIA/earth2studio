@@ -205,9 +205,7 @@ def test_describe_labels_mediator_delivery_sequential():
         {
             "atmos": fake_atmos(),
             "ocean": fake_ocean(),
-            "med": TrailingAverageMediator(
-                "med", ["geopotential_at_1000hpa_48h_mean"]
-            ),
+            "med": TrailingAverageMediator("med", ["geopotential_at_1000hpa_48h_mean"]),
         },
         clock=Clock(T0, T96, "6h"),
         connectors=[("atmos", "med"), ("ocean", "atmos"), ("med", "ocean")],
