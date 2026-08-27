@@ -151,9 +151,7 @@ class Driver:
             self._connectors[(item.src.name, item.dst.name)] = item
         self.sequence_derived = sequence is None
         if sequence is None:
-            self.sequence = derive_sequence(
-                self.components, self._connectors.values()
-            )
+            self.sequence = derive_sequence(self.components, self._connectors.values())
         else:
             self.sequence = (
                 parse_run_sequence(sequence) if isinstance(sequence, str) else sequence

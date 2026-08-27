@@ -66,7 +66,9 @@ def _broadcast_to_slice(data: torch.Tensor, slice_shape: torch.Size) -> torch.Te
     return data.expand(slice_shape)
 
 
-def _stacking_order(field_order: list[str] | None, imports: State, who: str) -> list[str]:
+def _stacking_order(
+    field_order: list[str] | None, imports: State, who: str
+) -> list[str]:
     """Resolve the channel order for stacking imported fields.
 
     Models are channel-order-sensitive; silently stacking in alphabetical

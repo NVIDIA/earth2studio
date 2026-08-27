@@ -130,9 +130,9 @@ class StateDataSource:
 
         # IO boundary of the pull path: the model's own fetch machinery is
         # xarray-based, so this conversion is unavoidable (inference-only).
-        data = np.stack(
-            [f.data.detach().cpu().numpy() for f in fields], axis=0
-        )[np.newaxis].repeat(len(times), axis=0)
+        data = np.stack([f.data.detach().cpu().numpy() for f in fields], axis=0)[
+            np.newaxis
+        ].repeat(len(times), axis=0)
         return xr.DataArray(
             data,
             dims=["time", "variable", "lat", "lon"],

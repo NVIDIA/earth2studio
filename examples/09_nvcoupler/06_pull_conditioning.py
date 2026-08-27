@@ -229,9 +229,7 @@ driver.initialize(
 
 refc_series = []
 for time, states in driver.steps():
-    refc_series.append(
-        float(stormcast.export_state["radar_reflectivity"].data.mean())
-    )
+    refc_series.append(float(stormcast.export_state["radar_reflectivity"].data.mean()))
 
 # %%
 # Prove Every Step Pulled Fresh Conditioning
@@ -241,8 +239,10 @@ for time, states in driver.steps():
 # global state *after* that hour's step, never a stale or staged value —
 # and each refc increment must match the arithmetic above.
 
-print(f"{'hour':>6} {'pulled u10m':>12} {'pulled t2m':>11} "
-      f"{'refc incr':>10} {'refc':>8}")
+print(
+    f"{'hour':>6} {'pulled u10m':>12} {'pulled t2m':>11} "
+    f"{'refc incr':>10} {'refc':>8}"
+)
 prev = 0.0
 for k, (pull, refc) in enumerate(zip(model.pull_log, refc_series), start=1):
     u, t = float(pull[0, 0, 0].mean()), float(pull[0, 0, 1].mean())

@@ -189,11 +189,7 @@ print(f"last atmos->ocean transfer: {z48}")
 # windowed one, from the ocean's derived import) by matching standard names,
 # so the whole system above is:
 
-driver2 = nvc.couple(
-    fake_atmos(), fake_ocean(), start="2024-01-01", stop="2024-01-05"
-)
+driver2 = nvc.couple(fake_atmos(), fake_ocean(), start="2024-01-01", stop="2024-01-05")
 driver2.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
-z96 = float(
-    driver2.run()["atmos"]["geopotential_at_1000hpa"].values[-1].mean()
-)
+z96 = float(driver2.run()["atmos"]["geopotential_at_1000hpa"].values[-1].mean())
 print(f"couple() reproduces z1000(96h) = {z96:.4f}")
