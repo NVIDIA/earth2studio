@@ -237,6 +237,14 @@ plugins:
         color: '#0b7285'
         text_color: '#fff'
         hide_in: [autosummary, filter]
+      provider:copernicus:
+        label: Copernicus
+        name: Copernicus
+        icon: <i class="fa-solid fa-earth-europe"></i>
+        color: '#005ea8'
+        text_color: '#fff'
+        tooltip: Copernicus Climate and Atmosphere Data Stores
+        hide_in: [autosummary, filter]
       provider:ai2:
         label: AI2
         icon: <i class="fa-solid fa-flask"></i>

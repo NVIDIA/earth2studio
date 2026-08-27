@@ -87,7 +87,7 @@ class CDS:
 
     Badges
     ------
-    region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:ecmwf
+    region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:copernicus
     """
 
     MAX_BYTE_SIZE = 20000000
