@@ -22,6 +22,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 import torch
+import zarr
 from omegaconf import OmegaConf
 from src.output import OutputManager, build_forecast_coords
 from src.pipelines import ForecastPipeline
@@ -243,10 +244,22 @@ class TestOutputManagerResume:
                     )
                     data = torch.randn(1, 1, n_var, n_lat, n_lon)
                     mgr.write(data, write_coords)
-                    assert len(mgr._futures) == 1
 
+                    # Pending writes live in the backend now, not in a future
+                    # list owned here, so assert what flush() is FOR: once it
+                    # returns the data is in the store, so a resume marker
+                    # written next cannot outrun its own data. Read through an
+                    # independent handle, since mgr.io[...] flushes on its own.
                     mgr.flush()
-                    assert len(mgr._futures) == 0
+                    store = zarr.open(mgr._path, mode="r")
+                    for i, var in enumerate(VARIABLES):
+                        np.testing.assert_allclose(
+                            np.asarray(store[var][0, 0]),
+                            data[0, 0, i].numpy(),
+                            rtol=0,
+                            atol=0,
+                            err_msg=f"{var} not durable after flush()",
+                        )
 
 
 # ---------------------------------------------------------------------------

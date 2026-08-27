@@ -25,7 +25,6 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import obstore as obs
-import pygrib
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -36,6 +35,7 @@ from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
+    decode_grib_message,
     gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -236,14 +236,15 @@ class GEFS_FX:
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.GEFS_LAT),
                     len(self.GEFS_LON),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
@@ -406,7 +407,9 @@ class GEFS_FX:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(_decode_gefs_grib, grib_file, timeout=30.0)
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -718,34 +721,3 @@ class GEFS_FX_721x1440(GEFS_FX):
                     raise ValueError(
                         f"Requested lead time {delta} needs to be 3 hour interval for first 10 days in GEFS 0.25 degree data"
                     )
-
-
-def _decode_gefs_grib(grib_file: str) -> np.ndarray:
-    """Decode a single-message GEFS grib file into a numpy array.
-
-    Module-level so it can be dispatched to a worker thread and patched in
-    offline tests. Uses pygrib, which is faster and lower memory than
-    xarray/cfgrib for single-message slices.
-
-    Parameters
-    ----------
-    grib_file : str
-        Path to local grib file holding one message
-
-    Returns
-    -------
-    np.ndarray
-        Decoded field values
-    """
-    try:
-        grbs = pygrib.open(grib_file)
-    except Exception:
-        logger.error(f"Failed to open grib file {grib_file}")
-        raise
-    try:
-        return grbs[1].values
-    except Exception:
-        logger.error(f"Failed to read grib file {grib_file}")
-        raise
-    finally:
-        grbs.close()

@@ -22,17 +22,17 @@ Running the DLESyM ISCCP-ERA5 Model
 Coupled inference with the upstream DLESyM checkpoints, including precipitation.
 
 This example demonstrates the upstream DLESyM model distributed by the
-`AtmosSci-DLESM/DLESyM <https://github.com/AtmosSci-DLESM/DLESyM>`_ group
+[AtmosSci-DLESM/DLESyM](https://github.com/AtmosSci-DLESM/DLESyM) group
 (the University of Washington team behind Cresswell-Clay et al. 2024). It shares
 the coupled atmosphere/ocean HEALPix architecture of the base
-:py:class:`earth2studio.models.px.DLESyM` model, but differs in a few ways that
+[`earth2studio.models.px.DLESyM`][earth2studio.models.px.DLESyM] model, but differs in a few ways that
 are worth highlighting:
 
 - The atmosphere carries an outgoing longwave radiation (OLR) channel. The model
   was trained on ISCCP-distributed OLR, so the wrapper accepts ERA5 ``ttr`` and
   applies a per-day-of-year moment-matching transform to convert it to OLR
   internally (controlled by the ``use_ttr`` flag).
-- A separate :py:class:`earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip`
+- A separate [`earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip`][earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip]
   diagnostic predicts 6-hourly accumulated precipitation (``tp06``) from the
   full coupled state.
 
@@ -57,11 +57,11 @@ In this example you will learn:
 # As with the base DLESyM model, the upstream checkpoints run on a HEALPix
 # ``nside=64`` grid internally and there are two ways to drive them:
 #
-# - Use :py:class:`earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon`. This
+# - Use [`earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon]. This
 #   variant accepts ERA5 inputs on the lat/lon grid, regrids them to HEALPix
 #   internally, and returns lat/lon outputs. This is the recommended entry point
 #   and is what we use throughout this example.
-# - Use :py:class:`earth2studio.models.px.DLESyMv0_ISCCP_ERA5` directly with
+# - Use [`earth2studio.models.px.DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] directly with
 #   HEALPix inputs, handling the regridding and derived-variable preparation
 #   yourself (see the base DLESyM example for that lower-level pattern).
 #
@@ -91,6 +91,7 @@ data = ARCO()
 # Load the coupled prognostic (lat/lon variant) and the precip diagnostic.
 package = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
 model = DLESyMv0_ISCCP_ERA5LatLon.load_model(package).to(device)
+
 
 # The prognostic output is already in OLR space, so we load the precip
 # diagnostic with ``use_ttr=False`` -- no further TTR -> OLR transform is needed

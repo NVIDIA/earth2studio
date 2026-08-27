@@ -1,0 +1,119 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: e2s-docs-light
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: e2s-docs-pages
+  cancel-in-progress: false
+
+env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
+  CDSAPI_URL: https://cds.climate.copernicus.eu/api
+  DOC_PUBLIC_BUILD: "false"
+  DOCS_PAGES_BRANCH: gh-pages
+  EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
+  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
+  TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  UV_LINK_MODE: symlink
+  UV_PYTHON: "3.13.13"
+
+jobs:
+  build-docs:
+    name: Build and publish light docs
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+    permissions:
+      contents: write
+      packages: read
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Validate docs publication ref
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]]; then
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted API docs publication ref." >&2
+            exit 1
+          fi
+
+          echo "API docs publication ref: ${GITHUB_REF_NAME}"
+
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Build light Zensical site
+        uses: ./.github/actions/build-light-docs
+        with:
+          artifact-name: docs-light-html
+          artifact-retention-days: "1"
+          gallery-cache-name: main
+          save-caches: "true"
+          upload-artifact: "false"
+        env:
+          CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+          EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+          EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Deploy light docs
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
+          uv run mike deploy main \
+            --branch "${DOCS_PAGES_BRANCH}" \
+            --message "Deploy light docs for ${GITHUB_SHA}" \
+            --push
+          uv run mike set-default main \
+            --branch "${DOCS_PAGES_BRANCH}" \
+            --message "Set default docs version to main" \
+            --push

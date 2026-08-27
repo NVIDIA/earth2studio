@@ -28,16 +28,18 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
 import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon import GOESGLMLexicon
@@ -166,26 +168,25 @@ class GOESGLM:
     ----
     Additional information on the data repository:
 
-    - https://www.goes-r.gov/products/baseline-LCFA.html
+    - https://www.goes-r.gov/products/baseline-lightning-detection.html
     - https://registry.opendata.aws/noaa-goes/
-    - https://www.ncei.noaa.gov/products/satellite/goes-glm
+    - https://www.ncei.noaa.gov/products/goes-terrestrial-weather-abi-glm
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    from datetime import datetime
+    import numpy as np
+    from earth2studio.data import GOESGLM
 
-        from datetime import datetime
-        import numpy as np
-        from earth2studio.data import GOESGLM
+    ds = GOESGLM(
+        satellite="east",
+        lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
+        time_tolerance=np.timedelta64(5, "m"),
+    )
+    df = ds(datetime(2024, 6, 1, 18, 0), ["flashe", "flashc"])
 
-        ds = GOESGLM(
-            satellite="east",
-            lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
-            time_tolerance=np.timedelta64(5, "m"),
-        )
-        df = ds(datetime(2024, 6, 1, 18, 0), ["flashe", "flashc"])
-
+    ```
     Badges
     ------
     region:na region:sa dataclass:observation product:sat
@@ -243,21 +244,23 @@ class GOESGLM:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # One obstore store per satellite bucket, built lazily. Unlike async
+        # fsspec filesystems, obstore stores are event-loop independent, so
+        # they can safely be reused across repeated fetch calls (e.g. one per
+        # 5-min bin from ``GOESGLMGrid``).
+        self.stores: dict[str, AsyncListableStore] = {}
+        # Per-bucket memoized S3 hour-directory listings (bucket -> prefix ->
+        # keys). Only complete (past) hours are cached so a long-lived
+        # instance polling near-real-time data still sees newly arriving files.
+        self._hour_listing_cache: dict[str, dict[str, list[str]]] = {}
 
-    async def _async_init(self) -> None:
-        """Async initialization of the anonymous S3 filesystem.
-
-        Note
-        ----
-        Async fsspec expects initialization inside the execution loop.
-        """
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+    def _store_for_bucket(self, bucket: str) -> AsyncListableStore:
+        """Return (building if needed) the obstore store for an S3 bucket"""
+        if bucket not in self.stores:
+            self.stores[bucket] = obstore_store_from_url(
+                f"s3://{bucket}", max_pool_connections=self._async_workers
+            )
+        return self.stores[bucket]
 
     def __call__(
         self,
@@ -318,13 +321,6 @@ class GOESGLM:
         pd.DataFrame
             Event-level lightning observations.
         """
-        # Always build a fresh asynchronous filesystem for this fetch. The
-        # instance is created with ``skip_instance_cache=True`` and its aiohttp
-        # session is closed by ``managed_session`` below; reusing it across
-        # repeated calls (e.g. one per 5-min bin from ``GOESGLMGrid``) would
-        # hand later calls a torn-down aiobotocore client.
-        await self._async_init()
-
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
         for v in variable_list:
@@ -337,34 +333,30 @@ class GOESGLM:
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Listing and fetching share a single managed session so prefix
-        # discovery does not leak an unclosed s3fs session and both use the
-        # same refreshed client.
-        async with managed_session(self.fs):
-            files = await self._discover_files(time_list)
-            unique_uris = sorted({f.s3_uri for f in files})
-            logger.info(
-                f"[{self.SOURCE_ID}] discovered {len(unique_uris)} unique GLM "
-                f"files across {len(time_list)} requested times"
-            )
+        files = await self._discover_files(time_list)
+        unique_uris = sorted({f.s3_uri for f in files})
+        logger.info(
+            f"[{self.SOURCE_ID}] discovered {len(unique_uris)} unique GLM "
+            f"files across {len(time_list)} requested times"
+        )
 
-            coros = [
-                async_retry(
-                    self._fetch_remote_file,
-                    uri,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=120.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for uri in unique_uris
-            ]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching GLM L2 LCFA files",
-                verbose=(not self._verbose),
+        coros = [
+            async_retry(
+                self._fetch_remote_file,
+                uri,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=120.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for uri in unique_uris
+        ]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching GLM L2 LCFA files",
+            verbose=(not self._verbose),
+        )
 
         return self._compile_dataframe(files, time_list, variable_list, schema)
 
@@ -372,11 +364,14 @@ class GOESGLM:
         """List GLM L2 LCFA keys whose file-start times fall in any
         requested ``[t-tol, t+tol]`` window.
 
-        Hourly S3 prefixes are listed once each (deduplicated) and the
-        per-file start timestamps are parsed from the LCFA filename
-        convention.
+        Hourly S3 prefixes are listed once each (deduplicated within the
+        call) and the per-file start timestamps are parsed from the LCFA
+        filename convention. Listings of complete (past) hours are memoized
+        on the instance, so repeated fetches over the same hour (e.g. one
+        per 5-min bin from ``GOESGLMGrid``) issue a single LIST request; the
+        still-filling current hour is always re-listed.
         """
-        prefix_jobs: dict[tuple[str, str], None] = {}
+        prefix_jobs: dict[tuple[str, str], datetime] = {}
         windows: list[tuple[datetime, datetime, str]] = []
         for t in time_list:
             tmin = t + self._tolerance_lower
@@ -385,20 +380,25 @@ class GOESGLM:
             windows.append((tmin, tmax, sat))
             hr = (tmin - _GLM_FILE_DURATION).replace(minute=0, second=0, microsecond=0)
             while hr <= tmax:
-                prefix_jobs[(sat, self._hour_prefix(sat, hr))] = None
+                prefix_jobs.setdefault((sat, self._hour_prefix(sat, hr)), hr)
                 hr += timedelta(hours=1)
 
-        async def _list_one(sat: str, prefix: str) -> list[tuple[str, str]]:
-            try:
-                keys = await self.fs._ls(  # type: ignore[union-attr]
-                    f"{_BUCKETS[sat]}/{prefix}", detail=False
-                )
-            except FileNotFoundError:
-                return []
-            return [(sat, k) for k in keys if k.endswith(".nc")]
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        async def _list_one(
+            sat: str, prefix: str, hr: datetime
+        ) -> list[tuple[str, str]]:
+            bucket = _BUCKETS[sat]
+            paths = await obstore_list_prefix(
+                self._store_for_bucket(bucket),
+                prefix,
+                cache=self._hour_listing_cache.setdefault(bucket, {}),
+                cacheable=hr + timedelta(hours=1) <= now,
+            )
+            return [(sat, f"{bucket}/{p}") for p in paths if p.endswith(".nc")]
 
         listings = await gather_with_concurrency(
-            [_list_one(sat, prefix) for (sat, prefix) in prefix_jobs],
+            [_list_one(sat, prefix, hr) for (sat, prefix), hr in prefix_jobs.items()],
             max_workers=self._async_workers,
             desc="Listing GLM L2 LCFA prefixes",
             verbose=(not self._verbose),
@@ -439,13 +439,16 @@ class GOESGLM:
 
     async def _fetch_remote_file(self, uri: str) -> None:
         """Download one GLM NetCDF file into the cache directory."""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
         cache_path = self._cache_path(uri)
         if pathlib.Path(cache_path).is_file():
             return
+        bucket, key = uri.removeprefix("s3://").split("/", 1)
+        store = self._store_for_bucket(bucket)
         try:
-            data = await self.fs._cat_file(uri)
+            data = await obstore_read_range(store, key)
+        # obstore_read_range translates obstore's NotFoundError into
+        # FileNotFoundError; catch it here (before async_retry's OSError
+        # retry loop sees it) so a missing file warns and skips
         except FileNotFoundError:
             logger.warning(f"GLM file {uri} not found, skipping")
             return

@@ -19,7 +19,6 @@ from __future__ import annotations
 import os
 import shutil
 from collections import OrderedDict
-from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from types import TracebackType
 from typing import Any
@@ -31,7 +30,7 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
-from earth2studio.io import ZarrBackend
+from earth2studio.io import AsyncZarrBackend, ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
@@ -39,6 +38,10 @@ from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coord
 from .distributed import run_on_rank0_first
 
 _NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
+
+# Axes the pipelines write one slice at a time (per work item / rollout step).
+# AsyncZarrBackend requires these to be chunk-1 parallel coordinates.
+_ITERATION_DIMS = ("time", "lead_time", "ensemble")
 
 
 def _spatial_dims(coords: CoordSystem) -> list[str]:
@@ -349,6 +352,22 @@ class OutputManager:
         If provided, overrides ``output.overwrite`` from config.
     resume : bool | None
         If provided, overrides the top-level ``resume`` from config.
+    chunks : dict[str, int] | None
+        If provided, overrides ``output.chunks`` from config.  Used by
+        stores whose natural chunking differs from the forecast store's
+        (e.g. the online-scoring statistics store, which is small enough
+        to keep a whole IC trajectory in one chunk).
+    shard_coords : dict[str, int] | None
+        If provided, overrides ``output.shard_coords`` from config.  Pass an
+        empty dict for stores that sharding cannot help, such as the
+        single-``lead_time`` predownload stores.
+    io_backend : str | None
+        If provided, overrides ``output.io_backend`` from config (``"zarr"``
+        or ``"async_zarr"``).  Used by stores that manage their own zarr
+        arrays directly against the synchronous backend API — the
+        online-scoring statistics store (see ``add_stats_arrays`` in
+        ``src/online.py``) — rather than through :meth:`add_array`, since
+        that low-level access has no async-safe equivalent today.
     """
 
     def __init__(
@@ -357,6 +376,9 @@ class OutputManager:
         store_name: str = "forecast.zarr",
         overwrite: bool | None = None,
         resume: bool | None = None,
+        chunks: dict[str, int] | None = None,
+        shard_coords: dict[str, int] | None = None,
+        io_backend: str | None = None,
     ) -> None:
         output_cfg = cfg.output
         self._dist = DistributedManager()
@@ -368,22 +390,71 @@ class OutputManager:
         self._resume = resume if resume is not None else cfg.get("resume", False)
         self._thread_io = output_cfg.get("thread_writers", 0)
         self._chunks: dict[str, int] = dict(
-            output_cfg.get("chunks", {"time": 1, "lead_time": 1})
+            chunks
+            if chunks is not None
+            else output_cfg.get("chunks", {"time": 1, "lead_time": 1})
         )
+
+        if io_backend is not None:
+            self._backend = str(io_backend)
+        else:
+            self._backend = str(output_cfg.get("io_backend", "async_zarr"))
+        if self._backend not in ("zarr", "async_zarr"):
+            raise ValueError(
+                f"output.io_backend must be 'zarr' or 'async_zarr', "
+                f"got {self._backend!r}"
+            )
+        self._shard_coords: dict[str, int] = dict(
+            shard_coords
+            if shard_coords is not None
+            else output_cfg.get("shard_coords", {}) or {}
+        )
+        self._max_inflight_shards = int(output_cfg.get("max_inflight_shards", 4))
+
+        if self._is_async:
+            bad_chunks = sorted(
+                dim
+                for dim, size in self._chunks.items()
+                if dim in _ITERATION_DIMS and size != 1
+            )
+            if bad_chunks:
+                raise ValueError(
+                    f"output.chunks must use chunk size 1 for {bad_chunks} with "
+                    "io_backend=async_zarr: these axes are written one slice per "
+                    "step. Use output.shard_coords to reduce file count instead."
+                )
+        elif self._thread_io > 0:
+            logger.warning(
+                "output.thread_writers is ignored with io_backend=zarr, "
+                "writes are synchronous. Use io_backend=async_zarr for "
+                "threaded writes."
+            )
+
+        bad_axes = sorted(set(self._shard_coords) - {"lead_time"})
+        if bad_axes and self._dist.world_size > 1:
+            raise ValueError(
+                f"output.shard_coords may only shard 'lead_time', got {bad_axes}. "
+                "time/ensemble are the axes work is distributed over, so a shard "
+                "spanning two ranks is silently truncated to one rank's data."
+            )
+        if self._shard_coords and not self._is_async:
+            raise ValueError(
+                "output.shard_coords requires output.io_backend=async_zarr"
+            )
 
         self._total_coords: CoordSystem | None = None
         self._variables: list[str] | None = None
-        self._io: ZarrBackend | None = None
-        self._executor: ThreadPoolExecutor | None = None
-        self._futures: list[Future[Any]] = []
+        self._io: ZarrBackend | AsyncZarrBackend | None = None
+
+    @property
+    def _is_async(self) -> bool:
+        return self._backend == "async_zarr"
 
     # ------------------------------------------------------------------
     # Context manager protocol
     # ------------------------------------------------------------------
 
     def __enter__(self) -> OutputManager:
-        if self._thread_io > 0:
-            self._executor = ThreadPoolExecutor(max_workers=self._thread_io)
         return self
 
     def __exit__(
@@ -393,22 +464,21 @@ class OutputManager:
         exc_tb: TracebackType | None,
     ) -> None:
         write_error: BaseException | None = None
-        if self._executor is not None:
-            for f in self._futures:
-                try:
-                    f.result()
-                except Exception as e:
-                    if write_error is None:
-                        write_error = e
-                        logger.error(f"Threaded write failed: {e}")
-            self._executor.shutdown(wait=True)
-            self._futures.clear()
+        if isinstance(self._io, AsyncZarrBackend):
+            # Drains the backend's pool and writes out any incomplete shard.
+            # Logged first so that if a rank hangs here, its last log line
+            # names the culprit rather than the collective timeout downstream.
+            logger.debug(f"Rank {self._dist.rank}: draining async writes")
+            try:
+                self._io.close()
+            except Exception as e:  # noqa: BLE001
+                write_error = e
+                logger.error(f"Async write failed: {e}")
 
         has_error = exc_type is not None or write_error is not None
         if self._dist.distributed:
             err_flag = torch.tensor(
-                [1.0 if has_error else 0.0],
-                device="cuda" if torch.cuda.is_available() else "cpu",
+                [1.0 if has_error else 0.0], device=self._dist.device
             )
             torch.distributed.all_reduce(err_flag, op=torch.distributed.ReduceOp.MAX)
             any_error = err_flag.item() > 0
@@ -461,7 +531,7 @@ class OutputManager:
         self._io = run_on_rank0_first(self._open_store)
 
     @property
-    def io(self) -> ZarrBackend:
+    def io(self) -> ZarrBackend | AsyncZarrBackend:
         """The underlying IO backend (available after :meth:`validate_output_store`)."""
         if self._io is None:
             raise RuntimeError(
@@ -471,7 +541,7 @@ class OutputManager:
         return self._io
 
     def write(self, x: torch.Tensor, coords: CoordSystem) -> None:
-        """Write a chunk of forecast data, optionally using a thread pool.
+        """Write a chunk of forecast data.
 
         Parameters
         ----------
@@ -481,29 +551,22 @@ class OutputManager:
             Coordinates corresponding to *x*.
         """
         arrays, coord_sets, var_names = split_coords(x, coords)
-        if self._executor is not None:
-            future = self._executor.submit(self.io.write, arrays, coord_sets, var_names)
-            self._futures.append(future)
-        else:
-            self.io.write(arrays, coord_sets, var_names)
+        self.io.write(arrays, coord_sets, var_names)
 
     def flush(self) -> None:
-        """Wait for all pending threaded writes to complete.
+        """Wait for pending writes to land.
 
-        Called between work items during resume runs to guarantee that all
-        zarr writes have landed before a completion marker is written.
-        Raises immediately if any pending write failed.
+        Called between work items during resume runs, so a completion marker is
+        never written before the data it refers to. Raises if a write failed.
         """
-        if self._executor is not None:
-            for f in self._futures:
-                f.result()
-            self._futures.clear()
+        if isinstance(self.io, AsyncZarrBackend):
+            self.io.flush()
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _open_store(self) -> ZarrBackend:
+    def _open_store(self) -> ZarrBackend | AsyncZarrBackend:
         """Create or open the zarr store (called inside rank-ordered context)."""
         if self._total_coords is None or self._variables is None:
             raise ValueError(
@@ -533,11 +596,36 @@ class OutputManager:
         if "ensemble" not in chunks and "ensemble" in self._total_coords:
             chunks["ensemble"] = 1
 
-        io = ZarrBackend(
-            file_name=self._path,
-            chunks=chunks,
-            backend_kwargs={"overwrite": False},
-        )
+        io: ZarrBackend | AsyncZarrBackend
+        if self._is_async:
+            # Iteration axes are parallel coordinates, which the backend chunks at
+            # 1 and allows to be written one slice at a time (guarded in __init__).
+            # Every other dim keeps its requested chunk size and is written whole.
+            parallel: CoordSystem = OrderedDict(
+                (dim, np.asarray(values))
+                for dim, values in self._total_coords.items()
+                if dim in _ITERATION_DIMS
+            )
+            chunked = {
+                dim: int(size)
+                for dim, size in chunks.items()
+                if dim not in _ITERATION_DIMS and dim in self._total_coords
+            }
+            io = AsyncZarrBackend(
+                self._path,
+                parallel_coords=parallel,
+                blocking=self._thread_io <= 0,
+                pool_size=max(self._thread_io, 1),
+                chunked_coords=chunked,
+                shard_coords=self._shard_coords,
+                max_inflight_shards=self._max_inflight_shards,
+            )
+        else:
+            io = ZarrBackend(
+                file_name=self._path,
+                chunks=chunks,
+                backend_kwargs={"overwrite": False},
+            )
 
         if is_rank0 and not store_exists:
             write_coords = self._total_coords.copy()
@@ -553,9 +641,52 @@ class OutputManager:
                     )
             for dim in self._total_coords:
                 handshake_coords(io.coords, self._total_coords, required_dim=dim)
+            if self._is_async or self._dist.world_size > 1:
+                self._validate_store_geometry(io)
             if is_rank0:
                 logger.info(f"Validated existing store for resume: {self._path}")
             else:
                 logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
 
         return io
+
+    def _validate_store_geometry(self, io: ZarrBackend | AsyncZarrBackend) -> None:
+        """Reject resuming into a store whose on-disk layout the writers would race on.
+
+        The ``__init__`` guards only see the config; the store carries the geometry
+        it was created with.  Two layouts would silently lose data: chunks > 1 on an
+        iteration axis, which async slice-at-a-time writes race on (checked on any
+        async resume), and shards on a distributed axis, which two ranks would each
+        write in full (checked when ``world_size > 1``).
+        """
+        if self._variables is None:
+            return
+        for v in self._variables:
+            array = io[v]
+            dims = list(array.metadata.dimension_names or [])
+            for axis, dim in enumerate(dims):
+                if dim not in _ITERATION_DIMS:
+                    continue
+                if self._is_async and array.chunks[axis] != 1:
+                    raise ValueError(
+                        f"Existing array '{v}' has chunk size "
+                        f"{array.chunks[axis]} on '{dim}', likely created with "
+                        "io_backend=zarr. async_zarr writes one slice at a time, "
+                        "so concurrent writes into a shared chunk would silently "
+                        "lose data. Resume with output.io_backend=zarr or "
+                        "recreate the store."
+                    )
+                if (
+                    self._dist.world_size > 1
+                    and dim in ("time", "ensemble")
+                    and array.shards is not None
+                    and array.shards[axis] > array.chunks[axis]
+                ):
+                    raise ValueError(
+                        f"Existing array '{v}' is sharded on '{dim}' (shard size "
+                        f"{array.shards[axis]}, chunk size {array.chunks[axis]}), "
+                        "likely by an earlier single-process run. Work is "
+                        "distributed over time/ensemble, so resuming with "
+                        "multiple ranks would silently lose data. Resume "
+                        "single-process or recreate the store."
+                    )

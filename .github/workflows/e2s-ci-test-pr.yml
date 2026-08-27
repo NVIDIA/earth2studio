@@ -30,11 +30,13 @@ defaults:
     shell: bash
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.2
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
   E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
-  EARTH2STUDIO_MODEL_CACHE: ${{ github.workspace }}/.cache/earth2studio-models
+  DOC_PUBLIC_BUILD: "false"
+  EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
+  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
   EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
   EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
   EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
@@ -44,6 +46,7 @@ env:
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  UV_PYTHON: "3.13.13"
 
 jobs:
   changes:
@@ -60,9 +63,10 @@ jobs:
       serve: ${{ steps.filter.outputs.serve }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Detect changed test suites
         id: filter
@@ -81,13 +85,15 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore pre-commit cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         continue-on-error: true
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
@@ -115,13 +121,15 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore pre-commit cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         continue-on-error: true
         with:
           path: ${{ env.PRE_COMMIT_HOME }}
@@ -148,6 +156,45 @@ jobs:
           UV_NO_SYNC: "1"
         run: make license
 
+      - name: Audit GitHub Actions workflows
+        env:
+          UV_NO_SYNC: "1"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make zizmor
+
+  docs:
+    name: Build docs
+    if: github.repository == 'NVIDIA/earth2studio'
+    needs:
+      - format
+      - lint
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Build docs
+        uses: ./.github/actions/build-light-docs
+        with:
+          gallery-cache-name: main
+          save-caches: "false"
+          upload-artifact: "false"
+
   test:
     name: Test
     if: github.repository == 'NVIDIA/earth2studio'
@@ -157,19 +204,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g --cap-add=SYS_NICE
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-px-models:
@@ -182,19 +230,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-dx-models:
@@ -207,19 +256,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-data:
@@ -232,19 +282,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-data
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-perturb:
@@ -257,19 +308,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-perturb
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-stats:
@@ -282,19 +334,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-stats
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-da-models:
@@ -307,19 +360,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-da-models
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-px-models-conflicts:
@@ -332,19 +386,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   test-serve:
@@ -357,19 +412,20 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=2g
+      options: --shm-size=20g
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Run test job
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-serve
-          save-model-cache: "false"
           save-testmon-cache: "false"
 
   coverage:
@@ -393,7 +449,9 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       - name: Configure git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -402,7 +460,7 @@ jobs:
         run: uv sync --python 3.13.13 --locked --only-dev --no-install-project
 
       - name: Download coverage data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         continue-on-error: true
         with:
           pattern: coverage-*
@@ -421,7 +479,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: |

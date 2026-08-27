@@ -1481,6 +1481,12 @@ class StormScopeGOES(StormScopeBase):
     window of input timesteps and predict one output timestep; others use a single
     input timestep and predict one output timestep.
 
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/stormscope-goes-mrms
+
     Parameters
     ----------
     model_spec : list[dict[str, Any]]
@@ -1534,7 +1540,8 @@ class StormScopeGOES(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:sat year:2026 gpu:80gb
+    region:na class:nowcasting product:sat year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     _REGISTRY_KEY = "goes"
@@ -1825,6 +1832,12 @@ class StormScopeMRMS(StormScopeBase):
     method. Otherwise, the user must provide a conditioning data source for the model
     to use during inference.
 
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/stormscope-goes-mrms
+
     Parameters
     ----------
     model_spec : list[dict[str, Any]]
@@ -1921,7 +1934,8 @@ class StormScopeMRMS(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:radar year:2026 gpu:80gb
+    region:na class:nowcasting product:radar year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     _REGISTRY_KEY = "mrms"
@@ -2056,7 +2070,8 @@ class StormScopeMRMS(StormScopeBase):
         """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
         grid) onto the model grid. Points outside the GLM grid are filled with 0.
         Returns physical counts (apply no normalization here; the model applies
-        log1p internally). Requires :meth:`build_glm_interpolator` first."""
+        log1p internally). Requires :meth:`build_glm_interpolator` first.
+        """
         if self.glm_interp is None:
             raise ValueError(
                 "GLM interpolator not built; call build_glm_interpolator first."

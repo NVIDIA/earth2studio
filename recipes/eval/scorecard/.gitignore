@@ -1,0 +1,12 @@
+# Whitelist: only the sources below are tracked. Run data (models/, data/,
+# exports/), internal utilities (scripts/) and everything else stays local.
+*
+!.gitignore
+!README.md
+!run_scorecard.py
+!export_scores.py
+!cfg/
+!cfg/**
+!utils/
+utils/*
+!utils/pipelines.py

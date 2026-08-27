@@ -43,6 +43,10 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         Spatial coordinates expected from the source.
     step : np.timedelta64, optional
         Time between frames, by default np.timedelta64(6, "h")
+
+    Badges
+    ------
+    region:global provider:nvidia backend:pytorch
     """
 
     def __init__(

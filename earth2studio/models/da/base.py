@@ -29,6 +29,7 @@ except ImportError:
     cudf = None  # type: ignore[assignment, misc]
 
 
+# --8<-- [start:assimilation-model-interface]
 @runtime_checkable
 class AssimilationModel(Protocol):
     """Data assimilation model interface"""
@@ -186,3 +187,6 @@ class AssimilationModel(Protocol):
             Returns instance of prognostic
         """
         pass
+
+
+# --8<-- [end:assimilation-model-interface]

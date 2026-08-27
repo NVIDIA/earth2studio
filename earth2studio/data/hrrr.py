@@ -24,7 +24,6 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import obstore as obs
-import pygrib
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -35,6 +34,7 @@ from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
+    decode_grib_message,
     gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -80,17 +80,17 @@ class HRRR:
     The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
     coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
 
-    .. code-block:: python
+    ```python
+    import cartopy.crs as ccrs
 
-        import cartopy.crs as ccrs
+    proj_hrrr = ccrs.LambertConformal(
+        central_longitude=262.5,
+        central_latitude=38.5,
+        standard_parallels=(38.5, 38.5),
+        globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+    )
 
-        proj_hrrr = ccrs.LambertConformal(
-            central_longitude=262.5,
-            central_latitude=38.5,
-            standard_parallels=(38.5, 38.5),
-            globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
-        )
-
+    ```
     Parameters
     ----------
     source : str, optional
@@ -298,14 +298,15 @@ class HRRR:
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
-            data=np.zeros(
+            data=np.full(
                 (
                     len(time),
                     1,
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
@@ -403,7 +404,11 @@ class HRRR:
                         # could do this better with templates, but this is single instance
                         if variable_name == "APCP":
                             hours = int(lt.total_seconds() // 3600)
-                            hrrr_key = f"{variable_name}::{level}::{hours-1:d}-{hours:d} hour acc fcst"
+                            if hours == 0:
+                                accumulation = "0-0 day acc fcst"
+                            else:
+                                accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
+                            hrrr_key = f"{variable_name}::{level}::{accumulation}"
 
                     except KeyError as e:
                         logger.error(
@@ -490,7 +495,9 @@ class HRRR:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(_decode_hrrr_grib, grib_file, timeout=30.0)
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -837,14 +844,15 @@ class HRRR_FX(HRRR):
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
@@ -903,34 +911,3 @@ class HRRR_FX(HRRR):
                     raise ValueError(
                         f"Requested lead time {delta} can only be between [0,18] hours for HRRR forecast not on 6 hour interval {time}"
                     )
-
-
-def _decode_hrrr_grib(grib_file: str) -> np.ndarray:
-    """Decode a single-message HRRR grib file into a numpy array.
-
-    Module-level so it can be dispatched to a worker thread and patched in
-    offline tests. Uses pygrib, which is faster and lower memory than
-    xarray/cfgrib for single-message slices.
-
-    Parameters
-    ----------
-    grib_file : str
-        Path to local grib file holding one message
-
-    Returns
-    -------
-    np.ndarray
-        Decoded field values
-    """
-    try:
-        grbs = pygrib.open(grib_file)
-    except Exception:
-        logger.error(f"Failed to open grib file {grib_file}")
-        raise
-    try:
-        return grbs[1].values
-    except Exception:
-        logger.error(f"Failed to read grib file {grib_file}")
-        raise
-    finally:
-        grbs.close()

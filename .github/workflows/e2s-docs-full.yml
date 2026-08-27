@@ -1,0 +1,239 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: e2s-docs-full
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: e2s-docs-pages
+  cancel-in-progress: false
+
+env:
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
+  CDSAPI_URL: https://cds.climate.copernicus.eu/api
+  DOC_PUBLIC_BUILD: "false"
+  DOCS_PAGES_BRANCH: gh-pages
+  EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
+  TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  UV_PYTHON: "3.13.13"
+
+jobs:
+  metadata:
+    name: Resolve docs build
+    if: github.repository == 'NVIDIA/earth2studio' && github.ref_type == 'branch' && (github.ref_name == github.event.repository.default_branch || endsWith(github.ref_name, '-rc'))
+    runs-on: ubuntu-latest
+    outputs:
+      doc-version: ${{ steps.docs-meta.outputs.doc-version }}
+    steps:
+      - name: Resolve docs version
+        id: docs-meta
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          ref_name="${GITHUB_REF_NAME##*/}"
+          doc_version="main"
+
+          if [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]; then
+            :
+          elif [[ "$ref_name" =~ ^([0-9]+[.][0-9]+[.][0-9]+[0-9A-Za-z._]*)-rc$ ]]; then
+            doc_version="${BASH_REMATCH[1]}"
+          else
+            echo "Ref '${GITHUB_REF_NAME}' is not a trusted docs publication ref." >&2
+            exit 1
+          fi
+
+          echo "doc-version=${doc_version}" >> "$GITHUB_OUTPUT"
+
+          echo "### Full docs build" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DOC_VERSION: \`${doc_version}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  publish-api-docs:
+    name: Publish API docs from gallery cache
+    needs: metadata
+    permissions:
+      contents: write
+      packages: read
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      DOC_VERSION: ${{ needs.metadata.outputs.doc-version }}
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Build API docs from retained gallery results
+        uses: ./.github/actions/build-light-docs
+        with:
+          artifact-name: docs-api-html
+          artifact-retention-days: "10"
+          gallery-cache-name: ${{ github.ref_name }}
+          save-caches: "false"
+          upload-artifact: "true"
+
+      - name: Deploy API docs
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
+          uv run mike deploy "${DOC_VERSION}" \
+            --title "${DOC_VERSION}" \
+            --branch "${DOCS_PAGES_BRANCH}" \
+            --message "Deploy cached docs ${DOC_VERSION} for ${GITHUB_SHA}" \
+            --push
+          if [[ "${DOC_VERSION}" == "main" ]]; then
+            uv run mike set-default main \
+              --branch "${DOCS_PAGES_BRANCH}" \
+              --message "Set default docs version to main" \
+              --push
+          fi
+
+  execute-sections:
+    name: Execute ${{ matrix.section }}
+    needs:
+      - metadata
+      - publish-api-docs
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        section:
+          - 01_getting_started
+          - 02_medium_range
+          - 03_downscaling
+          - 04_nowcasting
+          - 05_data_assimilation
+          - 06_seasonal
+          - 07_misc
+          - 08_extend
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Execute example section
+        uses: ./.github/actions/build-docs-section
+        with:
+          section: ${{ matrix.section }}
+          gallery-cache-name: ${{ github.ref_name }}
+          data-cache-name: ${{ github.ref_name }}
+        env:
+          CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+          EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
+          EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
+          EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
+          EUMETSAT_CONSUMER_SECRET: ${{ secrets.EUMETSAT_CONSUMER_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+  render-docs:
+    name: Render and publish full docs
+    needs:
+      - metadata
+      - execute-sections
+    permissions:
+      contents: write
+      packages: read
+    runs-on: linux-amd64-gpu-h100-latest-1
+    timeout-minutes: 180
+    container:
+      image: *e2s_ci_image
+      options: --shm-size=20g --cap-add=SYS_NICE
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      DOC_VERSION: ${{ needs.metadata.outputs.doc-version }}
+      FLASH_ATTN_CUDA_ARCHS: "90"
+      MAX_JOBS: "8"
+      NATTEN_CUDA_ARCH: "9.0"
+      NATTEN_N_WORKERS: "8"
+      NVCC_THREADS: "2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Build Zensical site from gallery cache
+        uses: ./.github/actions/build-light-docs
+        with:
+          gallery-cache-name: ${{ github.ref_name }}
+          save-caches: "false"
+          upload-artifact: "false"
+
+      - name: Deploy full docs
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${DOCS_PAGES_BRANCH}" --depth=1
+          uv run mike deploy "${DOC_VERSION}" \
+            --title "${DOC_VERSION}" \
+            --branch "${DOCS_PAGES_BRANCH}" \
+            --message "Deploy full docs ${DOC_VERSION} for ${GITHUB_SHA}" \
+            --push
+          if [[ "${DOC_VERSION}" == "main" ]]; then
+            uv run mike set-default main \
+              --branch "${DOCS_PAGES_BRANCH}" \
+              --message "Set default docs version to main" \
+              --push
+          fi

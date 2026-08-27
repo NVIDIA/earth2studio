@@ -25,7 +25,6 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import obstore as obs
-import pygrib
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -36,6 +35,7 @@ from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
+    decode_grib_message,
     gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -92,7 +92,7 @@ class GFS:
     Note
     ----
     This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps. See :class:`~earth2studio.data.GFS_FX` for fetching predicted
+    predicted time steps. See [`GFS_FX`][earth2studio.data.GFS_FX] for fetching predicted
     data from this forecast system.
 
     Note
@@ -241,8 +241,9 @@ class GFS:
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.zeros(
-                (len(time), 1, len(variable), len(self.GFS_LAT), len(self.GFS_LON))
+            data=np.full(
+                (len(time), 1, len(variable), len(self.GFS_LAT), len(self.GFS_LON)),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
@@ -300,7 +301,7 @@ class GFS:
                 # Get index file dictionary
                 index_file = results.pop(0)
                 for k, v in enumerate(variable):
-                    # sphinx - lexicon start
+                    # --8<-- [start:gfs-lexicon-lookup]
                     try:
                         gfs_name, modifier = GFSLexicon[v]
                     except KeyError:
@@ -312,6 +313,14 @@ class GFS:
                         def modifier(x: np.array) -> np.array:
                             """Modify data (if necessary)."""
                             return x
+
+                    lead_hour = int(lt.total_seconds() // 3600)
+                    if v == "tp" and lead_hour > 0:
+                        # GFS restarts precipitation accumulation every six hours. For
+                        # leads 1-6, duplicate descriptions resolve to the first (recent
+                        # accumulation window) record in the index.
+                        start_hour = 6 * ((lead_hour - 1) // 6)
+                        gfs_name = f"{gfs_name}::{start_hour}-{lead_hour} hour acc fcst"
 
                     byte_offset = None
                     byte_length = None
@@ -326,7 +335,7 @@ class GFS:
                             f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
                         )
                         continue
-                    # sphinx - lexicon end
+                    # --8<-- [end:gfs-lexicon-lookup]
                     tasks.append(
                         GFSAsyncTask(
                             data_array_indices=(i, j, k),
@@ -391,7 +400,9 @@ class GFS:
             byte_length=byte_length,
         )
         # pygrib decode is blocking and GIL-bound; run in a thread with timeout
-        values = await cancellable_to_thread(_decode_gfs_grib, grib_file, timeout=30.0)
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
         return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
@@ -443,7 +454,7 @@ class GFS:
             nlsplit = index_lines[i + 1].split(":")
             byte_length = int(nlsplit[1]) - int(lsplit[1])
             byte_offset = int(lsplit[1])
-            key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}"
+            key = f"{lsplit[0]}::{lsplit[3]}::{lsplit[4]}::{lsplit[5]}"
             if byte_length > self.MAX_BYTE_SIZE:
                 raise ValueError(
                     f"Byte length, {byte_length}, of variable {key} larger than safe threshold of {self.MAX_BYTE_SIZE}"
@@ -481,7 +492,7 @@ class GFS:
         """Generates the URI for GFS grib files"""
         lead_hour = int(lead_time.total_seconds() // 3600)
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        if time < datetime(2021, 3, 23):
+        if time < datetime(2021, 3, 22, 12):
             file_name = os.path.join(
                 file_name, f"gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}"
             )
@@ -496,8 +507,8 @@ class GFS:
         # https://www.nco.ncep.noaa.gov/pmb/products/gfs/
         lead_hour = int(lead_time.total_seconds() // 3600)
         file_name = f"gfs.{time.year}{time.month:0>2}{time.day:0>2}/{time.hour:0>2}"
-        # For some reason structure changed March 23 2021
-        if time < datetime(2021, 3, 23):
+        # Directory structure changed March 22, 2021 at 12z
+        if time < datetime(2021, 3, 22, 12):
             file_name = os.path.join(
                 file_name, f"gfs.t{time.hour:0>2}z.pgrb2.0p25.f{lead_hour:03d}.idx"
             )
@@ -658,14 +669,15 @@ class GFS_FX(GFS):
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.zeros(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.GFS_LAT),
                     len(self.GFS_LON),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "lat", "lon"],
             coords={
@@ -711,34 +723,3 @@ class GFS_FX(GFS):
                 raise ValueError(
                     f"Requested lead time {delta} can only be a max of 384 hours for GFS"
                 )
-
-
-def _decode_gfs_grib(grib_file: str) -> np.ndarray:
-    """Decode a single-message GFS grib file into a numpy array.
-
-    Module-level so it can be dispatched to a worker thread and patched in
-    offline tests. Uses pygrib, which is faster and lower memory than
-    xarray/cfgrib for single-message slices.
-
-    Parameters
-    ----------
-    grib_file : str
-        Path to local grib file holding one message
-
-    Returns
-    -------
-    np.ndarray
-        Decoded field values
-    """
-    try:
-        grbs = pygrib.open(grib_file)
-    except Exception:
-        logger.error(f"Failed to open grib file {grib_file}")
-        raise
-    try:
-        return grbs[1].values
-    except Exception:
-        logger.error(f"Failed to read grib file {grib_file}")
-        raise
-    finally:
-        grbs.close()

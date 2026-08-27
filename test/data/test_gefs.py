@@ -342,19 +342,20 @@ def test_gefs_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gefs._decode_gefs_grib", return_value=fake_grid),
+        patch("earth2studio.data.gefs.decode_grib_message", return_value=fake_grid),
     ):
         # Bypass real store by stubbing it to a truthy sentinel.
         ds.store = object()  # type: ignore[assignment]
-        data = ds(datetime(2024, 1, 1), timedelta(hours=3), ["t2m", "z500"])
+        data = ds(datetime(2024, 1, 1), timedelta(hours=3), ["t2m", "z500", "u10m"])
 
-    assert data.shape == (1, 1, 2, 361, 720)
+    assert data.shape == (1, 1, 3, 361, 720)
     # t2m is identity, z500 multiplies HGT by 9.81 — both records used the
-    # same mock grid, so t2m matches the grid and z500 = grid * 9.81.
+    # same mock grid; u10m is missing from the index.
     np.testing.assert_allclose(data.sel(variable="t2m").values[0, 0], fake_grid)
     np.testing.assert_allclose(
         data.sel(variable="z500").values[0, 0], fake_grid * 9.81, rtol=1e-6
     )
+    assert np.isnan(data.sel(variable="u10m").values).all()
 
 
 @pytest.mark.timeout(15)
@@ -381,7 +382,7 @@ def test_gefs_call_mock_trailing_record(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gefs._decode_gefs_grib", return_value=fake_grid),
+        patch("earth2studio.data.gefs.decode_grib_message", return_value=fake_grid),
     ):
         ds.store = object()  # type: ignore[assignment]
         data = ds(datetime(2024, 1, 1), timedelta(hours=3), ["t2m"])
@@ -414,7 +415,7 @@ def test_gefs_0p25_call_mock(tmp_path, monkeypatch):
         patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gefs._decode_gefs_grib", return_value=fake_grid),
+        patch("earth2studio.data.gefs.decode_grib_message", return_value=fake_grid),
     ):
         ds.store = object()  # type: ignore[assignment]
         data = ds(

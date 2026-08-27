@@ -344,6 +344,7 @@ class Pangu24(PanguBase):
 
     - https://doi.org/10.1038/s41586-023-06185-3
     - https://github.com/198808xc/Pangu-Weather
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -362,7 +363,8 @@ class Pangu24(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    backend:onnx
     """
 
     def __init__(
@@ -447,6 +449,7 @@ class Pangu6(PanguBase):
 
     - https://doi.org/10.1038/s41586-023-06185-3
     - https://github.com/198808xc/Pangu-Weather
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -467,7 +470,8 @@ class Pangu6(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    backend:onnx
     """
 
     def __init__(
@@ -567,6 +571,7 @@ class Pangu3(PanguBase):
 
     - https://doi.org/10.1038/s41586-023-06185-3
     - https://github.com/198808xc/Pangu-Weather
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -589,7 +594,8 @@ class Pangu3(PanguBase):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    backend:onnx
     """
 
     def __init__(

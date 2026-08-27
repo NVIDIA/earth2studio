@@ -149,9 +149,15 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     analysis from conventional and satellite observations. It operates on a HEALPix
     level-6 padded XY grid and outputs ERA5-compatible atmospheric variables.
 
-    The model accepts pre-processed observation DataFrames (from
-    :py:class:`earth2studio.data.UFSObsConv` and
-    :py:class:`earth2studio.data.UFSObsSat`) and produces a global analysis field.
+    The model accepts pre-processed observation DataFrames from
+    ``earth2studio.data.UFSObsConv`` and ``earth2studio.data.UFSObsSat`` and
+    produces a global analysis field.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/healda
 
     Parameters
     ----------
@@ -178,8 +184,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:da product:wind product:temp product:atmos product:sat
+    region:global class:data-assimilation product:wind product:temp product:atmos product:sat
     product:insitu year:2026 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -455,10 +462,10 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ----------
         conv_obs : pd.DataFrame | None, optional
             Conventional observation DataFrame from
-            :py:class:`earth2studio.data.UFSObsConv`, by default None
+            ``earth2studio.data.UFSObsConv``, by default None
         sat_obs : pd.DataFrame | None, optional
-            Satellite observation DataFrame from
-            :py:class:`earth2studio.data.UFSObsSat`, by default None
+            Satellite observation DataFrame from ``earth2studio.data.UFSObsSat``,
+            by default None
 
         Returns
         -------
@@ -515,7 +522,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         )
         return self.build_output(prediction, output_coords)
 
-    def create_generator(self) -> Generator[
+    def create_generator(
+        self,
+    ) -> Generator[
         xr.DataArray,
         tuple[pd.DataFrame | None, pd.DataFrame | None],
         None,

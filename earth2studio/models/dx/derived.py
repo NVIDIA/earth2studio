@@ -42,6 +42,7 @@ class DerivedWS(torch.nn.Module):
     Badges
     ------
     region:global product:wind product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -133,6 +134,7 @@ class DerivedRH(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -227,12 +229,13 @@ class DerivedRHDewpoint(torch.nn.Module):
 
     - https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)
     - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)
-    - https://doi.org/10.1175/1520-0450(1996)035<0601:IMFAOS>2.0.CO;2 (Eq. 21)
+    - https://doi.org/10.1175/1520-0450%281996%29035%3C0601%3AIMFAOS%3E2.0.CO%3B2 (Eq. 21)
     - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
 
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self) -> None:
@@ -338,6 +341,7 @@ class DerivedVPD(torch.nn.Module):
     Badges
     ------
     region:global product:veg product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -441,6 +445,7 @@ class DerivedSurfacePressure(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     Rs = 287.053  # gas constant for dry air (J/kg/K)
@@ -666,6 +671,7 @@ class DerivedTCWV(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     g = 9.8067  # Earth's gravitational constant (m/s**2)

@@ -18,7 +18,7 @@ import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -335,7 +335,7 @@ def test_hrrr_call_mock(source, tmp_path, monkeypatch):
     with (
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr._decode_hrrr_grib", return_value=fake_grid),
+        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
     ):
         data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
 
@@ -372,23 +372,57 @@ def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
     with (
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr._decode_hrrr_grib", return_value=fake_grid),
+        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
     ):
         data = ds(
             datetime(2024, 1, 1),
             [timedelta(hours=0), timedelta(hours=6)],
-            ["t2m"],
+            ["t2m", "z500"],
         )
 
-    assert data.shape == (1, 2, 1, 1059, 1799)
+    assert data.shape == (1, 2, 2, 1059, 1799)
     for j in range(2):
-        np.testing.assert_allclose(data.values[0, j, 0], fake_grid)
+        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
+    assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(10)
+def test_hrrr_special_variable_lookups():
+    fake_index = {
+        "84::APCP::surface::0-0 day acc fcst": (100, 10),
+        "84::APCP::surface::0-1 hour acc fcst": (110, 10),
+        "116::TCDC::entire atmosphere::1 hour fcst": (210, 10),
+        "68::WEASD::surface::1 hour fcst": (310, 10),
+        "70::SNOD::surface::1 hour fcst": (410, 10),
+        "69::SNOWC::surface::1 hour fcst": (510, 10),
+    }
+    time = [datetime(2026, 7, 20)]
+    analysis = HRRR(cache=False, verbose=False)
+    forecast = HRRR_FX(cache=False, verbose=False)
+    fetch_index = AsyncMock(return_value=fake_index)
+    with (
+        patch.object(analysis, "_fetch_index", new=fetch_index),
+        patch.object(forecast, "_fetch_index", new=fetch_index),
+    ):
+        [analysis_task] = asyncio.run(
+            analysis._create_tasks(time, [timedelta(0)], ["tp"])
+        )
+        forecast_tasks = asyncio.run(
+            forecast._create_tasks(
+                time,
+                [timedelta(hours=1)],
+                ["tp", "tcc", "sd", "sde", "snowc"],
+            )
+        )
+    offsets = [task.hrrr_byte_offset for task in forecast_tasks]
+    assert analysis_task.hrrr_byte_offset == 100
+    assert offsets == [110, 210, 310, 410, 510]
 
 
 @pytest.mark.timeout(15)
 def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
     # If the requested variable is absent from the .idx, _create_tasks warns
-    # and skips it — the output slot keeps its zero initialization.
+    # and skips it, so the output slot must remain detectably missing.
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
     # Index only has t2m; z500 is missing on purpose.
@@ -405,10 +439,9 @@ def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
     with (
         patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
         patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr._decode_hrrr_grib", return_value=fake_grid),
+        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
     ):
         data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
 
     np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
-    # Skipped variable keeps the zero fill.
-    assert (data.sel(variable="z500").values == 0.0).all()
+    assert np.isnan(data.sel(variable="z500").values).all()
