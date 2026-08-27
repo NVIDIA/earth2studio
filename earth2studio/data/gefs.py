@@ -109,7 +109,7 @@ class GEFS_FX:
 
     Badges
     ------
-    region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos provider:noaa
     """
 
     GEFS_BUCKET_NAME = "noaa-gefs-pds"
@@ -649,7 +649,7 @@ class GEFS_FX_721x1440(GEFS_FX):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos provider:noaa
     """
 
     GEFS_LAT = np.linspace(90, -90, 721)

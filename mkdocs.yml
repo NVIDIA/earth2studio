@@ -256,6 +256,36 @@ plugins:
         color: '#5e5e5e'
         text_color: '#fff'
         hide_in: [autosummary, filter]
+      provider:noaa:
+        label: NOAA
+        icon: <i class="fa-solid fa-water"></i>
+        color: '#0057b8'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:ncar:
+        label: NCAR
+        icon: <i class="fa-solid fa-mountain-sun"></i>
+        color: '#7b2cbf'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:dynamical:
+        label: Dynamical
+        icon: <i class="fa-solid fa-database"></i>
+        color: '#343a40'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:earthmover:
+        label: EarthMover
+        icon: <i class="fa-solid fa-earth-americas"></i>
+        color: '#8d5524'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:eumetsat:
+        label: EUMETSAT
+        icon: <i class="fa-solid fa-satellite"></i>
+        color: '#006b75'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
       backend:pytorch:
         label: PyTorch
         icon: <i class="fa-solid fa-fire"></i>

@@ -594,7 +594,7 @@ class IFS(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:ifs product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -708,7 +708,7 @@ class IFS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -846,7 +846,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:ifs product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -996,7 +996,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -1150,7 +1150,7 @@ class AIFS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:aifs product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:aifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = AIFSLexicon
@@ -1271,7 +1271,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:aifs product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:aifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = AIFSLexicon

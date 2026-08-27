@@ -299,6 +299,7 @@ def _catalog_filters(kind: str, badges: list[str]) -> dict[str, list[str]]:
         else (
             ("dataclass", "data class"),
             ("dataset", "dataset family"),
+            ("provider", "provider"),
             ("product", "product"),
             ("region", "region"),
             ("gpu", "gpu"),
@@ -325,6 +326,7 @@ def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
         else (
             "dataclass",
             "dataset",
+            "provider",
             "product",
         )
     )

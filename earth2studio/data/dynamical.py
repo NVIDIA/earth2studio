@@ -713,7 +713,7 @@ class DynamicalAIFS(_DynamicalAnalysis):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:aifs product:wind product:temp product:atmos
+    region:global dataclass:analysis dataset:aifs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -759,7 +759,7 @@ class DynamicalAIFS_ENS(_DynamicalAnalysis):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:aifs product:wind product:temp product:atmos
+    region:global dataclass:analysis dataset:aifs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -806,7 +806,7 @@ class DynamicalGFS(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:gfs product:wind product:temp product:atmos
+    region:global dataclass:analysis dataset:gfs product:wind product:temp product:atmos provider:dynamical
     """
 
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
@@ -893,7 +893,7 @@ class DynamicalGEFS(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:gfs product:wind product:temp product:atmos
+    region:global dataclass:analysis dataset:gfs product:wind product:temp product:atmos provider:dynamical
     """
 
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
@@ -980,7 +980,7 @@ class DynamicalHRRR(_DynamicalAnalysis):
 
     Badges
     ------
-    region:na dataclass:analysis dataset:hrrr product:wind product:precip product:temp product:atmos
+    region:na dataclass:analysis dataset:hrrr product:wind product:precip product:temp product:atmos provider:dynamical
     """
 
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
@@ -1020,7 +1020,7 @@ class DynamicalMRMS(_DynamicalAnalysis):
 
     Badges
     ------
-    region:na dataclass:analysis product:precip product:radar
+    region:na dataclass:analysis product:precip product:radar provider:dynamical
     """
 
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
@@ -1063,7 +1063,7 @@ class DynamicalGFS_FX(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:gfs product:wind product:temp product:atmos
+    region:global dataclass:simulation dataset:gfs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1106,7 +1106,7 @@ class DynamicalHRRR_FX(_DynamicalBase):
 
     Badges
     ------
-    region:na dataclass:simulation dataset:hrrr product:wind product:precip product:temp product:atmos
+    region:na dataclass:simulation dataset:hrrr product:wind product:precip product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1150,7 +1150,7 @@ class DynamicalICON_EU_FX(_DynamicalBase):
 
     Badges
     ------
-    region:eu dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:eu dataclass:simulation product:wind product:precip product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1196,7 +1196,7 @@ class DynamicalGEFS_FX(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:gfs product:wind product:temp product:atmos
+    region:global dataclass:simulation dataset:gfs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1245,7 +1245,7 @@ class DynamicalIFS_ENS(_DynamicalAnalysis):
 
     Badges
     ------
-    region:global dataclass:analysis dataset:ifs product:wind product:temp product:atmos
+    region:global dataclass:analysis dataset:ifs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1298,7 +1298,7 @@ class DynamicalIFS_ENS_FX(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:ifs product:wind product:temp product:atmos
+    region:global dataclass:simulation dataset:ifs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1348,7 +1348,7 @@ class DynamicalAIFS_FX(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:aifs product:wind product:temp product:atmos
+    region:global dataclass:simulation dataset:aifs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
@@ -1394,7 +1394,7 @@ class DynamicalAIFSENS_FX(_DynamicalBase):
 
     Badges
     ------
-    region:global dataclass:simulation dataset:aifs product:wind product:temp product:atmos
+    region:global dataclass:simulation dataset:aifs product:wind product:temp product:atmos provider:dynamical
     """
 
     _TIME_DIMENSION = "init_time"
