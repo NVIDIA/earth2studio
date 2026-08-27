@@ -1,10 +1,10 @@
 ---
-title: API Index
+title: API Reference
 ---
 
 <!-- markdownlint-disable MD025 MD033 -->
 
-# API Index
+# API Reference
 
 Browse Earth2Studio's public APIs by component.
 
