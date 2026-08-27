@@ -504,6 +504,40 @@ body .md-grid {
   border-radius: 0.35rem;
 }
 
+.md-typeset .e2s-api-index > ul > li {
+  position: relative;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.md-typeset .e2s-api-index > ul > li:hover,
+.md-typeset .e2s-api-index > ul > li:focus-within {
+  border-color: var(--md-accent-fg-color);
+  background-color: var(--md-accent-fg-color--transparent);
+  box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+.md-typeset .e2s-api-index > ul > li:focus-within {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+.md-typeset .e2s-api-index > ul > li > p:first-child a::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  content: "";
+}
+
+.md-typeset .e2s-api-index > ul > li > p:first-child a:focus-visible {
+  outline: none;
+}
+
 .md-footer {
   position: relative;
   z-index: 5;

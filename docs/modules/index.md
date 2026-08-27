@@ -8,7 +8,7 @@ title: API Index
 
 Browse Earth2Studio's public APIs by component.
 
-<div class="grid cards" markdown>
+<div class="grid cards e2s-api-index" markdown>
 
 - **[Prognostic Models](models_px.md)**
 
