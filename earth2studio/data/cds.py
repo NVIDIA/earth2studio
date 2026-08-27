@@ -406,9 +406,9 @@ class CDS_ERA5:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "cds")
+        cache_location = os.path.join(datasource_cache_root(), "cds_era5")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_cds")
+            cache_location = os.path.join(cache_location, "tmp_cds_era5")
         return cache_location
 
 

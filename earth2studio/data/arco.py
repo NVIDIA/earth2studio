@@ -389,13 +389,13 @@ class ARCO_ERA5:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "arco")
+        cache_location = os.path.join(datasource_cache_root(), "arco_era5")
         if not self._cache:
             if self._tmp_cache_hash is None:
                 # First access for temp cache: create a random suffix to avoid collisions
                 self._tmp_cache_hash = uuid.uuid4().hex[:8]
             cache_location = os.path.join(
-                cache_location, f"tmp_arco_{self._tmp_cache_hash}"
+                cache_location, f"tmp_arco_era5_{self._tmp_cache_hash}"
             )
         return cache_location
 
