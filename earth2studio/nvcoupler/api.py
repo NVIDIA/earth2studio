@@ -108,9 +108,7 @@ def couple(
             c for c in comps if c.name != importer.name and field in c.export_names
         ]
         if len(found) > 1:
-            raise AmbiguousCouplingError(
-                field, importer.name, [c.name for c in found]
-            )
+            raise AmbiguousCouplingError(field, importer.name, [c.name for c in found])
         return found[0] if found else None
 
     # pass 1: direct (unique-exporter) connections
@@ -201,7 +199,9 @@ def coupled(
     """
     from tqdm import tqdm
 
-    comps = list(components.values()) if isinstance(components, dict) else list(components)
+    comps = (
+        list(components.values()) if isinstance(components, dict) else list(components)
+    )
     dt_td = as_timedelta(dt) if dt is not None else _gcd_timestep(comps)
     if isinstance(stop_or_nsteps, (int, np.integer)):
         stop = np.datetime64(time) + int(stop_or_nsteps) * dt_td
@@ -217,13 +217,11 @@ def coupled(
         disable=(not verbose),
     ) as pbar:
         for step_time, _ in driver.steps():
-            ran = [
-                n
-                for n, c in driver.components.items()
-                if c.run_count != counts[n]
-            ]
+            ran = [n for n, c in driver.components.items() if c.run_count != counts[n]]
             counts = {n: c.run_count for n, c in driver.components.items()}
-            pbar.set_postfix_str(f"{np.datetime_as_string(step_time, unit='h')} ran {'+'.join(ran)}")
+            pbar.set_postfix_str(
+                f"{np.datetime_as_string(step_time, unit='h')} ran {'+'.join(ran)}"
+            )
             pbar.update(1)
     return driver.to_xarray()
 
@@ -250,9 +248,7 @@ def _connector_rows(driver: Driver) -> list[dict]:
     the source's run/compute in its slot) or earlier (lagged)?
     """
     rows = []
-    prebuilt = {
-        (c.src.name, c.dst.name): c for c in driver._connectors.values()
-    }
+    prebuilt = {(c.src.name, c.dst.name): c for c in driver._connectors.values()}
     for slot in driver.sequence.slots:
         produced: set[str] = set()  # components that ran earlier in this slot
         for action in slot.actions:
@@ -307,9 +303,7 @@ def describe(driver: Driver) -> str:
         )
     lines.extend(
         "  " + row
-        for row in _table(
-            ["name", "type", "cadence", "imports", "exports"], comp_rows
-        )
+        for row in _table(["name", "type", "cadence", "imports", "exports"], comp_rows)
     )
     lines.extend(["", "Connectors:"])
     conn_rows = [

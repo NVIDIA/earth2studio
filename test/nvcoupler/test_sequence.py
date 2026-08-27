@@ -221,9 +221,7 @@ def test_derive_sequential_cycle_raises():
     b.name = "atmos2"
     comps = {"atmos": a, "atmos2": b}
     with pytest.raises(SequenceError, match="lagged"):
-        derive_sequence(
-            comps, [("atmos", "atmos2"), ("atmos2", "atmos")], lagged=set()
-        )
+        derive_sequence(comps, [("atmos", "atmos2"), ("atmos2", "atmos")], lagged=set())
     # marking one edge lagged breaks the cycle
     seq = derive_sequence(
         comps,

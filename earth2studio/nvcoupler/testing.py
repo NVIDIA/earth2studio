@@ -104,25 +104,17 @@ def fake_ocean(
     )
 
 
-def atmos_ic(
-    z0: float = 0.0, sst0: float = 2.0
-) -> tuple[torch.Tensor, CoordSystem]:
+def atmos_ic(z0: float = 0.0, sst0: float = 2.0) -> tuple[torch.Tensor, CoordSystem]:
     coords = OrderedDict(
         {"variable": np.array(["z1000", "sst"]), **grid_coords(*ATMOS_GRID)}
     )
-    x = torch.stack(
-        [torch.full(ATMOS_GRID, z0), torch.full(ATMOS_GRID, sst0)]
-    )
+    x = torch.stack([torch.full(ATMOS_GRID, z0), torch.full(ATMOS_GRID, sst0)])
     return x, coords
 
 
-def ocean_ic(
-    sst0: float = 2.0, z48m0: float = 0.0
-) -> tuple[torch.Tensor, CoordSystem]:
+def ocean_ic(sst0: float = 2.0, z48m0: float = 0.0) -> tuple[torch.Tensor, CoordSystem]:
     coords = OrderedDict(
         {"variable": np.array(["sst", "z48m"]), **grid_coords(*OCEAN_GRID)}
     )
-    x = torch.stack(
-        [torch.full(OCEAN_GRID, sst0), torch.full(OCEAN_GRID, z48m0)]
-    )
+    x = torch.stack([torch.full(OCEAN_GRID, sst0), torch.full(OCEAN_GRID, z48m0)])
     return x, coords

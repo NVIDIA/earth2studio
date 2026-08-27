@@ -238,9 +238,7 @@ class TestCoupledPullWorkflow:
         )
         ic_glob = (
             torch.stack([torch.full(GRID, 2.0), torch.full(GRID, 280.0)]),
-            OrderedDict(
-                {"variable": np.array(["u10m", "t2m"]), **grid_coords(*GRID)}
-            ),
+            OrderedDict({"variable": np.array(["u10m", "t2m"]), **grid_coords(*GRID)}),
         )
         ic_sc = MockPullModel().input_coords()
         ic_sc["time"] = np.array([T0])
