@@ -70,6 +70,9 @@ _ATMOS_OUTPUT_TIMES = np.array(
 )
 _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
+# Normalize variable names in the model package to match e2studio's lexicon
+_ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
+
 
 @check_optional_dependencies()
 class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -117,6 +120,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Ocean input times, shape (num_ocean_input_times,)
     atmos_output_times : np.ndarray
         Atmospheric output times, shape (num_atmos_output_times,)
+    ocean_output_times : np.ndarray
+        Ocean output times, shape (num_ocean_output_times,)
     atmos_variables : list[str]
         Atmospheric variables
     ocean_variables : list[str]
@@ -635,9 +640,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ocean_output_times=np.array(
                 cfg.io.ocean_output_times, dtype="timedelta64[h]"
             ),
-            atmos_variables=list(cfg.io.atmos_variables),
+            atmos_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v) for v in cfg.io.atmos_variables
+            ],
             ocean_variables=list(cfg.io.ocean_variables),
-            atmos_coupling_variables=list(cfg.io.atmos_coupling_variables),
+            atmos_coupling_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v)
+                for v in cfg.io.atmos_coupling_variables
+            ],
             ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
             atmos_diagnostic_variables=atmos_diagnostic_variables,
             ocean_diagnostic_variables=ocean_diagnostic_variables,
@@ -1199,6 +1209,60 @@ class DLESyMLatLon(DLESyM):
     Regridding is done using the `earth2grid` package. For convenience, we expose
     regridding methods that are accessible as `.to_hpx` and `.to_ll`.
 
+    Parameters
+    ----------
+    atmos_model : torch.nn.Module
+        Atmosphere model
+    ocean_model : torch.nn.Module
+        Ocean model
+    hpx_lat : np.ndarray
+        HEALPix latitude coordinates, shape (12, nside, nside)
+    hpx_lon : np.ndarray
+        HEALPix longitude coordinates, shape (12, nside, nside)
+    nside : int
+        HEALPix nside
+    center : np.ndarray
+        Means of the full output variable set (prognostics + diagnostics,
+        in the same order as `output_coords`'s `variable` axis), shape
+        (1, 1, 1, num_output_variables, 1, 1, 1)
+    scale : np.ndarray
+        Standard deviations of the full output variable set, same shape
+        and ordering as `center`
+    atmos_constants : np.ndarray
+        Constants for the atmosphere model, shape (12, num_atmos_constants, nside, nside)
+    ocean_constants : np.ndarray
+        Constants for the ocean model, shape (12, num_ocean_constants, nside, nside)
+    atmos_input_times : np.ndarray
+        Atmospheric input times, shape (num_atmos_input_times,)
+    ocean_input_times : np.ndarray
+        Ocean input times, shape (num_ocean_input_times,)
+    atmos_output_times : np.ndarray
+        Atmospheric output times, shape (num_atmos_output_times,)
+    ocean_output_times : np.ndarray
+        Ocean output times, shape (num_ocean_output_times,)
+    atmos_variables : list[str]
+        Atmospheric variables
+    ocean_variables : list[str]
+        Ocean variables
+    atmos_coupling_variables : list[str]
+        Atmospheric coupling variables
+    ocean_coupling_variables : list[str]
+        Ocean coupling variables
+    atmos_diagnostic_variables : list[str], optional
+        Atmospheric diagnostic output variables. These are produced by the
+        atmos model but, unlike `atmos_variables`, are not fed back in as
+        input to the next autoregressive step, by default []
+    ocean_diagnostic_variables : list[str], optional
+        Ocean diagnostic output variables, analogous to
+        `atmos_diagnostic_variables`, by default []
+    use_cln : bool, optional
+        Whether the atmos/ocean models use conditional layer norm, which
+        requires sampling and passing noise to the model to produce
+        ensemble variability from a single set of weights, by default False
+    condition_shape : int, optional
+        Dimension of the conditional layer norm noise vector. Required if
+        `use_cln` is True, by default None
+
     Note
     ----
     See :class:`DLESyM` for more information about the prognostic model. Due to the internal
@@ -1223,14 +1287,6 @@ class DLESyMLatLon(DLESyM):
     # HEALPix outputs
     atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
     ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)
-
-    ```
-    Args
-    ----
-    *args
-        Arguments for :class:`DLESyM`
-    **kwargs
-        Keyword arguments for :class:`DLESyM`
 
     Badges
     ------

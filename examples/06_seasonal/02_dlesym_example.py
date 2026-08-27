@@ -133,64 +133,17 @@ ic_date = np.datetime64("2021-06-15")
 
 full_variables = list(in_coords_ll["variable"])
 
-if "ttr-3h" in full_variables:
-    # The model needs `ttr-3h`, which we prepare separately via
-    # `ttr_3h_query_times`/`compute_ttr_3h` (see their docstrings).
-    ttr_3h_idx = full_variables.index("ttr-3h")
-    main_variables = [v for v in full_variables if v != "ttr-3h"]
-
-    # Fetch every input variable except ttr-3h
-    x_main, coords = fetch_data(
-        source=data,
-        time=np.array([ic_date]),
-        variable=np.array(main_variables),
-        lead_time=in_coords_ll["lead_time"],
-        device=device,
-    )
-
-    # Fetch the raw ttr samples ttr-3h is derived from, and reduce them
-    raw_ttr, raw_ttr_coords = fetch_data(
-        source=data,
-        time=np.array([ic_date]),
-        variable=np.array(["ttr"]),
-        lead_time=model_ll.ttr_3h_query_times(),
-        device=device,
-    )
-    ttr_3h, ttr_3h_coords = model_ll.compute_ttr_3h(raw_ttr, raw_ttr_coords)
-
-    # Splice ttr-3h back in at the position `in_coords_ll["variable"]`
-    # expects, zero-filled outside the atmos input lead times where the
-    # model doesn't read it.
-    var_dim = list(coords.keys()).index("variable")
-    lead_dim = list(coords.keys()).index("lead_time")
-
-    ttr_3h_full = torch.zeros_like(
-        x_main.index_select(var_dim, torch.tensor([0], device=x_main.device))
-    )
-    lead_time_idx = torch.tensor(
-        [list(coords["lead_time"]).index(t) for t in ttr_3h_coords["lead_time"]],
-        device=x_main.device,
-    )
-    ttr_3h_full.index_copy_(lead_dim, lead_time_idx, ttr_3h)
-
-    x = torch.cat(
-        [
-            x_main.narrow(var_dim, 0, ttr_3h_idx),
-            ttr_3h_full,
-            x_main.narrow(var_dim, ttr_3h_idx, x_main.shape[var_dim] - ttr_3h_idx),
-        ],
-        dim=var_dim,
-    )
-    coords["variable"] = np.array(full_variables)
-else:
-    # v1.0 checkpoints don't use ttr-3h -- fetch everything directly.
-    x, coords = fetch_data(
-        source=data,
-        time=np.array([ic_date]),
-        variable=np.array(full_variables),
-        lead_time=in_coords_ll["lead_time"],
-        device=device,
-    )
+# `ttr03` (the model's trailing 3-hour accumulated `ttr` input, if present
+# in `full_variables`) is served directly by the ERA5 ARCO data source like
+# any other accumulated variable (e.g. `tp06`), so no special-cased fetch or
+# splicing is needed here.
+x, coords = fetch_data(
+    source=data,
+    time=np.array([ic_date]),
+    variable=np.array(full_variables),
+    lead_time=in_coords_ll["lead_time"],
+    device=device,
+)
 
 # Can call the `DLESyMLatLon` model directly with the input lat/lon data
 y, y_coords = model_ll(x, coords)
@@ -244,13 +197,9 @@ print(f"Completed forecast with {n_steps} steps")
 # %%
 # Manual Forecast Loop
 # ---------------------
-# earth2studio's built-in `run.deterministic` workflow fetches its own initial
-# condition internally, using `fetch_data(variable=model.input_coords()["variable"],
-# ...)` against the raw data source -- it has no way to know that `ttr-3h` needs the
-# dedicated derivation step from above rather than a direct fetch. Since we've
-# already built a valid initial condition (`x`, `coords`) ourselves, we drive the
-# forecast with `create_iterator` directly and write each step to the IO backend by
-# hand instead, avoiding a second, incompatible fetch.
+# Since we've already built a valid initial condition (`x`, `coords`) above,
+# we drive the forecast with `create_iterator` directly and write each step
+# to the IO backend by hand instead of re-fetching via `run.deterministic`.
 
 # %%
 from earth2studio.io import KVBackend

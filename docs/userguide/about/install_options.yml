@@ -130,6 +130,13 @@ categories:
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
           - earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
+        # TODO: Remove with psn release 2.3.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
       - id: dlwp
         label: DLWP
         extra: dlwp
@@ -271,10 +278,10 @@ categories:
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
-            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
           uv:
             pypi:
-              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
@@ -331,10 +338,10 @@ categories:
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
-            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
           uv:
             pypi:
-              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         warnings:
           - Depends on natten for Python versions before 3.14.
       - id: cyclone
@@ -408,10 +415,10 @@ categories:
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
-            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
           uv:
             pypi:
-              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         warnings:
           - Depends on natten for Python versions before 3.14.
       - id: da-healda

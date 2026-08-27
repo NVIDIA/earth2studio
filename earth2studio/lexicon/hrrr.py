@@ -55,7 +55,7 @@ class HRRRLexicon(metaclass=LexiconType):
             "msl": "wrfsfc::MSLMA::mean sea level::anl",
             "mslp": "wrfsfc::MSLMA::mean sea level::anl",  # TODO: deprecate
             "fg10m": "wrfsfc::GUST::surface",
-            "tp": "wrfsfc::APCP::surface::0-0 hour acc",  # will be zero
+            "tp": "wrfsfc::APCP::surface",
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)::anl",
             "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
             "sd": "wrfsfc::WEASD::surface::anl",
@@ -197,13 +197,13 @@ class HRRRFXLexicon(metaclass=LexiconType):
             "sp": "wrfsfc::PRES::surface",
             "msl": "wrfsfc::MSLMA::mean sea level",
             "mslp": "wrfsfc::MSLMA::mean sea level",  # TODO: deprecate
-            "tp": "wrfsfc::APCP::surface::x-x hour acc",  # 1 hour accumulated
+            "tp": "wrfsfc::APCP::surface",
             "fg10m": "wrfsfc::GUST::surface",
             "tcwv": "wrfsfc::PWAT::entire atmosphere (considered as a single layer)",
-            "tcc": "wrfsfc::TCDC::entire atmosphere::anl",
-            "sd": "wrfsfc::WEASD::surface::anl",  # will be zero
-            "sde": "wrfsfc::SNOD::surface::anl",  # will be zero
-            "snowc": "wrfsfc::SNOWC::surface::anl",  # will be zero
+            "tcc": "wrfsfc::TCDC::entire atmosphere",
+            "sd": "wrfsfc::WEASD::surface",
+            "sde": "wrfsfc::SNOD::surface",
+            "snowc": "wrfsfc::SNOWC::surface",
             "csnow": "wrfsfc::CSNOW::surface",
             "cicep": "wrfsfc::CICEP::surface",
             "cfrzr": "wrfsfc::CFRZR::surface",

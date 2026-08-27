@@ -36,7 +36,7 @@ class IBTrACSLexicon(metaclass=LexiconType):
     Additional resources:
 
     - https://www.ncei.noaa.gov/products/international-best-track-archive
-    - https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/doc/IBTrACS_version4_Technical_Details.pdf
+    - https://www.ncei.noaa.gov/sites/default/files/2025-04/IBTrACS_version4r01_Technical_Details.pdf
     """
 
     # Conversion constants

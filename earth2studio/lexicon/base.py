@@ -69,6 +69,8 @@ E2STUDIO_VOCAB = {
     "cp06": "convective precipitation accumulated over past 6 hours (m)",
     "ro06": "runoff accumulated over past 6 hours (m)",
     "sf06": "snowfall accumulated over past 6 hours (m of water equivalent)",
+    "ttr": "top of atmosphere net thermal radiation (J m-2)",
+    "ttr03": "top of atmosphere net thermal radiation (J m-2) accumulated over past 3 hours",
     "cos_mwd": "cosine of mean wave direction (unitless)",
     "sin_mwd": "sine of mean wave direction (unitless)",
     "tpf": "total precipitation flux (kg m-2 s-1)",

@@ -107,7 +107,14 @@ class TestFuXiMock:
         variable = p.input_coords()["variable"]
         x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
+        # Same values, variable/lead_time permuted in memory: a data source that
+        # transposes on the way out yields a strided tensor and must not change
+        # the result.
+        x_strided = x.transpose(1, 2).contiguous().transpose(1, 2)
+        assert not x_strided.is_contiguous()
+
         out, out_coords = p(x, coords)
+        assert torch.allclose(out, p(x_strided, coords)[0])
 
         if not isinstance(time, Iterable):
             time = [time]

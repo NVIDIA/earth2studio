@@ -7,7 +7,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.0a0] - 2026-08-xx
+## [0.19.0a0] - xxxx-xx-xx
+
+### Added
+
+### Changed
+
+- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
+  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
+  emit a warning and may be removed in a future release.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.18.0] - 2026-08-xx
 
 ### Added
 
@@ -42,12 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
   conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
   optional dictionary encoding of low-cardinality string columns
+- Added `StormScopeMeteoSatEU` European domain satellite nowcasting model
 
 ### Changed
 
-- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
-  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
-  emit a warning and may be removed in a future release.
+- GFS, HRRR, and GEFS GRIB sources now fill unresolved output regions with
+  `NaN` instead of zeros or uninitialized memory, making missing index records
+  detectable
 - `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
   persistent spawn-based process pool (new `decode_workers` parameter,
   default `"auto"`); each file is decoded once per request window, frames are
@@ -130,13 +151,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
   `store`; the default local write path no longer uses fsspec
 
-### Removed
-
 ### Fixed
 
+- Fixed intermittent repeated FengWu forecast timesteps by synchronizing ONNX
+  Runtime I/O buffers with PyTorch.
+- Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
+  snow depth, snow cover, and total cloud cover at positive forecast lead
+  times.
+- Fixed the March 22, 2021 GFS archive cutoff and historical `GFS_FX` total
+  precipitation lookups.
 - Fixed `lat_weight` returning a small negative weight at the poles in
   float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
-
 - Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
   `torch.backends.cudnn.benchmark` on and off around each coupled cycle
   re-triggered cuDNN's GPU-timing-based algorithm search every cycle
@@ -144,7 +169,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
   step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
   initial condition is yielded at `lead_time=[0h]`
-
 - Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
   NCEI archive path; the reforecast archive moved to
   `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
