@@ -504,8 +504,23 @@ body .md-grid {
   border-radius: 0.35rem;
 }
 
-.md-typeset .e2s-api-index > ul > li {
-  position: relative;
+.md-typeset .e2s-api-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.4rem;
+  margin: 1em 0;
+}
+
+.md-typeset a.e2s-api-index__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 6.2rem;
+  padding: 0.8rem;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem;
+  color: var(--md-default-fg-color);
+  text-decoration: none;
   cursor: pointer;
   transition:
     background-color 140ms ease,
@@ -514,28 +529,27 @@ body .md-grid {
     transform 140ms ease;
 }
 
-.md-typeset .e2s-api-index > ul > li:hover,
-.md-typeset .e2s-api-index > ul > li:focus-within {
+.md-typeset a.e2s-api-index__card:hover,
+.md-typeset a.e2s-api-index__card:focus-visible {
   border-color: var(--md-accent-fg-color);
   background-color: var(--md-accent-fg-color--transparent);
   box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.12);
+  color: var(--md-default-fg-color);
   transform: translateY(-1px);
 }
 
-.md-typeset .e2s-api-index > ul > li:focus-within {
+.md-typeset a.e2s-api-index__card:focus-visible {
   outline: 2px solid var(--md-accent-fg-color);
   outline-offset: 2px;
 }
 
-.md-typeset .e2s-api-index > ul > li > p:first-child a::after {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  content: "";
+.md-typeset .e2s-api-index__card strong {
+  color: var(--md-typeset-a-color);
+  font-size: 0.8rem;
 }
 
-.md-typeset .e2s-api-index > ul > li > p:first-child a:focus-visible {
-  outline: none;
+.md-typeset .e2s-api-index__card span {
+  line-height: 1.5;
 }
 
 .md-footer {
