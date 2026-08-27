@@ -3066,58 +3066,48 @@ Also note the input and output variable set for each model.</p>
 <a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    <span class="n">model_hpx</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">in_coords_hpx</span><span class="p">)[</span><span class="s2">&quot;variable&quot;</span><span class="p">],</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>53 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]
-WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
-
-Downloading config.yaml: 0%|          | 0.00/955 [00:00&lt;?, ?B/s]
-Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 4.81kB/s]
-Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 4.78kB/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>43 lines</small></summary><pre class="no-copy"><code>Downloading config.yaml: 0%|          | 0.00/955 [00:00&lt;?, ?B/s]
+Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 3.36kB/s]
+Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 3.34kB/s]
 
 Downloading config.yaml: 0%|          | 0.00/1.50k [00:00&lt;?, ?B/s]
-Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 8.02kB/s]
-Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 7.94kB/s]
+Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 4.82kB/s]
+Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 4.78kB/s]
 
 Downloading atmos_model_0.mdlus: 0%|          | 0.00/19.7M [00:00&lt;?, ?B/s]
-Downloading atmos_model_0.mdlus: 51%|█████     | 10.0M/19.7M [00:01&lt;00:01, 6.09MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 12.4MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 10.7MB/s]
+Downloading atmos_model_0.mdlus: 51%|█████     | 10.0M/19.7M [00:01&lt;00:01, 8.76MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 18.3MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 15.6MB/s]
 
 Downloading ocean_model_0.mdlus: 0%|          | 0.00/18.6M [00:00&lt;?, ?B/s]
-Downloading ocean_model_0.mdlus: 54%|█████▎    | 10.0M/18.6M [00:00&lt;00:00, 11.2MB/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:01&lt;00:00, 19.0MB/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:01&lt;00:00, 16.8MB/s]
+Downloading ocean_model_0.mdlus: 54%|█████▎    | 10.0M/18.6M [00:00&lt;00:00, 14.5MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:00&lt;00:00, 26.5MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:00&lt;00:00, 23.1MB/s]
 
 Downloading hpx_lat.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 754kB/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 748kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 745kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 741kB/s]
 
 Downloading hpx_lon.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 923kB/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 915kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 1.07MB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 1.06MB/s]
 
 Downloading land_sea_mask.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 307kB/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 306kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 429kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 425kB/s]
 
 Downloading topography.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 359kB/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 357kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 442kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 439kB/s]
 DLESyM LatLon input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (12,)), ('lat', (721,)), ('lon', (1440,))]
 DLESyM HPX input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (10,)), ('face', (12,)), ('height', (64,)), ('width', (64,))]
-Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ttr-3h' 'sst' 'u10m' 'v10m'
+Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ttr03' 'sst' 'u10m' 'v10m'
  'z300' 'z700']
-Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
  'tp6' 'msl' 'sst']
-HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
  'sst']
-HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
  'tp6' 'msl' 'sst']</code></pre></details>
 
 <h2 id="making-predictions-regridding-and-selecting-outputs">Making Predictions, Regridding, and Selecting Outputs<a class="headerlink" href="#making-predictions-regridding-and-selecting-outputs" title="Permanent link">&para;</a></h2>
@@ -3172,102 +3162,73 @@ for each of the atmosphere and ocean components.</p>
 <a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="n">y_ocean_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
 <a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>98 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.84it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.31it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>69 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:02,  2.42it/s]
+Fetching ARCO data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.20it/s]
+Fetching ARCO data:  62%|██████▎   | 5/8 [00:00&lt;00:00,  9.40it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  3.96it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.76it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.38it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.72it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.35it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:00,  8.56it/s]
+Fetching ARCO data:  50%|█████     | 4/8 [00:00&lt;00:00, 12.34it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00,  9.04it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  2.45it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.79it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.62it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.43it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.02it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:00,  7.87it/s]
+Fetching ARCO data:  38%|███▊      | 3/8 [00:00&lt;00:00, 10.20it/s]
+Fetching ARCO data:  62%|██████▎   | 5/8 [00:00&lt;00:00,  9.79it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00,  9.82it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:02&lt;00:00,  1.57it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.98it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 20.35it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 23.09it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  25%|██▌       | 2/8 [00:00&lt;00:00,  9.93it/s]
+Fetching ARCO data:  62%|██████▎   | 5/8 [00:00&lt;00:00,  8.07it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  4.64it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:01&lt;00:00,  3.16it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.01it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.31it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 18.90it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:01,  4.36it/s]
+Fetching ARCO data:  62%|██████▎   | 5/8 [00:00&lt;00:00, 14.12it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  3.79it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.33it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.07it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.65it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.28it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:01,  4.75it/s]
+Fetching ARCO data:  50%|█████     | 4/8 [00:00&lt;00:00, 11.03it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00,  7.76it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  2.75it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  1.82it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.69it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.05it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.71it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:01,  5.59it/s]
+Fetching ARCO data:  38%|███▊      | 3/8 [00:00&lt;00:00,  8.65it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 14.79it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.93it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.81it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 16.90it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 19.25it/s]
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:03,  2.29it/s]
+Fetching ARCO data:  38%|███▊      | 3/8 [00:00&lt;00:00,  6.45it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  3.55it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.29it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.67it/s]
 
-Fetching ARCO data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 17.92it/s]
-Fetching ARCO data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.36it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.77it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  2.76it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  6.06it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  6.05it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.84it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.83it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 80.18it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.59it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.57it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.35it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.34it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.90it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.89it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 117.73it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.24it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.23it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.70it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.68it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.82it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.80it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 77.12it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.86it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.84it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.97it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.96it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.97it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00,  5.96it/s]
-
-Fetching ARCO data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching ARCO data: 100%|██████████| 1/1 [00:00&lt;00:00, 91.38it/s]
-Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr-3h'
+Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  12%|█▎        | 1/8 [00:00&lt;00:01,  5.50it/s]
+Fetching ARCO data:  38%|███▊      | 3/8 [00:00&lt;00:00, 10.20it/s]
+Fetching ARCO data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 11.16it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.72it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.54it/s]
+Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
  'tp6' 'msl'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
 Ocean outputs (variables, lead_time [hrs]): ['sst'] [48 96]</code></pre></details>
 
@@ -3346,18 +3307,18 @@ Coordinates:
   * lat         (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon         (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 Data variables:
-    z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.799e+04
-    tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.412e+04
-    z1000       (time, lead_time, lat, lon) float32 1GB 890.4 890.4 ... 101.0
-    t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 220.9
-    tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... 0.3829
-    t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 235.6
-    z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 8.983e+04
-    ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 6.43
-    ttr-3h      (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... -1.32e+06
-    tp6         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 6.897 6.897
-    msl         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 1.013e+05
-    sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 270.8</code></pre></details>
+    z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.726e+04
+    tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.446e+04
+    z1000       (time, lead_time, lat, lon) float32 1GB 890.4 890.4 ... -908.9
+    t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 227.6
+    tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... -0.684
+    t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 238.8
+    z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 8.923e+04
+    ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 5.826
+    ttr03       (time, lead_time, lat, lon) float32 1GB -2.384e+06 ... -1.395...
+    tp6         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 8.707 8.707
+    msl         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 9.977e+04
+    sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 271.2</code></pre></details>
 
 <h2 id="plotting-the-outputs">Plotting the Outputs<a class="headerlink" href="#plotting-the-outputs" title="Permanent link">&para;</a></h2>
 <p>Let's plot some of the forecasted outputs for the atmosphere and ocean components.</p>
@@ -3427,9 +3388,9 @@ Data variables:
 </code></pre></div>
 <p><img alt="Output from Running DLESyM Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/06_seasonal-02_dlesym_example/001-cell-10.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 142.5s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 118.3s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 23s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 58s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

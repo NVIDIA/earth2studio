@@ -3110,27 +3110,68 @@ Earth-2 studio</p>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>21 lines</small></summary><pre class="no-copy"><code>Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00&lt;?, ?B/s]
-Downloading corrdiff_inference_package.zip: 5%|▍         | 31.5M/684M [00:00&lt;00:02, 330MB/s]
-Downloading corrdiff_inference_package.zip: 9%|▉         | 63.0M/684M [00:00&lt;00:02, 316MB/s]
-Downloading corrdiff_inference_package.zip: 17%|█▋        | 114M/684M [00:00&lt;00:01, 411MB/s]
-Downloading corrdiff_inference_package.zip: 22%|██▏       | 153M/684M [00:00&lt;00:01, 385MB/s]
-Downloading corrdiff_inference_package.zip: 28%|██▊       | 190M/684M [00:00&lt;00:01, 383MB/s]
-Downloading corrdiff_inference_package.zip: 35%|███▍      | 237M/684M [00:00&lt;00:01, 418MB/s]
-Downloading corrdiff_inference_package.zip: 41%|████      | 278M/684M [00:00&lt;00:01, 383MB/s]
-Downloading corrdiff_inference_package.zip: 47%|████▋     | 323M/684M [00:00&lt;00:00, 410MB/s]
-Downloading corrdiff_inference_package.zip: 53%|█████▎    | 363M/684M [00:00&lt;00:00, 389MB/s]
-Downloading corrdiff_inference_package.zip: 59%|█████▊    | 401M/684M [00:01&lt;00:00, 371MB/s]
-Downloading corrdiff_inference_package.zip: 64%|██████▍   | 437M/684M [00:01&lt;00:00, 302MB/s]
-Downloading corrdiff_inference_package.zip: 68%|██████▊   | 467M/684M [00:01&lt;00:00, 299MB/s]
-Downloading corrdiff_inference_package.zip: 75%|███████▌  | 514M/684M [00:01&lt;00:00, 346MB/s]
-Downloading corrdiff_inference_package.zip: 80%|████████  | 549M/684M [00:01&lt;00:00, 326MB/s]
-Downloading corrdiff_inference_package.zip: 85%|████████▍ | 581M/684M [00:01&lt;00:00, 288MB/s]
-Downloading corrdiff_inference_package.zip: 89%|████████▉ | 610M/684M [00:02&lt;00:00, 190MB/s]
-Downloading corrdiff_inference_package.zip: 93%|█████████▎| 633M/684M [00:02&lt;00:00, 174MB/s]
-Downloading corrdiff_inference_package.zip: 96%|█████████▌| 657M/684M [00:02&lt;00:00, 188MB/s]
-Downloading corrdiff_inference_package.zip: 99%|█████████▉| 680M/684M [00:02&lt;00:00, 198MB/s]
-Downloading corrdiff_inference_package.zip: 100%|██████████| 684M/684M [00:02&lt;00:00, 287MB/s]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>62 lines</small></summary><pre class="no-copy"><code>Downloading corrdiff_inference_package.zip: 0%|          | 0.00/684M [00:00&lt;?, ?B/s]
+Downloading corrdiff_inference_package.zip: 0%|          | 570k/684M [00:00&lt;02:03, 5.79MB/s]
+Downloading corrdiff_inference_package.zip: 1%|          | 8.02M/684M [00:00&lt;00:14, 48.2MB/s]
+Downloading corrdiff_inference_package.zip: 3%|▎         | 19.3M/684M [00:00&lt;00:08, 79.9MB/s]
+Downloading corrdiff_inference_package.zip: 4%|▍         | 30.7M/684M [00:00&lt;00:07, 95.6MB/s]
+Downloading corrdiff_inference_package.zip: 6%|▌         | 42.2M/684M [00:00&lt;00:06, 104MB/s] 
+Downloading corrdiff_inference_package.zip: 8%|▊         | 53.7M/684M [00:00&lt;00:06, 110MB/s]
+Downloading corrdiff_inference_package.zip: 10%|▉         | 65.1M/684M [00:00&lt;00:05, 113MB/s]
+Downloading corrdiff_inference_package.zip: 11%|█         | 76.5M/684M [00:00&lt;00:05, 115MB/s]
+Downloading corrdiff_inference_package.zip: 13%|█▎        | 88.1M/684M [00:00&lt;00:05, 117MB/s]
+Downloading corrdiff_inference_package.zip: 15%|█▍        | 99.5M/684M [00:01&lt;00:05, 118MB/s]
+Downloading corrdiff_inference_package.zip: 16%|█▌        | 111M/684M [00:01&lt;00:05, 118MB/s] 
+Downloading corrdiff_inference_package.zip: 18%|█▊        | 122M/684M [00:01&lt;00:04, 119MB/s]
+Downloading corrdiff_inference_package.zip: 20%|█▉        | 134M/684M [00:01&lt;00:04, 119MB/s]
+Downloading corrdiff_inference_package.zip: 21%|██▏       | 146M/684M [00:01&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 23%|██▎       | 157M/684M [00:01&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 25%|██▍       | 169M/684M [00:01&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 26%|██▋       | 180M/684M [00:01&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 28%|██▊       | 192M/684M [00:01&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 30%|██▉       | 203M/684M [00:01&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 31%|███▏      | 215M/684M [00:02&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 33%|███▎      | 226M/684M [00:02&lt;00:04, 120MB/s]
+Downloading corrdiff_inference_package.zip: 35%|███▍      | 238M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 36%|███▋      | 249M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 38%|███▊      | 261M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 40%|███▉      | 272M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 41%|████▏     | 284M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 43%|████▎     | 295M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 45%|████▍     | 307M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 47%|████▋     | 318M/684M [00:02&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 48%|████▊     | 330M/684M [00:03&lt;00:03, 120MB/s]
+Downloading corrdiff_inference_package.zip: 50%|████▉     | 341M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 52%|█████▏    | 353M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 53%|█████▎    | 364M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 55%|█████▍    | 376M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 57%|█████▋    | 387M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 58%|█████▊    | 399M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 60%|██████    | 410M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 62%|██████▏   | 422M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 63%|██████▎   | 434M/684M [00:03&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 65%|██████▌   | 445M/684M [00:04&lt;00:02, 120MB/s]
+Downloading corrdiff_inference_package.zip: 67%|██████▋   | 456M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 68%|██████▊   | 468M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 70%|███████   | 479M/684M [00:04&lt;00:01, 119MB/s]
+Downloading corrdiff_inference_package.zip: 72%|███████▏  | 491M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 73%|███████▎  | 502M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 75%|███████▌  | 514M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 77%|███████▋  | 526M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 79%|███████▊  | 537M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 80%|████████  | 549M/684M [00:04&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 82%|████████▏ | 560M/684M [00:05&lt;00:01, 120MB/s]
+Downloading corrdiff_inference_package.zip: 84%|████████▎ | 572M/684M [00:05&lt;00:00, 120MB/s]
+Downloading corrdiff_inference_package.zip: 85%|████████▌ | 583M/684M [00:05&lt;00:00, 120MB/s]
+Downloading corrdiff_inference_package.zip: 87%|████████▋ | 595M/684M [00:05&lt;00:00, 117MB/s]
+Downloading corrdiff_inference_package.zip: 89%|████████▊ | 606M/684M [00:05&lt;00:00, 118MB/s]
+Downloading corrdiff_inference_package.zip: 90%|█████████ | 618M/684M [00:05&lt;00:00, 119MB/s]
+Downloading corrdiff_inference_package.zip: 92%|█████████▏| 630M/684M [00:05&lt;00:00, 119MB/s]
+Downloading corrdiff_inference_package.zip: 94%|█████████▍| 641M/684M [00:05&lt;00:00, 119MB/s]
+Downloading corrdiff_inference_package.zip: 95%|█████████▌| 653M/684M [00:05&lt;00:00, 120MB/s]
+Downloading corrdiff_inference_package.zip: 97%|█████████▋| 664M/684M [00:05&lt;00:00, 120MB/s]
+Downloading corrdiff_inference_package.zip: 99%|█████████▉| 676M/684M [00:06&lt;00:00, 119MB/s]
+Downloading corrdiff_inference_package.zip: 100%|██████████| 684M/684M [00:06&lt;00:00, 117MB/s]</code></pre></details>
 
 <h2 id="execute-the-workflow">Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Permanent link">&para;</a></h2>
 <p>With all components initialized, running the workflow is a single line of Python code.
@@ -3141,19 +3182,15 @@ saving to file. Check the API docs for more information.</p>
 Typhoon Koinu.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">io</span> <span class="o">=</span> <span class="n">run</span><span class="p">([</span><span class="s2">&quot;2023-10-04T18:00:00&quot;</span><span class="p">],</span> <span class="n">corrdiff</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">number_of_samples</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>13 lines</small></summary><pre class="no-copy"><code>2026-08-25 10:02:44.725 | INFO     | __main__:run:49 - Running corrdiff inference!
-2026-08-25 10:02:44.726 | INFO     | __main__:run:51 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>2026-08-26 22:38:09.238 | INFO     | __main__:run:49 - Running corrdiff inference!
+2026-08-26 22:38:09.239 | INFO     | __main__:run:51 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/12 [00:00&lt;?, ?it/s]
-Fetching GFS data:   8%|▊         | 1/12 [00:00&lt;00:04,  2.39it/s]
-Fetching GFS data:  25%|██▌       | 3/12 [00:00&lt;00:01,  5.69it/s]
-Fetching GFS data:  33%|███▎      | 4/12 [00:00&lt;00:01,  6.39it/s]
-Fetching GFS data:  83%|████████▎ | 10/12 [00:01&lt;00:00,  5.43it/s]
-Fetching GFS data: 100%|██████████| 12/12 [00:02&lt;00:00,  3.78it/s]
-Fetching GFS data: 100%|██████████| 12/12 [00:02&lt;00:00,  4.19it/s]
-2026-08-25 10:02:48.540 | SUCCESS  | __main__:run:64 - Fetched data from GFS
-2026-08-25 10:02:48.580 | INFO     | __main__:run:78 - Inference starting!
-2026-08-25 10:02:50.411 | SUCCESS  | __main__:run:82 - Inference complete</code></pre></details>
+Fetching GFS data:   8%|▊         | 1/12 [00:00&lt;00:06,  1.78it/s]
+Fetching GFS data: 100%|██████████| 12/12 [00:00&lt;00:00, 20.62it/s]
+2026-08-26 22:38:10.334 | SUCCESS  | __main__:run:64 - Fetched data from GFS
+2026-08-26 22:38:10.405 | INFO     | __main__:run:78 - Inference starting!
+2026-08-26 22:38:12.187 | SUCCESS  | __main__:run:82 - Inference complete</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>The last step is to post process our results. Cartopy is a great library for plotting
@@ -3214,9 +3251,9 @@ fields on projections of a sphere.</p>
 
 <p><img alt="Output from Generative Downscaling" class="e2sg-output-image" loading="lazy" src="../../_assets/03_downscaling-01_corrdiff_inference/001-cell-8.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/03_downscaling-01_corrdiff_inference/01_corrdiff_inference.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/03_downscaling-01_corrdiff_inference/01_corrdiff_inference.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 45.0s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/03_downscaling-01_corrdiff_inference/01_corrdiff_inference.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/03_downscaling-01_corrdiff_inference/01_corrdiff_inference.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 48.4s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>45.0 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>48.4 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

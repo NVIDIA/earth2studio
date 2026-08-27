@@ -3065,78 +3065,71 @@ are worth highlighting:</p>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="c1"># diagnostic standalone from an ERA5 initial condition instead.)</span>
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">precip</span> <span class="o">=</span> <span class="n">DLESyMv0_ISCCP_ERA5Precip</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">use_ttr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>72 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
-  import pynvml  # type: ignore[import]
-WARNING[XFORMERS]: xFormers can't load C++/CUDA extensions. xFormers was built for:
-    PyTorch 2.10.0+cu128 with CUDA 1208 (you have 2.13.0+cu130)
-    Python  3.10.19 (you have 3.13.13)
-  Please reinstall xformers (see https://github.com/facebookresearch/xformers#installing-xformers)
-  Memory-efficient attention, SwiGLU, sparse and more won't be available.
-  Set XFORMERS_MORE_DETAILS=1 for more details
-CuPy distance computation test failed with error: cuVS &gt;= 24.12 or pylibraft &lt; 24.12 should be installed to use this feature
-
-Downloading config.yaml: 0%|          | 0.00/2.42k [00:00&lt;?, ?B/s]
-Downloading config.yaml: 100%|██████████| 2.42k/2.42k [00:00&lt;00:00, 18.5kB/s]
-Downloading config.yaml: 100%|██████████| 2.42k/2.42k [00:00&lt;00:00, 18.2kB/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>65 lines</small></summary><pre class="no-copy"><code>Downloading config.yaml: 0%|          | 0.00/2.42k [00:00&lt;?, ?B/s]
+Downloading config.yaml: 100%|██████████| 2.42k/2.42k [00:00&lt;00:00, 13.5kB/s]
+Downloading config.yaml: 100%|██████████| 2.42k/2.42k [00:00&lt;00:00, 13.3kB/s]
 
 Downloading atmos_model_0.mdlus: 0%|          | 0.00/13.4M [00:00&lt;?, ?B/s]
-Downloading atmos_model_0.mdlus: 74%|███████▍  | 10.0M/13.4M [00:01&lt;00:00, 6.62MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 13.4M/13.4M [00:01&lt;00:00, 8.60MB/s]
+Downloading atmos_model_0.mdlus: 74%|███████▍  | 10.0M/13.4M [00:01&lt;00:00, 6.66MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 13.4M/13.4M [00:01&lt;00:00, 8.72MB/s]
 
 Downloading ocean_model_0.mdlus: 0%|          | 0.00/2.97M [00:00&lt;?, ?B/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 4.22MB/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 4.19MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 4.70MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 2.97M/2.97M [00:00&lt;00:00, 4.68MB/s]
 
 Downloading hpx_lat.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 962kB/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 954kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 739kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 734kB/s]
 
 Downloading hpx_lon.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 922kB/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 914kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 836kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 831kB/s]
 
 Downloading land_sea_mask.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 502kB/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 498kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 434kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 431kB/s]
 
 Downloading topography.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 280kB/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 278kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 423kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 418kB/s]
 
 Downloading era5_ttr_doy_stats_hpx64.nc: 0%|          | 0.00/137M [00:00&lt;?, ?B/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 7%|▋         | 10.0M/137M [00:01&lt;00:14, 9.30MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 22%|██▏       | 30.0M/137M [00:01&lt;00:03, 28.5MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 29%|██▉       | 40.0M/137M [00:01&lt;00:02, 36.7MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 36%|███▋      | 50.0M/137M [00:01&lt;00:02, 40.1MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 44%|████▎     | 60.0M/137M [00:01&lt;00:01, 43.1MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 51%|█████     | 70.0M/137M [00:02&lt;00:01, 39.9MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 58%|█████▊    | 80.0M/137M [00:02&lt;00:01, 44.3MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 66%|██████▌   | 90.0M/137M [00:02&lt;00:01, 37.2MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 73%|███████▎  | 100M/137M [00:02&lt;00:01, 38.6MB/s] 
-Downloading era5_ttr_doy_stats_hpx64.nc: 80%|████████  | 110M/137M [00:03&lt;00:00, 42.3MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 87%|████████▋ | 120M/137M [00:03&lt;00:00, 41.5MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 95%|█████████▍| 130M/137M [00:03&lt;00:00, 30.9MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:04&lt;00:00, 32.8MB/s]
-Downloading era5_ttr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:04&lt;00:00, 34.3MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 7%|▋         | 10.0M/137M [00:01&lt;00:12, 10.3MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 15%|█▍        | 20.0M/137M [00:01&lt;00:06, 20.1MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 22%|██▏       | 30.0M/137M [00:01&lt;00:03, 29.3MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 29%|██▉       | 40.0M/137M [00:01&lt;00:02, 34.0MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 36%|███▋      | 50.0M/137M [00:01&lt;00:02, 37.0MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 44%|████▎     | 60.0M/137M [00:01&lt;00:01, 43.7MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 51%|█████     | 70.0M/137M [00:02&lt;00:01, 49.0MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 58%|█████▊    | 80.0M/137M [00:02&lt;00:01, 54.1MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 66%|██████▌   | 90.0M/137M [00:02&lt;00:00, 57.6MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 73%|███████▎  | 100M/137M [00:02&lt;00:00, 56.4MB/s] 
+Downloading era5_ttr_doy_stats_hpx64.nc: 80%|████████  | 110M/137M [00:03&lt;00:00, 38.5MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 87%|████████▋ | 120M/137M [00:03&lt;00:00, 41.8MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 95%|█████████▍| 130M/137M [00:03&lt;00:00, 34.4MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:03&lt;00:00, 39.2MB/s]
+Downloading era5_ttr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:03&lt;00:00, 37.3MB/s]
 
 Downloading isccp_olr_doy_stats_hpx64.nc: 0%|          | 0.00/137M [00:00&lt;?, ?B/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 7%|▋         | 10.0M/137M [00:00&lt;00:11, 11.7MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 7%|▋         | 10.0M/137M [00:00&lt;00:10, 12.2MB/s]
 Downloading isccp_olr_doy_stats_hpx64.nc: 15%|█▍        | 20.0M/137M [00:01&lt;00:05, 23.6MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 22%|██▏       | 30.0M/137M [00:01&lt;00:03, 36.2MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 29%|██▉       | 40.0M/137M [00:01&lt;00:02, 42.3MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 36%|███▋      | 50.0M/137M [00:01&lt;00:01, 48.2MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 44%|████▎     | 60.0M/137M [00:01&lt;00:01, 56.5MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 51%|█████     | 70.0M/137M [00:01&lt;00:01, 50.8MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 66%|██████▌   | 90.0M/137M [00:02&lt;00:00, 58.1MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 80%|████████  | 110M/137M [00:02&lt;00:00, 70.9MB/s] 
-Downloading isccp_olr_doy_stats_hpx64.nc: 87%|████████▋ | 120M/137M [00:02&lt;00:00, 71.5MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 95%|█████████▍| 130M/137M [00:02&lt;00:00, 58.4MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:02&lt;00:00, 51.9MB/s]
-Downloading isccp_olr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:03&lt;00:00, 47.9MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 22%|██▏       | 30.0M/137M [00:01&lt;00:03, 33.7MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 29%|██▉       | 40.0M/137M [00:01&lt;00:02, 42.5MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 36%|███▋      | 50.0M/137M [00:01&lt;00:01, 49.4MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 44%|████▎     | 60.0M/137M [00:01&lt;00:01, 54.9MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 51%|█████     | 70.0M/137M [00:01&lt;00:01, 58.1MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 58%|█████▊    | 80.0M/137M [00:01&lt;00:00, 61.2MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 66%|██████▌   | 90.0M/137M [00:02&lt;00:00, 63.4MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 73%|███████▎  | 100M/137M [00:02&lt;00:00, 65.2MB/s] 
+Downloading isccp_olr_doy_stats_hpx64.nc: 80%|████████  | 110M/137M [00:02&lt;00:00, 65.2MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 87%|████████▋ | 120M/137M [00:02&lt;00:00, 66.9MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 95%|█████████▍| 130M/137M [00:02&lt;00:00, 67.5MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:02&lt;00:00, 68.4MB/s]
+Downloading isccp_olr_doy_stats_hpx64.nc: 100%|██████████| 137M/137M [00:02&lt;00:00, 51.3MB/s]
 
 Downloading precip_model_0.mdlus: 0%|          | 0.00/5.45M [00:00&lt;?, ?B/s]
-Downloading precip_model_0.mdlus: 100%|██████████| 5.45M/5.45M [00:00&lt;00:00, 10.1MB/s]
-Downloading precip_model_0.mdlus: 100%|██████████| 5.45M/5.45M [00:00&lt;00:00, 10.0MB/s]</code></pre></details>
+Downloading precip_model_0.mdlus: 100%|██████████| 5.45M/5.45M [00:00&lt;00:00, 8.04MB/s]
+Downloading precip_model_0.mdlus: 100%|██████████| 5.45M/5.45M [00:00&lt;00:00, 7.90MB/s]</code></pre></details>
 
 <h2 id="inspecting-the-variable-sets">Inspecting the Variable Sets<a class="headerlink" href="#inspecting-the-variable-sets" title="Permanent link">&para;</a></h2>
 <p>Note that <code>ttr</code> appears in the prognostic input variables (the wrapper
@@ -3189,40 +3182,40 @@ directly. As with the base DLESyM model, the atmosphere is predicted every
 <a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="p">)</span>
 </code></pre></div>
 <details class="e2sg-output" open><summary><span>Console output</span><small>37 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 19.93it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 22.60it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 22.89it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 25.95it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 22.49it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 25.12it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 25.61it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 28.99it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 23.98it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 26.76it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 21.98it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 24.93it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 21.34it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 23.84it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 22.13it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 25.10it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 32.54it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 31.17it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 22.32it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 25.31it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 25.36it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 28.72it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 21.44it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 24.01it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 21.78it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 24.71it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 22.41it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 25.41it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 24.71it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 27.57it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 21.56it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 24.45it/s]
 
 Fetching ARCO data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 19.78it/s]
-Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 22.59it/s]
+Fetching ARCO data:  88%|████████▊ | 7/8 [00:00&lt;00:00, 20.77it/s]
+Fetching ARCO data: 100%|██████████| 8/8 [00:00&lt;00:00, 23.56it/s]
 Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'rlut'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
 Ocean outputs (variables, lead_time [hrs]): ['sst'] [48 96]</code></pre></details>
 
@@ -3365,9 +3358,9 @@ precipitation.</p>
 </code></pre></div>
 <p><img alt="Output from Running the DLESyM ISCCP-ERA5 Model" class="e2sg-output-image" loading="lazy" src="../../_assets/06_seasonal-03_dlesym_climate/001-cell-12.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-03_dlesym_climate/03_dlesym_climate.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-03_dlesym_climate/03_dlesym_climate.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 98.8s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-03_dlesym_climate/03_dlesym_climate.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-03_dlesym_climate/03_dlesym_climate.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 87.1s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 39s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 27s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 

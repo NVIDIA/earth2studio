@@ -3178,14 +3178,12 @@ consistent with when GFS provides for relative humidity.</p>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">da_custom</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>27 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
-Fetching ARCO data:  50%|█████     | 1/2 [00:02&lt;00:02,  2.42s/it]
-Fetching ARCO data: 100%|██████████| 2/2 [00:03&lt;00:00,  1.40s/it]
-Fetching ARCO data: 100%|██████████| 2/2 [00:03&lt;00:00,  1.55s/it]
+<details class="e2sg-output" open><summary><span>Console output</span><small>25 lines</small></summary><pre class="no-copy"><code>Fetching ARCO data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching ARCO data:  50%|█████     | 1/2 [00:00&lt;00:00,  3.29it/s]
+Fetching ARCO data: 100%|██████████| 2/2 [00:00&lt;00:00,  6.52it/s]
 
 Fetching GFS data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.95it/s]
-Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00,  1.95it/s]
+Fetching GFS data: 100%|██████████| 1/1 [00:00&lt;00:00, 28.87it/s]
 &lt;xarray.DataArray (time: 1, variable: 1, lat: 721, lon: 1440)&gt; Size: 8MB
 array([[[[ 28.01413468,  28.01413468,  28.01413468, ...,  28.01413468,
            28.01413468,  28.01413468],
@@ -3267,77 +3265,72 @@ we are using ARCO, we can run inference for a time quite far back in time.</p>
 <a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
 <a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>103 lines</small></summary><pre class="no-copy"><code>Downloading config.json: 0%|          | 0.00/22.0 [00:00&lt;?, ?B/s]
-Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 166B/s]
-Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 165B/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>98 lines</small></summary><pre class="no-copy"><code>Downloading config.json: 0%|          | 0.00/22.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 200B/s]
+Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 197B/s]
 
 Downloading fcn.mdlus: 0%|          | 0.00/287M [00:00&lt;?, ?B/s]
-Downloading fcn.mdlus: 3%|▎         | 10.0M/287M [00:01&lt;00:34, 8.47MB/s]
-Downloading fcn.mdlus: 7%|▋         | 20.0M/287M [00:01&lt;00:16, 17.1MB/s]
-Downloading fcn.mdlus: 10%|█         | 30.0M/287M [00:01&lt;00:09, 27.5MB/s]
-Downloading fcn.mdlus: 14%|█▍        | 40.0M/287M [00:01&lt;00:07, 36.5MB/s]
-Downloading fcn.mdlus: 17%|█▋        | 50.0M/287M [00:01&lt;00:05, 46.5MB/s]
-Downloading fcn.mdlus: 21%|██        | 60.0M/287M [00:01&lt;00:04, 52.9MB/s]
-Downloading fcn.mdlus: 24%|██▍       | 70.0M/287M [00:02&lt;00:03, 57.4MB/s]
-Downloading fcn.mdlus: 28%|██▊       | 80.0M/287M [00:02&lt;00:04, 53.3MB/s]
-Downloading fcn.mdlus: 31%|███▏      | 90.0M/287M [00:02&lt;00:03, 53.0MB/s]
-Downloading fcn.mdlus: 35%|███▍      | 100M/287M [00:02&lt;00:03, 56.9MB/s] 
-Downloading fcn.mdlus: 38%|███▊      | 110M/287M [00:02&lt;00:02, 62.4MB/s]
-Downloading fcn.mdlus: 42%|████▏     | 120M/287M [00:02&lt;00:02, 65.3MB/s]
-Downloading fcn.mdlus: 45%|████▌     | 130M/287M [00:03&lt;00:02, 69.6MB/s]
-Downloading fcn.mdlus: 49%|████▊     | 140M/287M [00:03&lt;00:02, 72.2MB/s]
-Downloading fcn.mdlus: 52%|█████▏    | 150M/287M [00:03&lt;00:02, 59.4MB/s]
-Downloading fcn.mdlus: 56%|█████▌    | 160M/287M [00:03&lt;00:02, 64.3MB/s]
-Downloading fcn.mdlus: 59%|█████▉    | 170M/287M [00:03&lt;00:01, 64.0MB/s]
-Downloading fcn.mdlus: 63%|██████▎   | 180M/287M [00:03&lt;00:01, 59.4MB/s]
-Downloading fcn.mdlus: 66%|██████▌   | 190M/287M [00:04&lt;00:01, 55.6MB/s]
-Downloading fcn.mdlus: 70%|██████▉   | 200M/287M [00:04&lt;00:02, 45.2MB/s]
-Downloading fcn.mdlus: 73%|███████▎  | 210M/287M [00:04&lt;00:01, 47.6MB/s]
-Downloading fcn.mdlus: 77%|███████▋  | 220M/287M [00:04&lt;00:01, 49.9MB/s]
-Downloading fcn.mdlus: 80%|████████  | 230M/287M [00:05&lt;00:01, 56.5MB/s]
-Downloading fcn.mdlus: 84%|████████▎ | 240M/287M [00:05&lt;00:00, 52.5MB/s]
-Downloading fcn.mdlus: 87%|████████▋ | 250M/287M [00:05&lt;00:00, 59.0MB/s]
-Downloading fcn.mdlus: 91%|█████████ | 260M/287M [00:05&lt;00:00, 65.3MB/s]
-Downloading fcn.mdlus: 94%|█████████▍| 270M/287M [00:05&lt;00:00, 61.4MB/s]
-Downloading fcn.mdlus: 97%|█████████▋| 280M/287M [00:05&lt;00:00, 59.6MB/s]
-Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:05&lt;00:00, 50.8MB/s]
+Downloading fcn.mdlus: 3%|▎         | 10.0M/287M [00:01&lt;00:33, 8.79MB/s]
+Downloading fcn.mdlus: 7%|▋         | 20.0M/287M [00:01&lt;00:17, 16.2MB/s]
+Downloading fcn.mdlus: 10%|█         | 30.0M/287M [00:01&lt;00:10, 25.6MB/s]
+Downloading fcn.mdlus: 14%|█▍        | 40.0M/287M [00:01&lt;00:07, 33.9MB/s]
+Downloading fcn.mdlus: 17%|█▋        | 50.0M/287M [00:01&lt;00:05, 44.3MB/s]
+Downloading fcn.mdlus: 21%|██        | 60.0M/287M [00:01&lt;00:04, 54.5MB/s]
+Downloading fcn.mdlus: 24%|██▍       | 70.0M/287M [00:02&lt;00:04, 48.6MB/s]
+Downloading fcn.mdlus: 28%|██▊       | 80.0M/287M [00:02&lt;00:03, 58.4MB/s]
+Downloading fcn.mdlus: 31%|███▏      | 90.0M/287M [00:02&lt;00:03, 61.4MB/s]
+Downloading fcn.mdlus: 35%|███▍      | 100M/287M [00:02&lt;00:03, 57.4MB/s] 
+Downloading fcn.mdlus: 38%|███▊      | 110M/287M [00:02&lt;00:02, 62.8MB/s]
+Downloading fcn.mdlus: 42%|████▏     | 120M/287M [00:02&lt;00:02, 71.3MB/s]
+Downloading fcn.mdlus: 45%|████▌     | 130M/287M [00:03&lt;00:02, 66.4MB/s]
+Downloading fcn.mdlus: 49%|████▊     | 140M/287M [00:03&lt;00:02, 73.0MB/s]
+Downloading fcn.mdlus: 52%|█████▏    | 150M/287M [00:03&lt;00:01, 75.7MB/s]
+Downloading fcn.mdlus: 56%|█████▌    | 160M/287M [00:03&lt;00:01, 80.5MB/s]
+Downloading fcn.mdlus: 59%|█████▉    | 170M/287M [00:03&lt;00:01, 72.7MB/s]
+Downloading fcn.mdlus: 63%|██████▎   | 180M/287M [00:03&lt;00:01, 79.6MB/s]
+Downloading fcn.mdlus: 66%|██████▌   | 190M/287M [00:03&lt;00:01, 72.2MB/s]
+Downloading fcn.mdlus: 70%|██████▉   | 200M/287M [00:04&lt;00:01, 62.1MB/s]
+Downloading fcn.mdlus: 73%|███████▎  | 210M/287M [00:04&lt;00:01, 48.3MB/s]
+Downloading fcn.mdlus: 77%|███████▋  | 220M/287M [00:04&lt;00:01, 56.2MB/s]
+Downloading fcn.mdlus: 80%|████████  | 230M/287M [00:05&lt;00:01, 38.1MB/s]
+Downloading fcn.mdlus: 87%|████████▋ | 250M/287M [00:05&lt;00:00, 40.0MB/s]
+Downloading fcn.mdlus: 91%|█████████ | 260M/287M [00:06&lt;00:01, 28.3MB/s]
+Downloading fcn.mdlus: 94%|█████████▍| 270M/287M [00:07&lt;00:00, 19.8MB/s]
+Downloading fcn.mdlus: 97%|█████████▋| 280M/287M [00:07&lt;00:00, 18.2MB/s]
+Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:08&lt;00:00, 20.5MB/s]
+Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:08&lt;00:00, 37.0MB/s]
 
 Downloading global_means.npy: 0%|          | 0.00/336 [00:00&lt;?, ?B/s]
-Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 811B/s]
-Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 806B/s]
+Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 773B/s]
+Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 771B/s]
 
 Downloading global_stds.npy: 0%|          | 0.00/336 [00:00&lt;?, ?B/s]
-Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 725B/s]
-Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 721B/s]
-2026-08-25 13:41:05.717 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-25 13:41:05.717 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 640B/s]
+Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 637B/s]
+2026-08-27 00:41:48.866 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-08-27 00:41:48.866 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching ARCO data:   0%|          | 0/13 [00:00&lt;?, ?it/s]
-Fetching ARCO data:   8%|▊         | 1/13 [00:00&lt;00:06,  1.80it/s]
-Fetching ARCO data:  15%|█▌        | 2/13 [00:00&lt;00:04,  2.58it/s]
-Fetching ARCO data:  38%|███▊      | 5/13 [00:00&lt;00:01,  6.76it/s]
-Fetching ARCO data:  62%|██████▏   | 8/13 [00:01&lt;00:00, 10.82it/s]
-Fetching ARCO data:  77%|███████▋  | 10/13 [00:04&lt;00:01,  1.73it/s]
-Fetching ARCO data:  92%|█████████▏| 12/13 [00:06&lt;00:00,  1.40it/s]
-Fetching ARCO data: 100%|██████████| 13/13 [00:08&lt;00:00,  1.01s/it]
-Fetching ARCO data: 100%|██████████| 13/13 [00:08&lt;00:00,  1.51it/s]
-2026-08-25 13:41:15.694 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from CustomDataSource
-2026-08-25 13:41:15.695 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching ARCO data:   8%|▊         | 1/13 [00:00&lt;00:01,  8.92it/s]
+Fetching ARCO data:  69%|██████▉   | 9/13 [00:00&lt;00:00, 25.49it/s]
+Fetching ARCO data: 100%|██████████| 13/13 [00:00&lt;00:00, 27.57it/s]
+2026-08-27 00:41:50.220 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from CustomDataSource
+2026-08-27 00:41:50.221 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/5 [00:00&lt;?, ?it/s]
 
-Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  8.45it/s]
+Running inference:  20%|██        | 1/5 [00:00&lt;00:00,  9.20it/s]
 
-Running inference:  40%|████      | 2/5 [00:00&lt;00:01,  2.87it/s]
+Running inference:  40%|████      | 2/5 [00:00&lt;00:00,  3.11it/s]
 
-Running inference:  60%|██████    | 3/5 [00:00&lt;00:00,  3.48it/s]
+Running inference:  60%|██████    | 3/5 [00:00&lt;00:00,  3.79it/s]
 
-Running inference:  80%|████████  | 4/5 [00:01&lt;00:00,  3.76it/s]
+Running inference:  80%|████████  | 4/5 [00:00&lt;00:00,  4.23it/s]
 
-Running inference: 100%|██████████| 5/5 [00:01&lt;00:00,  3.90it/s]
-Running inference: 100%|██████████| 5/5 [00:01&lt;00:00,  3.80it/s]
-2026-08-25 13:41:17.011 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference: 100%|██████████| 5/5 [00:01&lt;00:00,  4.52it/s]
+Running inference: 100%|██████████| 5/5 [00:01&lt;00:00,  4.30it/s]
+2026-08-27 00:41:51.386 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── lat (720,) float64
@@ -3402,9 +3395,9 @@ vapor field for a few time-steps.</p>
 </code></pre></div>
 <p><img alt="Output from Extending Data Sources" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-03_custom_datasource/003-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 50.0s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-03_custom_datasource/03_custom_datasource.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 39.3s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>50.0 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>39.3 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
 
 
 
