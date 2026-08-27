@@ -304,7 +304,8 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return out
 
         x = (x - self.center) / self.scale  # Normalize
-        x = x.view(x.shape[0], -1, 721, 1440)  # Concat time-steps
+        # reshape, not view: x is the caller's tensor and may be non-contiguous
+        x = x.reshape(x.shape[0], -1, 721, 1440)  # Concat time-steps
         # Forward pass, fengwu onnx supports batched
         bind_input("input", x)
         output = bind_output("output", like=x)
