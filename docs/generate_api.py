@@ -100,8 +100,6 @@ class SummaryGroup:
     current_module: str
     template: str
     output: Path
-    badges: tuple[str, ...]
-    options: dict[str, str]
     objects: tuple[str, ...]
 
 
@@ -433,7 +431,10 @@ def mkdocstrings_block(page: ObjectPage) -> list[str]:
         page.node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
     ):
         rel = page.source.relative_to(ROOT).with_suffix("")
-        if rel.parts[:2] == ("earth2studio", "models"):
+        source_module = module_name(page.source)
+        if page.full_name == source_module:
+            render_path = f"{source_module}.{page.node.name}"
+        elif rel.parts[:2] == ("earth2studio", "models"):
             render_path = ".".join((*rel.parts[2:], page.node.name))
     block = [
         f"::: {render_path}",
@@ -759,11 +760,10 @@ def write_object(page: ObjectPage) -> None:
     if page.badges:
         body.extend(["{% badges " + " ".join(page.badges) + " %}", ""])
     body.extend([f"**Import path:** `{page.full_name}`", ""])
-    backreference_targets = [
-        page.full_name,
-        *(f"{page.full_name}.{member.name}" for member in page.members),
-    ]
-    body.extend(f'<span id="{target}"></span>' for target in backreference_targets)
+    backreference_targets = [page.full_name]
+    # Markdown anchors are registered by mkdocs-autorefs, unlike raw HTML spans.
+    # Register the public import path alias for the documented object only.
+    body.extend(f"[](){{ #{target} }}" for target in backreference_targets)
     body.append("")
     actions = [
         action
@@ -808,9 +808,6 @@ def collect_autosummaries(path: Path) -> list[SummaryGroup]:
         current_module = str(data.get("currentmodule") or "earth2studio")
         template = str(data.get("template") or "class").removesuffix(".rst")
         output = Path(str(data.get("output") or "generated"))
-        badges = tuple(str(item) for item in data.get("badges", []) or [])
-        raw_options = data.get("filter", {}) or {}
-        options = {str(key): str(value) for key, value in raw_options.items()}
         objects = tuple(
             line.strip().strip("`")
             for line in summary_match.group("body").splitlines()
@@ -821,8 +818,6 @@ def collect_autosummaries(path: Path) -> list[SummaryGroup]:
                 current_module=current_module,
                 template=template,
                 output=output,
-                badges=badges,
-                options=options,
                 objects=objects,
             )
         )
@@ -834,20 +829,6 @@ def full_name(current_module: str, name: str) -> str:
     if name.startswith("earth2studio."):
         return name
     return f"{current_module}.{name}"
-
-
-def filter_options(options: dict[str, str]) -> str:
-    """Format badge-filter options for the MkDocs marker."""
-    parts = []
-    if mode := options.get("mode"):
-        parts.append(f"mode={mode}")
-    if order := options.get("order"):
-        parts.append(f"order={order}")
-    if toggle := options.get("toggle"):
-        parts.append(f"toggle={toggle}")
-    if hidden := options.get("hidden"):
-        parts.append(f'hidden="{hidden}"')
-    return " ".join(parts)
 
 
 def display_name(current_module: str, symbol: str) -> str:

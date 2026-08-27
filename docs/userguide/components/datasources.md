@@ -25,6 +25,9 @@ the API documentation [earth2studio.data.analysis](../../modules/datasources_ana
 
 ## Data Source Interface
 
+<!-- markdownlint-disable-next-line MD042 -->
+[](){ #earth2studio.data.DataSource }
+
 The full requirements for a standard diagnostic model are defined explicitly in the
 `earth2studio/models/dx/base.py`.
 
@@ -124,5 +127,5 @@ We are always looking for new remote data stores that our users may be intereste
 running inference.
 It's essential to make sure data sources can be accessed by all users and allow the
 partial downloads of the data based on the users requests.
-If you happen to manage a data source or have a data source in mind, open an issue on
-the repo and we can discuss.
+If you happen to manage a data source or have a data source in mind,
+[open an issue](https://github.com/NVIDIA/earth2studio/issues) on the repo and we can discuss.

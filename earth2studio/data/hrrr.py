@@ -298,14 +298,15 @@ class HRRR:
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
-            data=np.zeros(
+            data=np.full(
                 (
                     len(time),
                     1,
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
@@ -403,7 +404,11 @@ class HRRR:
                         # could do this better with templates, but this is single instance
                         if variable_name == "APCP":
                             hours = int(lt.total_seconds() // 3600)
-                            hrrr_key = f"{variable_name}::{level}::{hours-1:d}-{hours:d} hour acc fcst"
+                            if hours == 0:
+                                accumulation = "0-0 day acc fcst"
+                            else:
+                                accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
+                            hrrr_key = f"{variable_name}::{level}::{accumulation}"
 
                     except KeyError as e:
                         logger.error(
@@ -839,14 +844,15 @@ class HRRR_FX(HRRR):
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={

@@ -794,10 +794,12 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "variable",
     ]
     assert list(frame.columns) == NNJAObsSat.SCHEMA.names
-    assert str(frame["time"].dtype) == "datetime64[ns]"
+    # _rows_to_dataframe delegates to _table_to_dataframe, so every column is
+    # Arrow-backed — same dtype contract as the IR path
+    assert str(frame["time"].dtype) == "timestamp[ns][pyarrow]"
     assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
-    assert frame["lat"].dtype == np.float32
-    assert frame["observation"].dtype == np.float32
+    assert str(frame["lat"].dtype) == "float[pyarrow]"
+    assert str(frame["observation"].dtype) == "float[pyarrow]"
 
 
 @pytest.mark.parametrize(
@@ -1610,7 +1612,12 @@ def test_nnja_ir_decode_failure_raises(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *a: None)
     monkeypatch.setattr(
-        ncep_microwave, "_decode_ir_message_batch", lambda argument: ([], 1)
+        ncep_microwave,
+        "_decode_ir_message_batch",
+        lambda argument: (
+            ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA.empty_table(),
+            1,
+        ),
     )
     with pytest.raises(ncep_microwave._NCEPIRSounderDecodeError) as err:
         ncep_microwave.decode_ir_sounder(
@@ -1622,6 +1629,104 @@ def test_nnja_ir_decode_failure_raises(monkeypatch, tmp_path):
             decode_workers=1,
         )
     assert err.value.context["failed_messages"] == 1
+
+
+def test_nnja_ir_batch_tables_concat_to_shared_dtypes():
+    # Workers now return per-batch Arrow tables; this exercises the real
+    # concat + conversion path those tables flow through in decode_ir_sounder
+    def _row(sensor_index, observation):
+        return {
+            "time": np.datetime64("2019-01-01T00:00:00", "ns"),
+            "class": "rad",
+            "lat": 10.0,
+            "lon": 240.0,
+            "elev": np.nan,
+            "scan_angle": np.nan,
+            "scan_position": 7,
+            "scan_line": 8,
+            "sensor_index": sensor_index,
+            "wavenumber": 1210.0,
+            "solza": 90.0,
+            "solaza": 100.0,
+            "satellite_za": 50.0,
+            "satellite_aza": 200.0,
+            "quality": None,
+            "satellite": "npp",
+            "observation": observation,
+            "variable": "cris",
+        }
+
+    schema = ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
+    batch_tables = [
+        pa.Table.from_pylist([_row(714, 250.0)], schema=schema),
+        pa.Table.from_pylist([_row(715, 251.0)], schema=schema),
+    ]
+    # Chunked on purpose: production hands _table_to_dataframe the
+    # concatenated table without consolidating it
+    df = ncep_microwave._table_to_dataframe(pa.concat_tables(batch_tables))
+    assert list(df.columns) == schema.names
+    assert len(df) == 2
+    assert sorted(df["sensor_index"]) == [714, 715]
+    assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
+    assert str(df["quality"].dtype) == "uint32[pyarrow]"
+
+    # The no-rows path returns a typed empty frame with the same columns
+    df_empty = ncep_microwave._table_to_dataframe(schema.empty_table())
+    assert df_empty.empty
+    assert list(df_empty.columns) == schema.names
+
+
+def test_nnja_ir_decode_sounder_concatenates_batch_tables(monkeypatch, tmp_path):
+    # Workers return per-batch Arrow tables; decode_ir_sounder concatenates
+    # them into one frame with the shared dtype contract
+    bufr = tmp_path / "fake.bufr"
+    bufr.write_bytes(b"")
+    monkeypatch.setattr(
+        ncep_microwave,
+        "_parse_prepbufr_messages",
+        lambda *a, **k: ({1: 1}, {1: 1}, [(b"m", None)]),
+    )
+    monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *a: None)
+
+    row = {
+        "time": np.datetime64("2019-01-01T00:00:00", "ns"),
+        "class": "rad",
+        "lat": 10.0,
+        "lon": 240.0,
+        "elev": np.nan,
+        "scan_angle": np.nan,
+        "scan_position": 7,
+        "scan_line": 8,
+        "sensor_index": 714,
+        "wavenumber": 1210.0,
+        "solza": 90.0,
+        "solaza": 100.0,
+        "satellite_za": 50.0,
+        "satellite_aza": 200.0,
+        "quality": None,
+        "satellite": "npp",
+        "observation": 250.0,
+        "variable": "cris",
+    }
+    table = pa.Table.from_pylist(
+        [row], schema=ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
+    )
+    monkeypatch.setattr(
+        ncep_microwave, "_decode_ir_message_batch", lambda argument: (table, 0)
+    )
+
+    df = ncep_microwave.decode_ir_sounder(
+        str(bufr),
+        "cris",
+        None,
+        datetime(2019, 1, 1),
+        datetime(2019, 1, 2),
+        decode_workers=1,
+    )
+    assert list(df.columns) == ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA.names
+    assert len(df) == 1
+    assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
+    assert str(df["quality"].dtype) == "uint32[pyarrow]"
 
 
 def test_nnja_obs_sat_sensor_indices_narrow_ir_decode(monkeypatch):

@@ -589,7 +589,7 @@ class NNJAObsSat:
     - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/radinfo.f90#L1523-L1643
     - https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/ush/ingest_script_atovs1b.sh#L188-L231
     - https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/sorc/bufr_tranamsua.fd/tranamsua.f#L887-L910
-    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS-SDR_B.pdf
+    - https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf
     - https://user.eumetsat.int/s3/ope-eup-strapi-media/ATOVS_Level_1b_Product_Guide_f89971ac20.pdf
     - https://www.ncei.noaa.gov/pub/data/cdo/documentation/podguides/N-15%20thru%20N-19/pdf/APPENDIX%20J%20Instrument%20Scan%20Properties.pdf
 

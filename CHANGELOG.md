@@ -7,11 +7,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.0a0] - 2026-08-xx
+## [0.19.0a0] - xxxx-xx-xx
 
 ### Added
 
+- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.18.0] - 2026-08-xx
+
+### Added
+
+- Added model scorecards to the documentation (beta): one page per model with
+  interactive skill plots (RMSE, MAE, CRPS, spread, log spectral distance),
+  variable tables and run provenance, generated at docs build time from JSON
+  score exports produced by the new `recipes/eval/scorecard` campaigns
+  (FCN3 and Aurora to start)
 - Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added `IceChunkBackend` IO backend for writing versioned, transactional
+  output to an Icechunk repository, with non-blocking writes by default
+  (`blocking=True` to opt back into synchronous writes)
+- `ZarrBackend` (and `IceChunkBackend`) write/read now use basic slice
+  indexing for contiguous coordinate subsets, ~7x faster than the previous
+  fancy-indexing path on step-by-step forecast writes
+- Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
+  initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
+- Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
+  CorrDiff-COSMO downscaler
 - Added Zarr v3 sharding support to `AsyncZarrBackend`
 - Added obstore support to `AsyncZarrBackend` via a new `store` parameter
   (store URL, obstore store, or zarr store)
@@ -22,11 +55,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
   `NNJAObsSat`, returned as brightness temperature (K) with per-channel
   wavenumbers alongside the existing microwave sensors
-- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
+- Added Atlas CRPS ensemble prognostic model (`AtlasCRPS`), which generates ensemble
+  members from noise conditioned transformer blocks and shares the Atlas autoencoder
+- Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
+  conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
+  optional dictionary encoding of low-cardinality string columns
+- Added `StormScopeMeteoSatEU` European domain satellite nowcasting model
 
 ### Changed
 
+- GFS, HRRR, and GEFS GRIB sources now fill unresolved output regions with
+  `NaN` instead of zeros or uninitialized memory, making missing index records
+  detectable
+- `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
+  persistent spawn-based process pool (new `decode_workers` parameter,
+  default `"auto"`); each file is decoded once per request window, frames are
+  assembled and time-masked inside the workers, and the fetch falls back to
+  serial decode if the workers cannot start. Output is unchanged; a warm
+  48-hour HealDA fetch decodes ~2x faster serially and further with workers
 - Updated StormCast SDA example to use the `GHCNHourly` data source.
+- Vectorized the `NNJAObsSat` IR sounder decode (one NumPy pass per footprint
+  instead of per-channel operations; IASI ~7.8x, CrIS ~5.8x faster) and moved
+  decode workers to per-batch Arrow tables instead of pickled row dicts
+  (~6.2x less accumulation memory, near-zero cross-process serialization cost)
+- `NNJAObsSat` output DataFrames now use Arrow-backed dtypes for every column
+  across both microwave and IR sensors: floats as `float[pyarrow]`/
+  `double[pyarrow]`, times as `timestamp[ns][pyarrow]`, and the `satellite`,
+  `variable`, and `class` string columns dictionary-encoded
 - `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
   waits for whichever write completes first rather than the oldest.
 - Migrated GOES data source from s3fs to obstore; hour-directory listings are
@@ -36,6 +91,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hours are memoized per instance while the current hour is always re-listed
 - Migrated Himawari AHI data source from s3fs to obstore with memoized
   minute-directory listings (scans older than an hour)
+- Migrated Planetary Computer data sources from `planetary_computer.sign()` +
+  httpx streaming to obstore `AzureStore` with the
+  `PlanetaryComputerCredentialProvider`, which fetches and renews SAS tokens
+  automatically; the `planetary-computer` and `httpx` packages are no longer
+  required by the data extra
+- `PlanetaryComputerECMWFOpenDataIFS` now downloads only the GRIB messages for
+  the requested variables via byte ranges resolved from the item's GRIB index
+  asset (~6x faster and ~25-180x less transfer than the previous whole-file
+  download, depending on variable count), falling back to whole-file when an
+  item has no index asset
+- `obstore_fetch_to_cache` gained an opt-in `atomic` mode that publishes cache
+  files via temp file + rename, so interrupted or concurrent downloads cannot
+  leave a partial file as a poisoned cache entry; used by the Planetary
+  Computer sources' fetches. Off by default, leaving the other
+  obstore-migrated data sources' cache writes unchanged.
 - Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
   station-scale requests now fetch per-station parquet files instead of
   global by_year partitions (~25x faster), and their default
@@ -71,16 +141,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
   files are now downloaded once into the cache and shared across all
   (day, variable) slices instead of being streamed per slice over fsspec
+- Updated `DLESyM` and `DLESyMLatLon` default package to provide newer
+  CRPS-trained checkpoints used in the AI Weather Quest competition
 
 ### Deprecated
 
 - Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
   `store`; the default local write path no longer uses fsspec
 
-### Removed
-
 ### Fixed
 
+- Fixed intermittent repeated FengWu forecast timesteps by synchronizing ONNX
+  Runtime I/O buffers with PyTorch.
+- Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
+  snow depth, snow cover, and total cloud cover at positive forecast lead
+  times.
+- Fixed the March 22, 2021 GFS archive cutoff and historical `GFS_FX` total
+  precipitation lookups.
+- Fixed `lat_weight` returning a small negative weight at the poles in
+  float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
+- Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
+  `torch.backends.cudnn.benchmark` on and off around each coupled cycle
+  re-triggered cuDNN's GPU-timing-based algorithm search every cycle
+- Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
+  unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
+  step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
+  initial condition is yielded at `lead_time=[0h]`
 - Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
   NCEI archive path; the reforecast archive moved to
   `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
@@ -92,12 +178,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the reflectivity sentinel `-99.0 dBZ`.
 - Fixed `GHCNHourly` station discovery to use the published GHCNh station
   list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `to_time_array` and `fetch_data` silently wrapping timestamps outside the
+  `datetime64[ns]` range (roughly 1678-2262) to unrelated dates, which prevented
+  workflows such as `run.deterministic` from using the model-year calendars of
+  climate emulators (for example the CM4 initial conditions of `SamudrACE`).
+  Nanosecond precision is still used whenever the times are representable.
 - Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
   samples when processing multiple batches and initialization times.
 - Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
   future that had already completed was never resulted, so its error was swallowed
 - Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
   metadata visibility, coordinate parsing, and shard buffer allocation.
+- Fixed Atlas models using incorrect total precipitation accumulation, now models
+  correctly use `tp06`.
 
 ### Security
 

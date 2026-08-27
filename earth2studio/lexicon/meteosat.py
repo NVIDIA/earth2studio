@@ -32,7 +32,7 @@ class MeteosatFCILexicon(metaclass=LexiconType):
     ----
     Channel documentation:
 
-    - https://www.eumetsat.int/mtg-fci-level-1c-full-disk
+    - https://user.eumetsat.int/resources/user-guides/mtg-fci-level-1c-data-guide
     - https://data.eumetsat.int/product/EO:EUM:DAT:0662
     """
 

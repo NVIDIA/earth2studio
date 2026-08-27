@@ -156,7 +156,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` in
     place of ``rlut`` and applies the same per-doy moment-matching TTR -> OLR
     transform as
-    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.dlesym_v0_isccp_era5.DLESyMv0_ISCCP_ERA5]
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5]
     before the forward pass. This allows the diagnostic to run standalone
     from an ERA5 initial condition. When ``use_ttr=False``, supply
     pre-transformed ``rlut`` directly -- use this when chaining off
@@ -210,6 +210,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     - https://github.com/AtmosSci-DLESM/DLESyM
     - https://arxiv.org/abs/2409.16247 (the published paper backing this
       checkpoint set)
+    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
 
     Badges
     ------
