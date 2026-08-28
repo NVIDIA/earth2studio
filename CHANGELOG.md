@@ -11,7 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
+  ONNX sessions at construction instead of on first use in a rollout
+
 ### Changed
+
+- Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
+  on the model, instead of reconstructing them on every rollout call
 
 ### Deprecated
 
