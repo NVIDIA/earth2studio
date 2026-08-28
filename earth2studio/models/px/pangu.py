@@ -483,6 +483,8 @@ class Pangu6(PanguBase):
         # Only require 6 hour to load session on construction
         self.ort: ort.InferenceSession = create_ort_session(ort_6hr, self.device)
         self.ort24 = ort_24hr
+        # Lazily built + cached on first use inside _default_generator
+        self._ort24_session: ort.InferenceSession | None = None
         self._output_coords["lead_time"] = np.array([np.timedelta64(6, "h")])
 
     @classmethod
@@ -527,9 +529,6 @@ class Pangu6(PanguBase):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        # Load other sessions (note .to() does not impact these)
-        ort24 = create_ort_session(self.ort24, self.device)
-
         self.output_coords(coords)
 
         yield x, coords
@@ -547,10 +546,11 @@ class Pangu6(PanguBase):
                 )
                 x, coords = self.rear_hook(x, coords)
                 yield x, coords.copy()
-            # 24 hour step
+            if self._ort24_session is None:
+                self._ort24_session = create_ort_session(self.ort24, self.device)
             x, coords = self.front_hook(x24, coords24)
             x, coords = self._forward(
-                x, coords, ort24, np.array([np.timedelta64(24, "h")])
+                x, coords, self._ort24_session, np.array([np.timedelta64(24, "h")])
             )
             x, coords = self.rear_hook(x, coords)
             yield x, coords.copy()
@@ -609,6 +609,9 @@ class Pangu3(PanguBase):
         self.ort: ort.InferenceSession = create_ort_session(ort_3hr, self.device)
         self.ort24 = ort_24hr
         self.ort6 = ort_6hr
+        # Lazily built + cached on first use
+        self._ort24_session: ort.InferenceSession | None = None
+        self._ort6_session: ort.InferenceSession | None = None
         self._output_coords["lead_time"] = np.array([np.timedelta64(3, "h")])
 
     @classmethod
@@ -654,10 +657,6 @@ class Pangu3(PanguBase):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        # Load other sessions (note that .to() does not impact these)
-        ort24 = create_ort_session(self.ort24, self.device)
-        ort6 = create_ort_session(self.ort6, self.device)
-
         self.output_coords(coords)
 
         yield x, coords
@@ -676,10 +675,12 @@ class Pangu3(PanguBase):
             yield x, coords.copy()
 
             # Three 6-hour steps
+            if self._ort6_session is None:
+                self._ort6_session = create_ort_session(self.ort6, self.device)
             for i in range(3):
                 x, coords = self.front_hook(x1, coords1)
                 x, coords = self._forward(
-                    x, coords, ort6, np.array([np.timedelta64(6, "h")])
+                    x, coords, self._ort6_session, np.array([np.timedelta64(6, "h")])
                 )
                 x, coords = self.rear_hook(x, coords)
                 yield x, coords.copy()
@@ -694,9 +695,11 @@ class Pangu3(PanguBase):
                 yield x, coords.copy()
 
             # 24 hour step
+            if self._ort24_session is None:
+                self._ort24_session = create_ort_session(self.ort24, self.device)
             x, coords = self.front_hook(x0, coord0)
             x, coords = self._forward(
-                x0, coords, ort24, np.array([np.timedelta64(24, "h")])
+                x0, coords, self._ort24_session, np.array([np.timedelta64(24, "h")])
             )
             x, coords = self.rear_hook(x, coords)
             yield x, coords.copy()
