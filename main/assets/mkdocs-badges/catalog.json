@@ -2898,7 +2898,7 @@
         "gpu:40gb",
         "backend:onnx"
       ],
-      "signature": "Pangu3(ort_24hr: str, ort_6hr: str, ort_3hr: str)",
+      "signature": "Pangu3(ort_24hr: str, ort_6hr: str, ort_3hr: str, eager_sessions: bool = False)",
       "source": "modules/generated/models/px/Pangu3.md",
       "summary": "Pangu Weather 3 hour model. This model consists of three underlying auto-regressive models with a time-step size of 24, 6 and 3 hours. These three models are interweaved during prediction. Pangu Weather operates on 0.25 degree lat-lon grid (south-pole including) equirectangular grid with 69 atmospheric/surface variables.",
       "symbol": "earth2studio.models.px.Pangu3",
@@ -2916,7 +2916,7 @@
         "gpu:40gb",
         "backend:onnx"
       ],
-      "signature": "Pangu6(ort_24hr: str, ort_6hr: str)",
+      "signature": "Pangu6(ort_24hr: str, ort_6hr: str, eager_sessions: bool = False)",
       "source": "modules/generated/models/px/Pangu6.md",
       "summary": "Pangu Weather 6 hour model. This model consists of two underlying auto-regressive models with a time-step size of 24 hours and 6 hours. These two models are interweaved during prediction. Pangu Weather operates on 0.25 degree lat-lon grid (south-pole including) equirectangular grid with 69 atmospheric/surface variables.",
       "symbol": "earth2studio.models.px.Pangu6",
