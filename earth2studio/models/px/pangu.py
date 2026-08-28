@@ -232,6 +232,11 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 model_path = self.ort._model_path
                 del self.ort
                 self.ort = create_ort_session(model_path, device)
+            # Drop any lazily cached extra sessions (Pangu6/Pangu3) so the
+            # next rollout rebuilds them on the new device.
+            for attr in ("_ort24_session", "_ort6_session"):
+                if getattr(self, attr, None) is not None:
+                    setattr(self, attr, None)
 
         return self
 
