@@ -46,7 +46,7 @@ Soil is one of Earth's largest active carbon reservoirs, but the biological proc
 
 Team-Soil is building exactly that model. The project combines ERA5 reanalysis variables, site and soil metadata, and optional biosensor traces to predict microbial CO₂ flux and colonization timing. The model is deliberately compact—an attention-augmented LSTM that can be retrained quickly as new sites, sensor traces, and input modes become available.
 
-![End-to-end soil-response pipeline](../images/soil-health/fig1_pipeline.png)
+![End-to-end soil-response pipeline](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig1_pipeline.png)
 *Figure 1. End-to-end soil-response pipeline. ERA5 climate drivers, MLRA / SSURGO / SoilGrids site context, and optional biosensor traces feed a single 2-layer attention-LSTM that emits per-timestep CO₂ flux, colonization probability, and attention weights for explainability.*
 
 **Key results at a glance:**
@@ -76,17 +76,17 @@ The pipeline uses three complementary data sources.
 
 **Site and soil context** provide the local information that climate variables alone cannot capture. The current workflow uses 20 USDA MLRA agricultural sites with soil-context data from SSURGO and SoilGrids.
 
-![Site coverage and representative ERA5 drivers](../images/soil-health/fig2_sites_and_traces.png)
+![Site coverage and representative ERA5 drivers](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig2_sites_and_traces.png)
 *Figure 2. Left: the 20 USDA MLRA agricultural sites used for training, colored by leave-one-site-out (LOSO) test R² clipped to [0, 1]; sites with negative LOSO R² are marked with a red X overlay and discussed in Section 6.2. Right: hourly ERA5 traces (T_soil, θ_soil, SSRD, T_air) for one representative site.*
 
-![Data inventory](../images/soil-health/table1_data_inventory.png)
+![Data inventory](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/table1_data_inventory.png)
 *Table 1. Data inventory—variable, source, unit, role, input mode, provenance, and availability at inference time.*
 
 ## 3. Model Architecture
 
 The core model is a **two-layer LSTM** with hidden size 64. A temporal attention head produces a weight over the encoded sequence, letting the model focus on the parts of the recent time history most relevant to the predicted response. The network then branches into three task-specific heads: a **CO₂ flux head**, a **microbial colonization head**, and a **scale-shift component** that helps the same backbone operate across different flux magnitudes.
 
-![Attention-LSTM architecture](../images/soil-health/fig3_architecture.png)
+![Attention-LSTM architecture](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig3_architecture.png)
 *Figure 3. Attention-LSTM architecture. Multichannel inputs flow into a 2-layer LSTM (hidden=64), then through a temporal attention layer to three task heads: CO₂ flux, colonization probability, and a per-trace scale-shift correction.*
 
 LSTM-V5 adds flexible input modes so the same model family can support multiple experimental settings via a single `--input-mode` flag:
@@ -118,7 +118,7 @@ The first stage of the project used synthetic sensor traces to establish the mod
 
 The next stage moved the same model family onto ERA5-compatible training data. A data generator extracts site-level climate traces, joins them with soil and site context, and writes the result into an xarray/zarr format the LSTM trainer can consume. A subtle early issue: the default generator path applied a sensor-noise pass that renamed clean ERA5 channels to `T_soil_true` / `theta_soil_true`; for ERA5-driven training the generator runs with `--no-noise` so the trainer reads raw climate variables directly.
 
-![Synthetic biosensor vs ERA5 trace comparison](../images/soil-health/fig4_synthetic_vs_era5.png)
+![Synthetic biosensor vs ERA5 trace comparison](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig4_synthetic_vs_era5.png)
 *Figure 4. Same backbone, two data worlds. Left: a synthetic biosensor trace and the model's CO₂ flux prediction vs ground-truth target. Right: an ERA5-driven test trace with T_soil and θ as drivers.*
 
 The result is a general pipeline that can train on synthetic traces for controlled debugging, ERA5 traces for climate-driven experiments, and hybrid traces when both climate context and sensor information are available. This input-source independence matters for Step 2: ERA5-derived channels can be replaced by aligned DLESym-derived forcing without changing the model.
@@ -146,10 +146,10 @@ Additional GPU-side optimizations included:
 
 **Combined result:** Epoch time fell from **360 ms → 168 ms** (2.14×); GPU utilization rose from **~20% → above 80%**; end-to-end training speed improved by **~2.5×** on a single H100.
 
-![Profiling results before and after optimization](../images/soil-health/fig5_profiling.png)
+![Profiling results before and after optimization](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig5_profiling.png)
 *Figure 5. Profiling results for the opt_v5 training pipeline. Bar plots show data loading time, epoch time, and GPU utilization before and after the optimization pass.*
 
-![opt_v5 benchmark](../images/soil-health/table4_opt_v5_benchmark.png)
+![opt_v5 benchmark](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/table4_opt_v5_benchmark.png)
 *Table 4. Optimization performance benchmark, including which optimizations are active in each configuration.*
 
 ## 6. Validation Workflow
@@ -162,7 +162,7 @@ A no-attention ablation run through the same harness with `--no-attention` reach
 
 That said, attention does concentrate around the moisture and temperature transitions that precede each flux peak—consistent with what soil microbiologists expect—providing useful *explainability* even when it is not strictly necessary for fit.
 
-![Prediction and attention rollout for the highest-R² test trace](../images/soil-health/fig6_attention_rollout.png)
+![Prediction and attention rollout for the highest-R² test trace](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig6_attention_rollout.png)
 *Figure 6. Prediction and attention rollout for the highest-R² test trace. Top: ERA5 drivers (T_soil in °C, θ_soil in m³/m³). Middle: normalized attention weights over the trace. Bottom: target vs. predicted CO₂ flux with model-predicted colonization events marked.*
 
 ### 6.2 Cross-Validation: Geographic and Temporal Generalization
@@ -181,10 +181,10 @@ A random split tests whether the model fits the available distribution; it does 
 
 **Headline numbers:** 16 of 20 LOSO folds achieve RMSE < 0.1 µmol m⁻² s⁻¹. 45% of folds reach test R² > 0.5; 25% reach R² > 0.7.
 
-![Cross-validation and attention ablation results](../images/soil-health/fig7_cv_summary.png)
+![Cross-validation and attention ablation results](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/fig7_cv_summary.png)
 *Figure 7. Cross-validation and attention ablation. (a) Random-split vs LOSO vs LOYO test R², with and without attention; error bars are 1σ across folds. (b) Per-site LOSO test R² (one bar per held-out MLRA site); dashed line marks the LOSO mean. (c) Per-year LOYO test R².*
 
-![Validation benchmark](../images/soil-health/table5_validation_benchmark.png)
+![Validation benchmark](https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/blog/blog/soil-health/table5_validation_benchmark.png)
 *Table 5. Cross-validation and attention ablation summary. Each row reports the test-set metric mean across all folds in that group; LOSO and LOYO use mean across held-out sites and years respectively.*
 
 ## 7. Extending the Pipeline
