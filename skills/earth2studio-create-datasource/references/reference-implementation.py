@@ -148,6 +148,12 @@ class SourceName:
     Note
     ----
     FILL: Reference URL for the data store / documentation.
+
+    Badges
+    ------
+    FILL: region:<region> dataclass:<class> product:<product>
+    FILL: Add provider:<provider> when known. Add dataset:<family> only when
+    this source belongs to a named dataset family.
     """
 
     # FILL: If this is a DataFrameSource, define SCHEMA here:
@@ -438,8 +444,8 @@ class SourceName:
 #    Add in alphabetical order:
 #      from .source_name import SourceNameLexicon
 #
-# 3. docs/modules/datasources_analysis.rst (or _forecast.rst, _dataframe.rst)
-#    Add class to the .. autosummary:: directive in alphabetical order.
+# 3. docs/modules/datasources_analysis.md (or _forecast.md, _dataframe.md)
+#    Add class to the {% autosummary %} block in alphabetical order.
 #
 # 4. CHANGELOG.md
 #    Under the current unreleased version, add:

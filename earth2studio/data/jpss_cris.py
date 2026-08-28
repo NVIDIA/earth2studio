@@ -547,7 +547,7 @@ class JPSS_CRIS:
 
     Badges
     ------
-    region:global dataclass:observation product:sat
+    region:global dataclass:observation product:sat provider:noaa
     """
 
     SOURCE_ID = "earth2studio.data.JPSS_CRIS"

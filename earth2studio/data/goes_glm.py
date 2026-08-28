@@ -189,7 +189,7 @@ class GOESGLM:
     ```
     Badges
     ------
-    region:na region:sa dataclass:observation product:sat
+    region:na region:sa dataclass:observation product:sat provider:noaa
     """
 
     SOURCE_ID = "earth2studio.data.goes_glm"
@@ -777,7 +777,7 @@ class GOESGLMGrid:
 
     Badges
     ------
-    region:na dataclass:observation product:sat
+    region:na dataclass:observation product:sat provider:noaa
     """
 
     # Accumulation window (minutes), bin-start labeled. Fixed to match training.

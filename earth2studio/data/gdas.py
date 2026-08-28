@@ -122,7 +122,7 @@ class NomadsGDASObsConv:
 
     Badges
     ------
-    region:global dataclass:observation product:wind product:temp product:atmos product:insitu
+    region:global dataclass:observation product:wind product:temp product:atmos product:insitu provider:noaa
     """
 
     SOURCE_ID = "NomadsGDASObsConv"

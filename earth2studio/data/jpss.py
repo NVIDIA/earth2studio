@@ -80,7 +80,7 @@ class JPSS:
 
     Badges
     ------
-    region:global dataclass:observation product:sat
+    region:global dataclass:observation product:sat provider:noaa
     """
 
     BASE_URL = "s3://{bucket}/{product}/{year:04d}/{month:02d}/{day:02d}/"

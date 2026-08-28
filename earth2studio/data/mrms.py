@@ -140,7 +140,7 @@ class MRMS:
 
     Badges
     ------
-    region:na dataclass:observation product:radar
+    region:na dataclass:observation product:radar provider:noaa
     """
 
     MRMS_BUCKET_NAME = "noaa-mrms-pds"
