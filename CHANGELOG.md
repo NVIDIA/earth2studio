@@ -11,7 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
+  source (`MeteosatLI`), providing per-flash, per-group and per-event
+  detections from the LFL, LGR and LEF collections as a data frame
+- Added group- and flash-level variables to the `GOESGLM` data source
+
 ### Changed
+
+- Unified the lightning variable vocabulary across optical lightning imagers
+  (GOES GLM, MTG LI) onto `lightning_{event,group,flash}_{count,energy,
+  radiance}` names, plus `lightning_flash_duration` and
+  `lightning_flash_footprint_pixels`. `GOESGLM` variable ids `flashe` and
+  `flashc` are renamed to `lightning_event_energy` and `lightning_event_count`
+  respectively.
 
 ### Deprecated
 
