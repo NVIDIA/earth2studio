@@ -563,3 +563,54 @@ def test_meteosat_li_discover_granules(monkeypatch):
         assert found == [granule]
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
+
+
+def test_meteosat_li_parse_granule_drops_fill_records(tmp_path, recwarn):
+    """Fill-valued padding records are dropped, not turned into junk times.
+
+    Real LEF granules pad sparsely-populated optical heads with a record
+    whose coordinates and time are the NetCDF fill value (~1e37). Reading
+    that through the microsecond cast overflows int64 and yields an
+    undefined timestamp, so the record must be discarded on parse.
+    """
+    path = tmp_path / "lef_fill.nc"
+    fill = netCDF4.default_fillvals["f4"]
+    epoch = TEST_TIME
+
+    with netCDF4.Dataset(path, "w", format="NETCDF4") as ds:
+        ds.platform = "MTI1"
+        data = ds.createGroup("data")
+        # 'north' holds two real detections, 'south' only a padding record
+        for head, lats, lons, rads, offs in [
+            ("north", [45.0, 46.0], [5.0, 6.0], [12.0, 18.0], [1.0, 2.0]),
+            ("south", [fill], [fill], [fill], [fill]),
+        ]:
+            grp = data.createGroup(head)
+            grp.createDimension("events", len(lats))
+            e_v = grp.createVariable("epoch_time", "f8", ())
+            e_v.units = "seconds since 2000-01-01 00:00:00.0"
+            e_v[...] = _seconds_since_epoch(epoch)
+            for name, values in [
+                ("time_offset", offs),
+                ("latitude", lats),
+                ("longitude", lons),
+                ("radiance", rads),
+            ]:
+                var = grp.createVariable(name, "f4", ("events",), fill_value=fill)
+                var[:] = np.asarray(values, dtype=np.float32)
+            grp.createVariable("flash_id", "u4", ("events",))[:] = np.arange(
+                1, len(lats) + 1, dtype=np.uint32
+            )
+
+    frame = MeteosatLI._parse_granule(str(path), "LEF", None)
+
+    # Only the two real detections survive
+    assert frame is not None and len(frame) == 2
+    assert frame["lat"].tolist() == [45.0, 46.0]
+    # Their times are the epoch plus the per-record offset, not garbage
+    assert frame["time"].min() == pd.Timestamp(epoch) + pd.Timedelta(seconds=1)
+    assert frame["time"].max() == pd.Timestamp(epoch) + pd.Timedelta(seconds=2)
+    assert frame["time"].notna().all()
+
+    # The overflowing cast used to raise "invalid value encountered in cast"
+    assert not [w for w in recwarn.list if issubclass(w.category, RuntimeWarning)]

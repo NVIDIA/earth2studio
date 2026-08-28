@@ -672,34 +672,53 @@ class MeteosatLI:
         -------
         pd.DataFrame | None
             Frame with ``time``/``lat``/``lon``/``flash_id`` and one column per
-            requested field, or ``None`` when the group holds no records.
+            requested field, or ``None`` when the group holds no usable
+            records.
+
+        Note
+        ----
+        Optical head groups can be padded with placeholder records whose
+        coordinates and times are the NetCDF fill value (masked on read).
+        These are dropped: a fill-valued time is ~1e37 s, which overflows
+        the microsecond integer cast and would otherwise yield a garbage
+        timestamp that lands in or out of the tolerance window at random.
         """
         if "latitude" not in group.variables:
             return None
 
-        lat = np.asarray(group.variables["latitude"][:], dtype=np.float32)
+        lat = _read_masked(group.variables["latitude"][:])
         if lat.size == 0:
             return None
-        lon = np.asarray(group.variables["longitude"][:], dtype=np.float32)
+        lon = _read_masked(group.variables["longitude"][:])
 
         if time_var is not None:
-            seconds = np.asarray(group.variables[time_var][:], dtype=np.float64)
+            seconds = _read_masked(group.variables[time_var][:])
         else:
             epoch = float(np.asarray(group.variables["epoch_time"][:]).reshape(()))
-            seconds = epoch + np.asarray(
-                group.variables["time_offset"][:], dtype=np.float64
-            )
+            seconds = epoch + _read_masked(group.variables["time_offset"][:])
+
+        valid = np.isfinite(lat) & np.isfinite(lon) & np.isfinite(seconds)
+        if not valid.any():
+            return None
+        lat, lon, seconds = lat[valid], lon[valid], seconds[valid]
+
         # Round to microseconds, the resolution of the output timestamps
         times = _LI_EPOCH + np.round(seconds * 1e6).astype("timedelta64[us]")
 
         data: dict[str, np.ndarray] = {
             "time": pd.to_datetime(times),
-            "lat": lat,
-            "lon": lon,
-            "flash_id": np.asarray(group.variables["flash_id"][:], dtype=np.uint32),
+            "lat": lat.astype(np.float32),
+            "lon": lon.astype(np.float32),
+            "flash_id": np.asarray(group.variables["flash_id"][:], dtype=np.uint32)[
+                valid
+            ],
         }
         for field in fields:
-            data[field] = np.asarray(group.variables[field][:], dtype=np.float32)
+            # Measurements keep NaN for fill values rather than dropping the
+            # record, so a detection missing one field still reports the others
+            data[field] = _read_masked(group.variables[field][:])[valid].astype(
+                np.float32
+            )
         return pd.DataFrame(data)
 
     @property
@@ -774,6 +793,28 @@ class MeteosatLI:
                 )
             selected.append(cls.SCHEMA.field(name))
         return pa.schema(selected)
+
+
+def _read_masked(values: np.ndarray) -> np.ndarray:
+    """Read a NetCDF record array as float64 with fill values as NaN.
+
+    netCDF4 returns masked arrays for variables carrying a ``_FillValue``.
+    A plain ``np.asarray`` drops the mask and exposes the raw fill (~1e37
+    for floats), so masked entries are converted to NaN here and the caller
+    decides whether to drop or propagate them.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Array (typically masked) as returned by ``netCDF4.Variable[:]``.
+
+    Returns
+    -------
+    np.ndarray
+        Float64 array with masked and non-finite entries set to NaN.
+    """
+    masked = np.ma.masked_invalid(np.ma.asarray(values).astype(np.float64))
+    return np.ma.filled(masked, np.nan)
 
 
 def _merge_windows(
