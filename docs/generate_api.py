@@ -37,7 +37,7 @@ INSTALL_OPTIONS = DOCS / "userguide" / "about" / "install_options.yml"
 SOURCE_REF = "main"
 
 BADGE_RE = re.compile(
-    r"\b(?:region|class|task|dataclass|year|product|gpu|provider|backend):[A-Za-z0-9_.-]+\b"
+    r"\b(?:region|class|task|dataclass|dataset|year|product|gpu|provider|backend):[A-Za-z0-9_.-]+\b"
 )
 RST_ROLE_RE = re.compile(
     r":(?:py:)?(?:mod|class|func|obj|meth|attr|exc|data|const):" r"`(?P<target>[^`]+)`"

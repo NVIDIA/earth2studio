@@ -408,7 +408,7 @@ class GHCNDaily(_GHCNBase):
     ```
     Badges
     ------
-    region:global dataclass:observation product:wind product:precip product:temp product:atmos product:solar product:insitu
+    region:global dataclass:observation product:wind product:precip product:temp product:atmos product:solar product:insitu provider:noaa
     """
 
     SOURCE_ID = "earth2studio.data.ghcn"
@@ -944,7 +944,7 @@ class GHCNHourly(_GHCNBase):
     ```
     Badges
     ------
-    region:global dataclass:observation product:wind product:precip product:temp
+    region:global dataclass:observation product:wind product:precip product:temp provider:noaa
     product:insitu
     """
 

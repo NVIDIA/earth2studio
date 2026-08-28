@@ -333,7 +333,7 @@ class MeteosatFCI:
 
     Badges
     ------
-    region:eu region:af dataclass:observation product:sat
+    region:eu region:af dataclass:observation product:sat provider:eumetsat
     """
 
     COLLECTION_ID: dict[Literal["FDHSI", "HRFI"], str] = {

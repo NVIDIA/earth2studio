@@ -87,7 +87,7 @@ class NClimGridDaily:
 
     Badges
     ------
-    region:na dataclass:observation product:temp product:precip
+    region:na dataclass:observation product:temp product:precip provider:noaa
     """
 
     NCLIMGRID_BUCKET_NAME = "noaa-nclimgrid-daily-pds"
