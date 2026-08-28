@@ -417,7 +417,7 @@ class CDS(CDS_ERA5):
 
     def __init__(self, cache: bool = True, verbose: bool = True) -> None:
         warnings.warn(
-            "CDS has been renamed to CDS_ERA5 and may be removed in a future release.",
+            "CDS has been renamed to CDS_ERA5 and will be removed in a future release.",
             DeprecationWarning,
             stacklevel=2,
         )

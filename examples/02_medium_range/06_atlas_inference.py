@@ -63,7 +63,7 @@ In this example you will learn:
 # We need the following:
 #
 # - Prognostic Model: Use the Atlas-CRPS model [`earth2studio.models.px.AtlasCRPS`][earth2studio.models.px.AtlasCRPS].
-# - Datasource: Pull data from the ARCO_ERA5 data source [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5].
+# - Datasource: Pull data from the ARCO ERA5 data source [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5].
 # - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
 # !!! note
@@ -80,7 +80,7 @@ In this example you will learn:
 #     Atlas-CRPS expects total precipitation as a 6-hour accumulation (``tp06``), not the
 #     1-hour accumulation returned by a bare ``tp`` request. The model's ``VARIABLES`` list
 #     already requests ``tp06``, so data sources with a matching lexicon entry (including
-#     ARCO_ERA5) will accumulate the correct window automatically.
+#     ARCO ERA5) will accumulate the correct window automatically.
 #
 
 # %%

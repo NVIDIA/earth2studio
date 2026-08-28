@@ -508,7 +508,7 @@ class ARCO(ARCO_ERA5):
         async_timeout: int = 600,
     ) -> None:
         warnings.warn(
-            "ARCO has been renamed to ARCO_ERA5 and may be removed in a future "
+            "ARCO has been renamed to ARCO_ERA5 and will be removed in a future "
             "release.",
             DeprecationWarning,
             stacklevel=2,

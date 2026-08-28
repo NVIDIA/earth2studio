@@ -70,7 +70,7 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class CustomDataSource:
-    """Custom ARCO_ERA5 datasource"""
+    """Custom ARCO ERA5 data source."""
 
     relative_humidity_ids = [
         "r50",
@@ -123,7 +123,7 @@ class CustomDataSource:
                 variable_expanded.append(v)
         variable_expanded = list(set(variable_expanded))
 
-        # Fetch from ARCO_ERA5
+        # Fetch from ARCO ERA5
         da_exp = self.arco(time, variable_expanded)
 
         # Calculate relative humidity when needed
@@ -191,7 +191,7 @@ class CustomDataSource:
 # The call function is the main API of data source which return the Xarray data array
 # with the requested data. For this custom data source we intercept relative humidity
 # variables, replace them with temperature and specific humidity requests then calculate
-# the relative humidity from these fields. Note that the ARCO_ERA5 data source is handling
+# the relative humidity from these fields. Note that the ARCO ERA5 data source is handling
 # the remote complexity, we are just manipulating Numpy arrays
 
 # %%
@@ -238,7 +238,7 @@ ax[1].imshow(
     da_gfs.sel(variable="r500")[0], transform=ccrs.PlateCarree(), vmin=0, vmax=100
 )
 
-ax[0].set_title("Custom ARCO_ERA5")
+ax[0].set_title("Custom ARCO ERA5")
 ax[1].set_title("GFS")
 plt.suptitle("r500", fontsize=24)
 cbar = plt.cm.ScalarMappable()
@@ -254,7 +254,7 @@ plt.savefig("outputs/03_custom_datasource_gfs_versus_custom.jpg")
 # ----------------
 # We will use this custom data source to run deterministic inference with a model that
 # requires relative humidity. [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN] is one such model. Since
-# we are using ARCO_ERA5, we can run inference for a time quite far back in time.
+# we are using ARCO ERA5, we can run inference for a time quite far back in time.
 #
 # Let's instantiate the components needed.
 #

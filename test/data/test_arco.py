@@ -121,7 +121,7 @@ def test_arco_available(time, variable):
 
 def test_arco_deprecation_warning():
     """The legacy ARCO alias instantiates the ERA5 data source with a warning."""
-    with pytest.warns(DeprecationWarning, match="ARCO has been renamed to ARCO_ERA5"):
+    with pytest.warns(DeprecationWarning, match="ARCO.*will be removed"):
         data_source = ARCO()
 
     assert isinstance(data_source, ARCO_ERA5)

@@ -76,7 +76,7 @@ def __getattr__(name: str) -> type[object]:
     if name in aliases:
         renamed = aliases[name].__name__
         warnings.warn(
-            f"{name} has been renamed to {renamed} and may be removed in a future "
+            f"{name} has been renamed to {renamed} and will be removed in a future "
             "release.",
             DeprecationWarning,
             stacklevel=2,

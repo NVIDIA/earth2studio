@@ -167,7 +167,7 @@ def test_cds_lazy_client_init(mock_cdsapi, tmp_path, monkeypatch):
 
 def test_cds_deprecation_warning():
     """The legacy CDS alias instantiates the ERA5 data source with a warning."""
-    with pytest.warns(DeprecationWarning, match="CDS has been renamed to CDS_ERA5"):
+    with pytest.warns(DeprecationWarning, match="CDS.*will be removed"):
         data_source = CDS()
 
     assert isinstance(data_source, CDS_ERA5)

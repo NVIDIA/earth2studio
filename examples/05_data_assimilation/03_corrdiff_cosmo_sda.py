@@ -40,7 +40,7 @@ ensemble does not guarantee improvement.
 In this example you will learn:
 
 - Load ``CorrDiffCosmoEra5SDA`` on a COSMO-REA2 sub-domain
-- Fetch an ERA5 driving state (ARCO_ERA5) and regrid it onto the downscaler's input grid
+- Fetch an ERA5 driving state (ARCO ERA5) and regrid it onto the downscaler's input grid
 - Fetch GHCNHourly 10 m wind observations over the model domain
 - Produce a prior (free, no-obs) downscaling and an observation-guided analysis
 - Compare both fields to held-out stations (prior vs analysis RMSE)

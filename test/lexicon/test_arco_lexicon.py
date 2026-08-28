@@ -131,9 +131,7 @@ def test_arco_lexicon_deprecation_warning():
     """The legacy lexicon alias returns the canonical lexicon with a warning."""
     import earth2studio.lexicon as lexicon
 
-    with pytest.warns(
-        DeprecationWarning, match="ARCOLexicon has been renamed to ARCO_ERA5Lexicon"
-    ):
+    with pytest.warns(DeprecationWarning, match="ARCOLexicon.*will be removed"):
         data_source_lexicon = lexicon.ARCOLexicon
 
     assert data_source_lexicon is ARCO_ERA5Lexicon

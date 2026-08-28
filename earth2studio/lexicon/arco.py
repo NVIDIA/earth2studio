@@ -226,7 +226,7 @@ def __getattr__(name: str) -> type[ARCO_ERA5Lexicon]:
     """Return deprecated lexicon aliases."""
     if name == "ARCOLexicon":
         warnings.warn(
-            "ARCOLexicon has been renamed to ARCO_ERA5Lexicon and may be removed "
+            "ARCOLexicon has been renamed to ARCO_ERA5Lexicon and will be removed "
             "in a future release.",
             DeprecationWarning,
             stacklevel=2,

@@ -170,7 +170,7 @@ def __getattr__(name: str) -> type[CDS_ERA5Lexicon]:
     """Return deprecated lexicon aliases."""
     if name == "CDSLexicon":
         warnings.warn(
-            "CDSLexicon has been renamed to CDS_ERA5Lexicon and may be removed in "
+            "CDSLexicon has been renamed to CDS_ERA5Lexicon and will be removed in "
             "a future release.",
             DeprecationWarning,
             stacklevel=2,

@@ -38,9 +38,7 @@ def test_cds_lexicon_deprecation_warning():
     """The legacy lexicon alias returns the canonical lexicon with a warning."""
     import earth2studio.lexicon as lexicon
 
-    with pytest.warns(
-        DeprecationWarning, match="CDSLexicon has been renamed to CDS_ERA5Lexicon"
-    ):
+    with pytest.warns(DeprecationWarning, match="CDSLexicon.*will be removed"):
         data_source_lexicon = lexicon.CDSLexicon
 
     assert data_source_lexicon is CDS_ERA5Lexicon

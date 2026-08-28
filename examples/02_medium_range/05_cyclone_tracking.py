@@ -111,7 +111,7 @@ for step, time in enumerate(times):
     da = data(time, tracker.input_coords()["variable"])
     x, coords = prep_data_array(da, device=device)
     output, output_coords = tracker(x, coords)
-    print(f"Step {step}: ARCO_ERA5 tracks output shape {output.shape}")
+    print(f"Step {step}: ARCO ERA5 tracks output shape {output.shape}")
 
 era5_tracks = output.cpu()
 torch.save(era5_tracks, "outputs/13_era5_paths.pt")
