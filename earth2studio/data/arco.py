@@ -72,7 +72,7 @@ class ARCO:
 
     Badges
     ------
-    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:google
     """
 
     ARCO_LAT = np.linspace(90, -90, 721)

@@ -134,7 +134,7 @@ class CFS_FX:
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:temp product:atmos
+    region:global dataclass:simulation product:wind product:temp product:atmos provider:noaa
     """
 
     # File prefix used for grib filenames inside the 6hrly_grib_NN/ directory.
@@ -793,7 +793,7 @@ class CFS_FX_Flux(CFS_FX):
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp
+    region:global dataclass:simulation product:wind product:precip product:temp provider:noaa
     product:atmos product:land
     """
 

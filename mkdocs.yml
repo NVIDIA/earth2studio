@@ -134,6 +134,7 @@ plugins:
       provider: Provider
       backend: Backend
       dataclass: Data Class
+      dataset: Dataset Family
       year: Release
       product: Product
       gpu:
@@ -226,33 +227,60 @@ plugins:
         tooltip: Climate Model
       provider:nvidia:
         label: NVIDIA
-        icon: <i class="fa-solid fa-microchip"></i>
         color: '#3d7a26'
         text_color: '#fff'
         hide_in: [autosummary, filter]
       provider:ecmwf:
         label: ECMWF
-        icon: <i class="fa-solid fa-cloud-sun-rain"></i>
         color: '#0b7285'
         text_color: '#fff'
         hide_in: [autosummary, filter]
+      provider:copernicus:
+        label: Copernicus
+        name: Copernicus
+        color: '#005ea8'
+        text_color: '#fff'
+        tooltip: Copernicus Climate and Atmosphere Data Stores
+        hide_in: [autosummary, filter]
       provider:ai2:
         label: AI2
-        icon: <i class="fa-solid fa-flask"></i>
         color: '#6741d9'
         text_color: '#fff'
         tooltip: AI2
         hide_in: [autosummary, filter]
       provider:google:
         label: Google
-        icon: <i class="fa-brands fa-google"></i>
         color: '#1a73e8'
         text_color: '#fff'
         hide_in: [autosummary, filter]
       provider:microsoft:
         label: Microsoft
-        icon: <i class="fa-brands fa-microsoft"></i>
         color: '#5e5e5e'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:noaa:
+        label: NOAA
+        color: '#0057b8'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:ncar:
+        label: NCAR
+        color: '#7b2cbf'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:dynamical:
+        label: Dynamical
+        color: '#343a40'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:earthmover:
+        label: EarthMover
+        color: '#6D0EDB'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:eumetsat:
+        label: EUMETSAT
+        color: '#006b75'
         text_color: '#fff'
         hide_in: [autosummary, filter]
       backend:pytorch:
@@ -297,6 +325,48 @@ plugins:
         color: '#b451ed'
         text_color: '#fff'
         tooltip: Numerical / AI Simulation
+      dataset:era5:
+        label: ERA5
+        name: ERA5
+        color: '#4263eb'
+        text_color: '#fff'
+        tooltip: ECMWF Reanalysis v5
+        hide_in: [autosummary, filter]
+      dataset:aifs:
+        label: AIFS
+        name: AIFS
+        color: '#5f3dc4'
+        text_color: '#fff'
+        tooltip: ECMWF AI Forecasting System
+        hide_in: [autosummary, filter]
+      dataset:ifs:
+        label: IFS
+        name: IFS
+        color: '#364fc7'
+        text_color: '#fff'
+        tooltip: ECMWF Integrated Forecasting System
+        hide_in: [autosummary, filter]
+      dataset:gfs:
+        label: GFS
+        name: GFS
+        color: '#1971c2'
+        text_color: '#fff'
+        tooltip: NOAA Global Forecast System
+        hide_in: [autosummary, filter]
+      dataset:hrrr:
+        label: HRRR
+        name: HRRR
+        color: '#087f5b'
+        text_color: '#fff'
+        tooltip: NOAA High-Resolution Rapid Refresh
+        hide_in: [autosummary, filter]
+      dataset:cmip6:
+        label: CMIP6
+        name: CMIP6
+        color: '#e67700'
+        text_color: '#fff'
+        tooltip: Coupled Model Intercomparison Project Phase 6
+        hide_in: [autosummary, filter]
       year:2021:
         label: '2021'
         color: '#F2F2F2'
@@ -493,6 +563,7 @@ nav:
   - Overview: blog/index.md
   - Posts:
     - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
+    - A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI: blog/posts/earth2_soil_health_prediction.md
   - Archive: blog/archive.md
   - Categories:
     - Overview: blog/categories.md

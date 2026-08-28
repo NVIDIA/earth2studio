@@ -127,7 +127,7 @@ class HRRR:
 
     Badges
     ------
-    region:na dataclass:analysis product:wind product:precip product:temp product:atmos product:radar
+    region:na dataclass:analysis dataset:hrrr product:wind product:precip product:temp product:atmos product:radar provider:noaa
     """
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
@@ -745,7 +745,7 @@ class HRRR_FX(HRRR):
 
     Badges
     ------
-    region:na dataclass:simulation product:wind product:precip product:temp product:atmos product:radar
+    region:na dataclass:simulation dataset:hrrr product:wind product:precip product:temp product:atmos product:radar provider:noaa
     """
 
     def __init__(
