@@ -81,7 +81,7 @@ runs:
       shell: bash
       run: uv lock --check
 
-    - name: Build Zensical site
+    - name: Build MkDocs site
       shell: bash
       env:
         EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data

@@ -212,7 +212,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Build Zensical site from gallery cache
+      - name: Build MkDocs site from gallery cache
         uses: ./.github/actions/build-light-docs
         with:
           gallery-cache-name: ${{ github.ref_name }}

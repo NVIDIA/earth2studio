@@ -86,7 +86,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Build light Zensical site
+      - name: Build light MkDocs site
         uses: ./.github/actions/build-light-docs
         with:
           artifact-name: docs-light-html
