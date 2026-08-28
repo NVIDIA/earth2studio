@@ -1430,7 +1430,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x, coords = self.prep_input(x, coords)
         ic_coords = coords.copy()
         ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
-        yield torch.where(~self.valid_mask, torch.nan, x), ic_coords
+        lt_idx = list(ic_coords).index("lead_time")
+        yield torch.where(
+            self.valid_mask, x.narrow(lt_idx, -1, 1), torch.nan
+        ), ic_coords
 
         while True:
             x, coords = self.front_hook(x, coords)
