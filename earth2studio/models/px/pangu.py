@@ -232,11 +232,18 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 model_path = self.ort._model_path
                 del self.ort
                 self.ort = create_ort_session(model_path, device)
-            # Drop any lazily cached extra sessions (Pangu6/Pangu3) so the
-            # next rollout rebuilds them on the new device.
-            for attr in ("_ort24_session", "_ort6_session"):
+            for attr, path_attr in (
+                ("_ort24_session", "ort24"),
+                ("_ort6_session", "ort6"),
+            ):
                 if getattr(self, attr, None) is not None:
                     setattr(self, attr, None)
+                    if getattr(self, "_eager_sessions", False):
+                        setattr(
+                            self,
+                            attr,
+                            create_ort_session(getattr(self, path_attr), device),
+                        )
 
         return self
 
@@ -472,6 +479,10 @@ class Pangu6(PanguBase):
         Path to Pangu 24 hour onnx file
     ort_6hr : str
         Path to Pangu 6 hour onnx file
+    eager_sessions : bool, optional
+        Build the 24 hour session at construction instead of on first use in a
+        rollout. Either way the session is built once and cached; eager keeps
+        the build cost out of the first rollout step, by default False
 
     Badges
     ------
@@ -483,13 +494,16 @@ class Pangu6(PanguBase):
         self,
         ort_24hr: str,
         ort_6hr: str,
+        eager_sessions: bool = False,
     ):
         super().__init__()
         # Only require 6 hour to load session on construction
         self.ort: ort.InferenceSession = create_ort_session(ort_6hr, self.device)
         self.ort24 = ort_24hr
-        # Lazily built + cached on first use inside _default_generator
+        self._eager_sessions = eager_sessions
         self._ort24_session: ort.InferenceSession | None = None
+        if eager_sessions:
+            self._ort24_session = create_ort_session(ort_24hr, self.device)
         self._output_coords["lead_time"] = np.array([np.timedelta64(6, "h")])
 
     @classmethod
@@ -497,6 +511,7 @@ class Pangu6(PanguBase):
     def load_model(
         cls,
         package: Package,
+        eager_sessions: bool = False,
     ) -> PrognosticModel:
         """Load prognostic from package"""
         # Ghetto at the moment because NGC files are zipped. This will download zip and
@@ -504,7 +519,7 @@ class Pangu6(PanguBase):
         # access the needed files.
         onnx_file_24 = package.resolve("pangu_weather_24.onnx")
         onnx_file_6 = package.resolve("pangu_weather_6.onnx")
-        return cls(onnx_file_24, onnx_file_6)
+        return cls(onnx_file_24, onnx_file_6, eager_sessions=eager_sessions)
 
     @batch_func()
     def __call__(
@@ -596,6 +611,11 @@ class Pangu3(PanguBase):
         Path to Pangu 6 hour onnx file
     ort_3hr : str
         Path to Pangu 3 hour onnx file
+    eager_sessions : bool, optional
+        Build the 24 and 6 hour sessions at construction instead of on first
+        use in a rollout. Either way each session is built once and cached;
+        eager keeps the build cost out of the first rollout steps, by default
+        False
 
     Badges
     ------
@@ -608,15 +628,19 @@ class Pangu3(PanguBase):
         ort_24hr: str,
         ort_6hr: str,
         ort_3hr: str,
+        eager_sessions: bool = False,
     ):
         super().__init__()
         # Only require 3 hour to load session on construction
         self.ort: ort.InferenceSession = create_ort_session(ort_3hr, self.device)
         self.ort24 = ort_24hr
         self.ort6 = ort_6hr
-        # Lazily built + cached on first use
+        self._eager_sessions = eager_sessions
         self._ort24_session: ort.InferenceSession | None = None
         self._ort6_session: ort.InferenceSession | None = None
+        if eager_sessions:
+            self._ort24_session = create_ort_session(ort_24hr, self.device)
+            self._ort6_session = create_ort_session(ort_6hr, self.device)
         self._output_coords["lead_time"] = np.array([np.timedelta64(3, "h")])
 
     @classmethod
@@ -624,6 +648,7 @@ class Pangu3(PanguBase):
     def load_model(
         cls,
         package: Package,
+        eager_sessions: bool = False,
     ) -> PrognosticModel:
         """Load prognostic from package"""
         # Ghetto at the moment because NGC files are zipped. This will download zip and
@@ -632,7 +657,7 @@ class Pangu3(PanguBase):
         onnx_file_24 = package.resolve("pangu_weather_24.onnx")
         onnx_file_6 = package.resolve("pangu_weather_6.onnx")
         onnx_file = package.resolve("pangu_weather_3.onnx")
-        return cls(onnx_file_24, onnx_file_6, onnx_file)
+        return cls(onnx_file_24, onnx_file_6, onnx_file, eager_sessions=eager_sessions)
 
     @batch_func()
     def __call__(
