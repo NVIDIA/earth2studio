@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
+  on the model, instead of reconstructing them on every rollout call
+
 ### Deprecated
 
 ### Removed
