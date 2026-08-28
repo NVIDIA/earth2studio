@@ -4,6 +4,8 @@ date:
   updated: 2026-08-11
 readtime: 20
 pin: true
+authors:
+  - skhajehei
 links:
   - Homepage: index.md
   - Blog index: blog/index.md
