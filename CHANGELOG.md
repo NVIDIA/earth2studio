@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scoring.online.regions` takes named lat/lon boxes and adds a labeled
   `region` axis to `stats.zarr`/`scores.zarr`. New optional per-member
   metrics include MAE (`scoring.online.mae`) and log spectral distance
-  (`scoring.online.lsd`.
+  (`scoring.online.lsd`)
 
 ### Changed
 
