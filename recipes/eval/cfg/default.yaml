@@ -263,6 +263,9 @@ scoring:
         #   3. pairwise_comm_dtype / pairwise_variables — halve the bytes,
         #      or restrict CRPS to the variables you actually report on.
         crps: true
+        # Optional Mean Absolute Error and Log Spectral Distance per member.
+        mae: false
+        lsd: false
         pairwise_comm_dtype: bfloat16  # arithmetic upcasts to fp64 on arrival
         defer_pairwise_one_step: true  # overlap the exchange with the next step
         variable_chunk: 4              # variables per exchange + compute step
@@ -276,6 +279,8 @@ scoring:
         # point CONUS-scale run from ~1.5GB to well under 250MB, at some
         # throughput cost).
         pairwise_member_tile: 8
+        # Named regional splits.
+        regions: null
     output:
         store_name: scores.zarr
         overwrite: true

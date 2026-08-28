@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   respectively.
 - Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
   ONNX sessions at construction instead of on first use in a rollout
+- Added regional splits to evaluation recipe online scoring:
+  `scoring.online.regions` takes named lat/lon boxes and adds a labeled
+  `region` axis to `stats.zarr`/`scores.zarr`. New optional per-member
+  metrics include MAE (`scoring.online.mae`) and log spectral distance
+  (`scoring.online.lsd`.
 
 ### Changed
 
@@ -37,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Evaluation recipe: clearing resume markers no longer races between
+  ranks. Concurrent removal of the same progress directory retries until
+  the directory no longer exists
 
 ### Security
 
