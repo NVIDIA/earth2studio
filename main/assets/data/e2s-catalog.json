@@ -3,22 +3,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:google"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "Google",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -26,6 +31,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Google"
       ],
       "region": [
         "Global"
@@ -62,6 +70,7 @@
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
@@ -70,6 +79,7 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -87,22 +97,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:copernicus"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "Copernicus",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -110,6 +125,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Copernicus"
       ],
       "region": [
         "Global"
@@ -128,6 +146,7 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:cmip6",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -137,14 +156,17 @@
     "chips": [
       "Data Source",
       "Numerical / AI Simulation",
+      "CMIP6",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "CMIP6"
       ],
       "gpu": [],
       "product": [
@@ -154,6 +176,7 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -171,6 +194,7 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:cmip6",
       "product:wind",
       "product:precip",
       "product:temp",
@@ -180,14 +204,17 @@
     "chips": [
       "Data Source",
       "Numerical / AI Simulation",
+      "CMIP6",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "CMIP6"
       ],
       "gpu": [],
       "product": [
@@ -197,6 +224,7 @@
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -217,8 +245,10 @@
     ],
     "filters": {
       "data class": [],
+      "dataset family": [],
       "gpu": [],
       "product": [],
+      "provider": [],
       "region": [],
       "year": []
     },
@@ -237,8 +267,10 @@
     ],
     "filters": {
       "data class": [],
+      "dataset family": [],
       "gpu": [],
       "product": [],
+      "provider": [],
       "region": [],
       "year": []
     },
@@ -257,8 +289,10 @@
     ],
     "filters": {
       "data class": [],
+      "dataset family": [],
       "gpu": [],
       "product": [],
+      "provider": [],
       "region": [],
       "year": []
     },
@@ -274,26 +308,35 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:aifs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "AIFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "AIFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -312,26 +355,35 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:aifs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "AIFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "AIFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -350,26 +402,35 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:gfs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "GFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -388,26 +449,35 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:gfs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "GFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -426,22 +496,27 @@
     "badges": [
       "region:na",
       "dataclass:analysis",
+      "dataset:hrrr",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "HRRR",
+      "Dynamical",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "HRRR"
       ],
       "gpu": [],
       "product": [
@@ -449,6 +524,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "North America"
@@ -467,26 +545,35 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:ifs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "IFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -506,11 +593,13 @@
       "region:na",
       "dataclass:analysis",
       "product:precip",
-      "product:radar"
+      "product:radar",
+      "provider:dynamical"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "Dynamical",
       "Surface Precipitation",
       "Radar"
     ],
@@ -518,10 +607,14 @@
       "data class": [
         "Analysis / Initial Conditions"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Precipitation",
         "Radar"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "North America"
@@ -540,23 +633,28 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:ifs",
       "product:wind",
       "product:temp",
       "product:atmos",
       "product:ocean",
-      "product:land"
+      "product:land",
+      "provider:earthmover"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "IFS",
+      "EarthMover",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere",
-      "Ocean"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
@@ -565,6 +663,9 @@
         "Atmosphere",
         "Ocean",
         "Land/Soil"
+      ],
+      "provider": [
+        "EarthMover"
       ],
       "region": [
         "Global"
@@ -583,23 +684,28 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
-      "product:solar"
+      "product:solar",
+      "provider:earthmover"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "EarthMover",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -608,6 +714,9 @@
         "Surface Temperature",
         "Atmosphere",
         "Solar"
+      ],
+      "provider": [
+        "EarthMover"
       ],
       "region": [
         "Global"
@@ -626,22 +735,27 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:gfs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "GFS",
+      "NOAA",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
@@ -649,6 +763,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -667,20 +784,26 @@
     "badges": [
       "region:na",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Direct Observations",
+      "NOAA",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -699,20 +822,26 @@
     "badges": [
       "region:na",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Direct Observations",
+      "NOAA",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -731,23 +860,28 @@
     "badges": [
       "region:na",
       "dataclass:analysis",
+      "dataset:hrrr",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
-      "product:radar"
+      "product:radar",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "HRRR",
+      "NOAA",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "HRRR"
       ],
       "gpu": [],
       "product": [
@@ -756,6 +890,9 @@
         "Surface Temperature",
         "Atmosphere",
         "Radar"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -786,10 +923,12 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
       ],
+      "provider": [],
       "region": [
         "Asia",
         "Australia"
@@ -808,22 +947,27 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:ifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ecmwf"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "IFS",
+      "ECMWF",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
@@ -831,6 +975,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "ECMWF"
       ],
       "region": [
         "Global"
@@ -849,22 +996,27 @@
     "badges": [
       "region:global",
       "dataclass:analysis",
+      "dataset:ifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ecmwf"
     ],
     "chips": [
       "Data Source",
       "Analysis / Initial Conditions",
+      "IFS",
+      "ECMWF",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Analysis / Initial Conditions"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
@@ -872,6 +1024,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "ECMWF"
       ],
       "region": [
         "Global"
@@ -890,20 +1045,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Direct Observations",
+      "NOAA",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -922,20 +1083,26 @@
     "badges": [
       "region:na",
       "dataclass:observation",
-      "product:radar"
+      "product:radar",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Direct Observations",
+      "NOAA",
       "Radar"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Radar"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -955,20 +1122,26 @@
       "region:eu",
       "region:af",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:eumetsat"
     ],
     "chips": [
       "Data Source",
       "Direct Observations",
+      "EUMETSAT",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "EUMETSAT"
       ],
       "region": [
         "Europe",
@@ -988,22 +1161,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ncar"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "NCAR",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -1011,6 +1189,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NCAR"
       ],
       "region": [
         "Global"
@@ -1030,11 +1211,13 @@
       "region:na",
       "dataclass:observation",
       "product:temp",
-      "product:precip"
+      "product:precip",
+      "provider:noaa"
     ],
     "chips": [
       "Data Source",
       "Direct Observations",
+      "NOAA",
       "Surface Temperature",
       "Surface Precipitation"
     ],
@@ -1042,10 +1225,14 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Temperature",
         "Surface Precipitation"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -1077,11 +1264,13 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Precipitation",
         "Radar"
       ],
+      "provider": [],
       "region": [
         "Europe"
       ],
@@ -1116,6 +1305,7 @@
       "data class": [
         "Analysis / Initial Conditions"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
@@ -1123,6 +1313,7 @@
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1151,10 +1342,12 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
       ],
+      "provider": [],
       "region": [
         "North America"
       ],
@@ -1185,11 +1378,13 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Land/Soil",
         "Satellite"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1218,10 +1413,12 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Ocean"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1252,11 +1449,13 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Atmosphere",
         "Satellite"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1277,8 +1476,10 @@
     ],
     "filters": {
       "data class": [],
+      "dataset family": [],
       "gpu": [],
       "product": [],
+      "provider": [],
       "region": [],
       "year": []
     },
@@ -1309,12 +1510,14 @@
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Temperature",
         "Atmosphere",
         "Ocean"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1345,11 +1548,13 @@
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Temperature",
         "Atmosphere"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1367,22 +1572,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:google"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "Google",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -1390,6 +1600,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Google"
       ],
       "region": [
         "Global"
@@ -1408,22 +1621,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:google"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "Google",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -1431,6 +1649,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Google"
       ],
       "region": [
         "Global"
@@ -1449,22 +1670,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:google"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "Google",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -1472,6 +1698,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Google"
       ],
       "region": [
         "Global"
@@ -1490,22 +1719,27 @@
     "badges": [
       "region:global",
       "dataclass:reanalysis",
+      "dataset:era5",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:google"
     ],
     "chips": [
       "Data Source",
       "Reanalysis",
+      "ERA5",
+      "Google",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Reanalysis"
+      ],
+      "dataset family": [
+        "ERA5"
       ],
       "gpu": [],
       "product": [
@@ -1513,6 +1747,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Google"
       ],
       "region": [
         "Global"
@@ -1536,20 +1773,22 @@
       "product:temp",
       "product:atmos",
       "product:solar",
-      "product:insitu"
+      "product:insitu",
+      "provider:noaa"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
@@ -1558,6 +1797,9 @@
         "Atmosphere",
         "Solar",
         "In-Situ Observations"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -1579,26 +1821,31 @@
       "product:wind",
       "product:precip",
       "product:temp",
+      "provider:noaa",
       "product:insitu"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "In-Situ Observations"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Precipitation",
         "Surface Temperature",
         "In-Situ Observations"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -1618,20 +1865,26 @@
       "region:na",
       "region:sa",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:noaa"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America",
@@ -1652,11 +1905,13 @@
       "region:global",
       "dataclass:observation",
       "product:wind",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Surface Winds",
       "Atmosphere"
     ],
@@ -1664,10 +1919,14 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -1704,6 +1963,7 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
@@ -1712,6 +1972,7 @@
         "Atmosphere",
         "In-Situ Observations"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -1732,26 +1993,31 @@
       "product:wind",
       "product:precip",
       "product:temp",
+      "provider:noaa",
       "product:insitu"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "In-Situ Observations"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Precipitation",
         "Surface Temperature",
         "In-Situ Observations"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -1770,20 +2036,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:noaa"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -1802,20 +2074,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:noaa"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -1834,20 +2112,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:eumetsat"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "EUMETSAT",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "EUMETSAT"
       ],
       "region": [
         "Global"
@@ -1866,20 +2150,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:eumetsat"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "EUMETSAT",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "EUMETSAT"
       ],
       "region": [
         "Global"
@@ -1898,20 +2188,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:eumetsat"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "EUMETSAT",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "EUMETSAT"
       ],
       "region": [
         "Global"
@@ -1930,20 +2226,26 @@
     "badges": [
       "region:global",
       "dataclass:observation",
-      "product:sat"
+      "product:sat",
+      "provider:eumetsat"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "EUMETSAT",
       "Satellite"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Satellite"
+      ],
+      "provider": [
+        "EUMETSAT"
       ],
       "region": [
         "Global"
@@ -1979,6 +2281,7 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
@@ -1986,6 +2289,7 @@
         "Atmosphere",
         "In-Situ Observations"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -2016,11 +2320,13 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Atmosphere",
         "Satellite"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -2041,26 +2347,31 @@
       "product:wind",
       "product:temp",
       "product:atmos",
-      "product:insitu"
+      "product:insitu",
+      "provider:noaa"
     ],
     "chips": [
       "DataFrame Source",
       "Direct Observations",
+      "NOAA",
       "Surface Winds",
       "Surface Temperature",
-      "Atmosphere",
-      "In-Situ Observations"
+      "Atmosphere"
     ],
     "filters": {
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere",
         "In-Situ Observations"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2082,8 +2393,10 @@
     ],
     "filters": {
       "data class": [],
+      "dataset family": [],
       "gpu": [],
       "product": [],
+      "provider": [],
       "region": [],
       "year": []
     },
@@ -2112,11 +2425,13 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Atmosphere",
         "In-Situ Observations"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -2147,11 +2462,13 @@
       "data class": [
         "Direct Observations"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Atmosphere",
         "Satellite"
       ],
+      "provider": [],
       "region": [
         "Global"
       ],
@@ -2166,65 +2483,30 @@
     "url": "../../../modules/generated/data/dataframe/UFSObsSat"
   },
   {
-    "badges": [],
-    "chips": [
-      "Datasource To File.Md"
-    ],
-    "filters": {
-      "data class": [],
-      "gpu": [],
-      "product": [],
-      "region": [],
-      "year": []
-    },
-    "group": "Datasource To File.Md",
-    "kind": "data",
-    "signature": "datasource_to_file(file_name: str, source: DataSource, time: list[str] | list[datetime] | TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), backend: Literal['netcdf', 'zarr'] = 'netcdf', chunks: dict[str, int] = {'variable': 1}, dtype: np.dtype | None = None, backend_kwargs: dict[str, Any] = {}) -> None",
-    "summary": "Utility function that can be used for building a local data store needed for an inference request. This file can then be used with the [`earth2studio.data.DataArrayFile`][earth2studio.data.DataArrayFile] data source to load data from file. This is useful when multiple runs of the same input data is needed.",
-    "title": "datasource_to_file",
-    "tone": "data",
-    "url": "../../../modules/generated/data/datasource_to_file"
-  },
-  {
-    "badges": [],
-    "chips": [
-      "Fetch Data.Md"
-    ],
-    "filters": {
-      "data class": [],
-      "gpu": [],
-      "product": [],
-      "region": [],
-      "year": []
-    },
-    "group": "Fetch Data.Md",
-    "kind": "data",
-    "signature": "fetch_data(source: DataSource | ForecastSource, time: TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest', legacy: bool = True) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray",
-    "summary": "Utility function to fetch data arrays from particular sources and load data on the target device. If desired, xarray interpolation/regridding in the spatial domain can be used by passing a target coordinate system via the optional `interp_to` argument.",
-    "title": "fetch_data",
-    "tone": "data",
-    "url": "../../../modules/generated/data/fetch_data"
-  },
-  {
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:aifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ecmwf"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "AIFS",
+      "ECMWF",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "AIFS"
       ],
       "gpu": [],
       "product": [
@@ -2232,6 +2514,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "ECMWF"
       ],
       "region": [
         "Global"
@@ -2250,22 +2535,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:aifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ecmwf"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "AIFS",
+      "ECMWF",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "AIFS"
       ],
       "gpu": [],
       "product": [
@@ -2273,6 +2563,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "ECMWF"
       ],
       "region": [
         "Global"
@@ -2293,11 +2586,13 @@
       "dataclass:simulation",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:copernicus"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "Copernicus",
       "Surface Winds",
       "Surface Temperature",
       "Atmosphere"
@@ -2306,11 +2601,15 @@
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Copernicus"
       ],
       "region": [
         "Global"
@@ -2331,11 +2630,13 @@
       "dataclass:simulation",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "NOAA",
       "Surface Winds",
       "Surface Temperature",
       "Atmosphere"
@@ -2344,11 +2645,15 @@
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2370,21 +2675,23 @@
       "product:wind",
       "product:precip",
       "product:temp",
+      "provider:noaa",
       "product:atmos",
       "product:land"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "NOAA",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
@@ -2392,6 +2699,9 @@
         "Surface Temperature",
         "Atmosphere",
         "Land/Soil"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2412,11 +2722,13 @@
       "dataclass:reanalysis",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Reanalysis",
+      "NOAA",
       "Surface Winds",
       "Surface Temperature",
       "Atmosphere"
@@ -2425,11 +2737,15 @@
       "data class": [
         "Reanalysis"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2450,11 +2766,13 @@
       "dataclass:reanalysis",
       "product:precip",
       "product:land",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Reanalysis",
+      "NOAA",
       "Surface Precipitation",
       "Land/Soil",
       "Atmosphere"
@@ -2463,11 +2781,15 @@
       "data class": [
         "Reanalysis"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Precipitation",
         "Land/Soil",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2486,26 +2808,35 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:aifs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "AIFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "AIFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -2524,26 +2855,35 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:aifs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "AIFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "AIFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -2562,26 +2902,35 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:gfs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "GFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -2600,26 +2949,35 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:gfs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "GFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -2638,22 +2996,27 @@
     "badges": [
       "region:na",
       "dataclass:simulation",
+      "dataset:hrrr",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "HRRR",
+      "Dynamical",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "HRRR"
       ],
       "gpu": [],
       "product": [
@@ -2661,6 +3024,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "North America"
@@ -2682,26 +3048,31 @@
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "Dynamical",
       "Surface Winds",
       "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
       ],
+      "dataset family": [],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Europe"
@@ -2720,26 +3091,35 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:ifs",
       "product:wind",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:dynamical"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "IFS",
+      "Dynamical",
       "Surface Winds",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Temperature"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
         "Surface Winds",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "Dynamical"
       ],
       "region": [
         "Global"
@@ -2758,22 +3138,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:ifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:earthmover"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "IFS",
+      "EarthMover",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
@@ -2781,6 +3166,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "EarthMover"
       ],
       "region": [
         "Global"
@@ -2799,22 +3187,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:gfs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "GFS",
+      "NOAA",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
@@ -2822,6 +3215,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2840,22 +3236,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:gfs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "GFS",
+      "NOAA",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
@@ -2863,6 +3264,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2881,22 +3285,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:gfs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "GFS",
+      "NOAA",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "GFS"
       ],
       "gpu": [],
       "product": [
@@ -2904,6 +3313,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "Global"
@@ -2922,23 +3334,28 @@
     "badges": [
       "region:na",
       "dataclass:simulation",
+      "dataset:hrrr",
       "product:wind",
       "product:precip",
       "product:temp",
       "product:atmos",
-      "product:radar"
+      "product:radar",
+      "provider:noaa"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "HRRR",
+      "NOAA",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "HRRR"
       ],
       "gpu": [],
       "product": [
@@ -2947,6 +3364,9 @@
         "Surface Temperature",
         "Atmosphere",
         "Radar"
+      ],
+      "provider": [
+        "NOAA"
       ],
       "region": [
         "North America"
@@ -2965,22 +3385,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:ifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ecmwf"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "IFS",
+      "ECMWF",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
@@ -2988,6 +3413,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "ECMWF"
       ],
       "region": [
         "Global"
@@ -3006,22 +3434,27 @@
     "badges": [
       "region:global",
       "dataclass:simulation",
+      "dataset:ifs",
       "product:wind",
       "product:precip",
       "product:temp",
-      "product:atmos"
+      "product:atmos",
+      "provider:ecmwf"
     ],
     "chips": [
       "Forecast Data Source",
       "Numerical / AI Simulation",
+      "IFS",
+      "ECMWF",
       "Surface Winds",
-      "Surface Precipitation",
-      "Surface Temperature",
-      "Atmosphere"
+      "Surface Precipitation"
     ],
     "filters": {
       "data class": [
         "Numerical / AI Simulation"
+      ],
+      "dataset family": [
+        "IFS"
       ],
       "gpu": [],
       "product": [
@@ -3029,6 +3462,9 @@
         "Surface Precipitation",
         "Surface Temperature",
         "Atmosphere"
+      ],
+      "provider": [
+        "ECMWF"
       ],
       "region": [
         "Global"
@@ -3042,70 +3478,6 @@
     "title": "IFS_FX",
     "tone": "precip",
     "url": "../../../modules/generated/data/forecast/IFS_FX"
-  },
-  {
-    "badges": [],
-    "chips": [
-      "Prep Data Array.Md"
-    ],
-    "filters": {
-      "data class": [],
-      "gpu": [],
-      "product": [],
-      "region": [],
-      "year": []
-    },
-    "group": "Prep Data Array.Md",
-    "kind": "data",
-    "signature": "prep_data_array(da: xr.DataArray, device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest') -> tuple[torch.Tensor, CoordSystem]",
-    "summary": "Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.",
-    "title": "prep_data_array",
-    "tone": "data",
-    "url": "../../../modules/generated/data/prep_data_array"
-  },
-  {
-    "badges": [],
-    "chips": [
-      "Auto"
-    ],
-    "filters": {
-      "backend": [],
-      "class": [],
-      "gpu": [],
-      "product": [],
-      "provider": [],
-      "region": [],
-      "year": []
-    },
-    "group": "Auto",
-    "kind": "model",
-    "signature": "Package(root: str, fs: AbstractFileSystem | None = None, fs_options: dict = {}, cache: bool | None = None, cache_options: dict = {})",
-    "summary": "A generic file system abstraction with local caching, uses Fsspec WholeFileCacheFileSystem to manage files. Designed to be used for accessing remote resources, particularly checkpoint files for pre-trained models. Presently supports public folders on NGC, huggingface repos, s3 and any other built in file system Fsspec supports.",
-    "title": "Package",
-    "tone": "model",
-    "url": "../../../modules/generated/models/auto/Package"
-  },
-  {
-    "badges": [],
-    "chips": [
-      "Batch"
-    ],
-    "filters": {
-      "backend": [],
-      "class": [],
-      "gpu": [],
-      "product": [],
-      "provider": [],
-      "region": [],
-      "year": []
-    },
-    "group": "Batch",
-    "kind": "model",
-    "signature": "batch_func()",
-    "summary": "Batch utility decorator which can be added to prognostic and diagnostic models to help enable support for automatic batching of data. This class contains a decorator function which should be added to calls where this functionality is desired.",
-    "title": "batch_func",
-    "tone": "model",
-    "url": "../../../modules/generated/models/batch/batch_func"
   },
   {
     "badges": [

@@ -69,7 +69,7 @@
       "source": "examples/index.md",
       "summary": "<div class=\"e2sg-gallery-grid\"> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/01_deterministic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-01_deterministic_workflow/thumbnail.webp\" alt=\"Preview of Running Deterministic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Deterministic Inference</strong><span class=\"e2sg-card-summary\">Basic deterministic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/02_diagnostic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-02_diagnostic_workflow/thumbnail.webp\" alt=\"Preview of Running Diagnostic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Diagnostic Inference</strong><span class=\"e2sg-card-summary\">Basic prognostic + diagnostic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/03_ensemble_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-03_ensemble_workflow/thumbnail.webp\" alt=\"Preview of Running Ensemble Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Ensemble Inference</strong><span class=\"e2sg-card-summary\">Simple ensemble inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/04_checkpoint_restart/\"><div class=\"e2sg-card-placeholder\" aria-hidden=\"true\"><span class=\"e2sg-card-placeholder-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2\"/></svg></span></div><span class=\"e2sg-card-body\"><strong>Checkpointing a Deterministic Forecast</strong><span class=\"e2sg-card-summary\">Basic inference workflow checkpointing.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> </div>",
       "symbol": "",
-      "title": "Example gallery",
+      "title": "Example Gallery",
       "url": "examples/"
     },
     {
@@ -364,9 +364,9 @@
       "classifiers": [],
       "signature": "",
       "source": "modules/index.md",
-      "summary": "<!-- markdownlint-disable MD033 -->",
+      "summary": "<!-- markdownlint-disable MD025 MD033 -->",
       "symbol": "",
-      "title": "Index",
+      "title": "API Reference",
       "url": "modules/"
     },
     {
@@ -499,10 +499,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:google"
       ],
       "signature": "ARCO(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/ARCO.md",
@@ -532,10 +534,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:copernicus"
       ],
       "signature": "CDS(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/CDS.md",
@@ -548,6 +552,7 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:cmip6",
         "product:wind",
         "product:precip",
         "product:temp",
@@ -565,6 +570,7 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:cmip6",
         "product:wind",
         "product:precip",
         "product:temp",
@@ -609,9 +615,11 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:aifs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalAIFS(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalAIFS.md",
@@ -624,9 +632,11 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:aifs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalAIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalAIFS_ENS.md",
@@ -639,9 +649,11 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:gfs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalGEFS(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalGEFS.md",
@@ -654,9 +666,11 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:gfs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalGFS(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalGFS.md",
@@ -669,10 +683,12 @@
       "classifiers": [
         "region:na",
         "dataclass:analysis",
+        "dataset:hrrr",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalHRRR(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalHRRR.md",
@@ -685,9 +701,11 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:ifs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalIFS_ENS(member: int = 0, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalIFS_ENS.md",
@@ -701,7 +719,8 @@
         "region:na",
         "dataclass:analysis",
         "product:precip",
-        "product:radar"
+        "product:radar",
+        "provider:dynamical"
       ],
       "signature": "DynamicalMRMS(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/DynamicalMRMS.md",
@@ -714,11 +733,13 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:ifs",
         "product:wind",
         "product:temp",
         "product:atmos",
         "product:ocean",
-        "product:land"
+        "product:land",
+        "provider:earthmover"
       ],
       "signature": "EarthMoverBrightBandIFS(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/EarthMoverBrightBandIFS.md",
@@ -731,11 +752,13 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
         "product:atmos",
-        "product:solar"
+        "product:solar",
+        "provider:earthmover"
       ],
       "signature": "EarthMoverERA5(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/analysis/EarthMoverERA5.md",
@@ -748,10 +771,12 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:gfs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "GFS(source: str = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/analysis/GFS.md",
@@ -764,7 +789,8 @@
       "classifiers": [
         "region:na",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:noaa"
       ],
       "signature": "GOES(satellite: str = 'goes16', scan_mode: str = 'F', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, retries: int = 3)",
       "source": "modules/generated/data/analysis/GOES.md",
@@ -777,7 +803,8 @@
       "classifiers": [
         "region:na",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:noaa"
       ],
       "signature": "GOESGLMGrid(satellite: str = 'east', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
       "source": "modules/generated/data/analysis/GOESGLMGrid.md",
@@ -790,11 +817,13 @@
       "classifiers": [
         "region:na",
         "dataclass:analysis",
+        "dataset:hrrr",
         "product:wind",
         "product:precip",
         "product:temp",
         "product:atmos",
-        "product:radar"
+        "product:radar",
+        "provider:noaa"
       ],
       "signature": "HRRR(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/analysis/HRRR.md",
@@ -821,10 +850,12 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:ifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ecmwf"
       ],
       "signature": "IFS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/IFS.md",
@@ -837,10 +868,12 @@
       "classifiers": [
         "region:global",
         "dataclass:analysis",
+        "dataset:ifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ecmwf"
       ],
       "signature": "IFS_ENS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/IFS_ENS.md",
@@ -853,7 +886,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:noaa"
       ],
       "signature": "JPSS(satellite: str = 'noaa-20', product_type: str = 'I', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/JPSS.md",
@@ -866,7 +900,8 @@
       "classifiers": [
         "region:na",
         "dataclass:observation",
-        "product:radar"
+        "product:radar",
+        "provider:noaa"
       ],
       "signature": "MRMS(max_offset_minutes: float = 10, cache: bool = True, verbose: bool = True, max_workers: int = 24, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/MRMS.md",
@@ -880,7 +915,8 @@
         "region:eu",
         "region:af",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:eumetsat"
       ],
       "signature": "MeteosatFCI(resolution: Literal['2km', '1km', '500m'] = '2km', lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None, pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None, flip_north_south: bool = False, cache: bool = True, verbose: bool = True, async_timeout: int = 1200, retries: int = 3)",
       "source": "modules/generated/data/analysis/MeteosatFCI.md",
@@ -893,10 +929,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ncar"
       ],
       "signature": "NCAR_ERA5(max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/analysis/NCAR_ERA5.md",
@@ -910,7 +948,8 @@
         "region:na",
         "dataclass:observation",
         "product:temp",
-        "product:precip"
+        "product:precip",
+        "provider:noaa"
       ],
       "signature": "NClimGridDaily(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/NClimGridDaily.md",
@@ -1045,10 +1084,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:google"
       ],
       "signature": "WB2Climatology(climatology_zarr_store: ClimatologyZarrStore = '1990-2017_6h_1440x721.zarr', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/WB2Climatology.md",
@@ -1061,10 +1102,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:google"
       ],
       "signature": "WB2ERA5(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/WB2ERA5.md",
@@ -1077,10 +1120,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:google"
       ],
       "signature": "WB2ERA5_121x240(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/WB2ERA5_121x240.md",
@@ -1093,10 +1138,12 @@
       "classifiers": [
         "region:global",
         "dataclass:reanalysis",
+        "dataset:era5",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:google"
       ],
       "signature": "WB2ERA5_32x64(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/analysis/WB2ERA5_32x64.md",
@@ -1114,7 +1161,8 @@
         "product:temp",
         "product:atmos",
         "product:solar",
-        "product:insitu"
+        "product:insitu",
+        "provider:noaa"
       ],
       "signature": "GHCNDaily(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
       "source": "modules/generated/data/dataframe/GHCNDaily.md",
@@ -1130,6 +1178,7 @@
         "product:wind",
         "product:precip",
         "product:temp",
+        "provider:noaa",
         "product:insitu"
       ],
       "signature": "GHCNHourly(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 32, retries: int = 3)",
@@ -1144,7 +1193,8 @@
         "region:na",
         "region:sa",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:noaa"
       ],
       "signature": "GOESGLM(satellite: str = 'east', lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(2, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
       "source": "modules/generated/data/dataframe/GOESGLM.md",
@@ -1158,7 +1208,8 @@
         "region:global",
         "dataclass:observation",
         "product:wind",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "IBTrACS(region: str | list[str] = 'ALL', time_tolerance: TimeTolerance = np.timedelta64(0), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, retries: int = 3)",
       "source": "modules/generated/data/dataframe/IBTrACS.md",
@@ -1191,6 +1242,7 @@
         "product:wind",
         "product:precip",
         "product:temp",
+        "provider:noaa",
         "product:insitu"
       ],
       "signature": "ISD(stations: list[str], time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
@@ -1204,7 +1256,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:noaa"
       ],
       "signature": "JPSS_ATMS(satellites: list[str] | None = None, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_workers: int = 24, retries: int = 3)",
       "source": "modules/generated/data/dataframe/JPSS_ATMS.md",
@@ -1217,7 +1270,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:noaa"
       ],
       "signature": "JPSS_CRIS(satellites: list[str] | None = None, subsample: int = 1, apodize: bool = True, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, max_workers: int = 24, retries: int = 3, sensor_indices: list[int] | np.ndarray | None = None)",
       "source": "modules/generated/data/dataframe/JPSS_CRIS.md",
@@ -1230,7 +1284,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:eumetsat"
       ],
       "signature": "MetOpAMSUA(satellite: str | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/dataframe/MetOpAMSUA.md",
@@ -1243,7 +1298,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:eumetsat"
       ],
       "signature": "MetOpAVHRR(satellite: str | None = None, subsample: int = 1, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/dataframe/MetOpAVHRR.md",
@@ -1256,7 +1312,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:eumetsat"
       ],
       "signature": "MetOpIASI(satellite: str | None = None, sensor_indices: list[int] | np.ndarray | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/dataframe/MetOpIASI.md",
@@ -1269,7 +1326,8 @@
       "classifiers": [
         "region:global",
         "dataclass:observation",
-        "product:sat"
+        "product:sat",
+        "provider:eumetsat"
       ],
       "signature": "MetOpMHS(satellite: str | None = None, time_tolerance: TimeTolerance = np.timedelta64(1, 'h'), cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/dataframe/MetOpMHS.md",
@@ -1315,7 +1373,8 @@
         "product:wind",
         "product:temp",
         "product:atmos",
-        "product:insitu"
+        "product:insitu",
+        "provider:noaa"
       ],
       "signature": "NomadsGDASObsConv(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, decode_workers: int = 8, retries: int = 3)",
       "source": "modules/generated/data/dataframe/NomadsGDASObsConv.md",
@@ -1365,10 +1424,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:aifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ecmwf"
       ],
       "signature": "AIFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 0, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/forecast/AIFS_ENS_FX.md",
@@ -1381,10 +1442,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:aifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ecmwf"
       ],
       "signature": "AIFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/forecast/AIFS_FX.md",
@@ -1399,7 +1462,8 @@
         "dataclass:simulation",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:copernicus"
       ],
       "signature": "CAMS_FX(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/CAMS_FX.md",
@@ -1414,7 +1478,8 @@
         "dataclass:simulation",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "CFS_FX(member: int = 1, source: str = 'nomads', cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/forecast/CFS_FX.md",
@@ -1430,6 +1495,7 @@
         "product:wind",
         "product:precip",
         "product:temp",
+        "provider:noaa",
         "product:atmos",
         "product:land"
       ],
@@ -1446,7 +1512,8 @@
         "dataclass:reanalysis",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "CFS_Reforecast_FX(cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 16, retries: int = 3)",
       "source": "modules/generated/data/forecast/CFS_Reforecast_FX.md",
@@ -1461,7 +1528,8 @@
         "dataclass:reanalysis",
         "product:precip",
         "product:land",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "CFS_Reforecast_FX_Flux()",
       "source": "modules/generated/data/forecast/CFS_Reforecast_FX_Flux.md",
@@ -1474,9 +1542,11 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:aifs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalAIFSENS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalAIFSENS_FX.md",
@@ -1489,9 +1559,11 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:aifs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalAIFS_FX(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalAIFS_FX.md",
@@ -1504,9 +1576,11 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:gfs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalGEFS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalGEFS_FX.md",
@@ -1519,9 +1593,11 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:gfs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalGFS_FX(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalGFS_FX.md",
@@ -1534,10 +1610,12 @@
       "classifiers": [
         "region:na",
         "dataclass:simulation",
+        "dataset:hrrr",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalHRRR_FX(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalHRRR_FX.md",
@@ -1553,7 +1631,8 @@
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalICON_EU_FX(cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalICON_EU_FX.md",
@@ -1566,9 +1645,11 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:ifs",
         "product:wind",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:dynamical"
       ],
       "signature": "DynamicalIFS_ENS_FX(member: int = 0, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/DynamicalIFS_ENS_FX.md",
@@ -1581,10 +1662,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:ifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:earthmover"
       ],
       "signature": "EarthMoverBrightBandIFS_FX(repo: str | None = None, branch: str = DEFAULT_BRANCH, client: arraylake.AsyncClient | None = None, cache: bool = True, verbose: bool = True)",
       "source": "modules/generated/data/forecast/EarthMoverBrightBandIFS_FX.md",
@@ -1597,10 +1680,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:gfs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "GEFS_FX(member: str = 'gec00', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/forecast/GEFS_FX.md",
@@ -1613,10 +1698,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:gfs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "GEFS_FX_721x1440(member: str = 'gec00', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/forecast/GEFS_FX_721x1440.md",
@@ -1629,10 +1716,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:gfs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:noaa"
       ],
       "signature": "GFS_FX()",
       "source": "modules/generated/data/forecast/GFS_FX.md",
@@ -1645,11 +1734,13 @@
       "classifiers": [
         "region:na",
         "dataclass:simulation",
+        "dataset:hrrr",
         "product:wind",
         "product:precip",
         "product:temp",
         "product:atmos",
-        "product:radar"
+        "product:radar",
+        "provider:noaa"
       ],
       "signature": "HRRR_FX(source: str = 'aws', max_workers: int = 24, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3)",
       "source": "modules/generated/data/forecast/HRRR_FX.md",
@@ -1662,10 +1753,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:ifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ecmwf"
       ],
       "signature": "IFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/forecast/IFS_ENS_FX.md",
@@ -1678,10 +1771,12 @@
       "classifiers": [
         "region:global",
         "dataclass:simulation",
+        "dataset:ifs",
         "product:wind",
         "product:precip",
         "product:temp",
-        "product:atmos"
+        "product:atmos",
+        "provider:ecmwf"
       ],
       "signature": "IFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
       "source": "modules/generated/data/forecast/IFS_FX.md",
@@ -3333,7 +3428,7 @@
       "source": "scorecard/generated/index.md",
       "summary": "<!-- Generated by docs/generate_scorecard.py -- do not hand-edit.",
       "symbol": "",
-      "title": "Index",
+      "title": "Scorecards",
       "url": "scorecard/generated/"
     },
     {
@@ -3834,6 +3929,90 @@
       "text_color": "#fff",
       "tooltip": "Numerical / AI Simulation"
     },
+    "dataset:aifs": {
+      "color": "#5f3dc4",
+      "group": "dataset",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "AIFS",
+      "name": "AIFS",
+      "text_color": "#fff",
+      "tooltip": "ECMWF AI Forecasting System"
+    },
+    "dataset:cmip6": {
+      "color": "#e67700",
+      "group": "dataset",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "CMIP6",
+      "name": "CMIP6",
+      "text_color": "#fff",
+      "tooltip": "Coupled Model Intercomparison Project Phase 6"
+    },
+    "dataset:era5": {
+      "color": "#4263eb",
+      "group": "dataset",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "ERA5",
+      "name": "ERA5",
+      "text_color": "#fff",
+      "tooltip": "ECMWF Reanalysis v5"
+    },
+    "dataset:gfs": {
+      "color": "#1971c2",
+      "group": "dataset",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "GFS",
+      "name": "GFS",
+      "text_color": "#fff",
+      "tooltip": "NOAA Global Forecast System"
+    },
+    "dataset:hrrr": {
+      "color": "#087f5b",
+      "group": "dataset",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "HRRR",
+      "name": "HRRR",
+      "text_color": "#fff",
+      "tooltip": "NOAA High-Resolution Rapid Refresh"
+    },
+    "dataset:ifs": {
+      "color": "#364fc7",
+      "group": "dataset",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "IFS",
+      "name": "IFS",
+      "text_color": "#fff",
+      "tooltip": "ECMWF Integrated Forecasting System"
+    },
     "gpu:24gb": {
       "color": "#2d5c1e",
       "group": "gpu",
@@ -4018,11 +4197,53 @@
         "autosummary",
         "filter"
       ],
-      "icon": "<i class=\"fa-solid fa-flask\"></i>",
+      "icon": "",
       "label": "AI2",
       "name": "AI2",
       "text_color": "#fff",
       "tooltip": "AI2"
+    },
+    "provider:copernicus": {
+      "color": "#005ea8",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "Copernicus",
+      "name": "Copernicus",
+      "text_color": "#fff",
+      "tooltip": "Copernicus Climate and Atmosphere Data Stores"
+    },
+    "provider:dynamical": {
+      "color": "#343a40",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "Dynamical",
+      "name": "Dynamical",
+      "text_color": "#fff",
+      "tooltip": ""
+    },
+    "provider:earthmover": {
+      "color": "#6D0EDB",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "EarthMover",
+      "name": "EarthMover",
+      "text_color": "#fff",
+      "tooltip": ""
     },
     "provider:ecmwf": {
       "color": "#0b7285",
@@ -4032,9 +4253,23 @@
         "autosummary",
         "filter"
       ],
-      "icon": "<i class=\"fa-solid fa-cloud-sun-rain\"></i>",
+      "icon": "",
       "label": "ECMWF",
       "name": "ECMWF",
+      "text_color": "#fff",
+      "tooltip": ""
+    },
+    "provider:eumetsat": {
+      "color": "#006b75",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "EUMETSAT",
+      "name": "EUMETSAT",
       "text_color": "#fff",
       "tooltip": ""
     },
@@ -4046,7 +4281,7 @@
         "autosummary",
         "filter"
       ],
-      "icon": "<i class=\"fa-brands fa-google\"></i>",
+      "icon": "",
       "label": "Google",
       "name": "Google",
       "text_color": "#fff",
@@ -4060,9 +4295,37 @@
         "autosummary",
         "filter"
       ],
-      "icon": "<i class=\"fa-brands fa-microsoft\"></i>",
+      "icon": "",
       "label": "Microsoft",
       "name": "Microsoft",
+      "text_color": "#fff",
+      "tooltip": ""
+    },
+    "provider:ncar": {
+      "color": "#7b2cbf",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "NCAR",
+      "name": "NCAR",
+      "text_color": "#fff",
+      "tooltip": ""
+    },
+    "provider:noaa": {
+      "color": "#0057b8",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [
+        "autosummary",
+        "filter"
+      ],
+      "icon": "",
+      "label": "NOAA",
+      "name": "NOAA",
       "text_color": "#fff",
       "tooltip": ""
     },
@@ -4074,7 +4337,7 @@
         "autosummary",
         "filter"
       ],
-      "icon": "<i class=\"fa-solid fa-microchip\"></i>",
+      "icon": "",
       "label": "NVIDIA",
       "name": "NVIDIA",
       "text_color": "#fff",
