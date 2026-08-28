@@ -86,7 +86,7 @@ class GOES:
 
     Badges
     ------
-    region:na dataclass:observation product:sat
+    region:na dataclass:observation product:sat provider:noaa
     """
 
     SCAN_TIME_FREQUENCY = {
