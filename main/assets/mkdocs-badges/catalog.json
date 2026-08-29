@@ -22,7 +22,7 @@
       "classifiers": [],
       "signature": "",
       "source": "blog/index.md",
-      "summary": "Earth2Studio documentation is being refreshed with a MkDocs Material site, clearer install guidance, a stronger landing page, and room for targeted product and engineering updates.",
+      "summary": "",
       "symbol": "",
       "title": "Blog",
       "url": "blog/"
@@ -1207,7 +1207,7 @@
       ],
       "signature": "GOESGLM(satellite: str = 'east', lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(2, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
       "source": "modules/generated/data/dataframe/GOESGLM.md",
-      "summary": "NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning Cluster-Filter Algorithm (LCFA) event data source.",
+      "summary": "NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning Cluster-Filter Algorithm (LCFA) point lightning data source.",
       "symbol": "earth2studio.data.GOESGLM",
       "title": "GOESGLM",
       "url": "modules/generated/data/dataframe/GOESGLM/"
@@ -1344,6 +1344,21 @@
       "symbol": "earth2studio.data.MetOpMHS",
       "title": "MetOpMHS",
       "url": "modules/generated/data/dataframe/MetOpMHS/"
+    },
+    {
+      "classifiers": [
+        "region:eu",
+        "region:af",
+        "dataclass:observation",
+        "product:sat",
+        "provider:eumetsat"
+      ],
+      "signature": "MeteosatLI(lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(5, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/MeteosatLI.md",
+      "summary": "EUMETSAT MTG-I LI Level-2 pointed lightning data source.",
+      "symbol": "earth2studio.data.MeteosatLI",
+      "title": "MeteosatLI",
+      "url": "modules/generated/data/dataframe/MeteosatLI/"
     },
     {
       "classifiers": [

@@ -1895,7 +1895,7 @@
     "group": "DataFrame Source",
     "kind": "data",
     "signature": "GOESGLM(satellite: str = 'east', lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(2, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, retries: int = 3)",
-    "summary": "NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning Cluster-Filter Algorithm (LCFA) event data source.",
+    "summary": "NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning Cluster-Filter Algorithm (LCFA) point lightning data source.",
     "title": "GOESGLM",
     "tone": "satellite",
     "url": "../../../modules/generated/data/dataframe/GOESGLM"
@@ -2259,6 +2259,46 @@
     "title": "MetOpMHS",
     "tone": "satellite",
     "url": "../../../modules/generated/data/dataframe/MetOpMHS"
+  },
+  {
+    "badges": [
+      "region:eu",
+      "region:af",
+      "dataclass:observation",
+      "product:sat",
+      "provider:eumetsat"
+    ],
+    "chips": [
+      "DataFrame Source",
+      "Direct Observations",
+      "EUMETSAT",
+      "Satellite"
+    ],
+    "filters": {
+      "data class": [
+        "Direct Observations"
+      ],
+      "dataset family": [],
+      "gpu": [],
+      "product": [
+        "Satellite"
+      ],
+      "provider": [
+        "EUMETSAT"
+      ],
+      "region": [
+        "Europe",
+        "Africa"
+      ],
+      "year": []
+    },
+    "group": "DataFrame Source",
+    "kind": "data",
+    "signature": "MeteosatLI(lat_lon_bbox: tuple[float, float, float, float] | None = None, time_tolerance: TimeTolerance = np.timedelta64(5, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, retries: int = 3)",
+    "summary": "EUMETSAT MTG-I LI Level-2 pointed lightning data source.",
+    "title": "MeteosatLI",
+    "tone": "satellite",
+    "url": "../../../modules/generated/data/dataframe/MeteosatLI"
   },
   {
     "badges": [

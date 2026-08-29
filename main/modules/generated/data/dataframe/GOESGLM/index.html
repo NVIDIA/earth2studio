@@ -3047,7 +3047,7 @@
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:na" data-badge-group="region" style="--badge-color:#1565c0;--badge-text-color:#fff" title="North America"><span class="mkdocs-badge__icon"><i class="fa-solid fa-earth-americas"></i></span><span class="mkdocs-badge__label">NA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:sa" data-badge-group="region" style="--badge-color:#90caf9;--badge-text-color:#000" title="South America"><span class="mkdocs-badge__icon"><i class="fa-solid fa-earth-americas"></i></span><span class="mkdocs-badge__label">SA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="dataclass:observation" data-badge-group="dataclass" style="--badge-color:#15803d;--badge-text-color:#fff" title="Direct Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-binoculars"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:sat" data-badge-group="product" style="--badge-color:#1c7ed6;--badge-text-color:#fff" title="Satellite"><span class="mkdocs-badge__icon"><i class="fa-solid fa-satellite"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:noaa" data-badge-group="provider" style="--badge-color:#0057b8;--badge-text-color:#fff"><span class="mkdocs-badge__label">NOAA</span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.data.GOESGLM</code></p>
 <p><a href="" id="earth2studio.data.GOESGLM"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes_glm.py#L104-L704" title="earth2studio/data/goes_glm.py:104">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes_glm.py#L132-L806" title="earth2studio/data/goes_glm.py:132">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3061,17 +3061,29 @@
 
 
         <p>NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning
-Cluster-Filter Algorithm (LCFA) event data source.</p>
-<p>Returns per-event lightning observations from the GLM instrument on
-GOES-16/17/18/19, served as point observations in a pandas
-DataFrame. Each row corresponds to a single optical event detected
-by GLM with a sub-second timestamp, latitude/longitude, and the
-requested measurement (<code>flashe</code> for optical energy in Joules,
-<code>flashc</code> for a constant 1.0 per detected event suitable for
-density aggregation).</p>
+Cluster-Filter Algorithm (LCFA) point lightning data source.</p>
+<p>Returns per-detection lightning observations from the GLM instrument
+on GOES-16/17/18/19, served as point observations in a pandas
+DataFrame. Each row corresponds to a single detection with a
+sub-second timestamp, latitude/longitude and the requested
+measurement.</p>
+<p>All three tiers of the GLM detection hierarchy are exposed, and may
+be mixed freely in one request since they are read from the same
+files:</p>
+<ul>
+<li><strong>events</strong> (<code>lightning_event_*</code>) — individual illuminated pixels
+  in a single 2 ms frame</li>
+<li><strong>groups</strong> (<code>lightning_group_*</code>) — spatially adjacent events
+  within one frame</li>
+<li><strong>flashes</strong> (<code>lightning_flash_*</code>) — groups clustered in space and
+  time; timestamped by their first constituent event</li>
+</ul>
+<p>Each level offers <code>*_energy</code> (optical energy, Joules) and
+<code>*_count</code> (a constant 1.0 per record, suitable for density
+aggregation).</p>
 <p>Files in the public NOAA AWS bucket are NetCDFs produced at roughly
 20 second cadence covering the GOES full-disk field of view. A
-spatial bounding box can be supplied to restrict events at parse
+spatial bounding box can be supplied to restrict detections at parse
 time and reduce memory usage for large windows.</p>
 
 
@@ -3112,7 +3124,7 @@ For example, CONUS in the <code>[-180, 180)</code> convention is
 )
           –
           <div class="doc-md-description">
-            <p>Time tolerance window for selecting events around each
+            <p>Time tolerance window for selecting detections around each
 requested timestamp. Accepts a single value (symmetric ±
 window) or a tuple <code>(lower, upper)</code> for asymmetric windows,
 by default <code>np.timedelta64(2, "m")</code>.</p>
@@ -3177,16 +3189,25 @@ exponential backoff, by default 3.</p>
   <summary>Warning</summary>
   <p>GLM produces hundreds of files per hour. Large time windows can
 download tens to hundreds of gigabytes of NetCDFs. Use
-<code>lat_lon_bbox</code> to discard out-of-region events on parse and
+<code>lat_lon_bbox</code> to discard out-of-region detections on parse and
 keep <code>time_tolerance</code> bounded.</p>
 </details>
 
 <details class="note" open>
   <summary>Note</summary>
   <p>Output longitudes are normalised to <code>[0, 360)</code> (Earth2Studio
-convention). Each event's timestamp is computed from the file's
-<code>event_time_offset</code> variable so per-event precision (~ms) is
+convention). Each record's timestamp is computed from the file's
+per-level time offset variable so sub-second precision (~ms) is
 preserved.</p>
+</details>
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>The pre-0.19 variable ids <code>flashe</code> and <code>flashc</code> are deprecated
+aliases of <code>lightning_event_energy</code> and <code>lightning_event_count</code>.
+They still select the correct measurement and are echoed back in the
+output <code>variable</code> column, but emit a <code>FutureWarning</code> and will be
+removed in a future release.</p>
 </details>
 
 <details class="note" open>
@@ -3210,7 +3231,10 @@ preserved.</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">lat_lon_bbox</span><span class="o">=</span><span class="p">(</span><span class="mf">24.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">125.0</span><span class="p">,</span> <span class="mf">49.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">66.0</span><span class="p">),</span>  <span class="c1"># CONUS</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">time_tolerance</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">),</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">[</span><span class="s2">&quot;flashe&quot;</span><span class="p">,</span> <span class="s2">&quot;flashc&quot;</span><span class="p">])</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">df</span> <span class="o">=</span> <span class="n">ds</span><span class="p">(</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="p">[</span><span class="s2">&quot;lightning_event_energy&quot;</span><span class="p">,</span> <span class="s2">&quot;lightning_event_count&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
 </code></pre></div>
 </details>
 
@@ -3248,7 +3272,7 @@ preserved.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Fetch GLM lightning events for a set of timestamps.</p>
+        <p>Fetch GLM lightning detections for a set of timestamps.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3258,7 +3282,7 @@ preserved.</p>
               (<code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a>] | <span title="earth2studio.utils.type.TimeArray">TimeArray</span></code>)
           –
           <div class="doc-md-description">
-            <p>Timestamps to return events for (UTC). Timezone-aware
+            <p>Timestamps to return detections for (UTC). Timezone-aware
 datetimes are converted to UTC automatically.</p>
           </div>
         </li>
@@ -3268,8 +3292,9 @@ datetimes are converted to UTC automatically.</p>
           –
           <div class="doc-md-description">
             <p>Variable ids defined in
-<code>earth2studio.lexicon.GOESGLMLexicon</code>
-(<code>"flashe"</code> and/or <code>"flashc"</code>).</p>
+<code>earth2studio.lexicon.GOESGLMLexicon</code>, e.g.
+<code>"lightning_event_energy"</code> or <code>"lightning_flash_count"</code>.
+Event-, group- and flash-level ids may be mixed.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3292,7 +3317,7 @@ schema fields.</p>
               <code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></code>
           –
           <div class="doc-md-description">
-            <p>Event-level lightning observations with columns matching
+            <p>Long-format lightning observations with columns matching
 the resolved schema.</p>
           </div>
         </li>
@@ -3329,7 +3354,7 @@ the resolved schema.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Async function to fetch GLM events.</p>
+        <p>Async function to fetch GLM detections.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3339,7 +3364,7 @@ the resolved schema.</p>
               (<code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a>] | <span title="earth2studio.utils.type.TimeArray">TimeArray</span></code>)
           –
           <div class="doc-md-description">
-            <p>Timestamps to return events for (UTC).</p>
+            <p>Timestamps to return detections for (UTC).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3370,7 +3395,7 @@ schema fields.</p>
               <code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></code>
           –
           <div class="doc-md-description">
-            <p>Event-level lightning observations.</p>
+            <p>Long-format lightning observations.</p>
           </div>
         </li>
     </ul>
