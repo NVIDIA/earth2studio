@@ -76,6 +76,15 @@ repos:
     - id: markdownlint
       exclude: ^(\.claude/.*|skills/.*\.md)$
 
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+    - id: codespell
+      # Hand-written documentation only; generated docs inherit spelling
+      # from source docstrings and example scripts.
+      files: ^(README\.md|mkdocs\.yml|docs/.*\.md)$
+      exclude: ^docs/(examples|modules/generated|scorecard/generated|_build)/
+
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.3.1  # Use the sha / tag you want to point at
     hooks:

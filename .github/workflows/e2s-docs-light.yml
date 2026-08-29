@@ -20,6 +20,20 @@ on:
   push:
     branches:
       - main
+    # Only rebuild the published docs when documentation content (including
+    # blog posts under docs/blog/), the docs toolchain, or this pipeline
+    # changes. API/docstring-only changes are picked up on the next docs
+    # change or via workflow_dispatch.
+    paths:
+      - "docs/**"
+      - "examples/**"
+      - "recipes/**"
+      - "mkdocs.yml"
+      - "Makefile"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/e2s-docs-light.yml"
+      - ".github/actions/build-light-docs/**"
   workflow_dispatch:
 
 permissions:
