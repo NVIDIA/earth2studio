@@ -2126,6 +2126,15 @@ def add_stats_arrays(
         :func:`finalize_stats` can reattach them as coordinate labels).
     """
     if region_names is not None:
+        existing = io.root.attrs.get("regions")
+        if existing is not None and list(existing) != list(region_names):
+            raise ValueError(
+                f"stats store already holds regions {list(existing)} but the "
+                f"current configuration defines {list(region_names)}. "
+                "Resuming would relabel previously accumulated statistics; "
+                "restore the original scoring.online.regions or clear the "
+                "run's output directory."
+            )
         io.root.attrs["regions"] = list(region_names)
     for coords, names in array_groups:
         shape = [len(io.coords[dim]) for dim in coords]
