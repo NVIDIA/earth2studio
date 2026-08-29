@@ -40,6 +40,7 @@ lint:
 	uv run pre-commit run end-of-file-fixer -a
 	uv run pre-commit run debug-statements -a
 	uv run pre-commit run markdownlint -a
+	uv run pre-commit run codespell -a
 	uv run pre-commit run name-tests-test -a
 	uv run pre-commit run pyupgrade -a --show-diff-on-failure
 	uv run pre-commit run ruff -a
@@ -93,7 +94,7 @@ docs-generate:
 docs:
 	uv sync --locked --group docs
 	$(MAKE) docs-generate
-	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical build --clean
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) mkdocs build --clean
 	rm -rf site/__pycache__ site/_build/html
 	find site -maxdepth 1 -type f -name "*.py" -delete
 
@@ -103,7 +104,7 @@ docs-full:
 	$(MAKE) docs-generate
 	$(MAKE) docs-build-examples
 	$(UV_DOCS) python docs/generate_gallery.py
-	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical build --clean
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) mkdocs build --clean
 	rm -rf site/__pycache__ site/_build/html
 	find site -maxdepth 1 -type f -name "*.py" -delete
 
@@ -120,14 +121,14 @@ docs-dev:
 		$(UV_DOCS) e2s-gallery build "$(FILENAME)" --execute stale --jobs $(DOCS_JOBS); \
 		$(UV_DOCS) python docs/generate_gallery.py; \
 	fi
-	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical serve -a 0.0.0.0:$(PORT)
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) mkdocs serve -a 0.0.0.0:$(PORT)
 
 DOC_VERSION ?= main
 .PHONY: docs-build-version
 docs-build-version:
 	uv sync --locked --group docs
 	$(MAKE) docs-generate
-	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical build --clean
+	DOC_VERSION=$(DOC_VERSION) E2S_GALLERY_EXECUTE=never $(UV_DOCS) mkdocs build --clean
 	rm -rf site/__pycache__ site/_build/html
 	find site -maxdepth 1 -type f -name "*.py" -delete
 
@@ -145,7 +146,7 @@ PORT ?= 8001
 docs-serve:
 	uv sync --locked --group docs
 	$(MAKE) docs-generate
-	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical serve -a 0.0.0.0:$(PORT)
+	E2S_GALLERY_EXECUTE=never $(UV_DOCS) mkdocs serve -a 0.0.0.0:$(PORT)
 
 .PHONY: container-service
 # Example DOCKER_REPO?=nvcr.io/dycvht5ows21

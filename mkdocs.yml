@@ -26,6 +26,7 @@ theme:
   - announce.dismiss
   - navigation.tabs
   - navigation.tabs.sticky
+  - navigation.expand
   - navigation.indexes
   - navigation.top
   - navigation.footer
@@ -69,7 +70,6 @@ extra:
     link: https://github.com/NVIDIA/earth2studio
     name: Earth2Studio on GitHub
 markdown_extensions:
-- mkdocs_badges.zensical
 - admonition
 - attr_list
 - md_in_html
@@ -560,14 +560,7 @@ nav:
   - examples/index.md
   - Recipes: recipes/index.md
 - Blog:
-  - Overview: blog/index.md
-  - Posts:
-    - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
-    - A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI: blog/posts/earth2_soil_health_prediction.md
-  - Archive: blog/archive.md
-  - Categories:
-    - Overview: blog/categories.md
-    - Documentation: blog/categories/documentation.md
+  - blog/index.md
 - Scorecards:
   - scorecard/generated/index.md
   - Prognostic models:
