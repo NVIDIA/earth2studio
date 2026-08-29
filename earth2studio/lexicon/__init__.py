@@ -41,7 +41,7 @@ from .ibtracs import IBTrACSLexicon
 from .iem import IEM_ASOSLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
-from .meteosat import MeteosatFCILexicon
+from .meteosat import MeteosatFCILexicon, MeteosatLILexicon
 from .metop import (
     MetOpAMSUALexicon,
     MetOpAVHRRLexicon,
