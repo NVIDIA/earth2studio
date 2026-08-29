@@ -21,6 +21,7 @@ earth2studio.data.IEM_ASOS
 earth2studio.data.ISD
 earth2studio.data.JPSS_ATMS
 earth2studio.data.JPSS_CRIS
+earth2studio.data.MeteosatLI
 earth2studio.data.MetOpAMSUA
 earth2studio.data.MetOpAVHRR
 earth2studio.data.MetOpIASI
