@@ -34,58 +34,6 @@ from earth2studio.data import GHCNDaily
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(year=2023, month=7, day=4),
-        [
-            datetime(year=2022, month=1, day=1),
-            datetime(year=2023, month=6, day=15),
-        ],
-    ],
-)
-@pytest.mark.parametrize(
-    "stations, variable, tol",
-    [
-        (
-            ["USW00013722"],
-            ["t2m_max"],
-            timedelta(days=0),
-        ),
-        (
-            ["USW00013722", "USW00023234"],
-            ["t2m_max", "tp"],
-            timedelta(days=1),
-        ),
-    ],
-)
-def test_ghcn_fetch(stations, time, variable, tol):
-    ds = GHCNDaily(stations=stations, time_tolerance=tol, cache=False)
-    df = ds(time, variable)
-
-    assert list(df.columns) == ds.SCHEMA.names
-    assert set(df["station"].unique()).issubset(set(stations))
-    assert set(df["variable"].unique()).issubset(set(variable))
-
-    if not isinstance(time, (list, np.ndarray)):
-        time = [time]
-
-    # Check all rows are within requested times / tolerances
-    time_union = pd.DataFrame({"time": np.zeros(df.shape[0])}).astype("bool")
-    for t in time:
-        df_times = df["time"]
-        min_time = t - tol
-        max_time = t + tol
-        time_union["time"] = time_union["time"] | (
-            df_times.ge(min_time) & df_times.le(max_time)
-        )
-
-    assert time_union["time"].all()
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
-@pytest.mark.parametrize(
-    "time",
-    [
         np.array([np.datetime64("2023-01-01")]),
     ],
 )

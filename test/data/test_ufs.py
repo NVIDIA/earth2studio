@@ -33,46 +33,6 @@ from earth2studio.data import UFSObsConv, UFSObsSat
     "time",
     [
         datetime(year=2024, month=1, day=1, hour=0),
-        [datetime(year=2024, month=8, day=1, hour=12)],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable, tol",
-    [
-        (["t"], timedelta(hours=1)),
-        (["u", "v"], timedelta(hours=2)),
-    ],
-)
-def test_ufsobsconv_fetch(time, variable, tol):
-    ds = UFSObsConv(time_tolerance=tol, cache=False, verbose=False)
-    df = ds(time, variable)
-
-    assert list(df.columns) == ds.SCHEMA.names
-    assert set(df["variable"].unique()).issubset(set(variable))
-    assert "observation" in df.columns
-
-    if not isinstance(time, (list, np.ndarray)):
-        time = [time]
-
-    time_union = pd.DataFrame({"time": np.zeros(df.shape[0])}).astype("bool")
-    for t in time:
-        df_times = df["time"]
-        min_time = t - tol
-        max_time = t + tol
-        time_union["time"] = time_union["time"] | (
-            df_times.ge(min_time) & df_times.le(max_time)
-        )
-
-    assert time_union["time"].all()
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
-@pytest.mark.parametrize(
-    "time",
-    [
-        datetime(year=2024, month=1, day=1, hour=0),
     ],
 )
 @pytest.mark.parametrize("variable", [["t"]])

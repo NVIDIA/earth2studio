@@ -37,6 +37,7 @@ IO loop during individual test teardown because:
 from __future__ import annotations
 
 import logging
+import os
 import threading
 
 import pytest
@@ -65,9 +66,14 @@ def _force_exit_on_stuck_threads():
     2. Waits briefly for threads to exit
     3. If threads remain stuck, calls os._exit() to force process termination
     """
+    if os.environ.get("EARTH2STUDIO_LIVE_CONTRACTS") == "1":
+        # Live contracts are isolated by the outer shard runner. An in-process
+        # hard exit would bypass its timeout and orphan-cleanup diagnostics.
+        yield
+        return
+
     import concurrent.futures
     import gc
-    import os
     import warnings
 
     # Record threads that existed before the test session (main, etc.)
@@ -122,4 +128,8 @@ def _force_exit_on_stuck_threads():
         )
     ]
     if remaining:
-        os._exit(0)
+        names = ", ".join(thread.name for thread in remaining)
+        logger.error(
+            "Data test session has non-daemon threads after cleanup: {}", names
+        )
+        os._exit(1)

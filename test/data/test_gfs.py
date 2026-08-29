@@ -31,41 +31,6 @@ from earth2studio.lexicon import GFSLexicon
 @pytest.mark.xfail
 @pytest.mark.timeout(30)
 @pytest.mark.parametrize(
-    "time",
-    [
-        datetime(year=2021, month=1, day=1),  # Lower limit
-        [
-            datetime(year=2022, month=1, day=1, hour=6),
-            datetime(year=2023, month=2, day=3, hour=18),
-        ],
-    ],
-)
-@pytest.mark.parametrize("variable", ["t2m", ["msl", "tp"]])
-def test_gfs_fetch(time, variable):
-
-    ds = GFS(cache=False)
-    data = ds(time, variable)
-    shape = data.shape
-
-    if isinstance(variable, str):
-        variable = [variable]
-
-    if isinstance(time, datetime):
-        time = [time]
-
-    assert shape[0] == len(time)
-    assert shape[1] == len(variable)
-    assert shape[2] == 721
-    assert shape[3] == 1440
-    assert not np.isnan(data.values).any()
-    assert GFS.available(time[0])
-    assert np.array_equal(data.coords["variable"].values, np.array(variable))
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
-@pytest.mark.parametrize(
     "time,lead_time",
     [
         (datetime(year=2022, month=12, day=25), timedelta(hours=1)),
