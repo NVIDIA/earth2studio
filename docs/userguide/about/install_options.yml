@@ -285,6 +285,21 @@ categories:
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
+      - id: stormcast-europe
+        label: StormCast Europe
+        extra: stormcast-europe
+        summary: StormCast Europe (ERA5-forced COSMO-REA) autoregressive model dependencies.
+        api_refs:
+          - earth2studio.models.px.StormCastEurope
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
+        warnings:
+          - Depends on natten for Python versions before 3.14.
       - id: stormscope
         label: StormScope
         extra: stormscope

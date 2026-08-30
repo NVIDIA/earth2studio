@@ -49,6 +49,7 @@ from earth2studio.models.px.samudrace import SamudrACE
 from earth2studio.models.px.sfno import SFNO
 from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormcastconus import StormCastCONUS
+from earth2studio.models.px.stormcasteurope import StormCastEurope
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
