@@ -101,7 +101,7 @@ class RegionalMetric:
         Metric instances keyed by region name, in config order.
     """
 
-    def __init__(self, per_region: "OrderedDict[str, Any]") -> None:
+    def __init__(self, per_region: OrderedDict[str, Any]) -> None:
         self._per_region = per_region
         first = next(iter(per_region.values()))
         self.reduction_dimensions = first.reduction_dimensions

@@ -130,7 +130,7 @@ def parse_regions(value: Any) -> dict[str, list[dict] | None] | None:
 def region_masks(
     spatial_coords: CoordSystem,
     regions: dict[str, list[dict] | None],
-) -> "OrderedDict[str, torch.Tensor]":
+) -> OrderedDict[str, torch.Tensor]:
     """Compute each region's {0, 1} mask on the scored grid.
 
     Parameters
@@ -190,7 +190,7 @@ def region_masks(
             mask = mask * axis_mask.double().reshape(view)
         return mask
 
-    out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+    out: OrderedDict[str, torch.Tensor] = OrderedDict()
     for name, spec in regions.items():
         if spec is None:
             mask = torch.ones(full_shape, dtype=torch.float64)

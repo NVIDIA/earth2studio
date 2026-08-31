@@ -655,9 +655,7 @@ class TestRegionalMetrics:
         )
 
     def test_region_axis_and_values(self, spatial_coords):
-        cfg = self._cfg(
-            ["lat", "lon"], {"global": None, "north": {"lat": [0, 90]}}
-        )
+        cfg = self._cfg(["lat", "lon"], {"global": None, "north": {"lat": [0, 90]}})
         metrics = instantiate_metrics(cfg, spatial_coords)
         metric = metrics["rmse"]
 
@@ -666,9 +664,7 @@ class TestRegionalMetrics:
         torch.manual_seed(7)
         x = torch.randn(2, len(lat), len(lon))
         y = torch.randn(2, len(lat), len(lon))
-        coords = OrderedDict(
-            {"variable": np.array(["a", "b"]), "lat": lat, "lon": lon}
-        )
+        coords = OrderedDict({"variable": np.array(["a", "b"]), "lat": lat, "lon": lon})
 
         value, out = metric(x, coords, y, coords.copy())
         assert list(out)[0] == "region"
@@ -680,9 +676,7 @@ class TestRegionalMetrics:
         expected_global = torch.sqrt(((x - y) ** 2).mean(dim=(-2, -1)))
         assert torch.allclose(value[0], expected_global, rtol=1e-5, atol=1e-6)
         rows = torch.from_numpy(lat >= 0)
-        expected_north = torch.sqrt(
-            ((x[:, rows] - y[:, rows]) ** 2).mean(dim=(-2, -1))
-        )
+        expected_north = torch.sqrt(((x[:, rows] - y[:, rows]) ** 2).mean(dim=(-2, -1)))
         assert torch.allclose(value[1], expected_north, rtol=1e-5, atol=1e-6)
 
     def test_partial_spatial_reduction_stays_global(self, spatial_coords):
