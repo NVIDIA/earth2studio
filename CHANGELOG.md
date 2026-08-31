@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source (`MeteosatLI`), providing per-flash, per-group and per-event
   detections from the LFL, LGR and LEF collections as a data frame
 - Added group- and flash-level variables to the `GOESGLM` data source
+- Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
+  ONNX sessions at construction instead of on first use in a rollout
+- Added regional splits to evaluation recipe scoring, in both the online
+  and store-then-score pathways: `scoring.regions` takes named coordinate
+  boxes and adds a labeled `region` axis to the score stores. New
+  optional per-member online metrics include MAE (`scoring.online.mae`)
+  and log spectral distance (`scoring.online.lsd`)
 
 ### Changed
 
@@ -24,16 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `lightning_flash_footprint_pixels`. `GOESGLM` variable ids `flashe` and
   `flashc` are renamed to `lightning_event_energy` and `lightning_event_count`
   respectively.
-- Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
-  ONNX sessions at construction instead of on first use in a rollout
-- Added regional splits to evaluation recipe online scoring:
-  `scoring.online.regions` takes named lat/lon boxes and adds a labeled
-  `region` axis to `stats.zarr`/`scores.zarr`. New optional per-member
-  metrics include MAE (`scoring.online.mae`) and log spectral distance
-  (`scoring.online.lsd`)
-
-### Changed
-
 - Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
   on the model, instead of reconstructing them on every rollout call
 
