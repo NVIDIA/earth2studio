@@ -49,6 +49,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/data/test_goes_glm.py": ["netCDF4"],
     "test/data/test_ncep_conventional.py": ["pybufrkit"],
     "test/data/test_nnja.py": ["pybufrkit"],
+    "test/data/test_nnja_ai.py": ["nnja-ai"],
     "test/data/test_ecmwf.py": ["data"],
     "test/data/test_cds.py": ["data"],
     "test/data/test_cams.py": ["data"],

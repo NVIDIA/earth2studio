@@ -70,6 +70,7 @@ from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .nclimgrid import NClimGridDaily
 from .nnja import NNJAObsConv, NNJAObsSat
+from .nnja_ai import NNJAAIObsConv, NNJAAIObsSat
 from .opera import OPERA
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,

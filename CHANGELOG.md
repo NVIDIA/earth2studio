@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes and adds a labeled `region` axis to the score stores. New
   optional per-member online metrics include MAE (`scoring.online.mae`)
   and log spectral distance (`scoring.online.lsd`)
+- Added `NNJAAIObsSat` and `NNJAAIObsConv` data sources, which read the NNJA
+  archive through the `nnja-ai` package's pre-decoded Parquet catalog
+  instead of fetching and decoding raw BUFR files. `NNJAAIObsSat` covers the
+  AMSU-A/ATMS/MHS microwave sensors HealDA uses; `NNJAAIObsConv` covers
+  `t`/`u`/`v`/`q`/`pres` from the catalog's raw ADPUPA/ADPSFC dump streams
+  (GPS-RO is not yet published in the catalog). Both produce DataFrames with
+  the same schema as `UFSObsSat`/`UFSObsConv`, so they are drop-in
+  observation sources for `HealDA`
 
 ### Changed
 
