@@ -225,19 +225,18 @@ def instantiate_metrics(
         # reduce over every spatial dimension (a partial spatial reduction
         # would leave masked-out gridpoints in the output) and take a
         # weights argument to fold the mask into.
-        regional = (
-            masks is not None
-            and set(grid_dims) <= set(red_dims)
+        maskable = (
+            set(grid_dims) <= set(red_dims)
             and "weights" in inspect.signature(cls.__init__).parameters
         )
-        if masks is not None and not regional:
+        if masks is not None and not maskable:
             logger.warning(
                 f"Metric '{name}' cannot be region-masked (needs a 'weights' "
                 "argument and a full spatial reduction) — scored on the "
                 "whole grid only."
             )
 
-        if regional:
+        if masks is not None and maskable:
             base = cfg_dict.pop("weights", None)
             if base is None:
                 base = torch.ones(
