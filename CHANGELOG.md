@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added regional splits to evaluation recipe scoring, in both the online
   and store-then-score pathways: `scoring.regions` takes named coordinate
   boxes and adds a labeled `region` axis to the score stores.
-- New eval recipt optional per-member online metrics include MAE
+- New eval recipe optional per-member online metrics include MAE
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 
 ### Changed
