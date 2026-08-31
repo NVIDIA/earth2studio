@@ -50,6 +50,25 @@ except ImportError:
     DataCatalog = None  # type: ignore[assignment,misc]
 
 
+def _manifest_slice_start(tmin: datetime) -> datetime:
+    """Floor a window start to midnight for nnja-ai manifest selection.
+
+    The nnja-ai manifest indexes one row per UTC calendar day (``OBS_DATE``
+    at midnight), and ``NNJADataset.sel(time=slice(...))`` does a plain
+    ``DataFrame.loc`` slice against that index. Passing the true, sub-day
+    ``tmin`` therefore silently drops the entire day-partition file
+    containing it whenever ``tmin`` isn't exactly midnight (e.g. a window
+    that starts at 23:30 the day before the requested time) -- that
+    partition's index key is the *previous* midnight, which sorts before
+    ``tmin`` and is excluded from the slice, even though the file's actual
+    observations span the whole day and cover the requested window. Flooring
+    to midnight selects the right partition file(s); the row-level time
+    filter after loading still restricts to the exact ``[tmin, tmax]``
+    window.
+    """
+    return tmin.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 # ---------------------------------------------------------------------------
 # Satellite (microwave) sensor catalog wiring
 # ---------------------------------------------------------------------------
@@ -217,7 +236,7 @@ class NNJAAIObsSat:
         """Fetch and reshape one sensor's aggregate observations to long format."""
         info = _SAT_DATASETS[sensor]
         ds = self.catalog[info["dataset"]]  # type: ignore[index]
-        sub = ds.sel(time=slice(tmin, tmax))
+        sub = ds.sel(time=slice(_manifest_slice_start(tmin), tmax))
 
         tmbr_prefix = info["tmbr_prefix"]
         elev_field = info["elev_field"]
@@ -524,7 +543,7 @@ class NNJAAIObsConv:
     ) -> pd.DataFrame:
         """Fetch and pivot the ADPUPA rawinsonde profile stream to long format."""
         ds = self.catalog[_ADPUPA_DATASET]
-        sub = ds.sel(time=slice(tmin, tmax))
+        sub = ds.sel(time=slice(_manifest_slice_start(tmin), tmax))
         levels: list[int] = sub.dimensions["pressure"]["values"]
 
         need_wind = "u" in variables or "v" in variables
@@ -662,7 +681,7 @@ class NNJAAIObsConv:
     def _fetch_adpsfc(self, tmin: datetime, tmax: datetime) -> pd.DataFrame:
         """Fetch surface station pressure from the ADPSFC dump stream."""
         ds = self.catalog[_ADPSFC_DATASET]
-        sub = ds.sel(time=slice(tmin, tmax))
+        sub = ds.sel(time=slice(_manifest_slice_start(tmin), tmax))
         cols = ["OBS_TIMESTAMP", "LAT", "LON", "SELV", "WMOB", "WMOS", "PRSSQ1.PRES"]
         wide = sub[cols].load_dataset(backend="pandas")
         if wide.empty:

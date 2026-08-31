@@ -24,8 +24,23 @@ pytest.importorskip("nnja_ai", reason="nnja-ai not installed")
 
 from earth2studio.data import NNJAAIObsConv, NNJAAIObsSat  # noqa: E402
 from earth2studio.data.nnja_ai import (  # noqa: E402
+    _manifest_slice_start,
     _specific_humidity_from_dewpoint,
 )
+
+
+def test_nnja_ai_manifest_slice_start_floors_to_midnight():
+    # Regression test: the nnja-ai manifest indexes one row per UTC calendar
+    # day at midnight, and NNJADataset.sel(time=slice(...)) does a plain
+    # DataFrame.loc slice against that index. A window that starts late in
+    # the previous day (e.g. a symmetric time_tolerance around a 00:00
+    # analysis time) must select that previous day's partition file too, or
+    # the fetch silently drops everything before midnight.
+    tmin = datetime(2023, 12, 31, 23, 30)
+    assert _manifest_slice_start(tmin) == datetime(2023, 12, 31, 0, 0)
+
+    tmin_midnight = datetime(2024, 1, 1, 0, 0)
+    assert _manifest_slice_start(tmin_midnight) == tmin_midnight
 
 
 def test_nnja_ai_obs_sat_validate_satellites():
