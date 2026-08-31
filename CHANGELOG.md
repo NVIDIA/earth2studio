@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source (`MeteosatLI`), providing per-flash, per-group and per-event
   detections from the LFL, LGR and LEF collections as a data frame
 - Added group- and flash-level variables to the `GOESGLM` data source
+- Added `swvl2` to the Earthmover ERA5 lexicon / `EarthMoverERA5` variables,
+  matching the variable now published in the Marketplace dataset
 
 ### Changed
 
