@@ -40,7 +40,7 @@ In this example you will learn:
 # /// script
 # dependencies = [
 #   "torch==2.13.0", # Match torch-harmonics examples
-#   "earth2studio[sfno,cosmo] @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0",
+#   "earth2studio[sfno,cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
 # ///

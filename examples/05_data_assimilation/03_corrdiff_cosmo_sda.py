@@ -54,7 +54,7 @@ In this example you will learn:
 
 # /// script
 # dependencies = [
-#   "earth2studio[data,da-cosmo] @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0",
+#   "earth2studio[data,da-cosmo] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   # PhysicsNeMo's RoPE/NATTEN backend is not on PyPI yet; pin the Git source
 #   # explicitly -- the repo's [tool.uv.sources] pin does not reach a PEP 723 script.
 #   "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260",

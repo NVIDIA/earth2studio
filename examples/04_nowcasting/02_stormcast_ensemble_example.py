@@ -33,7 +33,7 @@ see
 # dependencies = [
 #   "torch==2.13.0", # Match NATTEN wheel
 #   "natten==0.21.7+torch2130cu132",
-#   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0",
+#   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
 #
