@@ -135,10 +135,17 @@ def _base_cfg(tmp_path, ensemble_size: int = 1, mode: str = "online"):
 
 
 def _settings(tmp_path, **overrides):
-    """Parse online settings from the base cfg with ``scoring.online`` tweaks."""
+    """Parse online settings from the base cfg with ``scoring.online`` tweaks.
+
+    ``regions`` is the exception: it lives at ``scoring.regions`` (shared
+    with the offline pathway), not under ``scoring.online``.
+    """
     cfg = _base_cfg(tmp_path)
     for key, value in overrides.items():
-        cfg.scoring.online[key] = value
+        if key == "regions":
+            cfg.scoring[key] = value
+        else:
+            cfg.scoring.online[key] = value
     return parse_online_settings(cfg)
 
 
@@ -1515,10 +1522,13 @@ class TestRegionalWeights:
         settings = _settings(tmp_path, regions=REGIONS)
         assert list(settings.regions) == ["global", "midlat", "wrap"]
         assert settings.regions["global"] is None
-        with pytest.raises(ValueError, match="exactly 'lat' and 'lon'"):
-            _settings(tmp_path, regions={"bad": {"lat": [0, 10]}})
+        # A box may name any subset of spatial dims; the rest span fully.
+        partial = _settings(tmp_path, regions={"band": {"lat": [0, 10]}})
+        assert partial.regions["band"] == [{"lat": [0.0, 10.0]}]
         with pytest.raises(ValueError, match="lat bounds"):
             _settings(tmp_path, regions={"bad": {"lat": [50, 10], "lon": [0, 10]}})
+        with pytest.raises(ValueError, match="min < max"):
+            _settings(tmp_path, regions={"bad": {"level": [500, 200]}})
 
     def test_lsd_requires_a_whole_grid_region(self, tmp_path):
         with pytest.raises(ValueError, match="whole-grid region"):
@@ -1756,7 +1766,7 @@ class TestEndToEndRegional:
         from src.data import PredownloadedSource
 
         cfg = _base_cfg(tmp_path, ensemble_size=1)
-        cfg.scoring.online.regions = OmegaConf.create(
+        cfg.scoring.regions = OmegaConf.create(
             {k: v for k, v in REGIONS.items()}
         )
         cfg.scoring.online.mae = True

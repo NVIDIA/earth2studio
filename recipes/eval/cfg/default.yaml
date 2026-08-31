@@ -279,19 +279,23 @@ scoring:
         # point CONUS-scale run from ~1.5GB to well under 250MB, at some
         # throughput cost).
         pairwise_member_tile: 8
-        # Named regional splits: a mapping of region name to a lat/lon box
-        # (or a list of boxes, scored as their union). Adds a labeled
-        # "region" axis to stats.zarr/scores.zarr. A null box means the
-        # whole grid; longitudes may be negative (degrees west) and wrap
-        # the dateline where min > max.
-        #
-        # regions:
-        #     global: null
-        #     europe: {lat: [35, 75], lon: [-12.5, 42.5]}
-        #     extra_tropics:
-        #         - {lat: [20, 90], lon: [0, 360]}
-        #         - {lat: [-90, -20], lon: [0, 360]}
-        regions: null
+    # Named regional splits, used by BOTH scoring pathways (online and
+    # store-then-score): a mapping of region name to a box (or a list of
+    # boxes, scored as their union). A box maps spatial dimension names to
+    # [min, max] coordinate ranges — lat/lon degrees on a global grid, or
+    # the native grid coordinates of a limited-area model. Dimensions left
+    # out of a box cover their full extent; a null region means the whole
+    # grid. Longitudes may be negative (degrees west) and wrap the
+    # dateline where min > max. Adds a labeled "region" axis to the score
+    # stores.
+    #
+    # regions:
+    #     global: null
+    #     europe: {lat: [35, 75], lon: [-12.5, 42.5]}
+    #     extra_tropics:
+    #         - {lat: [20, 90]}
+    #         - {lat: [-90, -20]}
+    regions: null
     output:
         store_name: scores.zarr
         overwrite: true

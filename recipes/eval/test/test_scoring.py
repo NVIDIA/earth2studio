@@ -635,6 +635,63 @@ class TestInstantiateMetrics:
         assert metrics["rmse"].weights is None
 
 
+class TestRegionalMetrics:
+    """scoring.regions in the store-then-score pathway."""
+
+    def _cfg(self, reduction, regions):
+        return OmegaConf.create(
+            {
+                "scoring": {
+                    "lat_weights": False,
+                    "regions": regions,
+                    "metrics": {
+                        "rmse": {
+                            "_target_": "earth2studio.statistics.rmse",
+                            "reduction_dimensions": reduction,
+                        }
+                    },
+                }
+            }
+        )
+
+    def test_region_axis_and_values(self, spatial_coords):
+        cfg = self._cfg(
+            ["lat", "lon"], {"global": None, "north": {"lat": [0, 90]}}
+        )
+        metrics = instantiate_metrics(cfg, spatial_coords)
+        metric = metrics["rmse"]
+
+        lat = np.asarray(spatial_coords["lat"])
+        lon = np.asarray(spatial_coords["lon"])
+        torch.manual_seed(7)
+        x = torch.randn(2, len(lat), len(lon))
+        y = torch.randn(2, len(lat), len(lon))
+        coords = OrderedDict(
+            {"variable": np.array(["a", "b"]), "lat": lat, "lon": lon}
+        )
+
+        value, out = metric(x, coords, y, coords.copy())
+        assert list(out)[0] == "region"
+        assert list(out["region"]) == ["global", "north"]
+
+        # The global region is a plain unweighted RMSE; the boxed region
+        # equals the same RMSE restricted to its rows (uniform weights, so
+        # the masked weighted mean is the sub-grid mean).
+        expected_global = torch.sqrt(((x - y) ** 2).mean(dim=(-2, -1)))
+        assert torch.allclose(value[0], expected_global, rtol=1e-5, atol=1e-6)
+        rows = torch.from_numpy(lat >= 0)
+        expected_north = torch.sqrt(
+            ((x[:, rows] - y[:, rows]) ** 2).mean(dim=(-2, -1))
+        )
+        assert torch.allclose(value[1], expected_north, rtol=1e-5, atol=1e-6)
+
+    def test_partial_spatial_reduction_stays_global(self, spatial_coords):
+        cfg = self._cfg(["lat"], {"global": None, "north": {"lat": [0, 90]}})
+        metrics = instantiate_metrics(cfg, spatial_coords)
+        # Not wrapped: reducing only lat cannot carry a lat/lon mask.
+        assert not hasattr(metrics["rmse"], "_per_region")
+
+
 # ---------------------------------------------------------------------------
 # Scoring progress tracking (work.py)
 # ---------------------------------------------------------------------------

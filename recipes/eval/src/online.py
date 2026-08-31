@@ -46,9 +46,10 @@ properties follow:
   remain possible after the fact without re-running inference. Spatial
   weighting (e.g. cosine-latitude weighting) is baked into the sums at
   run time, so choose the set of spatial regions up front:
-  ``scoring.online.regions`` adds a ``region`` axis to every sum
-  (lat/lon boxes on the scored grid, masked into the weights), and
-  evaluating a region outside that set requires re-running inference.
+  ``scoring.regions`` adds a ``region`` axis to every sum (boxes on the
+  scored grid, masked into the weights), and evaluating a region outside
+  that set requires re-running inference (or offline scoring against a
+  retained forecast store).
 * Scope limited to a fixed set of metrics amenable to the above patterns.
   Users with custom metrics must still run offline.
 
@@ -88,11 +89,15 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import DataSource
-from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem
 
 from .distributed import run_on_rank0_first
 from .output import OutputManager
+from .regions import (
+    NON_SPATIAL,
+    build_spatial_weights,
+    parse_regions,
+)
 from .scoring import _apply_valid_ranges
 from .work import (
     EnsembleGroup,
@@ -103,7 +108,7 @@ from .work import (
 )
 
 # Dimensions that never take part in the spatial reduction.
-_NON_SPATIAL = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
+_NON_SPATIAL = NON_SPATIAL  # shared spatial-dim filter (src.regions)
 
 # Group products materialized once per lead step, in this fixed order, for
 # the union of every configured statistic's `requires()`.  Ordering matters:
@@ -381,7 +386,8 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
             f"{pairwise_member_tile}."
         )
 
-    regions = _parse_regions(block.get("regions", None))
+    # Regions live at scoring.regions — shared with the offline pathway.
+    regions = parse_regions(cfg.scoring.get("regions", None))
     lsd_cfg = block.get("lsd", False)
     lsd_cutoff = None
     if isinstance(lsd_cfg, (dict, DictConfig)):
@@ -405,8 +411,8 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
         raise ValueError(
             "scoring.online.lsd needs a whole-grid region (an entry with a "
             "null box) to land its values in — spectra cannot be computed "
-            "on a lat/lon sub-box.  Add e.g. 'global: null' to "
-            "scoring.online.regions."
+            "on a spatial sub-box.  Add e.g. 'global: null' to "
+            "scoring.regions."
         )
 
     group_size = block.get("ensemble_group_size", None)
@@ -435,60 +441,6 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
         lsd=lsd,
         lsd_wavenumber_cutoff=lsd_cutoff,
     )
-
-
-def _parse_regions(value: Any) -> dict[str, list[dict] | None] | None:
-    """Check and normalize the ``scoring.online.regions`` block.
-
-    Each region is ``null`` (whole grid), one ``{lat, lon}`` box, or a
-    LIST of boxes whose union defines the region (e.g. the extra-tropics
-    as both ``|lat| >= 20`` bands).  The parser turns single boxes into
-    one-element lists so the weight builder handles one shape.
-    """
-    if value is None:
-        return None
-    if isinstance(value, DictConfig):
-        value = OmegaConf.to_container(value, resolve=True)
-    if not isinstance(value, dict) or not value:
-        raise ValueError(
-            "scoring.online.regions must be a non-empty mapping of "
-            "name -> null | {lat: [min, max], lon: [min, max]} | list of "
-            "such boxes (their union)."
-        )
-
-    def _one_box(name: str, spec: Any) -> dict:
-        if not isinstance(spec, dict) or set(spec) != {"lat", "lon"}:
-            raise ValueError(
-                f"Region '{name}' boxes need exactly 'lat' and 'lon' keys; "
-                f"got {spec!r}."
-            )
-        box: dict[str, list[float]] = {}
-        for key in ("lat", "lon"):
-            bounds = [float(b) for b in spec[key]]
-            if len(bounds) != 2:
-                raise ValueError(
-                    f"Region '{name}': '{key}' must be [min, max]; got {spec[key]!r}."
-                )
-            box[key] = bounds
-        lat_lo, lat_hi = box["lat"]
-        if not (-90.0 <= lat_lo < lat_hi <= 90.0):
-            raise ValueError(
-                f"Region '{name}': lat bounds must satisfy "
-                f"-90 <= min < max <= 90; got {box['lat']}."
-            )
-        return box
-
-    out: dict[str, list[dict] | None] = {}
-    for name, spec in value.items():
-        if spec is None:
-            out[str(name)] = None
-        elif isinstance(spec, list):
-            if not spec:
-                raise ValueError(f"Region '{name}': box list must be non-empty.")
-            out[str(name)] = [_one_box(str(name), b) for b in spec]
-        else:
-            out[str(name)] = [_one_box(str(name), spec)]
-    return out
 
 
 def _int_or(value: Any, default: int) -> int:
@@ -2132,7 +2084,7 @@ def add_stats_arrays(
                 f"stats store already holds regions {list(existing)} but the "
                 f"current configuration defines {list(region_names)}. "
                 "Resuming would relabel previously accumulated statistics; "
-                "restore the original scoring.online.regions or clear the "
+                "restore the original scoring.regions or clear the "
                 "run's output directory."
             )
         io.root.attrs["regions"] = list(region_names)
@@ -2685,107 +2637,6 @@ class OnlineScorer:
             self._stats_mgr.write(data, write_coords)
 
 
-def build_spatial_weights(
-    spatial_coords: CoordSystem,
-    lat_weights: bool,
-    regions: dict[str, list[dict] | None] | None = None,
-) -> torch.Tensor:
-    """Build the spatial weight tensor for online reductions.
-
-    Mirrors the offline scorer's weighting: cosine-latitude weights when
-    ``scoring.lat_weights`` is set and the grid has a ``lat`` dimension,
-    uniform weights otherwise.  Region-free, the returned tensor has one
-    axis per spatial dimension so it broadcasts against
-    ``[..., <spatial...>]`` tensors.  With ``regions`` configured the
-    tensor becomes ``[region, <spatial...>]``: the same weights multiplied
-    by each region's {0, 1} mask, evaluated on the actual scored grid so
-    box edges land exactly on gridpoints.
-
-    Parameters
-    ----------
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays of the scored grid.
-    lat_weights : bool
-        Whether to apply cosine-latitude weighting.
-    regions : dict[str, list[dict] | None] | None
-        Parsed ``scoring.online.regions`` (see :func:`_parse_regions`).
-
-    Returns
-    -------
-    torch.Tensor
-        Float64 weights (broadcastable, or full-shaped per region).
-    """
-    dims = [d for d in spatial_coords if d not in _NON_SPATIAL]
-    shape = [1] * len(dims)
-
-    if lat_weights and "lat" in dims:
-        lat_vals = np.asarray(spatial_coords["lat"])
-        w = lat_weight(torch.tensor(lat_vals, dtype=torch.float64))
-        shape[dims.index("lat")] = len(lat_vals)
-        base = w.reshape(shape)
-    else:
-        base = torch.ones(shape, dtype=torch.float64)
-
-    if regions is None:
-        return base
-
-    if "lat" not in dims or "lon" not in dims:
-        raise ValueError(
-            "scoring.online.regions needs 'lat' and 'lon' spatial "
-            f"dimensions on the scored grid; got {dims}."
-        )
-    full_shape = [len(np.asarray(spatial_coords[d])) for d in dims]
-    lat = torch.tensor(np.asarray(spatial_coords["lat"]), dtype=torch.float64)
-    lon = torch.tensor(np.asarray(spatial_coords["lon"]), dtype=torch.float64)
-
-    def _box_mask(spec: dict) -> torch.Tensor:
-        lat_lo, lat_hi = spec["lat"]
-        lat_mask = (lat >= lat_lo) & (lat <= lat_hi)
-        # Longitudes compare on [0, 360); a box whose normalized min
-        # exceeds its max wraps across the dateline/meridian, and a
-        # span of >= 360 degrees means every longitude (a [0, 360]
-        # bound must not normalize into an empty span).
-        lon_n = lon % 360.0
-        if spec["lon"][1] - spec["lon"][0] >= 360.0:
-            lon_mask = torch.ones_like(lon_n, dtype=torch.bool)
-        else:
-            lon_lo, lon_hi = (b % 360.0 for b in spec["lon"])
-            if lon_lo <= lon_hi:
-                lon_mask = (lon_n >= lon_lo) & (lon_n <= lon_hi)
-            else:
-                lon_mask = (lon_n >= lon_lo) | (lon_n <= lon_hi)
-        mask = torch.ones(full_shape, dtype=torch.float64)
-        for axis, axis_mask in (
-            (dims.index("lat"), lat_mask),
-            (dims.index("lon"), lon_mask),
-        ):
-            view = [1] * len(dims)
-            view[axis] = -1
-            mask = mask * axis_mask.double().reshape(view)
-        return mask
-
-    stacked = []
-    for name, spec in regions.items():
-        if spec is None:
-            mask = torch.ones(full_shape, dtype=torch.float64)
-        else:
-            # A region is the union of its boxes (e.g. the extra-tropics
-            # as both |lat| >= 20 bands).  _parse_regions normalizes single
-            # boxes to one-element lists; accept a bare box here too so
-            # direct callers keep working.
-            boxes = spec if isinstance(spec, (list, tuple)) else [spec]
-            mask = torch.zeros(full_shape, dtype=torch.float64)
-            for box in boxes:
-                mask = torch.maximum(mask, _box_mask(box))
-        if spec is not None and not mask.any():
-            raise ValueError(
-                f"Region '{name}' selects no gridpoints on the scored "
-                "grid — check its lat/lon boxes."
-            )
-        stacked.append(base.expand(full_shape) * mask)
-    return torch.stack(stacked, dim=0)
-
-
 # ---------------------------------------------------------------------------
 # Finalize: stats.zarr -> scores.zarr
 # ---------------------------------------------------------------------------
@@ -2917,7 +2768,7 @@ def finalize_stats(cfg: DictConfig) -> str:
                                 (``scoring.online.lsd``)
     ==========================  =========================================
 
-    With ``scoring.online.regions`` configured every array carries a
+    With ``scoring.regions`` configured every array carries a
     ``region`` axis, labeled with the configured region names.
 
     Spread and SSR are not written: the report derives them from
