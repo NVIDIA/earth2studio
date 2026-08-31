@@ -57,7 +57,7 @@ repos:
         exclude: ^\.claude/
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.3
+    rev: v0.16.5
     hooks:
     - id: ruff
       args: [--fix]
@@ -94,12 +94,12 @@ repos:
         additional_dependencies: ['types-requests']
 
 -   repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # v1.29.0
+    rev: v1.30.0  # v1.29.0
     hooks:
     -   id: zizmor
 
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.12.5
+    rev: 0.12.7
     hooks:
     -   id: uv-lock
