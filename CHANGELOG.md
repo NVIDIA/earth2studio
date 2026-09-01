@@ -11,11 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
+  source (`MeteosatLI`), providing per-flash, per-group and per-event
+  detections from the LFL, LGR and LEF collections as a data frame
+- Added group- and flash-level variables to the `GOESGLM` data source
+- Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
+  ONNX sessions at construction instead of on first use in a rollout
+- Added regional splits to evaluation recipe scoring, in both the online
+  and store-then-score pathways: `scoring.regions` takes named coordinate
+  boxes and adds a labeled `region` axis to the score stores.
+- New eval recipe optional per-member online metrics include MAE
+  (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
+
 ### Changed
 
 - Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
   `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
   emit a warning and will be removed in a future release.
+- Unified the lightning variable vocabulary across optical lightning imagers
+  (GOES GLM, MTG LI) onto `lightning_{event,group,flash}_{count,energy,
+  radiance}` names, plus `lightning_flash_duration` and
+  `lightning_flash_footprint_pixels`. `GOESGLM` variable ids `flashe` and
+  `flashc` are renamed to `lightning_event_energy` and `lightning_event_count`
+  respectively.
+- Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
+  on the model, instead of reconstructing them on every rollout call
 
 ### Deprecated
 
@@ -23,11 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Evaluation recipe: clearing resume markers no longer races between
+  ranks. Concurrent removal of the same progress directory retries until
+  the directory no longer exists
+
 ### Security
 
 ### Dependencies
 
-## [0.18.0] - 2026-08-xx
+## [0.18.0] - 2026-08-31
 
 ### Added
 

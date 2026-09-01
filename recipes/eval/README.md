@@ -39,6 +39,7 @@ Key features:
   - [Model selection](#model-selection)
   - [Ensemble runs](#ensemble-runs)
   - [Scoring](#scoring)
+  - [Regional scoring](#regional-scoring)
   - [Online scoring](#online-scoring)
   - [Report](#report)
 - [Architecture](#architecture)
@@ -675,6 +676,40 @@ protocol can be specified via `_target_`.
 per-(time, lead_time) RMSE values.  To compute aggregate RMSE across
 all IC times, use `sqrt(mean(rmse²))` in post-processing (equivalent
 to `sqrt(mean(MSE))`).  The report step handles this automatically.
+
+### Regional scoring
+
+`scoring.regions` scores every configured region alongside the full
+grid and adds a labeled `region` axis to the score stores. Both
+pathways read the same block: the offline path masks each metric's
+weights per region, and the online path folds the masks into its
+accumulation weights.
+
+```yaml
+scoring:
+    regions:
+        global: null                                   # the whole grid
+        europe: {lat: [35, 75], lon: [-12.5, 42.5]}    # one box
+        extra_tropics:                                 # union of boxes
+            - {lat: [20, 90]}
+            - {lat: [-90, -20]}
+```
+
+A region is `null` for the whole grid, one box, or a list of boxes
+scored as their union. A box maps spatial dimension names to
+`[min, max]` coordinate ranges, so limited-area grids work the same way
+with their own dimension names, for example HRRR `y`/`x` coordinates.
+Dimensions left out of a box cover their full extent. Longitudes may
+be negative, meaning degrees west, and wrap the dateline where min
+exceeds max.
+
+The offline path applies regions at `score.py` time against the retained
+`forecast.zarr`, so re-scoring with new regions or metrics needs no new
+inference. The online path bakes the masks into the accumulated sums,
+so choose regions before the run. The offline path can only
+region-mask a metric that reduces over all spatial dimensions and takes
+a `weights` argument. Any other metric, such as a spectral one, scores
+the whole grid only.
 
 ### Online scoring
 

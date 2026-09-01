@@ -61,6 +61,7 @@ from .jpss import JPSS
 from .jpss_atms import JPSS_ATMS
 from .jpss_cris import JPSS_CRIS
 from .meteosat_fci import MeteosatFCI
+from .meteosat_li import MeteosatLI
 from .metop_amsua import MetOpAMSUA
 from .metop_avhrr import MetOpAVHRR
 from .metop_iasi import MetOpIASI

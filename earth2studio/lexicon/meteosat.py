@@ -75,3 +75,66 @@ class MeteosatFCILexicon(metaclass=LexiconType):
         if val not in cls.VOCAB:
             raise KeyError(f"Variable {val} not found in Meteosat FCI lexicon")
         return cls.VOCAB[val]
+
+
+class MeteosatLILexicon(metaclass=LexiconType):
+    """Lexicon for MTG-I LI Level-2 pointed (per-detection) lightning products.
+
+    Maps Earth2Studio variable names to a ``{product}::{field}`` key, where
+    ``product`` selects the EUMETSAT Data Store collection to read from and
+    ``field`` is the native NetCDF variable name within it:
+
+    - ``LFL`` — Lightning Flashes, one record per detected flash
+    - ``LGR`` — Lightning Groups, one record per detected group
+    - ``LEF`` — Lightning Events Filtered, one record per detected event
+
+    Variable names follow the instrument-agnostic ``lightning_{level}_{quantity}``
+    convention shared with :py:class:`GOESGLMLexicon`, e.g.
+    ``lightning_flash_radiance`` is the optical radiance of a flash. The
+    ``count`` fields are synthetic: the data source fills them with 1.0 per
+    record so users can sum or histogram them to obtain flash/group/event
+    density during downstream regridding.
+
+    Radiance is reported in ``mW m-2 sr-1`` in all three products.
+
+    Note
+    ----
+    Variable documentation:
+
+    - https://user.eumetsat.int/resources/user-guides/mtg-li-level-2-data-guide
+    - https://data.eumetsat.int/product/EO:EUM:DAT:0691
+    """
+
+    VOCAB: dict[str, tuple[str, Callable[[Any], Any]]] = {
+        # Lightning Flashes (LFL)
+        "lightning_flash_radiance": ("LFL::radiance", lambda x: x),
+        "lightning_flash_count": ("LFL::_count", lambda x: x),
+        "lightning_flash_duration": ("LFL::flash_duration", lambda x: x),
+        "lightning_flash_footprint_pixels": ("LFL::flash_footprint", lambda x: x),
+        # Lightning Groups (LGR)
+        "lightning_group_radiance": ("LGR::radiance", lambda x: x),
+        "lightning_group_count": ("LGR::_count", lambda x: x),
+        # Lightning Events Filtered (LEF)
+        "lightning_event_radiance": ("LEF::radiance", lambda x: x),
+        "lightning_event_count": ("LEF::_count", lambda x: x),
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[Any], Any]]:
+        """Return the LI product/field key and modifier for a variable.
+
+        Parameters
+        ----------
+        val : str
+            Variable name (e.g. ``'lightning_flash_radiance'``)
+
+        Returns
+        -------
+        tuple[str, Callable]
+            ``(key, modifier)`` where ``key`` is ``'{product}::{field}'``
+            and ``modifier`` is the identity function; values are returned
+            in their native physical units.
+        """
+        if val not in cls.VOCAB:
+            raise KeyError(f"Variable {val} not found in Meteosat LI lexicon")
+        return cls.VOCAB[val]

@@ -39,6 +39,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
 )
+from earth2studio.data.utils_eumetsat import eumetsat_credentials
 from earth2studio.lexicon.meteosat import MeteosatFCILexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -49,10 +50,12 @@ from earth2studio.utils.type import TimeArray, VariableArray
 try:
     import eumdac
     import netCDF4
+    import urllib3
 except ImportError:
     OptionalDependencyFailure("data")
     eumdac = None  # type: ignore[assignment]
     netCDF4 = None  # type: ignore[assignment]
+    urllib3 = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -387,30 +390,9 @@ class MeteosatFCI:
         # Grid (lazily computed on first access)
         self._grid: tuple[np.ndarray, np.ndarray] | None = None
 
-        # Credentials from environment variables
-        self._consumer_key = os.environ.get("EUMETSAT_CONSUMER_KEY", "")
-        self._consumer_secret = os.environ.get("EUMETSAT_CONSUMER_SECRET", "")
-        # Attempt read from .eumdc/credentials file
-        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/config.py?ref_type=heads#L14
-        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/cli_helpers.py?ref_type=heads#L165
-        if not self._consumer_key or not self._consumer_secret:
-            eumdac_credentials_file = (
-                pathlib.Path(
-                    os.getenv("EUMDAC_CONFIG_DIR", (pathlib.Path.home() / ".eumdac"))
-                )
-                / "credentials"
-            )
-            try:
-                with open(eumdac_credentials_file) as f:
-                    credentials = f.read().strip()
-                key, secret = credentials.split(",", 1)
-                self._consumer_key = key.strip()
-                self._consumer_secret = secret.strip()
-            except (OSError, ValueError):
-                logger.warning(
-                    "EUMETSAT_CONSUMER_KEY and/or EUMETSAT_CONSUMER_SECRET not set. "
-                    "Data fetching will fail."
-                )
+        # Credentials from environment variables, falling back to the eumdac
+        # CLI credentials file
+        self._consumer_key, self._consumer_secret = eumetsat_credentials()
 
     def available_variables(self) -> set[str]:
         """Return variables available at the current resolution.
@@ -544,7 +526,13 @@ class MeteosatFCI:
                 collection,
                 retries=self._retries,
                 backoff=2.0,
-                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+                exceptions=(
+                    OSError,
+                    IOError,
+                    TimeoutError,
+                    ConnectionError,
+                    urllib3.exceptions.ProtocolError,
+                ),
             )
             for (t, collection) in downloads
         ]

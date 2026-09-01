@@ -16,8 +16,10 @@
 
 from __future__ import annotations
 
+import errno
 import shutil
 import struct
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
@@ -359,10 +361,10 @@ def _remove_progress_dir(directory: Path) -> None:
     entries disappear underneath it — ``shutil.rmtree`` then raises
     ``FileNotFoundError`` partway through and may leave the rest behind.
 
-    A missing entry is the desired end state, so retry until the directory
-    is actually gone.  This converges immediately in practice: nothing
-    writes markers while a clear is in flight (markers are only written
-    during the run, after the store-creation barriers).
+    A missing entry is the desired end state, so retry with a short
+    backoff until the directory no longer exists. The backoff gives the winning
+    peer time to finish its in-flight ``rmtree``, and since nothing
+    writes markers while a clear is running, waiting always converges.
 
     Parameters
     ----------
@@ -372,16 +374,20 @@ def _remove_progress_dir(directory: Path) -> None:
     Raises
     ------
     RuntimeError
-        If the directory survives several attempts, which would mean
-        something other than a peer rank is holding it.
+        If the directory survives a few seconds of attempts, which
+        would mean something other than a peer rank is holding it.
     """
-    for _ in range(5):
+    for _ in range(50):
         if not directory.exists():
             return
         try:
             shutil.rmtree(directory)
         except FileNotFoundError:
-            continue  # a peer got there first; re-check and retry the rest
+            pass  # a peer got there first; re-check and retry the rest
+        except OSError as exc:
+            if exc.errno not in (errno.ENOTEMPTY, errno.ENOENT):
+                raise
+        time.sleep(0.05)
     if not directory.exists():
         return
     raise RuntimeError(
