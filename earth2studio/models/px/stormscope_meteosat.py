@@ -165,7 +165,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:eu class:nwc product:sat
+    region:eu class:nowcasting product:sat year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     Model_FCI_BBox: tuple[tuple[int, int], tuple[int, int]] = (
