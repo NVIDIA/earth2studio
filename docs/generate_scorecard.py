@@ -127,6 +127,7 @@ def _sync_data_from_hub() -> None:
             (STATIC / Path(rel).name).write_bytes(r.read())
     print(f"fetched {len(paths)} score files from the assets dataset")
 
+
 # Self-contained single-model skill plot. Same palette and idioms as the
 # recipe's full scorecard so the docs and the recipe read as one system.
 PLOT_HTML = r"""<!doctype html>
