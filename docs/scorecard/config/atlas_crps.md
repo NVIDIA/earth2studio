@@ -30,5 +30,9 @@ grid.
 
 ## Reference
 
+Kossaifi, J., et al. (2026). Demystifying data-driven probabilistic
+medium-range weather forecasting.
+[arXiv:2601.18111](https://arxiv.org/abs/2601.18111).
+
 NVIDIA (2026). Atlas ERA5 model card.
 [huggingface.co/nvidia/atlas-era5](https://huggingface.co/nvidia/atlas-era5).

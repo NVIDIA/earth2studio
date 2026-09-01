@@ -122,8 +122,11 @@ function fillVars(){
   const vs=Object.keys(metricSet()[mSel.value].values);
   vs.sort((a,b)=>D.variables.indexOf(a)-D.variables.indexOf(b));
   const surface=[];VBASES={};
+  // A var is a pressure-level entry only when the export groups it off
+  // Surface — the name shape alone misfiles e.g. tp06 as "tp at 6 hPa".
   vs.forEach(v=>{const m=v.match(/^([a-z]+)(\d+)$/);
-    if(m)(VBASES[m[1]]=VBASES[m[1]]||[]).push(+m[2]);
+    if(m&&((D.variable_groups||{})[v]||"Surface")!=="Surface")
+      (VBASES[m[1]]=VBASES[m[1]]||[]).push(+m[2]);
     else surface.push(v);});
   Object.values(VBASES).forEach(a=>a.sort((x,y)=>x-y));
   const prev=vSel.value; vSel.innerHTML="";

@@ -112,8 +112,15 @@ _GROUPS = {
     "u": "U wind",
     "v": "V wind",
     "q": "Specific humidity",
+    "w": "Vertical velocity",
 }
-_UNITS_EXACT = {"msl": "Pa", "sp": "Pa", "tcwv": "kg m⁻²"}
+_UNITS_EXACT = {
+    "msl": "Pa",
+    "sp": "Pa",
+    "tcwv": "kg m⁻²",
+    "sst": "K",
+    "tp06": "m",
+}
 
 
 def group_of(var: str) -> str:
@@ -130,6 +137,7 @@ def unit_for(var: str) -> str:
         return _UNITS_EXACT[var]
     for prefix, unit in (
         ("z", "m² s⁻²"),
+        ("w", "Pa s⁻¹"),
         ("u", "m s⁻¹"),
         ("v", "m s⁻¹"),
         ("q", "kg kg⁻¹"),
@@ -142,7 +150,7 @@ def unit_for(var: str) -> str:
 
 def sort_key(v: str) -> tuple:
     """Surface first, then each group by ascending pressure level."""
-    order = {"z": 2, "t": 3, "u": 4, "v": 5, "q": 6}
+    order = {"z": 2, "t": 3, "u": 4, "v": 5, "q": 6, "w": 7}
     m = re.fullmatch(r"([a-z]+)(\d+)", v)
     if m and m.group(1) in order and v not in ("u10m", "v10m"):
         return (order[m.group(1)], int(m.group(2)), v)
