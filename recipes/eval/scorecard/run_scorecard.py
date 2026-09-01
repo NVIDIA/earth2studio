@@ -155,8 +155,7 @@ def main() -> int:
     cfg = yaml.safe_load(cfg_path.read_text())
     # Hydra spellings like +key=value / ~key=value normalize to plain keys.
     ov = {
-        k.lstrip("+~"): v
-        for k, v in (o.split("=", 1) for o in overrides if "=" in o)
+        k.lstrip("+~"): v for k, v in (o.split("=", 1) for o in overrides if "=" in o)
     }
     project = ov.get("project", cfg["project"])
     run_id = ov.get("run_id", cfg["run_id"])
