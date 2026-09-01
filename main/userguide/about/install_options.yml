@@ -13,7 +13,7 @@ defaults:
 package:
   name: earth2studio
   github: https://github.com/NVIDIA/earth2studio.git
-  release_ref: 0.17.0
+  release_ref: 0.18.0
   main_ref: main
 
 managers:
