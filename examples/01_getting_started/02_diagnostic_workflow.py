@@ -44,17 +44,10 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# For this example, the built in diagnostic workflow [`earth2studio.run.diagnostic`][earth2studio.run.diagnostic]
-# will be used.
-
-# %%
-# .. literalinclude:: ../../earth2studio/run.py
-#    :language: python
-#    :start-after: # sphinx - diagnostic start
-#    :end-before: # sphinx - diagnostic end
-
-
-# %%
+# All workflows inside Earth2Studio require constructed components to be handed to
+# them. In this example, let's take a look at the diagnostic workflow:
+# [`earth2studio.run.diagnostic`](https://nvidia.github.io/earth2studio/main/modules/generated/workflows/diagnostic/#earth2studio.run.diagnostic).
+#
 # Thus, we need the following:
 #
 # - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
