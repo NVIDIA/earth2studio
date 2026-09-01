@@ -153,7 +153,11 @@ def main() -> int:
     # Everything below is read off the campaign config, with command-line
     # overrides taking precedence; the output dir is <project>_<run_id>.
     cfg = yaml.safe_load(cfg_path.read_text())
-    ov = dict(o.split("=", 1) for o in overrides if "=" in o)
+    # Hydra spellings like +key=value / ~key=value normalize to plain keys.
+    ov = {
+        k.lstrip("+~"): v
+        for k, v in (o.split("=", 1) for o in overrides if "=" in o)
+    }
     project = ov.get("project", cfg["project"])
     run_id = ov.get("run_id", cfg["run_id"])
     out = (
@@ -175,7 +179,8 @@ def main() -> int:
     print(f"=== campaign={args.campaign}  ngpu={args.ngpu}  stages={' '.join(stages)}")
     print(f"=== out={out}")
 
-    online = str(cfg.get("scoring", {}).get("mode", "offline")).lower() == "online"
+    mode = ov.get("scoring.mode", cfg.get("scoring", {}).get("mode", "offline"))
+    online = str(mode).lower() == "online"
 
     for stage in stages:
         print(f"\n############### {stage} ###############")

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -61,7 +62,9 @@ class PersistenceBaseline:
         return None
 
     @classmethod
-    def load_model(cls, package: object = None, variables: list[str] | None = None):
+    def load_model(
+        cls, package: object = None, variables: list[str] | None = None
+    ) -> Any:
         """Build the persistence model for *variables* on the ERA5 grid."""
         from earth2studio.models.px import Persistence
 
@@ -101,7 +104,8 @@ class ClimatologyForecast(torch.nn.Module):
         super().__init__()
         self._variable = [str(v) for v in variable]
         self._dt = dt
-        self._source = None  # injected by ClimatologyPipeline.setup
+        # Injected by ClimatologyPipeline.setup.
+        self._source: Any = None
 
     @classmethod
     def load_default_package(cls) -> None:

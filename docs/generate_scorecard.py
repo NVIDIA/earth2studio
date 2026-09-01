@@ -109,7 +109,10 @@ def _sync_data_from_hub() -> None:
     if any(STATIC.glob("eval_scores_*.json")):
         return
     STATIC.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(f"{DATA_HUB_API}?recursive=True", timeout=60) as r:
+    # noqa justification: both URLs derive from the https:// constants above.
+    with urllib.request.urlopen(  # noqa: S310
+        f"{DATA_HUB_API}?recursive=True", timeout=60
+    ) as r:
         entries = json.loads(r.read())
     paths = [
         e["path"].split("scorecard/", 1)[1]
@@ -121,7 +124,7 @@ def _sync_data_from_hub() -> None:
     if not paths:
         raise SystemExit(f"no score files found in the assets dataset: {DATA_HUB_API}")
     for rel in paths:
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # noqa: S310
             f"{DATA_HUB_RESOLVE}/{quote(rel)}", timeout=120
         ) as r:
             (STATIC / Path(rel).name).write_bytes(r.read())

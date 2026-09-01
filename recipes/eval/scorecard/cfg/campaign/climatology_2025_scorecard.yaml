@@ -97,13 +97,14 @@ data_source:
     verbose: false
 # Reuse the fcn3 campaign's predownloaded stores (initial conditions and
 # ERA5 verification) rather than refetching them: both baselines share the
-# grid, times and variables with that campaign.
+# grid, times and variables with that campaign.  Override SCORECARD_MODELS
+# when the fcn3 run lives outside this checkout's models/ directory.
 ic_source:
     _target_: src.data.PredownloadedSource
-    store_path: /code/earth2studio_eval/recipes/eval/scorecard/models/fcn3/outputs/fcn3_2025_scorecard/data.zarr
+    store_path: ${oc.env:SCORECARD_MODELS,/code/earth2studio_eval/recipes/eval/scorecard/models}/fcn3/outputs/fcn3_2025_scorecard/data.zarr
 verification_source:
     _target_: src.data.PredownloadedSource
-    store_path: /code/earth2studio_eval/recipes/eval/scorecard/models/fcn3/outputs/fcn3_2025_scorecard/verification.zarr
+    store_path: ${oc.env:SCORECARD_MODELS,/code/earth2studio_eval/recipes/eval/scorecard/models}/fcn3/outputs/fcn3_2025_scorecard/verification.zarr
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/climatology/outputs}/${project}_${run_id}
     # Online scoring: never write the raw forecast store; stats.zarr is
