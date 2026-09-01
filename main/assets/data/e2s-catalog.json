@@ -6735,28 +6735,42 @@
   {
     "badges": [
       "region:eu",
-      "class:nwc",
-      "product:sat"
+      "class:nowcasting",
+      "product:sat",
+      "year:2026",
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
     ],
     "chips": [
       "Prognostic",
-      "Nwc",
+      "Nowcasting",
+      "NVIDIA",
+      "PyTorch",
       "Satellite"
     ],
     "filters": {
-      "backend": [],
-      "class": [
-        "Nwc"
+      "backend": [
+        "PyTorch"
       ],
-      "gpu": [],
+      "class": [
+        "Nowcasting"
+      ],
+      "gpu": [
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
       "product": [
         "Satellite"
       ],
-      "provider": [],
+      "provider": [
+        "NVIDIA"
+      ],
       "region": [
         "Europe"
       ],
-      "year": []
+      "year": [
+        "2026"
+      ]
     },
     "group": "Prognostic",
     "kind": "model",
