@@ -2529,7 +2529,9 @@ class OnlineScorer:
         # gridpoints by construction (a pipeline like DLESyMPipeline masks
         # a whole (lead, variable) slice, not per-member), so this is
         # already identical across the group without needing a reduction.
-        valid = torch.isfinite(f_local).all(dim=0)
+        # Verification NaNs mask out too: sea-only fields (e.g. sst) are
+        # NaN over land in ERA5 while a model may forecast finite values.
+        valid = torch.isfinite(f_local).all(dim=0) & torch.isfinite(y)
 
         # Apply the same conditioning the offline scorer applies, so online
         # and offline scores are directly comparable.

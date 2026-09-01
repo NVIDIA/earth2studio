@@ -14,22 +14,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-label: FCN3
+label: Atlas CRPS
 category: Prognostic models
-px_class: FCN3
-short: FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model.
+px_class: AtlasCRPS
+short: Atlas CRPS is the ensemble variant of NVIDIA's Atlas weather model.
 ---
 
-FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model, built
-on spherical (geometric) signal processing with a hidden-Markov ensemble
-formulation: each member evolves its own calibrated stochastic state, so the
-ensemble spread is learned rather than imposed by initial-condition
-perturbations. It forecasts 72 atmospheric variables globally at 0.25°
-resolution with a 6-hour step.
+Atlas CRPS is the CRPS-trained ensemble variant of NVIDIA's Atlas weather
+model. Every forward pass draws a fresh noise vector that modulates each
+transformer block, so repeated calls from the same initial condition yield
+calibrated ensemble members. The version scored here runs a 16-member
+ensemble at 0.25°. It consumes the two most recent analysis frames (t-6 h
+and t0) and steps forward 6 hours at a time on the native ERA5 721 × 1440
+grid.
 
 ## Reference
 
-Bonev, B., Kurth, T., Mahesh, A., Bisson, M., Kossaifi, J., Kashinath, K.,
-... & Keller, A. (2025). FourCastNet 3: A geometric approach to probabilistic
-machine-learning weather forecasting at scale. arXiv preprint
-arXiv:2507.12144.
+NVIDIA (2026). Atlas ERA5 model card.
+[huggingface.co/nvidia/atlas-era5](https://huggingface.co/nvidia/atlas-era5).

@@ -26,9 +26,15 @@ reimplemented here, and nothing is assumed beyond the campaign config.
 
 Stages (default: all four, in order):
   predownload   fetch initial conditions + verification from the data source
-  infer         run the model, write forecast.zarr
-  score         verify against ERA5, write scores.zarr (+ provenance attrs)
-  prune         delete forecast.zarr once scores exist (~390 GB -> ~30 MB)
+  infer         run the model.  Scorecard campaigns score ONLINE
+                (scoring.mode: online): the inference loop reduces every
+                forecast to summary statistics (stats.zarr), this stage
+                derives scores.zarr from them, and the run writes no raw
+                forecast store.
+  score         online: re-derive scores.zarr from stats.zarr.
+                offline: read forecast.zarr and score it.
+  prune         offline only: delete forecast.zarr once scores exist.
+                A no-op for online campaigns, which have nothing to prune.
 
 Anything after ``--`` is passed to Hydra verbatim (e.g. smoke overrides).
 """
@@ -169,25 +175,40 @@ def main() -> int:
     print(f"=== campaign={args.campaign}  ngpu={args.ngpu}  stages={' '.join(stages)}")
     print(f"=== out={out}")
 
+    online = str(cfg.get("scoring", {}).get("mode", "offline")).lower() == "online"
+
     for stage in stages:
         print(f"\n############### {stage} ###############")
         if stage == "predownload":
             launch("predownload.py", args.campaign, overrides, args.ngpu)
         elif stage == "infer":
             launch("main.py", args.campaign, overrides, args.ngpu)
+            if online:
+                # The online path derives scores.zarr at the end of
+                # main.py; stamp it now (the derivation rebuilds the store,
+                # so a stamp must always follow the pass that produced it).
+                stamp_provenance(out / "scores.zarr")
         elif stage == "score":
-            # time=1 chunks: ranks score disjoint ICs, so no shared-chunk
-            # writes (races); whole-array elsewhere keeps file counts small.
-            chunks = [
-                "output.io_backend=zarr",
-                "output.chunks.time=1",
-                f"output.chunks.lead_time={int(cfg['nsteps']) + 1}",
-            ]
-            if int(cfg.get("ensemble_size", 1)) > 1:
-                chunks.append(f"+output.chunks.ensemble={cfg['ensemble_size']}")
-            launch("score.py", args.campaign, chunks + overrides, args.ngpu)
+            if online:
+                # Cheap single-process re-derivation from stats.zarr.
+                launch("score.py", args.campaign, overrides, 1)
+            else:
+                # time=1 chunks: ranks score disjoint ICs, so no
+                # shared-chunk writes (races); whole-array elsewhere keeps
+                # file counts small.
+                chunks = [
+                    "output.io_backend=zarr",
+                    "output.chunks.time=1",
+                    f"output.chunks.lead_time={int(cfg['nsteps']) + 1}",
+                ]
+                if int(cfg.get("ensemble_size", 1)) > 1:
+                    chunks.append(f"+output.chunks.ensemble={cfg['ensemble_size']}")
+                launch("score.py", args.campaign, chunks + overrides, args.ngpu)
             stamp_provenance(out / "scores.zarr")
         elif stage == "prune":
+            if online and not (out / "forecast.zarr").exists():
+                print("    online campaign, no raw store -- nothing to prune")
+                continue
             # Gate on the provenance stamp, not on the store existing: a
             # scoring run killed mid-way leaves a partial scores.zarr on
             # disk, and deleting the forecast then makes the run
