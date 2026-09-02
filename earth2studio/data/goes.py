@@ -410,6 +410,16 @@ class GOES:
             else:
                 x[i] = da[goes_name].values
 
+            nan_count = np.isnan(x[i]).sum()
+            if nan_count > 0:
+                nan_frac = nan_count / x[i].size
+                logger.warning(
+                    f"GOES variable {v} ({goes_name}) at {time.isoformat()} has "
+                    f"{nan_count} missing pixel(s) ({nan_frac:.4%} of the array). "
+                    f"Source file likely has quality issues at this timestamp, "
+                    f"filling with NaNs."
+                )
+
         return x
 
     def _hour_prefix(self, time: datetime) -> str:

@@ -1050,6 +1050,24 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
+
+        # valid_mask/conditioning_valid_mask only zero-fill gridpoints they mark
+        # invalid; a NaN at a gridpoint marked *valid* (e.g. a GOES fill value
+        # that lands inside the static valid_mask) passes straight through. Fail
+        # loudly rather than feeding NaNs into the diffusion sampler.
+        nan_mask = torch.isnan(condition)
+        if bool(nan_mask.any()):
+            nan_channels = (
+                nan_mask.any(dim=(0, 2, 3)).nonzero(as_tuple=True)[0].tolist()
+            )
+            raise ValueError(
+                f"Conditioning tensor contains {int(nan_mask.sum())} NaN value(s) in "
+                f"channel(s) {nan_channels} not sanitized by valid_mask/"
+                "conditioning_valid_mask. This likely indicates missing or "
+                "fill-valued data (e.g. from the GOES source) at gridpoints marked "
+                "valid."
+            )
+
         latents = torch.randn(
             b * t, *x.shape[3:], device=x.device, dtype=x.dtype
         )  # shape [B*T, C, H, W]
