@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import GOES
 
@@ -345,3 +346,43 @@ def test_goes_fetch_no_gather_timeout(monkeypatch):
     out = asyncio.run(ds.fetch([datetime(2024, 6, 1, 18, 0, 0)], ["abi01c"]))
     assert out.shape == (1, 1, *GOES.SCAN_DIMENSIONS["C"])
     assert seen_kwargs.get("task_timeout") is None
+
+
+def test_goes_fetch_array_dqf_mask(monkeypatch, tmp_path):
+    """fetch_array should only warn about NaNs at pixels NOAA's own DQF marks
+    as navigated (on the Earth disk); NaNs where DQF itself is unset (off the
+    disk, never navigated) must not be counted."""
+    monkeypatch.setitem(GOES.SCAN_DIMENSIONS, "C", (2, 3))
+
+    # (0,0) good; (0,1) navigated but missing radiance -> should be warned about;
+    # (0,2) good; (1,0)/(1,2) off-disk (DQF unset) -> excluded even though NaN;
+    # (1,1) good.
+    cmi = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, np.nan]], dtype=np.float32)
+    dqf = np.array([[0.0, 2.0, 0.0], [np.nan, 0.0, np.nan]], dtype=np.float32)
+    fake_ds = xr.Dataset({"CMI_C01": (("y", "x"), cmi), "DQF_C01": (("y", "x"), dqf)})
+    nc_path = tmp_path / "fake_goes.nc"
+    fake_ds.to_netcdf(nc_path)
+
+    ds = GOES(satellite="goes16", scan_mode="C", cache=False, verbose=False)
+
+    async def fake_get_s3_path(time):
+        return "fake/path.nc"
+
+    async def fake_fetch_remote_file(path):
+        return str(nc_path)
+
+    monkeypatch.setattr(ds, "_get_s3_path", fake_get_s3_path)
+    monkeypatch.setattr(ds, "_fetch_remote_file", fake_fetch_remote_file)
+
+    caught = []
+    monkeypatch.setattr(
+        "earth2studio.data.goes.logger.warning", lambda msg: caught.append(msg)
+    )
+
+    x = asyncio.run(ds.fetch_array(datetime(2024, 6, 1, 18, 0, 0), ["abi01c"]))
+
+    assert x.shape == (1, 2, 3)
+    assert np.array_equal(np.isnan(x[0]), np.isnan(cmi))
+    assert len(caught) == 1
+    assert "1 missing pixel" in caught[0]
+    assert "25.0000%" in caught[0]  # 1 missing out of 4 navigated pixels
