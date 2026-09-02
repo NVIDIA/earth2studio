@@ -134,6 +134,71 @@ def test_stormcast_call(time, device):
     handshake_dim(out_coords, "time", 0)
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_call_does_not_mutate_input(device):
+
+    # Spoof models
+    regression = PhooStormCastRegressionModel()
+    diffusion = PhooStormCastDiffusionModel()
+
+    # Init data sources
+    X_START, X_END = 579, 1219
+    Y_START, Y_END = 273, 785
+    nvar, nvar_cond = 3, 5
+    dc = OrderedDict(
+        [
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+        ]
+    )
+    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+
+    r = Random(dc)
+    r_condition = Random(
+        OrderedDict(
+            [
+                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=360)),
+            ]
+        )
+    )
+
+    # Spoof variable names
+    variables = np.array(["u%02d" % i for i in range(nvar)])
+
+    means = torch.zeros(1, nvar, 1, 1)
+    stds = torch.ones(1, nvar, 1, 1)
+    invariants = torch.randn(1, 2, lat.shape[0], lat.shape[1])
+    conditioning_means = torch.randn(1, nvar_cond, 1, 1, device=device)
+    conditioning_stds = torch.randn(1, nvar_cond, 1, 1, device=device)
+    conditioning_variables = np.array(["u%02d" % i for i in range(nvar_cond)])
+    p = StormCast(
+        regression,
+        diffusion,
+        means,
+        stds,
+        invariants,
+        variables=variables,
+        conditioning_means=conditioning_means,
+        conditioning_stds=conditioning_stds,
+        conditioning_variables=conditioning_variables,
+        conditioning_data_source=r_condition,
+        sampler_steps=2,
+    ).to(device)
+
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x_in = x.clone()
+
+    out, _ = p(x, coords)
+
+    # The caller's initial condition must survive the call untouched
+    assert torch.equal(x, x_in)
+    assert out.data_ptr() != x.data_ptr()
+
+
 @pytest.mark.parametrize(
     "ensemble",
     [1, 2],
