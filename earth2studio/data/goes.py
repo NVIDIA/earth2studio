@@ -84,6 +84,14 @@ class GOES:
         - Full Disk (F): Entire Earth view
         - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
 
+    Missing data:
+
+    Some pixels are ``_FillValue`` in NOAA's source file (e.g. calibration
+    gaps or other instrument issues) and decode to NaN. This data source will
+    warn with the affected pixel count whenever a pixel that NOAA's per-band
+    ``DQF`` variable marks as navigated/quality-assessed is NaN (pixels off
+    the Earth disk are excluded, since ``DQF`` is unset there too).
+
     Badges
     ------
     region:na dataclass:observation product:sat provider:noaa
@@ -213,6 +221,9 @@ class GOES:
 
         # Stash the grid coords so they can be added to data arrays
         self._lat, self._lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
+        # Pixels off the Earth disk have undefined lat/lon (NaN); used to
+        # distinguish expected off-disk NaNs from genuine data quality issues
+        self._on_disk_mask = ~np.isnan(self._lat)
 
         # Validate satellite and scan mode
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
@@ -382,6 +393,12 @@ class GOES:
         -------
         np.ndarray
             GOES data array
+
+        Note
+        ----
+        On-disk pixels that are fill-valued in the source file decode to NaN
+        and trigger a logged warning; see the "Missing data" note on the
+        :class:`GOES` class docstring for how to interpret it.
         """
 
         # Get the S3 path for the GOES data file
@@ -410,14 +427,32 @@ class GOES:
             else:
                 x[i] = da[goes_name].values
 
-            nan_count = np.isnan(x[i]).sum()
+            # Prefer the file's own per-band DQF variable to identify which
+            # pixels NOAA actually navigated/quality-assessed: DQF is NaN
+            # (fill) exactly where a pixel was never computed (off the Earth
+            # disk), and holds a real flag_values code (0-4) for every pixel
+            # that was. This is exact per-file ground truth, unlike our
+            # static ellipsoid-based on-disk mask, which can disagree with
+            # NOAA's navigation by a pixel or two right at the limb.
+            dqf_name = (
+                goes_name.replace("CMI_", "DQF_", 1)
+                if goes_name.startswith("CMI_")
+                else None
+            )
+            if dqf_name is not None and dqf_name in da:
+                navigated_mask = ~np.isnan(da[dqf_name].values)
+            else:
+                navigated_mask = self._on_disk_mask
+
+            nan_navigated = np.isnan(x[i]) & navigated_mask
+            nan_count = nan_navigated.sum()
             if nan_count > 0:
-                nan_frac = nan_count / x[i].size
+                nan_frac = nan_count / navigated_mask.sum()
                 logger.warning(
                     f"GOES variable {v} ({goes_name}) at {time.isoformat()} has "
-                    f"{nan_count} missing pixel(s) ({nan_frac:.4%} of the array). "
-                    f"Source file likely has quality issues at this timestamp, "
-                    f"filling with NaNs."
+                    f"{nan_count} missing pixel(s) ({nan_frac:.4%} of the "
+                    f"navigated/on-disk array). Source file likely has quality "
+                    f"issues at this timestamp, filling with NaNs."
                 )
 
         return x
