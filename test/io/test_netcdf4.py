@@ -15,9 +15,11 @@
 # limitations under the License.
 
 import os
+import shutil
 import tempfile
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import netCDF4
 import numpy as np
@@ -27,6 +29,24 @@ import xarray
 
 from earth2studio.io import NetCDF4Backend
 from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
+
+
+def test_netcdf4_write_is_visible_before_close(tmp_path: Path) -> None:
+    coords = OrderedDict({"lat": np.arange(2), "lon": np.arange(2)})
+    source_path = tmp_path / "source.nc"
+    copied_path = tmp_path / "copied.nc"
+    expected = np.arange(4, dtype=np.float32).reshape(2, 2)
+    nc = NetCDF4Backend(source_path, backend_kwargs={"mode": "w"})
+
+    try:
+        nc.add_array(coords, "fields")
+        nc.write(torch.from_numpy(expected), coords, "fields")
+        shutil.copyfile(source_path, copied_path)
+
+        with xarray.open_dataset(copied_path) as dataset:
+            assert np.array_equal(dataset["fields"].values, expected)
+    finally:
+        nc.close()
 
 
 @pytest.mark.parametrize(

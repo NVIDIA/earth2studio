@@ -284,6 +284,8 @@ class NetCDF4Backend:
                 )
             ] = xi.to("cpu").numpy()
 
+        self.root.sync()
+
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
     ) -> tuple[torch.Tensor, CoordSystem]:
