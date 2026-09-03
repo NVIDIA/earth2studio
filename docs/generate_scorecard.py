@@ -84,51 +84,40 @@ STATIC = DOCS / "_static" / "scorecard"  # data + shared plot live here
 # iterating on fresh exports never triggers a download.
 # ``SCORECARD_DATA_REVISION`` selects a branch or PR ref of the dataset
 # (for example ``refs/pr/2`` to build against a pending data update).
-_DATA_REVISION = quote(os.environ.get("SCORECARD_DATA_REVISION", "main"), safe="")
-DATA_HUB_API = (
-    "https://huggingface.co/api/datasets/nvidia/earth2studio-assets"
-    f"/tree/{_DATA_REVISION}/scorecard"
-)
-DATA_HUB_RESOLVE = (
-    "https://huggingface.co/datasets/nvidia/earth2studio-assets"
-    f"/resolve/{_DATA_REVISION}/scorecard"
-)
+DATA_REPO = "nvidia/earth2studio-assets"
+DATA_REVISION = os.environ.get("SCORECARD_DATA_REVISION", "main")
 
 
 def _sync_data_from_hub() -> None:
     """Download the score JSONs from the assets dataset when absent.
 
-    Lists ``scorecard/`` in the dataset via the Hub API — recursively, so
-    per-model subfolders and a flat layout both work — and downloads every
-    ``eval_scores_*.json`` into ``STATIC`` under its bare file name.
-    Runs only when ``STATIC`` holds no score files at all, so a checkout
-    with local exports builds fully offline.
+    Snapshots the dataset's ``scorecard/`` folder through
+    ``huggingface_hub`` — authenticated by ``HF_TOKEN`` when set, and
+    served from the local hub cache on repeat builds — then copies every
+    ``eval_scores_*.json`` into ``STATIC`` under its file name
+    (per-model subfolders and a flat layout both work).  Runs only when
+    ``STATIC`` holds no score files at all, so a checkout with local
+    exports builds fully offline.
     """
-    import urllib.request
+    import shutil
+
+    from huggingface_hub import snapshot_download
 
     if any(STATIC.glob("eval_scores_*.json")):
         return
+    root = snapshot_download(
+        repo_id=DATA_REPO,
+        repo_type="dataset",
+        revision=DATA_REVISION,
+        allow_patterns=["scorecard/*"],
+    )
+    files = sorted(Path(root, "scorecard").rglob("eval_scores_*.json"))
+    if not files:
+        raise SystemExit(f"no score files found in the assets dataset: {DATA_REPO}")
     STATIC.mkdir(parents=True, exist_ok=True)
-    # noqa justification: both URLs derive from the https:// constants above.
-    with urllib.request.urlopen(  # noqa: S310
-        f"{DATA_HUB_API}?recursive=True", timeout=60
-    ) as r:
-        entries = json.loads(r.read())
-    paths = [
-        e["path"].split("scorecard/", 1)[1]
-        for e in entries
-        if e.get("type") == "file"
-        and Path(e["path"]).name.startswith("eval_scores_")
-        and e["path"].endswith(".json")
-    ]
-    if not paths:
-        raise SystemExit(f"no score files found in the assets dataset: {DATA_HUB_API}")
-    for rel in paths:
-        with urllib.request.urlopen(  # noqa: S310
-            f"{DATA_HUB_RESOLVE}/{quote(rel)}", timeout=120
-        ) as r:
-            (STATIC / Path(rel).name).write_bytes(r.read())
-    print(f"fetched {len(paths)} score files from the assets dataset")
+    for f in files:
+        shutil.copyfile(f, STATIC / f.name)
+    print(f"fetched {len(files)} score files from the assets dataset")
 
 
 # Self-contained single-model skill plot. Same palette and idioms as the
@@ -175,8 +164,10 @@ limitations under the License.
     border-radius:10px;padding:10px 12px;margin-bottom:12px}
   .ctl{display:flex;flex-direction:column;gap:4px}
   .ctl label{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-  select{font:inherit;color:var(--ink);background:var(--surface-1);
-    border:1px solid var(--axis);border-radius:7px;padding:6px 9px}
+  select{font:inherit;color:var(--ink);
+    border:1px solid var(--axis);border-radius:7px;
+    padding:6px 30px 6px 10px;-webkit-appearance:none;appearance:none;
+    background:var(--surface-1) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23898781' stroke-width='1.6' stroke-linecap='round'/></svg>") no-repeat right 10px center}
   select:disabled{opacity:.45}
   .card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;
     padding:12px 14px 8px}

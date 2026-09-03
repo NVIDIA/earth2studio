@@ -23,10 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes and adds a labeled `region` axis to the score stores.
 - New eval recipe optional per-member online metrics include MAE
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
-- Scorecards now show regional, seasonal, monthly, and per-init-hour
-  skill, plus a per-initial-condition grid view. Persistence and
-  climatology baseline overlays are available now. GraphCast and Atlas CRPS
-  added to the scorecard model set
+- Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
+  views with baseline overlays; GraphCast and Atlas CRPS added
 
 ### Changed
 
@@ -38,10 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   respectively.
 - Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
   on the model, instead of reconstructing them on every rollout call
-- Scorecard campaigns score online, writing no raw forecast store, on 48
-  initial conditions: four per month at 00/06/12/18 UTC hours. Scorecard
-  data is no longer stored in the repository: the docs build fetches it
-  from the Earth2Studio assets dataset on Hugging Face
+- Scorecard campaigns score online over 48 initial conditions and the
+  score data moved to the HF Earth2Studio assets dataset
 
 ### Deprecated
 
