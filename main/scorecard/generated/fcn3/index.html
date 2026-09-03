@@ -2819,6 +2819,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3031,6 +3035,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../graphcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../atlas_crps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas CRPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3196,15 +3256,25 @@ ensemble spread is learned rather than imposed by initial-condition
 perturbations. It forecasts 72 atmospheric variables globally at 0.25°
 resolution with a 6-hour step.</p>
 <h2 id="skill">Skill<a class="headerlink" href="#skill" title="Permanent link">&para;</a></h2>
-<p>Pick a metric and variable; hover for exact values at each lead time.</p>
-<iframe src="../../../_static/scorecard/plot.html?model=fcn3&label=FCN3" title="FCN3 skill"
+<p>Pick a metric and variable; hover for exact values at each lead time. Use the Region selector for continental splits, the Month selector for seasonal (DJF/MAM/JJA/SON) and per-month skill against the all-month curve, the Init hour selector for skill by initialization time, the View selector for the skill of every initial condition, and the Baseline selector to overlay persistence and climatology reference forecasts.</p>
+<!-- The src is resolved in the browser against the FINAL page URL
+     (.../scorecard/generated/<model>/), so it stays correct at any site
+     depth — fork preview, versioned deploy, or local serve — and there is
+     no static URL for the site build to rewrite. -->
+<iframe id="skill-plot" title="FCN3 skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
+<script>
+document.getElementById("skill-plot").src = new URL(
+  "../../../_static/scorecard/plot.html?model=fcn3&label=FCN3",
+  window.location.href);
+</script>
 
 <h2 id="evaluation">Evaluation<a class="headerlink" href="#evaluation" title="Permanent link">&para;</a></h2>
-<p>16-member ensemble · 24 initial conditions · 14-day horizon · 72 variables</p>
+<p>16-member ensemble · 48 initial conditions · 14-day horizon · 72 variables</p>
 <p>Scores are latitude-weighted (cos φ) and aggregated over the initial
-conditions. Evaluation is done against ERA5 fetched from ARCO.</p>
+conditions. Evaluation is done against ERA5 fetched from ARCO.
+Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 <table>
 <thead>
 <tr>
@@ -3219,7 +3289,7 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.</p>
 </tr>
 <tr>
 <td>Initial conditions</td>
-<td>24 (2025)</td>
+<td>48 (2025)</td>
 </tr>
 <tr>
 <td>Initial condition source</td>
@@ -3239,7 +3309,11 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.</p>
 </tr>
 <tr>
 <td>Metrics</td>
-<td>RMSE, Log spectral distance, RMSE (ensemble mean), CRPS, Spread, Spread / Skill</td>
+<td>RMSE, MAE, Log spectral distance, RMSE (ensemble mean), CRPS, Spread, Spread / Skill</td>
+</tr>
+<tr>
+<td>Regions</td>
+<td>global, tropics, extra tropics, northern hemisphere, southern hemisphere, arctic, antarctica, europe, north america, north atlantic, north pacific, east asia, australia new zealand, south america, africa, asia, oceania</td>
 </tr>
 </tbody>
 </table>
@@ -3710,11 +3784,11 @@ and lead time, in the variable's own units.</p>
 <tbody>
 <tr>
 <td>Date scored</td>
-<td>2026-08-20</td>
+<td>2026-08-28</td>
 </tr>
 <tr>
 <td>Scores written</td>
-<td>2026-08-20</td>
+<td>2026-08-28</td>
 </tr>
 <tr>
 <td>GPUs</td>
@@ -3734,7 +3808,7 @@ and lead time, in the variable's own units.</p>
 </tr>
 <tr>
 <td>Repo commit</td>
-<td><a href="https://github.com/NVIDIA/earth2studio/tree/2e3d1fd9a3f38391f8b27606e1d202a7eae83f95"><code>2e3d1fd9a3f3</code></a></td>
+<td><a href="https://github.com/NVIDIA/earth2studio/tree/d6cca8ede162e2ab473bf25c52a33380924b5ad2"><code>d6cca8ede162</code></a></td>
 </tr>
 <tr>
 <td>Provenance source</td>
@@ -3742,11 +3816,11 @@ and lead time, in the variable's own units.</p>
 </tr>
 <tr>
 <td>Exported</td>
-<td>2026-08-20</td>
+<td>2026-08-28</td>
 </tr>
 <tr>
 <td>Locked dependencies</td>
-<td><a href="https://github.com/NVIDIA/earth2studio/blob/2e3d1fd9a3f38391f8b27606e1d202a7eae83f95/uv.lock"><code>uv.lock</code> @ <code>2e3d1fd9a3f3</code></a></td>
+<td><a href="https://github.com/NVIDIA/earth2studio/blob/d6cca8ede162e2ab473bf25c52a33380924b5ad2/uv.lock"><code>uv.lock</code> @ <code>d6cca8ede162</code></a></td>
 </tr>
 </tbody>
 </table>

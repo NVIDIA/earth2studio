@@ -16,6 +16,8 @@
         <link rel="prev" href="../fcn3/">
       
       
+        <link rel="next" href="../graphcast/">
+      
       
         
       
@@ -2817,6 +2819,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3029,6 +3035,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../graphcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../atlas_crps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas CRPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3194,15 +3256,25 @@ here is the 0.25° deterministic medium-range configuration, which consumes the
 two most recent analysis frames (t-6h and t0) and steps forward 6 hours at a
 time on a 720x1440 grid (pole-padded onto ERA5's 721x1440 for verification).</p>
 <h2 id="skill">Skill<a class="headerlink" href="#skill" title="Permanent link">&para;</a></h2>
-<p>Pick a metric and variable; hover for exact values at each lead time.</p>
-<iframe src="../../../_static/scorecard/plot.html?model=aurora&label=Aurora" title="Aurora skill"
+<p>Pick a metric and variable; hover for exact values at each lead time. Use the Region selector for continental splits, the Month selector for seasonal (DJF/MAM/JJA/SON) and per-month skill against the all-month curve, the Init hour selector for skill by initialization time, the View selector for the skill of every initial condition, and the Baseline selector to overlay persistence and climatology reference forecasts.</p>
+<!-- The src is resolved in the browser against the FINAL page URL
+     (.../scorecard/generated/<model>/), so it stays correct at any site
+     depth — fork preview, versioned deploy, or local serve — and there is
+     no static URL for the site build to rewrite. -->
+<iframe id="skill-plot" title="Aurora skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
+<script>
+document.getElementById("skill-plot").src = new URL(
+  "../../../_static/scorecard/plot.html?model=aurora&label=Aurora",
+  window.location.href);
+</script>
 
 <h2 id="evaluation">Evaluation<a class="headerlink" href="#evaluation" title="Permanent link">&para;</a></h2>
-<p>Deterministic · 24 initial conditions · 14-day horizon · 69 variables</p>
+<p>Deterministic · 48 initial conditions · 14-day horizon · 69 variables</p>
 <p>Scores are latitude-weighted (cos φ) and aggregated over the initial
-conditions. Evaluation is done against ERA5 fetched from ARCO.</p>
+conditions. Evaluation is done against ERA5 fetched from ARCO.
+Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 <table>
 <thead>
 <tr>
@@ -3217,7 +3289,7 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.</p>
 </tr>
 <tr>
 <td>Initial conditions</td>
-<td>24 (2025)</td>
+<td>48 (2025)</td>
 </tr>
 <tr>
 <td>Initial condition source</td>
@@ -3238,6 +3310,10 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.</p>
 <tr>
 <td>Metrics</td>
 <td>RMSE, MAE, Log spectral distance</td>
+</tr>
+<tr>
+<td>Regions</td>
+<td>global, tropics, extra tropics, northern hemisphere, southern hemisphere, arctic, antarctica, europe, north america, north atlantic, north pacific, east asia, australia new zealand, south america, africa, asia, oceania</td>
 </tr>
 </tbody>
 </table>
@@ -3690,11 +3766,11 @@ and lead time, in the variable's own units.</p>
 <tbody>
 <tr>
 <td>Date scored</td>
-<td>2026-08-20</td>
+<td>2026-08-28</td>
 </tr>
 <tr>
 <td>Scores written</td>
-<td>2026-08-20</td>
+<td>2026-08-28</td>
 </tr>
 <tr>
 <td>GPUs</td>
@@ -3714,7 +3790,7 @@ and lead time, in the variable's own units.</p>
 </tr>
 <tr>
 <td>Repo commit</td>
-<td><a href="https://github.com/NVIDIA/earth2studio/tree/2e3d1fd9a3f38391f8b27606e1d202a7eae83f95"><code>2e3d1fd9a3f3</code></a></td>
+<td><a href="https://github.com/NVIDIA/earth2studio/tree/5938b153f094660534e18b542fc96d92780a4072"><code>5938b153f094</code></a></td>
 </tr>
 <tr>
 <td>Provenance source</td>
@@ -3722,11 +3798,11 @@ and lead time, in the variable's own units.</p>
 </tr>
 <tr>
 <td>Exported</td>
-<td>2026-08-20</td>
+<td>2026-08-28</td>
 </tr>
 <tr>
 <td>Locked dependencies</td>
-<td><a href="https://github.com/NVIDIA/earth2studio/blob/2e3d1fd9a3f38391f8b27606e1d202a7eae83f95/uv.lock"><code>uv.lock</code> @ <code>2e3d1fd9a3f3</code></a></td>
+<td><a href="https://github.com/NVIDIA/earth2studio/blob/5938b153f094660534e18b542fc96d92780a4072/uv.lock"><code>uv.lock</code> @ <code>5938b153f094</code></a></td>
 </tr>
 </tbody>
 </table>
@@ -3785,6 +3861,22 @@ atmosphere. arXiv preprint arXiv:2405.13063, 1(8).</p>
             </div>
           </a>
         
+        
+          
+          <a href="../graphcast/" class="md-footer__link md-footer__link--next" aria-label="Next: GraphCast">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                GraphCast
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
         
       </nav>
     

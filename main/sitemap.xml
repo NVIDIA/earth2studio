@@ -1013,11 +1013,19 @@
          <lastmod>2026-09-03</lastmod>
     </url>
     <url>
+         <loc>https://nvidia.github.io/earth2studio/main/scorecard/generated/atlas_crps/</loc>
+         <lastmod>2026-09-03</lastmod>
+    </url>
+    <url>
          <loc>https://nvidia.github.io/earth2studio/main/scorecard/generated/aurora/</loc>
          <lastmod>2026-09-03</lastmod>
     </url>
     <url>
          <loc>https://nvidia.github.io/earth2studio/main/scorecard/generated/fcn3/</loc>
+         <lastmod>2026-09-03</lastmod>
+    </url>
+    <url>
+         <loc>https://nvidia.github.io/earth2studio/main/scorecard/generated/graphcast/</loc>
          <lastmod>2026-09-03</lastmod>
     </url>
     <url>

@@ -2817,6 +2817,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2903,6 +2907,62 @@
     
   
     Aurora
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="graphcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="atlas_crps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas CRPS
   
 
     
@@ -3025,7 +3085,7 @@ and improved evaluation.</p>
 </div>
 <p>Forecast skill of Earth2Studio models, one scorecard per model. These show
 each model's own skill, not a comparison between models. Every model was evaluated on the
-same campaign: 24 initial conditions (2025), 14-day horizon, ERA5
+same campaign: 48 initial conditions (2025), 14-day horizon, ERA5
 verification via ARCO. Pages are generated from per-model score (JSON) exports
 produced by the
 <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval/scorecard">scorecard recipe</a>,
@@ -3033,15 +3093,14 @@ which documents how to generate a scorecard for any model; the
 <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval">eval recipe</a>
 provides the backend support (inference, scoring and metrics).</p>
 <h2 id="prognostic-models">Prognostic models<a class="headerlink" href="#prognostic-models" title="Permanent link">&para;</a></h2>
-<div class="grid cards">
-<ul>
-<li>
-<p><a href="aurora/" title="Aurora is a foundation model of the atmosphere from Microsoft Research."><strong>Aurora</strong><br><em>deterministic · 69 variables · 14-day horizon</em></a></p>
-</li>
-<li>
-<p><a href="fcn3/" title="FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model."><strong>FCN3</strong><br><em>16-member ensemble · 72 variables · 14-day horizon</em></a></p>
-</li>
-</ul>
+<!-- The site's own landing-page button classes (nvidia-material.css), so
+     these render identically to the Tutorial / Install / Examples buttons
+     on the home page.  hrefs are relative to this page's final URL. -->
+<div class="e2s-start-grid">
+  <a class="e2s-home-button" href="atlas_crps/" title="Atlas CRPS is the ensemble variant of NVIDIA's Atlas weather model. 16-member ensemble · 75 variables · 14-day horizon.">Atlas CRPS</a>
+  <a class="e2s-home-button" href="aurora/" title="Aurora is a foundation model of the atmosphere from Microsoft Research. deterministic · 69 variables · 14-day horizon.">Aurora</a>
+  <a class="e2s-home-button" href="fcn3/" title="FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model. 16-member ensemble · 72 variables · 14-day horizon.">FCN3</a>
+  <a class="e2s-home-button" href="graphcast/" title="GraphCast is a graph neural network weather model from Google DeepMind. deterministic · 83 variables · 14-day horizon.">GraphCast</a>
 </div>
 
 
