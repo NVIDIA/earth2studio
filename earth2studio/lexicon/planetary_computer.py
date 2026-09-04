@@ -149,14 +149,17 @@ class PlanetaryComputerMODISFireLexicon(metaclass=LexiconType):
 class PlanetaryComputerECMWFOpenDataIFSLexicon(metaclass=LexiconType):
     """Lexicon exposing ECMWF Open Data IFS variables.
 
-    For available variables, inspect one of the index files:
+    For available variables, inspect the GRIB index sidecar exposed as the
+    ``index`` asset on any item of the ``ecmwf-forecast`` collection (one
+    JSON-lines entry per GRIB message):
 
     ```python
-    import planetary_computer
+    from pystac_client import Client
 
-    url = "ttps://ai4edataeuwest.blob.core.windows.net/ecmwf/20251001/00z/ifs/0p25/oper/20251001000000-0h-oper-fc.index"
-    signed_url = planetary_computer.sign(url)  # use this URL to download the index file
-
+    client = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+    search = client.search(collections=["ecmwf-forecast"], max_items=1)
+    item = next(search.items())
+    print(item.assets["index"].href)  # requires a SAS token to download
     ```
     """
 

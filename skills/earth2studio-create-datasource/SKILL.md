@@ -1,7 +1,7 @@
 ---
 name: earth2studio-create-datasource
 metadata:
-  version: 0.17.0
+  version: 0.17.1
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags:
     - earth2studio
@@ -262,8 +262,21 @@ Present: class name, file path, skeleton code, task dataclass.
 
 ### Step 9 — Update Documentation
 
-- Add to correct RST file (`datasources_analysis.rst` / `_forecast.rst` / `_dataframe.rst`)
-- Class docstring: Parameters, Warning (download size), Note (reference URLs), Badges (last)
+- Add the class alphabetically to the appropriate autosummary block in
+  `docs/modules/datasources_analysis.md`, `datasources_forecast.md`, or
+  `datasources_dataframe.md`
+- Class docstring: Parameters, Warning (download size), Note (reference URLs),
+  Badges (last)
+- Keep the existing `region`, `dataclass`, and `product` badges accurate. Add
+  `provider:<name>` when the service provider is known, and add
+  `dataset:<family>` only when the source belongs to a named dataset family;
+  do not infer a family from the provider. Use `dataset:gfs` for GEFS sources.
+- Reuse lowercase badge keys already defined in `mkdocs.yml`. If a new
+  provider or dataset family is required, add its badge definition there and
+  use `hide_in: [autosummary, filter]`; the catalog reads these badges even
+  though data-source API tables do not display or filter on them.
+- Example: `region:global dataclass:reanalysis dataset:era5 product:atmos
+  provider:google`
 - All public methods: NumPy-style docstrings
 
 ---

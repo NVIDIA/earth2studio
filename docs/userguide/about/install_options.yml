@@ -13,7 +13,7 @@ defaults:
 package:
   name: earth2studio
   github: https://github.com/NVIDIA/earth2studio.git
-  release_ref: 0.17.0
+  release_ref: 0.18.0
   main_ref: main
 
 managers:
@@ -108,6 +108,7 @@ categories:
         summary: NVIDIA Atlas model dependencies.
         api_refs:
           - earth2studio.models.px.Atlas
+          - earth2studio.models.px.AtlasCRPS
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
@@ -129,6 +130,13 @@ categories:
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
           - earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
+        # TODO: Remove with psn release 2.3.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
       - id: dlwp
         label: DLWP
         extra: dlwp
@@ -246,6 +254,19 @@ categories:
           - text: Requires ONNX Runtime GPU.
             href: https://onnxruntime.ai/docs/install/#python-installs
             label: ONNX Runtime GPU install docs
+      - id: samudrace
+        label: SamudrACE
+        extra: samudrace
+        summary: SamudrACE coupled atmosphere-ocean model dependencies.
+        api_refs:
+          - earth2studio.models.px.SamudrACE
+        warnings:
+          - text: Requires fme at the 2026.4.0 release. This extra conflicts with the
+              `ace2` extra, which pins fme to a pre-release commit, and with the
+              `atlas`, `fcn3`, `perturbation`, and `sfno` extras via fme's
+              torch-harmonics pin.
+            href: https://github.com/ai2cm/ace
+            label: fme
       - id: sfno
         label: SFNO
         extra: sfno
@@ -275,10 +296,10 @@ categories:
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
-            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
           uv:
             pypi:
-              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
@@ -335,10 +356,10 @@ categories:
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
-            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
           uv:
             pypi:
-              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@bf0ad4f43275b84a7beab35127d57a99cd359260"'
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         warnings:
           - Depends on natten for Python versions before 3.14.
       - id: cyclone
@@ -403,6 +424,21 @@ categories:
       - Data assimilation APIs are currently in beta and may change in future releases.
       - Data assimilation extras install CUDA-dependent CuPy and cuDF packages.
     items:
+      - id: da-cosmo
+        label: CorrDiff COSMO SDA
+        extra: da-cosmo
+        summary: CorrDiff COSMO-ERA5 data assimilation dependencies.
+        api_refs:
+          - earth2studio.models.da.CorrDiffCosmoEra5SDA
+        # TODO: Removed with psn release 2.2.0
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
+        warnings:
+          - Depends on natten for Python versions before 3.14.
       - id: da-healda
         label: HealDA
         extra: da-healda

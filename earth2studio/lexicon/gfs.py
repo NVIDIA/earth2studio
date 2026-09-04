@@ -49,7 +49,7 @@ class GFSLexicon(metaclass=LexiconType):
         "sp": "PRES::surface",
         "msl": "PRMSL::mean sea level",
         "tcwv": "PWAT::entire atmosphere (considered as a single layer)",
-        "tp": "596::APCP::surface",  # 3 hour acc
+        "tp": "APCP::surface",  # accumulation over the current 6 h bucket; window length grows 1 h to 6 h then restarts
         "2d": "DPT::2 m above ground",
         "fg10m": "GUST::surface",  # Surface
         "refc": "REFC::entire atmosphere",
@@ -298,7 +298,7 @@ class GFSLexicon(metaclass=LexiconType):
                 """Modify data value (if necessary)."""
                 return x * 9.81
 
-        elif gfs_key.split("::")[1] == "APCP":
+        elif val == "tp":
 
             # TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228
             def mod(x: np.ndarray) -> np.ndarray:

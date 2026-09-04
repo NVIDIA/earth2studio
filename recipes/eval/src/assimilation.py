@@ -472,7 +472,7 @@ def insert_zero_lead_time(
     Analysis products have no forecast lead, but the output store schema
     (and scoring) key on a ``lead_time`` axis — a single ``0`` entry maps
     the analysis onto the standard layout (the same convention as
-    :class:`~src.pipelines.forecast.DiagnosticPipeline`).
+    :class:`~src.pipelines.diagnostic.DiagnosticPipeline`).
     """
     dims = list(coords.keys())
     time_axis = dims.index("time")

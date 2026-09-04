@@ -62,7 +62,6 @@ EXAMPLES_GALLERY_DESCRIPTION = (
     "Runnable examples, grouped by topic. Each card opens the complete source, "
     "output, and captured figures."
 )
-
 CALLOUT_KINDS = {
     "note",
     "warning",
@@ -269,17 +268,19 @@ def _catalog_records(page: object | None) -> list[dict[str, object]]:
 
 def _catalog_kind_group(parts: tuple[str, ...]) -> tuple[str | None, str]:
     if parts[0] == "models":
-        return "model", {
+        group = {
             "px": "Prognostic",
             "dx": "Diagnostic",
             "da": "Data Assimilation",
-        }.get(parts[1], parts[1].replace("_", " ").title())
+        }.get(parts[1])
+        return ("model", group) if group is not None else (None, "")
     if parts[0] == "data":
-        return "data", {
+        group = {
             "analysis": "Data Source",
             "forecast": "Forecast Data Source",
             "dataframe": "DataFrame Source",
-        }.get(parts[1], parts[1].replace("_", " ").title())
+        }.get(parts[1])
+        return ("data", group) if group is not None else (None, "")
     return None, ""
 
 
@@ -297,6 +298,8 @@ def _catalog_filters(kind: str, badges: list[str]) -> dict[str, list[str]]:
         if kind == "model"
         else (
             ("dataclass", "data class"),
+            ("dataset", "dataset family"),
+            ("provider", "provider"),
             ("product", "product"),
             ("region", "region"),
             ("gpu", "gpu"),
@@ -322,6 +325,8 @@ def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
         if kind == "model"
         else (
             "dataclass",
+            "dataset",
+            "provider",
             "product",
         )
     )

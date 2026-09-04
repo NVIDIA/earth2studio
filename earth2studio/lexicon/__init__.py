@@ -41,7 +41,7 @@ from .ibtracs import IBTrACSLexicon
 from .iem import IEM_ASOSLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
-from .meteosat import MeteosatFCILexicon
+from .meteosat import MeteosatFCILexicon, MeteosatLILexicon
 from .metop import (
     MetOpAMSUALexicon,
     MetOpAVHRRLexicon,
@@ -60,5 +60,6 @@ from .planetary_computer import (
     PlanetaryComputerOISSTLexicon,
     PlanetaryComputerSentinel3AODLexicon,
 )
+from .samudrace import SamudrACELexicon
 from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon

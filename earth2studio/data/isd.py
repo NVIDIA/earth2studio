@@ -105,7 +105,7 @@ class ISD:
     ```
     Badges
     ------
-    region:na dataclass:observation product:wind product:precip product:temp
+    region:na dataclass:observation product:wind product:precip product:temp provider:noaa
     product:insitu
     """
 

@@ -1,0 +1,215 @@
+# @package _global_
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ---------------------------------------------------------------------------
+# Aurora — 14-day scorecard, ERA5 2025, scored online.
+#
+# Scores computed for 48 ICs — four per month on the 1st/8th/15th/22nd at
+# 00/06/12/18 UTC respectively with 14-day window, monthly and regional
+# splits.
+#
+# Scored ONLINE: sufficient statistics are accumulated inside the inference
+# loop (stats.zarr -> scores.zarr) and no raw forecast store is written
+# (output.retain: none).  Scores carry a `region` axis (global +
+# continental lat/lon boxes on the ERA5 grid).
+#
+# Details:
+#   * 69 scored variables
+#   * 1 member — deterministic
+#   * 56 steps of 6 h
+#   * output pole-padded onto ERA5's 721 grid
+#   * needs t-6h history, so it keeps its own IC store.
+# ---------------------------------------------------------------------------
+defaults:
+# Regional splits (bands, headline boxes, continents) — one shared choice for every
+# scorecard campaign, defined in cfg/regions/standard.yaml.
+- /regions/standard
+- override /model: null   # self-contained: the model is defined right here
+model:
+    architecture: earth2studio.models.px.Aurora
+project: aurora
+run_id: 2025_scorecard
+# Four ICs per month at 00/06/12/18 UTC (see header).
+start_times:
+    - "2025-01-01 00:00:00"
+    - "2025-01-08 06:00:00"
+    - "2025-01-15 12:00:00"
+    - "2025-01-22 18:00:00"
+    - "2025-02-01 00:00:00"
+    - "2025-02-08 06:00:00"
+    - "2025-02-15 12:00:00"
+    - "2025-02-22 18:00:00"
+    - "2025-03-01 00:00:00"
+    - "2025-03-08 06:00:00"
+    - "2025-03-15 12:00:00"
+    - "2025-03-22 18:00:00"
+    - "2025-04-01 00:00:00"
+    - "2025-04-08 06:00:00"
+    - "2025-04-15 12:00:00"
+    - "2025-04-22 18:00:00"
+    - "2025-05-01 00:00:00"
+    - "2025-05-08 06:00:00"
+    - "2025-05-15 12:00:00"
+    - "2025-05-22 18:00:00"
+    - "2025-06-01 00:00:00"
+    - "2025-06-08 06:00:00"
+    - "2025-06-15 12:00:00"
+    - "2025-06-22 18:00:00"
+    - "2025-07-01 00:00:00"
+    - "2025-07-08 06:00:00"
+    - "2025-07-15 12:00:00"
+    - "2025-07-22 18:00:00"
+    - "2025-08-01 00:00:00"
+    - "2025-08-08 06:00:00"
+    - "2025-08-15 12:00:00"
+    - "2025-08-22 18:00:00"
+    - "2025-09-01 00:00:00"
+    - "2025-09-08 06:00:00"
+    - "2025-09-15 12:00:00"
+    - "2025-09-22 18:00:00"
+    - "2025-10-01 00:00:00"
+    - "2025-10-08 06:00:00"
+    - "2025-10-15 12:00:00"
+    - "2025-10-22 18:00:00"
+    - "2025-11-01 00:00:00"
+    - "2025-11-08 06:00:00"
+    - "2025-11-15 12:00:00"
+    - "2025-11-22 18:00:00"
+    - "2025-12-01 00:00:00"
+    - "2025-12-08 06:00:00"
+    - "2025-12-15 12:00:00"
+    - "2025-12-22 18:00:00"
+nsteps: 56
+ensemble_size: 1
+resume: true
+perturbation: null
+require_predownload: true
+data_source:
+    _target_: earth2studio.data.ARCO
+    cache: false
+    verbose: false
+output:
+    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora/outputs}/${project}_${run_id}
+    # Online scoring: never write the raw forecast store; stats.zarr is
+    # the artifact.
+    retain: none
+    thread_writers: 4
+    chunks:
+        time: 1
+        lead_time: 1
+    variables:
+    - z1000
+    - z925
+    - z850
+    - z700
+    - z600
+    - z500
+    - z400
+    - z300
+    - z250
+    - z200
+    - z150
+    - z100
+    - z50
+    - q1000
+    - q925
+    - q850
+    - q700
+    - q600
+    - q500
+    - q400
+    - q300
+    - q250
+    - q200
+    - q150
+    - q100
+    - q50
+    - t1000
+    - t925
+    - t850
+    - t700
+    - t600
+    - t500
+    - t400
+    - t300
+    - t250
+    - t200
+    - t150
+    - t100
+    - t50
+    - u1000
+    - u925
+    - u850
+    - u700
+    - u600
+    - u500
+    - u400
+    - u300
+    - u250
+    - u200
+    - u150
+    - u100
+    - u50
+    - v1000
+    - v925
+    - v850
+    - v700
+    - v600
+    - v500
+    - v400
+    - v300
+    - v250
+    - v200
+    - v150
+    - v100
+    - v50
+    - msl
+    - u10m
+    - v10m
+    - t2m
+scoring:
+    mode: online
+    variables: ${output.variables}
+    lat_weights: true
+    # Deterministic run: the online path derives mse/rmse, bias and corr
+    # from the accumulated sums, plus the opt-ins below — the ensemble
+    # statistics (CRPS, spread, rank histogram) are skipped for M = 1.
+    online:
+        # Per-member MAE and radially averaged log spectral distance (dB)
+        # vs ERA5 — the scorecard's deterministic panel.  The regional
+        # splits come from the defaults entry /regions/standard above;
+        # LSD is spectral, hence global-only (NaN in the boxed regions).
+        mae: true
+        lsd: true
+    resume: true
+predownload:
+    verification:
+        enabled: true
+        source:
+            _target_: earth2studio.data.ARCO
+            cache: false
+            verbose: false
+pipeline:
+    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
+    target_lat:
+        start: 90.0
+        stop: -90.0
+        num: 721
+    target_lon:
+        start: 0.0
+        stop: 359.75
+        num: 1440
+    share_verification: true

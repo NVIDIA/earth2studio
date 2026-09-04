@@ -1430,7 +1430,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x, coords = self.prep_input(x, coords)
         ic_coords = coords.copy()
         ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
-        yield torch.where(~self.valid_mask, torch.nan, x), ic_coords
+        ic_x = x[:, :, -1:, ...]
+        yield torch.where(~self.valid_mask, torch.nan, ic_x), ic_coords
 
         while True:
             x, coords = self.front_hook(x, coords)
@@ -1480,6 +1481,12 @@ class StormScopeGOES(StormScopeBase):
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single
     input timestep and predict one output timestep.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/stormscope-goes-mrms
 
     Parameters
     ----------
@@ -1825,6 +1832,12 @@ class StormScopeMRMS(StormScopeBase):
     predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
     method. Otherwise, the user must provide a conditioning data source for the model
     to use during inference.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/stormscope-goes-mrms
 
     Parameters
     ----------

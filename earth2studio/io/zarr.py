@@ -73,8 +73,10 @@ class ZarrBackend:
 
         self.root = zarr.group(self.store, **backend_kwargs)
         self.zarr_codecs = zarr_codecs
+        self._read_store_state(chunks)
 
-        # Read data from file, if available
+    def _read_store_state(self, chunks: dict[str, int]) -> None:
+        """Populate coords and chunks from any arrays already in the store."""
         self.coords: CoordSystem = OrderedDict({})
         self.chunks = chunks.copy()
         for array in self.root:
@@ -269,19 +271,36 @@ class ZarrBackend:
                     + "the multidimension coordinates are passed in full."
                 )
 
+        selection = self._selection(adjusted_coords)
         for xi, name in zip(x, array_name):
             if name not in self.root:
                 self.add_array(adjusted_coords, array_name)
 
-            # Get indices as list of arrays and set torch tensor
-            self.root[name][
-                np.ix_(
-                    *[
-                        np.where(np.isin(self.coords[dim], value))[0]
-                        for dim, value in adjusted_coords.items()
-                    ]
-                )
-            ] = xi.to("cpu", non_blocking=False).numpy()
+            self._write_array(name, selection, xi.to("cpu", non_blocking=False).numpy())
+
+    def _write_array(self, name: str, selection: tuple, data: np.ndarray) -> None:
+        """Assign `data` into `self.root[name][selection]`.
+
+        Split out from `write` so subclasses can override just the storage step,
+        e.g. to run it asynchronously.
+        """
+        self.root[name][selection] = data
+
+    def _selection(self, adjusted_coords: CoordSystem) -> tuple:
+        """Build an index selection locating `adjusted_coords` in the store.
+
+        Contiguous coordinate subsets (the common case, e.g. writing one forecast
+        step) are returned as basic slices, which zarr handles roughly an order of
+        magnitude faster than the orthogonal (fancy) indexing path. Scattered
+        subsets fall back to `np.ix_`.
+        """
+        indices = [
+            np.where(np.isin(self.coords[dim], value))[0]
+            for dim, value in adjusted_coords.items()
+        ]
+        if all(ind.size > 0 and np.all(np.diff(ind) == 1) for ind in indices):
+            return tuple(slice(int(ind[0]), int(ind[-1]) + 1) for ind in indices)
+        return np.ix_(*indices)
 
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
@@ -319,13 +338,6 @@ class ZarrBackend:
                     + "the multidimension coordinates are passed in full."
                 )
 
-        x = self.root[array_name][
-            np.ix_(
-                *[
-                    np.where(np.isin(self.coords[dim], value))[0]
-                    for dim, value in adjusted_coords.items()
-                ]
-            )
-        ]
+        x = self.root[array_name][self._selection(adjusted_coords)]
 
         return torch.as_tensor(x, device=device), coords

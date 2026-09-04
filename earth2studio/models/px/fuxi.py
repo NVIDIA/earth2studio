@@ -132,6 +132,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2306.12873
     - https://github.com/tpys/FuXi
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -373,7 +374,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         time_array = self._time_encoding(
             np.tile(coords["time"] + coords["lead_time"][-1], x.shape[0])
         )
-        x = x.view(-1, *x.shape[2:])
+        # reshape, not view: x is the caller's tensor and may be non-contiguous
+        x = x.reshape(-1, *x.shape[2:]).contiguous()
 
         # Not sure if FuXi supports batching atm
         output = torch.empty_like(x)
@@ -388,7 +390,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output[b : b + 1] = out
 
         # Reshape to batch and time dimension
-        output = output.view(-1, coords["time"].shape[0], *output.shape[1:])
+        output = output.reshape(-1, coords["time"].shape[0], *output.shape[1:])
 
         # Convert tp06 back to m
         output[..., tp06_index, :, :] = output[..., tp06_index, :, :] / 1000

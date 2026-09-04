@@ -74,6 +74,9 @@ LEVELS = [
 
 MDL_LEVELS = np.arange(1, 138)
 
+# Number of trailing hourly samples summed together for each accumulated
+# variable, e.g. "tp06" is the trailing 6-hour sum of hourly "tp" and
+# "ttr03" is the trailing 3-hour sum of hourly "ttr".
 ACCUMULATION_HOURS = {
     "cp06": 6,
     "ro06": 6,
@@ -81,6 +84,7 @@ ACCUMULATION_HOURS = {
     "ssrd06": 6,
     "strd06": 6,
     "tp06": 6,
+    "ttr03": 3,
 }
 
 
@@ -137,6 +141,7 @@ class ARCOLexicon(metaclass=LexiconType):
         "tcc": "total_cloud_cover::",
         "tcw": "total_column_water::",
         "tp06": "total_precipitation::",
+        "ttr03": "top_net_thermal_radiation::",
         "wmb": "model_bathymetry::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})

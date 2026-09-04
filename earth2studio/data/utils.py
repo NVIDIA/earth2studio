@@ -17,12 +17,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import random
 import tempfile
 import uuid
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -36,6 +37,7 @@ import obspec
 import obstore as obs
 import obstore.store
 import pandas as pd
+import pyarrow as pa
 import torch
 import xarray as xr
 import zarr
@@ -55,6 +57,7 @@ from earth2studio.data.base import (
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
+    normalize_time_precision,
     timearray_to_datetime,
     to_time_array,
 )
@@ -75,6 +78,24 @@ try:
     import cudf
 except ImportError:
     cudf = None
+
+
+def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
+    """Offset times by a lead time, keeping nanosecond precision when possible.
+
+    Parameters
+    ----------
+    time : TimeArray
+        Timestamps to offset.
+    lead : np.timedelta64
+        Lead time to add to each timestamp.
+
+    Returns
+    -------
+    np.ndarray
+        Offset timestamps, as ``datetime64[ns]`` when representable.
+    """
+    return normalize_time_precision(np.array([t + lead for t in time]))
 
 
 def fetch_data(
@@ -130,7 +151,7 @@ def fetch_data(
     else:
         da = []
         for lead in lead_time:
-            adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+            adjust_times = _offset_times(time, lead)
             da0 = source(adjust_times, variable)  # type: ignore
             da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
             da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
@@ -472,7 +493,7 @@ def datasource_to_file(
 
     # Compile all times
     for lead in lead_time:
-        adjust_times = np.array([t + lead for t in time], dtype="datetime64[ns]")
+        adjust_times = _offset_times(time, lead)
         time = np.concatenate([time, adjust_times], axis=0)
     time = np.unique(time)
 
@@ -593,6 +614,7 @@ async def async_retry(
     backoff: float = 1.0,
     task_timeout: float | None = None,
     exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
+    no_retry: tuple[type[BaseException], ...] = (),
     **kwargs: Any,
 ) -> Any:
     """Retry an async callable with exponential backoff and jitter.
@@ -613,6 +635,11 @@ async def async_retry(
         Exception types to catch and retry on. Should be scoped to transient
         I/O errors (OSError, IOError, TimeoutError, ConnectionError), not
         broad Exception which would mask programming errors.
+    no_retry : tuple, optional
+        Exception types to re-raise immediately even when they subclass an
+        entry in ``exceptions``, for permanent failures that would otherwise
+        be retried uselessly (e.g. FileNotFoundError under OSError), by
+        default ()
     **kwargs : Any
         Keyword arguments for coro_func
 
@@ -642,6 +669,9 @@ async def async_retry(
             last_exc = asyncio.TimeoutError(
                 f"Attempt {attempt + 1}/{retries + 1} timed out after {task_timeout}s"
             )
+        except no_retry:
+            # Permanent failures: retrying cannot succeed
+            raise
         except exceptions as e:
             last_exc = e
         if attempt < retries:
@@ -1038,6 +1068,34 @@ async def obstore_read_range(
     return bytes(data)
 
 
+def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
+    """Writes bytes to a file atomically via a same-directory temp file.
+
+    Readers never observe a partially written file: content is written to a
+    unique temporary file in the destination directory and published with an
+    atomic ``os.replace``. Concurrent writers of the same path are safe (the
+    last writer wins with complete content), and interrupted writes leave the
+    destination untouched.
+
+    Parameters
+    ----------
+    path : str | os.PathLike
+        Destination file path
+    data : bytes
+        Content to write
+    """
+    path = os.fspath(path)
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path) or ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as file:
+            file.write(data)
+        os.replace(tmp_path, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
+
+
 # Defaults for chunked whole-object reads. 1 MiB chunks with 8 in flight
 # measured ~5x faster and far less variable than a single whole-object GET on
 # tens-of-MB S3 objects (2--8 MiB chunks yield too few concurrent streams).
@@ -1118,6 +1176,7 @@ async def obstore_fetch_to_cache(
     byte_length: int | None = None,
     cache_key: str | None = None,
     chunked: bool = False,
+    atomic: bool = False,
 ) -> str:
     """Fetches a byte range of an object into a local cache file.
 
@@ -1145,6 +1204,12 @@ async def obstore_fetch_to_cache(
         Fetch the object as concurrent byte-range chunks via
         :func:`obstore_read_chunked`. Only valid for whole-object fetches
         (``byte_offset == 0`` and ``byte_length is None``), by default False
+    atomic : bool, optional
+        Publish the cache file atomically (same-directory temp file +
+        ``os.replace``) so an interrupted or concurrent fetch of the same
+        object can never leave a partial file behind as a poisoned cache
+        entry. Intended for callers whose cache entries are plausibly written
+        by several processes at once, by default False
 
     Returns
     -------
@@ -1164,7 +1229,10 @@ async def obstore_fetch_to_cache(
         data = await obstore_read_range(
             store, key, byte_offset=byte_offset, byte_length=byte_length
         )
-    await asyncio.to_thread(Path(cache_path).write_bytes, data)
+    if atomic:
+        await asyncio.to_thread(atomic_write_bytes, cache_path, data)
+    else:
+        await asyncio.to_thread(Path(cache_path).write_bytes, data)
     return cache_path
 
 
@@ -1429,3 +1497,45 @@ def radiance_to_bt(
         bt = t_star
 
     return bt
+
+
+_DICT_STRING_TYPE = pa.dictionary(pa.int8(), pa.utf8())
+
+
+def table_to_dataframe(
+    table: pa.Table,
+    dict_string_columns: Collection[str] = (),
+) -> pd.DataFrame:
+    """Convert an Arrow table to a DataFrame with Arrow-backed dtypes.
+
+    Every column is converted with ``types_mapper=pd.ArrowDtype``, so the
+    returned frame holds the table's buffers directly — chunked columns
+    included, without consolidation — and ``pa.Table.from_pandas`` on the
+    result is zero-copy, letting consumers project, filter, and thin in
+    Arrow despite being handed a DataFrame.
+
+    Parameters
+    ----------
+    table : pa.Table
+        Table to convert. May be chunked; chunks are preserved.
+    dict_string_columns : Collection[str], optional
+        Names of low-cardinality string columns to dictionary-encode
+        (``dictionary<int8, string>``, at most 128 distinct values) before
+        conversion, cutting per-row string overhead on large frames. Only
+        pass columns with few distinct values — encoding a high-cardinality
+        column costs memory instead of saving it. Names absent from the
+        table, or present but not string-typed, are ignored.
+
+    Returns
+    -------
+    pd.DataFrame
+        Frame whose every column is a ``pd.ArrowDtype``.
+    """
+    schema = table.schema
+    for col in dict_string_columns:
+        if col in schema.names and pa.types.is_string(schema.field(col).type):
+            idx = schema.get_field_index(col)
+            schema = schema.set(idx, schema.field(col).with_type(_DICT_STRING_TYPE))
+    if schema is not table.schema:
+        table = table.cast(schema)
+    return table.to_pandas(types_mapper=pd.ArrowDtype)

@@ -17,10 +17,12 @@
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
@@ -68,6 +70,9 @@ _ATMOS_OUTPUT_TIMES = np.array(
 )
 _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
+# Normalize variable names in the model package to match e2studio's lexicon
+_ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
+
 
 @check_optional_dependencies()
 class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -80,6 +85,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     different times, not all entries in the output tensor are valid. As a result,
     we provide convenience methods for retrieving the valid atmospheric and
     oceanic outputs.
+
+    The default package provided for this model contains the checkpoints used
+    in the ECMWF AI Weather Quest S2S competition. These checkpoints are trained
+    with CRPS loss and use sampled random noise to produce ensemble variability
+    each forward pass, seeded with the ``set_rng`` method.
 
     Parameters
     ----------
@@ -94,9 +104,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     nside : int
         HEALPix nside
     center : np.ndarray
-        Means of the input data, shape (1, 1, 1, num_variables, 1, 1, 1)
+        Means of the full output variable set (prognostics + diagnostics,
+        in the same order as `output_coords`'s `variable` axis), shape
+        (1, 1, 1, num_output_variables, 1, 1, 1)
     scale : np.ndarray
-        Standard deviations of the input data, shape (1, 1, 1, num_variables, 1, 1, 1)
+        Standard deviations of the full output variable set, same shape
+        and ordering as `center`
     atmos_constants : np.ndarray
         Constants for the atmosphere model, shape (12, num_atmos_constants, nside, nside)
     ocean_constants : np.ndarray
@@ -107,6 +120,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Ocean input times, shape (num_ocean_input_times,)
     atmos_output_times : np.ndarray
         Atmospheric output times, shape (num_atmos_output_times,)
+    ocean_output_times : np.ndarray
+        Ocean output times, shape (num_ocean_output_times,)
     atmos_variables : list[str]
         Atmospheric variables
     ocean_variables : list[str]
@@ -115,6 +130,20 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Atmospheric coupling variables
     ocean_coupling_variables : list[str]
         Ocean coupling variables
+    atmos_diagnostic_variables : list[str], optional
+        Atmospheric diagnostic output variables. These are produced by the
+        atmos model but, unlike `atmos_variables`, are not fed back in as
+        input to the next autoregressive step, by default []
+    ocean_diagnostic_variables : list[str], optional
+        Ocean diagnostic output variables, analogous to
+        `atmos_diagnostic_variables`, by default []
+    use_cln : bool, optional
+        Whether the atmos/ocean models use conditional layer norm, which
+        requires sampling and passing noise to the model to produce
+        ensemble variability from a single set of weights, by default False
+    condition_shape : int, optional
+        Dimension of the conditional layer norm noise vector. Required if
+        `use_cln` is True, by default None
 
     Note
     ----
@@ -171,11 +200,21 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ocean_variables: list[str],
         atmos_coupling_variables: list[str],
         ocean_coupling_variables: list[str],
+        atmos_diagnostic_variables: list[str] | None = None,
+        ocean_diagnostic_variables: list[str] | None = None,
+        use_cln: bool = False,
+        condition_shape: int | None = None,
     ):
 
         super().__init__()
         self.atmos_model = atmos_model.eval()
         self.ocean_model = ocean_model.eval()
+
+        if use_cln and condition_shape is None:
+            raise ValueError("'condition_shape' is required when 'use_cln' is True")
+        self.use_cln = use_cln
+        self.condition_shape = condition_shape
+        self._cln_generator: torch.Generator | None = None
 
         self.register_buffer("center", torch.from_numpy(center).to(dtype=torch.float32))
         self.register_buffer("scale", torch.from_numpy(scale).to(dtype=torch.float32))
@@ -193,6 +232,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ocean_variables = ocean_variables
         self.atmos_coupling_variables = atmos_coupling_variables
         self.ocean_coupling_variables = ocean_coupling_variables
+        self.atmos_diagnostic_variables = atmos_diagnostic_variables or []
+        self.ocean_diagnostic_variables = ocean_diagnostic_variables or []
 
         # Validate the input and output times
         for name, times in zip(
@@ -272,25 +313,100 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.atmos_output_lt_idx = [
             list(out_coords["lead_time"]).index(t) for t in self.atmos_output_times
         ]
-        self.ocean_output_lt_idx = [
-            list(out_coords["lead_time"]).index(t) for t in self.ocean_output_times
-        ]
+        self.register_buffer(
+            "ocean_output_lt_idx",
+            torch.tensor(
+                [
+                    list(out_coords["lead_time"]).index(t)
+                    for t in self.ocean_output_times
+                ],
+                dtype=torch.long,
+            ),
+        )
 
         # Setup the variable indices for [atmos, ocean]
-        self.atmos_var_idx = [
-            list(out_coords["variable"]).index(var) for var in self.atmos_variables
-        ]
-        self.ocean_var_idx = [
-            list(out_coords["variable"]).index(var) for var in self.ocean_variables
-        ]
+        # Input-side indices select prognostic variables out of `x`, which
+        # always carries the canonical `atmos_variables + ocean_variables`
+        # layout (diagnostics are dropped before being fed back in -- see
+        # `_next_step_inputs`). This must NOT be sourced from
+        # `self.input_coords()`: for `DLESyMLatLon`, that method reports a
+        # different, lat/lon-native variable set (e.g. `u10m`/`v10m`
+        # instead of `ws10m`) that only exists before
+        # `_prepare_derived_variables` converts it to the canonical set --
+        # `prepare_input_data` itself only ever sees the canonical layout.
+        # `prognostic_variables` is `atmos_variables + ocean_variables` by
+        # construction, so each component's own indices within it are just
+        # the contiguous range it occupies.
+        prognostic_variables = self.atmos_variables + self.ocean_variables
+        self.atmos_var_idx = list(range(len(self.atmos_variables)))
+        self.ocean_var_idx = list(
+            range(len(self.atmos_variables), len(prognostic_variables))
+        )
         self.atmos_coupling_var_idx = [
-            list(out_coords["variable"]).index(var)
-            for var in self.atmos_coupling_variables
+            prognostic_variables.index(var) for var in self.atmos_coupling_variables
         ]
+        # Ocean coupling is built from the atmos model's own raw output
+        # tensor, whose channel layout is
+        # [atmos_variables, atmos_diagnostic_variables] regardless of
+        # where those variables land in the merged `out_coords`.
         self.ocean_coupling_var_idx = [
-            list(out_coords["variable"]).index(var)
+            list(self.atmos_variables + self.atmos_diagnostic_variables).index(var)
             for var in self.ocean_coupling_variables
         ]
+
+        # Output-side indices scatter each component's raw output tensor
+        # (channel layout [prognostics, diagnostics]) into the merged
+        # output tensor, whose variable axis follows `out_coords["variable"]`.
+        # Registered as buffers (rather than plain lists) so they follow
+        # the module to whatever device it's moved to.
+        self.register_buffer(
+            "atmos_output_var_idx",
+            torch.tensor(
+                [
+                    list(out_coords["variable"]).index(var)
+                    for var in self.atmos_variables + self.atmos_diagnostic_variables
+                ],
+                dtype=torch.long,
+            ),
+        )
+        self.register_buffer(
+            "ocean_output_var_idx",
+            torch.tensor(
+                [
+                    list(out_coords["variable"]).index(var)
+                    for var in self.ocean_variables + self.ocean_diagnostic_variables
+                ],
+                dtype=torch.long,
+            ),
+        )
+
+        # Diagnostic-only output variables are dropped before being fed
+        # back in as the next step's input.
+        self._has_diagnostic_variables = bool(self.atmos_diagnostic_variables) or bool(
+            self.ocean_diagnostic_variables
+        )
+        self.register_buffer(
+            "_prognostic_out_idx",
+            torch.tensor(
+                [
+                    list(out_coords["variable"]).index(var)
+                    for var in self.atmos_variables + self.ocean_variables
+                ],
+                dtype=torch.long,
+            ),
+        )
+
+        # `self.center`/`self.scale` cover the full output variable set
+        # (prognostics + diagnostics, in `out_coords["variable"]` order) --
+        # correct for `_denormalize_output`, but `_normalize_input` needs
+        # the prognostic-only subset in `input_coords`'s order to match
+        # the input tensor's (smaller) variable axis.
+        self.register_buffer(
+            "input_center", self.center.index_select(3, self._prognostic_out_idx)
+        )
+        self.register_buffer(
+            "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
+        )
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
@@ -332,7 +448,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "batch": np.empty(0),
                 "time": np.empty(0),
                 "lead_time": self.atmos_output_times,  # atmos model has the finer temporal resolution over output lead times
-                "variable": np.array(self.atmos_variables + self.ocean_variables),
+                "variable": np.array(
+                    self.atmos_variables
+                    + self.atmos_diagnostic_variables
+                    + self.ocean_variables
+                    + self.ocean_diagnostic_variables
+                ),
                 "face": np.arange(12),
                 "height": np.arange(self.nside),
                 "width": np.arange(self.nside),
@@ -360,12 +481,16 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default DLESyM model package on NGC"""
+        """Default DLESyM model package on NGC
+
+        The package's top-level ``config.yaml`` lists the available
+        checkpoint versions; see :func:`load_model` for how to select
+        between them.
+        """
         package = Package(
-            "hf://nvidia/dlesym-v1-era5@9dbcdb83706702ac3b7d93f5dad5e535abc2fb72",
+            "hf://nvidia/dlesym-v1-era5@b88155cfc2c988a2a9058d5e35a41220e2b01941",
             cache_options={
                 "cache_storage": Package.default_cache("dlesym"),
-                "same_names": True,
             },
         )
         return package
@@ -377,6 +502,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         atmos_model_idx: int = 0,
         ocean_model_idx: int = 0,
+        version: Literal["v1.0", "v1.1"] = "v1.1",
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -384,10 +510,22 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
+        version : {"v1.0", "v1.1"}, optional
+            Checkpoint version to load; see each version's entry in the
+            package's `config.yaml` for details. `v1.1` is the checkpoint
+            submitted to the ECMWF AI Weather Quest competition
+            (https://aiweatherquest.ecmwf.int/). `v1.0` is the previous
+            checkpoint, kept for reproducibility; loading it logs a
+            deprecation warning, by default "v1.1"
         atmos_model_idx : int, optional
-            Index of atmos model weights in package to load, by default 0
+            Index of atmos model weights to load. Only meaningful for
+            checkpoint versions that ship multiple atmos checkpoints
+            (used to build ensembles without conditional layer norm), by
+            default 0
         ocean_model_idx : int, optional
-            Index of ocean model weights in package to load, by default 0
+            Index of ocean model weights to load. Only meaningful for
+            checkpoint versions that ship multiple ocean checkpoints, by
+            default 0
 
         Returns
         -------
@@ -395,15 +533,45 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Prognostic model
         """
 
-        cfg_file = Path(package.resolve("config.yaml"))
-        cfg = OmegaConf.load(cfg_file)
+        top_cfg = OmegaConf.load(Path(package.resolve("config.yaml")))
+
+        if version not in top_cfg.versions:
+            raise ValueError(
+                f"Unknown DLESyM checkpoint version '{version}', available "
+                f"versions: {list(top_cfg.versions.keys())}"
+            )
+
+        version_cfg = top_cfg.versions[version]
+        if version_cfg.get("deprecated", False):
+            logger.warning(
+                version_cfg.get(
+                    "deprecation_message",
+                    f"DLESyM checkpoint version '{version}' is deprecated.",
+                )
+            )
+
+        version_path = version_cfg.path
+        cfg = OmegaConf.load(Path(package.resolve(f"{version_path}/config.yaml")))
         nside = cfg.data.nside
 
+        atmos_ckpts = cfg.models.atmos_model_checkpoints
+        ocean_ckpts = cfg.models.ocean_model_checkpoints
+        if atmos_model_idx != 0 and len(atmos_ckpts) == 1:
+            raise ValueError(
+                f"DLESyM checkpoint version '{version}' only ships a single "
+                "atmos checkpoint; 'atmos_model_idx' must be 0."
+            )
+        if ocean_model_idx != 0 and len(ocean_ckpts) == 1:
+            raise ValueError(
+                f"DLESyM checkpoint version '{version}' only ships a single "
+                "ocean checkpoint; 'ocean_model_idx' must be 0."
+            )
+
         atmos_model_ckpt = package.resolve(
-            cfg.models.atmos_model_checkpoints[atmos_model_idx]
+            f"{version_path}/atmos/{atmos_ckpts[atmos_model_idx]}"
         )
         ocean_model_ckpt = package.resolve(
-            cfg.models.ocean_model_checkpoints[ocean_model_idx]
+            f"{version_path}/ocean/{ocean_ckpts[ocean_model_idx]}"
         )
 
         atmos_model = Module.from_checkpoint(atmos_model_ckpt)
@@ -411,19 +579,24 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         atmos_model.output_time_dim = len(cfg.io.atmos_output_times)
         ocean_model.output_time_dim = len(cfg.io.ocean_output_times)
 
-        # Normalization constants
-        ctr = np.array(
-            [cfg.data.scaling[var]["mean"] for var in cfg.io.atmos_variables]
-            + [cfg.data.scaling[var]["mean"] for var in cfg.io.ocean_variables]
+        atmos_diagnostic_variables = list(cfg.io.get("atmos_diagnostic_variables", []))
+        ocean_diagnostic_variables = list(cfg.io.get("ocean_diagnostic_variables", []))
+
+        # Normalization constants, covering the full output variable set
+        # (prognostics + diagnostics) in the same order as
+        # `output_coords`'s `variable` axis.
+        output_variables = (
+            list(cfg.io.atmos_variables)
+            + atmos_diagnostic_variables
+            + list(cfg.io.ocean_variables)
+            + ocean_diagnostic_variables
         )
-        scl = np.array(
-            [cfg.data.scaling[var]["std"] for var in cfg.io.atmos_variables]
-            + [cfg.data.scaling[var]["std"] for var in cfg.io.ocean_variables]
-        )
+        ctr = np.array([cfg.data.scaling[var]["mean"] for var in output_variables])
+        scl = np.array([cfg.data.scaling[var]["std"] for var in output_variables])
         center = ctr[None, None, None, :, None, None, None]
         scale = scl[None, None, None, :, None, None, None]
 
-        # Constant fields
+        # Constant fields (shared across checkpoint versions, package root)
         hpx_lat = np.load(package.resolve("hpx_lat.npy"))
         hpx_lon = np.load(package.resolve("hpx_lon.npy"))
         atmos_constants = np.stack(
@@ -440,6 +613,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ],
             axis=1,
         )
+
+        cln_cfg = cfg.get("cln", {})
+        use_cln = bool(cln_cfg.get("enabled", False))
+        condition_shape = cln_cfg.get("condition_shape", None) if use_cln else None
 
         return cls(
             atmos_model,
@@ -463,10 +640,19 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ocean_output_times=np.array(
                 cfg.io.ocean_output_times, dtype="timedelta64[h]"
             ),
-            atmos_variables=cfg.io.atmos_variables,
-            ocean_variables=cfg.io.ocean_variables,
-            atmos_coupling_variables=cfg.io.atmos_coupling_variables,
-            ocean_coupling_variables=cfg.io.ocean_coupling_variables,
+            atmos_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v) for v in cfg.io.atmos_variables
+            ],
+            ocean_variables=list(cfg.io.ocean_variables),
+            atmos_coupling_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v)
+                for v in cfg.io.atmos_coupling_variables
+            ],
+            ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
+            atmos_diagnostic_variables=atmos_diagnostic_variables,
+            ocean_diagnostic_variables=ocean_diagnostic_variables,
+            use_cln=use_cln,
+            condition_shape=condition_shape,
         )
 
     def prepare_input_data(
@@ -570,12 +756,17 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output data
         """
 
+        # Variable dim covers the full output variable set (prognostics +
+        # diagnostics for each component), which is larger than
+        # `coords["variable"]` (the input, prognostic-only variable set)
+        # whenever diagnostic output variables are configured.
+        n_output_vars = len(self.atmos_output_var_idx) + len(self.ocean_output_var_idx)
         output_data = torch.empty(
             (
                 len(coords["batch"]),
                 len(coords["time"]),
                 len(self.atmos_output_times),
-                len(coords["variable"]),
+                n_output_vars,
                 len(coords["face"]),
                 len(coords["height"]),
                 len(coords["width"]),
@@ -593,8 +784,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             len(coords["batch"]), len(coords["time"]), *ocean_outputs.shape[1:]
         )
 
-        output_data[:, :, :, self.atmos_var_idx, :, :, :] = atmos_outputs
-        for src_idx, dst_idx in enumerate(self.ocean_var_idx):
+        output_data[:, :, :, self.atmos_output_var_idx, :, :, :] = atmos_outputs
+        for src_idx, dst_idx in enumerate(self.ocean_output_var_idx):
             output_data[:, :, self.ocean_output_lt_idx, dst_idx, :, :, :] = (
                 ocean_outputs[:, :, :, src_idx, :, :, :]
             )
@@ -695,7 +886,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _normalize_input(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize input data"""
 
-        return (x - self.center) / self.scale
+        return (x - self.input_center) / self.input_scale
 
     def _denormalize_output(self, x: torch.Tensor) -> torch.Tensor:
         """Denormalize output data"""
@@ -730,16 +921,16 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         var_dim = list(coords.keys()).index("variable")
         lead_dim = list(coords.keys()).index("lead_time")
         out_coords = coords.copy()
-        out_coords["variable"] = np.array(self.ocean_variables)
+        out_coords["variable"] = np.array(
+            self.ocean_variables + self.ocean_diagnostic_variables
+        )
         out_coords["lead_time"] = np.array(
             [t for t in coords["lead_time"] if t % self.ocean_output_times[0] == 0]
         )
 
-        ocean_outputs = x.index_select(
-            dim=var_dim, index=torch.tensor(self.ocean_var_idx, device=x.device)
-        )
+        ocean_outputs = x.index_select(dim=var_dim, index=self.ocean_output_var_idx)
         ocean_outputs = ocean_outputs.index_select(
-            dim=lead_dim, index=torch.tensor(self.ocean_output_lt_idx, device=x.device)
+            dim=lead_dim, index=self.ocean_output_lt_idx
         )
         return ocean_outputs, out_coords
 
@@ -769,11 +960,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         var_dim = list(coords.keys()).index("variable")
 
         out_coords = coords.copy()
-        out_coords["variable"] = np.array(self.atmos_variables)
-
-        atmos_outputs = x.index_select(
-            dim=var_dim, index=torch.tensor(self.atmos_var_idx, device=x.device)
+        out_coords["variable"] = np.array(
+            self.atmos_variables + self.atmos_diagnostic_variables
         )
+
+        atmos_outputs = x.index_select(dim=var_dim, index=self.atmos_output_var_idx)
 
         return atmos_outputs, out_coords
 
@@ -797,6 +988,70 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"Lead time dimension length mismatch between model and coords: expected {len(self.atmos_output_times)}, got {len(coords['lead_time'])}"
             )
 
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the generator used to sample conditional layer norm noise.
+
+        Matches the `set_rng(seed, reset)` convention used by other
+        stochastic prognostic models in earth2studio (e.g. FCN3), so
+        callers (ensemble drivers, eval recipes) can reseed this model the
+        same way as any other stochastic model via
+        `hasattr(model, "set_rng")`. Has no effect if `use_cln` is False.
+
+        Parameters
+        ----------
+        seed : int
+            Seed value
+        reset : bool, optional
+            Reinitialize the generator from `seed`. If False and the
+            generator is already initialized, this is a no-op, by default
+            True
+        """
+        if reset or self._cln_generator is None:
+            self._cln_generator = torch.Generator().manual_seed(seed)
+
+    def _sample_conditions_cln(
+        self,
+        batch_size: int,
+        n_steps: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> list[torch.Tensor]:
+        """Draw a fresh conditional layer norm noise tensor for each
+        internal integration step of a component model.
+
+        Draws are pulled from `self._cln_generator` when set via
+        `set_rng`, otherwise fall back to the global RNG. Nothing is
+        cached: each call advances the generator's state, so a full
+        autoregressive rollout for a given seed produces a unique,
+        reproducible noise trajectory across all steps rather than a
+        single fixed draw held constant for the whole forecast.
+
+        Parameters
+        ----------
+        batch_size : int
+            Batch size, matching the target model's flattened
+            (batch * time) input dimension
+        n_steps : int
+            Number of noise tensors to draw, matching the target model's
+            `integration_steps`
+        device : torch.device
+            Target device
+        dtype : torch.dtype
+            Target dtype
+
+        Returns
+        -------
+        list[torch.Tensor]
+            List of length `n_steps`, each of shape
+            (batch_size, condition_shape)
+        """
+        return [
+            torch.randn(
+                batch_size, self.condition_shape, generator=self._cln_generator
+            ).to(device=device, dtype=dtype)
+            for _ in range(n_steps)
+        ]
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -808,11 +1063,33 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Forward pass of atmos model first
         atmos_inputs, ocean_inputs = self.prepare_input_data(x, coords)
-        atmos_outputs = self.atmos_model(atmos_inputs)
+        if self.use_cln:
+            atmos_conditions = self._sample_conditions_cln(
+                batch_size=atmos_inputs[0].shape[0],
+                n_steps=self.atmos_model.integration_steps,
+                device=x.device,
+                dtype=x.dtype,
+            )
+            atmos_outputs = self.atmos_model(
+                atmos_inputs, conditions_cln=atmos_conditions
+            )
+        else:
+            atmos_outputs = self.atmos_model(atmos_inputs)
 
         # Use atmos outputs as coupling for ocean, run forward pass of ocean model
         ocean_inputs.append(self._make_ocean_coupling(atmos_outputs, coords))
-        ocean_outputs = self.ocean_model(ocean_inputs)
+        if self.use_cln:
+            ocean_conditions = self._sample_conditions_cln(
+                batch_size=ocean_inputs[0].shape[0],
+                n_steps=self.ocean_model.integration_steps,
+                device=x.device,
+                dtype=x.dtype,
+            )
+            ocean_outputs = self.ocean_model(
+                ocean_inputs, conditions_cln=ocean_conditions
+            )
+        else:
+            ocean_outputs = self.ocean_model(ocean_inputs)
 
         output_data = self.prepare_output_data(atmos_outputs, ocean_outputs, coords)
         output_data = self._denormalize_output(output_data)
@@ -841,6 +1118,16 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         next_coords["lead_time"] = coords["lead_time"][-len(self.full_input_times) :]
 
         next_x = x[:, :, -len(self.full_input_times) :, ...]
+
+        if self._has_diagnostic_variables:
+            # Diagnostic-only variables are real outputs but are not part
+            # of the model's input schema -- drop them before this tensor
+            # is fed back in as the next step's input.
+            var_dim = list(coords.keys()).index("variable")
+            next_x = next_x.index_select(dim=var_dim, index=self._prognostic_out_idx)
+            next_coords["variable"] = np.array(
+                self.atmos_variables + self.ocean_variables
+            )
 
         return next_x, next_coords
 
@@ -922,6 +1209,60 @@ class DLESyMLatLon(DLESyM):
     Regridding is done using the `earth2grid` package. For convenience, we expose
     regridding methods that are accessible as `.to_hpx` and `.to_ll`.
 
+    Parameters
+    ----------
+    atmos_model : torch.nn.Module
+        Atmosphere model
+    ocean_model : torch.nn.Module
+        Ocean model
+    hpx_lat : np.ndarray
+        HEALPix latitude coordinates, shape (12, nside, nside)
+    hpx_lon : np.ndarray
+        HEALPix longitude coordinates, shape (12, nside, nside)
+    nside : int
+        HEALPix nside
+    center : np.ndarray
+        Means of the full output variable set (prognostics + diagnostics,
+        in the same order as `output_coords`'s `variable` axis), shape
+        (1, 1, 1, num_output_variables, 1, 1, 1)
+    scale : np.ndarray
+        Standard deviations of the full output variable set, same shape
+        and ordering as `center`
+    atmos_constants : np.ndarray
+        Constants for the atmosphere model, shape (12, num_atmos_constants, nside, nside)
+    ocean_constants : np.ndarray
+        Constants for the ocean model, shape (12, num_ocean_constants, nside, nside)
+    atmos_input_times : np.ndarray
+        Atmospheric input times, shape (num_atmos_input_times,)
+    ocean_input_times : np.ndarray
+        Ocean input times, shape (num_ocean_input_times,)
+    atmos_output_times : np.ndarray
+        Atmospheric output times, shape (num_atmos_output_times,)
+    ocean_output_times : np.ndarray
+        Ocean output times, shape (num_ocean_output_times,)
+    atmos_variables : list[str]
+        Atmospheric variables
+    ocean_variables : list[str]
+        Ocean variables
+    atmos_coupling_variables : list[str]
+        Atmospheric coupling variables
+    ocean_coupling_variables : list[str]
+        Ocean coupling variables
+    atmos_diagnostic_variables : list[str], optional
+        Atmospheric diagnostic output variables. These are produced by the
+        atmos model but, unlike `atmos_variables`, are not fed back in as
+        input to the next autoregressive step, by default []
+    ocean_diagnostic_variables : list[str], optional
+        Ocean diagnostic output variables, analogous to
+        `atmos_diagnostic_variables`, by default []
+    use_cln : bool, optional
+        Whether the atmos/ocean models use conditional layer norm, which
+        requires sampling and passing noise to the model to produce
+        ensemble variability from a single set of weights, by default False
+    condition_shape : int, optional
+        Dimension of the conditional layer norm noise vector. Required if
+        `use_cln` is True, by default None
+
     Note
     ----
     See :class:`DLESyM` for more information about the prognostic model. Due to the internal
@@ -946,14 +1287,6 @@ class DLESyMLatLon(DLESyM):
     # HEALPix outputs
     atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
     ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)
-
-    ```
-    Args
-    ----
-    *args
-        Arguments for :class:`DLESyM`
-    **kwargs
-        Keyword arguments for :class:`DLESyM`
 
     Badges
     ------
@@ -982,6 +1315,10 @@ class DLESyMLatLon(DLESyM):
         ocean_variables: list[str],
         atmos_coupling_variables: list[str],
         ocean_coupling_variables: list[str],
+        atmos_diagnostic_variables: list[str] | None = None,
+        ocean_diagnostic_variables: list[str] | None = None,
+        use_cln: bool = False,
+        condition_shape: int | None = None,
     ):
 
         self.lat = np.linspace(90, -90, 721, endpoint=True)
@@ -1005,6 +1342,10 @@ class DLESyMLatLon(DLESyM):
             ocean_variables=ocean_variables,
             atmos_coupling_variables=atmos_coupling_variables,
             ocean_coupling_variables=ocean_coupling_variables,
+            atmos_diagnostic_variables=atmos_diagnostic_variables,
+            ocean_diagnostic_variables=ocean_diagnostic_variables,
+            use_cln=use_cln,
+            condition_shape=condition_shape,
         )
 
         self.hpx_grid = earth2grid.healpix.Grid(
@@ -1123,6 +1464,102 @@ class DLESyMLatLon(DLESyM):
         for dim in ["lat", "lon"]:
             ll_coords.move_to_end(dim)
         return ll_coords
+
+    # Trailing window, in hours, over which the `ttr-3h` prognostic input
+    # variable is accumulated. See `ttr_3h_query_times`/`compute_ttr_3h`
+    # below for why it needs its own fetch.
+    TTR_3H_WINDOW_HOURS = 3
+
+    def ttr_3h_query_times(self, lead_time: np.ndarray | None = None) -> np.ndarray:
+        """Hourly lead times (relative to the same reference time as
+        `lead_time`) of raw `ttr` samples needed to compute `ttr-3h` via
+        `compute_ttr_3h`.
+
+        Fetch raw `ttr` (not `ttr-3h`) at exactly these lead times from a
+        data source -- independently of, and without expanding, the
+        model's main `input_coords()["lead_time"]` fetch.
+
+        Parameters
+        ----------
+        lead_time : np.ndarray, optional
+            Lead times `ttr-3h` will be computed at, by default
+            `self.atmos_input_times`
+
+        Returns
+        -------
+        np.ndarray
+            Sorted, de-duplicated hourly lead time offsets (`timedelta64[h]`)
+        """
+        if lead_time is None:
+            lead_time = self.atmos_input_times
+        offsets = np.concatenate(
+            [
+                lt + np.arange(-self.TTR_3H_WINDOW_HOURS, 1, dtype="timedelta64[h]")
+                for lt in lead_time
+            ]
+        )
+        return np.unique(offsets)
+
+    def compute_ttr_3h(
+        self,
+        raw_ttr: torch.Tensor,
+        raw_coords: CoordSystem,
+        target_lead_time: np.ndarray | None = None,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Reduce raw hourly `ttr` samples into the `ttr-3h` accumulated
+        input variable at each of `target_lead_time`.
+
+        ERA5's `ttr` is accumulated since the most recent 00/12 UTC
+        forecast-cycle start and is exactly 0 at each cycle boundary, so
+        the accumulation over the trailing `TTR_3H_WINDOW_HOURS` window
+        ending at `t` is `raw_ttr[t] - raw_ttr[t - TTR_3H_WINDOW_HOURS]`.
+
+        Warning
+        -------
+        This has not been verified against the AIWQ training pipeline's
+        own `ttr-3h` computation -- confirm the two agree (e.g. for a
+        known date) before trusting model output that depends on it.
+
+        Parameters
+        ----------
+        raw_ttr : torch.Tensor
+            Raw `ttr` tensor, with a `lead_time` axis covering at least
+            `ttr_3h_query_times(target_lead_time)`
+        raw_coords : CoordSystem
+            Coordinates for `raw_ttr`
+        target_lead_time : np.ndarray, optional
+            Lead times to compute `ttr-3h` at, by default
+            `self.atmos_input_times`
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            `ttr-3h` tensor and coordinates, with `lead_time` set to
+            `target_lead_time`
+        """
+        if target_lead_time is None:
+            target_lead_time = self.atmos_input_times
+
+        lead_dim = list(raw_coords.keys()).index("lead_time")
+        lt_list = list(raw_coords["lead_time"])
+
+        end_idx = [lt_list.index(t) for t in target_lead_time]
+        start_idx = [
+            lt_list.index(t - np.timedelta64(self.TTR_3H_WINDOW_HOURS, "h"))
+            for t in target_lead_time
+        ]
+
+        end_vals = raw_ttr.index_select(
+            dim=lead_dim, index=torch.tensor(end_idx, device=raw_ttr.device)
+        )
+        start_vals = raw_ttr.index_select(
+            dim=lead_dim, index=torch.tensor(start_idx, device=raw_ttr.device)
+        )
+        ttr_3h = end_vals - start_vals
+
+        out_coords = raw_coords.copy()
+        out_coords["lead_time"] = np.array(target_lead_time)
+        return ttr_3h, out_coords
 
     def _nan_interpolate_sst(
         self, sst: torch.Tensor, coords: CoordSystem

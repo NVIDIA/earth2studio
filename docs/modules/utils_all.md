@@ -5,9 +5,9 @@
 A collection of utilities to manipulate and check coordinate systems dictionaries.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.coords
 template: function
-output: generated/utils/1
+output: generated/utils/coords
 -->
 
 {% autosummary %}
@@ -21,9 +21,9 @@ earth2studio.utils.coords.split_coords
 ## Grid Interpolation
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.interp
 template: class
-output: generated/utils/2
+output: generated/utils/interp
 -->
 
 {% autosummary %}
@@ -33,9 +33,9 @@ earth2studio.utils.interp.LatLonInterpolation
 ## Observation Utilities
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.obs
 template: class
-output: generated/utils/3
+output: generated/utils/obs
 -->
 
 {% autosummary %}
@@ -45,9 +45,9 @@ earth2studio.utils.obs.ObsGridMapping
 ## Time Utilities
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.time
 template: function
-output: generated/utils/4
+output: generated/utils/time
 -->
 
 {% autosummary %}
@@ -58,9 +58,9 @@ earth2studio.utils.time.to_time_array
 ## Checkpoint Classes
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.checkpoint
 template: class
-output: generated/utils/5
+output: generated/utils/checkpoint
 -->
 
 {% autosummary %}
@@ -73,9 +73,9 @@ earth2studio.utils.checkpoint.NullCheckpoint
 ## Checkpoint Helpers
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.utils.checkpoint
 template: function
-output: generated/utils/6
+output: generated/utils/checkpoint
 -->
 
 {% autosummary %}
@@ -85,9 +85,9 @@ earth2studio.utils.checkpoint.bind_checkpoint_state
 ## Data Utilities
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.data
 template: function
-output: generated/utils/7
+output: generated/data
 -->
 
 {% autosummary %}
@@ -99,12 +99,21 @@ earth2studio.data.prep_data_array
 ## Model Utilities
 
 <!-- e2s-autosummary
-currentmodule: earth2studio.models
+currentmodule: earth2studio.models.auto
 template: class
-output: generated/utils/8
+output: generated/models/auto
 -->
 
 {% autosummary %}
 earth2studio.models.auto.Package
+{% endautosummary %}
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.models.batch
+template: function
+output: generated/models/batch
+-->
+
+{% autosummary %}
 earth2studio.models.batch.batch_func
 {% endautosummary %}
