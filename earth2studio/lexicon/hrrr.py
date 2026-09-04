@@ -67,6 +67,8 @@ class HRRRLexicon(metaclass=LexiconType):
             "crain": "wrfsfc::CRAIN::surface::anl",
             "aerot": "wrfsfc::AOTK::entire atmosphere (considered as a single layer)",  # will be zero
             "rsds": "wrfsfc::DSWRF::surface",
+            "lsm": "wrfsfc::LAND::surface",
+            "z": "wrfsfc::HGT::surface",
         }
         prs_levels = [
             50,
