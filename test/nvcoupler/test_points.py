@@ -30,9 +30,7 @@ def test_default_labels_are_integer_index():
 
 
 def test_names_become_labels():
-    p = PointSet(
-        lat=np.array([1.0, 2.0]), lon=np.array([3.0, 4.0]), names=("a", "b")
-    )
+    p = PointSet(lat=np.array([1.0, 2.0]), lon=np.array([3.0, 4.0]), names=("a", "b"))
     assert np.array_equal(p.labels(), np.array(["a", "b"]))
 
 

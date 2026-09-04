@@ -66,9 +66,7 @@ def identity(x, coords):
     return x, coords
 
 
-atmos = nvc.CallableComponent(
-    "atmos", identity, "6h", exports=["air_temperature_2m"]
-)
+atmos = nvc.CallableComponent("atmos", identity, "6h", exports=["air_temperature_2m"])
 grid = grid_coords(NLAT, NLON)
 lat, lon = np.asarray(grid["lat"]), np.asarray(grid["lon"])
 temperature = torch.as_tensor(lat).view(-1, 1) + 0.1 * torch.as_tensor(lon).view(1, -1)
