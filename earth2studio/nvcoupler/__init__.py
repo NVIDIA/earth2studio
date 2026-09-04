@@ -63,6 +63,7 @@ from .errors import (
 )
 from .field import Field, State
 from .mediator import AccumulationMediator, Mediator, TrailingAverageMediator
+from .points import PointSet
 from .pull import PullAdapter, StateDataSource
 from .sequence import (
     ConnectAction,
@@ -99,6 +100,7 @@ __all__ = [
     "ImportAdapter",
     "AccumulationMediator",
     "Mediator",
+    "PointSet",
     "PressureLevels",
     "PrognosticComponent",
     "PullAdapter",
