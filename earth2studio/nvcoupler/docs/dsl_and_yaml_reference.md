@@ -205,7 +205,7 @@ and are never serialized).
 | `components` | yes | mapping `name -> {class, kwargs}` | `class` is a dotted import path to a module-level class or factory; it is imported and called as `factory(**kwargs)`. |
 | `dictionary` | no | list of entry mappings | Only `FieldEntry` items **absent from or differing from** `DEFAULT_DICTIONARY`. Each has `standard_name`, `canonical_units`, `description`, `aliases` (list), and optional `cell_method: {base, method, window}`. |
 | `aliases` | no | mapping `alias -> standard_name` | Alias additions relative to the default dictionary (see below). |
-| `connectors` | no | list of `{src, dst, time_policy, fill, fields?, window?, reduce?}` | Connector settings. `fields` appears only when the connector was built with an explicit list; `time_policy` defaults to `"constant"` and `fill` to `"none"` on load. `window`/`reduce` appear (together) for windowed connectors and rebuild them on load. |
+| `connectors` | no | list of `{src, dst, time_policy, fill, fields?, sample?, window?, reduce?}` | Connector settings. `fields` appears only when the connector was built with an explicit list; `time_policy` defaults to `"constant"` and `fill` to `"none"` on load. `sample` (`"nearest"` or `"bilinear"`) appears only when set — a plain string, it round-trips like `time_policy`/`fill`. `window`/`reduce` appear (together) for windowed connectors and rebuild them on load. |
 
 `from_yaml` raises `CouplingError` when the document is not a mapping, when
 any of `clock`/`sequence`/`components` is missing, when a component spec lacks
@@ -344,7 +344,13 @@ Not serialized, honestly stated: connector `regridder=` callables (a rebuilt
 connector falls back to the auto lat/lon path — HEALPix/curvilinear systems
 need Python construction); `io=` backends; `collect`; and
 `allow_unfed_imports`. Custom `Connector` subclasses lose their type: only
-`src`/`dst`/`fields`/`time_policy`/`fill`/`window`/`reduce` round-trip.
+`src`/`dst`/`fields`/`time_policy`/`fill`/`sample`/`window`/`reduce`
+round-trip. A destination's `points=PointSet(...)` is a *component* kwarg,
+not a connector setting — it round-trips the same way `model=` does: only
+through that component's own `yaml_spec` (`PointSet` isn't itself YAML-safe
+out of the box, being a dataclass of numpy arrays; a component author wanting
+one reconstructed needs a `yaml_spec["kwargs"]` shaped for it, same as any
+other non-primitive component kwarg).
 
 ### The aliases delta mechanism
 

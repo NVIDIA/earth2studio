@@ -44,6 +44,7 @@ from .clock import Clock, DeltaLike, as_datetime, as_timedelta, is_multiple
 from .dictionary import DEFAULT_DICTIONARY, FieldDictionary
 from .errors import CadenceError, CouplingError
 from .field import State
+from .points import PointSet
 
 StepFn = Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, CoordSystem]]
 NextInputFn = Callable[
@@ -272,8 +273,15 @@ class Component(abc.ABC):
         export_masks: Mapping[str, torch.Tensor] | None = None,
         import_vertical: Mapping[str, Any] | None = None,
         export_vertical: Mapping[str, Any] | None = None,
+        points: PointSet | None = None,
     ):
         self.name = name
+        # Scattered sample-location grid (stations, sites, query points),
+        # the "point" analog of a lat/lon mesh. When set, grid_coords()
+        # reports this instead of any lat/lon coords the component happens
+        # to carry internally, and a Connector delivering to this component
+        # samples onto these locations (see connector.py's `sample=`).
+        self.points = points
         self.timestep = as_timedelta(timestep)
         self.dictionary = FieldDictionary(dictionary or DEFAULT_DICTIONARY)
         # variable_aliases: raw model variable name -> standard name
@@ -329,7 +337,15 @@ class Component(abc.ABC):
 
     def grid_coords(self) -> CoordSystem | None:
         """Spatial coordinates of this component's grid (None = no grid of
-        its own, e.g. mediators — connectors then pass fields through)."""
+        its own, e.g. mediators — connectors then pass fields through).
+
+        A component with ``points`` set (a scattered sample-location target)
+        reports that instead of any mesh coords it happens to carry
+        internally — the point set is the authoritative spatial target for
+        everything a Connector delivers to it.
+        """
+        if self.points is not None:
+            return self.points.grid_coords()
         coords = getattr(self, "_coords", None)
         if coords is None:
             return None

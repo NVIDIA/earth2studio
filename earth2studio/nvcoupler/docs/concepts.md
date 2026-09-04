@@ -433,15 +433,22 @@ The selection ladder, evaluated per field:
    destination grid with an equal coordinate array (works for lat/lon and for
    identical HEALPix `face/height/width` grids): pass through untouched. Only
    taken when no user regridder is set.
-2. **HEALPix guard** — a `face` dim on either side with *differing* grids and
+2. **Point target** — the destination advertises a `"point"` dim (its
+   `points=` is a `PointSet`, a scattered set of sample locations rather than
+   a mesh — stations, sites, arbitrary query coordinates; see
+   [`points`](#points-a-scattered-sample-location-grid) below). Handled
+   before the HEALPix guard since a point destination has no `face`/`lat`/
+   `lon` mesh of its own to compare against.
+3. **HEALPix guard** — a `face` dim on either side with *differing* grids and
    no user regridder raises `IncompatibleFieldError` pointing at
    `regridder=` (build one with `earth2grid`, as `models/px/dlesym.py` does).
-3. **User regridder** — a `regridder=` callable on the connector overrides
-   everything: it is applied to the trailing spatial dims of any layout, and
-   the output coords are rebuilt from the destination grid. The contract:
+4. **User regridder** — a `regridder=` callable on the connector overrides
+   everything, including a point destination: it is applied to the trailing
+   spatial dims of any layout, and the output coords are rebuilt from the
+   destination grid. The contract:
    `tensor[..., *src_spatial] -> tensor[..., *dst_spatial]`, operating on the
    trailing spatial axes and preserving leading (batch/window/...) axes.
-4. **Auto bilinear** — both grids must expose 1D `lat`/`lon`, the source must
+5. **Auto bilinear** — both grids must expose 1D `lat`/`lon`, the source must
    be *regular* (equally spaced), and the field's trailing two dims must be
    `(lat, lon)`; otherwise `IncompatibleFieldError` with the `regridder=`
    escape hatch. Uses `earth2studio.utils.interp.latlon_interpolation_regular`
@@ -451,6 +458,32 @@ The selection ladder, evaluated per field:
 A destination with no grid of its own (`grid_coords()` is `None` — mediators)
 skips regridding entirely: fields pass through on the source grid, and
 reduction happens there.
+
+### `points`: a scattered sample-location grid
+
+A component constructed with `points=PointSet(lat=..., lon=...)` targets N
+arbitrary locations instead of a mesh — `grid_coords()` reports
+`{"point": labels}` (`labels` is `PointSet.names` if given, else an integer
+index) in place of whatever the component's own state coords happen to be.
+Delivering to it needs `Connector(..., sample="nearest" | "bilinear")`:
+
+- `"bilinear"` reuses the mesh regridder's kernel, reshaping the N
+  destination points as a degenerate `[N, 1]` mesh — one bilinearly
+  interpolated value per point. Same regularity requirement as auto bilinear
+  above.
+- `"nearest"` is a great-circle nearest-neighbor lookup via a unit-sphere
+  KDTree (the same construction as the mask filler's nearest-fill), gathering
+  one source grid cell per point.
+
+Both are built lazily and cached per `(source grid signature, point set
+signature, method)`. `sample=` and `regridder=` are mutually exclusive
+(`CouplingError`); a point destination with neither set raises `CouplingError`
+at `execute()` rather than silently picking one — as does a `"point"`-dim
+destination with no `points=` registered on it (reachable if a component
+hand-builds coords carrying a `"point"` key without going through `points=`),
+and a source without a regular 1D lat/lon grid (`IncompatibleFieldError`).
+This is the primitive downscaling-style applications need to sample a dense
+forecast (or a static context raster) down to station or site coordinates.
 
 After the pipeline the field lands in `dst.import_state`, and a copy of the
 reference is kept in `connector.last_transfer` for `driver.probe("src->dst")`.

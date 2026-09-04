@@ -44,8 +44,22 @@ from .errors import CouplingError
 if TYPE_CHECKING:
     from .vertical import VerticalCoordinate
 
-# Dims regarded as spatial when choosing where to (re)insert a variable axis
-_SPATIAL_DIMS = ("level", "face", "lat", "lon", "hpx", "height", "width", "y", "x")
+# Dims regarded as spatial when choosing where to (re)insert a variable axis.
+# "point" is a scattered sample-location dim (see .points.PointSet) rather
+# than a mesh dim, but it plays the same role here: it marks where a Field's
+# spatial content lives.
+_SPATIAL_DIMS = (
+    "level",
+    "face",
+    "lat",
+    "lon",
+    "hpx",
+    "height",
+    "width",
+    "y",
+    "x",
+    "point",
+)
 
 
 @dataclass

@@ -33,6 +33,7 @@ from earth2studio.nvcoupler.errors import (
     IncompatibleFieldError,
     VerticalMismatchError,
 )
+from earth2studio.nvcoupler.points import PointSet
 from earth2studio.nvcoupler.testing import (
     atmos_ic,
     fake_atmos,
@@ -130,6 +131,166 @@ def test_regrid_matches_direct_kernel_call():
         torch.as_tensor(lon1).float(),
     )
     assert torch.allclose(got, expected)
+
+
+def _points_destination(points, imports=("sea_surface_temperature",)):
+    """Toy destination component whose grid is a scattered PointSet."""
+
+    def step(x, coords):
+        return x, coords
+
+    return CallableComponent(
+        "stations", step, timestep="48h", imports=list(imports), exports=[],
+        points=points,
+    )
+
+
+def _init_no_export(component, x, coords):
+    """initialize() a component with no exports.
+
+    Component.publish (called unconditionally by initialize()) always
+    round-trips through State.from_tensor, which requires a 'variable' dim
+    even when export_names is empty — so every IC here needs a placeholder
+    variable axis; publish()'s strict=False path skips the unresolved name
+    since nothing in export_names asks for it.
+    """
+    coords = OrderedDict({"variable": np.array(["_ic"]), **coords})
+    component.initialize(x.unsqueeze(0), coords)
+
+
+def test_sample_nearest_recovers_exact_grid_points():
+    atmos, ocean, clock = _realized_pair()
+    lat = np.asarray(ocean.grid_coords()["lat"])
+    lon = np.asarray(ocean.grid_coords()["lon"])
+    data = torch.as_tensor(lat).view(-1, 1) + 0.1 * torch.as_tensor(lon).view(1, -1)
+    ocean.export_state["sea_surface_temperature"].data = data.to(torch.float32)
+
+    points = PointSet(lat=np.array([lat[3], lat[5]]), lon=np.array([lon[2], lon[10]]))
+    stations = _points_destination(points)
+    stations.realize(clock)
+    _init_no_export(
+        stations, torch.zeros(len(points)), OrderedDict({"point": points.labels()})
+    )
+
+    Connector(ocean, stations, sample="nearest").execute(T0)
+    got = stations.import_state["sea_surface_temperature"]
+    assert list(got.coords) == ["point"]
+    assert got.data.shape == (2,)
+    assert torch.allclose(
+        got.data, torch.tensor([data[3, 2], data[5, 10]]).float()
+    )
+    assert np.array_equal(got.coords["point"], points.labels())
+
+
+def test_sample_bilinear_matches_direct_kernel_call():
+    atmos, ocean, clock = _realized_pair()
+    lat = np.asarray(ocean.grid_coords()["lat"])
+    lon = np.asarray(ocean.grid_coords()["lon"])
+    data = torch.as_tensor(lat).view(-1, 1) + 0.1 * torch.as_tensor(lon).view(1, -1)
+    ocean.export_state["sea_surface_temperature"].data = data.to(torch.float32)
+
+    # off-grid points, midway between cells
+    points = PointSet(
+        lat=np.array([(lat[3] + lat[4]) / 2, (lat[6] + lat[7]) / 2]),
+        lon=np.array([(lon[2] + lon[3]) / 2, (lon[10] + lon[11]) / 2]),
+    )
+    stations = _points_destination(points)
+    stations.realize(clock)
+    _init_no_export(
+        stations, torch.zeros(len(points)), OrderedDict({"point": points.labels()})
+    )
+
+    Connector(ocean, stations, sample="bilinear").execute(T0)
+    got = stations.import_state["sea_surface_temperature"].data
+
+    from earth2studio.utils.interp import latlon_interpolation_regular
+
+    flip = lat[0] > lat[-1]
+    lat0 = torch.as_tensor(lat[::-1].copy() if flip else lat).float()
+    lon0 = torch.as_tensor(lon).float()
+    src = torch.flip(data.float(), dims=(-2,)) if flip else data.float()
+    lat1 = torch.as_tensor(points.lat).unsqueeze(-1).float()
+    lon1 = torch.as_tensor(points.lon).unsqueeze(-1).float()
+    expected = latlon_interpolation_regular(src, lat0, lon0, lat1, lon1).squeeze(-1)
+    assert torch.allclose(got, expected)
+
+
+def test_sample_and_regridder_mutually_exclusive():
+    with pytest.raises(CouplingError, match="mutually exclusive"):
+        Connector(
+            *_realized_pair()[:2], sample="nearest", regridder=lambda x: x
+        )
+
+
+def test_sample_missing_choice_raises_actionable_error():
+    atmos, ocean, clock = _realized_pair()
+    points = PointSet(lat=np.array([0.0]), lon=np.array([0.0]))
+    stations = _points_destination(points)
+    stations.realize(clock)
+    _init_no_export(stations, torch.zeros(1), OrderedDict({"point": points.labels()}))
+    with pytest.raises(CouplingError, match="neither sample= nor regridder="):
+        Connector(ocean, stations).execute(T0)
+
+
+def test_sample_without_points_metadata_raises():
+    atmos, ocean, clock = _realized_pair()
+
+    def step(x, coords):
+        return x, coords
+
+    # a "point" dim without a registered PointSet (points=None) — reachable
+    # if a component hand-builds coords with a "point" key directly
+    stations = CallableComponent(
+        "stations", step, timestep="48h", imports=["sea_surface_temperature"],
+        exports=[],
+    )
+    stations.realize(clock)
+    _init_no_export(stations, torch.zeros(1), OrderedDict({"point": np.array([0])}))
+    with pytest.raises(CouplingError, match="no points= location metadata"):
+        Connector(ocean, stations, sample="nearest").execute(T0)
+
+
+def test_sample_requires_latlon_source():
+    """A source without lat/lon (e.g. a mediator pass-through) cannot be
+    auto-sampled onto points."""
+    clock = Clock(T0, "2024-01-02", "6h")
+
+    def step(x, coords):
+        return x, coords
+
+    src = CallableComponent(
+        "src", step, timestep="6h", exports=["sea_surface_temperature"]
+    )
+    src.realize(clock)
+    src.initialize(
+        torch.zeros(1, 4),
+        OrderedDict(
+            {"variable": np.array(["sst"]), "y": np.arange(4)}
+        ),  # non-lat/lon spatial dim
+    )
+    points = PointSet(lat=np.array([0.0]), lon=np.array([0.0]))
+    stations = _points_destination(points)
+    stations.realize(clock)
+    _init_no_export(stations, torch.zeros(1), OrderedDict({"point": points.labels()}))
+    with pytest.raises(IncompatibleFieldError, match="needs lat/lon"):
+        Connector(src, stations, sample="nearest").execute(T0)
+
+
+def test_user_regridder_can_target_points():
+    """A custom regridder= still works for a point destination — the auto
+    sample= path is a convenience, not the only way in."""
+    atmos, ocean, clock = _realized_pair()
+    points = PointSet(lat=np.array([0.0, 0.0]), lon=np.array([0.0, 0.0]))
+    stations = _points_destination(points)
+    stations.realize(clock)
+    _init_no_export(
+        stations, torch.zeros(len(points)), OrderedDict({"point": points.labels()})
+    )
+    picked = lambda data: data[..., :2, 0]  # trivial deterministic "sampler"
+    Connector(ocean, stations, regridder=picked).execute(T0)
+    got = stations.import_state["sea_surface_temperature"]
+    assert list(got.coords) == ["point"]
+    assert got.data.shape == (2,)
 
 
 def test_mask_fill_nearest_and_zero():
