@@ -149,7 +149,7 @@ class IBTrACS:
     ```
     Badges
     ------
-    region:global dataclass:observation product:wind product:atmos
+    region:global dataclass:observation product:wind product:atmos provider:noaa
     """
 
     SOURCE_ID = "earth2studio.data.ibtracs"

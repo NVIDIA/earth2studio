@@ -17,7 +17,7 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import MeteosatFCILexicon
+from earth2studio.lexicon import MeteosatFCILexicon, MeteosatLILexicon
 
 
 @pytest.mark.parametrize(
@@ -43,3 +43,46 @@ def test_meteosat_fci_lexicon(variable, device):
         else:
             with pytest.raises(KeyError):
                 MeteosatFCILexicon[v]  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    "variable",
+    [
+        ["lightning_flash_radiance"],  # LFL measurement
+        ["lightning_flash_count", "lightning_flash_duration"],  # synthetic + native
+        ["lightning_group_radiance", "lightning_group_count"],  # LGR
+        ["lightning_event_radiance", "lightning_event_count"],  # LEF
+        ["lightning_flash_footprint_pixels"],  # native pixel count
+        ["foo"],  # unknown variable -> KeyError
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_meteosat_li_lexicon(variable, device):
+    input = torch.randn(len(variable), 100, 100).to(device)
+    for v in variable:
+        if v != "foo":
+            label, modifier = MeteosatLILexicon[v]  # type: ignore[misc]
+            output = modifier(input)
+            assert isinstance(label, str)
+            # Keys are "{product}::{field}" and name a real LI L2 collection
+            product, field = label.split("::")
+            assert product in ("LFL", "LGR", "LEF")
+            assert field
+            assert input.shape == output.shape
+            assert input.device == output.device
+        else:
+            with pytest.raises(KeyError):
+                MeteosatLILexicon[v]  # type: ignore[misc]
+
+
+def test_meteosat_li_lexicon_shares_glm_naming():
+    """LI and GLM agree on the unified lightning variable naming scheme."""
+    from earth2studio.lexicon import GOESGLMLexicon
+
+    for name in MeteosatLILexicon.VOCAB:
+        assert name.startswith("lightning_")
+    # Every tier of the detection hierarchy is expressible on both
+    # instruments under one id
+    for level in ("event", "group", "flash"):
+        assert f"lightning_{level}_count" in MeteosatLILexicon.VOCAB
+        assert f"lightning_{level}_count" in GOESGLMLexicon.VOCAB

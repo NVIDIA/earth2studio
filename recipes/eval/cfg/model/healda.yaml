@@ -6,7 +6,7 @@
 #
 # `lat_lon: true` regrids the analysis from HEALPix to a regular lat/lon
 # grid inside the model; `output_resolution: [721, 1440]` matches the
-# ARCO/ERA5 0.25° convention (lat 90..-90, lon 0..359.75) so the analysis
+# ARCO_ERA5 0.25° convention (lat 90..-90, lon 0..359.75) so the analysis
 # can be differenced against the verification store with no regridding.
 #
 # `obs_sources` entries are matched positionally, in declaration order,

@@ -545,7 +545,7 @@ data_source:
     era5_oos:
         years: "2017-2022"
         source:
-            _target_: earth2studio.data.CDS
+            _target_: earth2studio.data.CDS_ERA5
 ```
 
 **Parallel Extraction:**

@@ -1,0 +1,211 @@
+# @package _global_
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ---------------------------------------------------------------------------
+# GraphCast (operational) — 14-day scorecard, ERA5 2025, scored online.
+#
+# Scores computed for 48 ICs — four per month on the 1st/8th/15th/22nd at
+# 00/06/12/18 UTC respectively with 14-day window, monthly and regional
+# splits.  Scored ONLINE
+# (stats.zarr -> scores.zarr, output.retain: none); scores carry a
+# `region` axis (global + continental boxes on the ERA5 grid).
+#
+# Details:
+#   * 83 scored variables (incl. w-levels, tp06)
+#   * 1 member — deterministic
+#   * 56 steps of 6 h, native 721x1440 [90,-90] grid (no regridding)
+#   * needs t-6h history + tisr forcing, so it keeps its own IC store.
+# ---------------------------------------------------------------------------
+defaults:
+# Regional splits (bands, headline boxes, continents) — one shared choice for every
+# scorecard campaign, defined in cfg/regions/standard.yaml.
+- /regions/standard
+- override /model: null   # self-contained: the model is defined right here
+model:
+    architecture: earth2studio.models.px.GraphCastOperational
+project: graphcast
+run_id: 2025_scorecard
+# Four ICs per month at 00/06/12/18 UTC (see header).
+start_times:
+    - "2025-01-01 00:00:00"
+    - "2025-01-08 06:00:00"
+    - "2025-01-15 12:00:00"
+    - "2025-01-22 18:00:00"
+    - "2025-02-01 00:00:00"
+    - "2025-02-08 06:00:00"
+    - "2025-02-15 12:00:00"
+    - "2025-02-22 18:00:00"
+    - "2025-03-01 00:00:00"
+    - "2025-03-08 06:00:00"
+    - "2025-03-15 12:00:00"
+    - "2025-03-22 18:00:00"
+    - "2025-04-01 00:00:00"
+    - "2025-04-08 06:00:00"
+    - "2025-04-15 12:00:00"
+    - "2025-04-22 18:00:00"
+    - "2025-05-01 00:00:00"
+    - "2025-05-08 06:00:00"
+    - "2025-05-15 12:00:00"
+    - "2025-05-22 18:00:00"
+    - "2025-06-01 00:00:00"
+    - "2025-06-08 06:00:00"
+    - "2025-06-15 12:00:00"
+    - "2025-06-22 18:00:00"
+    - "2025-07-01 00:00:00"
+    - "2025-07-08 06:00:00"
+    - "2025-07-15 12:00:00"
+    - "2025-07-22 18:00:00"
+    - "2025-08-01 00:00:00"
+    - "2025-08-08 06:00:00"
+    - "2025-08-15 12:00:00"
+    - "2025-08-22 18:00:00"
+    - "2025-09-01 00:00:00"
+    - "2025-09-08 06:00:00"
+    - "2025-09-15 12:00:00"
+    - "2025-09-22 18:00:00"
+    - "2025-10-01 00:00:00"
+    - "2025-10-08 06:00:00"
+    - "2025-10-15 12:00:00"
+    - "2025-10-22 18:00:00"
+    - "2025-11-01 00:00:00"
+    - "2025-11-08 06:00:00"
+    - "2025-11-15 12:00:00"
+    - "2025-11-22 18:00:00"
+    - "2025-12-01 00:00:00"
+    - "2025-12-08 06:00:00"
+    - "2025-12-15 12:00:00"
+    - "2025-12-22 18:00:00"
+nsteps: 56
+ensemble_size: 1
+resume: true
+perturbation: null
+require_predownload: true
+data_source:
+    _target_: earth2studio.data.ARCO
+    cache: false
+    verbose: false
+output:
+    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/graphcast/outputs}/${project}_${run_id}
+    # Online scoring: never write the raw forecast store; stats.zarr is
+    # the artifact.
+    retain: none
+    thread_writers: 4
+    chunks:
+        time: 1
+        lead_time: 1
+    variables:
+    - t2m
+    - msl
+    - u10m
+    - v10m
+    - t50
+    - t100
+    - t150
+    - t200
+    - t250
+    - t300
+    - t400
+    - t500
+    - t600
+    - t700
+    - t850
+    - t925
+    - t1000
+    - z50
+    - z100
+    - z150
+    - z200
+    - z250
+    - z300
+    - z400
+    - z500
+    - z600
+    - z700
+    - z850
+    - z925
+    - z1000
+    - u50
+    - u100
+    - u150
+    - u200
+    - u250
+    - u300
+    - u400
+    - u500
+    - u600
+    - u700
+    - u850
+    - u925
+    - u1000
+    - v50
+    - v100
+    - v150
+    - v200
+    - v250
+    - v300
+    - v400
+    - v500
+    - v600
+    - v700
+    - v850
+    - v925
+    - v1000
+    - w50
+    - w100
+    - w150
+    - w200
+    - w250
+    - w300
+    - w400
+    - w500
+    - w600
+    - w700
+    - w850
+    - w925
+    - w1000
+    - q50
+    - q100
+    - q150
+    - q200
+    - q250
+    - q300
+    - q400
+    - q500
+    - q600
+    - q700
+    - q850
+    - q925
+    - q1000
+    - tp06
+scoring:
+    mode: online
+    variables: ${output.variables}
+    lat_weights: true
+    # Deterministic run: the online path derives mse/rmse, bias and corr
+    # from the accumulated sums, plus the opt-ins below — the ensemble
+    # statistics (CRPS, spread, rank histogram) are skipped for M = 1.
+    online:
+        # Per-member MAE and radially averaged log spectral distance (dB)
+        # vs ERA5 — the scorecard's deterministic panel.  The regional
+        # splits come from the defaults entry /regions/standard above;
+        # LSD is spectral, hence global-only (NaN in the boxed regions).
+        mae: true
+        lsd: true
+    resume: true
+predownload:
+    verification:
+        # Verification is already predownloaded; the run dir symlinks it.
+        enabled: false

@@ -123,20 +123,18 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**Aurora v1.5**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/Aurora1p5/),
-    Microsoft Aurora v1.5 deterministic and ensemble model wrapper for global
-    weather forecasting.
-- [**StormCast CONUS**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormCastCONUS/),
-    StormCast CONUS prognostic model for convective-scale forecasting over the
-    contiguous United States.
-- [**Dynamical.org Sources**](https://nvidia.github.io/earth2studio/main/modules/generated/data/analysis/data_DynamicalGFS/),
-    a comprehensive suite of analysis and forecast data sources reading from
-    anonymous Icechunk repositories (AIFS, GFS, GEFS, HRRR, MRMS, ICON-EU, IFS-ENS).
-- [**EarthMover Data Sources**](https://nvidia.github.io/earth2studio/main/modules/generated/data/analysis/data_EarthMoverERA5/),
-    EarthMover ERA5 0.25-degree reanalysis and IFS 0.1-degree forecast sources
-    hosted by BrightBand.
-- [**StormScope NSRDB**](https://nvidia.github.io/earth2studio/main/modules/generated/models/dx/StormScopeDxNSRDB/),
-    solar irradiance (GHI) estimation diagnostic model.
+- [**SamudrACE**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/SamudrACE/),
+    coupled atmosphere-ocean prognostic model for extended-range forecasting.
+- [**Atlas CRPS**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/AtlasCRPS/),
+    ensemble prognostic model with noise-conditioned transformer blocks sharing
+    the Atlas autoencoder.
+- [**StormScope MeteoSat EU**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormScopeMeteoSatEU/),
+    European domain satellite nowcasting model.
+- [**CorrDiff COSMO-ERA5 SDA**](https://nvidia.github.io/earth2studio/main/modules/generated/models/da/CorrDiffCosmoEra5SDA/),
+    score-based data assimilation for the CorrDiff-COSMO downscaler.
+- [**New Documentation**](https://nvidia.github.io/earth2studio/), redesigned home
+    page, model catalog, interactive install guide, and per-model scorecards with
+    skill plots (RMSE, MAE, CRPS, spread, log spectral distance).
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 

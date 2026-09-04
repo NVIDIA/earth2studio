@@ -1,0 +1,289 @@
+# @package _global_
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ---------------------------------------------------------------------------
+# Atlas CRPS — 14-day scorecard, ERA5 2025, 16-member ensemble, scored online.
+#
+# Scores computed for 48 ICs — four per month on the 1st/8th/15th/22nd at
+# 00/06/12/18 UTC respectively with 14-day window, monthly and regional
+# splits.  Scored
+# ONLINE (stats.zarr -> scores.zarr, output.retain: none).
+#
+# Details:
+#   * 75 scored variables (incl. sst, sp, tp06)
+#   * 16 members — CRPS-trained: each forward draws a fresh noise vector
+#     that modulates every transformer block, so members diverge through
+#     the model's own calibrated noise (perturbation would double-count).
+#   * 56 steps of 6 h, native 721x1440 [90,-90] grid (no regridding)
+#   * needs t-6h history, so it keeps its own IC store (fetched by the
+#     predownload stage).
+# ---------------------------------------------------------------------------
+defaults:
+    # Regional splits (bands, headline boxes, continents) — one shared choice for every
+    # scorecard campaign, defined in cfg/regions/standard.yaml.
+    - /regions/standard
+    - override /model: null   # self-contained: the model is defined below
+
+project: atlas_crps
+run_id: 2025_scorecard
+
+model:
+    architecture: earth2studio.models.px.AtlasCRPS
+
+# Four ICs per month at 00/06/12/18 UTC (see header).
+start_times:
+    - "2025-01-01 00:00:00"
+    - "2025-01-08 06:00:00"
+    - "2025-01-15 12:00:00"
+    - "2025-01-22 18:00:00"
+    - "2025-02-01 00:00:00"
+    - "2025-02-08 06:00:00"
+    - "2025-02-15 12:00:00"
+    - "2025-02-22 18:00:00"
+    - "2025-03-01 00:00:00"
+    - "2025-03-08 06:00:00"
+    - "2025-03-15 12:00:00"
+    - "2025-03-22 18:00:00"
+    - "2025-04-01 00:00:00"
+    - "2025-04-08 06:00:00"
+    - "2025-04-15 12:00:00"
+    - "2025-04-22 18:00:00"
+    - "2025-05-01 00:00:00"
+    - "2025-05-08 06:00:00"
+    - "2025-05-15 12:00:00"
+    - "2025-05-22 18:00:00"
+    - "2025-06-01 00:00:00"
+    - "2025-06-08 06:00:00"
+    - "2025-06-15 12:00:00"
+    - "2025-06-22 18:00:00"
+    - "2025-07-01 00:00:00"
+    - "2025-07-08 06:00:00"
+    - "2025-07-15 12:00:00"
+    - "2025-07-22 18:00:00"
+    - "2025-08-01 00:00:00"
+    - "2025-08-08 06:00:00"
+    - "2025-08-15 12:00:00"
+    - "2025-08-22 18:00:00"
+    - "2025-09-01 00:00:00"
+    - "2025-09-08 06:00:00"
+    - "2025-09-15 12:00:00"
+    - "2025-09-22 18:00:00"
+    - "2025-10-01 00:00:00"
+    - "2025-10-08 06:00:00"
+    - "2025-10-15 12:00:00"
+    - "2025-10-22 18:00:00"
+    - "2025-11-01 00:00:00"
+    - "2025-11-08 06:00:00"
+    - "2025-11-15 12:00:00"
+    - "2025-11-22 18:00:00"
+    - "2025-12-01 00:00:00"
+    - "2025-12-08 06:00:00"
+    - "2025-12-15 12:00:00"
+    - "2025-12-22 18:00:00"
+
+nsteps: 56           # 56 x 6h = 14 days
+ensemble_size: 16
+random_seed: 42
+
+# Resume is on so an expired allocation can be picked up mid-campaign.
+# Online progress markers live in <output.path>/.online_progress/ — clear
+# them (or bump run_id) if the data source ever changes.
+resume: true
+
+# AtlasCRPS is intrinsically stochastic: the recipe seeds the global RNG
+# per member, and each forward draws a fresh noise vector (batch elements
+# draw independently).
+perturbation: null
+
+# ---------------------------------------------------------------------------
+# Data — cloud ARCO, cached by predownload.py.  The IC store is the
+# model's own (it needs the t-6h history frame).
+# ---------------------------------------------------------------------------
+data_source:
+    _target_: earth2studio.data.ARCO
+    cache: false
+    verbose: false
+
+require_predownload: true
+
+predownload:
+    overwrite: false
+    verification:
+        # Verification is already predownloaded; the run dir symlinks it.
+        enabled: false
+
+output:
+    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/atlas_crps/outputs}/${project}_${run_id}
+    overwrite: false     # paired with resume: true
+    # Online scoring is the whole point of this campaign: never write the
+    # raw forecast store (it would be ~12 TB); stats.zarr is the artifact.
+    retain: none
+    thread_writers: 4
+    chunks:
+        time: 1
+        lead_time: 1
+    variables:
+        - u10m
+        - v10m
+        - u100m
+        - v100m
+        - t2m
+        - sp
+        - msl
+        - tcwv
+        - u50
+        - u100
+        - u150
+        - u200
+        - u250
+        - u300
+        - u400
+        - u500
+        - u600
+        - u700
+        - u850
+        - u925
+        - u1000
+        - v50
+        - v100
+        - v150
+        - v200
+        - v250
+        - v300
+        - v400
+        - v500
+        - v600
+        - v700
+        - v850
+        - v925
+        - v1000
+        - z50
+        - z100
+        - z150
+        - z200
+        - z250
+        - z300
+        - z400
+        - z500
+        - z600
+        - z700
+        - z850
+        - z925
+        - z1000
+        - t50
+        - t100
+        - t150
+        - t200
+        - t250
+        - t300
+        - t400
+        - t500
+        - t600
+        - t700
+        - t850
+        - t925
+        - t1000
+        - q50
+        - q100
+        - q150
+        - q200
+        - q250
+        - q300
+        - q400
+        - q500
+        - q600
+        - q700
+        - q850
+        - q925
+        - q1000
+        - sst
+        - tp06
+
+scoring:
+    mode: online
+    variables: ${output.variables}
+    lat_weights: true
+    # The online path derives its metric set from the accumulated
+    # sufficient statistics (mse/rmse, ensemble_mean_mse, ensemble
+    # variance, fair CRPS, rank reliability, bias, corr) plus the opt-ins
+    # below — `scoring.metrics` does not apply here.
+    online:
+        # 16 members on one 8-GPU node: 2 members per rank -> one ensemble
+        # group per node, so the CRPS member exchange stays on NVLink.
+        # Note: the batched rollout draws the model's internal noise jointly
+        # per member pair, so individual member trajectories differ from a
+        # one-member-per-rank (K=1, 16-rank) run — the ensemble statistics
+        # are unchanged (members stay i.i.d.).
+        members_per_rank: 2
+        # Per-member MAE and radially averaged log spectral distance (dB)
+        # vs ERA5 — the scorecard's deterministic panel.  The regional
+        # splits come from the defaults entry /regions/standard above;
+        # LSD is spectral, hence global-only (NaN in the boxed regions).
+        mae: true
+        lsd: true
+    resume: true
+
+report:
+    title: "Atlas CRPS 14-day Scorecard — ERA5 2025 (48 ICs, 16 members)"
+    projection: robinson
+    figure_format: png
+
+    sections:
+        - type: summary_table
+          lead_times: ["1 days", "3 days", "5 days", "7 days", "10 days", "14 days"]
+          variables: [t2m, z500, u10m, t850, msl]
+          collapsed: false
+
+        - type: lead_time_curves
+          collapsed: true
+
+        - type: lead_time_curves
+          time_groups: true
+          title_suffix: "Seasonal Breakdown"
+          collapsed: true
+
+        - type: spread_skill
+          mse_metric: ensemble_mean_mse
+          variance_metric: ensemble_variance
+          variables: [t2m, z500, u10m, t850]
+          collapsed: true
+
+        - type: ic_heatmap
+          metrics: [rmse, crps]
+          variables: [z500, t2m, msl]
+          collapsed: true
+
+    variable_groups:
+        geopotential: [z500, z850]
+        temperature: [t500, t850]
+        850_wind: [u850, v850]
+        10m_wind: [u10m, v10m]
+
+    time_groups:
+        DJF:
+            - start: "2025-01-01"
+              end: "2025-02-28"
+            - start: "2025-12-01"
+              end: "2025-12-31"
+        MAM:
+            - start: "2025-03-01"
+              end: "2025-05-31"
+        JJA:
+            - start: "2025-06-01"
+              end: "2025-08-31"
+        SON:
+            - start: "2025-09-01"
+              end: "2025-11-30"

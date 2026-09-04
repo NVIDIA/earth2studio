@@ -135,10 +135,17 @@ def _base_cfg(tmp_path, ensemble_size: int = 1, mode: str = "online"):
 
 
 def _settings(tmp_path, **overrides):
-    """Parse online settings from the base cfg with ``scoring.online`` tweaks."""
+    """Parse online settings from the base cfg with ``scoring.online`` tweaks.
+
+    ``regions`` is the exception: it lives at ``scoring.regions`` (shared
+    with the offline pathway), not under ``scoring.online``.
+    """
     cfg = _base_cfg(tmp_path)
     for key, value in overrides.items():
-        cfg.scoring.online[key] = value
+        if key == "regions":
+            cfg.scoring[key] = value
+        else:
+            cfg.scoring.online[key] = value
     return parse_online_settings(cfg)
 
 
@@ -1465,3 +1472,472 @@ class TestEndToEnd:
         finalize_stats(cfg)
         second = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr")).load()
         xr.testing.assert_allclose(first, second)
+
+
+# ---------------------------------------------------------------------------
+# Regional splits and optional statistics (mae / lsd)
+# ---------------------------------------------------------------------------
+
+# SMALL_LAT is [90, 30, -30, -90]; SMALL_LON is 0..315 step 45.
+REGIONS = {
+    "global": None,
+    "midlat": {"lat": [-40.0, 40.0], "lon": [0.0, 360.0]},
+    "wrap": {"lat": [-90.0, 90.0], "lon": [315.0, 45.0]},
+}
+
+
+def _region_masks() -> torch.Tensor:
+    """The {0,1} masks REGIONS describes on the small test grid."""
+    lat = torch.tensor(SMALL_LAT, dtype=torch.float64)
+    lon = torch.tensor(SMALL_LON, dtype=torch.float64)
+    masks = torch.ones(3, len(SMALL_LAT), len(SMALL_LON), dtype=torch.float64)
+    masks[1] *= ((lat >= -40) & (lat <= 40)).double().reshape(-1, 1)
+    masks[2] *= ((lon >= 315) | (lon <= 45)).double().reshape(1, -1)
+    return masks
+
+
+class TestRegionalWeights:
+    def test_shapes_and_global_slice(self):
+        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+        w = build_spatial_weights(coords, lat_weights=True, regions=REGIONS)
+        assert w.shape == (3, len(SMALL_LAT), len(SMALL_LON))
+        base = build_spatial_weights(coords, lat_weights=True)
+        assert torch.allclose(w[0], base.expand(len(SMALL_LAT), len(SMALL_LON)))
+
+    def test_masks_match_expected_boxes(self):
+        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+        w = build_spatial_weights(coords, lat_weights=False, regions=REGIONS)
+        assert torch.equal(w, _region_masks())
+
+    def test_empty_box_raises(self):
+        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+        with pytest.raises(ValueError, match="selects no gridpoints"):
+            build_spatial_weights(
+                coords,
+                lat_weights=False,
+                regions={"nowhere": {"lat": [-5.0, 5.0], "lon": [0.0, 360.0]}},
+            )
+
+    def test_parse_roundtrip_and_validation(self, tmp_path):
+        settings = _settings(tmp_path, regions=REGIONS)
+        assert list(settings.regions) == ["global", "midlat", "wrap"]
+        assert settings.regions["global"] is None
+        # A box may name any subset of spatial dims; the rest span fully.
+        partial = _settings(tmp_path, regions={"band": {"lat": [0, 10]}})
+        assert partial.regions["band"] == [{"lat": [0.0, 10.0]}]
+        with pytest.raises(ValueError, match="lat bounds"):
+            _settings(tmp_path, regions={"bad": {"lat": [50, 10], "lon": [0, 10]}})
+        with pytest.raises(ValueError, match="min < max"):
+            _settings(tmp_path, regions={"bad": {"level": [500, 200]}})
+
+    def test_lsd_requires_a_whole_grid_region(self, tmp_path):
+        with pytest.raises(ValueError, match="whole-grid region"):
+            _settings(
+                tmp_path,
+                lsd=True,
+                regions={"midlat": {"lat": [-40.0, 40.0], "lon": [0.0, 360.0]}},
+            )
+        settings = _settings(tmp_path, lsd=True, regions=REGIONS)
+        assert settings.lsd
+
+
+def _run_statistics_regional(
+    f: torch.Tensor,
+    y: torch.Tensor,
+    ensemble_size: int,
+    tmp_path,
+):
+    """Drive one lead step with REGIONS configured; returns the states."""
+    comm = _single_rank_comm(ensemble_size)
+    spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+    weights = build_spatial_weights(spatial, lat_weights=True, regions=REGIONS)
+    w_flat = weights.reshape(3, -1).T.contiguous()
+    n_variables = y.shape[0]
+
+    settings = _settings(tmp_path, regions=REGIONS, mae=True, crps=False)
+    statistics = build_statistics(ensemble_size, settings=settings)
+    for stat in statistics:
+        stat.reset(1, n_variables, ensemble_size, torch.device("cpu"), n_regions=3)
+
+    ctx = StepContext(
+        lead_index=0,
+        valid_time=np.datetime64("2024-01-01T06", "ns"),
+        y=y,
+        clim=None,
+        f_local=f,
+        d_local=f - y,
+        weights=weights,
+        valid=torch.ones_like(y, dtype=torch.bool),
+        n_spatial=2,
+        ensemble_size=ensemble_size,
+        member_ids=tuple(range(ensemble_size)),
+        comm=comm,
+        w_flat=w_flat,
+    )
+    d = ctx.d_local.double()
+    ctx.s1 = d.sum(dim=0)
+    ctx.s2 = (d**2).sum(dim=0)
+    ctx.below = (ctx.f_local < ctx.y).sum(dim=0, dtype=torch.int32)
+
+    for stat in statistics:
+        stat.update(ctx)
+    state: dict = {}
+    for stat in statistics:
+        state.update(stat.state())
+    return state
+
+
+class TestRegionalAccumulation:
+    """Region 0 (whole grid) must reproduce the region-free run exactly, and
+    a boxed region must equal the region-free math on pre-masked weights."""
+
+    def test_global_region_matches_region_free_run(self, tmp_path):
+        torch.manual_seed(20)
+        m = 4
+        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+
+        regional = _run_statistics_regional(f, y, m, tmp_path)
+        reference, _ = _run_statistics(f, y, ensemble_size=m)
+
+        for name, ref in reference.items():
+            got = regional[name][0]  # region axis leads the buffers
+            assert torch.allclose(got, ref, rtol=1e-12, atol=1e-12), name
+
+    def test_boxed_region_matches_masked_weights(self, tmp_path):
+        torch.manual_seed(21)
+        m = 3
+        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+
+        regional = _run_statistics_regional(f, y, m, tmp_path)
+
+        base = build_spatial_weights(
+            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
+        ).expand(len(SMALL_LAT), len(SMALL_LON))
+        for r in (1, 2):
+            masked = (base * _region_masks()[r]).double()
+            # Square/abs in float32 first — the accumulators upcast to
+            # float64 only for the weighted reduction, like the offline
+            # scorer does.
+            d = f - y
+            expected_sse = float(((d[0, 0] ** 2).double() * masked).sum())
+            assert regional["sse_member"][r, 0, 0, 0] == pytest.approx(
+                expected_sse, rel=1e-10
+            )
+            expected_w = float(masked.sum())
+            assert regional["w_sum"][r, 0, 0] == pytest.approx(expected_w, rel=1e-10)
+            expected_sae = float((d[0, 0].abs().double() * masked).sum())
+            assert regional["sae_member"][r, 0, 0, 0] == pytest.approx(
+                expected_sae, rel=1e-10
+            )
+            # Rank histogram: per-region counts total the masked weight sum.
+            counts = regional["rank_counts"][r, :, 0, :]
+            assert torch.allclose(
+                counts.sum(dim=0),
+                torch.full((len(VARIABLES),), expected_w, dtype=torch.float64),
+            )
+
+    def test_pairwise_matmul_matches_elementwise(self):
+        torch.manual_seed(22)
+        from src.online import _abs_diff_weighted_sum
+
+        local = torch.randn(2, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        other = torch.randn(5, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        base = build_spatial_weights(
+            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
+        )
+        regional_w = build_spatial_weights(
+            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}),
+            lat_weights=True,
+            regions=REGIONS,
+        )
+        w_flat = regional_w.reshape(3, -1).T.contiguous()
+        got = _abs_diff_weighted_sum(local, other, base, 2, w_flat=w_flat)
+        assert got.shape == (len(VARIABLES), 3)
+        for r in range(3):
+            ref = _abs_diff_weighted_sum(local, other, regional_w[r], 2)
+            assert torch.allclose(got[:, r], ref, rtol=1e-12)
+
+
+class TestExtraStatistics:
+    def test_mae_matches_manual_weighted_mean(self, tmp_path):
+        torch.manual_seed(23)
+        m = 3
+        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+
+        settings = _settings(tmp_path, mae=True, crps=False)
+        statistics = build_statistics(m, settings=settings)
+        names = [type(s).__name__ for s in statistics]
+        assert "MemberAbsError" in names
+
+        comm = _single_rank_comm(m)
+        weights = build_spatial_weights(
+            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
+        )
+        w_sum = float(weights.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
+        for stat in statistics:
+            stat.reset(1, len(VARIABLES), m, torch.device("cpu"))
+        ctx = StepContext(
+            lead_index=0,
+            valid_time=np.datetime64("2024-01-01T06", "ns"),
+            y=y,
+            clim=None,
+            f_local=f,
+            d_local=f - y,
+            weights=weights,
+            valid=torch.ones_like(y, dtype=torch.bool),
+            n_spatial=2,
+            ensemble_size=m,
+            member_ids=tuple(range(m)),
+            comm=comm,
+        )
+        d = ctx.d_local.double()
+        ctx.s1 = d.sum(dim=0)
+        ctx.s2 = (d**2).sum(dim=0)
+        ctx.below = (ctx.f_local < ctx.y).sum(dim=0, dtype=torch.int32)
+        for stat in statistics:
+            stat.update(ctx)
+        state: dict = {}
+        for stat in statistics:
+            state.update(stat.state())
+
+        expected = ((f - y).abs().double() * weights).sum(dim=(2, 3)) / w_sum
+        assert torch.allclose(state["sae_member"][:, 0, :] / w_sum, expected, atol=1e-9)
+
+    def test_lsd_matches_earth2studio(self, tmp_path):
+        pytest.importorskip("physicsnemo.metrics.general.power_spectrum")
+        from earth2studio.statistics import log_spectral_distance
+
+        torch.manual_seed(24)
+        m = 2
+        # A larger grid so the radial binning is non-trivial.
+        lat = np.linspace(90, -90, 16)
+        lon = np.linspace(0, 360, 32, endpoint=False)
+        f = torch.randn(m, len(VARIABLES), len(lat), len(lon))
+        y = torch.randn(len(VARIABLES), len(lat), len(lon))
+
+        settings = _settings(tmp_path, lsd=True, crps=False)
+        statistics = build_statistics(m, settings=settings)
+        lsd_stat = next(
+            s for s in statistics if type(s).__name__ == "LogSpectralDistance"
+        )
+        lsd_stat.reset(1, len(VARIABLES), m, torch.device("cpu"))
+        ctx = StepContext(
+            lead_index=0,
+            valid_time=np.datetime64("2024-01-01T06", "ns"),
+            y=y,
+            clim=None,
+            f_local=f,
+            d_local=f - y,
+            weights=torch.ones(1, 1, dtype=torch.float64),
+            valid=torch.ones_like(y, dtype=torch.bool),
+            n_spatial=2,
+            ensemble_size=m,
+            member_ids=tuple(range(m)),
+            comm=_single_rank_comm(m),
+        )
+        lsd_stat.update(ctx)
+        got = lsd_stat.state()["lsd"][:, 0, :]  # [ensemble, variable]
+
+        metric = log_spectral_distance(
+            reduction_dimensions=[], ensemble_dimension="ensemble"
+        )
+        x_coords = OrderedDict(
+            {
+                "ensemble": np.arange(m),
+                "variable": np.array(VARIABLES),
+                "lat": lat,
+                "lon": lon,
+            }
+        )
+        y_coords = OrderedDict(
+            {"variable": np.array(VARIABLES), "lat": lat, "lon": lon}
+        )
+        ref, _ = metric(f, x_coords, y, y_coords)
+        assert torch.allclose(got.float(), ref, rtol=1e-4)
+
+
+class TestEndToEndRegional:
+    """Regional + mae/lsd plumbing: store schema, labels, final scores."""
+
+    def _run(self, tmp_path):
+        from src.data import PredownloadedSource
+
+        cfg = _base_cfg(tmp_path, ensemble_size=1)
+        cfg.scoring.regions = OmegaConf.create({k: v for k, v in REGIONS.items()})
+        cfg.scoring.online.mae = True
+        os.makedirs(cfg.output.path, exist_ok=True)
+
+        valid_times = np.unique(
+            np.array(
+                [t + lt for t in IC_TIMES for lt in LEAD_TIMES],
+                dtype="datetime64[ns]",
+            )
+        )
+        verif_path = _verification_zarr(tmp_path / "verif.zarr", valid_times)
+        source = PredownloadedSource(verif_path)
+
+        settings = parse_online_settings(cfg)
+        comm = _single_rank_comm(1)
+        statistics = build_statistics(1, settings=settings)
+        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+
+        rng = np.random.default_rng(31)
+        forecasts = {
+            (str(t), int(lt.astype("int64"))): rng.standard_normal(
+                (len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+            ).astype("float32")
+            for t in IC_TIMES
+            for lt in LEAD_TIMES
+        }
+
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
+            stats_mgr = open_stats_store(
+                cfg, statistics, VARIABLES, IC_TIMES, LEAD_TIMES, 1
+            )
+            with stats_mgr:
+                scorer = OnlineScorer(
+                    cfg=cfg,
+                    settings=settings,
+                    comm=comm,
+                    verification=FieldCache(
+                        source, VARIABLES, ("lat", "lon"), torch.device("cpu")
+                    ),
+                    climatology=None,
+                    variables=list(VARIABLES),
+                    lead_times=LEAD_TIMES,
+                    spatial_coords=spatial,
+                    weights=build_spatial_weights(
+                        spatial, True, regions=settings.regions
+                    ),
+                    stats_mgr=stats_mgr,
+                    device=torch.device("cpu"),
+                )
+                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
+                    scorer.begin_item(item)
+                    for lt in LEAD_TIMES:
+                        x = torch.from_numpy(
+                            forecasts[(str(item.time), int(lt.astype("int64")))]
+                        )
+                        coords = OrderedDict(
+                            {
+                                "time": np.array([item.time]),
+                                "lead_time": np.array([lt]),
+                                "variable": np.array(VARIABLES),
+                                "lat": SMALL_LAT,
+                                "lon": SMALL_LON,
+                            }
+                        )
+                        scorer.update(x[None, None], coords)
+                    scorer.finish_item(item)
+
+            finalize_stats(cfg)
+        return cfg, forecasts, source
+
+    def test_store_schema_and_labels(self, tmp_path):
+        cfg, _, _ = self._run(tmp_path)
+        stats = xr.open_zarr(os.path.join(cfg.output.path, "stats.zarr"))
+        assert stats["sse_ensmean__t2m"].dims == ("time", "region", "lead_time")
+        assert stats.attrs["regions"] == ["global", "midlat", "wrap"]
+
+        scores = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr"))
+        assert list(scores.region.values) == ["global", "midlat", "wrap"]
+        assert "mae__t2m" in scores
+        assert not np.isnan(scores["mse__t2m"].values).any()
+
+    def test_global_region_matches_region_free_scores(self, tmp_path):
+        cfg, forecasts, source = self._run(tmp_path)
+        scores = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr"))
+
+        metric = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())
+        y_coords = OrderedDict(
+            {"variable": np.array(VARIABLES), "lat": SMALL_LAT, "lon": SMALL_LON}
+        )
+        for t in IC_TIMES:
+            for lt in LEAD_TIMES:
+                x = torch.from_numpy(forecasts[(str(t), int(lt.astype("int64")))])
+                y = torch.from_numpy(
+                    source([t + lt], VARIABLES)
+                    .transpose("time", "variable", "lat", "lon")
+                    .values[0]
+                    .copy()
+                )
+                ref, _ = metric(x, y_coords, y, y_coords)
+                for j, var in enumerate(VARIABLES):
+                    got = float(
+                        scores[f"mse__{var}"]
+                        .sel(time=t, lead_time=lt, region="global")
+                        .values
+                    )
+                    assert got == pytest.approx(float(ref[j]), rel=1e-5)
+
+
+class TestUnionRegions:
+    """A region may be a list of boxes; the mask is their union."""
+
+    def test_parse_normalizes_to_box_lists(self, tmp_path):
+        settings = _settings(
+            tmp_path,
+            regions={
+                "global": None,
+                "extra_tropics": [
+                    {"lat": [20, 90], "lon": [0, 360]},
+                    {"lat": [-90, -20], "lon": [0, 360]},
+                ],
+                "tropics": {"lat": [-20, 20], "lon": [0, 360]},
+            },
+        )
+        assert settings.regions["global"] is None
+        assert len(settings.regions["extra_tropics"]) == 2
+        assert len(settings.regions["tropics"]) == 1
+
+    def test_union_mask_is_complement_of_tropics(self, tmp_path):
+        lat = np.linspace(90, -90, 19)
+        lon = np.linspace(0, 360, 12, endpoint=False)
+        coords = OrderedDict({"lat": lat, "lon": lon})
+        w = build_spatial_weights(
+            coords,
+            lat_weights=True,
+            regions={
+                "global": None,
+                "tropics": [{"lat": [-20, 20], "lon": [0, 360]}],
+                "extra_tropics": [
+                    {"lat": [20, 90], "lon": [0, 360]},
+                    {"lat": [-90, -20], "lon": [0, 360]},
+                ],
+            },
+        )
+        assert w.shape == (3, len(lat), len(lon))
+        # Band-edge points (|lat| = 20) sit in BOTH splits, WB2-style
+        # inclusive slices; away from the edges the two are complementary
+        # and together tile the globe.
+        interior = np.abs(lat) != 20
+        both = (w[1] > 0) & (w[2] > 0)
+        assert not both[interior].any()
+        assert torch.allclose(torch.maximum(w[1], w[2])[interior], w[0][interior])
+
+    def test_overlapping_boxes_do_not_double_count(self, tmp_path):
+        lat = np.linspace(90, -90, 19)
+        lon = np.linspace(0, 360, 12, endpoint=False)
+        coords = OrderedDict({"lat": lat, "lon": lon})
+        w = build_spatial_weights(
+            coords,
+            lat_weights=True,
+            regions={
+                "a": [
+                    {"lat": [0, 90], "lon": [0, 360]},
+                    {"lat": [-30, 45], "lon": [0, 360]},  # overlaps the first
+                ]
+            },
+        )
+        ref = build_spatial_weights(
+            coords,
+            lat_weights=True,
+            regions={"b": {"lat": [-30, 90], "lon": [0, 360]}},
+        )
+        assert torch.allclose(w[0], ref[0])

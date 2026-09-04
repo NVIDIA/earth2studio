@@ -45,9 +45,11 @@ properties follow:
 * Metrics derivable from the stored sums, and bootstrap CIs over ICs,
   remain possible after the fact without re-running inference. Spatial
   weighting (e.g. cosine-latitude weighting) is baked into the sums at
-  run time and applies to the whole grid; there is no per-region
-  weighting, so evaluating a different spatial region requires
-  re-running inference.
+  run time, so choose the set of spatial regions up front:
+  ``scoring.regions`` adds a ``region`` axis to every sum (boxes on the
+  scored grid, masked into the weights), and evaluating a region outside
+  that set requires re-running inference (or offline scoring against a
+  retained forecast store).
 * Scope limited to a fixed set of metrics amenable to the above patterns.
   Users with custom metrics must still run offline.
 
@@ -64,6 +66,7 @@ Scope
 -----
 Per-member MSE, ensemble-mean MSE, ensemble variance / spread, rank
 histogram, bias / correlation / ACC, fair CRPS (via the member exchange),
+optional per-member MAE and log spectral distance, optional regional splits,
 and ``members_per_rank > 1`` on top of a member-batched rollout.
 """
 
@@ -86,11 +89,15 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import DataSource
-from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem
 
 from .distributed import run_on_rank0_first
 from .output import OutputManager
+from .regions import (
+    NON_SPATIAL,
+    build_spatial_weights,
+    parse_regions,
+)
 from .scoring import _apply_valid_ranges
 from .work import (
     EnsembleGroup,
@@ -101,7 +108,7 @@ from .work import (
 )
 
 # Dimensions that never take part in the spatial reduction.
-_NON_SPATIAL = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
+_NON_SPATIAL = NON_SPATIAL  # shared spatial-dim filter (src.regions)
 
 # Group products materialized once per lead step, in this fixed order, for
 # the union of every configured statistic's `requires()`.  Ordering matters:
@@ -119,6 +126,15 @@ _LAYOUT_DIMS: dict[str, tuple[str, ...]] = {
     _LAYOUT_MEMBER: ("time", "ensemble", "lead_time"),
     _LAYOUT_RANK: ("time", "rank_bin", "lead_time"),
 }
+
+
+def _layout_dims(layout: str, n_regions: int) -> tuple[str, ...]:
+    """Store dims for *layout* — a ``region`` axis follows ``time`` when
+    the run configures regional splits, so per-IC slabs stay one chunk."""
+    dims = _LAYOUT_DIMS[layout]
+    if n_regions:
+        return (dims[0], "region", *dims[1:])
+    return dims
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +184,19 @@ class OnlineSettings:
         needs field-sized member-to-member communication — everything else
         rides on spatially-reduced scalars — so it is the one knob that
         materially changes an online run's cost.
+    mae : bool
+        Accumulate per-member weighted absolute error (finalizes to
+        ``mae``, matching ``earth2studio.statistics.mae``).  Off by
+        default.
+    lsd : bool
+        Compute ``earth2studio.statistics.log_spectral_distance`` per
+        member and lead (finalizes to ``lsd``, in dB).  Configured as a
+        bool, or as ``{wavenumber_cutoff: N}`` to also set the cutoff.
+        Spectra are global by construction, so with ``regions`` configured
+        the values land only in whole-grid (``null``-box) regions; at
+        least one must exist.
+    lsd_wavenumber_cutoff : int | None
+        Optional radial-mode cutoff forwarded to the earth2studio metric.
     pairwise_comm_dtype : torch.dtype
         Wire dtype for the member exchange.  ``bfloat16`` halves the volume;
         the arithmetic upcasts to float64 immediately on arrival.  Safe
@@ -188,6 +217,13 @@ class OnlineSettings:
         all of them.  The moment-based statistics stay on the full set
         either way, so this trades CRPS coverage against the only expensive
         communication in the run.
+    regions : dict[str, list[dict] | None] | None
+        Named spatial splits.  ``None`` (the default) keeps the store
+        region-free.  Each entry is ``None`` (the whole grid), one
+        ``{lat: [min, max], lon: [min, max]}`` box on the scored grid, or
+        a list of boxes whose union defines the region; longitude boxes
+        may wrap (``min > max`` after normalizing to [0, 360)).
+        Every weighted sum gains a ``region`` axis.
     pairwise_member_tile : int
         Members per float64 abs-diff tile in :func:`_abs_diff_weighted_sum`
         — the scorer's own dominant memory term, and the one with no other
@@ -214,11 +250,15 @@ class OnlineSettings:
     validate_coords: bool
     nccl_timeout_s: int
     crps: bool
+    mae: bool
+    lsd: bool
+    lsd_wavenumber_cutoff: int | None
     pairwise_comm_dtype: torch.dtype
     defer_pairwise_one_step: bool
     variable_chunk: int
     pairwise_variables: list[str] | None
     pairwise_member_tile: int
+    regions: dict[str, list[dict] | None] | None
 
 
 def online_enabled(cfg: DictConfig) -> bool:
@@ -346,6 +386,35 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
             f"{pairwise_member_tile}."
         )
 
+    # Regions live at scoring.regions — shared with the offline pathway.
+    regions = parse_regions(cfg.scoring.get("regions", None))
+    lsd_cfg = block.get("lsd", False)
+    lsd_cutoff = None
+    if isinstance(lsd_cfg, (dict, DictConfig)):
+        lsd_opts = (
+            OmegaConf.to_container(lsd_cfg, resolve=True)
+            if isinstance(lsd_cfg, DictConfig)
+            else dict(lsd_cfg)
+        )
+        unknown = set(lsd_opts) - {"wavenumber_cutoff"}
+        if unknown:
+            raise ValueError(
+                f"Unknown scoring.online.lsd option(s) {sorted(unknown)}; "
+                "expected only 'wavenumber_cutoff'."
+            )
+        lsd = True
+        if lsd_opts.get("wavenumber_cutoff") is not None:
+            lsd_cutoff = int(lsd_opts["wavenumber_cutoff"])
+    else:
+        lsd = bool(lsd_cfg)
+    if lsd and regions is not None and not any(v is None for v in regions.values()):
+        raise ValueError(
+            "scoring.online.lsd needs a whole-grid region (an entry with a "
+            "null box) to land its values in — spectra cannot be computed "
+            "on a spatial sub-box.  Add e.g. 'global: null' to "
+            "scoring.regions."
+        )
+
     group_size = block.get("ensemble_group_size", None)
     return OnlineSettings(
         ensemble_group_size=None if group_size is None else int(group_size),
@@ -367,6 +436,10 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
         variable_chunk=variable_chunk,
         pairwise_variables=pairwise_variables,
         pairwise_member_tile=pairwise_member_tile,
+        regions=regions,
+        mae=bool(block.get("mae", False)),
+        lsd=lsd,
+        lsd_wavenumber_cutoff=lsd_cutoff,
     )
 
 
@@ -805,7 +878,13 @@ class StepContext:
     d_local : torch.Tensor
         ``f_local - y``, precomputed once (every statistic wants it).
     weights : torch.Tensor
-        Spatial weights broadcastable over the spatial dims.
+        Spatial weights.  Region-free runs: broadcastable over the spatial
+        dims.  With regions configured: ``[region, <spatial...>]``, the
+        latitude weights multiplied by each region's mask.
+    w_flat : torch.Tensor | None
+        ``None`` for region-free runs.  Otherwise the same weights
+        flattened to ``[n_spatial_points, region]`` so :meth:`wsum` is one
+        matmul; its output then carries a trailing ``region`` axis.
     valid : torch.Tensor
         Boolean ``[variable, <spatial...>]`` mask, ``True`` where every
         member's *original* (pre-``nan_policy``) forecast was finite.  A
@@ -843,9 +922,15 @@ class StepContext:
     ensemble_size: int
     member_ids: tuple[int, ...]
     comm: GroupComm
+    w_flat: torch.Tensor | None = None
     s1: torch.Tensor | None = None
     s2: torch.Tensor | None = None
     below: torch.Tensor | None = None
+
+    @property
+    def n_regions(self) -> int:
+        """Number of configured regions; 0 keeps the store region-free."""
+        return 0 if self.w_flat is None else self.w_flat.shape[-1]
 
     def wsum(self, t: torch.Tensor) -> torch.Tensor:
         """Weighted sum of *t* over its trailing spatial dimensions.
@@ -854,9 +939,15 @@ class StepContext:
         excluded — treated as absent, not zero — regardless of what *t*
         actually holds there (NaN under ``nan_policy=propagate``, or a
         finite but meaningless value under ``zero_fill``).
+
+        With regions configured the result carries a trailing ``region``
+        axis (one masked reduction per region, via a single matmul).
         """
-        axes = tuple(range(t.ndim - self.n_spatial, t.ndim))
         td = torch.where(self.valid, t.double(), 0.0)
+        if self.w_flat is not None:
+            lead = td.shape[: td.ndim - self.n_spatial]
+            return td.reshape(*lead, -1) @ self.w_flat
+        axes = tuple(range(t.ndim - self.n_spatial, t.ndim))
         return (td * self.weights).sum(dim=axes)
 
     def wsum_valid(self) -> torch.Tensor:
@@ -864,8 +955,12 @@ class StepContext:
         weighted-mean normalizer for whatever :meth:`wsum` excluded.
         Equals the old constant ``sum(weights)`` wherever nothing is
         masked."""
+        vd = self.valid.double()
+        if self.w_flat is not None:
+            lead = vd.shape[: vd.ndim - self.n_spatial]
+            return vd.reshape(*lead, -1) @ self.w_flat
         axes = tuple(range(self.valid.ndim - self.n_spatial, self.valid.ndim))
-        return (self.valid.double() * self.weights).sum(dim=axes)
+        return (vd * self.weights).sum(dim=axes)
 
 
 class OnlineStatistic(Protocol):
@@ -894,8 +989,13 @@ class OnlineStatistic(Protocol):
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        """Allocate per-IC buffers for a fresh initial condition."""
+        """Create per-IC buffers for a fresh initial condition.
+
+        ``n_regions > 0`` prepends a region axis to every buffer,
+        matching the trailing region axis :meth:`StepContext.wsum`
+        produces."""
         ...
 
     def update(self, ctx: StepContext) -> None:
@@ -930,6 +1030,12 @@ def _empty(*shape: int | torch.device) -> torch.Tensor:
     )
 
 
+def _region_first(value: torch.Tensor, n_regions: int) -> torch.Tensor:
+    """Move :meth:`StepContext.wsum`'s trailing region axis to the front,
+    matching the buffer layout; identity for region-free runs."""
+    return value.movedim(-1, 0) if n_regions else value
+
+
 class WeightSum:
     """The weighted-mean normalizer ``W = sum_s w``.
 
@@ -956,13 +1062,17 @@ class WeightSum:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        self._w = _empty(n_leads, n_variables, device)
+        self._nr = n_regions
+        self._w = _empty(
+            *((n_regions,) if n_regions else ()), n_leads, n_variables, device
+        )
 
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
             return
-        self._w[ctx.lead_index, :] = ctx.wsum_valid()
+        self._w[..., ctx.lead_index, :] = _region_first(ctx.wsum_valid(), self._nr)
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"w_sum": self._w}
@@ -991,23 +1101,189 @@ class MemberSquaredError:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        self._sse = _empty(ensemble_size, n_leads, n_variables, device)
+        self._nr = n_regions
+        self._sse = _empty(
+            *((n_regions,) if n_regions else ()),
+            ensemble_size,
+            n_leads,
+            n_variables,
+            device,
+        )
 
     def update(self, ctx: StepContext) -> None:
         block = torch.zeros(
-            (ctx.ensemble_size, self._sse.shape[-1]),
+            (ctx.ensemble_size, self._sse.shape[-1])
+            + ((self._nr,) if self._nr else ()),
             dtype=torch.float64,
             device=self._sse.device,
         )
-        block[list(ctx.member_ids), :] = ctx.wsum(ctx.d_local**2)  # [K, variable]
+        block[list(ctx.member_ids)] = ctx.wsum(
+            ctx.d_local**2
+        )  # [K, variable(, region)]
         ctx.comm.reduce(block)
 
         if ctx.comm.is_root:
-            self._sse[:, ctx.lead_index, :] = block
+            # [M, var(, R)] -> buffer slice [(R,) M, var]
+            self._sse[..., ctx.lead_index, :] = _region_first(block, self._nr)
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"sse_member": self._sse}
+
+
+class MemberAbsError:
+    """Per-member weighted sum of absolute error (finalizes to ``mae``).
+
+    Same communication shape as :class:`MemberSquaredError`: entirely
+    local per member, one small zero-padded ``[M, variable]`` reduce.
+    Enabled by ``scoring.online.mae``.
+    """
+
+    name = "member_mae"
+
+    def requires(self) -> set[str]:
+        return set()
+
+    def fields(self) -> dict[str, str]:
+        return {"sae_member": _LAYOUT_MEMBER}
+
+    def reset(
+        self,
+        n_leads: int,
+        n_variables: int,
+        ensemble_size: int,
+        device: torch.device,
+        n_regions: int = 0,
+    ) -> None:
+        self._nr = n_regions
+        self._sae = _empty(
+            *((n_regions,) if n_regions else ()),
+            ensemble_size,
+            n_leads,
+            n_variables,
+            device,
+        )
+
+    def update(self, ctx: StepContext) -> None:
+        block = torch.zeros(
+            (ctx.ensemble_size, self._sae.shape[-1])
+            + ((self._nr,) if self._nr else ()),
+            dtype=torch.float64,
+            device=self._sae.device,
+        )
+        block[list(ctx.member_ids)] = ctx.wsum(ctx.d_local.abs())
+        ctx.comm.reduce(block)
+        if ctx.comm.is_root:
+            self._sae[..., ctx.lead_index, :] = _region_first(block, self._nr)
+
+    def state(self) -> dict[str, torch.Tensor]:
+        return {"sae_member": self._sae}
+
+
+class LogSpectralDistance:
+    """Per-member radially averaged 2D log spectral distance vs verification.
+
+    Delegates the whole computation — radial power spectra, optional
+    wavenumber cutoff, and the dB form — to
+    ``earth2studio.statistics.log_spectral_distance``; this class
+    reimplements nothing.  Unlike every other field in the store this is a
+    *final* per-(IC, member, lead) value rather than a mergeable sum — its
+    aggregation over ICs is a plain mean, so storing the value keeps it
+    exact.  Spectra are global by construction: with regions configured
+    the values land only in whole-grid (``null``-box) regions and stay NaN
+    elsewhere.  Enabled by ``scoring.online.lsd``.
+
+    Parameters
+    ----------
+    whole_grid_regions : Sequence[int] | None
+        Region indices with a ``null`` box, or ``None`` when the run is
+        region-free.
+    wavenumber_cutoff : int | None
+        Forwarded to the earth2studio metric: keep only the first N radial
+        modes (negative trims from the end; ``None`` uses all).
+    """
+
+    name = "lsd"
+
+    def __init__(
+        self,
+        whole_grid_regions: Sequence[int] | None = None,
+        wavenumber_cutoff: int | None = None,
+    ) -> None:
+        from earth2studio.statistics import log_spectral_distance
+
+        self._metric = log_spectral_distance(
+            reduction_dimensions=[],
+            ensemble_dimension="ensemble",
+            wavenumber_cutoff=wavenumber_cutoff,
+        )
+        self._whole_grid = (
+            None if whole_grid_regions is None else list(whole_grid_regions)
+        )
+
+    def requires(self) -> set[str]:
+        return set()
+
+    def fields(self) -> dict[str, str]:
+        return {"lsd": _LAYOUT_MEMBER}
+
+    def reset(
+        self,
+        n_leads: int,
+        n_variables: int,
+        ensemble_size: int,
+        device: torch.device,
+        n_regions: int = 0,
+    ) -> None:
+        self._nr = n_regions
+        self._lsd = _empty(
+            *((n_regions,) if n_regions else ()),
+            ensemble_size,
+            n_leads,
+            n_variables,
+            device,
+        )
+
+    def update(self, ctx: StepContext) -> None:
+        if ctx.n_spatial != 2:
+            raise ValueError(
+                "scoring.online.lsd needs a 2D (lat, lon) spatial grid; "
+                f"got {ctx.n_spatial} spatial dimensions."
+            )
+        # Entirely local per member.  The metric only uses the coordinate
+        # system to check x/y compatibility, so index coords suffice.
+        n_var = ctx.f_local.shape[1]
+        y_coords: CoordSystem = OrderedDict(
+            {
+                "variable": np.arange(n_var),
+                "ilat": np.arange(ctx.f_local.shape[-2]),
+                "ilon": np.arange(ctx.f_local.shape[-1]),
+            }
+        )
+        x_coords: CoordSystem = OrderedDict(
+            {"ensemble": np.array(ctx.member_ids), **y_coords}
+        )
+        values, _ = self._metric(ctx.f_local, x_coords, ctx.y, y_coords)
+        values = values.double()  # [K, variable]
+
+        block = torch.zeros(
+            (ctx.ensemble_size, self._lsd.shape[-1]),
+            dtype=torch.float64,
+            device=self._lsd.device,
+        )
+        block[list(ctx.member_ids), :] = values
+        ctx.comm.reduce(block)
+        if not ctx.comm.is_root:
+            return
+        if self._nr:
+            for r in self._whole_grid or []:
+                self._lsd[r, :, ctx.lead_index, :] = block
+        else:
+            self._lsd[:, ctx.lead_index, :] = block
+
+    def state(self) -> dict[str, torch.Tensor]:
+        return {"lsd": self._lsd}
 
 
 class EnsembleMeanSquaredError:
@@ -1032,8 +1308,12 @@ class EnsembleMeanSquaredError:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        self._sse = _empty(n_leads, n_variables, device)
+        self._nr = n_regions
+        self._sse = _empty(
+            *((n_regions,) if n_regions else ()), n_leads, n_variables, device
+        )
 
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
@@ -1044,7 +1324,9 @@ class EnsembleMeanSquaredError:
                 "before this accumulator's update() runs."
             )
         mean_dev = ctx.s1 / ctx.ensemble_size
-        self._sse[ctx.lead_index, :] = ctx.wsum(mean_dev**2)
+        self._sse[..., ctx.lead_index, :] = _region_first(
+            ctx.wsum(mean_dev**2), self._nr
+        )
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"sse_ensmean": self._sse}
@@ -1074,8 +1356,12 @@ class EnsembleSpread:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        self._var = _empty(n_leads, n_variables, device)
+        self._nr = n_regions
+        self._var = _empty(
+            *((n_regions,) if n_regions else ()), n_leads, n_variables, device
+        )
 
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
@@ -1087,7 +1373,7 @@ class EnsembleSpread:
             )
         m = ctx.ensemble_size
         var = (ctx.s2 - ctx.s1**2 / m) / (m - 1)
-        self._var[ctx.lead_index, :] = ctx.wsum(var)
+        self._var[..., ctx.lead_index, :] = _region_first(ctx.wsum(var), self._nr)
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"var_ens": self._var}
@@ -1119,8 +1405,16 @@ class RankHistogram:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        self._counts = _empty(ensemble_size + 1, n_leads, n_variables, device)
+        self._nr = n_regions
+        self._counts = _empty(
+            *((n_regions,) if n_regions else ()),
+            ensemble_size + 1,
+            n_leads,
+            n_variables,
+            device,
+        )
 
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
@@ -1130,7 +1424,7 @@ class RankHistogram:
                 "StepContext.below is unset — 'rank_counts' must be "
                 "requested before this accumulator's update() runs."
             )
-        n_bins, _, n_variables = self._counts.shape
+        n_bins, _, n_variables = self._counts.shape[-3:]
         device = self._counts.device
 
         # `below` is meaningless at a masked gridpoint — NaN < y is always
@@ -1140,17 +1434,27 @@ class RankHistogram:
         # bin at all; `ctx.valid` was captured before nan_policy could
         # have replaced the NaN with something that compares "normally".
         ranks = ctx.below.reshape(n_variables, -1).long()
-        w_flat = (
-            ctx.weights.expand(ctx.y.shape[1:])
-            .reshape(1, -1)
-            .expand(n_variables, -1)
-            .contiguous()
-        )
         valid_flat = ctx.valid.reshape(n_variables, -1)
-        w_flat = torch.where(valid_flat, w_flat, 0.0)
-        hist = torch.zeros((n_variables, n_bins), dtype=torch.float64, device=device)
-        hist.scatter_add_(1, ranks, w_flat)
-        self._counts[:, ctx.lead_index, :] = hist.transpose(0, 1)
+        # One weight row per region (the region-free run is one region of
+        # everything); scatter_add per region keeps the kernel simple.
+        if self._nr:
+            region_weights = ctx.weights.reshape(self._nr, 1, -1)
+        else:
+            region_weights = (
+                ctx.weights.expand(ctx.y.shape[1:]).reshape(1, 1, -1).contiguous()
+            )
+        for r in range(region_weights.shape[0]):
+            w_flat = torch.where(
+                valid_flat, region_weights[r].expand(n_variables, -1), 0.0
+            )
+            hist = torch.zeros(
+                (n_variables, n_bins), dtype=torch.float64, device=device
+            )
+            hist.scatter_add_(1, ranks, w_flat)
+            if self._nr:
+                self._counts[r, :, ctx.lead_index, :] = hist.transpose(0, 1)
+            else:
+                self._counts[:, ctx.lead_index, :] = hist.transpose(0, 1)
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"rank_counts": self._counts}
@@ -1195,8 +1499,15 @@ class AnomalyMoments:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
-        self._buf = {name: _empty(n_leads, n_variables, device) for name in self._names}
+        self._nr = n_regions
+        self._buf = {
+            name: _empty(
+                *((n_regions,) if n_regions else ()), n_leads, n_variables, device
+            )
+            for name in self._names
+        }
 
     def update(self, ctx: StepContext) -> None:
         if not ctx.comm.is_root:
@@ -1217,11 +1528,14 @@ class AnomalyMoments:
 
         i = ctx.lead_index
         n = self._names
-        self._buf[n[0]][i, :] = ctx.wsum(fbar)
-        self._buf[n[1]][i, :] = ctx.wsum(obs)
-        self._buf[n[2]][i, :] = ctx.wsum(fbar**2)
-        self._buf[n[3]][i, :] = ctx.wsum(obs**2)
-        self._buf[n[4]][i, :] = ctx.wsum(fbar * obs)
+        for name, term in (
+            (n[0], fbar),
+            (n[1], obs),
+            (n[2], fbar**2),
+            (n[3], obs**2),
+            (n[4], fbar * obs),
+        ):
+            self._buf[name][..., i, :] = _region_first(ctx.wsum(term), self._nr)
 
     def state(self) -> dict[str, torch.Tensor]:
         return dict(self._buf)
@@ -1245,6 +1559,7 @@ def _abs_diff_weighted_sum(
     weights: torch.Tensor,
     n_spatial: int,
     member_tile: int = _PAIRWISE_MEMBER_TILE,
+    w_flat: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """``sum_{i in local} sum_{j in other} sum_s w_s |f_i(s) - f_j(s)|``.
 
@@ -1269,21 +1584,32 @@ def _abs_diff_weighted_sum(
         Members of *other* per tile — bounds the float64 working set.
         Defaults to :data:`_PAIRWISE_MEMBER_TILE`; runs pass
         ``settings.pairwise_member_tile`` explicitly.
+    w_flat : torch.Tensor | None
+        Regional weights ``[n_spatial_points, region]`` (see
+        :attr:`StepContext.w_flat`).  When set the spatial reduction is a
+        matmul against it and the result carries a region axis.
 
     Returns
     -------
     torch.Tensor
-        Float64 ``[variable]`` tensor.
+        Float64 ``[variable]`` tensor (``[variable, region]`` regional).
     """
     axes = tuple(range(local.ndim - n_spatial, local.ndim))
-    out = torch.zeros(local.shape[1], dtype=torch.float64, device=local.device)
+    out_shape: tuple[int, ...] = (local.shape[1],)
+    if w_flat is not None:
+        out_shape = (local.shape[1], w_flat.shape[-1])
+    out = torch.zeros(out_shape, dtype=torch.float64, device=local.device)
     for i in range(local.shape[0]):
         a = local[i].double()
         for j0 in range(0, other.shape[0], member_tile):
             tile = other[j0 : j0 + member_tile].double()
             diff = (a.unsqueeze(0) - tile).abs_()
-            diff.mul_(weights)
-            out += diff.sum(dim=axes).sum(dim=0)
+            if w_flat is not None:
+                flat = diff.reshape(diff.shape[0], diff.shape[1], -1)
+                out += (flat @ w_flat).sum(dim=0)
+            else:
+                diff.mul_(weights)
+                out += diff.sum(dim=axes).sum(dim=0)
     return out
 
 
@@ -1432,9 +1758,10 @@ class PairwiseExchange:
         if pending is None:
             return None
 
-        total = torch.zeros(
-            len(self._var_index), dtype=torch.float64, device=ctx.d_local.device
-        )
+        out_shape: tuple[int, ...] = (len(self._var_index),)
+        if ctx.w_flat is not None:
+            out_shape = (len(self._var_index), ctx.n_regions)
+        total = torch.zeros(out_shape, dtype=torch.float64, device=ctx.d_local.device)
         offset = 0
         for local, buffers, handle in zip(
             pending.local_chunks, pending.gathered, pending.work
@@ -1449,6 +1776,7 @@ class PairwiseExchange:
                 ctx.weights,
                 ctx.n_spatial,
                 member_tile=self._settings.pairwise_member_tile,
+                w_flat=ctx.w_flat,
             )
             offset += width
 
@@ -1514,10 +1842,13 @@ class FairCRPS:
         n_variables: int,
         ensemble_size: int,
         device: torch.device,
+        n_regions: int = 0,
     ) -> None:
+        self._nr = n_regions
         n = len(self._variables)
-        self._t1 = _empty(n_leads, n, device)
-        self._t2 = _empty(n_leads, n, device)
+        dims = (n_regions,) if n_regions else ()
+        self._t1 = _empty(*dims, n_leads, n, device)
+        self._t2 = _empty(*dims, n_leads, n, device)
 
     def update(self, ctx: StepContext) -> None:
         index = torch.tensor(
@@ -1529,12 +1860,18 @@ class FairCRPS:
         # narrower) pairwise `self._variables` subset, so masking must
         # happen before index_select — same order PairwiseExchange._submit
         # uses for term 2 — rather than after, via ctx.wsum.
-        d_local = torch.where(ctx.valid, ctx.d_local, 0.0).index_select(1, index).abs()
-        axes = tuple(range(d_local.ndim - ctx.n_spatial, d_local.ndim))
-        t1 = (d_local.double() * ctx.weights).sum(dim=axes).sum(dim=0)
+        d_local = (
+            torch.where(ctx.valid, ctx.d_local, 0.0).index_select(1, index).abs()
+        ).double()
+        if ctx.w_flat is not None:
+            flat = d_local.reshape(d_local.shape[0], d_local.shape[1], -1)
+            t1 = (flat @ ctx.w_flat).sum(dim=0)  # [var_sub, region]
+        else:
+            axes = tuple(range(d_local.ndim - ctx.n_spatial, d_local.ndim))
+            t1 = (d_local * ctx.weights).sum(dim=axes).sum(dim=0)
         ctx.comm.reduce(t1)
         if ctx.comm.is_root:
-            self._t1[ctx.lead_index, :] = t1
+            self._t1[..., ctx.lead_index, :] = _region_first(t1, self._nr)
 
         # Term 2: the member exchange, possibly resolving an earlier step.
         self._store_pairwise(ctx, self._exchange.step(ctx))
@@ -1549,7 +1886,7 @@ class FairCRPS:
         if result is None or not ctx.comm.is_root:
             return
         lead_index, values = result
-        self._t2[lead_index, :] = values
+        self._t2[..., lead_index, :] = _region_first(values, self._nr)
 
     def state(self) -> dict[str, torch.Tensor]:
         return {"crps_t1": self._t1, "crps_t2": self._t2}
@@ -1604,6 +1941,20 @@ def build_statistics(
         stats.extend([MemberSquaredError(), EnsembleSpread(), RankHistogram()])
     stats.append(AnomalyMoments(anomaly=has_climatology))
 
+    if settings is not None and settings.mae:
+        stats.append(MemberAbsError())
+    if settings is not None and settings.lsd:
+        whole_grid = None
+        if settings.regions is not None:
+            whole_grid = [
+                i for i, spec in enumerate(settings.regions.values()) if spec is None
+            ]
+        stats.append(
+            LogSpectralDistance(
+                whole_grid, wavenumber_cutoff=settings.lsd_wavenumber_cutoff
+            )
+        )
+
     if ensemble_size > 1 and settings is not None and settings.crps:
         if variables is None:
             raise ValueError(
@@ -1624,6 +1975,7 @@ def stats_array_groups(
     times: np.ndarray,
     lead_times: np.ndarray,
     ensemble_size: int,
+    region_names: Sequence[str] | None = None,
 ) -> tuple[CoordSystem, list[tuple[CoordSystem, list[str]]]]:
     """Build the ``stats.zarr`` schema for the configured statistics.
 
@@ -1645,14 +1997,21 @@ def stats_array_groups(
         All lead times in the forecast.
     ensemble_size : int
         Ensemble size ``M`` (sets the ``ensemble`` and ``rank_bin`` axes).
+    region_names : Sequence[str] | None
+        Names of the configured regional splits; every array gains a
+        ``region`` axis, whose integer indices map to names kept in the
+        store's attributes (:func:`finalize_stats` reattaches them).
+        ``None`` keeps the store region-free.
 
     Returns
     -------
     tuple[CoordSystem, list[tuple[CoordSystem, list[str]]]]
         ``(superset_coords, array_groups)``.
     """
+    n_regions = 0 if region_names is None else len(region_names)
     axes: dict[str, np.ndarray] = {
         "time": times,
+        "region": np.arange(n_regions),
         "ensemble": np.arange(ensemble_size),
         "rank_bin": np.arange(ensemble_size + 1),
         "lead_time": lead_times,
@@ -1670,8 +2029,11 @@ def stats_array_groups(
             )
 
     superset: CoordSystem = OrderedDict()
-    for dim in ("time", "ensemble", "rank_bin", "lead_time"):
-        if dim in ("time", "lead_time") or any(
+    for dim in ("time", "region", "ensemble", "rank_bin", "lead_time"):
+        if dim == "region":
+            if n_regions:
+                superset[dim] = axes[dim]
+        elif dim in ("time", "lead_time") or any(
             dim in _LAYOUT_DIMS[layout] for layout in used_layouts
         ):
             superset[dim] = axes[dim]
@@ -1682,7 +2044,7 @@ def stats_array_groups(
         if not names:
             continue
         coords: CoordSystem = OrderedDict(
-            (dim, axes[dim]) for dim in _LAYOUT_DIMS[layout]
+            (dim, axes[dim]) for dim in _layout_dims(layout, n_regions)
         )
         groups.append((coords, names))
     return superset, groups
@@ -1691,6 +2053,7 @@ def stats_array_groups(
 def add_stats_arrays(
     io: Any,
     array_groups: list[tuple[CoordSystem, list[str]]],
+    region_names: Sequence[str] | None = None,
 ) -> None:
     """Create the ``stats.zarr`` data arrays, skipping any that exist.
 
@@ -1709,7 +2072,22 @@ def add_stats_arrays(
         Backend from ``OutputManager.io``.
     array_groups : list[tuple[CoordSystem, list[str]]]
         Groups from :func:`stats_array_groups`.
+    region_names : Sequence[str] | None
+        Regional split names, recorded in the store's attributes so the
+        integer ``region`` axis stays interpretable (and so
+        :func:`finalize_stats` can reattach them as coordinate labels).
     """
+    if region_names is not None:
+        existing = io.root.attrs.get("regions")
+        if existing is not None and list(existing) != list(region_names):
+            raise ValueError(
+                f"stats store already holds regions {list(existing)} but the "
+                f"current configuration defines {list(region_names)}. "
+                "Resuming would relabel previously accumulated statistics; "
+                "restore the original scoring.regions or clear the "
+                "run's output directory."
+            )
+        io.root.attrs["regions"] = list(region_names)
     for coords, names in array_groups:
         shape = [len(io.coords[dim]) for dim in coords]
         chunks = [io.chunks.get(dim, len(io.coords[dim])) for dim in coords]
@@ -1764,14 +2142,15 @@ def open_stats_store(
     all groups have finished writing.
     """
     settings = parse_online_settings(cfg)
+    region_names = None if settings.regions is None else list(settings.regions)
     superset, groups = stats_array_groups(
-        statistics, variables, times, lead_times, ensemble_size
+        statistics, variables, times, lead_times, ensemble_size, region_names
     )
     mgr = OutputManager(
         cfg, store_name=settings.stats_store, chunks={"time": 1}, io_backend="zarr"
     )
     mgr.validate_output_store(superset, [])
-    run_on_rank0_first(add_stats_arrays, mgr.io, groups)
+    run_on_rank0_first(add_stats_arrays, mgr.io, groups, region_names)
     return mgr
 
 
@@ -1857,6 +2236,15 @@ class OnlineScorer:
         )
         self._spatial_dims = tuple(d for d in spatial_coords if d not in _NON_SPATIAL)
         self._weights = weights.to(device=device, dtype=torch.float64)
+        # Regional runs carry the weights twice: full-shaped for the rank
+        # histogram, and flattened [n_points, region] for the matmul path
+        # every other reduction takes (see StepContext.w_flat).
+        self._n_regions = 0 if settings.regions is None else len(settings.regions)
+        self._w_flat = (
+            self._weights.reshape(self._n_regions, -1).T.contiguous()
+            if self._n_regions
+            else None
+        )
         self._stats_mgr = stats_mgr
         self._device = device
 
@@ -1907,6 +2295,7 @@ class OnlineScorer:
                 len(self._variables),
                 self._ensemble_size,
                 self._device,
+                n_regions=self._n_regions,
             )
 
     def update(self, x: torch.Tensor, coords: CoordSystem) -> None:
@@ -1994,6 +2383,7 @@ class OnlineScorer:
             ensemble_size=self._ensemble_size,
             member_ids=self._comm.group.member_ids,
             comm=self._comm,
+            w_flat=self._w_flat,
         )
 
     # ------------------------------------------------------------------
@@ -2139,7 +2529,9 @@ class OnlineScorer:
         # gridpoints by construction (a pipeline like DLESyMPipeline masks
         # a whole (lead, variable) slice, not per-member), so this is
         # already identical across the group without needing a reduction.
-        valid = torch.isfinite(f_local).all(dim=0)
+        # Verification NaNs mask out too: sea-only fields (e.g. sst) are
+        # NaN over land in ERA5 while a model may forecast finite values.
+        valid = torch.isfinite(f_local).all(dim=0) & torch.isfinite(y)
 
         # Apply the same conditioning the offline scorer applies, so online
         # and offline scores are directly comparable.
@@ -2163,6 +2555,7 @@ class OnlineScorer:
             ensemble_size=self._ensemble_size,
             member_ids=self._comm.group.member_ids,
             comm=self._comm,
+            w_flat=self._w_flat,
         )
         self._materialize(ctx)
         for stat in self._statistics:
@@ -2197,6 +2590,8 @@ class OnlineScorer:
 
     def _axis_values(self, dim: str) -> np.ndarray:
         """Coordinate values of a statistics-store axis."""
+        if dim == "region":
+            return np.arange(self._n_regions)
         if dim == "ensemble":
             return np.arange(self._ensemble_size)
         if dim == "rank_bin":
@@ -2232,51 +2627,16 @@ class OnlineScorer:
                 parts.append(tensor)
 
             # (lead, var) -> (1, lead, n_names); (extra, lead, var) ->
-            # (1, extra, lead, n_names).
+            # (1, extra, lead, n_names); a leading region axis on the
+            # buffers slots in the same way.
             data = torch.cat(parts, dim=-1).unsqueeze(0).cpu()
 
             write_coords: CoordSystem = OrderedDict()
             write_coords["time"] = np.array([time])
-            for dim in _LAYOUT_DIMS[layout][1:]:
+            for dim in _layout_dims(layout, self._n_regions)[1:]:
                 write_coords[dim] = self._axis_values(dim)
             write_coords["variable"] = np.array(names)
             self._stats_mgr.write(data, write_coords)
-
-
-def build_spatial_weights(
-    spatial_coords: CoordSystem,
-    lat_weights: bool,
-) -> torch.Tensor:
-    """Build the spatial weight tensor for online reductions.
-
-    Mirrors the offline scorer's weighting: cosine-latitude weights when
-    ``scoring.lat_weights`` is set and the grid has a ``lat`` dimension,
-    uniform weights otherwise.  The returned tensor has one axis per
-    spatial dimension so it broadcasts against ``[..., <spatial...>]``
-    tensors.
-
-    Parameters
-    ----------
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays of the scored grid.
-    lat_weights : bool
-        Whether to apply cosine-latitude weighting.
-
-    Returns
-    -------
-    torch.Tensor
-        Float64 weights broadcastable over the spatial dims.
-    """
-    dims = [d for d in spatial_coords if d not in _NON_SPATIAL]
-    shape = [1] * len(dims)
-
-    if not lat_weights or "lat" not in dims:
-        return torch.ones(shape, dtype=torch.float64)
-
-    lat_vals = np.asarray(spatial_coords["lat"])
-    w = lat_weight(torch.tensor(lat_vals, dtype=torch.float64))
-    shape[dims.index("lat")] = len(lat_vals)
-    return w.reshape(shape)
 
 
 # ---------------------------------------------------------------------------
@@ -2304,6 +2664,14 @@ def _finalize_variable(
 
     if f"var_ens__{var}" in ds:
         out[f"ensemble_variance__{var}"] = ds[f"var_ens__{var}"] / w
+
+    # Optional per-member additions (scoring.online.mae / .lsd).  The
+    # store keeps LSD as a final per-(IC, member, lead) value rather than
+    # a sum — its IC aggregation is a plain mean, so nothing normalizes it.
+    if f"sae_member__{var}" in ds:
+        out[f"mae__{var}"] = ds[f"sae_member__{var}"] / w
+    if f"lsd__{var}" in ds:
+        out[f"lsd__{var}"] = ds[f"lsd__{var}"]
 
     # Fair CRPS.  t1 and t2 are stored as raw weighted sums over members
     # and pairs respectively, so the normalization lives here:
@@ -2397,7 +2765,13 @@ def finalize_stats(cfg: DictConfig) -> str:
     ``bias__{v}``               mean forecast minus mean verification
     ``corr__{v}``               centered spatial Pearson correlation
     ``acc__{v}``                anomaly correlation (climatology only)
+    ``mae__{v}``                per-member MAE (``scoring.online.mae``)
+    ``lsd__{v}``                per-member log spectral distance, dB
+                                (``scoring.online.lsd``)
     ==========================  =========================================
+
+    With ``scoring.regions`` configured every array carries a
+    ``region`` axis, labeled with the configured region names.
 
     Spread and SSR are not written: the report derives them from
     ``ensemble_mean_mse`` and ``ensemble_variance`` with the correct
@@ -2430,6 +2804,11 @@ def finalize_stats(cfg: DictConfig) -> str:
 
     ds = xr.open_zarr(stats_path)
     ensemble_size = int(ds.sizes.get("ensemble", 1))
+    # Regional runs store the region axis as integer indices; the names
+    # live in the store attributes and become coordinate labels here.
+    region_names = ds.attrs.get("regions")
+    if region_names is not None and "region" in ds.dims:
+        ds = ds.assign_coords(region=np.array([str(r) for r in region_names]))
     variables = sorted(
         {str(name).split("__", 1)[1] for name in ds.data_vars if "__" in str(name)}
     )
@@ -2441,6 +2820,8 @@ def finalize_stats(cfg: DictConfig) -> str:
     # Statistics for ICs that were never run stay NaN rather than being
     # silently dropped, matching the offline scorer's partial-run behavior.
     scores = xr.Dataset(arrays).compute()
+    if region_names is not None:
+        scores.attrs["regions"] = list(region_names)
     # Rebuild from scratch: the derived metric set depends on what is in
     # stats.zarr (member breakdown, rank counts, climatology), so an
     # in-place overwrite could leave stale arrays from an earlier config.
@@ -2539,7 +2920,9 @@ def build_online_scorer(
         )
 
     weights = build_spatial_weights(
-        spatial_coords, bool(cfg.scoring.get("lat_weights", False))
+        spatial_coords,
+        bool(cfg.scoring.get("lat_weights", False)),
+        regions=settings.regions,
     )
 
     return OnlineScorer(
