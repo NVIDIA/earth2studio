@@ -15,20 +15,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ---------------------------------------------------------------------------
-# FCN3 — 14-day scorecard, ERA5 2025, 16-member ensemble, scored online.
+# Atlas CRPS — 14-day scorecard, ERA5 2025, 16-member ensemble, scored online.
 #
 # Scores computed for 48 ICs — four per month on the 1st/8th/15th/22nd at
 # 00/06/12/18 UTC respectively with 14-day window, monthly and regional
-# splits.  Scored ONLINE (stats.zarr -> scores.zarr, output.retain: none).
+# splits.  Scored
+# ONLINE (stats.zarr -> scores.zarr, output.retain: none).
 #
 # Details:
-#   * 72 scored variables
-#   * 16 members — the model's internal spherical noise drives the
-#     ensemble spread (perturbation would double-count).
+#   * 75 scored variables (incl. sst, sp, tp06)
+#   * 16 members — CRPS-trained: each forward draws a fresh noise vector
+#     that modulates every transformer block, so members diverge through
+#     the model's own calibrated noise (perturbation would double-count).
 #   * 56 steps of 6 h, native 721x1440 [90,-90] grid (no regridding)
-#
-# Run (from the scorecard directory):
-#   python run_scorecard.py fcn3_2025_scorecard
+#   * needs t-6h history, so it keeps its own IC store (fetched by the
+#     predownload stage).
 # ---------------------------------------------------------------------------
 defaults:
     # Regional splits (bands, headline boxes, continents) — one shared choice for every
@@ -36,14 +37,11 @@ defaults:
     - /regions/standard
     - override /model: null   # self-contained: the model is defined below
 
-project: fcn3
+project: atlas_crps
 run_id: 2025_scorecard
 
-# NGC rather than the HuggingFace default: anonymous HF pulls from the
-# cluster's shared egress IP hit a 429 rate limit. Same Apache-2.0 checkpoint.
 model:
-    architecture: earth2studio.models.px.FCN3
-    package_path: ngc://models/nvidia/earth-2/fourcastnet3@0.1.0
+    architecture: earth2studio.models.px.AtlasCRPS
 
 # Four ICs per month at 00/06/12/18 UTC (see header).
 start_times:
@@ -105,23 +103,17 @@ random_seed: 42
 # them (or bump run_id) if the data source ever changes.
 resume: true
 
-# FCN3 is intrinsically stochastic: the recipe calls set_rng(seed=item.seed)
-# per member, so members diverge through the model's own calibrated noise.
-# An IC perturbation would double-count it.
+# AtlasCRPS is intrinsically stochastic: the recipe seeds the global RNG
+# per member, and each forward draws a fresh noise vector (batch elements
+# draw independently).
 perturbation: null
 
 # ---------------------------------------------------------------------------
-# Data — ARCO_ERA5, cached by predownload.py.
-#
-# verification.source is set EXPLICITLY so verification goes to its own
-# verification.zarr. Since every one of the model's 72 channels is scored
-# here, that store is the dominant cost: ~2,700 unique valid times x 72
-# variables fetched from ARCO_ERA5. Narrowing `scoring.variables` below
-# `output.variables` would cut it proportionally, at the price of a
-# narrower scorecard.
+# Data — cloud ARCO, cached by predownload.py.  The IC store is the
+# model's own (it needs the t-6h history frame).
 # ---------------------------------------------------------------------------
 data_source:
-    _target_: earth2studio.data.ARCO_ERA5
+    _target_: earth2studio.data.ARCO
     cache: false
     verbose: false
 
@@ -130,14 +122,11 @@ require_predownload: true
 predownload:
     overwrite: false
     verification:
-        enabled: true
-        source:
-            _target_: earth2studio.data.ARCO_ERA5
-            cache: false
-            verbose: false
+        # Verification is already predownloaded; the run dir symlinks it.
+        enabled: false
 
 output:
-    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/fcn3/outputs}/${project}_${run_id}
+    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/atlas_crps/outputs}/${project}_${run_id}
     overwrite: false     # paired with resume: true
     # Online scoring is the whole point of this campaign: never write the
     # raw forecast store (it would be ~12 TB); stats.zarr is the artifact.
@@ -152,6 +141,7 @@ output:
         - u100m
         - v100m
         - t2m
+        - sp
         - msl
         - tcwv
         - u50
@@ -219,6 +209,8 @@ output:
         - q850
         - q925
         - q1000
+        - sst
+        - tp06
 
 scoring:
     mode: online
@@ -231,8 +223,8 @@ scoring:
     online:
         # 16 members on one 8-GPU node: 2 members per rank -> one ensemble
         # group per node, so the CRPS member exchange stays on NVLink.
-        # Note: the batched rollout draws FCN3's internal noise jointly per
-        # member pair, so individual member trajectories differ from a
+        # Note: the batched rollout draws the model's internal noise jointly
+        # per member pair, so individual member trajectories differ from a
         # one-member-per-rank (K=1, 16-rank) run — the ensemble statistics
         # are unchanged (members stay i.i.d.).
         members_per_rank: 2
@@ -245,7 +237,7 @@ scoring:
     resume: true
 
 report:
-    title: "FCN3 14-day Scorecard — ERA5 2025 (48 ICs, 16 members)"
+    title: "Atlas CRPS 14-day Scorecard — ERA5 2025 (48 ICs, 16 members)"
     projection: robinson
     figure_format: png
 
