@@ -58,23 +58,33 @@ maintain a local on-disk cache; every call re-reads from the provider's object s
 Marketplace datasets require an active subscription before they can be read, even for
 open/free listings:
 
-1. Open the dataset's listing page (linked from the data source docstring above, or
-   browse [app.earthmover.io/marketplace](https://app.earthmover.io/marketplace)).
-2. Click **Subscribe**, and choose which [Arraylake](https://docs.earthmover.io/) organization should house the
-   resulting repository (you'll be prompted to create one if you don't have one yet).
-   This creates a read-only repository under your organization, typically named
-   `<org>/<dataset>-subscription`.
-3. Note your **organization name**, used to derive the repository path below.
+Per [Earthmover's own docs](https://docs.earthmover.io/marketplace/data-users):
 
-Free listings subscribe instantly and give a complete mirror of the provider's
-repository, including full commit history. Paid listings require a
-[Professional Arraylake plan](https://docs.earthmover.io/marketplace/faq) and a
-request-access step before the subscription repository is created; they may also be
-scoped ("filtered subscriptions") to specific variables, time ranges, or regions rather
-than mirroring the full dataset.
+1. "Browse the Marketplace - Find a dataset you're interested in at
+   app.earthmover.io/marketplace" (or follow the link from the data source docstring
+   above).
+2. "Subscribe - Click the subscribe button on the listing page."
+3. "Select an Organization - Choose which Arraylake organization should house the
+   resulting repo" (you'll be prompted to create one if you don't have one yet). Note
+   this **organization name**, used to derive the repository path below.
+
+"When you subscribe to a dataset, a read-only repo appears in your Arraylake
+organization," typically named `<org>/<dataset>-subscription`.
+
+"Many datasets on the Marketplace are freely available. Anyone with an Arraylake
+account can subscribe to free listings instantly." Free listings "use direct
+subscriptions" - "your repo is a complete mirror of the provider's repo," including
+full commit history. Paid listings are premium offerings that "use filtered
+subscriptions": "instead of mirroring the provider's entire repo, you receive a repo
+scoped to specific variables, time ranges, or spatial regions," and require a
+[Professional Arraylake plan](https://docs.earthmover.io/marketplace/faq).
 
 Attempting to read a repository without an active subscription raises a
 `PermissionError` pointing back to the listing page.
+
+!!! note
+    "Subscriptions are not anonymous. When you subscribe to a dataset, the data
+    provider can see your organization name and contact email."
 
 !!! note "License & cost"
     Each listing page states its own license and, for paid data, its pricing, set by
