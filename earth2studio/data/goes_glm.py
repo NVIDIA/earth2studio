@@ -787,17 +787,25 @@ class GOESGLM:
         """
         out: dict[str, pd.DataFrame] = {}
         with netCDF4.Dataset(path) as ds:
-            epoch = (
-                pd.Timestamp(ds.time_coverage_start)
-                .to_pydatetime()
-                .replace(tzinfo=None)
-            )
+            # A small number of NOAA LCFA objects are valid, zero-record
+            # NetCDF files with no global attributes at all. Their epoch is
+            # immaterial: no timestamp can be constructed from an empty
+            # level. Resolve time_coverage_start lazily so those files are
+            # skipped without weakening the requirement for files that carry
+            # actual detections.
+            epoch: datetime | None = None
             for level in levels:
                 fields = _LEVEL_FIELDS[level]
                 if fields["lat"] not in ds.variables:
                     continue
                 if ds.dimensions[fields["dim"]].size == 0:
                     continue
+                if epoch is None:
+                    epoch = (
+                        pd.Timestamp(ds.time_coverage_start)
+                        .to_pydatetime()
+                        .replace(tzinfo=None)
+                    )
 
                 lat = np.asarray(ds.variables[fields["lat"]][:], dtype=np.float32)
                 lon = np.asarray(ds.variables[fields["lon"]][:], dtype=np.float32)

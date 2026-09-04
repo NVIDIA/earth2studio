@@ -487,6 +487,36 @@ def test_goes_glm_parse_file_levels(tmp_path):
     assert set(GOESGLM._parse_glm_file(str(f), None, levels=("flash",))) == {"flash"}
 
 
+def test_goes_glm_parse_empty_file_without_global_attributes(tmp_path):
+    """A zero-record NOAA file does not need a time-coverage epoch.
+
+    NOAA's 2023-10-11 18:39:00 LCFA object has all native variables and
+    dimensions, but every hierarchy dimension is zero and all global
+    attributes are absent. It contributes no observations and must not abort
+    the other files in the requested window.
+    """
+    f = tmp_path / "empty_without_attributes.nc"
+    _write_glm_netcdf(
+        f,
+        lats=[],
+        lons=[],
+        energies=[],
+        offsets=[],
+        groups=([], [], [], []),
+        flashes=([], [], [], []),
+        areas={"group": [], "flash": []},
+    )
+    with netCDF4.Dataset(f, "a") as ds:
+        ds.delncattr("time_coverage_start")
+
+    assert (
+        GOESGLM._parse_glm_file(
+            str(f), lat_lon_bbox=None, levels=("event", "group", "flash")
+        )
+        == {}
+    )
+
+
 def test_goes_glm_parse_file_area_optional(tmp_path):
     """A level with no area variable still parses and serves its energy.
 
