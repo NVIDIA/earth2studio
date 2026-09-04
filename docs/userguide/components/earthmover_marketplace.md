@@ -28,6 +28,26 @@ repository is hosted and subscribed to — dataset coverage, license and the
 **Subscribe** button all live there. Each data source class' docstring links to the
 same page.
 
+## How the data is hosted
+
+Marketplace data is **not copied into Earthmover's or your own storage**. Each dataset
+provider hosts their data in their own cloud object store (any S3-compatible store, GCS,
+or Azure Blob), and [Icechunk](https://icechunk.io/) — the versioned storage format
+Arraylake is built on — tracks it with cryptographically-addressed manifests.
+Subscribing does not trigger a download:
+
+- **Free listings** give you a direct read-only view: your repo points at the
+  provider's object store and reads chunks straight from it, including full commit
+  history.
+- **Paid ("filtered") listings** store only metadata (which chunks you're entitled to)
+  in your own organization's bucket; the chunk data itself is still read live from the
+  provider's store, scoped to what your subscription covers.
+
+In both cases, Icechunk's manifests prevent a subscriber from discovering or reading
+chunks outside their subscription. Arraylake reads lazily rather than downloading whole
+datasets, but (unlike Earth2Studio's other remote data sources) these classes do not
+maintain a local on-disk cache — every call re-reads from the provider's object store.
+
 ## 1. Subscribe to a dataset
 
 Marketplace datasets require an active subscription before they can be read, even for
@@ -50,6 +70,14 @@ than mirroring the full dataset.
 
 Attempting to read a repository without an active subscription raises a
 `PermissionError` pointing back to the listing page.
+
+!!! note "License & cost"
+    Each listing page states its own license and, for paid data, its pricing — set by
+    the provider, not Earth2Studio. Storage for a subscription repo lives in the
+    provider's bucket (free listings) or your own organization's bucket for the
+    subscription metadata (paid listings); either way you are not billed for storing a
+    copy of the underlying dataset. Check the listing page before subscribing to a
+    paid dataset for the applicable terms.
 
 ## 2. Authenticate
 
