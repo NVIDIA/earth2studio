@@ -3,7 +3,7 @@
 Generates the source score JSON files behind the documentation's
 [Scorecards pages](../../../docs/scorecard). Every model runs the same
 campaign: 48 initial conditions over a 14-day horizon, with ERA5
-verification through ARCO. The four monthly initial conditions rotate
+verification through ARCO_ERA5. The four monthly initial conditions rotate
 through the 00Z/06Z/12Z/18Z hours.
 The campaigns use the evaluation recipe's **online scoring**: the inference
 loop reduces every forecast to a small set of statistics and never writes

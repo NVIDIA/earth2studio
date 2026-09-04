@@ -19,7 +19,7 @@ batch_size: 4      # inference batch size
 output_path: "outputs"
 
 data_source:
-    _target_: earth2studio.data.CDS # Using ERA5 data source
+    _target_: earth2studio.data.CDS_ERA5 # Using ERA5 data source
     verbose: False
 
 file_output:

@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
+  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
+  emit a warning and will be removed in a future release.
 - Unified the lightning variable vocabulary across optical lightning imagers
   (GOES GLM, MTG LI) onto `lightning_{event,group,flash}_{count,energy,
   radiance}` names, plus `lightning_flash_duration` and
@@ -45,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed empty reduction dimensions in statistics, skipping for mean and
+  rejecting as undefined for variance/std reductions.
+- `StormCast.__call__` no longer writes its output into the input tensor.
+  The initial condition passed in is left untouched, matching `StormCastCONUS`
 - Evaluation recipe: clearing resume markers no longer races between
   ranks. Concurrent removal of the same progress directory retries until
   the directory no longer exists

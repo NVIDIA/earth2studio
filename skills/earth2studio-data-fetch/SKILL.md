@@ -87,7 +87,7 @@ Based on the request type, narrow candidates:
 
 - Use analysis data source page to identify options
 - Common choices: GFS (operational, recent), HRRR (NA, hourly),
-  IFS/IFS_ENS (ECMWF), ARCO/CDS/WB2ERA5/NCAR_ERA5 (ERA5 reanalysis),
+  IFS/IFS_ENS (ECMWF), ARCO_ERA5/CDS_ERA5/WB2ERA5/NCAR_ERA5 (ERA5 reanalysis),
   GOES/MRMS/JPSS (observational)
 
 **Forecast** (predictions from an initialization time with lead times):
@@ -99,7 +99,7 @@ Based on the request type, narrow candidates:
 Key differentiators to surface:
 
 - **Temporal coverage** — operational sources (GFS, HRRR) have limited
-  history; reanalysis (ERA5 via ARCO/CDS/WB2) goes back decades
+  history; reanalysis (ERA5 via ARCO_ERA5/CDS_ERA5/WB2) goes back decades
 - **Spatial resolution** — HRRR is 3km NA-only; GFS is 0.25° global;
   WB2ERA5_32x64 is 5.625° global
 - **Update frequency** — some are real-time, some have multi-day lag
@@ -123,7 +123,7 @@ The lexicon VOCAB maps Earth2Studio variable names → source-specific
 identifiers. If a variable key exists in the VOCAB, the source supports it.
 
 Present the results clearly: *"GFS supports `t2m`, `u500`, `z850`. HRRR also
-supports these but is limited to North America. ARCO (ERA5) supports all
+supports these but is limited to North America. ARCO_ERA5 supports all
 three and has data back to 1959."*
 
 #### Step 4. Confirm data source selection with user
@@ -219,8 +219,8 @@ Typical invocation:
 The skill would:
 
 1. Map plain language → `z500`, `t2m`
-2. Check ARCO/CDS/WB2ERA5 lexicons for support
-3. Recommend ARCO (free, no API key) or CDS (official, needs key)
+2. Check ARCO_ERA5/CDS_ERA5/WB2ERA5 lexicons for support
+3. Recommend ARCO_ERA5 (free, no API key) or CDS_ERA5 (official, needs key)
 4. Generate a fetch script using the selected source
 
 ## Limitations
@@ -242,6 +242,6 @@ The skill would:
 |-------|-------|----------|
 | `KeyError: '<var>'` | Not in lexicon | Check lexicon; try another source |
 | `FileNotFoundError` / 404 | Time not available | Verify temporal coverage |
-| `CDS API timeout` | Queue congestion | Retry or use ARCO for ERA5 |
+| `CDS API timeout` | Queue congestion | Retry or use ARCO_ERA5 |
 | `ModuleNotFoundError` | Not installed | `uv pip install earth2studio` |
 | Empty DataArray | Time/var mismatch | Check datetime and variable name |
