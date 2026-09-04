@@ -49,7 +49,9 @@ same page. Per the listing pages themselves:
 
 ## How the data is hosted
 
-Marketplace data is **not copied into Earthmover's or your own storage**. Per
+The underlying chunk data is **never copied into Earthmover's or your own storage**
+(a paid subscription's own bucket holds only metadata about which chunks you can
+access, not the data itself - see below). Per
 [Earthmover's storage docs](https://docs.earthmover.io/concepts/storage), "Arraylake
 works with a wide range of commercial and open-source object storage services,
 including any S3-compatible object store as well as Google Cloud Storage and Microsoft
