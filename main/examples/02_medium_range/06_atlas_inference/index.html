@@ -3116,7 +3116,7 @@ user-facing interface, so the two models are interchangeable in code — every u
 <p>We need the following:</p>
 <ul>
 <li>Prognostic Model: Use the Atlas-CRPS model <a href="../../../modules/generated/models/px/AtlasCRPS/#earth2studio.models.px.AtlasCRPS"><code>earth2studio.models.px.AtlasCRPS</code></a>.</li>
-<li>Datasource: Pull data from the ARCO data source <a href="../../../modules/generated/data/analysis/ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a>.</li>
+<li>Datasource: Pull data from the ARCO ERA5 data source <a href="../../../modules/generated/data/analysis/ARCO_ERA5/#earth2studio.data.ARCO_ERA5"><code>earth2studio.data.ARCO_ERA5</code></a>.</li>
 <li>IO Backend: Save the outputs into a Zarr store <a href="../../../modules/generated/io/ZarrBackend/#earth2studio.io.ZarrBackend"><code>earth2studio.io.ZarrBackend</code></a>.</li>
 </ul>
 <div class="admonition note">
@@ -3136,7 +3136,7 @@ you will need to in-fill the NaNs using the appropriate land-sea mask.</p>
 <p>Atlas-CRPS expects total precipitation as a 6-hour accumulation (<code>tp06</code>), not the
 1-hour accumulation returned by a bare <code>tp</code> request. The model's <code>VARIABLES</code> list
 already requests <code>tp06</code>, so data sources with a matching lexicon entry (including
-ARCO) will accumulate the correct window automatically.</p>
+ARCO ERA5) will accumulate the correct window automatically.</p>
 </div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -3151,7 +3151,7 @@ ARCO) will accumulate the correct window automatically.</p>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO_ERA5</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">AtlasCRPS</span>
@@ -3161,7 +3161,7 @@ ARCO) will accumulate the correct window automatically.</p>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">model</span> <span class="o">=</span> <span class="n">AtlasCRPS</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="c1"># Create the data source</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">data</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">()</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">data</span> <span class="o">=</span> <span class="n">ARCO_ERA5</span><span class="p">()</span>
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># Create the IO handler</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>

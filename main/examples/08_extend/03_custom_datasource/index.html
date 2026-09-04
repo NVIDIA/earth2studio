@@ -3139,7 +3139,7 @@ source to use in a built in workflow.</p>
 [<code>earth2studio.data.base.DataSource</code>][] which requires just a call function.
 For this example, we will consider extending an existing remote data source with
 another atmospheric field we can calculate.</p>
-<p>The <a href="../../../modules/generated/data/analysis/ARCO/#earth2studio.data.ARCO"><code>earth2studio.data.ARCO</code></a> data source provides the ERA5 dataset in a cloud
+<p>The <a href="../../../modules/generated/data/analysis/ARCO_ERA5/#earth2studio.data.ARCO_ERA5"><code>earth2studio.data.ARCO_ERA5</code></a> data source provides the ERA5 dataset in a cloud
 optimized format, however it only provides specific humidity. This is a problem for
 models that may use relative humidity as an input. Based on ECMWF documentation we can
 calculate the relative humidity based on temperature and geo-potential.</p>
@@ -3155,13 +3155,13 @@ calculate the relative humidity based on temperature and geo-potential.</p>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span><span class="p">,</span> <span class="n">GFS</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO_ERA5</span><span class="p">,</span> <span class="n">GFS</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">prep_data_inputs</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.utils.type</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimeArray</span><span class="p">,</span> <span class="n">VariableArray</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="k">class</span><span class="w"> </span><span class="nc">CustomDataSource</span><span class="p">:</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom ARCO datasource&quot;&quot;&quot;</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom ARCO ERA5 data source.&quot;&quot;&quot;</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">relative_humidity_ids</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="s2">&quot;r50&quot;</span><span class="p">,</span>
@@ -3180,7 +3180,7 @@ calculate the relative humidity based on temperature and geo-potential.</p>
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="p">]</span>
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>
 <a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">arco</span> <span class="o">=</span> <span class="n">ARCO</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">arco</span> <span class="o">=</span> <span class="n">ARCO_ERA5</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
 <a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>        <span class="bp">self</span><span class="p">,</span>
@@ -3214,7 +3214,7 @@ calculate the relative humidity based on temperature and geo-potential.</p>
 <a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>                <span class="n">variable_expanded</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 <a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>        <span class="n">variable_expanded</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">variable_expanded</span><span class="p">))</span>
 <a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>        <span class="c1"># Fetch from ARCO</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>        <span class="c1"># Fetch from ARCO ERA5</span>
 <a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>        <span class="n">da_exp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arco</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">variable_expanded</span><span class="p">)</span>
 <a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>
 <a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>        <span class="c1"># Calculate relative humidity when needed</span>
@@ -3279,7 +3279,7 @@ calculate the relative humidity based on temperature and geo-potential.</p>
 <p>The call function is the main API of data source which return the Xarray data array
 with the requested data. For this custom data source we intercept relative humidity
 variables, replace them with temperature and specific humidity requests then calculate
-the relative humidity from these fields. Note that the ARCO data source is handling
+the relative humidity from these fields. Note that the ARCO ERA5 data source is handling
 the remote complexity, we are just manipulating Numpy arrays</p>
 <h3 id="calc_relative_humdity"><code>calc_relative_humdity</code><a class="headerlink" href="#calc_relative_humdity" title="Permanent link">&para;</a></h3>
 <p>Based on the calculations ECMWF uses in their IFS numerical simulator which accounts
@@ -3346,7 +3346,7 @@ Coordinates:
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="n">da_gfs</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="s2">&quot;r500&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">(),</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">100</span>
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">)</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Custom ARCO&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Custom ARCO ERA5&quot;</span><span class="p">)</span>
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;GFS&quot;</span><span class="p">)</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">&quot;r500&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
 <a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">()</span>
@@ -3360,7 +3360,7 @@ Coordinates:
 <h2 id="execute-workflow">Execute Workflow<a class="headerlink" href="#execute-workflow" title="Permanent link">&para;</a></h2>
 <p>We will use this custom data source to run deterministic inference with a model that
 requires relative humidity. <a href="../../../modules/generated/models/px/FCN/#earth2studio.models.px.FCN"><code>earth2studio.models.px.FCN</code></a> is one such model. Since
-we are using ARCO, we can run inference for a time quite far back in time.</p>
+we are using ARCO ERA5, we can run inference for a time quite far back in time.</p>
 <p>Let's instantiate the components needed.</p>
 <ul>
 <li>Prognostic Model: Use the built in FourCastNet Model <a href="../../../modules/generated/models/px/FCN/#earth2studio.models.px.FCN"><code>earth2studio.models.px.FCN</code></a>.</li>

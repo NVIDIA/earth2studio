@@ -3159,7 +3159,7 @@ ensemble does not guarantee improvement.</p>
 <p>In this example you will learn:</p>
 <ul>
 <li>Load <code>CorrDiffCosmoEra5SDA</code> on a COSMO-REA2 sub-domain</li>
-<li>Fetch an ERA5 driving state (ARCO) and regrid it onto the downscaler's input grid</li>
+<li>Fetch an ERA5 driving state (ARCO ERA5) and regrid it onto the downscaler's input grid</li>
 <li>Fetch GHCNHourly 10 m wind observations over the model domain</li>
 <li>Produce a prior (free, no-obs) downscaling and an observation-guided analysis</li>
 <li>Compare both fields to held-out stations (prior vs analysis RMSE)</li>
@@ -3202,7 +3202,7 @@ its time and memory requirements were not validated.</p>
 <p><code>CorrDiffCosmoEra5SDA</code> wraps a diffusion-mode <code>CorrDiffCosmoEra5</code> downscaler.
 <code>assimilate_variables</code> is required and must be identity-transform, unit-scale
 output channels -- here the 10 m wind, which matches the station reports' height.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO</span><span class="p">,</span> <span class="n">GHCNHourly</span><span class="p">,</span> <span class="n">fetch_data</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARCO_ERA5</span><span class="p">,</span> <span class="n">GHCNHourly</span><span class="p">,</span> <span class="n">fetch_data</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.da</span><span class="w"> </span><span class="kn">import</span> <span class="n">CorrDiffCosmoEra5SDA</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">package</span> <span class="o">=</span> <span class="n">CorrDiffCosmoEra5SDA</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
@@ -3321,7 +3321,7 @@ Downloading invariants_rea2_ext.nc: 100%|██████████| 114M/11
 2026-08-25 11:55:54.508 | INFO     | earth2studio.models.dx.corrdiff_cosmo_era5:load_model:1916 - Loaded CorrDiffCosmoEra5 resolution=rea2 mode=diffusion (22 output channels)</code></pre></details>
 
 <h2 id="fetch-coarse-resolution-state">Fetch Coarse-Resolution State<a class="headerlink" href="#fetch-coarse-resolution-state" title="Permanent link">&para;</a></h2>
-<p>Fetch an ERA5 analysis (ARCO) for the historical time and regrid it onto the
+<p>Fetch an ERA5 reanalysis for the historical time and regrid it onto the
 downscaler's regional input grid. The result is an <code>xr.DataArray</code> with dims
 <code>(time, variable, lat, lon)</code> -- the same driving state the downscaler
 conditions on; the <code>time</code> coord also drives its day/night (solar) input.</p>
@@ -3353,7 +3353,7 @@ conditions on; the <code>time</code> coord also drives its day/night (solar) inp
 <a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
 <a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="n">INIT_TIME</span><span class="p">)])</span>
 <a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="n">x_src</span><span class="p">,</span> <span class="n">c_src</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>    <span class="n">ARCO</span><span class="p">(),</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>    <span class="n">ARCO_ERA5</span><span class="p">(),</span>
 <a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">time</span><span class="o">=</span><span class="n">t</span><span class="p">,</span>
 <a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dvars</span><span class="p">),</span>
 <a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>    <span class="n">lead_time</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)]),</span>

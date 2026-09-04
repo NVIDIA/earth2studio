@@ -515,12 +515,12 @@
         "product:atmos",
         "provider:google"
       ],
-      "signature": "ARCO(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
-      "source": "modules/generated/data/analysis/ARCO.md",
-      "summary": "Analysis-Ready, Cloud Optimized (ARCO) is a data store of ERA5 re-analysis data currated by Google. This data is stored in Zarr format and contains 31 surface variables, pressure level variables defined on 37 pressure levels, and model level variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat lon grid. Temporal resolution is 1 hour.",
-      "symbol": "earth2studio.data.ARCO",
-      "title": "ARCO",
-      "url": "modules/generated/data/analysis/ARCO/"
+      "signature": "ARCO_ERA5(cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "source": "modules/generated/data/analysis/ARCO_ERA5.md",
+      "summary": "Analysis-Ready, Cloud Optimized (ARCO) ERA5 is a reanalysis data source curated by Google. This data is stored in Zarr format and contains 31 surface variables, pressure level variables defined on 37 pressure levels, and model level variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat lon grid. Temporal resolution is 1 hour.",
+      "symbol": "earth2studio.data.ARCO_ERA5",
+      "title": "ARCO_ERA5",
+      "url": "modules/generated/data/analysis/ARCO_ERA5/"
     },
     {
       "classifiers": [
@@ -550,12 +550,12 @@
         "product:atmos",
         "provider:copernicus"
       ],
-      "signature": "CDS(cache: bool = True, verbose: bool = True)",
-      "source": "modules/generated/data/analysis/CDS.md",
-      "summary": "The climate data source (CDS) serving ERA5 re-analysis data. This data source requires users to have a CDS API access key which can be obtained for free on the CDS webpage.",
-      "symbol": "earth2studio.data.CDS",
-      "title": "CDS",
-      "url": "modules/generated/data/analysis/CDS/"
+      "signature": "CDS_ERA5(cache: bool = True, verbose: bool = True)",
+      "source": "modules/generated/data/analysis/CDS_ERA5.md",
+      "summary": "ERA5 reanalysis data served from the Climate Data Store (CDS). This data source requires users to have a CDS API access key which can be obtained for free on the CDS webpage.",
+      "symbol": "earth2studio.data.CDS_ERA5",
+      "title": "CDS_ERA5",
+      "url": "modules/generated/data/analysis/CDS_ERA5/"
     },
     {
       "classifiers": [

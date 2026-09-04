@@ -3334,8 +3334,8 @@ You may need to manually pip install using a specific index.</p>
 <p>This is an error that arises typically when the proper optional dependencies are not
 installed on the system.
 For example:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>&gt;&gt;&gt;<span class="w"> </span>from<span class="w"> </span>earth2studio.data<span class="w"> </span>import<span class="w"> </span>CDS
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>&gt;&gt;&gt;<span class="w"> </span>CDS<span class="o">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>&gt;&gt;&gt;<span class="w"> </span>from<span class="w"> </span>earth2studio.data<span class="w"> </span>import<span class="w"> </span>CDS_ERA5
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>&gt;&gt;&gt;<span class="w"> </span>CDS_ERA5<span class="o">()</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Traceback<span class="w"> </span><span class="o">(</span>most<span class="w"> </span>recent<span class="w"> </span>call<span class="w"> </span>last<span class="o">)</span>:
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;&lt;stdin&gt;&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">1</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>&lt;module&gt;
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>File<span class="w"> </span><span class="s2">&quot;/earth2studio/earth2studio/data/cds.py&quot;</span>,<span class="w"> </span>line<span class="w"> </span><span class="m">90</span>,<span class="w"> </span><span class="k">in</span><span class="w"> </span>__init__
@@ -3470,7 +3470,7 @@ matches the one <code>torch-harmonics</code> was originally built with. Note tha
 compiled packages across virtual environments, so you may need to clear the cache
 (<code>uv cache clean</code>) and rebuild the package.</p>
 <h2 id="runtimeerror-cannot-find-the-eccodes-library">RuntimeError: Cannot find the ecCodes library<a class="headerlink" href="#runtimeerror-cannot-find-the-eccodes-library" title="Permanent link">&para;</a></h2>
-<p>This can surface when using a data source (including: CDS, GFS, HRRR) that needs to
+<p>This can surface when using a data source (including: CDS_ERA5, GFS, HRRR) that needs to
 read grib files indicating that ECMWF's eccodes library needs to be installed.
 Eccodes has several <a href="https://github.com/ecmwf/eccodes">install methods</a>, provided on
 <a href="https://anaconda.org/channels/conda-forge/packages/eccodes/overview">conda-forge</a> and
