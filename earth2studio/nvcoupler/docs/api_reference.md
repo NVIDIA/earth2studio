@@ -222,6 +222,7 @@ Component(
     export_masks: Mapping[str, torch.Tensor] | None = None,
     import_vertical: Mapping[str, Any] | None = None,
     export_vertical: Mapping[str, Any] | None = None,
+    points: PointSet | None = None,
 )
 ```
 
@@ -229,7 +230,11 @@ NUOPC_Model analog. `imports`/`exports` may be aliases (resolved to standard
 names via the dictionary); `variable_aliases` maps raw model variable names to
 standard names and registers them as aliases. Class attribute
 `requires_ic: bool = True` (subclasses that can initialize without an
-`(x, coords)` pair set it False). Phases:
+`(x, coords)` pair set it False). `points` declares a scattered
+sample-location grid (see [`PointSet`](#points)) instead of a mesh; when set,
+`grid_coords()` reports it in place of whatever the component's own
+`_coords` carry, and a Connector delivering to this component samples onto
+those locations (`Connector(sample=...)`, see below). Phases:
 `advertise() -> tuple[list[str], list[str]]`,
 `realize(clock: Clock) -> None` (raises `CadenceError` when `timestep` is not
 a multiple of `clock.dt`), abstract `initialize(x, coords)` and
@@ -351,6 +356,7 @@ Connector(
     time_policy: Literal["constant", "linear"] = "constant",
     fill: Literal["none", "zero", "nearest"] = "none",
     regridder: Regridder | None = None,
+    sample: Literal["nearest", "bilinear"] | None = None,
     window: DeltaLike | None = None,
     reduce: Literal["mean", "sum", "max", "min"] | None = None,
 )
@@ -370,6 +376,18 @@ recent exports and falls back to constant (with one warning) for fields
 carrying a `lead_time`/`window` dim. Auto-regrid requires regular 1D lat/lon
 source grids; identical grids pass through as identity; differing HEALPix
 `face` grids require `regridder=` (`IncompatibleFieldError`).
+
+`sample` targets a destination whose `grid_coords()` advertises a `"point"`
+dim (`dst.points` is a [`PointSet`](#points) — stations, sites, arbitrary
+query coordinates) rather than a mesh: `"bilinear"` reuses the mesh
+regridder's kernel evaluated per point; `"nearest"` is a great-circle
+nearest-neighbor lookup. Mutually exclusive with `regridder=`
+(`CouplingError`); a point-target destination with neither set also raises
+`CouplingError` at `execute()` time rather than guessing, as does a
+`"point"`-dim destination with no `points=` set on it, or a source without a
+regular 1D lat/lon grid (`IncompatibleFieldError`). A custom `regridder=`
+still works against a point destination — `sample=` is a convenience over
+the same generic-override path, not the only way in.
 
 `window`/`reduce` must be set together (`CouplingError` otherwise) and make
 this a **windowed connector**: each `execute` folds the source exports into a
@@ -465,6 +483,29 @@ pulls from the source automatically; `len(hybrid)` is the level count.
 The interpolation kernel `interp_to_pressure(x, coords, src, dst, ps=None)`
 lives in `earth2studio.nvcoupler.vertical` (not re-exported); connectors call
 it for you. Linear in log-pressure, clamped at column ends, differentiable.
+
+## points
+
+### `PointSet` (frozen dataclass)
+
+```python
+PointSet(lat: np.ndarray, lon: np.ndarray, names: tuple[str, ...] | None = None)
+```
+
+A fixed set of N scattered sample locations (stations, sites, arbitrary
+query points) — the "point" analog of a lat/lon mesh. `lat`/`lon` are 1-D,
+equal length, at least one point (`CouplingError` otherwise); `names`, if
+given, must match that length. `labels() -> np.ndarray` is `names` when set,
+else an integer index `0..N-1` — this is what the `"point"` dim's own
+coordinate array carries, matching every other CoordSystem dim.
+`grid_coords() -> CoordSystem` returns `{"point": labels()}`, what
+`Component.grid_coords()` reports when the component's `points=` is set.
+`signature()` is a hashable cache key (mirrors `Field.grid_signature`), used
+to cache built samplers per destination point set.
+
+Construct a point-target component by passing `points=PointSet(...)` to any
+`Component` subclass, then deliver to it with `Connector(..., sample=...)`
+(see the [`connector`](#connector) section above).
 
 ## mediator
 

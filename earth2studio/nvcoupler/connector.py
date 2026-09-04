@@ -45,6 +45,7 @@ from .errors import (
 )
 from .field import _SPATIAL_DIMS, Field
 from .mediator import _RunningReduction
+from .points import PointSet
 from .vertical import HybridLevels, PressureLevels, interp_to_pressure
 
 Regridder = Callable[[torch.Tensor], torch.Tensor]
@@ -88,6 +89,79 @@ def _build_latlon_regridder(src: CoordSystem, dst: CoordSystem) -> Regridder:
         )
 
     return regrid
+
+
+def _build_point_sampler(
+    src: CoordSystem, points: PointSet, method: Literal["nearest", "bilinear"]
+) -> Regridder:
+    """Grid-to-point sampler: a regular lat/lon field -> PointSet locations.
+
+    "bilinear" reuses the same regular-grid kernel as the mesh regridder,
+    just evaluated at scattered (lat, lon) pairs instead of a destination
+    mesh (an [N, 1] "mesh" degenerates to per-point bilinear interpolation).
+    "nearest" is a great-circle nearest-neighbor gather, matching the mask
+    filler's KDTree approach.
+    """
+    src_lat, src_lon = np.asarray(src["lat"]), np.asarray(src["lon"])
+    if not (_is_regular(src_lat) and _is_regular(src_lon)):
+        raise IncompatibleFieldError(
+            "Auto sample requires a regular 1D source lat/lon grid; pass a "
+            "custom regridder=... for curvilinear or unstructured source "
+            "grids"
+        )
+    if method == "bilinear":
+        flip_lat = src_lat[0] > src_lat[-1]
+        lat0 = torch.as_tensor(src_lat[::-1].copy() if flip_lat else src_lat)
+        lon0 = torch.as_tensor(src_lon)
+        # [N] point locations reshaped as an [N, 1] "mesh" so the existing
+        # regular-grid kernel evaluates one interpolated value per point.
+        lat1 = torch.as_tensor(points.lat).unsqueeze(-1)
+        lon1 = torch.as_tensor(points.lon).unsqueeze(-1)
+
+        def sample(data: torch.Tensor) -> torch.Tensor:
+            if flip_lat:
+                data = torch.flip(data, dims=(-2,))
+            out = latlon_interpolation_regular(
+                data,
+                lat0.to(device=data.device, dtype=data.dtype),
+                lon0.to(device=data.device, dtype=data.dtype),
+                lat1.to(device=data.device, dtype=data.dtype),
+                lon1.to(device=data.device, dtype=data.dtype),
+            )
+            return out.squeeze(-1)
+
+        return sample
+
+    if method != "nearest":
+        raise CouplingError(
+            f"Unsupported sample={method!r}; choose 'nearest' or 'bilinear'"
+        )
+
+    from scipy.spatial import cKDTree
+
+    lat2d, lon2d = np.meshgrid(src_lat, src_lon, indexing="ij")
+    phi, lam = np.deg2rad(lat2d).ravel(), np.deg2rad(lon2d).ravel()
+    src_xyz = np.stack(
+        [np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)], axis=1
+    )
+    tree = cKDTree(src_xyz)
+    dst_phi, dst_lam = np.deg2rad(points.lat), np.deg2rad(points.lon)
+    dst_xyz = np.stack(
+        [
+            np.cos(dst_phi) * np.cos(dst_lam),
+            np.cos(dst_phi) * np.sin(dst_lam),
+            np.sin(dst_phi),
+        ],
+        axis=1,
+    )
+    _, nearest_flat = tree.query(dst_xyz, k=1)
+    index = torch.as_tensor(nearest_flat, dtype=torch.long)
+
+    def sample(data: torch.Tensor) -> torch.Tensor:
+        flat = data.reshape(*data.shape[:-2], -1)
+        return torch.index_select(flat, -1, index.to(data.device))
+
+    return sample
 
 
 def _build_mask_filler(coords: CoordSystem, mask: torch.Tensor) -> Regridder:
@@ -140,6 +214,14 @@ class Connector:
         the grids differ and the auto path cannot handle them (HEALPix
         'face' dims, curvilinear grids); identical grids — including
         identical face grids — pass through as identity without one.
+    sample : "nearest" | "bilinear", optional
+        Grid-to-point sampling: set when the destination is a scattered
+        sample-location target (``dst.points`` is a :class:`.points.PointSet`
+        — stations, sites, arbitrary query coordinates) rather than a mesh.
+        "bilinear" reuses the mesh regridder's kernel per point; "nearest"
+        is a great-circle nearest-neighbor lookup. Mutually exclusive with
+        `regridder=`; a point-target destination with neither set raises at
+        `execute()` time rather than guessing.
     window, reduce : optional
         Set both to make this a *windowed* connector: each execute folds the
         source fields into a running reduction ("mean" | "sum" | "max" |
@@ -163,6 +245,7 @@ class Connector:
         time_policy: Literal["constant", "linear"] = "constant",
         fill: Literal["none", "zero", "nearest"] = "none",
         regridder: Regridder | None = None,
+        sample: Literal["nearest", "bilinear"] | None = None,
         window: DeltaLike | None = None,
         reduce: Literal["mean", "sum", "max", "min"] | None = None,
     ):
@@ -170,6 +253,17 @@ class Connector:
         self.dst = dst
         self.time_policy = time_policy
         self.fill = fill
+        if sample is not None and regridder is not None:
+            raise CouplingError(
+                f"Connector {src.name}->{dst.name}: sample= and regridder= "
+                "are mutually exclusive — pass one or the other"
+            )
+        if sample is not None and sample not in ("nearest", "bilinear"):
+            raise CouplingError(
+                f"Connector {src.name}->{dst.name}: unsupported sample="
+                f"{sample!r}; choose 'nearest' or 'bilinear'"
+            )
+        self.sample = sample
         if (window is None) != (reduce is None):
             raise CouplingError(
                 f"Connector {src.name}->{dst.name}: window= and reduce= must "
@@ -191,6 +285,7 @@ class Connector:
         self._matched: list[str] | None = None
         self._regridders: dict[tuple, Regridder] = {}
         self._fillers: dict[tuple, Regridder] = {}
+        self._samplers: dict[tuple, Regridder] = {}
         # 2-deep export history per field: (previous, latest), rotated only
         # when a genuinely new export (different valid_time) arrives
         self._history: dict[str, tuple[Field | None, Field]] = {}
@@ -397,6 +492,8 @@ class Connector:
         )
         if same and self._user_regridder is None:
             return field
+        if "point" in dst_grid:
+            return self._apply_sample(field, src_spatial, dst_grid)
         if ("face" in field.coords or "face" in dst_grid) and (
             self._user_regridder is None
         ):
@@ -445,6 +542,61 @@ class Connector:
         )
         coords["lat"] = np.asarray(dst_grid["lat"]).copy()
         coords["lon"] = np.asarray(dst_grid["lon"]).copy()
+        return replace(field, data=data, coords=coords)
+
+    def _apply_sample(
+        self, field: Field, src_spatial: CoordSystem, dst_grid: CoordSystem
+    ) -> Field:
+        """Grid-to-point delivery: destination advertises a "point" dim.
+
+        Mirrors `_apply_regrid`'s user-override / auto-build split, but the
+        destination's actual (lat, lon) locations live on `self.dst.points`
+        (`dst_grid["point"]` is only the dim's own labels, same as any other
+        CoordSystem entry — it does not carry coordinates by itself).
+        """
+        if self._user_regridder is not None:
+            data = self._user_regridder(field.data)
+            coords = OrderedDict(
+                (k, v) for k, v in field.coords.items() if k not in _SPATIAL_DIMS
+            )
+            coords["point"] = np.asarray(dst_grid["point"]).copy()
+            return replace(field, data=data, coords=coords)
+        if self.sample is None:
+            raise CouplingError(
+                f"Connector {self.name}: destination {self.dst.name!r} is a "
+                "point target (a scattered sample-location grid) but this "
+                "connector has neither sample= nor regridder= set — pass "
+                "sample='nearest' or sample='bilinear', or a custom "
+                "regridder= for non-lat/lon sources"
+            )
+        points: PointSet | None = self.dst.points
+        if points is None:
+            raise CouplingError(
+                f"Connector {self.name}: destination {self.dst.name!r} "
+                "advertises a 'point' dim but has no points= location "
+                "metadata set — construct it with points=PointSet(lat=..., "
+                "lon=...)"
+            )
+        if not ("lat" in src_spatial and "lon" in src_spatial):
+            raise IncompatibleFieldError(
+                f"Connector {self.name}: auto sample needs lat/lon on the "
+                f"source grid (source dims {list(src_spatial)}) — pass a "
+                "custom regridder= for non-lat/lon sources"
+            )
+        spatial_last = list(field.coords)[-2:] == ["lat", "lon"]
+        if not spatial_last:
+            raise IncompatibleFieldError(
+                f"Connector {self.name}: field {field.standard_name!r} must "
+                f"have (lat, lon) as trailing dims, got {list(field.coords)}"
+            )
+        key = (field.grid_signature(), points.signature(), self.sample)
+        if key not in self._samplers:
+            self._samplers[key] = _build_point_sampler(src_spatial, points, self.sample)
+        data = self._samplers[key](field.data)
+        coords = OrderedDict(
+            (k, v) for k, v in field.coords.items() if k not in ("lat", "lon")
+        )
+        coords["point"] = points.labels().copy()
         return replace(field, data=data, coords=coords)
 
     # -- execution ----------------------------------------------------------------
@@ -528,7 +680,9 @@ class Connector:
             if self.window is not None
             else ""
         )
+        sampled = f", sample={self.sample!r}" if self.sample is not None else ""
         return (
             f"Connector({self.name}, fields={fields}, "
-            f"time_policy={self.time_policy!r}, fill={self.fill!r}{windowed})"
+            f"time_policy={self.time_policy!r}, fill={self.fill!r}"
+            f"{sampled}{windowed})"
         )

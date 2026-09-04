@@ -121,6 +121,13 @@ A connector could not reconcile matched fields. Raise sites in
   dims` when the field's dim order puts something after lon.
 - `_build_mask_filler` — `Mask fill impossible: no valid source points`
   (`fill="nearest"` with an all-False mask).
+- `_apply_sample` / `_build_point_sampler` — `auto sample needs lat/lon on
+  the source grid` when the source lacks lat/lon spatial dims, and `must
+  have (lat, lon) as trailing dims` (same as the mesh path); `Auto sample
+  requires a regular 1D source lat/lon grid; pass a custom regridder=...`
+  for curvilinear/unstructured sources — see the "Point sampling" group
+  under `CouplingError (direct raises)` below for the rest of this path's
+  errors.
 
 Fixes: pass `regridder=` on the Connector for anything the bilinear
 regular-lat/lon kernel cannot handle; reorder dims so lat/lon trail; check
@@ -287,6 +294,24 @@ The complete set, grouped:
   — the destination has no dictionary entry deriving from the source export
   with that exact method and window (a window mismatch, e.g. 24h vs the
   entry's 48h, fails the same way); the coupler never invents derived names.
+
+**Point sampling** (`connector.py`):
+
+- `Connector atmos->stations: sample= and regridder= are mutually exclusive
+  — pass one or the other`.
+- `... unsupported sample='linear'; choose 'nearest' or 'bilinear'`.
+- `Connector atmos->stations: destination 'stations' is a point target (a
+  scattered sample-location grid) but this connector has neither sample=
+  nor regridder= set — pass sample='nearest' or sample='bilinear', or a
+  custom regridder= for non-lat/lon sources` — the destination advertises a
+  `"point"` dim (`grid_coords()` has a `"point"` key) and neither delivery
+  path was configured; the coupler does not guess a default.
+- `Connector atmos->stations: destination 'stations' advertises a 'point'
+  dim but has no points= location metadata set — construct it with
+  points=PointSet(lat=..., lon=...)` — a `"point"` dim showed up in
+  `grid_coords()` without the component's `points=` being set (only
+  reachable by hand-building a component's coords with a `"point"` key
+  directly, bypassing `points=`).
 
 **Import adapters / Exchange** (`component.py`):
 

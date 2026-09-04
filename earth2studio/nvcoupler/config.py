@@ -232,6 +232,8 @@ def to_yaml(driver: Driver, path: str | os.PathLike | None = None) -> str:
         }
         if conn._fields is not None:
             item["fields"] = list(conn._fields)
+        if conn.sample is not None:
+            item["sample"] = conn.sample
         if conn.window is not None:
             item["window"] = fmt_timedelta(conn.window)
             item["reduce"] = conn.reduce
@@ -390,6 +392,7 @@ def from_yaml(path_or_str: str | os.PathLike) -> Driver:
                 fields=item.get("fields"),
                 time_policy=item.get("time_policy", "constant"),
                 fill=item.get("fill", "none"),
+                sample=item.get("sample"),
                 window=item.get("window"),
                 reduce=item.get("reduce"),
             )
