@@ -140,7 +140,7 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
     assert out.shape == torch.Size([1, 1, len(OUTPUT_VARIABLES), 9, 12])
     assert np.array_equal(out_coords["variable"], OUTPUT_VARIABLES)
     tp06_index = OUTPUT_VARIABLES.index("tp06")
-    assert torch.isnan(out[:, :, tp06_index]).all()
+    assert torch.count_nonzero(out[:, :, tp06_index]) == 0
     assert torch.equal(
         torch.cat((out[:, :, :tp06_index], out[:, :, tp06_index + 1 :]), dim=2),
         x[:, 1:],

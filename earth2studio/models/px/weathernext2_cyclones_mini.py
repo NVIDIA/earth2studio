@@ -730,7 +730,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         coords_out["variable"] = np.array(OUTPUT_VARIABLES)
         initial = x[:, :, 1:, ...]
         surface_count = len(SURFACE_INPUT_VARIABLES)
-        tp06 = torch.full_like(initial[..., :1, :, :], float("nan"))
+        tp06 = torch.zeros_like(initial[..., :1, :, :])
         yield torch.cat(
             (
                 initial[..., :surface_count, :, :],
