@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes and adds a labeled `region` axis to the score stores.
 - New eval recipe optional per-member online metrics include MAE
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
+- Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
+  views with baseline overlays; GraphCast and Atlas CRPS added
 
 ### Changed
 
@@ -34,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   respectively.
 - Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
   on the model, instead of reconstructing them on every rollout call
+- Scorecard campaigns score online over 48 initial conditions and the
+  score data moved to the HF Earth2Studio assets dataset
 
 ### Deprecated
 

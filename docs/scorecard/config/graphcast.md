@@ -14,22 +14,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-label: FCN3
+label: GraphCast
 category: Prognostic models
-px_class: FCN3
-short: FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model.
+px_class: GraphCastOperational
+short: GraphCast is a graph neural network weather model from Google DeepMind.
 ---
 
-FourCastNet 3 is NVIDIA's probabilistic machine-learning weather model, built
-on spherical (geometric) signal processing with a hidden-Markov ensemble
-formulation: each member evolves its own calibrated stochastic state, so the
-ensemble spread is learned rather than imposed by initial-condition
-perturbations. It forecasts 72 atmospheric variables globally at 0.25°
-resolution with a 6-hour step.
+GraphCast is a graph neural network weather model from Google DeepMind that
+runs on a multi-mesh icosahedral representation of the globe. The version
+scored here is the operational configuration with 13 pressure levels at
+0.25°. It consumes the two most recent analysis frames (t-6 h and t0) plus
+solar forcing. Each step advances 6 hours on the native ERA5 721 × 1440
+grid.
 
 ## Reference
 
-Bonev, B., Kurth, T., Mahesh, A., Bisson, M., Kossaifi, J., Kashinath, K.,
-... & Keller, A. (2025). FourCastNet 3: A geometric approach to probabilistic
-machine-learning weather forecasting at scale. arXiv preprint
-arXiv:2507.12144.
+Lam, R., et al. (2023). Learning skillful medium-range global weather
+forecasting. Science, 382(6677), 1416-1421.
