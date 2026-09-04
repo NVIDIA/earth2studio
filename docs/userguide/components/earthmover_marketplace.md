@@ -33,9 +33,18 @@ open/free listings:
 
 1. Open the dataset's listing page (linked from the data source docstring above, or
    browse [app.earthmover.io/marketplace](https://app.earthmover.io/marketplace)).
-2. Click **Subscribe**. This creates a repository under your organization, typically
-   named `<org>/<dataset>-subscription`.
+2. Click **Subscribe**, and choose which Arraylake organization should house the
+   resulting repository (you'll be prompted to create one if you don't have one yet).
+   This creates a read-only repository under your organization, typically named
+   `<org>/<dataset>-subscription`.
 3. Note your **organization name** — it's used to derive the repository path below.
+
+Free listings subscribe instantly and give a complete mirror of the provider's
+repository, including full commit history. Paid listings require a
+[Professional Arraylake plan](https://docs.earthmover.io/marketplace/faq) and a
+request-access step before the subscription repository is created; they may also be
+scoped ("filtered subscriptions") to specific variables, time ranges, or regions rather
+than mirroring the full dataset.
 
 Attempting to read a repository without an active subscription raises a
 `PermissionError` pointing back to the listing page.
@@ -119,3 +128,10 @@ as shown above.
 | `PermissionError: Access to Arraylake repo '...' was denied` | No active subscription | Subscribe on the dataset's Marketplace listing page |
 | `ValueError: Arraylake repo '...' was not found` | Wrong repo name, or subscription not yet active | Double check the `org/repo` name and subscription status |
 | `ValueError: Could not resolve Earth2Studio variable '...' ` | Repository lacks GRIB/CF metadata for that variable | Check the error's list of available repository variables |
+
+## Further reading
+
+- [Earthmover Marketplace](https://app.earthmover.io/marketplace) — browse listings
+- [Marketplace docs: Data Users](https://docs.earthmover.io/marketplace/data-users) — subscription mechanics
+- [Marketplace docs: FAQ](https://docs.earthmover.io/marketplace/faq) — pricing and plan requirements
+- [Arraylake client installation](https://docs.earthmover.io/setup/installation) — `arraylake` package setup
