@@ -157,6 +157,32 @@ As with any [data source](datasources.md#datasources_userguide), the returned
 `xr.DataArray` can be used directly for postprocessing or moved to the GPU as a model
 initial state.
 
+## Writing output to Arraylake
+
+Earth2Studio's [`IceChunkBackend`](io.md) IO backend is not integrated with Arraylake:
+it only accepts a plain `icechunk.Storage | str | None` and always calls
+`icechunk.Repository.open_or_create()` itself, so there is no supported way to point it
+at an Arraylake-managed org/repo directly.
+
+To write inference output (or any data) into an Arraylake repository, use the
+`arraylake` client directly instead of an Earth2Studio IO backend:
+
+```python
+import arraylake as al
+import zarr
+
+client = al.Client()
+repo = client.create_repo("your-org/your-repo")  # or client.get_repo(...)
+
+session = repo.writable_session("main")
+root = zarr.group(session.store)
+# write with normal zarr/xarray operations against session.store
+session.commit(message="Add data")
+```
+
+See [Earthmover's version control guide](https://docs.earthmover.io/guide/version-control)
+for the full writable-session and commit workflow.
+
 ## Variable resolution
 
 [Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by Earth2Studio, so each Earthmover data
