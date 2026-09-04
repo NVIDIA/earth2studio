@@ -127,6 +127,13 @@ _LEVEL_FIELDS: dict[str, dict[str, str]] = {
 # declares, so these are read (and named in the parsed frame) per level.
 _MEASUREMENT_FIELDS = ("energy", "area")
 
+# Declared measurements a file is still allowed to omit. Every LCFA level
+# stores ``energy``, so a nonempty level lacking it is a malformed file
+# rather than one serving a narrower set of variables. Footprint area is
+# not part of the detection itself, so a file without it still serves its
+# energy and counts.
+_OPTIONAL_MEASUREMENT_FIELDS = ("area",)
+
 
 @dataclass(frozen=True)
 class _GOESGLMFile:
@@ -589,8 +596,9 @@ class GOESGLM:
                     column = (
                         None if field == "_count" else measurement_columns[level][field]
                     )
-                    # A measurement the file does not carry is skipped, the
-                    # same way a level absent from the file is
+                    # An optional measurement the file does not carry is
+                    # skipped, the same way a level absent from the file
+                    # is; a missing required one never reaches here
                     if column is not None and column not in level_records.columns:
                         continue
                     mask = (level_records["time"] >= tmin) & (
@@ -784,6 +792,14 @@ class GOESGLM:
             level and ``area`` for groups and flashes. Levels with no
             records, or none inside ``lat_lon_bbox``, are omitted, so the
             mapping is empty for a file with nothing of interest in it.
+            The ``area`` column is dropped for a level whose file lacks
+            the variable.
+
+        Raises
+        ------
+        ValueError
+            If a level with records is missing its ``energy`` variable,
+            which every LCFA level carries.
         """
         out: dict[str, pd.DataFrame] = {}
         with netCDF4.Dataset(path) as ds:
@@ -810,14 +826,26 @@ class GOESGLM:
                 lat = np.asarray(ds.variables[fields["lat"]][:], dtype=np.float32)
                 lon = np.asarray(ds.variables[fields["lon"]][:], dtype=np.float32)
                 offset = np.asarray(ds.variables[fields["time"]][:], dtype=np.float64)
-                # A level only carries the measurements it declares, and a
-                # declared one is read only if the file actually has it, so
-                # an LCFA file missing a measurement still serves the rest
-                measurements = {
-                    name: np.asarray(ds.variables[fields[name]][:], dtype=np.float32)
-                    for name in _MEASUREMENT_FIELDS
-                    if name in fields and fields[name] in ds.variables
-                }
+                # A level only carries the measurements it declares. Of
+                # those, only the optional ones may be missing from the
+                # file: dropping a required measurement would silently
+                # serve a subset of what the caller asked for, so a
+                # nonempty level without it is reported as malformed
+                measurements: dict[str, np.ndarray] = {}
+                for name in _MEASUREMENT_FIELDS:
+                    if name not in fields:
+                        continue
+                    variable = fields[name]
+                    if variable not in ds.variables:
+                        if name in _OPTIONAL_MEASUREMENT_FIELDS:
+                            continue
+                        raise ValueError(
+                            f"GLM file {path} has {level} records but no "
+                            f"{variable} variable"
+                        )
+                    measurements[name] = np.asarray(
+                        ds.variables[variable][:], dtype=np.float32
+                    )
 
                 if lat_lon_bbox is not None:
                     lat_min, lon_min, lat_max, lon_max = lat_lon_bbox

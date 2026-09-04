@@ -17,6 +17,7 @@
 import asyncio
 import pathlib
 import shutil
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -44,6 +45,7 @@ def _write_glm_netcdf(
     groups: tuple[list[float], list[float], list[float], list[float]] | None = None,
     flashes: tuple[list[float], list[float], list[float], list[float]] | None = None,
     areas: dict[str, list[float]] | None = None,
+    omit_energy: Iterable[str] = (),
 ) -> None:
     """Write a minimal GLM L2 LCFA NetCDF that the source can parse.
 
@@ -56,6 +58,10 @@ def _write_glm_netcdf(
     written as ``{level}_area``. Real LCFA files carry one for groups
     and flashes but never for events, so passing a level absent from
     this mapping produces a file without that level's area variable.
+
+    ``omit_energy`` names levels whose ``{level}_energy`` variable is
+    left out entirely, producing the malformed file every LCFA level is
+    required not to be.
     """
     tiers = [("event", (lats, lons, energies, offsets))]
     if groups is not None:
@@ -63,6 +69,7 @@ def _write_glm_netcdf(
     if flashes is not None:
         tiers.append(("flash", flashes))
     areas = areas or {}
+    omit_energy = set(omit_energy)
 
     # Flashes span many frames, so their time variable is named for the
     # first constituent event rather than the flash itself.
@@ -81,8 +88,9 @@ def _write_glm_netcdf(
             lat_v[:] = np.asarray(t_lats, dtype=np.float32)
             lon_v = ds.createVariable(f"{level}_lon", "f4", (dim,))
             lon_v[:] = np.asarray(t_lons, dtype=np.float32)
-            en_v = ds.createVariable(f"{level}_energy", "f4", (dim,))
-            en_v[:] = np.asarray(t_energies, dtype=np.float32)
+            if level not in omit_energy:
+                en_v = ds.createVariable(f"{level}_energy", "f4", (dim,))
+                en_v[:] = np.asarray(t_energies, dtype=np.float32)
             if level in areas:
                 area_v = ds.createVariable(f"{level}_area", "f4", (dim,))
                 area_v[:] = np.asarray(areas[level], dtype=np.float32)
@@ -544,6 +552,36 @@ def test_goes_glm_parse_file_area_optional(tmp_path):
         assert "area" not in records[level].columns
     assert records["event"]["energy"].iloc[0] == pytest.approx(1e-15)
     assert records["group"]["energy"].iloc[0] == pytest.approx(4e-15)
+
+
+def test_goes_glm_parse_file_energy_required(tmp_path):
+    """A nonempty level missing its energy variable is an error.
+
+    Every LCFA level carries an energy, so unlike a missing area this is
+    a malformed file rather than one serving fewer variables. Skipping it
+    would hand back counts and areas from the same file while silently
+    dropping the requested energy rows.
+    """
+    f = tmp_path / "no_energy.nc"
+    epoch = datetime(2024, 6, 1, 18, 0, 0)
+    _write_glm_netcdf(
+        f,
+        lats=[35.0],
+        lons=[-100.0],
+        energies=[1e-15],
+        offsets=[0.0],
+        epoch=epoch,
+        groups=([35.0], [-100.0], [4e-15], [0.0]),
+        areas={"group": [1e8]},
+        omit_energy=("group",),
+    )
+
+    with pytest.raises(ValueError, match="group_energy"):
+        GOESGLM._parse_glm_file(str(f), lat_lon_bbox=None, levels=("group",))
+
+    # The malformed level is what fails; a sound one still parses
+    records = GOESGLM._parse_glm_file(str(f), lat_lon_bbox=None, levels=("event",))
+    assert records["event"]["energy"].iloc[0] == pytest.approx(1e-15)
 
 
 def test_goes_glm_call_mock_area_absent_is_skipped(tmp_path):
