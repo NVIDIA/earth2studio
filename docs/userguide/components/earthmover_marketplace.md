@@ -17,14 +17,15 @@ verification data without writing any custom download or parsing code.
 
 ## Available Marketplace Data Sources
 
-| Data source | Type | Dataset |
-| --- | --- | --- |
-| [`earth2studio.data.EarthMoverERA5`](../../modules/datasources_analysis.md) | Analysis | ERA5 0.25° reanalysis |
-| [`earth2studio.data.EarthMoverBrightBandIFS`](../../modules/datasources_analysis.md) | Analysis | Brightband ECMWF IFS 0.25° initial conditions |
-| [`earth2studio.data.EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | Forecast | Brightband ECMWF IFS 0.1° (10 km) 15-day forecast |
+| Data source | Type | Dataset | Marketplace listing (hosted repo) |
+| --- | --- | --- | --- |
+| [`earth2studio.data.EarthMoverERA5`](../../modules/datasources_analysis.md) | Analysis | ERA5 0.25° reanalysis | [app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2) |
+| [`earth2studio.data.EarthMoverBrightBandIFS`](../../modules/datasources_analysis.md) | Analysis | Brightband ECMWF IFS 0.25° initial conditions | [app.earthmover.io/marketplace/697162921880507a6587c31b](https://app.earthmover.io/marketplace/697162921880507a6587c31b) |
+| [`earth2studio.data.EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | Forecast | Brightband ECMWF IFS 0.1° (10 km) 15-day forecast | [app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
 
-Each class' docstring links to its Marketplace listing page, where dataset coverage,
-license and the subscription button live.
+Each listing page is where the dataset's Arraylake repository is hosted and subscribed
+to — dataset coverage, license and the **Subscribe** button all live there. Each data
+source class' docstring links to the same page.
 
 ## 1. Subscribe to a dataset
 
