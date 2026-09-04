@@ -39,7 +39,7 @@ same page. Per the listing pages themselves:
 - [![ECMWF IFS Initial Conditions (open) listing](https://app.earthmover.io/marketplace/697162921880507a6587c31b/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/697162921880507a6587c31b)
 
     "Dataset containing variables from the ECMWF IFS atmospheric models necessary for
-    initializing MLWP models."
+    initializing MLWP models, available 4x daily."
 
 - [![ECMWF IFS 15-day Forecast (open) listing](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04)
 
@@ -60,9 +60,9 @@ cryptographically-addressed manifests. Subscribing does not trigger a download:
 
 - **Free listings** are a direct subscription. Per
   [Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers),
-  "subscribers read data directly from your object store" and "see your full commit
-  history and can access any version" - no data is copied, your repo just points at
-  the provider's storage.
+  "subscribers read data directly from [the provider's] object store" and "see your
+  full commit history and can access any version" - no data is copied, your repo just
+  points at the provider's storage.
 - **Paid listings** are "filtered subscriptions": your repo stores only metadata (which
   chunks you're entitled to) in your own organization's bucket, while "the actual chunk
   data is read from [the provider's] object store" - scoped to what your subscription
@@ -70,9 +70,11 @@ cryptographically-addressed manifests. Subscribing does not trigger a download:
 
 Either way, "due to Icechunk's cryptographically random keys, it is not possible for
 the subscriber to discover any data not explicitly included in their manifests."
-Arraylake reads lazily rather than downloading whole
-datasets, but (unlike Earth2Studio's other remote data sources) these classes do not
-maintain a local on-disk cache; every call re-reads from the provider's object store.
+Arraylake reads lazily rather than downloading whole datasets. Unlike Earth2Studio's
+other remote data sources, these classes do not use Earth2Studio's own on-disk cache
+(the `cache` constructor argument is accepted for API compatibility but unused); any
+caching beyond that is internal to the `arraylake`/Icechunk client and not something
+Earth2Studio controls or has verified.
 
 ## 1. Subscribe to a dataset
 
@@ -90,7 +92,11 @@ Per [Earthmover's own docs](https://docs.earthmover.io/marketplace/data-users):
    this **organization name**, used to derive the repository path below.
 
 "When you subscribe to a dataset, a read-only repo appears in your Arraylake
-organization," typically named `<org>/<dataset>-subscription`.
+organization." The repo name is set by the provider and varies per listing - e.g.
+`<org>/era5-subscription` for ERA5, or
+`<org>/ecmwf-ifs-initial-conditions-open-subscription` for Brightband's IFS initial
+conditions - so check the listing page or the data source's docstring for the exact
+name.
 
 "Many datasets on the Marketplace are freely available. Anyone with an Arraylake
 account can subscribe to free listings instantly." Free listings "use direct
@@ -257,6 +263,14 @@ The Earthmover data sources are not limited to catalog listings from the
 Any [Arraylake](https://docs.earthmover.io/) repository with a compatible CF/GRIB-annotated Zarr layout,
 including your own private repositories, can be read by passing `repo="org/repo"` explicitly,
 as shown above.
+
+!!! warning
+    Each class also fixes which Zarr group(s) it opens, so a custom repo must match
+    that layout: `EarthMoverERA5` always opens the `single/spatial` and
+    `pressure/spatial` groups, while `EarthMoverBrightBandIFS` and
+    `EarthMoverBrightBandIFS_FX` open the repository's root group. A custom repo with a
+    different group layout will fail to connect even if its variable metadata is
+    otherwise compatible.
 
 ## Troubleshooting
 
