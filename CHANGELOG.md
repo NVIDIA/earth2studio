@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event
   detections from the LFL, LGR and LEF collections as a data frame
@@ -22,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes and adds a labeled `region` axis to the score stores.
 - New eval recipe optional per-member online metrics include MAE
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
+- Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
+  views with baseline overlays; GraphCast and Atlas CRPS added
 
 ### Changed
 
@@ -41,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `StormScope` now raises if its normalized state or conditioning contains
   non-finite values not sanitized by `valid_mask`/`conditioning_valid_mask`,
   instead of silently passing them to the diffusion sampler
+- Scorecard campaigns score online over 48 initial conditions and the
+  score data moved to the HF Earth2Studio assets dataset
 
 ### Deprecated
 
