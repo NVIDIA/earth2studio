@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
 - Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event
@@ -54,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Added a `fuxi-s2s` optional dependency group for ONNX Runtime inference.
 
 ## [0.18.0] - 2026-08-31
 

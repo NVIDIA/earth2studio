@@ -189,6 +189,24 @@ categories:
           - text: Requires ONNX Runtime GPU.
             href: https://onnxruntime.ai/docs/install/#python-installs
             label: ONNX Runtime GPU install docs
+      - id: fuxi-s2s
+        label: FuXi-S2S
+        extra: fuxi-s2s
+        summary: FuXi-S2S model dependencies.
+        api_refs:
+          - earth2studio.models.px.FuXiS2S
+        warnings:
+          - text: The official checkpoint is restricted to research use.
+            href: https://zenodo.org/records/15718402
+            label: FuXi-S2S checkpoint license and usage restrictions
+        notes:
+          - text: Requires ONNX Runtime GPU.
+            href: https://onnxruntime.ai/docs/install/#python-installs
+            label: ONNX Runtime GPU install docs
+          - The wrapper expects two consecutive UTC daily means on its native
+            1.5-degree grid and does not aggregate hourly fields or regrid inputs.
+          - Each forecast trajectory is a stochastic ensemble member; use the Zero
+            perturbation with Earth2Studio ensemble workflows.
       - id: gencast
         label: GenCast
         extra: gencast
