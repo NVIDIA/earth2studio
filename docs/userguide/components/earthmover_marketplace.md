@@ -1,11 +1,12 @@
 # Earthmover Marketplace { #earthmover_marketplace_userguide }
 
-The [Earthmover Marketplace](https://app.earthmover.io/marketplace) hosts analysis-ready
-weather and climate datasets stored as [Arraylake](https://docs.earthmover.io/) /
-[Icechunk](https://icechunk.io/) Zarr repositories.
-Earth2Studio ships a set of data sources under `earth2studio.data` that read directly
-from Marketplace repositories, so datasets can be used as initial conditions or
-verification data without writing any custom download or parsing code.
+The [Earthmover Marketplace](https://app.earthmover.io/marketplace) is Earthmover's
+["modern, cloud-native data sharing experience for high-velocity gridded weather,
+climate, and geospatial datasets"](https://docs.earthmover.io/marketplace/data-users),
+stored as [Arraylake](https://docs.earthmover.io/) / [Icechunk](https://icechunk.io/)
+Zarr repositories. Earth2Studio ships a set of data sources under `earth2studio.data`
+that read directly from Marketplace repositories, so datasets can be used as initial
+conditions or verification data without writing any custom download or parsing code.
 
 !!! note
     Arraylake-backed Earthmover data sources require **Python 3.12 or newer** and the
@@ -36,15 +37,19 @@ or Azure Blob), and [Icechunk](https://icechunk.io/) (the versioned storage form
 Arraylake is built on) tracks it with cryptographically-addressed manifests.
 Subscribing does not trigger a download:
 
-- **Free listings** give you a direct read-only view: your repo points at the
-  provider's object store and reads chunks straight from it, including full commit
-  history.
-- **Paid ("filtered") listings** store only metadata (which chunks you're entitled to)
-  in your own organization's bucket; the chunk data itself is still read live from the
-  provider's store, scoped to what your subscription covers.
+- **Free listings** are a direct subscription. Per
+  [Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers),
+  "subscribers read data directly from your object store" and "see your full commit
+  history and can access any version" - no data is copied, your repo just points at
+  the provider's storage.
+- **Paid listings** are "filtered subscriptions": your repo stores only metadata (which
+  chunks you're entitled to) in your own organization's bucket, while "the actual chunk
+  data is read from [the provider's] object store" - scoped to what your subscription
+  covers.
 
-In both cases, Icechunk's manifests prevent a subscriber from discovering or reading
-chunks outside their subscription. Arraylake reads lazily rather than downloading whole
+Either way, "due to Icechunk's cryptographically random keys, it is not possible for
+the subscriber to discover any data not explicitly included in their manifests."
+Arraylake reads lazily rather than downloading whole
 datasets, but (unlike Earth2Studio's other remote data sources) these classes do not
 maintain a local on-disk cache; every call re-reads from the provider's object store.
 
