@@ -6,9 +6,11 @@ The [Earthmover Marketplace](https://app.earthmover.io/marketplace) is Earthmove
 ["modern, cloud-native data sharing experience for high-velocity gridded weather,
 climate, and geospatial datasets"](https://docs.earthmover.io/marketplace/data-users),
 stored as [Arraylake](https://docs.earthmover.io/) / [Icechunk](https://icechunk.io/)
-Zarr repositories. Earth2Studio ships a set of data sources under `earth2studio.data`
-that read directly from Marketplace repositories, so datasets can be used as initial
-conditions or verification data without writing any custom download or parsing code.
+Zarr repositories.
+
+Earth2Studio ships a set of data sources under `earth2studio.data` that read directly
+from Marketplace repositories, so datasets can be used as initial conditions or
+verification data without writing any custom download or parsing code.
 
 !!! note
     Arraylake-backed Earthmover data sources require **Python 3.12 or newer** and the
@@ -53,14 +55,17 @@ same page. Per the listing pages themselves:
 
 The underlying chunk data is **never copied into Earthmover's or your own storage**
 (a paid subscription's own bucket holds only metadata about which chunks you can
-access, not the data itself - see below). Per
-[Earthmover's storage docs](https://docs.earthmover.io/concepts/storage), "Arraylake
+access, not the data itself - see below).
+
+Per [Earthmover's storage docs](https://docs.earthmover.io/concepts/storage), "Arraylake
 works with a wide range of commercial and open-source object storage services,
 including any S3-compatible object store as well as Google Cloud Storage and Microsoft
 Azure Blob Storage," and providers typically use "BYOB - Bring your own bucket": "all
-the data live in your cloud in your own object storage bucket." [Icechunk](https://icechunk.io/)
-(the versioned storage format Arraylake is built on) tracks it with
-cryptographically-addressed manifests. Subscribing does not trigger a download:
+the data live in your cloud in your own object storage bucket."
+
+[Icechunk](https://icechunk.io/) (the versioned storage format Arraylake is built on)
+tracks it with cryptographically-addressed manifests. Subscribing does not trigger a
+download:
 
 - **Free listings** are a direct subscription. Per
   [Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers),
@@ -74,6 +79,7 @@ cryptographically-addressed manifests. Subscribing does not trigger a download:
 
 Either way, "due to Icechunk's cryptographically random keys, it is not possible for
 the subscriber to discover any data not explicitly included in their manifests."
+
 Arraylake reads lazily rather than downloading whole datasets. Unlike Earth2Studio's
 other remote data sources, these classes do not use Earth2Studio's own on-disk cache
 (the `cache` constructor argument is accepted for API compatibility but unused); any
@@ -96,7 +102,9 @@ Per [Earthmover's own docs](https://docs.earthmover.io/marketplace/data-users):
    this **organization name**, used to derive the repository path below.
 
 "When you subscribe to a dataset, a read-only repo appears in your Arraylake
-organization." The repo name is set by the provider and varies per listing - e.g.
+organization."
+
+The repo name is set by the provider and varies per listing - e.g.
 `<org>/era5-subscription` for ERA5, or
 `<org>/ecmwf-ifs-initial-conditions-open-subscription` for Brightband's IFS initial
 conditions - so check the listing page or the data source's docstring for the exact
@@ -105,9 +113,11 @@ name.
 "Many datasets on the Marketplace are freely available. Anyone with an Arraylake
 account can subscribe to free listings instantly." Free listings "use direct
 subscriptions" - "your repo is a complete mirror of the provider's repo," including
-full commit history. Paid listings are premium offerings that "use filtered
-subscriptions": "instead of mirroring the provider's entire repo, you receive a repo
-scoped to specific variables, time ranges, or spatial regions," and require a
+full commit history.
+
+Paid listings are premium offerings that "use filtered subscriptions": "instead of
+mirroring the provider's entire repo, you receive a repo scoped to specific variables,
+time ranges, or spatial regions," and require a
 [Professional Arraylake plan](https://docs.earthmover.io/marketplace/faq).
 
 Attempting to read a repository without an active subscription raises a
@@ -135,6 +145,7 @@ Set an [Arraylake](https://docs.earthmover.io/) API key. Per
 a new API key, click on the big purple 'New API Client' button" in your organization's
 settings on [app.earthmover.io](https://app.earthmover.io), "enter a name for the API
 key, then select the appropriate permissions (read/write), and the key's lifetime."
+
 The resulting "secret tokens are a single string, prefixed with the `ema_` identifier"
 (e.g. `ema_123456789123456789_123456789123456789123456789`) and "expire after 1 year by
 default." Tokens "should be considered secret, and should not be shared publicly":
@@ -227,8 +238,10 @@ for the full writable-session and commit workflow.
 
 Writing to your own repo is enough to use it as a `repo="org/repo"` data source (see
 [Custom or private Arraylake repositories](#custom-or-private-arraylake-repositories)
-below), but publishing it as a Marketplace listing so others can subscribe is a
-separate, Earthmover-account-level process, per
+below).
+
+Publishing it as a Marketplace listing so others can subscribe is a separate,
+Earthmover-account-level process, per
 [Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers):
 
 1. Create an organization at
@@ -252,10 +265,12 @@ separate, Earthmover-account-level process, per
 
 ## Variable resolution
 
-[Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by Earth2Studio, so each Earthmover data
-source resolves Earth2Studio variable ids (e.g. `t2m`, `z500`) against the repository's
-native variable metadata at read time, matching on GRIB `paramId`, GRIB `shortName` /
-`cfVarName`, or CF `standard_name`, in that priority order.
+[Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by
+Earth2Studio, so each Earthmover data source resolves Earth2Studio variable ids (e.g.
+`t2m`, `z500`) against the repository's native variable metadata at read time,
+matching on GRIB `paramId`, GRIB `shortName` / `cfVarName`, or CF `standard_name`, in
+that priority order.
+
 If a variable cannot be unambiguously resolved, the data source raises a `ValueError`
 listing which variables are available in the repository, rather than silently
 returning the wrong field.
