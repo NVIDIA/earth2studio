@@ -111,17 +111,17 @@ resume: true
 perturbation: null
 
 # ---------------------------------------------------------------------------
-# Data — cloud ARCO, cached by predownload.py.
+# Data — ARCO_ERA5, cached by predownload.py.
 #
 # verification.source is set EXPLICITLY so verification goes to its own
 # verification.zarr. Since every one of the model's 72 channels is scored
 # here, that store is the dominant cost: ~2,700 unique valid times x 72
-# variables fetched from ARCO. Narrowing `scoring.variables` below
+# variables fetched from ARCO_ERA5. Narrowing `scoring.variables` below
 # `output.variables` would cut it proportionally, at the price of a
 # narrower scorecard.
 # ---------------------------------------------------------------------------
 data_source:
-    _target_: earth2studio.data.ARCO
+    _target_: earth2studio.data.ARCO_ERA5
     cache: false
     verbose: false
 
@@ -132,7 +132,7 @@ predownload:
     verification:
         enabled: true
         source:
-            _target_: earth2studio.data.ARCO
+            _target_: earth2studio.data.ARCO_ERA5
             cache: false
             verbose: false
 

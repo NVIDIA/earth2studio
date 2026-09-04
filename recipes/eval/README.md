@@ -125,7 +125,7 @@ Predownload creates the following stores in `<output.path>/`:
 
 ### Disable the per-source cache
 
-Earth2Studio's remote data sources (`ARCO`, `GFS_FX`, `GOES`, `MRMS`, …)
+Earth2Studio's remote data sources (`ARCO_ERA5`, `GFS_FX`, `GOES`, `MRMS`, …)
 default to `cache=True`, which keeps a copy of every byte they fetch in
 `~/.cache/earth2studio` (or `$EARTH2STUDIO_CACHE`).  Predownload then
 writes its own dedicated zarr under `<output.path>/`, so with the cache
@@ -140,7 +140,7 @@ this reason.  When you add a new source — at the top level via
 
 ```yaml
 data_source:
-    _target_: earth2studio.data.ARCO
+    _target_: earth2studio.data.ARCO_ERA5
     cache: false
 ```
 
@@ -426,8 +426,8 @@ Two degrees of missingness matter for interpreting results:
   message first** — verify the IC dates are within the UFS replay
   archive's range before anything else.
 
-Verification and fill data come from gridded reanalysis (ARCO / WB2
-ERA5), which is effectively gap-free *within its range* but has a
+Verification and fill data come from gridded reanalysis (ARCO_ERA5 /
+WB2ERA5), which is effectively gap-free *within its range* but has a
 trailing edge a few days behind real time — the same constraint as any
 forecast campaign.  Predownload of `verification.zarr` / `data.zarr`
 fails loudly (not silently) on an out-of-range valid time, so those
@@ -440,7 +440,7 @@ Each work-item time produces one analysis, written with a singleton
 standard scoring aligns verification at the analysis time itself and the
 report reads "analysis error per cycle time".  The DA model must emit
 its analysis on the verification grid — for HealDA, `lat_lon: true` with
-`output_resolution: [721, 1440]` matches ARCO/ERA5 0.25°.  Predownload
+`output_resolution: [721, 1440]` matches ARCO_ERA5 0.25°.  Predownload
 declares the `obs_*.parquet` stores plus a `verification.zarr` (set
 `predownload.verification.enabled=true` in the campaign).
 

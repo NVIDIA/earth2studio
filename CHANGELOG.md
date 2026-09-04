@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
+  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
+  emit a warning and will be removed in a future release.
 - Unified the lightning variable vocabulary across optical lightning imagers
   (GOES GLM, MTG LI) onto `lightning_{event,group,flash}_{count,energy,
   radiance}` names, plus `lightning_flash_duration` and
