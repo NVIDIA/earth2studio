@@ -183,6 +183,33 @@ session.commit(message="Add data")
 See [Earthmover's version control guide](https://docs.earthmover.io/guide/version-control)
 for the full writable-session and commit workflow.
 
+### Publishing your own Marketplace listing
+
+Writing to your own repo is enough to use it as a `repo="org/repo"` data source (see
+[Custom or private Arraylake repositories](#custom-or-private-arraylake-repositories)
+below), but publishing it as a Marketplace listing so others can subscribe is a
+separate, Earthmover-account-level process, per
+[Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers):
+
+1. Create an organization at
+   [app.earthmover.io/orgs/new](https://app.earthmover.io/orgs/new) - "the public face
+   for your data."
+2. Upgrade to the Professional tier by emailing `support@earthmover.io`; this is
+   required to become a provider.
+3. "Configure a storage bucket using Credential Vending in your cloud provider of
+   choice" (bring-your-own-bucket), or request Earthmover-managed storage from
+   support.
+4. Prepare the data: "create a new Icechunk repo," import existing Icechunk data, or
+   write it with Xarray, using the `writable_session` / `commit` pattern above.
+5. In your org settings, open the **Marketplace** tab and click **"+ Create
+   Listing"**, then fill in the repository, listing name and description, thumbnail
+   URL, README, license terms, and pricing model.
+6. Choose a pricing model: for free listings, "subscribers get access to everything in
+   the repo"; for paid listings, you "select exactly which variables and groups are
+   available to subscribers."
+7. Set the listing status to **Published** (requires a repository attached) - it can
+   otherwise be left **Unpublished** or **Coming Soon**.
+
 ## Variable resolution
 
 [Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by Earth2Studio, so each Earthmover data
