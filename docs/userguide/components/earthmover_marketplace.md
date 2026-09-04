@@ -18,16 +18,34 @@ conditions or verification data without writing any custom download or parsing c
 
 ## Available Marketplace Data Sources
 
-| Data source | Type | Dataset (hosted repo listing) |
-| --- | --- | --- |
-| [`earth2studio.data.EarthMoverERA5`](../../modules/datasources_analysis.md) | Analysis | [ERA5 0.25° reanalysis](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2) |
-| [`earth2studio.data.EarthMoverBrightBandIFS`](../../modules/datasources_analysis.md) | Analysis | [Brightband ECMWF IFS 0.25° initial conditions](https://app.earthmover.io/marketplace/697162921880507a6587c31b) |
-| [`earth2studio.data.EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | Forecast | [Brightband ECMWF IFS 0.1° (10 km) 15-day forecast](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
+| Data source | Type | Provider | Dataset (hosted repo listing) |
+| --- | --- | --- | --- |
+| [`earth2studio.data.EarthMoverERA5`](../../modules/datasources_analysis.md) | Analysis | `earthmover-public` | [ERA5 0.25° reanalysis](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2) |
+| [`earth2studio.data.EarthMoverBrightBandIFS`](../../modules/datasources_analysis.md) | Analysis | `brightband` | [Brightband ECMWF IFS 0.25° initial conditions](https://app.earthmover.io/marketplace/697162921880507a6587c31b) |
+| [`earth2studio.data.EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | Forecast | `brightband` | [Brightband ECMWF IFS 0.1° (10 km) 15-day forecast](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
 
 Each dataset name links to its Marketplace listing page, which is where the Arraylake
 repository is hosted and subscribed to. Dataset coverage, license and the
 **Subscribe** button all live there. Each data source class' docstring links to the
-same page.
+same page. Per the listing pages themselves:
+
+<div class="grid cards" markdown>
+
+- [![ERA5 listing](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2)
+
+    "ECMWF ERA5 hourly single and pressure levels starting 1940-01-01, updated every
+    three months."
+
+- [![ECMWF IFS Initial Conditions (open) listing](https://app.earthmover.io/marketplace/697162921880507a6587c31b/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/697162921880507a6587c31b)
+
+    "Dataset containing variables from the ECMWF IFS atmospheric models necessary for
+    initializing MLWP models."
+
+- [![ECMWF IFS 15-day Forecast (open) listing](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04)
+
+    "ECMWF IFS 15-day forecast surface fields, available before ECMWF Open Data."
+
+</div>
 
 ## How the data is hosted
 
