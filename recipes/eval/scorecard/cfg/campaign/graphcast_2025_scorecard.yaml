@@ -15,23 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ---------------------------------------------------------------------------
-# Aurora — 14-day scorecard, ERA5 2025, scored online.
+# GraphCast (operational) — 14-day scorecard, ERA5 2025, scored online.
 #
 # Scores computed for 48 ICs — four per month on the 1st/8th/15th/22nd at
 # 00/06/12/18 UTC respectively with 14-day window, monthly and regional
-# splits.
-#
-# Scored ONLINE: sufficient statistics are accumulated inside the inference
-# loop (stats.zarr -> scores.zarr) and no raw forecast store is written
-# (output.retain: none).  Scores carry a `region` axis (global +
-# continental lat/lon boxes on the ERA5 grid).
+# splits.  Scored ONLINE
+# (stats.zarr -> scores.zarr, output.retain: none); scores carry a
+# `region` axis (global + continental boxes on the ERA5 grid).
 #
 # Details:
-#   * 69 scored variables
+#   * 83 scored variables (incl. w-levels, tp06)
 #   * 1 member — deterministic
-#   * 56 steps of 6 h
-#   * output pole-padded onto ERA5's 721 grid
-#   * needs t-6h history, so it keeps its own IC store.
+#   * 56 steps of 6 h, native 721x1440 [90,-90] grid (no regridding)
+#   * needs t-6h history + tisr forcing, so it keeps its own IC store.
 # ---------------------------------------------------------------------------
 defaults:
 # Regional splits (bands, headline boxes, continents) — one shared choice for every
@@ -39,8 +35,8 @@ defaults:
 - /regions/standard
 - override /model: null   # self-contained: the model is defined right here
 model:
-    architecture: earth2studio.models.px.Aurora
-project: aurora
+    architecture: earth2studio.models.px.GraphCastOperational
+project: graphcast
 run_id: 2025_scorecard
 # Four ICs per month at 00/06/12/18 UTC (see header).
 start_times:
@@ -98,11 +94,11 @@ resume: true
 perturbation: null
 require_predownload: true
 data_source:
-    _target_: earth2studio.data.ARCO_ERA5
+    _target_: earth2studio.data.ARCO
     cache: false
     verbose: false
 output:
-    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora/outputs}/${project}_${run_id}
+    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/graphcast/outputs}/${project}_${run_id}
     # Online scoring: never write the raw forecast store; stats.zarr is
     # the artifact.
     retain: none
@@ -111,75 +107,89 @@ output:
         time: 1
         lead_time: 1
     variables:
-    - z1000
-    - z925
-    - z850
-    - z700
-    - z600
-    - z500
-    - z400
-    - z300
-    - z250
-    - z200
-    - z150
-    - z100
-    - z50
-    - q1000
-    - q925
-    - q850
-    - q700
-    - q600
-    - q500
-    - q400
-    - q300
-    - q250
-    - q200
-    - q150
-    - q100
-    - q50
-    - t1000
-    - t925
-    - t850
-    - t700
-    - t600
-    - t500
-    - t400
-    - t300
-    - t250
-    - t200
-    - t150
-    - t100
-    - t50
-    - u1000
-    - u925
-    - u850
-    - u700
-    - u600
-    - u500
-    - u400
-    - u300
-    - u250
-    - u200
-    - u150
-    - u100
-    - u50
-    - v1000
-    - v925
-    - v850
-    - v700
-    - v600
-    - v500
-    - v400
-    - v300
-    - v250
-    - v200
-    - v150
-    - v100
-    - v50
+    - t2m
     - msl
     - u10m
     - v10m
-    - t2m
+    - t50
+    - t100
+    - t150
+    - t200
+    - t250
+    - t300
+    - t400
+    - t500
+    - t600
+    - t700
+    - t850
+    - t925
+    - t1000
+    - z50
+    - z100
+    - z150
+    - z200
+    - z250
+    - z300
+    - z400
+    - z500
+    - z600
+    - z700
+    - z850
+    - z925
+    - z1000
+    - u50
+    - u100
+    - u150
+    - u200
+    - u250
+    - u300
+    - u400
+    - u500
+    - u600
+    - u700
+    - u850
+    - u925
+    - u1000
+    - v50
+    - v100
+    - v150
+    - v200
+    - v250
+    - v300
+    - v400
+    - v500
+    - v600
+    - v700
+    - v850
+    - v925
+    - v1000
+    - w50
+    - w100
+    - w150
+    - w200
+    - w250
+    - w300
+    - w400
+    - w500
+    - w600
+    - w700
+    - w850
+    - w925
+    - w1000
+    - q50
+    - q100
+    - q150
+    - q200
+    - q250
+    - q300
+    - q400
+    - q500
+    - q600
+    - q700
+    - q850
+    - q925
+    - q1000
+    - tp06
 scoring:
     mode: online
     variables: ${output.variables}
@@ -197,19 +207,5 @@ scoring:
     resume: true
 predownload:
     verification:
-        enabled: true
-        source:
-            _target_: earth2studio.data.ARCO_ERA5
-            cache: false
-            verbose: false
-pipeline:
-    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
-    target_lat:
-        start: 90.0
-        stop: -90.0
-        num: 721
-    target_lon:
-        start: 0.0
-        stop: 359.75
-        num: 1440
-    share_verification: true
+        # Verification is already predownloaded; the run dir symlinks it.
+        enabled: false

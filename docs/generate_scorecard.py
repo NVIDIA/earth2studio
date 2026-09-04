@@ -46,6 +46,7 @@ numbers exist exactly once, minified for compression. Run from anywhere::
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from urllib.parse import quote
 
@@ -71,8 +72,53 @@ def _load_defaults() -> dict:
 DEFAULTS = _load_defaults()
 LABELS = DEFAULTS.get("labels", {})
 LOWER_IS_BETTER = DEFAULTS.get("metrics", {}).get("lower_is_better", [])
+# Baseline runs (config/default.md): exported like models, drawn by the
+# plot as reference overlays, and excluded from page/card generation.
+BASELINES = DEFAULTS.get("baselines", {}) or {}
 DATA_SOURCES = DEFAULTS.get("data_sources", {})
 STATIC = DOCS / "_static" / "scorecard"  # data + shared plot live here
+
+# The score JSONs are not stored in the git repository: they live in the
+# Earth2Studio assets dataset on Hugging Face, and the docs build fetches
+# them into ``STATIC``. Local files always preferred, so a developer
+# iterating on fresh exports never triggers a download.
+# ``SCORECARD_DATA_REVISION`` selects a branch or PR ref of the dataset
+# (for example ``refs/pr/2`` to build against a pending data update).
+DATA_REPO = "nvidia/earth2studio-assets"
+DATA_REVISION = os.environ.get("SCORECARD_DATA_REVISION", "main")
+
+
+def _sync_data_from_hub() -> None:
+    """Download the score JSONs from the assets dataset when absent.
+
+    Snapshots the dataset's ``scorecard/`` folder through
+    ``huggingface_hub`` — authenticated by ``HF_TOKEN`` when set, and
+    served from the local hub cache on repeat builds — then copies every
+    ``eval_scores_*.json`` into ``STATIC`` under its file name
+    (per-model subfolders and a flat layout both work).  Runs only when
+    ``STATIC`` holds no score files at all, so a checkout with local
+    exports builds fully offline.
+    """
+    import shutil
+
+    from huggingface_hub import snapshot_download
+
+    if any(STATIC.glob("eval_scores_*.json")):
+        return
+    root = snapshot_download(
+        repo_id=DATA_REPO,
+        repo_type="dataset",
+        revision=DATA_REVISION,
+        allow_patterns=["scorecard/*"],
+    )
+    files = sorted(Path(root, "scorecard").rglob("eval_scores_*.json"))
+    if not files:
+        raise SystemExit(f"no score files found in the assets dataset: {DATA_REPO}")
+    STATIC.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        shutil.copyfile(f, STATIC / f.name)
+    print(f"fetched {len(files)} score files from the assets dataset")
+
 
 # Self-contained single-model skill plot. Same palette and idioms as the
 # recipe's full scorecard so the docs and the recipe read as one system.
@@ -118,11 +164,19 @@ limitations under the License.
     border-radius:10px;padding:10px 12px;margin-bottom:12px}
   .ctl{display:flex;flex-direction:column;gap:4px}
   .ctl label{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-  select{font:inherit;color:var(--ink);background:var(--surface-1);
-    border:1px solid var(--axis);border-radius:7px;padding:6px 9px}
+  select{font:inherit;color:var(--ink);
+    border:1px solid var(--axis);border-radius:7px;
+    padding:6px 30px 6px 10px;-webkit-appearance:none;appearance:none;
+    background:var(--surface-1) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23898781' stroke-width='1.6' stroke-linecap='round'/></svg>") no-repeat right 10px center}
+  select:disabled{opacity:.45}
   .card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;
     padding:12px 14px 8px}
   .card h2{font-size:13.5px;margin:0 0 2px} .card p{margin:0 0 8px;color:var(--ink-2);font-size:12px}
+  .legend{display:flex;gap:14px;margin:0 0 6px;font-size:11.5px;color:var(--ink-2)}
+  .legend .chip{display:inline-block;width:14px;height:0;border-top:2.5px solid var(--s1);
+    vertical-align:middle;margin-right:5px;border-radius:2px}
+  .legend .chip.ref{border-top-style:dashed;border-top-color:var(--muted)}
+  .legend .chip.dot{border-top-style:dotted;border-top-color:var(--muted)}
   svg{display:block;width:100%;height:auto;overflow:visible}
   .gl{stroke:var(--grid);stroke-width:.8} .ax{stroke:var(--axis);stroke-width:1}
   .tk{fill:var(--ink-2);font-size:10.5px} .al{fill:var(--muted);font-size:10.5px}
@@ -134,24 +188,37 @@ limitations under the License.
 <body><div class="wrap">
 <div class="badge"></div>
 <div class="bar">
+  <div class="ctl" id="vwctl" hidden><label>View</label><select id="vw">
+    <option value="curve">Skill curve</option>
+    <option value="heat">IC heat map</option></select></div>
   <div class="ctl"><label>Metric</label><select id="m"></select></div>
   <div class="ctl"><label>Variable</label><select id="v"></select></div>
+  <div class="ctl" id="lctl"><label>Level</label><select id="l"></select></div>
+  <div class="ctl" id="rctl" hidden><label>Region</label><select id="r"></select></div>
+  <div class="ctl" id="moctl" hidden><label>Month</label><select id="mo"></select></div>
+  <div class="ctl" id="hctl" hidden><label>Init hour</label><select id="h"></select></div>
+  <div class="ctl" id="bctl" hidden><label>Baseline</label><select id="b"></select></div>
 </div>
-<div class="card"><h2 id="t"></h2><p id="s"></p><svg id="c" viewBox="0 0 900 330"></svg></div>
+<div class="card"><h2 id="t"></h2><p id="s"></p>
+<div class="legend" id="lg" hidden></div><svg id="c" viewBox="0 0 900 330"></svg></div>
 </div>
 <div class="tip" id="tip"></div>
 <script>
 // No data here: the model is picked by ?model=, its JSON fetched below.
+// Regional / monthly splits live in sibling eval_scores_<model>_*.json
+// files and are fetched lazily the first time their control is used.
 const $=s=>document.querySelector(s);
 const Q=new URLSearchParams(location.search);
 const MODEL=Q.get("model")||"";
 const LABEL=Q.get("label")||MODEL;
 document.title=LABEL+" skill";
 $(".badge") && ($(".badge").textContent=LABEL);
-let D=null,days=[];
+let D=null,days=[],MONTHLY=null;
+const RCACHE={};      // region name -> fetched split doc (null while loading)
 const LOWER=__LOWER__;
 const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
 const isFin=q=>q!=null&&isFinite(q);
+const pretty=n=>n.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
 const tip=$("#tip");
 const ns="http://www.w3.org/2000/svg";
 const mk=(svg,t,a)=>{const e=document.createElementNS(ns,t);
@@ -159,28 +226,201 @@ const mk=(svg,t,a)=>{const e=document.createElementNS(ns,t);
 const fmt=v=>{if(!isFin(v))return "–";const a=Math.abs(v);
   if(a!==0&&(a<1e-3||a>=1e5))return v.toExponential(2);
   return v.toFixed(a>=100?1:a>=10?2:3);};
-const mSel=$("#m"),vSel=$("#v");
+const mSel=$("#m"),vSel=$("#v"),lSel=$("#l"),rSel=$("#r"),moSel=$("#mo"),
+      hSel=$("#h"),bSel=$("#b"),vwSel=$("#vw");
+let HEAT=null;   // lazily fetched eval_scores_<model>_heatmap.json
+let HOURLY=null; // lazily fetched eval_scores_<model>_hourly.json
+const BASELINES=__BASELINES__;
+const BCACHE={}; // baseline name -> its main eval_scores_<name>.json
+// The heatmap view swaps in its own (narrower) metric/variable sets.
+function metricSet(){return vwSel.value==="heat"&&HEAT?HEAT.metrics:D.metrics;}
+function fillMetrics(){
+  const ms=metricSet(),prev=mSel.value; mSel.innerHTML="";
+  Object.keys(ms).forEach(k=>mSel.appendChild(new Option(ms[k].label,k)));
+  if(prev in ms)mSel.value=prev;
+}
+// The variable list splits into a quantity selector and a level selector,
+// so neither dropdown carries all ~70 names.  Level variables follow the
+// <base><hPa> convention (t500); everything else (t2m, msl, tcwv, ...) is
+// a surface quantity with the level selector disabled.
+let VBASES={};
 function fillVars(){
-  const vs=Object.keys(D.metrics[mSel.value].values);
+  const vs=Object.keys(metricSet()[mSel.value].values);
   vs.sort((a,b)=>D.variables.indexOf(a)-D.variables.indexOf(b));
+  const surface=[];VBASES={};
+  // A var is a pressure-level entry only when the export groups it off
+  // Surface — the name shape alone misfiles e.g. tp06 as "tp at 6 hPa".
+  vs.forEach(v=>{const m=v.match(/^([a-z]+)(\d+)$/);
+    if(m&&((D.variable_groups||{})[v]||"Surface")!=="Surface")
+      (VBASES[m[1]]=VBASES[m[1]]||[]).push(+m[2]);
+    else surface.push(v);});
+  Object.values(VBASES).forEach(a=>a.sort((x,y)=>x-y));
   const prev=vSel.value; vSel.innerHTML="";
-  let g=null,last=null;
-  vs.forEach(v=>{const grp=(D.variable_groups||{})[v]||"Other";
-    if(grp!==last){g=document.createElement("optgroup");g.label=grp;vSel.appendChild(g);last=grp;}
-    g.appendChild(new Option(v+(D.units[v]?"  ("+D.units[v]+")":""),v));});
-  if(vs.includes(prev))vSel.value=prev;
-  else if(vs.includes("z500"))vSel.value="z500";
+  if(surface.length){
+    const g=document.createElement("optgroup");g.label="Surface";
+    surface.forEach(v=>g.appendChild(
+      new Option(v+(D.units[v]?"  ("+D.units[v]+")":""),v)));
+    vSel.appendChild(g);
+  }
+  const bases=Object.keys(VBASES);
+  if(bases.length){
+    const g=document.createElement("optgroup");g.label="Pressure levels";
+    bases.forEach(b=>{
+      const grp=(D.variable_groups||{})[b+VBASES[b][0]]||b;
+      g.appendChild(new Option(`${grp} (${b})`,b));});
+    vSel.appendChild(g);
+  }
+  const opts=[...vSel.options].map(o=>o.value);
+  if(opts.includes(prev))vSel.value=prev;
+  else if(opts.includes("z"))vSel.value="z";
+  fillLevels();
+}
+function fillLevels(){
+  const levs=VBASES[vSel.value];
+  const prev=lSel.value; lSel.innerHTML="";
+  if(!levs){lSel.appendChild(new Option("surface",""));lSel.disabled=true;return;}
+  lSel.disabled=false;
+  levs.forEach(p=>lSel.appendChild(new Option(p+" hPa",p)));
+  if(levs.map(String).includes(prev))lSel.value=prev;
+  else if(levs.includes(500))lSel.value="500";
+}
+// The concrete variable name the data files use (t + 500 -> t500).
+function varName(){
+  return VBASES[vSel.value]?vSel.value+lSel.value:vSel.value;
+}
+// The active split curve (region or month) for the current metric/variable,
+// or null when the whole-grid / all-IC curve is the only one to show.
+// undefined y means the split has no data for this metric (e.g. LSD is
+// spectral, hence global-only).
+function activeSplit(){
+  const k=mSel.value,v=varName();
+  if(moSel.value&&moSel.value!=="all"){
+    const mm=MONTHLY&&MONTHLY.metrics_by_month[moSel.value];
+    return {y:mm&&mm[k]?mm[k].values[v]:undefined,label:moSel.value,ref:"All months"};
+  }
+  if(hSel.value&&hSel.value!=="all"){
+    const hh=HOURLY&&HOURLY.metrics_by_hour[hSel.value];
+    return {y:hh&&hh[k]?hh[k].values[v]:undefined,label:hSel.value+" ICs",ref:"All hours"};
+  }
+  if(rSel.value&&rSel.value!=="global"){
+    const rd=RCACHE[rSel.value];
+    return {y:rd&&rd.metrics[k]?rd.metrics[k].values[v]:undefined,
+            label:pretty(rSel.value),ref:"Global"};
+  }
+  return null;
+}
+function legend(items){
+  const lg=$("#lg");
+  if(!items){lg.hidden=true;lg.innerHTML="";return;}
+  lg.hidden=false;
+  lg.innerHTML=items.map(i=>{
+    const cls=i.dash==="2 5"?" dot":(i.ref?" ref":"");
+    return `<span><span class="chip${cls}"></span>${i.label}</span>`;}).join("");
+}
+function drawLine(svg,y,px,py,color,dash){
+  let d="",pen=false;
+  y.forEach((q,i)=>{if(!isFin(q)){pen=false;return;}
+    d+=(pen?"L":"M")+px(days[i])+" "+py(q);pen=true;});
+  const a={d,fill:"none",stroke:color,"stroke-width":2,
+    "stroke-linejoin":"round","stroke-linecap":"round"};
+  if(dash){a["stroke-dasharray"]=dash;a["stroke-width"]=1.6;}
+  mk(svg,"path",a);
 }
 function draw(){
-  const k=mSel.value,v=vSel.value,y=D.metrics[k].values[v]||[];
+  if(vwSel.value==="heat")drawHeat(); else drawCurve();
+}
+function drawHeat(){
+  const k=mSel.value,v=varName(),svg=$("#c");svg.innerHTML="";
+  legend(null);
+  const rows=(HEAT.metrics[k]&&HEAT.metrics[k].values[v])||[];
+  const unit=D.units[v]||"";
+  $("#t").textContent=`${HEAT.metrics[k].label} by initial condition — ${v}${unit?" ("+unit+")":""}`;
+  const flat=rows.flat().filter(isFin);
+  if(!flat.length){$("#s").textContent="";
+    mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
+  const lo=Math.min(...flat),hi=Math.max(...flat);
+  $("#s").textContent=`One row per initial condition, one column per lead time (whole grid). `
+    +`Range ${fmt(lo)} to ${fmt(hi)} ${unit}.`;
+  const W=900,H=330,L=64,R=24,T=14,B=44;
+  // Sequential single-hue ramp: chart surface -> accent.
+  const rgb=s=>{const m=s.match(/#([0-9a-f]{6})/i);if(!m)return [128,128,128];
+    const n=parseInt(m[1],16);return [n>>16&255,n>>8&255,n&255];};
+  const c0=rgb(css("--surface-1")),c1=rgb(css("--s1"));
+  const col=q=>{const t=(q-lo)/((hi-lo)||1);
+    return `rgb(${c0.map((x,i)=>Math.round(x+(c1[i]-x)*t)).join(",")})`;};
+  const ics=HEAT.initial_conditions,nr=rows.length,nc=days.length;
+  const cw=(W-L-R)/nc,ch=(H-T-B)/nr;
+  rows.forEach((row,ri)=>row.forEach((q,ci)=>{if(!isFin(q))return;
+    mk(svg,"rect",{x:L+ci*cw,y:T+ri*ch,width:cw+0.4,height:ch+0.4,fill:col(q)});}));
+  // y: one tick per month (4 ICs/month); x: lead-day ticks like the curve.
+  for(let ri=0;ri<nr;ri+=4)
+    mk(svg,"text",{x:L-8,y:T+(ri+0.5)*ch+3,class:"tk","text-anchor":"end"})
+      .textContent=ics[ri].slice(0,7);
+  const maxd=days[days.length-1],step=maxd<=3?0.5:maxd<=8?1:2;
+  for(let d=step;d<=maxd+1e-9;d+=step){
+    const X=L+(W-L-R)*(d-days[0])/((days[days.length-1]-days[0])||1);
+    mk(svg,"text",{x:X,y:H-B+16,class:"tk","text-anchor":"middle"})
+      .textContent=(d%1?d.toFixed(1):d);}
+  mk(svg,"text",{x:(L+W-R)/2,y:H-6,class:"al","text-anchor":"middle"}).textContent="lead time (days)";
+  // Color legend: a thin gradient bar with min/max, top right.
+  const gx=W-R-130;
+  for(let i=0;i<26;i++)
+    mk(svg,"rect",{x:gx+i*4,y:2,width:4.4,height:7,fill:col(lo+(hi-lo)*i/25)});
+  mk(svg,"text",{x:gx-6,y:9,class:"tk","text-anchor":"end"}).textContent=fmt(lo);
+  mk(svg,"text",{x:gx+110,y:9,class:"tk"}).textContent=fmt(hi);
+  // Hover: one overlay, cell resolved from the pointer.
+  const hit=mk(svg,"rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
+  hit.style.cursor="crosshair";
+  const box=mk(svg,"rect",{width:cw,height:ch,fill:"none",
+    stroke:css("--ink"),"stroke-width":1,opacity:0});
+  hit.addEventListener("mousemove",e=>{
+    const bb=svg.getBoundingClientRect();
+    const ci=Math.max(0,Math.min(nc-1,Math.floor(((e.clientX-bb.left)*W/bb.width-L)/cw)));
+    const ri=Math.max(0,Math.min(nr-1,Math.floor(((e.clientY-bb.top)*H/bb.height-T)/ch)));
+    box.setAttribute("x",L+ci*cw);box.setAttribute("y",T+ri*ch);box.setAttribute("opacity",1);
+    const q=rows[ri]?rows[ri][ci]:null;
+    tip.innerHTML=`<span class="k">IC</span> ${ics[ri]}<br>`
+      +`<span class="k">lead</span> ${D.lead_hours[ci]} h (${days[ci]} d)<br><b>${fmt(q)}</b> ${unit}`;
+    tip.style.opacity=1;
+    let x=e.clientX+14,yy=e.clientY-10;
+    const r=tip.getBoundingClientRect();
+    if(x+r.width+8>innerWidth)x=e.clientX-r.width-14;
+    tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,yy)+"px";});
+  hit.addEventListener("mouseleave",()=>{tip.style.opacity=0;box.setAttribute("opacity",0);});
+}
+function drawCurve(){
+  const k=mSel.value,v=varName(),base=D.metrics[k].values[v]||[];
+  const split=activeSplit();
   const svg=$("#c");svg.innerHTML="";
   const unit=D.metrics[k].unit||D.units[v]||"";
-  $("#t").textContent=`${D.metrics[k].label} — ${v}${unit?" ("+unit+")":""}`;
-  $("#s").textContent=
+  const where=split?` — ${split.label}`:"";
+  $("#t").textContent=`${D.metrics[k].label} — ${v}${unit?" ("+unit+")":""}${where}`;
+  const bnote=activeBaselines().length
+    ?" Baseline curves are whole-grid, all-IC references in every view.":"";
+  $("#s").textContent=(
     k==="spread_skill"?"Ensemble spread over ensemble-mean RMSE. 1.0 is calibrated; below 1 is over-confident."
     :LOWER.includes(k)?"Lower is better. Latitude-weighted, averaged over initial conditions."
-    :"Higher is better.";
-  const all=y.filter(isFin);
+    :"Higher is better.")+bnote;
+  if(split&&split.y===undefined){
+    legend(null);
+    mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"})
+      .textContent=`no ${D.metrics[k].label} data for ${split.label}`+
+        (k==="lsd"?" (spectral metrics are whole-grid only)":"");
+    return;
+  }
+  // Baseline overlays: whole-grid all-IC reference runs, one dash pattern
+  // per baseline so identity never rides on color alone.
+  const dashes=["6 5","2 5"];
+  const extras=activeBaselines().map(b=>{
+    const mB=BCACHE[b].metrics[k];
+    return {y:mB?mB.values[v]:null,label:BASELINES[b],ref:true,
+            dash:dashes[Object.keys(BASELINES).indexOf(b)%dashes.length]};
+  }).filter(s=>s.y);
+  const series=split
+    ?[{y:base,label:split.ref,ref:true},{y:split.y||[],label:split.label},...extras]
+    :[{y:base,label:extras.length?LABEL:""},...extras];
+  legend((split||extras.length)?series:null);
+  const all=series.flatMap(s=>s.y.filter(isFin));
   if(!all.length){mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
   const W=900,H=330,L=64,R=24,T=14,B=44;
   const div=k==="spread_skill";
@@ -205,41 +445,156 @@ function draw(){
   if(div){const Y=py(1);mk(svg,"line",{x1:L,x2:W-R,y1:Y,y2:Y,stroke:css("--muted"),
     "stroke-width":1,"stroke-dasharray":"4 4"});
     mk(svg,"text",{x:W-R,y:Y-6,class:"al","text-anchor":"end"}).textContent="calibrated (1.0)";}
-  let d="",pen=false;
-  y.forEach((q,i)=>{if(!isFin(q)){pen=false;return;}
-    d+=(pen?"L":"M")+px(days[i])+" "+py(q);pen=true;});
-  mk(svg,"path",{d,fill:"none",stroke:css("--s1"),"stroke-width":2,
-    "stroke-linejoin":"round","stroke-linecap":"round"});
+  series.forEach(s=>drawLine(svg,s.y,px,py,s.ref?css("--muted"):css("--s1"),
+    s.dash||(s.ref?"5 5":null)));
   const hl=mk(svg,"line",{x1:L,x2:L,y1:T,y2:H-B,stroke:css("--muted"),"stroke-width":1,opacity:0});
-  const dot=mk(svg,"circle",{r:4.5,fill:css("--s1"),stroke:css("--surface-1"),"stroke-width":2,opacity:0});
+  const dots=series.map(s=>mk(svg,"circle",{r:4.5,
+    fill:s.ref?css("--muted"):css("--s1"),
+    stroke:css("--surface-1"),"stroke-width":2,opacity:0}));
   const hit=mk(svg,"rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
   hit.style.cursor="crosshair";
   hit.addEventListener("mousemove",e=>{
     const bb=svg.getBoundingClientRect(),sx=(e.clientX-bb.left)*W/bb.width;
     let bi=0,bd=1e9;days.forEach((dd,i)=>{const q=Math.abs(px(dd)-sx);if(q<bd){bd=q;bi=i;}});
     hl.setAttribute("x1",px(days[bi]));hl.setAttribute("x2",px(days[bi]));hl.setAttribute("opacity",1);
-    const q=y[bi];
-    if(isFin(q)){dot.setAttribute("cx",px(days[bi]));dot.setAttribute("cy",py(q));
-      dot.setAttribute("opacity",1);}
-    else dot.setAttribute("opacity",0);
-    tip.innerHTML=`<span class="k">lead</span> ${D.lead_hours[bi]} h (${days[bi]} d)<br><b>${fmt(q)}</b> ${D.metrics[k].unit||D.units[v]||""}`;
+    const rows=series.map((s,si)=>{const q=s.y[bi];
+      if(isFin(q)){dots[si].setAttribute("cx",px(days[bi]));dots[si].setAttribute("cy",py(q));
+        dots[si].setAttribute("opacity",1);}
+      else dots[si].setAttribute("opacity",0);
+      const name=s.label?`<span class="k">${s.label}</span> `:"";
+      return `${name}<b>${fmt(q)}</b>`;});
+    tip.innerHTML=`<span class="k">lead</span> ${D.lead_hours[bi]} h (${days[bi]} d)<br>`+
+      rows.join("<br>")+` ${D.metrics[mSel.value].unit||D.units[varName()]||""}`;
     tip.style.opacity=1;
     let x=e.clientX+14,yy=e.clientY-10;
     const r=tip.getBoundingClientRect();
     if(x+r.width+8>innerWidth)x=e.clientX-r.width-14;
     tip.style.left=Math.max(8,x)+"px";tip.style.top=Math.max(8,yy)+"px";});
   hit.addEventListener("mouseleave",()=>{tip.style.opacity=0;
-    hl.setAttribute("opacity",0);dot.setAttribute("opacity",0);});
+    hl.setAttribute("opacity",0);dots.forEach(d=>d.setAttribute("opacity",0));});
+}
+// Region and month are mutually exclusive splits: the monthly breakdown is
+// computed on the whole grid, so picking a month snaps the region back to
+// Global (and vice versa the month back to All).
+function syncControls(){
+  // One split at a time: region, month/season, and init hour are computed
+  // on independent axes, so combining them would need cross exports.  The
+  // baseline overlays stay available in every curve view: they are always
+  // whole-grid all-IC references (noted in the subtitle), so they never
+  // depend on the split.  The heatmap is a per-IC view of one model.
+  const heat=vwSel.value==="heat";
+  const monthOn=moSel.value&&moSel.value!=="all";
+  const regionOn=rSel.value&&rSel.value!=="global";
+  const hourOn=hSel.value&&hSel.value!=="all";
+  rSel.disabled=heat||monthOn||hourOn;
+  moSel.disabled=heat||regionOn||hourOn;
+  hSel.disabled=heat||regionOn||monthOn;
+  bSel.disabled=heat;
+}
+function activeBaselines(){
+  if(vwSel.value==="heat"||!bSel.value||bSel.value==="none")return [];
+  const names=bSel.value==="both"?Object.keys(BASELINES):[bSel.value];
+  return names.filter(b=>b!==MODEL&&BCACHE[b]);
+}
+function onBaseline(){
+  const want=(bSel.value==="both"?Object.keys(BASELINES).filter(b=>b!==MODEL):
+    (bSel.value&&bSel.value!=="none"?[bSel.value]:[]));
+  want.filter(b=>!(b in BCACHE)).forEach(b=>{
+    BCACHE[b]=null;
+    fetchJSON(`eval_scores_${b}.json`)
+      .then(d=>{BCACHE[b]=d;syncControls();draw();})
+      .catch(()=>{delete BCACHE[b];syncControls();draw();});
+  });
+  syncControls();draw();
+}
+function onHour(){
+  if(hSel.value!=="all"&&!HOURLY){
+    fetchJSON(`eval_scores_${MODEL}_hourly.json`)
+      .then(d=>{HOURLY=d;syncControls();draw();})
+      .catch(()=>{hSel.value="all";syncControls();draw();});
+    return;
+  }
+  syncControls();draw();
+}
+function onView(){
+  if(vwSel.value==="heat"&&!HEAT){
+    fetchJSON(`eval_scores_${MODEL}_heatmap.json`)
+      .then(d=>{HEAT=d;fillMetrics();fillVars();syncControls();draw();})
+      .catch(()=>{vwSel.value="curve";syncControls();draw();});
+    return;
+  }
+  fillMetrics();fillVars();syncControls();draw();
+}
+function fetchJSON(name){
+  return fetch(name).then(r=>{
+    if(!r.ok)throw new Error("HTTP "+r.status);return r.text();}).then(JSON.parse);
+}
+function onRegion(){
+  const reg=rSel.value;
+  if(reg!=="global"&&!(reg in RCACHE)){
+    RCACHE[reg]=null;
+    fetchJSON(`eval_scores_${MODEL}_region_${reg}.json`)
+      .then(d=>{RCACHE[reg]=d;if(rSel.value===reg){syncControls();draw();}})
+      .catch(()=>{delete RCACHE[reg];rSel.value="global";syncControls();draw();});
+  }
+  syncControls();draw();
+}
+function onMonth(){
+  if(moSel.value!=="all"&&!MONTHLY){
+    fetchJSON(`eval_scores_${MODEL}_monthly.json`)
+      .then(d=>{MONTHLY=d;syncControls();draw();})
+      .catch(()=>{moSel.value="all";syncControls();draw();});
+  }
+  syncControls();draw();
 }
 mSel.addEventListener("change",()=>{fillVars();draw();});
-vSel.addEventListener("change",draw);
+vSel.addEventListener("change",()=>{fillLevels();draw();});
+lSel.addEventListener("change",draw);
+rSel.addEventListener("change",onRegion);
+moSel.addEventListener("change",onMonth);
+hSel.addEventListener("change",onHour);
+bSel.addEventListener("change",onBaseline);
+vwSel.addEventListener("change",onView);
 // The export is plain minified JSON.
-fetch(`eval_scores_${MODEL}.json`)
-  .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();})
-  .then(t=>{
-    D=JSON.parse(t);
+fetchJSON(`eval_scores_${MODEL}.json`)
+  .then(d=>{
+    D=d;
     days=D.lead_hours.map(h=>h/24);
     Object.keys(D.metrics).forEach(k=>mSel.appendChild(new Option(D.metrics[k].label,k)));
+    if(D.regions&&D.regions.length>1){
+      $("#rctl").hidden=false;
+      D.regions.forEach(r=>rSel.appendChild(new Option(pretty(r),r)));
+      rSel.value="global";
+    }
+    if(D.has_monthly){
+      $("#moctl").hidden=false;
+      moSel.appendChild(new Option("All months","all"));
+      // Season blocks first, then the individual months.
+      ["DJF","MAM","JJA","SON"]
+        .forEach(s=>moSel.appendChild(new Option(s+" (season)",s)));
+      ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        .forEach(m=>moSel.appendChild(new Option(m,m)));
+      moSel.value="all";
+    }
+    if(D.has_hourly){
+      $("#hctl").hidden=false;
+      hSel.appendChild(new Option("All hours","all"));
+      [...new Set(D.initial_conditions.map(t=>t.slice(11,13)+"Z"))].sort()
+        .forEach(hh=>hSel.appendChild(new Option(hh,hh)));
+      hSel.value="all";
+    }
+    if(D.has_heatmap){$("#vwctl").hidden=false;vwSel.value="curve";}
+    const bnames=Object.keys(BASELINES).filter(b=>b!==MODEL);
+    if(bnames.length){
+      $("#bctl").hidden=false;
+      bSel.appendChild(new Option("None","none"));
+      bnames.forEach(b=>bSel.appendChild(new Option(BASELINES[b],b)));
+      if(bnames.length>1)bSel.appendChild(new Option("Both","both"));
+      // Climatology on by default: the reference every skill curve should
+      // beat.  Persistence stays one click away.
+      bSel.value=bnames.includes("climatology")?"climatology":bnames[0];
+      onBaseline();
+    }
     fillVars();draw();})
   .catch(e=>{$("#t").textContent=`failed to load eval_scores_${MODEL}.json`;
     $("#s").textContent=String(e);});
@@ -253,18 +608,27 @@ PAGE_MD = """\
 {badges}{description}
 ## Skill
 
-Pick a metric and variable; hover for exact values at each lead time.
+Pick a metric and variable; hover for exact values at each lead time.{splits_hint}
 
-<iframe src="../../../_static/scorecard/plot.html?model={model_q}&label={label_q}" title="{label} skill"
+<!-- The src is resolved in the browser against the FINAL page URL
+     (.../scorecard/generated/<model>/), so it stays correct at any site
+     depth — fork preview, versioned deploy, or local serve — and there is
+     no static URL for the site build to rewrite. -->
+<iframe id="skill-plot" title="{label} skill"
         style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
+<script>
+document.getElementById("skill-plot").src = new URL(
+  "../../../_static/scorecard/plot.html?model={model_q}&label={label_q}",
+  window.location.href);
+</script>
 
 ## Evaluation
 
 {summary}
 
 Scores are latitude-weighted (cos φ) and aggregated over the initial
-conditions. Evaluation is done against ERA5 fetched from ARCO.
+conditions. Evaluation is done against ERA5 fetched from ARCO.{ic_note}
 
 | | |
 |---|---|
@@ -274,7 +638,7 @@ conditions. Evaluation is done against ERA5 fetched from ARCO.
 | Verification (ground truth) | {verification_source} |
 | Lead times | {lead_first} h to {lead_last_d} days |
 | Variables scored | {n_var} |
-| Metrics | {metric_list} |
+| Metrics | {metric_list} |{region_row}
 
 ## Variables
 
@@ -314,7 +678,7 @@ title: Scorecards
 Forecast skill of Earth2Studio models, one scorecard per model. These show
 each model's own skill, not a comparison between models. Every model was evaluated on the
 same campaign: {n_ic} initial conditions ({years}), 14-day horizon, ERA5
-verification via ARCO. Pages are generated from per-model score (JSON) exports
+verification via ARCO_ERA5. Pages are generated from per-model score (JSON) exports
 produced by the
 [scorecard recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval/scorecard),
 which documents how to generate a scorecard for any model; the
@@ -323,10 +687,11 @@ provides the backend support (inference, scoring and metrics).
 
 ## Prognostic models
 
-<div class="grid cards" markdown>
-
+<!-- The site's own landing-page button classes (nvidia-material.css), so
+     these render identically to the Tutorial / Install / Examples buttons
+     on the home page.  hrefs are relative to this page's final URL. -->
+<div class="e2s-start-grid">
 {entries}
-
 </div>
 """
 
@@ -519,6 +884,45 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         f"{doc['lead_hours'][-1] // 24}-day horizon · "
         f"{len(doc['variables'])} variables"
     )
+    regions = [r for r in doc.get("regions", []) if r != "global"]
+    hints = []
+    if regions:
+        hints.append("the Region selector for continental splits")
+    if doc.get("has_monthly"):
+        hints.append(
+            "the Month selector for seasonal (DJF/MAM/JJA/SON) and per-month "
+            "skill against the all-month curve"
+        )
+    if doc.get("has_hourly"):
+        hints.append("the Init hour selector for skill by initialization time")
+    if doc.get("has_heatmap"):
+        hints.append("the View selector for the skill of every initial condition")
+    if BASELINES and model not in BASELINES:
+        hints.append(
+            "the Baseline selector to overlay "
+            + " and ".join(v.lower() for v in BASELINES.values())
+            + " reference forecasts"
+        )
+    if len(hints) > 2:
+        joined = ", ".join(hints[:-1]) + ", and " + hints[-1]
+    else:
+        joined = " and ".join(hints)
+    splits_hint = f" Use {joined}." if hints else ""
+    region_row = (
+        "\n| Regions | global, "
+        + ", ".join(r.replace("_", " ") for r in regions)
+        + " |"
+        if regions
+        else ""
+    )
+    hours = sorted({t[11:13] for t in doc["initial_conditions"]})
+    ic_note = (
+        "\nInitial conditions rotate through the "
+        + "/".join(f"{h}Z" for h in hours)
+        + " hours."
+        if len(hours) > 1
+        else ""
+    )
     md = PAGE_MD.format(
         model=model,
         model_q=quote(model),
@@ -541,12 +945,15 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         badges=("\n{% badges " + conf["badges"] + " %}\n" if conf["badges"] else ""),
         description=("\n" + conf["description"] + "\n") if conf["description"] else "",
         reference=("\n" + conf["extras"] + "\n") if conf["extras"] else "",
+        splits_hint=splits_hint,
+        region_row=region_row,
+        ic_note=ic_note,
     )
     return md
 
 
 def _card(model: str, doc: dict, conf: dict) -> str:
-    """One Material grid card for the section index."""
+    """One landing-page-style button for the section index."""
     label = conf["label"]
     short = conf["short"]
     kind = (
@@ -558,18 +965,31 @@ def _card(model: str, doc: dict, conf: dict) -> str:
         f"{kind} · {len(doc['variables'])} variables · "
         f"{doc['lead_hours'][-1] // 24}-day horizon"
     )
-    tooltip = short or f"{label} scorecard"
-    # The whole card is the link; the description appears only on hover.
-    # <br> keeps the facts on their own line while the link text stays a
-    # single paragraph (markdown links cannot span blank lines).
-    return f"- [**{label}**<br>*{facts}*]({model}.md)" f'{{ title="{tooltip}" }}'
+    tooltip = f"{short + ' ' if short else ''}{facts}."
+    # A landing-page style button: the model name is the label, the short
+    # description and campaign facts appear on hover.  Raw HTML with a
+    # directory-relative href so the link resolves against the final page
+    # URL at any site depth.
+    return (
+        f'  <a class="e2s-home-button" href="{model}/" '
+        f'title="{tooltip}">{label}</a>'
+    )
 
 
 def main() -> int:
     """Generate all scorecard pages and the shared plot."""
+    _sync_data_from_hub()
+    # Split exports (regional / monthly breakdowns fetched lazily by the
+    # plot) sit beside the model files; they are data for a model's page,
+    # not models of their own.
     models = sorted(
-        f.name[len("eval_scores_") : -len(".json")]
+        name
         for f in STATIC.glob("eval_scores_*.json")
+        if not (name := f.name[len("eval_scores_") : -len(".json")]).endswith(
+            ("_monthly", "_heatmap", "_hourly")
+        )
+        and "_region_" not in name
+        and name not in BASELINES
     )
     if not models:
         raise SystemExit(
@@ -585,7 +1005,9 @@ def main() -> int:
 
     # One shared plot for every model; it holds no data.
     (STATIC / "plot.html").write_text(
-        PLOT_HTML.replace("__LOWER__", json.dumps(LOWER_IS_BETTER))
+        PLOT_HTML.replace("__LOWER__", json.dumps(LOWER_IS_BETTER)).replace(
+            "__BASELINES__", json.dumps(BASELINES)
+        )
     )
     print("wrote _static/scorecard/plot.html (shared, data-free)")
 
@@ -604,7 +1026,7 @@ def main() -> int:
         INDEX_MD.format(
             n_ic=len(any_doc["initial_conditions"]),
             years="/".join(years),
-            entries="\n\n".join(_card(m, docs[m], confs[m]) for m in models),
+            entries="\n".join(_card(m, docs[m], confs[m]) for m in models),
         )
     )
     print(

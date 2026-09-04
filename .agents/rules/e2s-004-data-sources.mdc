@@ -324,7 +324,7 @@ def _validate_time(cls, times: list[datetime]) -> None:
 - Use `tqdm.gather` with `disable=(not self._verbose)` for progress bars
 - Pre-allocate xarray DataArray before parallel fetching
 - Delete temporary cache if `cache=False`
-- Follow existing patterns from ARCO and GFS implementations
+- Follow existing patterns from ARCO_ERA5 and GFS implementations
 - Use `functools.partial` for task wrapper functions
 - Create cache directory with `pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)`
 - **Documentation**: Add the data source to [datasources.rst](mdc:docs/modules/datasources.rst) in the "Data Sources" section, maintaining alphabetical order

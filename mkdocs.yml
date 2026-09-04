@@ -573,6 +573,8 @@ nav:
   - Prognostic models:
     - FCN3: scorecard/generated/fcn3.md
     - Aurora: scorecard/generated/aurora.md
+    - GraphCast: scorecard/generated/graphcast.md
+    - Atlas CRPS: scorecard/generated/atlas_crps.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md
