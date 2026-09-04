@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed empty reduction dimensions in statistics, skipping for mean and
+  rejecting as undefined for variance/std reductions.
 - `StormCast.__call__` no longer writes its output into the input tensor.
   The initial condition passed in is left untouched, matching `StormCastCONUS`
 - Evaluation recipe: clearing resume markers no longer races between
