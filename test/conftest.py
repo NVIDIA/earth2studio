@@ -115,6 +115,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     ],
     # Model da tests
     "test/models/da/test_da_healda.py": ["da-healda"],
+    "test/models/da/test_da_healda_v2.py": ["da-healda"],
     "test/models/da/test_da_interp.py": ["da-interp"],
     "test/models/da/test_da_sda_stormcast.py": ["da-stormcast"],
     "test/models/da/test_da_sda_corrdiff_cosmo_era5.py": ["da-cosmo"],
