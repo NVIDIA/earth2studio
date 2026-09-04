@@ -348,22 +348,31 @@ def test_goes_fetch_no_gather_timeout(monkeypatch):
     assert seen_kwargs.get("task_timeout") is None
 
 
-def test_goes_fetch_array_dqf_mask(monkeypatch, tmp_path):
-    """fetch_array should only warn about NaNs at pixels NOAA's own DQF marks
-    as navigated (on the Earth disk); NaNs where DQF itself is unset (off the
-    disk, never navigated) must not be counted."""
+def test_goes_fetch_array_on_disk_mask(monkeypatch, tmp_path):
+    """fetch_array should warn about NaNs at on-disk pixels and ignore NaNs
+    off the Earth disk, which are always fill-valued.
+
+    The missing pixel here also has a fill-valued ``DQF``, which is how NOAA
+    writes pixels inside a missing scan wedge: keying the mask off "finite
+    DQF == navigated" would drop exactly this pixel and report nothing.
+    """
     monkeypatch.setitem(GOES.SCAN_DIMENSIONS, "C", (2, 3))
 
-    # (0,0) good; (0,1) navigated but missing radiance -> should be warned about;
-    # (0,2) good; (1,0)/(1,2) off-disk (DQF unset) -> excluded even though NaN;
-    # (1,1) good.
+    # (0,0) good; (0,1) on-disk but missing radiance -> should be warned about;
+    # (0,2) good; (1,0)/(1,2) off-disk -> excluded even though NaN; (1,1) good.
     cmi = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, np.nan]], dtype=np.float32)
-    dqf = np.array([[0.0, 2.0, 0.0], [np.nan, 0.0, np.nan]], dtype=np.float32)
+    dqf = np.array([[0.0, np.nan, 0.0], [np.nan, 0.0, np.nan]], dtype=np.float32)
+    on_disk = np.array([[True, True, True], [False, True, False]])
     fake_ds = xr.Dataset({"CMI_C01": (("y", "x"), cmi), "DQF_C01": (("y", "x"), dqf)})
     nc_path = tmp_path / "fake_goes.nc"
     fake_ds.to_netcdf(nc_path)
 
     ds = GOES(satellite="goes16", scan_mode="C", cache=False, verbose=False)
+    ds._on_disk_mask = on_disk
+    ds._on_disk_count = int(np.count_nonzero(on_disk))
+    # No limb band here: this test is about the interior/off-disk distinction,
+    # not the limb-band split (see test_goes_fetch_array_limb_band_is_debug).
+    ds._limb_band_mask = np.zeros_like(on_disk)
 
     async def fake_get_s3_path(time):
         return "fake/path.nc"
@@ -385,4 +394,91 @@ def test_goes_fetch_array_dqf_mask(monkeypatch, tmp_path):
     assert np.array_equal(np.isnan(x[0]), np.isnan(cmi))
     assert len(caught) == 1
     assert "1 missing pixel" in caught[0]
-    assert "25.0000%" in caught[0]  # 1 missing out of 4 navigated pixels
+    assert "25.0000%" in caught[0]  # 1 missing out of 4 on-disk pixels
+
+
+def test_goes_fetch_array_no_warning_when_clean(monkeypatch, tmp_path):
+    """No warning should be emitted when every on-disk pixel is finite, even
+    though the off-disk pixels are NaN."""
+    monkeypatch.setitem(GOES.SCAN_DIMENSIONS, "C", (2, 3))
+
+    cmi = np.array([[1.0, 2.0, 3.0], [np.nan, 5.0, np.nan]], dtype=np.float32)
+    on_disk = np.array([[True, True, True], [False, True, False]])
+    fake_ds = xr.Dataset({"CMI_C01": (("y", "x"), cmi)})
+    nc_path = tmp_path / "fake_goes_clean.nc"
+    fake_ds.to_netcdf(nc_path)
+
+    ds = GOES(satellite="goes16", scan_mode="C", cache=False, verbose=False)
+    ds._on_disk_mask = on_disk
+    ds._on_disk_count = int(np.count_nonzero(on_disk))
+    ds._limb_band_mask = np.zeros_like(on_disk)
+
+    async def fake_get_s3_path(time):
+        return "fake/path.nc"
+
+    async def fake_fetch_remote_file(path):
+        return str(nc_path)
+
+    monkeypatch.setattr(ds, "_get_s3_path", fake_get_s3_path)
+    monkeypatch.setattr(ds, "_fetch_remote_file", fake_fetch_remote_file)
+
+    caught = []
+    monkeypatch.setattr(
+        "earth2studio.data.goes.logger.warning", lambda msg: caught.append(msg)
+    )
+
+    asyncio.run(ds.fetch_array(datetime(2024, 6, 1, 18, 0, 0), ["abi01c"]))
+
+    assert caught == []
+
+
+def test_goes_fetch_array_limb_band_is_debug_not_warning(monkeypatch, tmp_path):
+    """NaNs within the limb band should be logged at debug level, not warning;
+    NaNs elsewhere on-disk should still warn. Covers the split described in the
+    class docstring: at the disk edge our center-ray geometry and NOAA's
+    retrieval can disagree about visibility, confined to a measured 3px rind.
+    """
+    monkeypatch.setitem(GOES.SCAN_DIMENSIONS, "C", (3, 3))
+
+    # (0,0) limb-band NaN -> debug only; (2,2) interior NaN -> warning; rest finite.
+    cmi = np.array(
+        [[np.nan, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, np.nan]], dtype=np.float32
+    )
+    on_disk = np.ones((3, 3), dtype=bool)
+    limb_band = np.zeros((3, 3), dtype=bool)
+    limb_band[0, 0] = True
+    fake_ds = xr.Dataset({"CMI_C01": (("y", "x"), cmi)})
+    nc_path = tmp_path / "fake_goes_limb.nc"
+    fake_ds.to_netcdf(nc_path)
+
+    ds = GOES(satellite="goes16", scan_mode="C", cache=False, verbose=False)
+    ds._on_disk_mask = on_disk
+    ds._on_disk_count = int(np.count_nonzero(on_disk))
+    ds._limb_band_mask = limb_band
+
+    async def fake_get_s3_path(time):
+        return "fake/path.nc"
+
+    async def fake_fetch_remote_file(path):
+        return str(nc_path)
+
+    monkeypatch.setattr(ds, "_get_s3_path", fake_get_s3_path)
+    monkeypatch.setattr(ds, "_fetch_remote_file", fake_fetch_remote_file)
+
+    warnings, debugs = [], []
+    monkeypatch.setattr(
+        "earth2studio.data.goes.logger.warning", lambda msg: warnings.append(msg)
+    )
+    monkeypatch.setattr(
+        "earth2studio.data.goes.logger.debug", lambda msg: debugs.append(msg)
+    )
+
+    asyncio.run(ds.fetch_array(datetime(2024, 6, 1, 18, 0, 0), ["abi01c"]))
+
+    assert len(warnings) == 1
+    assert "1 missing pixel" in warnings[0]
+    assert len(debugs) >= 1
+    limb_debug = [m for m in debugs if "missing pixel" in m]
+    assert len(limb_debug) == 1
+    assert "3px" in limb_debug[0]
+    assert "limb" in limb_debug[0]

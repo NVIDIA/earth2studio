@@ -34,11 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
   on the model, instead of reconstructing them on every rollout call
 - `GOES.fetch_array` now logs a warning when a fetched variable has
-  fill-valued (NaN) pixels at gridpoints NOAA's own `DQF` marks as navigated,
-  indicating a real data quality issue at that timestamp
-- `StormScope` now raises if the conditioning tensor it builds contains NaNs
-  not sanitized by `valid_mask`/`conditioning_valid_mask`, instead of silently
-  passing them to the diffusion sampler
+  fill-valued (NaN) pixels on the Earth disk, indicating a real data quality
+  issue at that timestamp; NaNs within 3px of the disk edge, where our
+  geometry and NOAA's retrieval can disagree about visibility, are logged at
+  debug level instead
+- `StormScope` now raises if its normalized state or conditioning contains
+  non-finite values not sanitized by `valid_mask`/`conditioning_valid_mask`,
+  instead of silently passing them to the diffusion sampler
 
 ### Deprecated
 

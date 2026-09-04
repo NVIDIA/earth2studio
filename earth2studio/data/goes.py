@@ -88,14 +88,24 @@ class GOES:
 
     Some pixels are ``_FillValue`` in NOAA's source file (e.g. calibration
     gaps or other instrument issues) and decode to NaN. This data source will
-    warn with the affected pixel count whenever a pixel that NOAA's per-band
-    ``DQF`` variable marks as navigated/quality-assessed is NaN (pixels off
-    the Earth disk are excluded, since ``DQF`` is unset there too).
+    warn with the affected pixel count whenever a pixel on the Earth disk is
+    NaN, except within a narrow band at the limb: at the very edge of the
+    visible disk, our idealized center-ray geometry says "Earth" while NOAA's
+    radiance retrieval sometimes says "can't produce a value", a definitional
+    disagreement confined to a measured 3-pixel rind with nothing genuinely
+    missing inside it. NaNs in that rind are logged at debug level instead.
+    Pixels off the disk are always fill-valued and are excluded entirely.
 
     Badges
     ------
     region:na dataclass:observation product:sat provider:noaa
     """
+
+    # Empirically measured width of the geometric-vs-retrieval limb disagreement
+    # (see class docstring "Missing data" note): 100% of recurring false-positive
+    # NaNs across full-disk and CONUS sectors fall within this many pixels of an
+    # off-disk pixel, with zero found any deeper.
+    LIMB_BAND_WIDTH = 3
 
     SCAN_TIME_FREQUENCY = {
         "F": 600,
@@ -224,6 +234,14 @@ class GOES:
         # Pixels off the Earth disk have undefined lat/lon (NaN); used to
         # distinguish expected off-disk NaNs from genuine data quality issues
         self._on_disk_mask = ~np.isnan(self._lat)
+        self._on_disk_count = int(np.count_nonzero(self._on_disk_mask))
+        # On-disk pixels within LIMB_BAND_WIDTH of the off-disk boundary: where
+        # our center-ray geometry and NOAA's retrieval can disagree about
+        # visibility (see class docstring). Static per (satellite, scan_mode),
+        # so computed once here rather than per fetch.
+        self._limb_band_mask = self._on_disk_mask & self._dilate(
+            ~self._on_disk_mask, self.LIMB_BAND_WIDTH
+        )
 
         # Validate satellite and scan mode
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
@@ -427,32 +445,40 @@ class GOES:
             else:
                 x[i] = da[goes_name].values
 
-            # Prefer the file's own per-band DQF variable to identify which
-            # pixels NOAA actually navigated/quality-assessed: DQF is NaN
-            # (fill) exactly where a pixel was never computed (off the Earth
-            # disk), and holds a real flag_values code (0-4) for every pixel
-            # that was. This is exact per-file ground truth, unlike our
-            # static ellipsoid-based on-disk mask, which can disagree with
-            # NOAA's navigation by a pixel or two right at the limb.
-            dqf_name = (
-                goes_name.replace("CMI_", "DQF_", 1)
-                if goes_name.startswith("CMI_")
-                else None
-            )
-            if dqf_name is not None and dqf_name in da:
-                navigated_mask = ~np.isnan(da[dqf_name].values)
-            else:
-                navigated_mask = self._on_disk_mask
+            # Off-disk pixels are always fill-valued, so only NaNs inside the
+            # static on-disk mask indicate a real problem. Note the file's own
+            # per-band DQF variable is not a usable stand-in here: inside a
+            # missing scan wedge NOAA leaves DQF at _FillValue rather than
+            # writing a quality flag code, so treating "finite DQF" as
+            # "navigated" would exclude the very pixels worth warning about
+            # (and costs an extra variable decode per band).
+            nan_on_disk = np.isnan(x[i]) & self._on_disk_mask
+            # At the very edge of the visible disk, our idealized center-ray
+            # geometry says "Earth" while NOAA's radiance retrieval says
+            # "can't produce a value" -- a definitional disagreement confined
+            # to a measured 3-pixel rind, with nothing genuinely missing
+            # inside it. Report that population separately, at debug level.
+            nan_limb = nan_on_disk & self._limb_band_mask
+            nan_interior = nan_on_disk & ~self._limb_band_mask
 
-            nan_navigated = np.isnan(x[i]) & navigated_mask
-            nan_count = nan_navigated.sum()
-            if nan_count > 0:
-                nan_frac = nan_count / navigated_mask.sum()
+            interior_count = int(np.count_nonzero(nan_interior))
+            if interior_count > 0:
+                interior_frac = interior_count / self._on_disk_count
                 logger.warning(
                     f"GOES variable {v} ({goes_name}) at {time.isoformat()} has "
-                    f"{nan_count} missing pixel(s) ({nan_frac:.4%} of the "
-                    f"navigated/on-disk array). Source file likely has quality "
+                    f"{interior_count} missing pixel(s) ({interior_frac:.4%} of "
+                    f"the on-disk array). Source file likely has quality "
                     f"issues at this timestamp, filling with NaNs."
+                )
+
+            limb_count = int(np.count_nonzero(nan_limb))
+            if limb_count > 0:
+                limb_frac = limb_count / self._on_disk_count
+                logger.debug(
+                    f"GOES variable {v} ({goes_name}) at {time.isoformat()} has "
+                    f"{limb_count} missing pixel(s) ({limb_frac:.4%} of the "
+                    f"on-disk array) within {self.LIMB_BAND_WIDTH}px of the disk "
+                    f"edge; expected limb/geometry noise, not a data quality issue."
                 )
 
         return x
@@ -570,6 +596,28 @@ class GOES:
                 cache_location, f"tmp_goes_{self._tmp_cache_hash}"
             )
         return cache_location
+
+    @staticmethod
+    def _dilate(mask: np.ndarray, radius: int) -> np.ndarray:
+        """Grow a boolean mask outward by `radius` pixels (Chebyshev distance).
+
+        Dependency-free 8-connected dilation via `radius` rounds of shifted
+        ORs; the array edge is treated as unknown rather than True/False, so
+        it never spuriously grows the mask past the data it actually has.
+        """
+        out = mask.copy()
+        for _ in range(radius):
+            grown = out.copy()
+            grown[:-1, :] |= out[1:, :]
+            grown[1:, :] |= out[:-1, :]
+            grown[:, :-1] |= out[:, 1:]
+            grown[:, 1:] |= out[:, :-1]
+            grown[:-1, :-1] |= out[1:, 1:]
+            grown[1:, 1:] |= out[:-1, :-1]
+            grown[:-1, 1:] |= out[1:, :-1]
+            grown[1:, :-1] |= out[:-1, 1:]
+            out = grown
+        return out
 
     @staticmethod
     def _validate_satellite_scan_mode(satellite: str, scan_mode: str) -> None:

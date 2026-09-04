@@ -497,8 +497,12 @@ def test_stormscope_conditioning_nan_check(device):
     valid_yx = model.conditioning_valid_mask.nonzero(as_tuple=False)[0]
     conditioning[..., valid_yx[0], valid_yx[1]] = torch.nan
 
-    with pytest.raises(ValueError, match="not sanitized"):
+    with pytest.raises(ValueError, match="not sanitized") as excinfo:
         model.call_with_conditioning(x, coords, conditioning, conditioning_coords)
+
+    # Error should name the offending tensor and variable, not a bare channel index
+    assert "conditioning" in str(excinfo.value)
+    assert str(model.conditioning_variables[0]) in str(excinfo.value)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
