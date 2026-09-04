@@ -24,7 +24,7 @@ verification data without writing any custom download or parsing code.
 | [`earth2studio.data.EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | Forecast | [Brightband ECMWF IFS 0.1° (10 km) 15-day forecast](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
 
 Each dataset name links to its Marketplace listing page, which is where the Arraylake
-repository is hosted and subscribed to — dataset coverage, license and the
+repository is hosted and subscribed to. Dataset coverage, license and the
 **Subscribe** button all live there. Each data source class' docstring links to the
 same page.
 
@@ -32,8 +32,8 @@ same page.
 
 Marketplace data is **not copied into Earthmover's or your own storage**. Each dataset
 provider hosts their data in their own cloud object store (any S3-compatible store, GCS,
-or Azure Blob), and [Icechunk](https://icechunk.io/) — the versioned storage format
-Arraylake is built on — tracks it with cryptographically-addressed manifests.
+or Azure Blob), and [Icechunk](https://icechunk.io/) (the versioned storage format
+Arraylake is built on) tracks it with cryptographically-addressed manifests.
 Subscribing does not trigger a download:
 
 - **Free listings** give you a direct read-only view: your repo points at the
@@ -46,7 +46,7 @@ Subscribing does not trigger a download:
 In both cases, Icechunk's manifests prevent a subscriber from discovering or reading
 chunks outside their subscription. Arraylake reads lazily rather than downloading whole
 datasets, but (unlike Earth2Studio's other remote data sources) these classes do not
-maintain a local on-disk cache — every call re-reads from the provider's object store.
+maintain a local on-disk cache; every call re-reads from the provider's object store.
 
 ## 1. Subscribe to a dataset
 
@@ -59,7 +59,7 @@ open/free listings:
    resulting repository (you'll be prompted to create one if you don't have one yet).
    This creates a read-only repository under your organization, typically named
    `<org>/<dataset>-subscription`.
-3. Note your **organization name** — it's used to derive the repository path below.
+3. Note your **organization name**, used to derive the repository path below.
 
 Free listings subscribe instantly and give a complete mirror of the provider's
 repository, including full commit history. Paid listings require a
@@ -72,7 +72,7 @@ Attempting to read a repository without an active subscription raises a
 `PermissionError` pointing back to the listing page.
 
 !!! note "License & cost"
-    Each listing page states its own license and, for paid data, its pricing — set by
+    Each listing page states its own license and, for paid data, its pricing, set by
     the provider, not Earth2Studio. Storage for a subscription repo lives in the
     provider's bucket (free listings) or your own organization's bucket for the
     subscription metadata (paid listings); either way you are not billed for storing a
@@ -136,7 +136,7 @@ initial state.
 
 [Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by Earth2Studio, so each Earthmover data
 source resolves Earth2Studio variable ids (e.g. `t2m`, `z500`) against the repository's
-native variable metadata at read time — matching on GRIB `paramId`, GRIB `shortName` /
+native variable metadata at read time, matching on GRIB `paramId`, GRIB `shortName` /
 `cfVarName`, or CF `standard_name`, in that priority order.
 If a variable cannot be unambiguously resolved, the data source raises a `ValueError`
 listing which variables are available in the repository, rather than silently
@@ -146,8 +146,8 @@ returning the wrong field.
 
 The Earthmover data sources are not limited to catalog listings from the
 [Marketplace](https://app.earthmover.io/marketplace).
-Any [Arraylake](https://docs.earthmover.io/) repository with a compatible CF/GRIB-annotated Zarr layout — including
-your own private repositories — can be read by passing `repo="org/repo"` explicitly,
+Any [Arraylake](https://docs.earthmover.io/) repository with a compatible CF/GRIB-annotated Zarr layout,
+including your own private repositories, can be read by passing `repo="org/repo"` explicitly,
 as shown above.
 
 ## Troubleshooting
@@ -162,7 +162,7 @@ as shown above.
 
 ## Further reading
 
-- [Earthmover Marketplace](https://app.earthmover.io/marketplace) — browse listings
-- [Marketplace docs: Data Users](https://docs.earthmover.io/marketplace/data-users) — subscription mechanics
-- [Marketplace docs: FAQ](https://docs.earthmover.io/marketplace/faq) — pricing and plan requirements
-- [Arraylake client installation](https://docs.earthmover.io/setup/installation) — `arraylake` package setup
+- [Earthmover Marketplace](https://app.earthmover.io/marketplace): browse listings
+- [Marketplace docs: Data Users](https://docs.earthmover.io/marketplace/data-users): subscription mechanics
+- [Marketplace docs: FAQ](https://docs.earthmover.io/marketplace/faq): pricing and plan requirements
+- [Arraylake client installation](https://docs.earthmover.io/setup/installation): `arraylake` package setup
