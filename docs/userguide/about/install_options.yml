@@ -218,6 +218,20 @@ categories:
               - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
         notes:
           - GraphCast uses WeatherNext and requires Python 3.12 or newer.
+      - id: weathernext
+        label: WeatherNext 2 Cyclones Mini
+        extra: weathernext
+        summary: Google DeepMind WeatherNext 2 Cyclones Mini model dependencies.
+        api_refs:
+          - earth2studio.models.px.WeatherNext2CyclonesMini
+        preinstall:
+          pip:
+            - 'pip install "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+          uv:
+            pypi:
+              - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
+        notes:
+          - WeatherNext 2 uses WeatherNext and requires Python 3.12 or newer.
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno

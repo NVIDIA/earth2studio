@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
 - Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event

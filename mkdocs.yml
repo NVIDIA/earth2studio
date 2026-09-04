@@ -495,6 +495,8 @@ plugins:
     output_open: true
     collect_telemetry: true
     backreferences: true
+    cache_output_directory: false
+    invalidate_on_lock_change: false
 - blog:
     blog_dir: blog
     post_dir: '{blog}/posts'
