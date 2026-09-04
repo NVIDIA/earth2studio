@@ -35,7 +35,7 @@ open/free listings:
 
 1. Open the dataset's listing page (linked from the data source docstring above, or
    browse [app.earthmover.io/marketplace](https://app.earthmover.io/marketplace)).
-2. Click **Subscribe**, and choose which Arraylake organization should house the
+2. Click **Subscribe**, and choose which [Arraylake](https://docs.earthmover.io/) organization should house the
    resulting repository (you'll be prompted to create one if you don't have one yet).
    This creates a read-only repository under your organization, typically named
    `<org>/<dataset>-subscription`.
@@ -53,7 +53,7 @@ Attempting to read a repository without an active subscription raises a
 
 ## 2. Authenticate
 
-Set an Arraylake API key (create one at
+Set an [Arraylake](https://docs.earthmover.io/) API key (create one at
 [app.earthmover.io](https://app.earthmover.io) under account settings):
 
 ```bash
@@ -63,8 +63,8 @@ export EARTHMOVER_ORGANIZATION="<your-org-name>"
 
 `EARTHMOVER_ORGANIZATION` is only needed if you want the data source to derive the
 subscription repository name automatically (see below). Alternatively, pass a
-pre-authenticated `arraylake.AsyncClient` directly to the data source via the `client`
-argument.
+pre-authenticated [`arraylake.AsyncClient`](https://docs.earthmover.io/reference/client)
+directly to the data source via the `client` argument.
 
 ## 3. Use the data source
 
@@ -106,7 +106,7 @@ initial state.
 
 ## Variable resolution
 
-Marketplace repositories are not curated by Earth2Studio, so each Earthmover data
+[Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by Earth2Studio, so each Earthmover data
 source resolves Earth2Studio variable ids (e.g. `t2m`, `z500`) against the repository's
 native variable metadata at read time — matching on GRIB `paramId`, GRIB `shortName` /
 `cfVarName`, or CF `standard_name`, in that priority order.
@@ -116,8 +116,9 @@ returning the wrong field.
 
 ## Custom or private Arraylake repositories
 
-The Earthmover data sources are not limited to catalog listings from the Marketplace.
-Any Arraylake repository with a compatible CF/GRIB-annotated Zarr layout — including
+The Earthmover data sources are not limited to catalog listings from the
+[Marketplace](https://app.earthmover.io/marketplace).
+Any [Arraylake](https://docs.earthmover.io/) repository with a compatible CF/GRIB-annotated Zarr layout — including
 your own private repositories — can be read by passing `repo="org/repo"` explicitly,
 as shown above.
 
