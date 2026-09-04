@@ -3,9 +3,8 @@
 Generates the source score JSON files behind the documentation's
 [Scorecards pages](../../../docs/scorecard). Every model runs the same
 campaign: 48 initial conditions over a 14-day horizon, with ERA5
-verification through ARCO. The four monthly initial conditions rotate
-through the 00/06/12/18 UTC synoptic hours, so no lead time always
-verifies at the same local time.
+verification through ARCO_ERA5. The four monthly initial conditions rotate
+through the 00Z/06Z/12Z/18Z hours.
 The campaigns use the evaluation recipe's **online scoring**: the inference
 loop reduces every forecast to a small set of statistics and never writes
 the raw forecast store.
@@ -49,13 +48,14 @@ python ../../../docs/generate_scorecard.py
 The score JSONs are not stored in the git repository. The docs build
 fetches them from the `scorecard/` folder of the
 [Earth2Studio assets dataset](https://huggingface.co/datasets/nvidia/earth2studio-assets)
-on Hugging Face; files already present under `docs/_static/scorecard/`
-(for example, fresh local exports from step 2) take precedence, so the
-build works offline while iterating. To publish updated exports:
+on Hugging Face, where each model keeps its exports in its own folder:
+`scorecard/<model>/eval_scores_<model>*.json`. To publish one model's updated exports:
 
 ```bash
-hf upload nvidia/earth2studio-assets docs/_static/scorecard scorecard \
-  --repo-type dataset --include "eval_scores_*.json"
+m=fcn3  # the model whose campaign was run
+hf upload nvidia/earth2studio-assets docs/_static/scorecard scorecard/$m \
+  --repo-type dataset \
+  --include "eval_scores_$m.json" "eval_scores_${m}_*.json"
 ```
 
 Because the campaigns score online, the `infer` stage already derives

@@ -49,7 +49,7 @@ class _RegriddedDataSource:
     """Wraps a DataSource, applying xarray.interp to regrid output to target lat/lon.
 
     Used when the data source's native grid doesn't match the zarr store schema
-    (e.g. ARCO at 721×1440 downloaded into a store sized for a 240×121 model).
+    (e.g. ARCO_ERA5 at 721×1440 downloaded into a store sized for a 240×121 model).
     Only lat/lon dimensions are interpolated; all other dims pass through unchanged.
     """
 

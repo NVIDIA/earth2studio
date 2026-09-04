@@ -264,3 +264,74 @@ class RegriddedForecastPipeline(ForecastPipeline):
             target_lats=self._target_lat,
             target_lons=self._target_lon,
         )
+
+
+class ClimatologyPipeline(ForecastPipeline):
+    """Forecast pipeline for the climatology baseline.
+
+    Additions over the plain forecast pipeline, so that
+    :class:`scorecard.utils.baselines.ClimatologyForecast` never touches a
+    remote source inside the inference loop:
+
+    * ``predownload_stores`` declares one extra store —
+      ``climatology.zarr`` — holding the climatological field at every
+      valid time of the campaign, fetched from
+      ``cfg.pipeline.climatology_source`` (e.g.
+      ``earth2studio.data.WB2Climatology``).
+    * ``setup`` attaches that store to the model as a local
+      :class:`src.data.PredownloadedSource`.
+
+    Parameters
+    ----------
+    climatology_source : DictConfig | dict | DataSource
+        Hydra spec (or, under Hydra's recursive instantiation, the live
+        instance) of the DataSource supplying climatology on the
+        verification grid.
+    """
+
+    def __init__(self, climatology_source: object) -> None:
+        super().__init__()
+        self._clim_source_cfg = climatology_source
+
+    def predownload_stores(self, cfg: DictConfig) -> list:
+        """Parent stores plus the campaign-valid-time climatology store."""
+        import hydra
+        from src.data import PredownloadedSource  # noqa: F401 (doc cross-ref)
+        from src.pipelines.base import PredownloadStore
+        from src.predownload_utils import compute_verification_times
+        from src.work import build_work_items
+
+        stores = super().predownload_stores(cfg)
+
+        unique_ic_times = sorted({i.time for i in build_work_items(cfg)})
+        valid_times = compute_verification_times(unique_ic_times, cfg.nsteps, 6)
+        # Hydra instantiates the pipeline recursively, so under normal use
+        # climatology_source arrives as a live DataSource; only a plain
+        # dict/DictConfig still needs instantiating.
+        source = self._clim_source_cfg
+        if isinstance(source, (dict, DictConfig)):
+            source = hydra.utils.instantiate(source)
+        from .baselines import ERA5_LAT, ERA5_LON
+
+        stores.append(
+            PredownloadStore(
+                name="climatology",
+                source=source,
+                times=list(valid_times),
+                variables=list(cfg.output.variables),
+                spatial_ref=OrderedDict({"lat": ERA5_LAT, "lon": ERA5_LON}),
+                role="conditioning",
+            )
+        )
+        return stores
+
+    def setup(self, cfg: DictConfig, device: torch.device) -> None:
+        """Load the baseline and point it at the local climatology store."""
+        import os
+
+        from src.data import PredownloadedSource
+
+        super().setup(cfg, device)
+        self.prognostic.set_source(
+            PredownloadedSource(os.path.join(cfg.output.path, "climatology.zarr"))
+        )
