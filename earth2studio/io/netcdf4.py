@@ -221,6 +221,8 @@ class NetCDF4Backend:
             if di is not None:
                 self.root[name][:] = di
 
+        self.root.sync()
+
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
