@@ -27,6 +27,7 @@ import pytest
 from earth2studio.data import MeteosatLI
 from earth2studio.data.meteosat_li import (
     _LI_EPOCH,
+    _PRODUCT_FIELDS,
     _merge_windows,
     _MeteosatLIGranule,
     _normalize_lat_lon_bbox,
@@ -81,6 +82,11 @@ def _write_flat_li_netcdf(
             )
             ds.createVariable("flash_footprint", "f4", (record_dim,))[:] = np.full(
                 n, 5.0, dtype=np.float32
+            )
+        if product == "LGR":
+            # Pixel count of the group, i.e. its footprint one tier down
+            ds.createVariable("number_of_events", "f4", (record_dim,))[:] = np.full(
+                n, 3.0, dtype=np.float32
             )
 
 
@@ -139,13 +145,29 @@ def _stage(ds: MeteosatLI, granule: _MeteosatLIGranule, writer) -> None:
 # Mock tests - exercise __call__ end-to-end without network
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "product,variables",
+    "product,variables,footprint_pixels",
     [
-        ("LFL", ["lightning_flash_radiance", "lightning_flash_count"]),
-        ("LGR", ["lightning_group_radiance", "lightning_group_count"]),
+        (
+            "LFL",
+            [
+                "lightning_flash_radiance",
+                "lightning_flash_count",
+                "lightning_flash_footprint_pixels",
+            ],
+            5.0,
+        ),
+        (
+            "LGR",
+            [
+                "lightning_group_radiance",
+                "lightning_group_count",
+                "lightning_group_footprint_pixels",
+            ],
+            3.0,
+        ),
     ],
 )
-def test_meteosat_li_call_mock(product, variables, monkeypatch):
+def test_meteosat_li_call_mock(product, variables, footprint_pixels, monkeypatch):
     granule = _granule(product)
     ds = MeteosatLI(cache=False, verbose=False)
 
@@ -175,7 +197,7 @@ def test_meteosat_li_call_mock(product, variables, monkeypatch):
         df = ds(TEST_TIME, variables)
 
         assert list(df.columns) == ds.SCHEMA.names
-        assert len(df) == 6  # 3 detections x 2 variables
+        assert len(df) == 3 * len(variables)  # 3 detections per variable
         assert set(df["variable"].unique()) == set(variables)
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
@@ -186,6 +208,12 @@ def test_meteosat_li_call_mock(product, variables, monkeypatch):
         assert radiance["observation"].max() == pytest.approx(300.0)
         count = df[df["variable"] == variables[1]]
         assert (count["observation"].astype(float) == 1.0).all()
+        # Flashes and groups both report footprint as a detector pixel
+        # count, read from each product's own native field
+        footprint = df[df["variable"] == variables[2]]
+        assert footprint["observation"].tolist() == pytest.approx(
+            [footprint_pixels] * 3
+        )
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
 
@@ -563,6 +591,28 @@ def test_meteosat_li_discover_granules(monkeypatch):
         assert found == [granule]
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
+
+
+def test_meteosat_li_lexicon_footprint_vocab():
+    """Group footprint mirrors the flash one, in pixels, at both tiers."""
+    from earth2studio.lexicon import MeteosatLILexicon
+
+    assert MeteosatLILexicon["lightning_flash_footprint_pixels"][0] == (
+        "LFL::flash_footprint"
+    )
+    assert MeteosatLILexicon["lightning_group_footprint_pixels"][0] == (
+        "LGR::number_of_events"
+    )
+    # An event is a single pixel, so no event-level counterpart
+    assert "lightning_event_footprint_pixels" not in MeteosatLILexicon.VOCAB
+
+    # Every field the vocabulary names is one the source reads for that
+    # product, so the two declarations cannot drift apart silently
+    for key, _ in MeteosatLILexicon.VOCAB.values():
+        product, field = key.split("::", 1)
+        assert product in _PRODUCT_FIELDS
+        if field != "_count":
+            assert field in _PRODUCT_FIELDS[product]
 
 
 def test_meteosat_li_parse_granule_drops_fill_records(tmp_path, recwarn):

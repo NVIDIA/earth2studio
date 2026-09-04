@@ -17,6 +17,7 @@
 import asyncio
 import pathlib
 import shutil
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -26,7 +27,7 @@ import pyarrow as pa
 import pytest
 
 from earth2studio.data import GOESGLM
-from earth2studio.data.goes_glm import _GOESGLMFile
+from earth2studio.data.goes_glm import _LEVEL_FIELDS, _GOESGLMFile
 
 netCDF4 = pytest.importorskip("netCDF4", reason="netCDF4 not installed")
 
@@ -43,6 +44,8 @@ def _write_glm_netcdf(
     epoch: datetime = datetime(2024, 6, 1, 18, 0, 0),
     groups: tuple[list[float], list[float], list[float], list[float]] | None = None,
     flashes: tuple[list[float], list[float], list[float], list[float]] | None = None,
+    areas: dict[str, list[float]] | None = None,
+    omit_energy: Iterable[str] = (),
 ) -> None:
     """Write a minimal GLM L2 LCFA NetCDF that the source can parse.
 
@@ -50,12 +53,23 @@ def _write_glm_netcdf(
     ``(lats, lons, energies, offsets)`` tuples written alongside the
     events so the group and flash tiers of the hierarchy can be
     exercised too.
+
+    ``areas`` maps a level onto its per-record footprint area (m2),
+    written as ``{level}_area``. Real LCFA files carry one for groups
+    and flashes but never for events, so passing a level absent from
+    this mapping produces a file without that level's area variable.
+
+    ``omit_energy`` names levels whose ``{level}_energy`` variable is
+    left out entirely, producing the malformed file every LCFA level is
+    required not to be.
     """
     tiers = [("event", (lats, lons, energies, offsets))]
     if groups is not None:
         tiers.append(("group", groups))
     if flashes is not None:
         tiers.append(("flash", flashes))
+    areas = areas or {}
+    omit_energy = set(omit_energy)
 
     # Flashes span many frames, so their time variable is named for the
     # first constituent event rather than the flash itself.
@@ -74,8 +88,12 @@ def _write_glm_netcdf(
             lat_v[:] = np.asarray(t_lats, dtype=np.float32)
             lon_v = ds.createVariable(f"{level}_lon", "f4", (dim,))
             lon_v[:] = np.asarray(t_lons, dtype=np.float32)
-            en_v = ds.createVariable(f"{level}_energy", "f4", (dim,))
-            en_v[:] = np.asarray(t_energies, dtype=np.float32)
+            if level not in omit_energy:
+                en_v = ds.createVariable(f"{level}_energy", "f4", (dim,))
+                en_v[:] = np.asarray(t_energies, dtype=np.float32)
+            if level in areas:
+                area_v = ds.createVariable(f"{level}_area", "f4", (dim,))
+                area_v[:] = np.asarray(areas[level], dtype=np.float32)
             off_v = ds.createVariable(time_names[level], "f8", (dim,))
             off_v[:] = np.asarray(t_offsets, dtype=np.float64)
 
@@ -166,6 +184,7 @@ def test_goes_glm_call_mock_hierarchy(tmp_path):
         epoch=epoch,
         groups=([35.0, 40.0], [-120.0, -100.0], [4.5e-15, 5.5e-15], [0.0, 30.0]),
         flashes=([35.0], [-120.0], [9.5e-15], [0.0]),
+        areas={"group": [1.2e8, 3.4e8], "flash": [7.8e8]},
     )
 
     try:
@@ -178,7 +197,9 @@ def test_goes_glm_call_mock_hierarchy(tmp_path):
                 [
                     "lightning_event_count",
                     "lightning_group_energy",
+                    "lightning_group_area",
                     "lightning_flash_energy",
+                    "lightning_flash_area",
                     "lightning_flash_count",
                 ],
             )
@@ -188,7 +209,9 @@ def test_goes_glm_call_mock_hierarchy(tmp_path):
         assert counts == {
             "lightning_event_count": 3,
             "lightning_group_energy": 2,
+            "lightning_group_area": 2,
             "lightning_flash_energy": 1,
+            "lightning_flash_area": 1,
             "lightning_flash_count": 1,
         }
 
@@ -197,6 +220,12 @@ def test_goes_glm_call_mock_hierarchy(tmp_path):
         assert groups["observation"].max() == pytest.approx(5.5e-15)
         flashes = df[df["variable"] == "lightning_flash_energy"]
         assert flashes["observation"].iloc[0] == pytest.approx(9.5e-15)
+        # Areas come from the ``*_area`` variables, not from ``*_energy``:
+        # a level's two measurements must not be confused for each other
+        group_area = df[df["variable"] == "lightning_group_area"]
+        assert sorted(group_area["observation"]) == pytest.approx([1.2e8, 3.4e8])
+        flash_area = df[df["variable"] == "lightning_flash_area"]
+        assert flash_area["observation"].iloc[0] == pytest.approx(7.8e8)
         # Counts stay synthetic at every level
         assert (
             df[df["variable"] == "lightning_flash_count"]["observation"].astype(float)
@@ -433,6 +462,7 @@ def test_goes_glm_parse_file_levels(tmp_path):
         epoch=epoch,
         groups=([35.0, 40.0], [-120.0, -100.0], [4e-15, 5e-15], [0.0, 5.0]),
         flashes=([35.0], [-120.0], [9e-15], [0.0]),
+        areas={"group": [1e8, 2e8], "flash": [3e8]},
     )
 
     records = GOESGLM._parse_glm_file(
@@ -442,15 +472,163 @@ def test_goes_glm_parse_file_levels(tmp_path):
     assert len(records["event"]) == 3
     assert len(records["group"]) == 2
     assert len(records["flash"]) == 1
-    # Every level exposes the same normalised column set
-    for frame in records.values():
-        assert list(frame.columns) == ["time", "lat", "lon", "energy"]
+    # Every level exposes the same normalised position/time columns, plus
+    # the measurements it declares: events are single pixels and so carry
+    # no footprint area, while groups and flashes do
+    assert list(records["event"].columns) == ["time", "lat", "lon", "energy"]
+    for level in ("group", "flash"):
+        assert list(records[level].columns) == ["time", "lat", "lon", "energy", "area"]
     assert records["flash"]["energy"].iloc[0] == pytest.approx(9e-15)
+    assert records["flash"]["area"].iloc[0] == pytest.approx(3e8)
+    assert records["group"]["area"].tolist() == pytest.approx([1e8, 2e8])
     # Flash timestamps come from the first-event offset variable
     assert records["flash"]["time"].iloc[0] == pd.Timestamp(epoch)
 
+    # The bbox filter is applied to the area column too, so every column
+    # of a level stays aligned with its records
+    conus = GOESGLM._parse_glm_file(
+        str(f), lat_lon_bbox=(24.5, -125.0, 39.0, -66.0), levels=("group",)
+    )
+    assert conus["group"]["area"].tolist() == pytest.approx([1e8])
+
     # Only the requested levels are read off disk
     assert set(GOESGLM._parse_glm_file(str(f), None, levels=("flash",))) == {"flash"}
+
+
+def test_goes_glm_parse_empty_file_without_global_attributes(tmp_path):
+    """A zero-record NOAA file does not need a time-coverage epoch.
+
+    NOAA's 2023-10-11 18:39:00 LCFA object has all native variables and
+    dimensions, but every hierarchy dimension is zero and all global
+    attributes are absent. It contributes no observations and must not abort
+    the other files in the requested window.
+    """
+    f = tmp_path / "empty_without_attributes.nc"
+    _write_glm_netcdf(
+        f,
+        lats=[],
+        lons=[],
+        energies=[],
+        offsets=[],
+        groups=([], [], [], []),
+        flashes=([], [], [], []),
+        areas={"group": [], "flash": []},
+    )
+    with netCDF4.Dataset(f, "a") as ds:
+        ds.delncattr("time_coverage_start")
+
+    assert (
+        GOESGLM._parse_glm_file(
+            str(f), lat_lon_bbox=None, levels=("event", "group", "flash")
+        )
+        == {}
+    )
+
+
+def test_goes_glm_parse_file_area_optional(tmp_path):
+    """A level with no area variable still parses and serves its energy.
+
+    Events never have a footprint area in LCFA, and a file could omit the
+    group/flash one, so area is read per level and only when present
+    rather than assumed for every record array.
+    """
+    f = tmp_path / "no_area.nc"
+    epoch = datetime(2024, 6, 1, 18, 0, 0)
+    _write_glm_netcdf(
+        f,
+        lats=[35.0],
+        lons=[-100.0],
+        energies=[1e-15],
+        offsets=[0.0],
+        epoch=epoch,
+        groups=([35.0], [-100.0], [4e-15], [0.0]),
+    )
+
+    records = GOESGLM._parse_glm_file(
+        str(f), lat_lon_bbox=None, levels=("event", "group")
+    )
+    # No level got an area, so neither frame carries the column
+    for level in ("event", "group"):
+        assert "area" not in records[level].columns
+    assert records["event"]["energy"].iloc[0] == pytest.approx(1e-15)
+    assert records["group"]["energy"].iloc[0] == pytest.approx(4e-15)
+
+
+def test_goes_glm_parse_file_energy_required(tmp_path):
+    """A nonempty level missing its energy variable is an error.
+
+    Every LCFA level carries an energy, so unlike a missing area this is
+    a malformed file rather than one serving fewer variables. Skipping it
+    would hand back counts and areas from the same file while silently
+    dropping the requested energy rows.
+    """
+    f = tmp_path / "no_energy.nc"
+    epoch = datetime(2024, 6, 1, 18, 0, 0)
+    _write_glm_netcdf(
+        f,
+        lats=[35.0],
+        lons=[-100.0],
+        energies=[1e-15],
+        offsets=[0.0],
+        epoch=epoch,
+        groups=([35.0], [-100.0], [4e-15], [0.0]),
+        areas={"group": [1e8]},
+        omit_energy=("group",),
+    )
+
+    with pytest.raises(ValueError, match="group_energy"):
+        GOESGLM._parse_glm_file(str(f), lat_lon_bbox=None, levels=("group",))
+
+    # The malformed level is what fails; a sound one still parses
+    records = GOESGLM._parse_glm_file(str(f), lat_lon_bbox=None, levels=("event",))
+    assert records["event"]["energy"].iloc[0] == pytest.approx(1e-15)
+
+
+def test_goes_glm_call_mock_area_absent_is_skipped(tmp_path):
+    """Requesting an area a file lacks drops those rows, it does not raise.
+
+    The other requested variables still come back, matching how a level
+    missing from a file is handled.
+    """
+    epoch = datetime(2024, 6, 1, 18, 0, 0)
+    s3_uri = (
+        "s3://noaa-goes16/GLM-L2-LCFA/2024/153/18/"
+        "OR_GLM-L2-LCFA_G16_s20241531800000_e20241531800200_c20241531800220.nc"
+    )
+
+    async def _no_op_fetch(self, uri):  # type: ignore[no-untyped-def]
+        return None
+
+    async def _fake_discover(self, time_list):  # type: ignore[no-untyped-def]
+        return [_GOESGLMFile(s3_uri=s3_uri, satellite="G16", file_start=epoch)]
+
+    ds = GOESGLM(
+        satellite="east",
+        time_tolerance=np.timedelta64(5, "m"),
+        cache=False,
+        verbose=False,
+    )
+    pathlib.Path(ds.cache).mkdir(parents=True, exist_ok=True)
+    _write_glm_netcdf(
+        pathlib.Path(ds._cache_path(s3_uri)),
+        lats=[35.0],
+        lons=[-100.0],
+        energies=[1e-15],
+        offsets=[0.0],
+        epoch=epoch,
+        groups=([35.0], [-100.0], [4e-15], [0.0]),
+    )
+
+    try:
+        with (
+            patch.object(GOESGLM, "_discover_files", _fake_discover),
+            patch.object(GOESGLM, "_fetch_remote_file", _no_op_fetch),
+        ):
+            df = ds(epoch, ["lightning_group_energy", "lightning_group_area"])
+        assert set(df["variable"].unique()) == {"lightning_group_energy"}
+        assert df["observation"].iloc[0] == pytest.approx(4e-15)
+    finally:
+        shutil.rmtree(ds.cache, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -644,3 +822,37 @@ def test_goes_glm_call_mock_unknown_variable_still_raises():
             ds(datetime(2024, 6, 1, 18, 0), ["not_a_variable"])
     finally:
         shutil.rmtree(ds.cache, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Lexicon vocabulary
+# ---------------------------------------------------------------------------
+def test_goes_glm_lexicon_area_vocab():
+    """Footprint area ids resolve to their native LCFA field names."""
+    from earth2studio.lexicon import GOESGLMLexicon
+
+    assert GOESGLMLexicon["lightning_group_area"][0] == "group::group_area"
+    assert GOESGLMLexicon["lightning_flash_area"][0] == "flash::flash_area"
+    # An event is a single pixel and LCFA gives it no area, so no
+    # event-level counterpart is exposed
+    assert "lightning_event_area" not in GOESGLMLexicon.VOCAB
+
+    # Values are returned in their native m2, unmodified
+    _, modifier = GOESGLMLexicon["lightning_group_area"]
+    assert modifier(1.5e8) == pytest.approx(1.5e8)
+
+
+def test_goes_glm_lexicon_matches_level_fields():
+    """Every vocab entry names a level and field the source can read.
+
+    The lexicon and ``_LEVEL_FIELDS`` are separate declarations of the
+    same mapping, so a field added to one and not the other would only
+    surface as a KeyError at fetch time.
+    """
+    from earth2studio.lexicon import GOESGLMLexicon
+
+    for key in GOESGLMLexicon.VOCAB.values():
+        level, field = key.split("::", 1)
+        assert level in _LEVEL_FIELDS
+        if field != "_count":
+            assert field in _LEVEL_FIELDS[level].values()
