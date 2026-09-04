@@ -29,6 +29,7 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.px.weathernext2_cyclones import WeatherNext2Cyclones
 from earth2studio.models.px.weathernext2_cyclones_mini import (
     OUTPUT_VARIABLES,
     WeatherNext2CyclonesMini,
@@ -196,6 +197,13 @@ def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
     )
     with pytest.raises((KeyError, ValueError)):
         model(x, coords)
+
+
+def test_weathernext2_operational_checkpoint():
+    assert WeatherNext2Cyclones._params_path(1).endswith("_<2025_model1.npz")
+    assert WeatherNext2Cyclones._params_path(4).endswith("_<2025_model4.npz")
+    with pytest.raises(ValueError, match="1 through 4"):
+        WeatherNext2Cyclones._params_path(0)
 
 
 @pytest.mark.package

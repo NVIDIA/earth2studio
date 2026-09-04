@@ -98,15 +98,6 @@ def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
     return tracks
 
 
-MODEL_NAME = "WeatherNextCyclones_Mini"
-MODEL_SPLIT = "2024"
-PARAMS_PATH = f"params/{MODEL_NAME}_<{MODEL_SPLIT}.npz"
-SAMPLE_PATH = (
-    "dataset/source-hres_forecast_init-2024-10-07 00:00:00_"
-    "res-1.0_levels-13_steps-01.nc"
-)
-
-
 @check_optional_dependencies()
 class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """WeatherNext 2 Cyclones Mini medium-range forecast model.
@@ -182,6 +173,13 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
     region:global class:medium-range product:wind product:precip product:temp product:atmos
     product:ocean year:2026 gpu:40gb provider:google backend:jax
     """
+
+    MODEL_NAME = "WeatherNextCyclones_Mini"
+    PARAMS_PATH = "params/WeatherNextCyclones_Mini_<2024.npz"
+    SAMPLE_PATH = (
+        "dataset/source-hres_forecast_init-2024-10-07 00:00:00_"
+        "res-1.0_levels-13_steps-01.nc"
+    )
 
     def __init__(
         self,
@@ -413,11 +411,11 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         PrognosticModel
             Prognostic model.
         """
-        params_path = package.resolve(PARAMS_PATH)
+        params_path = package.resolve(cls.PARAMS_PATH)
         with open(params_path, "rb") as f:
             ckpt = checkpoint.load(f, fgn.CheckPoint)
 
-        sample_input = xr.load_dataset(package.resolve(SAMPLE_PATH))
+        sample_input = xr.load_dataset(package.resolve(cls.SAMPLE_PATH))
         land_sea_mask = sample_input["land_sea_mask"].values
         geopotential_at_surface = sample_input["geopotential_at_surface"].values
 
@@ -432,7 +430,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
     def _load_task_config(self) -> Any:
         config = fiddle_config_io.get_fiddle_config_by_name(
-            f"weathernext2/configs/{MODEL_NAME}"
+            f"weathernext2/configs/{self.MODEL_NAME}"
         )
         target_variables = (
             config.task.target_variables
@@ -449,7 +447,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         """Build WeatherNext 2 inference function from checkpoint."""
         config = copy.deepcopy(
             fiddle_config_io.get_fiddle_config_by_name(
-                f"weathernext2/configs/{MODEL_NAME}"
+                f"weathernext2/configs/{self.MODEL_NAME}"
             )
         )
         task_config = self.task_config
