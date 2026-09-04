@@ -140,7 +140,11 @@ def _points_destination(points, imports=("sea_surface_temperature",)):
         return x, coords
 
     return CallableComponent(
-        "stations", step, timestep="48h", imports=list(imports), exports=[],
+        "stations",
+        step,
+        timestep="48h",
+        imports=list(imports),
+        exports=[],
         points=points,
     )
 
@@ -176,9 +180,7 @@ def test_sample_nearest_recovers_exact_grid_points():
     got = stations.import_state["sea_surface_temperature"]
     assert list(got.coords) == ["point"]
     assert got.data.shape == (2,)
-    assert torch.allclose(
-        got.data, torch.tensor([data[3, 2], data[5, 10]]).float()
-    )
+    assert torch.allclose(got.data, torch.tensor([data[3, 2], data[5, 10]]).float())
     assert np.array_equal(got.coords["point"], points.labels())
 
 
@@ -217,9 +219,7 @@ def test_sample_bilinear_matches_direct_kernel_call():
 
 def test_sample_and_regridder_mutually_exclusive():
     with pytest.raises(CouplingError, match="mutually exclusive"):
-        Connector(
-            *_realized_pair()[:2], sample="nearest", regridder=lambda x: x
-        )
+        Connector(*_realized_pair()[:2], sample="nearest", regridder=lambda x: x)
 
 
 def test_sample_missing_choice_raises_actionable_error():
@@ -241,7 +241,10 @@ def test_sample_without_points_metadata_raises():
     # a "point" dim without a registered PointSet (points=None) — reachable
     # if a component hand-builds coords with a "point" key directly
     stations = CallableComponent(
-        "stations", step, timestep="48h", imports=["sea_surface_temperature"],
+        "stations",
+        step,
+        timestep="48h",
+        imports=["sea_surface_temperature"],
         exports=[],
     )
     stations.realize(clock)
