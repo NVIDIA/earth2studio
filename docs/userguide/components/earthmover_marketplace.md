@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD013 MD033 MD046 -->
+
 # Earthmover Marketplace { #earthmover_marketplace_userguide }
 
 The [Earthmover Marketplace](https://app.earthmover.io/marketplace) is Earthmover's
@@ -282,7 +284,7 @@ as shown above.
 | `ValueError: Set EARTHMOVER_API_KEY ...` | No credentials found | Set `EARTHMOVER_API_KEY` or pass an authenticated `client=` |
 | `PermissionError: Access to Arraylake repo '...' was denied` | No active subscription | Subscribe on the dataset's Marketplace listing page |
 | `ValueError: Arraylake repo '...' was not found` | Wrong repo name, or subscription not yet active | Double check the `org/repo` name and subscription status |
-| `ValueError: Could not resolve Earth2Studio variable '...' ` | Repository lacks GRIB/CF metadata for that variable | Check the error's list of available repository variables |
+| `ValueError: Could not resolve Earth2Studio variable '...'` | Repository lacks GRIB/CF metadata for that variable | Check the error's list of available repository variables |
 
 ## Further reading
 
