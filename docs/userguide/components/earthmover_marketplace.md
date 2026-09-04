@@ -268,8 +268,8 @@ Earthmover-account-level process, per
 [Marketplace](https://app.earthmover.io/marketplace) repositories are not curated by
 Earth2Studio, so each Earthmover data source resolves Earth2Studio variable ids (e.g.
 `t2m`, `z500`) against the repository's native variable metadata at read time,
-matching on GRIB `paramId`, GRIB `shortName` / `cfVarName`, or CF `standard_name`, in
-that priority order.
+matching on `paramId`, `shortName` / `cfVarName`, or CF `standard_name` metadata
+attributes, in that priority order.
 
 If a variable cannot be unambiguously resolved, the data source raises a `ValueError`
 listing which variables are available in the repository, rather than silently
@@ -279,7 +279,7 @@ returning the wrong field.
 
 The Earthmover data sources are not limited to catalog listings from the
 [Marketplace](https://app.earthmover.io/marketplace).
-Any [Arraylake](https://docs.earthmover.io/) repository with a compatible CF/GRIB-annotated Zarr layout,
+Any [Arraylake](https://docs.earthmover.io/) repository with a compatible CF-annotated Zarr layout,
 including your own private repositories, can be read by passing `repo="org/repo"` explicitly,
 as shown above.
 
@@ -299,7 +299,7 @@ as shown above.
 | `ValueError: Set EARTHMOVER_API_KEY ...` | No credentials found | Set `EARTHMOVER_API_KEY` or pass an authenticated `client=` |
 | `PermissionError: Access to Arraylake repo '...' was denied` | No active subscription | Subscribe on the dataset's Marketplace listing page |
 | `ValueError: Arraylake repo '...' was not found` | Wrong repo name, or subscription not yet active | Double check the `org/repo` name and subscription status |
-| `ValueError: Could not resolve Earth2Studio variable '...'` | Repository lacks GRIB/CF metadata for that variable | Check the error's list of available repository variables |
+| `ValueError: Could not resolve Earth2Studio variable '...'` | Repository lacks the expected metadata attributes for that variable | Check the error's list of available repository variables |
 
 ## Further reading
 
