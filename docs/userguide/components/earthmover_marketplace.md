@@ -99,34 +99,44 @@ directly to the data source via the `client` argument.
 With the repo name derived from `EARTHMOVER_ORGANIZATION`:
 
 ```python
+from datetime import datetime
 from earth2studio.data import EarthMoverERA5
 
 ds = EarthMoverERA5()
-da = ds(time="2021-06-01T00:00:00", variable=["t2m", "u10m", "z500"])
+da = ds(time=datetime(2021, 6, 1), variable=["t2m", "u10m", "z500"])
 ```
 
 Or pass an explicit `org/repo` to read a specific repository:
 
 ```python
+from datetime import datetime
 from earth2studio.data import EarthMoverBrightBandIFS
 
 ds = EarthMoverBrightBandIFS(repo="my-org/ecmwf-ifs-initial-conditions-open-subscription")
-da = ds(time="2024-01-01T00:00:00", variable=["t2m", "z500", "u850"])
+da = ds(time=datetime(2024, 1, 1), variable=["t2m", "z500", "u850"])
 ```
 
 Forecast sources additionally take a `lead_time`:
 
 ```python
+from datetime import datetime
+
 import numpy as np
 from earth2studio.data import EarthMoverBrightBandIFS_FX
 
 ds = EarthMoverBrightBandIFS_FX()
 da = ds(
-    time="2024-01-01T00:00:00",
+    time=datetime(2024, 1, 1),
     lead_time=np.array([np.timedelta64(h, "h") for h in [0, 6, 12]]),
     variable=["t2m", "u10m"],
 )
 ```
+
+!!! note
+    Pass `datetime` objects (or a list/array of them) directly to a data source, as
+    shown above; passing a raw ISO string is not supported. Workflow entry points such
+    as `earth2studio.run.deterministic` convert `list[str]` time inputs for you via
+    `earth2studio.utils.time.to_time_array`, but calling a data source directly does not.
 
 As with any [data source](datasources.md#datasources_userguide), the returned
 `xr.DataArray` can be used directly for postprocessing or moved to the GPU as a model
