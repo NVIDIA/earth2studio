@@ -49,11 +49,14 @@ same page. Per the listing pages themselves:
 
 ## How the data is hosted
 
-Marketplace data is **not copied into Earthmover's or your own storage**. Each dataset
-provider hosts their data in their own cloud object store (any S3-compatible store, GCS,
-or Azure Blob), and [Icechunk](https://icechunk.io/) (the versioned storage format
-Arraylake is built on) tracks it with cryptographically-addressed manifests.
-Subscribing does not trigger a download:
+Marketplace data is **not copied into Earthmover's or your own storage**. Per
+[Earthmover's storage docs](https://docs.earthmover.io/concepts/storage), "Arraylake
+works with a wide range of commercial and open-source object storage services,
+including any S3-compatible object store as well as Google Cloud Storage and Microsoft
+Azure Blob Storage," and providers typically use "BYOB - Bring your own bucket": "all
+the data live in your cloud in your own object storage bucket." [Icechunk](https://icechunk.io/)
+(the versioned storage format Arraylake is built on) tracks it with
+cryptographically-addressed manifests. Subscribing does not trigger a download:
 
 - **Free listings** are a direct subscription. Per
   [Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers),
@@ -105,17 +108,26 @@ Attempting to read a repository without an active subscription raises a
     provider can see your organization name and contact email."
 
 !!! note "License & cost"
-    Each listing page states its own license and, for paid data, its pricing, set by
-    the provider, not Earth2Studio. Storage for a subscription repo lives in the
-    provider's bucket (free listings) or your own organization's bucket for the
-    subscription metadata (paid listings); either way you are not billed for storing a
-    copy of the underlying dataset. Check the listing page before subscribing to a
-    paid dataset for the applicable terms.
+    Per [Earthmover's FAQ](https://docs.earthmover.io/marketplace/faq): "The
+    Marketplace supports both free/open data and paid subscriptions." For free
+    listings, "no payment needed to access the data"; "many datasets on the
+    Marketplace are completely free" and "anyone with an Arraylake account can
+    subscribe to free listings instantly and start querying data right away." For
+    paid listings, "custom pricing [is] negotiated between provider and the user," and
+    "paid datasets require a Professional plan." Each listing page states its own
+    license terms, set by the provider, not Earth2Studio - check it before
+    subscribing.
 
 ## 2. Authenticate
 
-Set an [Arraylake](https://docs.earthmover.io/) API key (create one at
-[app.earthmover.io](https://app.earthmover.io) under account settings):
+Set an [Arraylake](https://docs.earthmover.io/) API key. Per
+[Earthmover's org-access docs](https://docs.earthmover.io/setup/org-access), "to create
+a new API key, click on the big purple 'New API Client' button" in your organization's
+settings on [app.earthmover.io](https://app.earthmover.io), "enter a name for the API
+key, then select the appropriate permissions (read/write), and the key's lifetime."
+The resulting "secret tokens are a single string, prefixed with the `ema_` identifier"
+(e.g. `ema_123456789123456789_123456789123456789123456789`) and "expire after 1 year by
+default." Tokens "should be considered secret, and should not be shared publicly":
 
 ```bash
 export EARTHMOVER_API_KEY="<your-arraylake-api-key>"
