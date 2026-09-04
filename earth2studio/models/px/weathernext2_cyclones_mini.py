@@ -727,7 +727,18 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         device = x.device
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:, ...], coords_out
+        coords_out["variable"] = np.array(OUTPUT_VARIABLES)
+        initial = x[:, :, 1:, ...]
+        surface_count = len(SURFACE_INPUT_VARIABLES)
+        tp06 = torch.full_like(initial[..., :1, :, :], float("nan"))
+        yield torch.cat(
+            (
+                initial[..., :surface_count, :, :],
+                tp06,
+                initial[..., surface_count:, :, :],
+            ),
+            dim=3,
+        ), coords_out
 
         while True:
             coords = self.output_coords(coords)

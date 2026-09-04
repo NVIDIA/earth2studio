@@ -137,7 +137,14 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
 
     out, out_coords = next(model_iter)
     assert out_coords["lead_time"] == np.timedelta64(0, "h")
-    assert out.shape == torch.Size([1, 1, len(model.input_coords()["variable"]), 9, 12])
+    assert out.shape == torch.Size([1, 1, len(OUTPUT_VARIABLES), 9, 12])
+    assert np.array_equal(out_coords["variable"], OUTPUT_VARIABLES)
+    tp06_index = OUTPUT_VARIABLES.index("tp06")
+    assert torch.isnan(out[:, :, tp06_index]).all()
+    assert torch.equal(
+        torch.cat((out[:, :, :tp06_index], out[:, :, tp06_index + 1 :]), dim=2),
+        x[:, 1:],
+    )
 
     for i in range(7):
         out, out_coords = next(model_iter)
