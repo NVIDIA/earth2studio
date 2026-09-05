@@ -173,6 +173,15 @@ class InSituForecastFeed:
     arrays a run does not read keep their files -- so several variable subsets can share one
     directory sequentially.
 
+    ``readonly_cache=True`` is the many-scorers half of that workflow: one job warms the
+    cache, then any number of scoring jobs open it **read-only**. They take the directory
+    lock *shared*, so they coexist with each other (a writer still does not), they write
+    nothing, and a cache **miss raises** instead of quietly reaching for the cloud. That is
+    what makes it a contract -- *this cache is complete for what I am about to read* -- and
+    it is what you want when a campaign's cost model assumes no egress: a warming run whose
+    split or variable set was narrower than the scoring run's is then an error at the chunk
+    it first needs, not a surprise bill.
+
     The store's time axis must be **uniformly spaced**: leads are mapped to sample-axis steps
     through a single ``dt``, so an irregular axis would silently score against the wrong valid
     times. It is validated at construction.
@@ -192,6 +201,7 @@ class InSituForecastFeed:
         batch_size: int = 8,
         max_inflight: int | None = None,
         cache_dir: str | None = None,
+        readonly_cache: bool = False,
         transpose_inner: bool = False,
         device: torch.device | str = "cpu",
     ) -> None:
@@ -199,6 +209,11 @@ class InSituForecastFeed:
         self.variables = [str(v) for v in variables]
         self.device = device
         self.transpose_inner = transpose_inner
+        if readonly_cache and cache_dir is None:
+            raise ValueError(
+                "readonly_cache=True needs a cache_dir -- it is an assertion that a warmed "
+                "cache is complete for this run, and there is no cache to read without one"
+            )
         vmap = var_map or {v: v for v in self.variables}
         if missing := [v for v in self.variables if v not in vmap]:
             raise ValueError(
@@ -301,6 +316,7 @@ class InSituForecastFeed:
             cache_dir=cache_dir,
             # cache_dir set => cross-run persistent cache (not just an in-run spill tier)
             persist=cache_dir is not None,
+            readonly_cache=readonly_cache,
             max_inflight=max_inflight,
         )
 

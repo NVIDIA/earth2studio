@@ -225,6 +225,23 @@ slightly above the persist-off de-dup figure in §1.
 The benchmark wipes and rebuilds `<cache-dir>/bench_cold_warm/<store>/` so the cold leg starts
 empty; it never touches the rest of `--cache-dir`.
 
+**Many scorers, one warm cache.** The re-score shape is usually one warming job and then
+several scoring jobs — a checkpoint sweep against one fixed verification set. Give the
+scorers `readonly_cache=True`:
+
+```python
+warm  = InSituForecastFeed(store, vars, cache_dir="/mnt/nvme/era5-verif", ...)   # one writer
+score = InSituForecastFeed(store, vars, cache_dir="/mnt/nvme/era5-verif",
+                           readonly_cache=True, ...)                             # any number
+```
+
+A writer takes the directory lock exclusively, so a second writer fails at construction
+naming the holder's PID — the case that could previously corrupt both. Read-only openers
+take it *shared*: they coexist with each other, write nothing, and a cache **miss raises**
+rather than silently re-fetching. That last part is the point on a metered-egress campaign —
+a warming run whose window or variable set was narrower than the scoring run's becomes an
+error at the first chunk it needs, not a surprise bill.
+
 ## How to read these numbers — framing insitubatch
 
 insitubatch is a **streaming batch loader** that trains/infers in place on cloud zarr: all

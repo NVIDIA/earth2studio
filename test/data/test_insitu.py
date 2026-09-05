@@ -381,3 +381,41 @@ def test_many_leads_over_variables_with_unequal_chunking(tmp_path):
                 )
             seen += 1
     assert seen > 0
+
+
+def test_readonly_cache_serves_a_warm_cache_and_writes_nothing(tmp_path):
+    """The many-scorers workflow: one run warms, later runs open read-only.
+
+    A read-only opener must serve every chunk from disk (no misses), leave the directory
+    byte-for-byte alone, and return exactly what the warming run returned.
+    """
+    store, _ = write_store(tmp_path)
+    cache = str(tmp_path / "cache")
+    common = dict(
+        var_map={"t2m": "2m_temperature"},
+        lead_times=np.array([np.timedelta64(h, "h") for h in (0, 6, 12)]),
+        cache_dir=cache,
+    )
+    warm = InSituForecastFeed(store, ["t2m"], **common)
+    first = [x.clone() for x, _ in warm]
+    warm.dataset.close()
+    before = sorted((f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir())
+
+    reader = InSituForecastFeed(store, ["t2m"], readonly_cache=True, **common)
+    second = [x.clone() for x, _ in reader]
+    assert reader.dataset.cache_misses == 0, "a warm read-only run must not miss"
+    reader.dataset.close()
+
+    after = sorted((f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir())
+    assert before == after, "a read-only opener must not write to the cache directory"
+    for a, b in zip(first, second, strict=True):
+        np.testing.assert_array_equal(a.cpu().numpy(), b.cpu().numpy())
+
+
+def test_readonly_cache_without_a_cache_dir_raises(tmp_path):
+    """The flag is an assertion about a cache; without one there is nothing to assert."""
+    store, _ = write_store(tmp_path)
+    with pytest.raises(ValueError, match="readonly_cache=True needs a cache_dir"):
+        InSituForecastFeed(
+            store, ["t2m"], var_map={"t2m": "2m_temperature"}, readonly_cache=True
+        )

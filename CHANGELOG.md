@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `readonly_cache` to `InSituForecastFeed`, for scoring many checkpoints against one
+  warmed verification cache: read-only openers share the cache directory lock, write
+  nothing, and raise on a miss instead of silently re-fetching
 - Added `insitu` optional dependency extra for `earth2studio.data.insitu`, keeping
   insitubatch's Python >= 3.12 floor (zarr-v3's, from zarr 3.2.0) out of the `data` extra
 - Added optional `InSituForecastFeed` (`earth2studio.data.insitu`), an insitubatch-backed
