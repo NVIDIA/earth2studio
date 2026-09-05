@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `insitu` optional dependency extra for `earth2studio.data.insitu`, keeping
+  insitubatch's Python >= 3.12 floor (zarr-v3's, from zarr 3.2.0) out of the `data` extra
 - Added optional `InSituForecastFeed` (`earth2studio.data.insitu`), an insitubatch-backed
   streaming initial-condition / verification feed that reads a cloud zarr analysis store
   with a de-duplicating read plan and yields `(torch.Tensor, CoordSystem)` batches for

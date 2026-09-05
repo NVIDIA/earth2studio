@@ -77,8 +77,15 @@ data = [
     "rioxarray>=0.15.5",
     "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
-    "insitubatch>=0.1.0; python_version>='3.12'", # streaming cloud-zarr loader — earth2studio.data.insitu
     "eumdac>=3.1.0",
+]
+# Streaming cloud-zarr loader for earth2studio.data.insitu. Its own extra rather than part
+# of `data`: it needs Python >= 3.12 (zarr-v3's floor from 3.2.0, not insitubatch's own
+# choice), so folding it into `data` would raise that floor for every other data source too.
+# TODO(release): raise to `insitubatch>=0.2.0,<0.3` and delete the [tool.uv.sources] entry
+# below once 0.2.0 is on PyPI. Until then this resolves to the unreleased head.
+insitu = [
+    "insitubatch>=0.1.0; python_version>='3.12'",
 ]
 perturbation = [
     "torch-harmonics>=0.7.4",
@@ -322,7 +329,7 @@ da-stormcast = [
 # torch-harmonics used by `atlas`, `fcn3`, `perturbation`, and `sfno` (see
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
-    "earth2studio[data,perturbation,statistics,utils,serve]",
+    "earth2studio[data,insitu,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
@@ -417,6 +424,10 @@ nvidia-physicsnemo = [
   { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "stormcast-conus"},
   { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "dlesym"},
 ]
+
+# TODO(release): DELETE with the pin bump above. Points the `insitu` extra at the
+# unreleased insitubatch head this branch is measured against; 0.2.0 is not on PyPI yet.
+insitubatch = { git = "https://github.com/emfdavid/insitubatch", rev = "888d87c02cdfe5d7ae662aee07ffdb7f533cc14f" }
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
 earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "23608550091f6ffb6256c3830514c6489f11fd90" }

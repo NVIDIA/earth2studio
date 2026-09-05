@@ -45,7 +45,9 @@ TIME_UNITS = "hours since 1959-01-01"
 STEP_H = 6  # store sample-axis step (6-hourly, like WB2)
 
 
-def write_store(tmp_path, *, n=48, spc=8, lat=4, lon=5, inner_latlon=True, seed=0):
+def write_store(
+    tmp_path, *, n=48, spc=8, lat=4, lon=5, inner_latlon=True, seed=0, time_gap=None
+):
     """Write a synthetic analysis store; return ``(store, {array_name: source_ndarray})``.
 
     ``spc`` steps per stored chunk is the fat time-chunk that lets an overlapping
@@ -62,7 +64,10 @@ def write_store(tmp_path, *, n=48, spc=8, lat=4, lon=5, inner_latlon=True, seed=
 
     # CF-encoded time coordinate: 6-hourly integers since a reanalysis epoch.
     t = group.create_array("time", shape=(n,), chunks=(n,), dtype="i8")
-    t[:] = (np.arange(n) * STEP_H).astype("i8")
+    values = (np.arange(n) * STEP_H).astype("i8")
+    if time_gap is not None:  # a concatenation seam / missing window
+        values[time_gap:] += STEP_H
+    t[:] = values
     t.attrs["units"] = TIME_UNITS
 
     inner = (lat, lon) if inner_latlon else (lon, lat)
@@ -299,3 +304,80 @@ def test_sample_range_none_defaults_to_valid_window(tmp_path):
     feed.dataset.close()
     # valid_anchor_range([0,1,2], 48) = [0, 46): the last two inits would read past the end
     assert n_inits == 46
+
+
+def test_var_map_missing_an_entry_raises_at_construction(tmp_path):
+    """A missing mapping is a configuration mistake, not a KeyError three frames deep in
+    the loader. Name the ids that have no entry, and what was given."""
+    store, _ = write_store(tmp_path)
+    with pytest.raises(ValueError, match=r"var_map has no entry for \['v10m'\]"):
+        InSituForecastFeed(
+            store,
+            ["t2m", "v10m"],
+            var_map={"t2m": "2m_temperature"},
+        )
+
+
+def test_irregular_time_axis_raises(tmp_path):
+    """Leads map to sample-axis steps through one dt, so a seam in the time axis would
+    score against the wrong valid times -- silently, and only after the seam."""
+    store, _ = write_store(tmp_path, time_gap=20)
+    with pytest.raises(ValueError, match="not uniformly spaced"):
+        InSituForecastFeed(
+            store,
+            ["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array([np.timedelta64(6, "h")]),
+        )
+
+
+def test_single_step_time_axis_raises(tmp_path):
+    """The degenerate axis the dt read would IndexError on."""
+    store, _ = write_store(tmp_path, n=1, spc=1)
+    with pytest.raises(ValueError, match="needs at least two"):
+        InSituForecastFeed(store, ["t2m"], var_map={"t2m": "2m_temperature"})
+
+
+def test_many_leads_over_variables_with_unequal_chunking(tmp_path):
+    """The adapter's real hindcast shape, which nothing exercised end to end: several leads
+    x several variables, over arrays whose sample-chunk sizes differ.
+
+    The read plan is built from the *reference* geometry, but every variable's reads come
+    from its own chunk grid -- so a coarser second array must still deliver byte-exact data
+    at every lead. This is the composition Negin asked about.
+    """
+    import zarr
+
+    store, srcs = write_store(tmp_path, n=48, spc=8)
+    # Re-chunk the second variable to a different sample-chunk size (3 vs 8, non-divisible).
+    group = zarr.open_group(store=store, mode="a")
+    del group["10m_u_component_of_wind"]
+    arr = group.create_array(
+        "10m_u_component_of_wind", shape=srcs["10m_u_component_of_wind"].shape,
+        chunks=(3, *srcs["10m_u_component_of_wind"].shape[1:]), dtype="f4",
+    )
+    arr[:] = srcs["10m_u_component_of_wind"]
+
+    leads = np.array([np.timedelta64(h, "h") for h in (0, 6, 12, 18, 24, 30)])
+    feed = InSituForecastFeed(
+        store,
+        ["t2m", "u10m"],
+        var_map={"t2m": "2m_temperature", "u10m": "10m_u_component_of_wind"},
+        lead_times=leads,
+        batch_size=4,
+    )
+    seen = 0
+    for x, coords in feed:
+        assert x.shape[1] == len(leads) and x.shape[2] == 2
+        for i, t0 in enumerate(coords["time"]):
+            anchor = int(np.where(feed.time == t0)[0][0])
+            for li in range(len(leads)):  # lead li is anchor + li steps (6 h == one step)
+                np.testing.assert_allclose(
+                    x[i, li, 0].cpu().numpy(), srcs["2m_temperature"][anchor + li]
+                )
+                np.testing.assert_allclose(
+                    x[i, li, 1].cpu().numpy(),
+                    srcs["10m_u_component_of_wind"][anchor + li],
+                )
+            seen += 1
+    assert seen > 0

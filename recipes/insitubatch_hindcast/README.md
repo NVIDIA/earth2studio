@@ -37,10 +37,13 @@ on disk, where the persistent cache holds only the chunks actually touched.
 
 ## Setup
 
-insitubatch is declared in earth2studio's `data` extra (needs Python >= 3.12):
+insitubatch has its own extra (it needs Python >= 3.12, which is zarr-v3's floor from
+3.2.0 — folding it into `data` would raise that floor for every other data source). The
+benchmarks need both: `insitu` for the feed, `data` for the Earth2Studio sources the
+baseline legs read.
 
 ```bash
-uv sync --extra data
+uv sync --extra data --extra insitu
 ```
 
 Both stores are anonymous public GCS buckets (WeatherBench2 ERA5, ARCO ERA5); no credentials

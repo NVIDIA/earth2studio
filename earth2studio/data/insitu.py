@@ -46,6 +46,10 @@ import torch
 import zarr
 from zarr.abc.store import Store
 
+from earth2studio.utils.imports import (
+    OptionalDependencyFailure,
+    check_optional_dependencies,
+)
 from earth2studio.utils.type import CoordSystem, VariableArray
 
 try:
@@ -57,10 +61,14 @@ try:
         to_torch,
         valid_anchor_range,
     )
-except ImportError as exc:  # pragma: no cover - optional integration
-    raise ImportError(
-        "earth2studio.data.insitu needs insitubatch; install it with: pip install insitubatch"
-    ) from exc
+except ImportError:
+    OptionalDependencyFailure("insitu")
+    Batch = None
+    InSituDataset = None
+    open_geometries = None
+    split_by_chunk = None
+    to_torch = None
+    valid_anchor_range = None
 
 
 def decode_cf_time(
@@ -126,6 +134,7 @@ def batch_to_xcoords(
     return x, coords
 
 
+@check_optional_dependencies()
 class InSituForecastFeed:
     """Iterate ``(x, coords)`` batches over a hindcast window, prefetched and de-duplicated.
 
@@ -152,7 +161,21 @@ class InSituForecastFeed:
     reads them from local disk as ``cache_hits`` instead of re-fetching the cloud. Because a
     reanalysis store is static, this is a drop-in replacement for a pre-download step when the
     *same* ground truth is scored repeatedly (many models, one fixed verification set). The
-    path is the cache identity -- use a fresh ``cache_dir`` when the store or variables change.
+    path is the cache identity -- use a fresh ``cache_dir`` when the store changes.
+
+    **One process per ``cache_dir``.** insitubatch takes an exclusive advisory lock on the
+    directory for the feed's lifetime, so a second process pointed at the same path fails at
+    construction naming the holder's PID and host, rather than the two of them corrupting each
+    other's chunk files. Give each concurrently running job its own ``cache_dir`` (or run them
+    in sequence); the lock is released by the kernel when a process dies, including under
+    ``SIGKILL`` and spot preemption, so there is no stale lock to clean up. Adding a variable
+    to a later run is *not* a cache reset -- an array with no entries is cold, not stale, and
+    arrays a run does not read keep their files -- so several variable subsets can share one
+    directory sequentially.
+
+    The store's time axis must be **uniformly spaced**: leads are mapped to sample-axis steps
+    through a single ``dt``, so an irregular axis would silently score against the wrong valid
+    times. It is validated at construction.
     """
 
     def __init__(
@@ -177,6 +200,12 @@ class InSituForecastFeed:
         self.device = device
         self.transpose_inner = transpose_inner
         vmap = var_map or {v: v for v in self.variables}
+        if missing := [v for v in self.variables if v not in vmap]:
+            raise ValueError(
+                f"var_map has no entry for {missing}; it must name a store array for every "
+                f"id in `variables`. Given: {sorted(vmap)}. Omit var_map entirely when the "
+                "ids already are the store's array names."
+            )
 
         group = zarr.open_group(store=store, mode="r")
         time_arr = np.asarray(group[time_name][:])
@@ -191,7 +220,28 @@ class InSituForecastFeed:
         self.lon = np.asarray(group[lon_name][:]).astype(np.float32)
 
         # Sample-axis step of the store (dt); every lead must be an integer multiple of it.
-        dt = self.time[1] - self.time[0]
+        # A lead is mapped to sample-axis steps through this one dt, so a store whose time
+        # axis is irregular (a gap, a resolution change, a concatenation seam) would map
+        # leads onto the wrong valid times -- silently, and wrongly only for the inits after
+        # the seam. Validate the whole axis rather than trusting its first two entries. The
+        # length check is the same guard: a 1-step axis has no dt to read.
+        if self.time.size < 2:
+            raise ValueError(
+                f"the store's `{time_name}` axis has {self.time.size} step(s); a lead axis "
+                "needs at least two to establish the sample-axis step"
+            )
+        steps_between = np.diff(self.time)
+        dt = steps_between[0]
+        if not np.all(steps_between == dt):
+            bad = int(np.argmax(steps_between != dt))
+            raise ValueError(
+                f"the store's `{time_name}` axis is not uniformly spaced: step {bad} is "
+                f"{steps_between[bad]} against {dt} at the start "
+                f"({self.time[bad]} -> {self.time[bad + 1]}). Leads are mapped to sample-axis "
+                "steps through a single dt, so an irregular axis would silently read the "
+                "wrong valid times; slice the store to a uniform window and pass "
+                "`sample_range` instead."
+            )
         leads = (
             np.array([np.timedelta64(0, "ns")])
             if lead_times is None
