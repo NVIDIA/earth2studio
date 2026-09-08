@@ -63,7 +63,7 @@ In this example you will learn:
 # We need the following:
 #
 # - Prognostic Model: Use the Atlas-CRPS model [`earth2studio.models.px.AtlasCRPS`][earth2studio.models.px.AtlasCRPS].
-# - Datasource: Pull data from the ARCO data source [`earth2studio.data.ARCO`][earth2studio.data.ARCO].
+# - Datasource: Pull data from the ARCO ERA5 data source [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5].
 # - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
 # !!! note
@@ -80,7 +80,7 @@ In this example you will learn:
 #     Atlas-CRPS expects total precipitation as a 6-hour accumulation (``tp06``), not the
 #     1-hour accumulation returned by a bare ``tp`` request. The model's ``VARIABLES`` list
 #     already requests ``tp06``, so data sources with a matching lexicon entry (including
-#     ARCO) will accumulate the correct window automatically.
+#     ARCO ERA5) will accumulate the correct window automatically.
 #
 
 # %%
@@ -97,7 +97,7 @@ load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.data.utils import fetch_data
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import AtlasCRPS
@@ -107,7 +107,7 @@ package = AtlasCRPS.load_default_package()
 model = AtlasCRPS.load_model(package)
 
 # Create the data source
-data = ARCO()
+data = ARCO_ERA5()
 
 # Create the IO handler
 io = ZarrBackend()

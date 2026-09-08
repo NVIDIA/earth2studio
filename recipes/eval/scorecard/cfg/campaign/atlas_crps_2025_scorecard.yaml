@@ -109,11 +109,11 @@ resume: true
 perturbation: null
 
 # ---------------------------------------------------------------------------
-# Data — cloud ARCO, cached by predownload.py.  The IC store is the
+# Data — cloud ARCO_ERA5, cached by predownload.py.  The IC store is the
 # model's own (it needs the t-6h history frame).
 # ---------------------------------------------------------------------------
 data_source:
-    _target_: earth2studio.data.ARCO
+    _target_: earth2studio.data.ARCO_ERA5
     cache: false
     verbose: false
 

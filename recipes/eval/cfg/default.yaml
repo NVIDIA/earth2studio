@@ -89,7 +89,7 @@ resume: false
 # byte twice.  Disable it here unless you have a reason to populate the
 # shared cache (e.g. other recipes will reuse the same data).
 data_source:
-    _target_: earth2studio.data.ARCO
+    _target_: earth2studio.data.ARCO_ERA5
     cache: false
     verbose: false
 

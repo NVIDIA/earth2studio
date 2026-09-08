@@ -487,6 +487,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         output_coords = self.output_coords(coords)
 
+        x = x.clone()  # prevent editing of argument
         for i, _ in enumerate(coords["batch"]):
             for j, _ in enumerate(coords["time"]):
                 for k, _ in enumerate(coords["lead_time"]):

@@ -276,7 +276,7 @@ run.deterministic(["2024-01-01"], 10, model, GFS(), ZarrBackend("fcn.zarr"))
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/datasources_analysis/?badge=dataclass%3Aanalysis&badge=dataclass%3Areanalysis">
         <span>Reanalysis</span><strong>Analysis data</strong>
-        <small>ERA5, ARCO, HRRR, IFS, and analysis-ready sources</small>
+        <small>ERA5, HRRR, IFS, and analysis-ready sources</small>
       </a>
       <a class="e2s-capability e2s-home-button" href="modules/datasources_forecast/?badge=dataclass%3Asimulation">
         <span>Numerical</span><strong>Forecast data</strong>

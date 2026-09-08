@@ -32,7 +32,7 @@ declared under ``cfg.model.da.obs_sources``), so ``needs_data_source`` is
 ``False`` and ``main.py`` skips top-level source resolution.  The DA model
 is expected to emit its analysis on the grid evaluation happens on — for
 HealDA, load with ``lat_lon: true`` and an ``output_resolution`` matching
-the verification source (``[721, 1440]`` for ARCO/ERA5 0.25°).
+the verification source (``[721, 1440]`` for ARCO_ERA5 0.25°).
 """
 
 from __future__ import annotations
@@ -162,7 +162,7 @@ class AssimilationPipeline(Pipeline):
         sources have their own caches); only gridded verification data is
         predownloaded, at the analysis times themselves.  The store grid
         comes from the DA model's output coords, so the verification
-        source must return data on that grid (e.g. ARCO with HealDA's
+        source must return data on that grid (e.g. ARCO_ERA5 with HealDA's
         ``output_resolution: [721, 1440]``) — a mismatch fails loudly at
         download time.
         """

@@ -19,7 +19,7 @@
 Some pipelines (e.g. StormScope's coupled GOES+MRMS setup) need to
 supply source lat/lon grids at setup time.  Each data source exposes
 its grid slightly differently — some as class-level constants (GFS,
-ARCO), some via a classmethod (GOES), some only via a sample fetch
+ARCO_ERA5), some via a classmethod (GOES), some only via a sample fetch
 (MRMS).  This module centralises that per-source logic behind small
 resolvers each campaign config wires in via ``_target_``::
 
@@ -79,21 +79,21 @@ def gfs_grid() -> tuple[torch.Tensor, torch.Tensor]:
 
 
 def arco_grid() -> tuple[torch.Tensor, torch.Tensor]:
-    """Return ``(lats, lons)`` for the ARCO ERA5 data source.
+    """Return ``(lats, lons)`` for the ARCO_ERA5 data source.
 
     Reads the class-level ``ARCO_LAT`` / ``ARCO_LON`` constants exposed
-    by :class:`earth2studio.data.ARCO` — 0.25° regular grid, 721×1440.
+    by :class:`earth2studio.data.ARCO_ERA5` — 0.25° regular grid, 721×1440.
 
     Useful as a ``conditioning_grid`` when running an ablation that
-    substitutes ERA5 analysis for GFS forecast conditioning.  ARCO is a
+    substitutes ERA5 analysis for GFS forecast conditioning. ARCO_ERA5 is a
     :class:`~earth2studio.data.base.DataSource` (not a
     :class:`~earth2studio.data.base.ForecastSource`), so the predownload
     path uses it directly without the
     :class:`~src.data.ValidTimeForecastAdapter` wrapper.
     """
-    from earth2studio.data import ARCO
+    from earth2studio.data import ARCO_ERA5
 
-    return _as_tensor(ARCO.ARCO_LAT), _as_tensor(ARCO.ARCO_LON)
+    return _as_tensor(ARCO_ERA5.ARCO_LAT), _as_tensor(ARCO_ERA5.ARCO_LON)
 
 
 def glm_grid(

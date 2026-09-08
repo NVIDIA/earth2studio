@@ -237,7 +237,9 @@ function metricSet(){return vwSel.value==="heat"&&HEAT?HEAT.metrics:D.metrics;}
 function fillMetrics(){
   const ms=metricSet(),prev=mSel.value; mSel.innerHTML="";
   Object.keys(ms).forEach(k=>mSel.appendChild(new Option(ms[k].label,k)));
+  // Ensemble models open on the ensemble-mean RMSE.
   if(prev in ms)mSel.value=prev;
+  else if("ensemble_mean_mse" in ms)mSel.value="ensemble_mean_mse";
 }
 // The variable list splits into a quantity selector and a level selector,
 // so neither dropdown carries all ~70 names.  Level variables follow the
@@ -409,10 +411,11 @@ function drawCurve(){
     return;
   }
   // Baseline overlays: whole-grid all-IC reference runs, one dash pattern
-  // per baseline so identity never rides on color alone.
+  // per baseline.
   const dashes=["6 5","2 5"];
   const extras=activeBaselines().map(b=>{
-    const mB=BCACHE[b].metrics[k];
+    const mB=BCACHE[b].metrics[k]||
+      (k==="ensemble_mean_mse"?BCACHE[b].metrics.rmse:null);
     return {y:mB?mB.values[v]:null,label:BASELINES[b],ref:true,
             dash:dashes[Object.keys(BASELINES).indexOf(b)%dashes.length]};
   }).filter(s=>s.y);
@@ -560,7 +563,7 @@ fetchJSON(`eval_scores_${MODEL}.json`)
   .then(d=>{
     D=d;
     days=D.lead_hours.map(h=>h/24);
-    Object.keys(D.metrics).forEach(k=>mSel.appendChild(new Option(D.metrics[k].label,k)));
+    fillMetrics();
     if(D.regions&&D.regions.length>1){
       $("#rctl").hidden=false;
       D.regions.forEach(r=>rSel.appendChild(new Option(pretty(r),r)));
@@ -678,7 +681,7 @@ title: Scorecards
 Forecast skill of Earth2Studio models, one scorecard per model. These show
 each model's own skill, not a comparison between models. Every model was evaluated on the
 same campaign: {n_ic} initial conditions ({years}), 14-day horizon, ERA5
-verification via ARCO. Pages are generated from per-model score (JSON) exports
+verification via ARCO_ERA5. Pages are generated from per-model score (JSON) exports
 produced by the
 [scorecard recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval/scorecard),
 which documents how to generate a scorecard for any model; the

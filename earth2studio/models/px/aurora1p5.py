@@ -201,7 +201,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
     analyses and as such recommended to be initialized with IFS analyses.
     The open-data IFS does not publish sea ice concentration (``sic``).
-    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO`
+    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO_ERA5`
     (which provide all required variables) may be used instead. GFS is not
     supported due to missing surface variables.
 
