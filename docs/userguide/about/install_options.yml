@@ -219,7 +219,7 @@ categories:
         notes:
           - GraphCast uses WeatherNext and requires Python 3.12 or newer.
       - id: weathernext
-        label: WeatherNext 2 Cyclones Mini
+        label: WeatherNext2
         extra: weathernext
         summary: Google DeepMind WeatherNext 2 Cyclones Mini model dependencies.
         api_refs:
