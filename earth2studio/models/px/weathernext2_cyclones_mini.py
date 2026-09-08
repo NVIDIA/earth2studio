@@ -433,7 +433,11 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         target_variables = (
             config.task.target_variables
             if self.track_cyclones
-            else WN2_TARGET_VARIABLES
+            else tuple(
+                variable
+                for variable in config.task.target_variables
+                if variable in WN2_TARGET_VARIABLES
+            )
         )
         return dataclasses.replace(config.task, target_variables=target_variables)
 

@@ -23,6 +23,7 @@ import pytest
 import torch
 
 try:
+    from weathernext.utils import fiddle_config_io
     from weathernext.weathernext2 import fgn
 except ImportError:
     pytest.importorskip("weathernext")
@@ -131,6 +132,16 @@ def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
     mock_weathernext2_model(x, coords)
     mock_weathernext2_model(x, coords)
     assert len(rngs) == 2 and not np.array_equal(*rngs)
+
+
+def test_weathernext2_target_order(mock_weathernext2_model):
+    targets = fiddle_config_io.get_fiddle_config_by_name(
+        "weathernext2/configs/WeatherNextCyclones_Mini"
+    ).task.target_variables
+    expected = tuple(
+        variable for variable in targets if not variable.startswith("cyclone")
+    )
+    assert mock_weathernext2_model.task_config.target_variables == expected
 
 
 def test_weathernext2_cyclone_tracks_inactive(mock_weathernext2_model):
