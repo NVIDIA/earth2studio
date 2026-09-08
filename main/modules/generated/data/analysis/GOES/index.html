@@ -3107,7 +3107,7 @@
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:na" data-badge-group="region" style="--badge-color:#1565c0;--badge-text-color:#fff" title="North America"><span class="mkdocs-badge__icon"><i class="fa-solid fa-earth-americas"></i></span><span class="mkdocs-badge__label">NA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="dataclass:observation" data-badge-group="dataclass" style="--badge-color:#15803d;--badge-text-color:#fff" title="Direct Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-binoculars"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:sat" data-badge-group="product" style="--badge-color:#1c7ed6;--badge-text-color:#fff" title="Satellite"><span class="mkdocs-badge__icon"><i class="fa-solid fa-satellite"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:noaa" data-badge-group="provider" style="--badge-color:#0057b8;--badge-text-color:#fff"><span class="mkdocs-badge__label">NOAA</span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.data.GOES</code></p>
 <p><a href="" id="earth2studio.data.GOES"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes.py#L44-L716" title="earth2studio/data/goes.py:44">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/goes.py#L44-L809" title="earth2studio/data/goes.py:44">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3215,6 +3215,16 @@ Mesoscale data is currently not supported due to the changing scan position.</p>
 </ul>
 </li>
 </ul>
+<p>Missing data:</p>
+<p>Some pixels are <code>_FillValue</code> in NOAA's source file (e.g. calibration
+gaps or other instrument issues) and decode to NaN. This data source will
+warn with the affected pixel count whenever a pixel on the Earth disk is
+NaN, except within a narrow band at the limb: at the very edge of the
+visible disk, our idealized center-ray geometry says "Earth" while NOAA's
+radiance retrieval sometimes says "can't produce a value", a definitional
+disagreement confined to a measured 3-pixel rind with nothing genuinely
+missing inside it. NaNs in that rind are logged at debug level instead.
+Pixels off the disk are always fill-valued and are excluded entirely.</p>
 </details>
 
 
