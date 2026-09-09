@@ -150,20 +150,3 @@ indexers = grid.subset_indexers(
 )
 subset = latlon.isel(indexers)
 print(subset)
-
-# %%
-# Connect to a Regridder
-# ----------------------
-# A regridder can accept source and target ``GridDefinition`` objects. It can use
-# topology, CRS, geographic centers, and optional cell bounds to select an engine and
-# interpolation method. The fingerprint provides a stable key for cached weights.
-#
-# .. code-block:: python
-#
-#    source_grid = e2s.infer_grid(source_array)
-#    target_grid = e2s.resolve_grid("hrrr")
-#    plan = regridder.plan(source_grid, target_grid, method="linear")
-#    result = plan(source_array)
-#
-# The regridder owns capability dispatch, weight construction, and application.
-# Unsupported grid pairs or methods should raise before processing field data.
