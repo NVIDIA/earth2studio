@@ -98,7 +98,7 @@ def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
     return tracks
 
 
-class WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Shared implementation for WeatherNext 2 model variants."""
 
     MODEL_NAME: str
@@ -738,7 +738,7 @@ class WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
 
 @check_optional_dependencies()
-class WeatherNext2CyclonesMini(WeatherNext2Base):
+class WeatherNext2CyclonesMini(_WeatherNext2Base):
     """WeatherNext 2 Cyclones Mini medium-range forecast model.
 
     WeatherNext 2 is Google DeepMind's global medium-range weather forecasting
@@ -819,7 +819,7 @@ class WeatherNext2CyclonesMini(WeatherNext2Base):
 
 
 @check_optional_dependencies()
-class WeatherNext2Cyclones(WeatherNext2Base):
+class WeatherNext2Cyclones(_WeatherNext2Base):
     """WeatherNext 2 Cyclones operational medium-range forecast model.
 
     This wrapper uses Google DeepMind's operational 0.25 degree
