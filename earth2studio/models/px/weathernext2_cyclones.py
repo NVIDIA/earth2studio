@@ -897,7 +897,7 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
     Badges
     ------
     region:global class:medium-range product:wind product:precip product:temp product:atmos
-    product:ocean year:2025 gpu:80gb provider:google backend:jax
+    product:ocean year:2026 gpu:80gb provider:google backend:jax
     """
 
     MODEL_NAME = "WeatherNextCyclones"
