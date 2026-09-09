@@ -121,7 +121,7 @@ recognized as CRS input by PyProj are reserved.
 Built-in registry entries include global 0.25-degree latitude-longitude grids, the
 HRRR CONUS 3-km Lambert grid, and nested HEALPix level 6.
 
-## Inference
+## Infering Grid Type
 
 `infer_grid()` follows a deterministic, explicit-to-general chain:
 

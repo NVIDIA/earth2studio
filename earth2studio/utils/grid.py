@@ -875,7 +875,7 @@ register_grid(
         latitude=np.arange(90.0, -90.0, -0.25),
         longitude=np.arange(0.0, 360.0, 0.25),
     ),
-    aliases=("fcn", "fcn-global-0.25deg"),
+    aliases=("fcn1", "fcn1-global-0.25deg"),
 )
 register_grid(
     "hrrr-conus-3km",

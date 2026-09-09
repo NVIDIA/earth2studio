@@ -31,6 +31,7 @@ def test_builtin_grid_registry_and_protocol():
 
     hrrr = e2s.resolve_grid("hrrr")
     assert isinstance(hrrr, e2s.GridDefinition)
+    assert e2s.resolve_grid("fcn1").shape == (720, 1440)
     assert e2s.GridDefinition not in type(hrrr).__mro__
     assert hrrr.dims == ("y", "x")
     assert hrrr.shape == (1059, 1799)
