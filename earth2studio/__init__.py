@@ -24,7 +24,6 @@ from earth2studio.utils.grid import (
     PointGrid,
     ProjectedGrid,
     infer_grid,
-    known_grids,
     list_grids,
     register_grid,
     resolve_grid,

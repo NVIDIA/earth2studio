@@ -14,6 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Spatial grid definitions and registry utilities.
+
+Grid protocol
+-------------
+``GridDefinition`` describes geometry without owning field data or choosing a
+regridding implementation.
+
+Grid registry
+-------------
+The process-local registry assigns complete definitions stable names and aliases.
+Use ``register_grid``, ``resolve_grid``, and ``list_grids`` to manage it.
+
+Xarray coordinates
+------------------
+Use ``index_coordinates`` for ordered dimension coordinates, then add the auxiliary
+latitude and longitude returned by ``geographic_coordinates``. The result can be
+passed directly to ``DataArray(..., coords=...)`` or ``Dataset.assign_coords``.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -150,9 +169,10 @@ def _geographic_subset_indexers(
     return _mask_indexers(mask, definition.dims, latitude.dims)
 
 
+# sphinx - grid protocol start
 @runtime_checkable
 class GridDefinition(Protocol):
-    """Define the structural interface for an Earth2Studio grid."""
+    """Describe spatial geometry through a structural interface."""
 
     @property
     def dims(self) -> tuple[str, ...]:
@@ -187,35 +207,11 @@ class GridDefinition(Protocol):
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
     ) -> dict[str, Any]:
-        """Translate a geographic selection into dimension indexers.
-
-        Parameters
-        ----------
-        coordinates : xr.Coordinates
-            Current grid coordinates.
-        **selection : Any
-            ``bounds`` and optional ``bounds_crs`` values.
-
-        Returns
-        -------
-        dict[str, Any]
-            Xarray positional indexers for spatial dimensions.
-        """
+        """Translate a selection into positional dimension indexers."""
         ...
 
     def cell_bounds(self, indexes: Mapping[str, NDArray[Any]]) -> xr.Coordinates | None:
-        """Return geographic cell boundaries when available.
-
-        Parameters
-        ----------
-        indexes : Mapping[str, NDArray[Any]]
-            Selected spatial indexes.
-
-        Returns
-        -------
-        xr.Coordinates | None
-            Cell boundaries or None when unsupported.
-        """
+        """Return geographic cell boundaries when available."""
         ...
 
     def to_metadata(self) -> dict[str, Any]:
@@ -225,6 +221,9 @@ class GridDefinition(Protocol):
     def fingerprint(self) -> str:
         """Return a stable geometry fingerprint."""
         ...
+
+
+# sphinx - grid protocol end
 
 
 @dataclass(frozen=True)
@@ -782,17 +781,7 @@ def _validate_definition(definition: GridDefinition) -> None:
 def register_grid(
     name: str, definition: GridDefinition, *, aliases: Sequence[str] = ()
 ) -> None:
-    """Register a named grid definition.
-
-    Parameters
-    ----------
-    name : str
-        Canonical grid name.
-    definition : GridDefinition
-        Complete grid definition.
-    aliases : Sequence[str], optional
-        Alternative lookup names, by default ()
-    """
+    """Register a complete grid definition under a name and optional aliases."""
     canonical = str(name)
     grid_aliases = tuple(str(alias) for alias in aliases)
     if not canonical:
@@ -837,40 +826,12 @@ def _resolve_grid(grid: str) -> tuple[str, GridDefinition]:
 
 
 def list_grids() -> tuple[str, ...]:
-    """List canonical grid names in registration order.
-
-    Returns
-    -------
-    tuple[str, ...]
-        Registered canonical grid names.
-    """
+    """List canonical grid names in registration order."""
     return tuple(_GRID_REGISTRY)
 
 
-def known_grids() -> tuple[str, ...]:
-    """List canonical grid names in registration order.
-
-    Returns
-    -------
-    tuple[str, ...]
-        Registered canonical grid names.
-    """
-    return list_grids()
-
-
 def resolve_grid(grid: str) -> GridDefinition:
-    """Return a registered grid definition.
-
-    Parameters
-    ----------
-    grid : str
-        Canonical grid name or alias.
-
-    Returns
-    -------
-    GridDefinition
-        Registered grid definition.
-    """
+    """Resolve a canonical grid name or alias."""
     return _resolve_grid(grid)[1]
 
 

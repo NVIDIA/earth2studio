@@ -27,8 +27,7 @@ def test_builtin_grid_registry_and_protocol():
         "fcn-global-0.25deg",
         "hrrr-conus-3km",
         "healpix-l6-nested",
-    } <= set(e2s.known_grids())
-    assert e2s.list_grids() == e2s.known_grids()
+    } <= set(e2s.list_grids())
 
     hrrr = e2s.resolve_grid("hrrr")
     assert isinstance(hrrr, e2s.GridDefinition)
