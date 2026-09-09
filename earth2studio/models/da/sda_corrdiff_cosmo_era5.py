@@ -127,7 +127,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         finite and > 0. It is the effective uncertainty per occupied grid cell
         (multiple observations in one cell are averaged, not reduced by sqrt(n)).
     sda_gamma : float, optional
-        SDA covariance scaling in the DPS likelihood, by default 5e-5. Positive
+        SDA covariance scaling in the DPS likelihood, by default 1e-4. Positive
         values account for denoiser-estimate uncertainty across diffusion noise
         levels. Larger values weaken observation guidance, especially early in
         denoising, so the analysis stays closer to the unguided downscaler and may
@@ -155,7 +155,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         number_of_samples: int | None = None,
         sampler_steps: int | None = None,
         sda_std_obs: float | Mapping[str, float] = 0.5,
-        sda_gamma: float = 5e-5,
+        sda_gamma: float = 1e-4,
         amp: bool = False,
     ) -> None:
         super().__init__()
@@ -734,7 +734,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         number_of_samples: int | None = None,
         sampler_steps: int | None = None,
         sda_std_obs: float | Mapping[str, float] = 0.5,
-        sda_gamma: float = 5e-5,
+        sda_gamma: float = 1e-4,
         amp: bool = False,
     ) -> AssimilationModel:
         """Load the assimilation model from a CorrDiff-COSMO package.
@@ -778,7 +778,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             must contain exactly the assimilated variables (e.g.
             ``{"u10m": 0.5, "v10m": 0.5}``).
         sda_gamma : float, optional
-            SDA covariance scaling in the DPS likelihood, by default 5e-5. Positive
+            SDA covariance scaling in the DPS likelihood, by default 1e-4. Positive
             values account for denoiser-estimate uncertainty across diffusion noise
             levels. Larger values weaken observation guidance, especially early in
             denoising, so the analysis stays closer to the unguided downscaler and may

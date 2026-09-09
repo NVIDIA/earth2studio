@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `CorrDiffCosmoEra5SDA`: raised the default `sda_gamma` from `5e-5` to `1e-4`
+  to keep the observation-guided analysis stable (the old default could diverge
+  to non-finite output).
 - Fixed empty reduction dimensions in statistics, skipping for mean and
   rejecting as undefined for variance/std reductions.
 - `StormCast.__call__` no longer writes its output into the input tensor.
