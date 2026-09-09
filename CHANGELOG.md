@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
 - Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event
@@ -45,6 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   respectively.
 - Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
   on the model, instead of reconstructing them on every rollout call
+- `GOES.fetch_array` now logs a warning when a fetched variable has
+  fill-valued (NaN) pixels on the Earth disk, indicating a real data quality
+  issue at that timestamp; NaNs within 3px of the disk edge, where our
+  geometry and NOAA's retrieval can disagree about visibility, are logged at
+  debug level instead
+- `StormScope` now raises if its normalized state or conditioning contains
+  non-finite values not sanitized by `valid_mask`/`conditioning_valid_mask`,
+  instead of silently passing them to the diffusion sampler
 - Scorecard campaigns score online over 48 initial conditions and the
   score data moved to the HF Earth2Studio assets dataset
 
@@ -54,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
+  `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
+  analysis stable (the old defaults could diverge to non-finite output).
 - Fixed empty reduction dimensions in statistics, skipping for mean and
   rejecting as undefined for variance/std reductions.
 - `StormCast.__call__` no longer writes its output into the input tensor.
