@@ -113,7 +113,7 @@ def _geographic_subset_indexers(
     longitude_values = np.asarray(longitude)
     target_crs = CRS.from_user_input(selection.get("bounds_crs", "OGC:CRS84"))
     if target_crs.is_geographic:
-        if min_x >= 0 and max_x > 180:
+        if min_x >= 0 and max_x >= 0 and (min_x > 180 or max_x > 180):
             x_values = np.mod(longitude_values, 360)
         else:
             x_values = np.mod(longitude_values + 180, 360) - 180
@@ -274,7 +274,7 @@ class LatLonGrid:
 
     def fingerprint(self) -> str:
         """Return a coordinate fingerprint."""
-        return _coordinate_hash(self.latitude, self.longitude)
+        return _coordinate_hash(self.latitude, self.longitude) + self.crs.to_wkt()
 
 
 @dataclass(frozen=True)
@@ -392,8 +392,8 @@ class CurvilinearGrid:
         longitude = _array(self.longitude, 2, "longitude")
         if latitude.shape != longitude.shape:
             raise ValueError("latitude and longitude shapes must match")
-        y = np.arange(latitude.shape[0]) if self.y is None else _array(self.y, 1, "y")
-        x = np.arange(latitude.shape[1]) if self.x is None else _array(self.x, 1, "x")
+        y = _array(np.arange(latitude.shape[0]) if self.y is None else self.y, 1, "y")
+        x = _array(np.arange(latitude.shape[1]) if self.x is None else self.x, 1, "x")
         if (y.size, x.size) != latitude.shape:
             raise ValueError("y and x sizes must match geographic coordinates")
         object.__setattr__(self, "latitude", latitude)
@@ -482,7 +482,7 @@ class PointGrid:
         longitude = _array(self.longitude, 1, "longitude")
         if latitude.shape != longitude.shape:
             raise ValueError("latitude and longitude shapes must match")
-        x = np.arange(latitude.size) if self.x is None else _array(self.x, 1, "x")
+        x = _array(np.arange(latitude.size) if self.x is None else self.x, 1, "x")
         if x.size != latitude.size:
             raise ValueError("x size must match geographic coordinates")
         object.__setattr__(self, "latitude", latitude)
@@ -832,8 +832,22 @@ def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
     """
     grid_id = array.attrs.get(E2S_GRID_ID)
     if grid_id is not None:
-        return resolve_grid(grid_id)
+        definition = resolve_grid(grid_id)
+        spatial_dims = tuple(
+            dimension for dimension in array.dims if dimension in definition.dims
+        )
+        if spatial_dims == definition.dims and all(
+            array.sizes[dimension] == size
+            for dimension, size in zip(definition.dims, definition.shape, strict=True)
+        ):
+            return definition
     coordinates = array.coords
+    if "y" in coordinates and "x" in coordinates and E2S_CRS in array.attrs:
+        return ProjectedGrid(
+            np.asarray(coordinates["y"]),
+            np.asarray(coordinates["x"]),
+            array.attrs[E2S_CRS],
+        )
     if "lat" in coordinates and "lon" in coordinates:
         latitude = coordinates["lat"]
         longitude = coordinates["lon"]
@@ -848,12 +862,6 @@ def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
             return CurvilinearGrid(np.asarray(latitude), np.asarray(longitude), y, x)
         raise ValueError(
             "Latitude and longitude coordinates have an unsupported layout"
-        )
-    if "y" in coordinates and "x" in coordinates and E2S_CRS in array.attrs:
-        return ProjectedGrid(
-            np.asarray(coordinates["y"]),
-            np.asarray(coordinates["x"]),
-            array.attrs[E2S_CRS],
         )
     raise ValueError(
         "Cannot infer grid geometry; provide lat/lon coordinates or y/x coordinates "

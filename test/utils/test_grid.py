@@ -64,12 +64,23 @@ def test_grid_definitions_and_selection():
     assert latlon.subset_indexers(
         latlon.coordinates(only_index=True), bounds=(-110, 38, -90, 41)
     ) == {"lat": slice(0, 2), "lon": slice(0, 3)}
+    dateline = e2s.LatLonGrid([0], [300, 350, 0, 10, 20])
+    assert dateline.subset_indexers(
+        dateline.coordinates(only_index=True), bounds=(350, -1, 10, 1)
+    ) == {"lat": slice(0, 1), "lon": slice(1, 4)}
+    assert (
+        latlon.fingerprint()
+        != e2s.LatLonGrid(latlon.latitude, latlon.longitude, "OGC:CRS84").fingerprint()
+    )
 
     latitude = np.array([[40.0, 40.1], [41.0, 41.1]])
     longitude = np.array([[-100.0, -99.0], [-100.1, -99.1]])
     curvilinear = e2s.CurvilinearGrid(latitude, longitude)
     assert curvilinear.crs is None and curvilinear.topology == "curvilinear"
     assert curvilinear.coordinates()["lat"].shape == (2, 2)
+    assert curvilinear.x is not None
+    with pytest.raises(ValueError, match="read-only"):
+        curvilinear.x[0] = 1
     assert curvilinear.subset_indexers(
         curvilinear.coordinates(only_index=True), bounds=(-99.2, 39.5, -98.5, 41.5)
     ) == {"y": slice(0, 2), "x": slice(1, 2)}
@@ -78,6 +89,9 @@ def test_grid_definitions_and_selection():
     point_indexes = points.coordinates(only_index=True)
     assert points.dims == ("x",) and points.crs is None
     assert points.coordinates()["lat"].shape == (3,)
+    assert points.x is not None
+    with pytest.raises(ValueError, match="read-only"):
+        points.x[0] = 1
     selected = points.subset_indexers(point_indexes, bounds=(-100, 30, -90, 40))
     assert selected == {"x": slice(0, 1)}
 
@@ -146,6 +160,16 @@ def test_grid_registration_inference_and_validation():
     assert isinstance(e2s.infer_grid(projected_array), e2s.ProjectedGrid)
     registered = projected_array.assign_attrs(earth2studio_grid_id="test-grid-protocol")
     assert e2s.infer_grid(registered) is projected
+    assert e2s.infer_grid(registered.expand_dims(time=[0])) is projected
+    inferred_subset = e2s.infer_grid(registered.isel(x=slice(2)))
+    assert isinstance(inferred_subset, e2s.ProjectedGrid)
+    assert inferred_subset.shape == (2, 2)
+
+    projected_with_geographic = projected_array.assign_coords(
+        lat=(("y", "x"), np.ones((2, 3))),
+        lon=(("y", "x"), np.ones((2, 3))),
+    )
+    assert isinstance(e2s.infer_grid(projected_with_geographic), e2s.ProjectedGrid)
 
     for operation, message in (
         (lambda: e2s.resolve_grid("missing"), "Unknown"),

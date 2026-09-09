@@ -1,7 +1,5 @@
 # Earth2Studio Grid Protocol
 
-**Status:** Draft
-
 ## Goal
 
 Provide one explicit, lightweight contract for describing spatial grids without
