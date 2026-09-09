@@ -118,7 +118,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         Diffusion sampler steps; defaults to the wrapped model's
         ``number_of_steps``.
     sda_std_obs : float | Mapping[str, float], optional
-        Observation-noise standard deviation for DPS guidance, by default 0.5.
+        Observation-noise standard deviation for DPS guidance, by default 0.75.
         A scalar is broadcast to every assimilated variable (in that variable's
         physical units); a mapping sets it per variable and must contain exactly the
         assimilated variables (unknown keys are rejected) -- e.g.
@@ -127,7 +127,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         finite and > 0. It is the effective uncertainty per occupied grid cell
         (multiple observations in one cell are averaged, not reduced by sqrt(n)).
     sda_gamma : float, optional
-        SDA covariance scaling in the DPS likelihood, by default 1e-4. Positive
+        SDA covariance scaling in the DPS likelihood, by default 7.5e-5. Positive
         values account for denoiser-estimate uncertainty across diffusion noise
         levels. Larger values weaken observation guidance, especially early in
         denoising, so the analysis stays closer to the unguided downscaler and may
@@ -154,8 +154,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         number_of_samples: int | None = None,
         sampler_steps: int | None = None,
-        sda_std_obs: float | Mapping[str, float] = 0.5,
-        sda_gamma: float = 1e-4,
+        sda_std_obs: float | Mapping[str, float] = 0.75,
+        sda_gamma: float = 7.5e-5,
         amp: bool = False,
     ) -> None:
         super().__init__()
@@ -733,8 +733,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         number_of_samples: int | None = None,
         sampler_steps: int | None = None,
-        sda_std_obs: float | Mapping[str, float] = 0.5,
-        sda_gamma: float = 1e-4,
+        sda_std_obs: float | Mapping[str, float] = 0.75,
+        sda_gamma: float = 7.5e-5,
         amp: bool = False,
     ) -> AssimilationModel:
         """Load the assimilation model from a CorrDiff-COSMO package.
@@ -773,12 +773,12 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             Number of diffusion sampler steps; defaults to the wrapped model's
             ``number_of_steps``.
         sda_std_obs : float | Mapping[str, float], optional
-            Assumed observation-noise std (lower trusts obs more), by default 0.5.
+            Assumed observation-noise std (lower trusts obs more), by default 0.75.
             A scalar broadcasts to every variable; a mapping sets it per variable and
             must contain exactly the assimilated variables (e.g.
             ``{"u10m": 0.5, "v10m": 0.5}``).
         sda_gamma : float, optional
-            SDA covariance scaling in the DPS likelihood, by default 1e-4. Positive
+            SDA covariance scaling in the DPS likelihood, by default 7.5e-5. Positive
             values account for denoiser-estimate uncertainty across diffusion noise
             levels. Larger values weaken observation guidance, especially early in
             denoising, so the analysis stays closer to the unguided downscaler and may

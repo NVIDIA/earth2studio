@@ -86,8 +86,8 @@ ASSIMILATE = ("u10m", "v10m")
 DOMAIN = dict(lat_min=50.2, lat_max=53.8, lon_min=4.6, lon_max=10.4)
 ENSEMBLE_SIZE = 1
 SAMPLER_STEPS = 12  # Reduced from 18 for this example.
-SDA_STD_OBS = 0.5
-SDA_GAMMA = 1e-4
+SDA_STD_OBS = 0.75
+SDA_GAMMA = 7.5e-5
 VAL_FRAC = 0.3
 OBS_TIME_TOLERANCE = timedelta(minutes=30)
 DEVICE = "cuda:0"
