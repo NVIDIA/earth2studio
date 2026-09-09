@@ -3091,6 +3091,27 @@
       "url": "modules/generated/models/px/UCast/"
     },
     {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:wind",
+        "product:precip",
+        "product:temp",
+        "product:atmos",
+        "product:ocean",
+        "year:2026",
+        "gpu:40gb",
+        "provider:google",
+        "backend:jax"
+      ],
+      "signature": "WeatherNext2CyclonesMini(ckpt: 'fgn.CheckPoint', land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, seed: int = 0, jit_compile: bool = True, track_cyclones: bool = False)",
+      "source": "modules/generated/models/px/WeatherNext2CyclonesMini.md",
+      "summary": "WeatherNext 2 Cyclones Mini medium-range forecast model.",
+      "symbol": "earth2studio.models.px.WeatherNext2CyclonesMini",
+      "title": "WeatherNext2CyclonesMini",
+      "url": "modules/generated/models/px/WeatherNext2CyclonesMini/"
+    },
+    {
       "classifiers": [],
       "signature": "BredVector(model: Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, CoordSystem]], noise_amplitude: float | torch.Tensor = 0.05, integration_steps: int = 20, ensemble_perturb: bool = False, seeding_perturbation_method: Perturbation = Brown())",
       "source": "modules/generated/perturbation/BredVector.md",

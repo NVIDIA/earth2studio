@@ -6831,5 +6831,62 @@
     "title": "UCast",
     "tone": "ocean",
     "url": "../../../modules/generated/models/px/UCast"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:medium-range",
+      "product:wind",
+      "product:precip",
+      "product:temp",
+      "product:atmos",
+      "product:ocean",
+      "year:2026",
+      "gpu:40gb",
+      "provider:google",
+      "backend:jax"
+    ],
+    "chips": [
+      "Prognostic",
+      "Medium Range",
+      "Google",
+      "JAX",
+      "Surface Winds",
+      "Surface Precipitation"
+    ],
+    "filters": {
+      "backend": [
+        "JAX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
+        "Atmosphere",
+        "Ocean"
+      ],
+      "provider": [
+        "Google"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "WeatherNext2CyclonesMini(ckpt: 'fgn.CheckPoint', land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, seed: int = 0, jit_compile: bool = True, track_cyclones: bool = False)",
+    "summary": "WeatherNext 2 Cyclones Mini medium-range forecast model.",
+    "title": "WeatherNext2CyclonesMini",
+    "tone": "ocean",
+    "url": "../../../modules/generated/models/px/WeatherNext2CyclonesMini"
   }
 ]
