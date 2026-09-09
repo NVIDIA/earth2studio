@@ -839,9 +839,9 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
 
     Note
     ----
-    The operational model requires an NVIDIA H100 GPU. To avoid JAX
-    preallocating GPU memory and use the CUDA virtual memory management
-    allocator, set these variables before importing JAX or Earth2Studio:
+    To avoid JAX preallocating GPU memory and use the CUDA virtual memory
+    management allocator, set these variables before importing JAX or
+    Earth2Studio:
 
     .. code-block:: console
 
