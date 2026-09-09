@@ -857,6 +857,10 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
 
     Warning
     -------
+    The cyclone-tracking interface, including ``track_cyclones`` and
+    ``cyclone_tracks``, is in beta and may change in future releases as
+    Earth2Studio standardizes how track diagnostics are exposed.
+
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
 
