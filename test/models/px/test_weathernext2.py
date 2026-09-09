@@ -29,9 +29,9 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.weathernext2_cyclones import WeatherNext2Cyclones
-from earth2studio.models.px.weathernext2_cyclones_mini import (
+from earth2studio.models.px.weathernext2_cyclones import (
     OUTPUT_VARIABLES,
+    WeatherNext2Cyclones,
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
 )
@@ -161,7 +161,7 @@ def test_weathernext2_target_order(mock_weathernext2_model):
 
 def test_weathernext2_cyclone_tracks_inactive(mock_weathernext2_model):
     with mock.patch(
-        "earth2studio.models.px.weathernext2_cyclones_mini.logger.warning"
+        "earth2studio.models.px.weathernext2_cyclones.logger.warning"
     ) as warning:
         assert mock_weathernext2_model.cyclone_tracks.empty
     warning.assert_called_once()
