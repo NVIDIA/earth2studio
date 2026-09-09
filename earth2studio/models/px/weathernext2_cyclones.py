@@ -852,6 +852,7 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
     ----
     For more information see the following references:
 
+    - https://doi.org/10.1038/s41586-026-10953-2
     - https://github.com/google-deepmind/weathernext#provided-pretrained-models
     - https://docs.jax.dev/en/latest/gpu_memory_allocation.html
 
