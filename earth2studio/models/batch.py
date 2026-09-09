@@ -231,14 +231,14 @@ class batch_func:
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
-            model: Any, x: torch.Tensor, coords: CoordSystem, **kwargs: Any
+            model: Any, x: torch.Tensor, coords: CoordSystem
         ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
 
             x, flatten_coords, batched_coords, batched_shape = self._compress_batch(
                 model, x, coords
             )
 
-            gen = func(model, x, flatten_coords, **kwargs)
+            gen = func(model, x, flatten_coords)
 
             # Run the generator
             try:

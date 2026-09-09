@@ -648,8 +648,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out = torch.cat(results, dim=1) if len(results) > 1 else results[0]
             return out.to(device), self.output_coords(coords)
 
-    @batch_func()
-    def _default_generator(
+    def _yield_predictions(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -689,28 +688,13 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.rear_hook(x, coords)
             yield x.to(device), coords.copy()
 
-    def create_iterator(
+    @batch_func()
+    def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create a time-integration iterator for the prognostic model.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates model time steps.
-        """
-        self.output_coords(coords)
-        self._reset_cyclone_tracks()
+    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             time_dim = list(coords.keys()).index("time")
-            iterators = []
+            iterators: list[Iterator[xr.Dataset]] = []
             for t in range(len(coords["time"])):
                 x_t = x.narrow(time_dim, t, 1)
                 coords_t = coords.copy()
@@ -734,7 +718,28 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                         forcings=forcings,
                     )
                 )
-            yield from self._default_generator(x, coords, iterators=iterators)
+            yield from self._yield_predictions(x, coords, iterators)
+
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Create a time-integration iterator for the prognostic model.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor.
+        coords : CoordSystem
+            Input coordinate system.
+
+        Yields
+        ------
+        Iterator[tuple[torch.Tensor, CoordSystem]]
+            Iterator that generates model time steps.
+        """
+        self.output_coords(coords)
+        self._reset_cyclone_tracks()
+        yield from self._default_generator(x, coords)
 
 
 @check_optional_dependencies()
