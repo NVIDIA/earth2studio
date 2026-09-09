@@ -60,7 +60,12 @@ from earth2studio.data.utils_ncep import (
     plan_conv_tasks,
     resolve_output_schema,
 )
-from earth2studio.lexicon import NNJAObsConvLexicon, NNJAObsSatLexicon
+from earth2studio.data.utils_satwnd import NCEP_SATWND_PUBLIC_SCHEMA, decode_satwnd
+from earth2studio.lexicon import (
+    NNJAObsConvLexicon,
+    NNJAObsSatLexicon,
+    NNJAObsSatwndLexicon,
+)
 from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -468,6 +473,122 @@ class NNJAObsConv:
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
+
+
+@check_optional_dependencies(BUFR_DEPENDENCY_KEY)
+class NNJAObsSatwnd(NNJAObsConv):
+    """NNJA satellite-derived atmospheric motion vector (SATWND) data source.
+
+    Reads the raw NCEP ``satwnd`` dump (``amv/satwnd/`` in the NNJA archive,
+    1979 to present) rather than the AMVs merged into PrepBUFR. The dump keeps
+    every producer stream (GOES legacy and GOES-R, Meteosat, Himawari, MODIS,
+    AVHRR, VIIRS, LEO-GEO) with its own quality indicators, which PrepBUFR
+    drops, and it is what GSI's ``read_satwnd`` and the HealDA NNJA training
+    archive consume.
+
+    ``u``/``v`` rows are decomposed from ``WDIR``/``WSPD``. The shared columns
+    follow :class:`NNJAObsConv` semantics: ``type`` is the GSI report type
+    (240-260) derived from ``(subset, SAID, SWCM)`` exactly as GSI's
+    ``sattabin`` table does, ``pres`` is the final height assignment (Pa),
+    ``elev`` is the US Standard Atmosphere height of that pressure (a
+    coordinate, not an observation), ``quality`` is the ``SDMEDIT`` wind
+    quality mark where the producer encodes one, ``station`` is GSI's
+    computation-method tag plus SAID, and ``class`` is ``"SATWND"``. Extra
+    columns carry ``satellite_id``, ``subset``, ``wind_method`` (SWCM),
+    ``height_method``, ``satellite_za``, ``qi``, ``qi_forecast``,
+    ``expected_error`` and ``gsi_case``.
+
+    Winds whose ``(subset, SAID, SWCM)`` GSI does not type (new satellites not
+    in the table, unknown subsets) are dropped, as GSI drops them. No other QC
+    or thinning is applied; GSI-style screens (125 hPa floor, zenith limb, QI
+    thresholds) and horizontal thinning belong to the consumer.
+
+    Parameters
+    ----------
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single
+        value (symmetric ± window) or a tuple ``(lower, upper)`` for
+        asymmetric windows, by default ``np.timedelta64(0, 'm')``.
+    cache : bool, optional
+        Cache downloaded files in the local filesystem cache, by default True.
+    verbose : bool, optional
+        Show progress bars, by default True.
+    async_timeout : int, optional
+        Total timeout in seconds for the async fetch, by default 600.
+    async_workers : int, optional
+        Maximum number of concurrent async fetch tasks, by default 24.
+    decode_workers : int, optional
+        Number of parallel processes for BUFR message decoding. Recent cycle
+        files are 300-400 MB, so decoding benefits from several workers.
+        Set to 1 to disable multiprocessing, by default 8.
+    retries : int, optional
+        Number of retry attempts per failed fetch task with exponential
+        backoff, by default 3.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://psl.noaa.gov/data/nnja_obs/
+    - https://registry.opendata.aws/noaa-reanalyses-pds/
+    - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/read_satwnd.f90
+
+    Badges
+    ------
+    region:global dataclass:observation product:wind product:sat
+    """
+
+    SOURCE_ID = "earth2studio.data.NNJAObsSatwnd"
+    SCHEMA = NCEP_SATWND_PUBLIC_SCHEMA
+    LEXICON = NNJAObsSatwndLexicon
+    MIN_DATE = datetime(1979, 1, 1)
+
+    def __init__(
+        self,
+        time_tolerance: TimeTolerance = np.timedelta64(0, "m"),
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 24,
+        decode_workers: int = 8,
+        retries: int = 3,
+    ) -> None:
+        super().__init__(
+            source="prepbufr",
+            time_tolerance=time_tolerance,
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+            async_workers=async_workers,
+            decode_workers=decode_workers,
+            retries=retries,
+        )
+
+    def _build_uri(self, route: str, cycle: datetime) -> str:
+        if route != "satwnd":
+            raise ValueError(f"Unsupported route '{route}'")
+        return (
+            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/amv/satwnd/"
+            f"{cycle:%Y}/{cycle:%m}/bufr/"
+            f"gdas.{cycle:%Y%m%d}.t{cycle.hour:02d}z.satwnd.tm00.bufr_d"
+        )
+
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+        if task.route != "satwnd":
+            raise ValueError(f"Unsupported route '{task.route}'")
+        frame = decode_satwnd(
+            local_path,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
+            decode_workers=self._decode_workers,
+        )
+        return frame[self.SCHEMA.names]
 
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)

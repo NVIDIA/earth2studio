@@ -28,6 +28,7 @@ earth2studio.data.MetOpIASI
 earth2studio.data.MetOpMHS
 earth2studio.data.NNJAObsConv
 earth2studio.data.NNJAObsSat
+earth2studio.data.NNJAObsSatwnd
 earth2studio.data.NomadsGDASObsConv
 earth2studio.data.RandomDataFrame
 earth2studio.data.UFSObsConv
