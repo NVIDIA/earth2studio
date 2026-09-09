@@ -43,9 +43,10 @@ def mocked_chunked_prediction(*args, targets_template, **kwargs):
     return targets_template
 
 
-def mocked_chunked_prediction_generator(self, *args, targets_template, **kwargs):
+def mocked_chunked_prediction_generator(self, *args, targets_template, batch, **kwargs):
+    value = float(batch["2m_temperature"].isel(time=-1).mean())
     while True:
-        yield targets_template.isel(time=[0])
+        yield targets_template.isel(time=[0]).fillna(value)
 
 
 @pytest.fixture
@@ -118,6 +119,19 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
     out, out_coords = next(iterator)
     assert_output(out, out_coords)
     assert out_coords["lead_time"] == np.timedelta64(6, "h")
+
+
+@mock.patch.object(
+    WeatherNext2CyclonesMini,
+    "_chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_weathernext2_concurrent_iterators(mock_weathernext2_model):
+    x, coords = fetch_random_input(mock_weathernext2_model)
+    first = mock_weathernext2_model.create_iterator(x, coords)
+    second = mock_weathernext2_model.create_iterator(x + 1, coords)
+    next(first), next(second)
+    assert not torch.equal(next(first)[0], next(second)[0])
 
 
 @mock.patch("weathernext.utils.rollout.chunked_prediction")
@@ -204,6 +218,17 @@ def test_weathernext2_operational_checkpoint():
     assert WeatherNext2Cyclones._params_path(4).endswith("_<2025_model4.npz")
     with pytest.raises(ValueError, match="1 through 4"):
         WeatherNext2Cyclones._params_path(0)
+
+
+@pytest.mark.package
+def test_weathernext2_operational_package():
+    model = WeatherNext2Cyclones.load_model(
+        WeatherNext2Cyclones.load_default_package(), jit_compile=False
+    )
+    assert tuple(len(model.input_coords()[dim]) for dim in ("lat", "lon")) == (
+        721,
+        1440,
+    )
 
 
 @pytest.mark.package

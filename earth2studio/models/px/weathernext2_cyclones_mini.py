@@ -726,7 +726,10 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        iterators: list[Iterator[xr.Dataset]],
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
         self.output_coords(coords)
@@ -748,7 +751,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
         while True:
             coords = self.output_coords(coords)
-            predictions = [next(it) for it in self.iterators]
+            predictions = [next(it) for it in iterators]
             if len(predictions) == 1:
                 self._update_cyclone_tracks(
                     predictions[0], coords, accumulate_predictions=True
@@ -783,7 +786,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         self._reset_cyclone_tracks()
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             time_dim = list(coords.keys()).index("time")
-            self.iterators = []
+            iterators = []
             for t in range(len(coords["time"])):
                 x_t = x.narrow(time_dim, t, 1)
                 coords_t = coords.copy()
@@ -797,7 +800,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                     **dataclasses.asdict(self.task_config),
                 )
                 self.prng_key, rng = jax.random.split(self.prng_key)
-                self.iterators.append(
+                iterators.append(
                     self._chunked_prediction_generator(
                         predictor_fn=self.run_forward,
                         rng=rng,
@@ -807,4 +810,4 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                         forcings=forcings,
                     )
                 )
-            yield from self._default_generator(x, coords)
+            yield from self._default_generator(x, coords, iterators=iterators)
