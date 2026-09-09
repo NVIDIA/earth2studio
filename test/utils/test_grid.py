@@ -24,7 +24,7 @@ import earth2studio.utils.grid as e2s
 def test_builtin_grid_registry_and_protocol():
     assert {
         "latlon-0.25deg",
-        "fcn-global-0.25deg",
+        "latlon-0.25deg-south-pole-excluded",
         "hrrr-conus-3km",
         "healpix-l6-nested",
     } <= set(e2s.list_grids())
@@ -37,8 +37,8 @@ def test_builtin_grid_registry_and_protocol():
     assert hrrr.topology == "projected"
     assert hrrr.crs.coordinate_operation is not None
 
-    indexes = hrrr.index_coordinates()
-    geographic = hrrr.geographic_coordinates(
+    indexes = hrrr.coordinates(only_index=True)
+    geographic = hrrr.coordinates(
         {dimension: np.asarray(indexes[dimension][:2]) for dimension in hrrr.dims}
     )
     assert geographic["lat"].shape == geographic["lon"].shape == (2, 2)
@@ -55,48 +55,44 @@ def test_grid_definitions_and_selection():
     )
     assert latlon.dims == ("lat", "lon") and latlon.shape == (2, 3)
     assert latlon.crs.to_epsg() == 4326
-    assert tuple(latlon.geographic_coordinates(latlon.index_coordinates())) == (
+    assert tuple(latlon.coordinates()) == (
         "lat",
         "lon",
     )
-    assert latlon.cell_bounds(latlon.index_coordinates()) is None
+    assert latlon.cell_bounds(latlon.coordinates(only_index=True)) is None
     assert latlon.subset_indexers(
-        latlon.index_coordinates(), bounds=(-110, 38, -90, 41)
+        latlon.coordinates(only_index=True), bounds=(-110, 38, -90, 41)
     ) == {"lat": slice(0, 2), "lon": slice(0, 3)}
 
     latitude = np.array([[40.0, 40.1], [41.0, 41.1]])
     longitude = np.array([[-100.0, -99.0], [-100.1, -99.1]])
     curvilinear = e2s.CurvilinearGrid(latitude, longitude)
     assert curvilinear.crs is None and curvilinear.topology == "curvilinear"
-    assert curvilinear.geographic_coordinates(curvilinear.index_coordinates())[
-        "lat"
-    ].shape == (2, 2)
+    assert curvilinear.coordinates()["lat"].shape == (2, 2)
     assert curvilinear.subset_indexers(
-        curvilinear.index_coordinates(), bounds=(-99.2, 39.5, -98.5, 41.5)
+        curvilinear.coordinates(only_index=True), bounds=(-99.2, 39.5, -98.5, 41.5)
     ) == {"y": slice(0, 2), "x": slice(1, 2)}
 
     points = e2s.PointGrid([35.2, 40.8, 51.0], [-97.4, -74.0, 0.1])
-    point_indexes = points.index_coordinates()
+    point_indexes = points.coordinates(only_index=True)
     assert points.dims == ("x",) and points.crs is None
-    assert points.geographic_coordinates(point_indexes)["lat"].shape == (3,)
+    assert points.coordinates()["lat"].shape == (3,)
     selected = points.subset_indexers(point_indexes, bounds=(-100, 30, -90, 40))
     assert selected == {"x": slice(0, 1)}
 
     nested = e2s.resolve_grid("hpx6")
     assert nested.shape == (49_152,) and nested.to_metadata()["nside"] == 64
-    subset = nested.subset_indexers(nested.index_coordinates(), faces=(1, 3))
+    subset = nested.subset_indexers(nested.coordinates(only_index=True), faces=(1, 3))
     assert len(subset["hpx"]) == 2 * 64**2
-    geographic = nested.geographic_coordinates(
-        {"hpx": np.asarray(nested.index_coordinates()["hpx"][:12])}
+    geographic = nested.coordinates(
+        {"hpx": np.asarray(nested.coordinates(only_index=True)["hpx"][:12])}
     )
     assert np.isfinite(geographic["lat"]).all()
 
     ring = e2s.HEALPixGrid(level=1, ordering="ring")
-    assert np.isfinite(
-        ring.geographic_coordinates(ring.index_coordinates())["lat"]
-    ).all()
+    assert np.isfinite(ring.coordinates()["lat"]).all()
     with pytest.raises(NotImplementedError, match="NESTED"):
-        ring.subset_indexers(ring.index_coordinates(), faces=(0,))
+        ring.subset_indexers(ring.coordinates(only_index=True), faces=(0,))
 
 
 def test_grid_registration_inference_and_validation():

@@ -29,8 +29,7 @@ class GridDefinition(Protocol):
     @property
     def crs(self) -> pyproj.CRS | None: ...
 
-    def index_coordinates(self) -> xr.Coordinates: ...
-    def geographic_coordinates(self, indexes) -> xr.Coordinates: ...
+    def coordinates(self, indexes=None, *, only_index=False) -> xr.Coordinates: ...
     def subset_indexers(self, coordinates, **selection) -> dict[str, object]: ...
     def cell_bounds(self, indexes) -> xr.Coordinates | None: ...
     def to_metadata(self) -> dict[str, object]: ...
@@ -43,8 +42,8 @@ The members have the following meanings:
 - `shape` sizes each spatial dimension in the same order
 - `topology` identifies the geometry family
 - `crs` describes native coordinates when PyProj can represent them
-- `index_coordinates()` returns one-dimensional indexes for every spatial dimension
-- `geographic_coordinates()` maps selected indexes to latitude and longitude
+- `coordinates()` returns complete Xarray coordinates, or only dimension coordinates
+  when `only_index=True`
 - `subset_indexers()` translates supported selections into Xarray indexers
 - `cell_bounds()` returns optional geographic cell geometry
 - `to_metadata()` returns a JSON-serializable description
@@ -66,38 +65,29 @@ Users may implement the protocol directly for other grid families.
 
 ## Populating Xarray Coordinates
 
-A grid definition populates Xarray coordinates in two stages:
-
-1. `index_coordinates()` creates the one-dimensional coordinate for each ordered
-   spatial dimension in `dims`
-2. `geographic_coordinates()` maps those indexes to auxiliary latitude and longitude
-
-Dimension coordinates alone can be attached directly when geographic coordinates
-are not needed:
+A grid definition returns a complete Xarray coordinate set in one call:
 
 ```python
 array = xr.DataArray(
     data,
     dims=definition.dims,
-    coords=definition.index_coordinates(),
+    coords=definition.coordinates(),
 )
 ```
 
-The complete coordinate set is assembled without allocating field data:
+By default, `coordinates()` includes ordered dimension coordinates and auxiliary
+latitude and longitude. Use `only_index=True` when only the inexpensive
+one-dimensional dimension coordinates are needed:
 
 ```python
-indexes = definition.index_coordinates()
-index_values = {
-    dimension: np.asarray(indexes[dimension]) for dimension in definition.dims
-}
-geographic = definition.geographic_coordinates(index_values)
-coordinates = xr.Dataset(coords=indexes).assign_coords(geographic).coords
+indexes = definition.coordinates(only_index=True)
 ```
 
-Field data can then reuse the completed coordinates:
+Selected index values may be supplied to avoid generating geographic coordinates for
+the full grid:
 
 ```python
-array = xr.DataArray(data, dims=definition.dims, coords=coordinates)
+coordinates = definition.coordinates({"y": selected_y, "x": selected_x})
 ```
 
 The resulting spatial layouts are:
@@ -110,17 +100,17 @@ The resulting spatial layouts are:
 | `PointGrid` | `x` | `lat(x)` and `lon(x)` |
 | `HEALPixGrid` | `hpx` | `lat(hpx)` and `lon(hpx)` |
 
-Keeping index and geographic coordinate generation separate avoids computing full
-latitude and longitude arrays when only dimension order and shape are required.
+The `index` switch keeps dimension-only contracts inexpensive while the default makes
+normal Xarray construction concise.
 
 ## Registry
 
 The process-local registry maps stable names and aliases to complete definitions:
 
 ```python
-e2s.register_grid("regional-lcc", definition, aliases=("regional",))
-definition = e2s.resolve_grid("regional")
-names = e2s.list_grids()
+grid.register_grid("regional-lcc", definition, aliases=("regional",))
+definition = grid.resolve_grid("regional")
+names = grid.list_grids()
 ```
 
 Registration validates protocol conformance, dimensions, shape, index coordinates,

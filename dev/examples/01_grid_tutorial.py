@@ -90,11 +90,9 @@ regional = e2s.ProjectedGrid(
 )
 e2s.register_grid("tutorial-lcc", regional)
 
-indexes = regional.index_coordinates()
-geographic = regional.geographic_coordinates(
-    {dimension: np.asarray(indexes[dimension]) for dimension in regional.dims}
-)
-print(regional.shape, geographic["lat"].shape)
+indexes = regional.coordinates(only_index=True)
+coordinates = regional.coordinates()
+print(regional.shape, coordinates["lat"].shape)
 
 # %%
 # Populate Xarray Coordinates
@@ -103,7 +101,7 @@ print(regional.shape, geographic["lat"].shape)
 # are auxiliary coordinates, so projected ``y`` and ``x`` remain the array dimensions.
 
 # %%
-geometry = xr.Dataset(coords=indexes).assign_coords(geographic)
+geometry = xr.Dataset(coords=coordinates)
 print(geometry)
 
 # Field data can later reuse these coordinates with
@@ -136,7 +134,7 @@ points = xr.Dataset(
     }
 )
 point_grid = e2s.infer_grid(points)
-print(point_grid.dims, point_grid.topology, point_grid.index_coordinates())
+print(point_grid.dims, point_grid.topology, point_grid.coordinates(only_index=True))
 
 # %%
 # Select a Subdomain

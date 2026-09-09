@@ -94,21 +94,19 @@ meaning under the two orderings.
 
 ### Coordinate Population
 
-A definition should first create ordered dimension coordinates, then derive optional
-geographic coordinates:
+A definition returns complete Xarray coordinates in one call:
 
 ```python
-indexes = grid.index_coordinates()
-geographic = grid.geographic_coordinates(
-    {dimension: np.asarray(indexes[dimension]) for dimension in grid.dims}
-)
-coordinates = xr.Dataset(coords=indexes).assign_coords(geographic).coords
+coordinates = grid.coordinates()
+indexes = grid.coordinates(only_index=True)
 ```
 
 Field data can reuse `coordinates` with `dims=grid.dims`. This keeps `y, x` as the
 dimensions of projected or curvilinear arrays while exposing two-dimensional `lat`
 and `lon` for inspection and downstream tools. Arbitrary locations use `x` as the
-dimension with one-dimensional `lat(x)` and `lon(x)` auxiliary coordinates.
+dimension with one-dimensional `lat(x)` and `lon(x)` auxiliary coordinates. The
+index-only form avoids generating geographic coordinates for allocation-free model
+contracts.
 
 ### Registry
 

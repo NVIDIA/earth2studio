@@ -28,9 +28,10 @@ Use ``register_grid``, ``resolve_grid``, and ``list_grids`` to manage it.
 
 Xarray coordinates
 ------------------
-Use ``index_coordinates`` for ordered dimension coordinates, then add the auxiliary
-latitude and longitude returned by ``geographic_coordinates``. The result can be
-passed directly to ``DataArray(..., coords=...)`` or ``Dataset.assign_coords``.
+Use ``coordinates()`` for complete Xarray coordinates or
+``coordinates(only_index=True)``
+for dimension coordinates only. The result can be passed directly to
+``DataArray(..., coords=...)``.
 """
 
 from __future__ import annotations
@@ -100,7 +101,7 @@ def _geographic_subset_indexers(
     geographic = (
         xr.Coordinates({"lat": coordinates["lat"], "lon": coordinates["lon"]})
         if "lat" in coordinates and "lon" in coordinates
-        else definition.geographic_coordinates(
+        else definition.coordinates(
             {
                 dimension: np.asarray(coordinates[dimension])
                 for dimension in definition.dims
@@ -169,14 +170,13 @@ class GridDefinition(Protocol):
         """Return the native coordinate reference system, if defined."""
         ...
 
-    def index_coordinates(self) -> xr.Coordinates:
-        """Return one-dimensional indexes for every spatial dimension."""
-        ...
-
-    def geographic_coordinates(
-        self, indexes: Mapping[str, NDArray[Any]]
+    def coordinates(
+        self,
+        indexes: Mapping[str, NDArray[Any]] | None = None,
+        *,
+        only_index: bool = False,
     ) -> xr.Coordinates:
-        """Return latitude and longitude for selected indexes."""
+        """Return complete coordinates or only dimension indexes."""
         ...
 
     def subset_indexers(
@@ -248,14 +248,14 @@ class LatLonGrid:
         """Return the geographic CRS."""
         return self.coordinate_reference_system
 
-    def index_coordinates(self) -> xr.Coordinates:
-        """Return latitude and longitude dimension coordinates."""
-        return xr.Coordinates({"lat": self.latitude, "lon": self.longitude})
-
-    def geographic_coordinates(
-        self, indexes: Mapping[str, NDArray[Any]]
+    def coordinates(
+        self,
+        indexes: Mapping[str, NDArray[Any]] | None = None,
+        *,
+        only_index: bool = False,
     ) -> xr.Coordinates:
-        """Return selected latitude and longitude coordinates."""
+        """Return latitude and longitude coordinates."""
+        indexes = indexes or {"lat": self.latitude, "lon": self.longitude}
         return xr.Coordinates({"lat": indexes["lat"], "lon": indexes["lon"]})
 
     def subset_indexers(
@@ -324,26 +324,28 @@ class ProjectedGrid:
         """Return the native projected CRS."""
         return self.coordinate_reference_system
 
-    def index_coordinates(self) -> xr.Coordinates:
-        """Return native y and x dimension coordinates."""
-        return xr.Coordinates({"y": self.y, "x": self.x})
-
-    def geographic_coordinates(
-        self, indexes: Mapping[str, NDArray[Any]]
+    def coordinates(
+        self,
+        indexes: Mapping[str, NDArray[Any]] | None = None,
+        *,
+        only_index: bool = False,
     ) -> xr.Coordinates:
-        """Transform selected native coordinates to latitude and longitude."""
+        """Return native and optional geographic coordinates."""
+        indexes = indexes or {"y": self.y, "x": self.x}
+        coordinates: dict[str, Any] = {"y": indexes["y"], "x": indexes["x"]}
+        if only_index:
+            return xr.Coordinates(coordinates)
         xx: NDArray[Any]
         yy: NDArray[Any]
         xx, yy = np.meshgrid(indexes["x"], indexes["y"])
         longitude, latitude = Transformer.from_crs(
             self.crs, CRS.from_epsg(4326), always_xy=True
         ).transform(xx, yy)
-        return xr.Coordinates(
-            {
-                "lat": (("y", "x"), latitude),
-                "lon": (("y", "x"), np.mod(longitude, 360)),
-            }
+        coordinates.update(
+            lat=(("y", "x"), latitude),
+            lon=(("y", "x"), np.mod(longitude, 360)),
         )
+        return xr.Coordinates(coordinates)
 
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
@@ -419,21 +421,24 @@ class CurvilinearGrid:
         """Return no native CRS."""
         return None
 
-    def index_coordinates(self) -> xr.Coordinates:
-        """Return y and x dimension indexes."""
-        return xr.Coordinates({"y": self.y, "x": self.x})
-
-    def geographic_coordinates(
-        self, indexes: Mapping[str, NDArray[Any]]
+    def coordinates(
+        self,
+        indexes: Mapping[str, NDArray[Any]] | None = None,
+        *,
+        only_index: bool = False,
     ) -> xr.Coordinates:
-        """Return geographic coordinates at selected y and x indexes."""
+        """Return index and optional geographic coordinates."""
+        indexes = indexes or {"y": self.y, "x": self.x}
+        coordinates = xr.Coordinates({"y": indexes["y"], "x": indexes["x"]})
+        if only_index:
+            return coordinates
         latitude = xr.DataArray(
             self.latitude, dims=self.dims, coords={"y": self.y, "x": self.x}
         ).sel(y=indexes["y"], x=indexes["x"])
         longitude = xr.DataArray(
             self.longitude, dims=self.dims, coords={"y": self.y, "x": self.x}
         ).sel(y=indexes["y"], x=indexes["x"])
-        return xr.Coordinates({"lat": latitude, "lon": longitude})
+        return coordinates.assign(lat=latitude, lon=longitude)
 
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
@@ -504,21 +509,24 @@ class PointGrid:
         """Return no native CRS."""
         return None
 
-    def index_coordinates(self) -> xr.Coordinates:
-        """Return x point indexes."""
-        return xr.Coordinates({"x": self.x})
-
-    def geographic_coordinates(
-        self, indexes: Mapping[str, NDArray[Any]]
+    def coordinates(
+        self,
+        indexes: Mapping[str, NDArray[Any]] | None = None,
+        *,
+        only_index: bool = False,
     ) -> xr.Coordinates:
-        """Return latitude and longitude for selected points."""
+        """Return point indexes and optional geographic coordinates."""
+        indexes = indexes or {"x": self.x}
+        coordinates = xr.Coordinates({"x": indexes["x"]})
+        if only_index:
+            return coordinates
         latitude = xr.DataArray(self.latitude, dims="x", coords={"x": self.x}).sel(
             x=indexes["x"]
         )
         longitude = xr.DataArray(self.longitude, dims="x", coords={"x": self.x}).sel(
             x=indexes["x"]
         )
-        return xr.Coordinates({"lat": latitude, "lon": longitude})
+        return coordinates.assign(lat=latitude, lon=longitude)
 
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
@@ -653,18 +661,21 @@ class HEALPixGrid:
         """Return no native CRS."""
         return None
 
-    def index_coordinates(self) -> xr.Coordinates:
-        """Return HEALPix pixel indexes."""
-        return xr.Coordinates({"hpx": np.arange(self.shape[0])})
-
-    def geographic_coordinates(
-        self, indexes: Mapping[str, NDArray[Any]]
+    def coordinates(
+        self,
+        indexes: Mapping[str, NDArray[Any]] | None = None,
+        *,
+        only_index: bool = False,
     ) -> xr.Coordinates:
-        """Return latitude and longitude for selected pixels."""
+        """Return pixel indexes and optional geographic coordinates."""
+        indexes = indexes or {"hpx": np.arange(self.shape[0])}
+        coordinates = xr.Coordinates({"hpx": indexes["hpx"]})
+        if only_index:
+            return coordinates
         latitude, longitude = _healpix_coordinates(
             self.nside, self.ordering, indexes["hpx"]
         )
-        return xr.Coordinates({"lat": ("hpx", latitude), "lon": ("hpx", longitude)})
+        return coordinates.assign(lat=("hpx", latitude), lon=("hpx", longitude))
 
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
@@ -739,7 +750,7 @@ def _validate_definition(definition: GridDefinition) -> None:
         size <= 0 for size in definition.shape
     ):
         raise ValueError("Grid shape must positively size every dimension")
-    coordinates = definition.index_coordinates()
+    coordinates = definition.coordinates(only_index=True)
     for dimension, size in zip(definition.dims, definition.shape, strict=True):
         if dimension not in coordinates or coordinates[dimension].dims != (dimension,):
             raise ValueError(f"Grid must define a 1D '{dimension}' index coordinate")
@@ -859,12 +870,12 @@ register_grid(
     aliases=("latlon025",),
 )
 register_grid(
-    "fcn-global-0.25deg",
+    "latlon-0.25deg-south-pole-excluded",
     LatLonGrid(
         latitude=np.arange(90.0, -90.0, -0.25),
         longitude=np.arange(0.0, 360.0, 0.25),
     ),
-    aliases=("fcn",),
+    aliases=("fcn", "fcn-global-0.25deg"),
 )
 register_grid(
     "hrrr-conus-3km",
