@@ -874,6 +874,26 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
         Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
         by default False.
 
+    Examples
+    --------
+    Access tropical cyclone tracks after a model call:
+
+    >>> model = WeatherNext2Cyclones.load_model(
+    ...     WeatherNext2Cyclones.load_default_package(),
+    ...     track_cyclones=True,
+    ... )
+    >>> x, coords = model(x, coords)
+    >>> tracks = model.cyclone_tracks
+    >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
+
+    The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
+    for the minimum sea-level pressure and surface wind speed diagnostics.
+
+    The tracker filters short-lived cyclogenesis tracks, so short rollouts can
+    return an empty dataframe even when cyclone tracking is active. The active
+    duration threshold is set by
+    `model._cyclone_tracker.cyclogenesis_minimum_duration`.
+
     Badges
     ------
     region:global class:medium-range product:wind product:precip product:temp product:atmos
