@@ -3219,11 +3219,11 @@ defaults to the wrapped model's <code>number_of_samples</code>.</p>
         <li class="doc-section-item field-body">
             <b><code>sda_std_obs</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | <a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>, default:
-                  <code>0.5</code>
+                  <code>0.75</code>
 )
           –
           <div class="doc-md-description">
-            <p>Observation-noise standard deviation for DPS guidance, by default 0.5.
+            <p>Observation-noise standard deviation for DPS guidance, by default 0.75.
 A scalar is broadcast to every assimilated variable (in that variable's
 physical units); a mapping sets it per variable and must contain exactly the
 assimilated variables (unknown keys are rejected) -- e.g.
@@ -3236,11 +3236,11 @@ finite and &gt; 0. It is the effective uncertainty per occupied grid cell
         <li class="doc-section-item field-body">
             <b><code>sda_gamma</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
-                  <code>5e-05</code>
+                  <code>7.5e-05</code>
 )
           –
           <div class="doc-md-description">
-            <p>SDA covariance scaling in the DPS likelihood, by default 5e-5. Positive
+            <p>SDA covariance scaling in the DPS likelihood, by default 7.5e-5. Positive
 values account for denoiser-estimate uncertainty across diffusion noise
 levels. Larger values weaken observation guidance, especially early in
 denoising, so the analysis stays closer to the unguided downscaler and may
@@ -3524,8 +3524,8 @@ run on CPU).</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">time_tolerance</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.TimeTolerance">TimeTolerance</span></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a></span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">),</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">number_of_samples</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">sampler_steps</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">sda_std_obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">sda_gamma</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">5e-05</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">sda_std_obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">sda_gamma</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">7.5e-05</span><span class="p">,</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">amp</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.da.base.AssimilationModel">AssimilationModel</span></span>
 </code></pre></div>
@@ -3621,11 +3621,11 @@ assimilated.</p>
         <li class="doc-section-item field-body">
             <b><code>sda_std_obs</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | <a class="autorefs autorefs-external" title="collections.abc.Mapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping">Mapping</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>, default:
-                  <code>0.5</code>
+                  <code>0.75</code>
 )
           –
           <div class="doc-md-description">
-            <p>Assumed observation-noise std (lower trusts obs more), by default 0.5.
+            <p>Assumed observation-noise std (lower trusts obs more), by default 0.75.
 A scalar broadcasts to every variable; a mapping sets it per variable and
 must contain exactly the assimilated variables (e.g.
 <code>{"u10m": 0.5, "v10m": 0.5}</code>).</p>
@@ -3634,11 +3634,11 @@ must contain exactly the assimilated variables (e.g.
         <li class="doc-section-item field-body">
             <b><code>sda_gamma</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>, default:
-                  <code>5e-05</code>
+                  <code>7.5e-05</code>
 )
           –
           <div class="doc-md-description">
-            <p>SDA covariance scaling in the DPS likelihood, by default 5e-5. Positive
+            <p>SDA covariance scaling in the DPS likelihood, by default 7.5e-5. Positive
 values account for denoiser-estimate uncertainty across diffusion noise
 levels. Larger values weaken observation guidance, especially early in
 denoising, so the analysis stays closer to the unguided downscaler and may
