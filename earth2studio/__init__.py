@@ -14,20 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.19.0a0"
-
-from earth2studio.utils.grid import (
-    CurvilinearGrid,
-    GridDefinition,
-    HEALPixGrid,
-    LatLonGrid,
-    PointGrid,
-    ProjectedGrid,
-    infer_grid,
-    list_grids,
-    register_grid,
-    resolve_grid,
-)
+__version__ = "1.0.0a0"
 
 # Deprecation warnings
 # import sys

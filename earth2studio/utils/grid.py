@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, runtime_checkable
 
@@ -71,10 +71,6 @@ def _coordinate_hash(*arrays: NDArray[Any]) -> str:
     return digest.hexdigest()
 
 
-def _normalize_crs(crs: Any) -> CRS:
-    return CRS.from_user_input(crs)
-
-
 def _is_crs(value: str) -> bool:
     try:
         CRS.from_user_input(value)
@@ -83,35 +79,38 @@ def _is_crs(value: str) -> bool:
     return True
 
 
-def _coordinate_values(
-    coordinates: xr.Coordinates, dimensions: Sequence[str]
-) -> dict[str, NDArray[Any]]:
-    return {dimension: np.asarray(coordinates[dimension]) for dimension in dimensions}
+def _geographic_subset_indexers(
+    definition: GridDefinition, coordinates: xr.Coordinates, **selection: Any
+) -> dict[str, Any]:
+    unknown = set(selection) - {"bounds", "bounds_crs"}
+    if unknown:
+        raise ValueError(f"Unsupported grid subset options: {sorted(unknown)}")
+    if "bounds_crs" in selection and "bounds" not in selection:
+        raise ValueError("Grid subset bounds_crs requires bounds")
+    if "bounds" not in selection:
+        return {}
 
-
-def _geographic_coordinates(
-    definition: GridDefinition, coordinates: xr.Coordinates
-) -> xr.Coordinates:
-    if "lat" in coordinates and "lon" in coordinates:
-        return xr.Coordinates({"lat": coordinates["lat"], "lon": coordinates["lon"]})
-    return definition.geographic_coordinates(
-        _coordinate_values(coordinates, definition.dims)
-    )
-
-
-def _bounds_mask(
-    geographic: xr.Coordinates, bounds: Sequence[float], bounds_crs: Any
-) -> tuple[xr.DataArray, NDArray[np.bool_]]:
+    bounds = selection["bounds"]
     if len(bounds) != 4:
         raise ValueError("Bounds must contain (min_x, min_y, max_x, max_y)")
     min_x, min_y, max_x, max_y = (float(value) for value in bounds)
     if min_y > max_y:
         raise ValueError("Bounds minimum y must not exceed maximum y")
 
+    geographic = (
+        xr.Coordinates({"lat": coordinates["lat"], "lon": coordinates["lon"]})
+        if "lat" in coordinates and "lon" in coordinates
+        else definition.geographic_coordinates(
+            {
+                dimension: np.asarray(coordinates[dimension])
+                for dimension in definition.dims
+            }
+        )
+    )
     latitude, longitude = xr.broadcast(geographic["lat"], geographic["lon"])
     latitude_values = np.asarray(latitude)
     longitude_values = np.asarray(longitude)
-    target_crs = CRS.from_user_input(bounds_crs)
+    target_crs = CRS.from_user_input(selection.get("bounds_crs", "OGC:CRS84"))
     if target_crs.is_geographic:
         if min_x >= 0 and max_x > 180:
             x_values = np.mod(longitude_values, 360)
@@ -131,15 +130,10 @@ def _bounds_mask(
     mask = x_mask & (y_values >= min_y) & (y_values <= max_y)
     if not np.any(mask):
         raise ValueError("Grid subset bounds do not contain any cell centers")
-    return latitude, mask
 
-
-def _mask_indexers(
-    mask: NDArray[np.bool_], dimensions: Sequence[str], mask_dims: Sequence[Hashable]
-) -> dict[str, Any]:
     indexers: dict[str, Any] = {}
-    for dimension in dimensions:
-        axis = mask_dims.index(dimension)
+    for dimension in definition.dims:
+        axis = latitude.dims.index(dimension)
         other_axes = tuple(index for index in range(mask.ndim) if index != axis)
         selected = np.flatnonzero(np.any(mask, axis=other_axes) if other_axes else mask)
         indexers[dimension] = (
@@ -148,25 +142,6 @@ def _mask_indexers(
             else selected
         )
     return indexers
-
-
-def _geographic_subset_indexers(
-    definition: GridDefinition, coordinates: xr.Coordinates, **selection: Any
-) -> dict[str, Any]:
-    unknown = set(selection) - {"bounds", "bounds_crs"}
-    if unknown:
-        raise ValueError(f"Unsupported grid subset options: {sorted(unknown)}")
-    if "bounds_crs" in selection and "bounds" not in selection:
-        raise ValueError("Grid subset bounds_crs requires bounds")
-    if "bounds" not in selection:
-        return {}
-    geographic = _geographic_coordinates(definition, coordinates)
-    latitude, mask = _bounds_mask(
-        geographic,
-        selection["bounds"],
-        selection.get("bounds_crs", "OGC:CRS84"),
-    )
-    return _mask_indexers(mask, definition.dims, latitude.dims)
 
 
 # sphinx - grid protocol start
@@ -250,7 +225,7 @@ class LatLonGrid:
         object.__setattr__(
             self,
             "coordinate_reference_system",
-            _normalize_crs(self.coordinate_reference_system),
+            CRS.from_user_input(self.coordinate_reference_system),
         )
 
     @property
@@ -326,7 +301,7 @@ class ProjectedGrid:
         object.__setattr__(
             self,
             "coordinate_reference_system",
-            _normalize_crs(self.coordinate_reference_system),
+            CRS.from_user_input(self.coordinate_reference_system),
         )
 
     @property
@@ -813,18 +788,6 @@ def register_grid(
     _GRID_ALIASES.update({alias: canonical for alias in grid_aliases})
 
 
-def _resolve_grid(grid: str) -> tuple[str, GridDefinition]:
-    canonical = grid if grid in _GRID_REGISTRY else _GRID_ALIASES.get(grid)
-    if canonical is not None:
-        return canonical, _GRID_REGISTRY[canonical]
-    if _is_crs(grid):
-        raise ValueError(
-            "A CRS does not define grid dimensions or geometry; create a grid "
-            "definition and register it before use"
-        )
-    raise ValueError(f"Unknown Earth2Studio grid '{grid}'")
-
-
 def list_grids() -> tuple[str, ...]:
     """List canonical grid names in registration order."""
     return tuple(_GRID_REGISTRY)
@@ -832,7 +795,15 @@ def list_grids() -> tuple[str, ...]:
 
 def resolve_grid(grid: str) -> GridDefinition:
     """Resolve a canonical grid name or alias."""
-    return _resolve_grid(grid)[1]
+    canonical = grid if grid in _GRID_REGISTRY else _GRID_ALIASES.get(grid)
+    if canonical is not None:
+        return _GRID_REGISTRY[canonical]
+    if _is_crs(grid):
+        raise ValueError(
+            "A CRS does not define grid dimensions or geometry; create a grid "
+            "definition and register it before use"
+        )
+    raise ValueError(f"Unknown Earth2Studio grid '{grid}'")
 
 
 def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
@@ -879,40 +850,36 @@ def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
     )
 
 
-def _register_builtin_grids() -> None:
-    register_grid(
-        "latlon-0.25deg",
-        LatLonGrid(
-            latitude=np.arange(90.0, -90.25, -0.25),
-            longitude=np.arange(0.0, 360.0, 0.25),
+register_grid(
+    "latlon-0.25deg",
+    LatLonGrid(
+        latitude=np.arange(90.0, -90.25, -0.25),
+        longitude=np.arange(0.0, 360.0, 0.25),
+    ),
+    aliases=("latlon025",),
+)
+register_grid(
+    "fcn-global-0.25deg",
+    LatLonGrid(
+        latitude=np.arange(90.0, -90.0, -0.25),
+        longitude=np.arange(0.0, 360.0, 0.25),
+    ),
+    aliases=("fcn",),
+)
+register_grid(
+    "hrrr-conus-3km",
+    ProjectedGrid(
+        y=-1587306.1525566636 + 3000.0 * np.arange(1059),
+        x=-2697520.1425219304 + 3000.0 * np.arange(1799),
+        coordinate_reference_system=(
+            "+proj=lcc +lon_0=262.5 +lat_0=38.5 +lat_1=38.5 "
+            "+lat_2=38.5 +R=6371229 +units=m +type=crs"
         ),
-        aliases=("latlon025",),
-    )
-    register_grid(
-        "fcn-global-0.25deg",
-        LatLonGrid(
-            latitude=np.arange(90.0, -90.0, -0.25),
-            longitude=np.arange(0.0, 360.0, 0.25),
-        ),
-        aliases=("fcn",),
-    )
-    register_grid(
-        "hrrr-conus-3km",
-        ProjectedGrid(
-            y=-1587306.1525566636 + 3000.0 * np.arange(1059),
-            x=-2697520.1425219304 + 3000.0 * np.arange(1799),
-            coordinate_reference_system=(
-                "+proj=lcc +lon_0=262.5 +lat_0=38.5 +lat_1=38.5 "
-                "+lat_2=38.5 +R=6371229 +units=m +type=crs"
-            ),
-        ),
-        aliases=("hrrr",),
-    )
-    register_grid(
-        "healpix-l6-nested",
-        HEALPixGrid(level=6, ordering="nested"),
-        aliases=("hpx6",),
-    )
-
-
-_register_builtin_grids()
+    ),
+    aliases=("hrrr",),
+)
+register_grid(
+    "healpix-l6-nested",
+    HEALPixGrid(level=6, ordering="nested"),
+    aliases=("hpx6",),
+)

@@ -54,7 +54,7 @@ you will learn:
 import numpy as np
 import xarray as xr
 
-import earth2studio as e2s
+import earth2studio.utils.grid as e2s
 
 # %%
 # Resolve a Known Grid

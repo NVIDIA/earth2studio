@@ -6,6 +6,8 @@
 
 Provide one explicit, lightweight contract for describing spatial grids without
 coupling grid geometry to weather data, model tensors, or regridding engines.
+The protocol only describes a grid. It does not define regridding methods, select a
+regridding engine, construct weights, or transform field data.
 
 ## Interface
 
@@ -62,6 +64,55 @@ Earth2Studio provides these implementations:
 
 Users may implement the protocol directly for other grid families.
 
+## Populating Xarray Coordinates
+
+A grid definition populates Xarray coordinates in two stages:
+
+1. `index_coordinates()` creates the one-dimensional coordinate for each ordered
+   spatial dimension in `dims`
+2. `geographic_coordinates()` maps those indexes to auxiliary latitude and longitude
+
+Dimension coordinates alone can be attached directly when geographic coordinates
+are not needed:
+
+```python
+array = xr.DataArray(
+    data,
+    dims=definition.dims,
+    coords=definition.index_coordinates(),
+)
+```
+
+The complete coordinate set is assembled without allocating field data:
+
+```python
+indexes = definition.index_coordinates()
+index_values = {
+    dimension: np.asarray(indexes[dimension]) for dimension in definition.dims
+}
+geographic = definition.geographic_coordinates(index_values)
+coordinates = xr.Dataset(coords=indexes).assign_coords(geographic).coords
+```
+
+Field data can then reuse the completed coordinates:
+
+```python
+array = xr.DataArray(data, dims=definition.dims, coords=coordinates)
+```
+
+The resulting spatial layouts are:
+
+| Definition | Dimensions | Auxiliary geographic coordinates |
+| --- | --- | --- |
+| `LatLonGrid` | `lat, lon` | Existing `lat` and `lon` dimensions |
+| `ProjectedGrid` | `y, x` | `lat(y, x)` and `lon(y, x)` |
+| `CurvilinearGrid` | `y, x` | `lat(y, x)` and `lon(y, x)` |
+| `PointGrid` | `x` | `lat(x)` and `lon(x)` |
+| `HEALPixGrid` | `hpx` | `lat(hpx)` and `lon(hpx)` |
+
+Keeping index and geographic coordinate generation separate avoids computing full
+latitude and longitude arrays when only dimension order and shape are required.
+
 ## Registry
 
 The process-local registry maps stable names and aliases to complete definitions:
@@ -82,15 +133,21 @@ HRRR CONUS 3-km Lambert grid, and nested HEALPix level 6.
 
 ## Inference
 
-`infer_grid()` recognizes common Xarray coordinate layouts without registration:
+`infer_grid()` follows a deterministic, explicit-to-general chain:
 
-- independent one-dimensional `lat` and `lon` coordinates
-- two-dimensional `lat` and `lon` coordinates on `y, x`
-- one-dimensional point `lat` and `lon` coordinates on `x`
-- projected `y, x` coordinates with an `earth2studio_crs` attribute
-- a registered `earth2studio_grid_id` attribute
+1. Resolve a registered grid from `earth2studio_grid_id`
+2. Inspect `lat` and `lon` dimensions:
+   - independent one-dimensional `lat` and `lon` become `LatLonGrid`
+   - one-dimensional `lat(x)` and `lon(x)` become `PointGrid`
+   - two-dimensional `lat(y, x)` and `lon(y, x)` become `CurvilinearGrid`
+3. Use `ProjectedGrid` for one-dimensional `y` and `x` with
+   `earth2studio_crs`
+4. Raise when no supported layout is unambiguous
 
-Ambiguous layouts raise rather than guessing.
+`PointGrid` is the fallback for arbitrary geolocated samples that do not form a
+structured spatial grid. It is selected only when latitude and longitude share the
+same one-dimensional `x` coordinate; it is not a catch-all for missing or malformed
+geometry.
 
 ## Selection
 

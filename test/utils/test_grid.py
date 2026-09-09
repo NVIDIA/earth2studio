@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-import earth2studio as e2s
+import earth2studio.utils.grid as e2s
 
 
 def test_builtin_grid_registry_and_protocol():
