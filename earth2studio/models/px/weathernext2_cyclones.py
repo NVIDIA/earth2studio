@@ -848,6 +848,8 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
         export XLA_PYTHON_CLIENT_PREALLOCATE=false
         export XLA_PYTHON_CLIENT_ALLOCATOR=vmm
 
+    Note
+    ----
     For more information see the following references:
 
     - https://github.com/google-deepmind/weathernext#provided-pretrained-models
