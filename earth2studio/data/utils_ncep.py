@@ -58,6 +58,7 @@ from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
+from earth2studio.data.utils_gpsro import gpsro_level_coordinates, qfro_bit_set
 from earth2studio.data.utils_ir import (
     CRIS_BANDS,
     cris_radiance_mw,
@@ -87,6 +88,8 @@ GPSRO_SEC = 4006
 GPSRO_MEFR = 2121
 GPSRO_IMPP = 7040
 GPSRO_BNDA = 15037
+GPSRO_HEIT = 7007
+GPSRO_ARFR = 15036
 
 
 NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
@@ -98,8 +101,10 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
             nullable=True,
             metadata={
                 "description": (
-                    "Observation pressure coordinate (Pa); null for "
-                    "source-native GPSRO bending-angle rows"
+                    "Observation pressure coordinate (Pa); for GPSRO "
+                    "bending-angle rows a source-only pressure derived from the "
+                    "message's refractivity profile and the standard atmosphere "
+                    "(see earth2studio.data.utils_gpsro)"
                 )
             },
         ),
@@ -109,8 +114,9 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
             nullable=True,
             metadata={
                 "description": (
-                    "Observation height (m); GPSRO uses impact parameter "
-                    "minus Earth radius of curvature"
+                    "Observation height (m); GPSRO uses the refraction-corrected "
+                    "tangent height, or impact parameter minus Earth radius of "
+                    "curvature when the message has no refractivity profile"
                 )
             },
         ),
@@ -502,6 +508,7 @@ def _decode_gpsro_message(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
+    reject_qfro_bits: Sequence[int] = (),
 ) -> list[dict[str, Any]]:
     try:
         message = decoder.process(message_bytes)
@@ -516,7 +523,9 @@ def _decode_gpsro_message(
         template_data.decoded_values_all_subsets,
     ):
         rows.extend(
-            _extract_gpsro_subset(descriptors, values, wanted_descrs, dt_min, dt_max)
+            _extract_gpsro_subset(
+                descriptors, values, wanted_descrs, dt_min, dt_max, reject_qfro_bits
+            )
         )
     return rows
 
@@ -527,8 +536,15 @@ def _extract_gpsro_subset(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
+    reject_qfro_bits: Sequence[int] = (),
 ) -> list[dict[str, Any]]:
-    """Extract the MEFR=0 first-BNDA bending angle from one occultation."""
+    """Extract the MEFR=0 first-BNDA bending angle from one occultation.
+
+    Each level also gets a source-only pressure (Pa) and height (m) derived
+    from the occultation's refractivity levels via
+    :func:`earth2studio.data.utils_gpsro.gpsro_level_coordinates`. The whole
+    occultation is dropped when any of ``reject_qfro_bits`` is set in QFRO.
+    """
     sat_id: Any = None
     transmitter_id: Any = None
     quality_flag: Any = None
@@ -581,6 +597,9 @@ def _extract_gpsro_subset(
         return []
     if obs_time < dt_min or obs_time > dt_max:
         return []
+    if reject_qfro_bits and quality_flag is not None:
+        if any(qfro_bit_set(quality_flag, bit) for bit in reject_qfro_bits):
+            return []
 
     # GSI setupref.f90 writes the GPSRO station id as ``(2(i4.4))``: zero-padded
     # receiver SAID followed by transmitter PTID.
@@ -593,15 +612,23 @@ def _extract_gpsro_subset(
     current_frequency: float | None = None
     current_lat: float | None = lat
     current_lon: float | None = lon
+    current_height: float | None = None
     bnda_slot = 0
+    arfr_slot = 0
     rows: list[dict[str, Any]] = []
+    impacts: list[float] = []
+    profile_height: list[float] = []
+    profile_refractivity: list[float] = []
 
     # Each frequency block lays out MEFR -> IMPP -> two BNDA per frequency; count
-    # slots, not values: BNDA #1 is the observation, BNDA #2 is its error.
+    # slots, not values: BNDA #1 is the observation, BNDA #2 is its error. The
+    # refractivity block lays out HEIT -> two ARFR (value, error) the same way.
     for descriptor, value in zip(descriptors, values):
         descriptor_id = descriptor.id
         if descriptor_id == GPSRO_BNDA:
             bnda_slot += 1
+        elif descriptor_id == GPSRO_ARFR:
+            arfr_slot += 1
         if value is None:
             if descriptor_id == GPSRO_LAT:
                 current_lat = None
@@ -612,6 +639,9 @@ def _extract_gpsro_subset(
             elif descriptor_id == GPSRO_MEFR:
                 current_frequency = None
                 bnda_slot = 0
+            elif descriptor_id == GPSRO_HEIT:
+                current_height = None
+                arfr_slot = 0
             continue
         if descriptor_id == GPSRO_LAT:
             current_lat = float(value)
@@ -625,6 +655,19 @@ def _extract_gpsro_subset(
             continue
         if descriptor_id == GPSRO_IMPP:
             current_impact = float(value)
+            continue
+        if descriptor_id == GPSRO_HEIT:
+            current_height = float(value)
+            arfr_slot = 0
+            continue
+        if descriptor_id == GPSRO_ARFR:
+            if arfr_slot == 1 and current_height is not None:
+                try:
+                    refractivity = float(value)
+                except (TypeError, ValueError):
+                    continue
+                profile_height.append(current_height)
+                profile_refractivity.append(refractivity)
             continue
         if descriptor_id not in wanted_descrs or descriptor_id != GPSRO_BNDA:
             continue
@@ -643,14 +686,14 @@ def _extract_gpsro_subset(
         if current_lat is None or current_lon is None:
             continue
 
+        impacts.append(current_impact)
         rows.append(
             {
                 "time": obs_time,
                 "lat": np.float32(current_lat),
                 "lon": np.float32(current_lon % 360.0),
                 "pres": None,
-                # Impact height = impact parameter - local radius of curvature.
-                "elev": np.float32(current_impact - radius),
+                "elev": None,
                 # GPSRO has no conventional TYP; store receiver SAID in this
                 # shared numeric type column (matches GSI/UFS diagnostics).
                 "type": np.uint16(int(sat_id)) if sat_id is not None else None,
@@ -668,6 +711,17 @@ def _extract_gpsro_subset(
                 "variable": wanted_descrs[descriptor_id],
             }
         )
+    if not rows:
+        return rows
+    pressure_hpa, height = gpsro_level_coordinates(
+        np.asarray(impacts, dtype=np.float64),
+        float(radius),  # type: ignore[arg-type]
+        np.asarray(profile_height, dtype=np.float64),
+        np.asarray(profile_refractivity, dtype=np.float64),
+    )
+    for row, p, h in zip(rows, pressure_hpa, height):
+        row["pres"] = np.float32(p * 100.0)
+        row["elev"] = np.float32(h)
     return rows
 
 
@@ -812,10 +866,16 @@ def _gpsro_worker(
     wanted_descrs: dict[int, str],
     dt_min: datetime,
     dt_max: datetime,
+    reject_qfro_bits: Sequence[int] = (),
 ) -> list[dict[str, Any]]:
     with _silence_bufr_noise():
         return _decode_gpsro_message(
-            _worker_decoder, message_bytes, wanted_descrs, dt_min, dt_max
+            _worker_decoder,
+            message_bytes,
+            wanted_descrs,
+            dt_min,
+            dt_max,
+            reject_qfro_bits,
         )
 
 
@@ -913,6 +973,7 @@ def decode_gpsro(
     dt_min: datetime,
     dt_max: datetime,
     decode_workers: int = 8,
+    reject_qfro_bits: Sequence[int] = (),
 ) -> pd.DataFrame:
     """Decode an NCEP GPSRO bending-angle BUFR file into a DataFrame.
 
@@ -926,8 +987,12 @@ def decode_gpsro(
         Time window for observation filtering.
     decode_workers : int
         Number of parallel decode processes (1 disables multiprocessing).
+    reject_qfro_bits : Sequence[int], optional
+        WMO 0-33-039 ``QFRO`` flag bits (1 = MSB) that drop the whole
+        occultation when set, by default none.
     """
     decode_workers = max(1, decode_workers)
+    reject_qfro_bits = tuple(reject_qfro_bits)
     wanted_descrs = {int(key): variable for variable, (key, _) in plan.items()}
     modifiers = {variable: modifier for variable, (_, modifier) in plan.items()}
     with open(path, "rb") as file:
@@ -950,6 +1015,7 @@ def decode_gpsro(
                     wanted_descrs,
                     dt_min,
                     dt_max,
+                    reject_qfro_bits,
                 )
                 for message_bytes, _data_category in messages
             ]
@@ -963,7 +1029,12 @@ def decode_gpsro(
         for message_bytes, _data_category in messages:
             rows.extend(
                 _decode_gpsro_message(
-                    decoder, message_bytes, wanted_descrs, dt_min, dt_max
+                    decoder,
+                    message_bytes,
+                    wanted_descrs,
+                    dt_min,
+                    dt_max,
+                    reject_qfro_bits,
                 )
             )
     return _finalize_rows(

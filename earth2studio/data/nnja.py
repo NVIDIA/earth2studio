@@ -155,8 +155,12 @@ class NNJAObsConv:
 
     GPSRO rows use the shared columns with product-specific meanings:
     ``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
-    identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
-    ``elev`` is impact parameter minus Earth radius of curvature.
+    identifiers, ``quality`` is the QFRO flag table, ``elev`` is the
+    refraction-corrected tangent height (impact parameter minus Earth radius
+    of curvature when the occultation carries no refractivity levels), and
+    ``pres`` is a source-only pressure coordinate derived from the message's
+    refractivity profile and the standard atmosphere
+    (:mod:`earth2studio.data.utils_gpsro`). No retrieval product is read.
 
     Parameters
     ----------
@@ -199,6 +203,10 @@ class NNJAObsConv:
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
+    gpsro_reject_qfro_bits : Sequence[int], optional
+        WMO 0-33-039 ``QFRO`` flag bits (1 = MSB of the 16-bit table) that drop
+        a whole GPSRO occultation when set. HealDA training rejects bit 5;
+        by default no occultation is dropped.
 
     Warning
     -------
@@ -237,6 +245,7 @@ class NNJAObsConv:
         async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
+        gpsro_reject_qfro_bits: Sequence[int] = (),
     ) -> None:
         if source == "convbufr":
             raise NotImplementedError(
@@ -260,6 +269,7 @@ class NNJAObsConv:
         self._async_workers = async_workers
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
+        self._gpsro_reject_qfro_bits = tuple(gpsro_reject_qfro_bits)
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         # Anonymous obstore S3 store for the public NNJA bucket.
@@ -414,6 +424,7 @@ class NNJAObsConv:
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
+                reject_qfro_bits=self._gpsro_reject_qfro_bits,
             )
             return frame[self.SCHEMA.names]
         if task.route == "prepbufr":
