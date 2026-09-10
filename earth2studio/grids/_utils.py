@@ -76,7 +76,10 @@ def geographic_subset_indexers(
         xr.Coordinates({"lat": coordinates["lat"], "lon": coordinates["lon"]})
         if "lat" in coordinates and "lon" in coordinates
         else definition.coords(
-            {dimension: np.asarray(coordinates[dimension]) for dimension in definition.dims}
+            {
+                dimension: np.asarray(coordinates[dimension])
+                for dimension in definition.dims
+            }
         )
     )
     latitude, longitude = xr.broadcast(geographic["lat"], geographic["lon"])

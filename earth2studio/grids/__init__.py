@@ -149,7 +149,9 @@ def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
             y = np.asarray(coordinates["y"]) if "y" in coordinates else None
             x = np.asarray(coordinates["x"]) if "x" in coordinates else None
             return CurvilinearGrid(np.asarray(latitude), np.asarray(longitude), y, x)
-        raise ValueError("Latitude and longitude coordinates have an unsupported layout")
+        raise ValueError(
+            "Latitude and longitude coordinates have an unsupported layout"
+        )
     raise ValueError(
         "Cannot infer grid geometry; provide lat/lon coordinates or y/x coordinates "
         f"with the '{E2S_CRS}' attribute"

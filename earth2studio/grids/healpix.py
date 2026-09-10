@@ -156,9 +156,7 @@ class HEALPixGrid:
             raise ValueError("HEALPix face layout requires XY ordering")
         if self.xy_origin not in {"south", "east", "north", "west"}:
             raise ValueError("HEALPix XY origin must be a cardinal direction")
-        if self.ordering != "xy" and (
-            self.xy_origin != "south" or self.xy_clockwise
-        ):
+        if self.ordering != "xy" and (self.xy_origin != "south" or self.xy_clockwise):
             raise ValueError("HEALPix XY orientation requires XY ordering")
 
     @property
@@ -171,7 +169,11 @@ class HEALPixGrid:
 
     @property
     def shape(self) -> tuple[int, ...]:
-        return (12, self.nside, self.nside) if self.layout == "face" else (12 * self.nside**2,)
+        return (
+            (12, self.nside, self.nside)
+            if self.layout == "face"
+            else (12 * self.nside**2,)
+        )
 
     @property
     def topology(self) -> GridTopology:
@@ -214,9 +216,7 @@ class HEALPixGrid:
         latitude, longitude = _healpix_coordinates(
             self.nside, "xy", pixels, self.xy_origin, self.xy_clockwise
         )
-        return coordinates.assign(
-            lat=(self.dims, latitude), lon=(self.dims, longitude)
-        )
+        return coordinates.assign(lat=(self.dims, latitude), lon=(self.dims, longitude))
 
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
@@ -232,7 +232,9 @@ class HEALPixGrid:
         if faces.size == 0 or np.any((faces < 0) | (faces > 11)):
             raise ValueError("HEALPix faces must be integers from 0 through 11")
         if self.ordering == "ring":
-            raise NotImplementedError("HEALPix face selection does not support RING ordering")
+            raise NotImplementedError(
+                "HEALPix face selection does not support RING ordering"
+            )
 
         if self.layout == "face":
             face_positions = np.flatnonzero(

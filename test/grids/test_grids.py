@@ -96,9 +96,7 @@ def test_healpix_orderings_and_layouts():
     with pytest.raises(NotImplementedError, match="RING"):
         ring.subset_indexers(ring.coords(only_index=True), faces=(0,))
 
-    xy = e2s.HEALPixGrid(
-        level=1, ordering="xy", xy_origin="north", xy_clockwise=True
-    )
+    xy = e2s.HEALPixGrid(level=1, ordering="xy", xy_origin="north", xy_clockwise=True)
     expected = e2s.HEALPixGrid(level=1).coords({"hpx": np.array([3])})
     actual = xy.coords({"hpx": np.array([0])})
     np.testing.assert_allclose(actual["lat"], expected["lat"])
@@ -167,9 +165,7 @@ def test_grid_registration_inference_and_validation():
         attrs={e2s.E2S_CRS: "EPSG:3857"},
     )
     assert isinstance(e2s.infer_grid(projected_array), e2s.ProjectedGrid)
-    registered = projected_array.assign_attrs(
-        {e2s.E2S_GRID_ID: "test-grid-protocol"}
-    )
+    registered = projected_array.assign_attrs({e2s.E2S_GRID_ID: "test-grid-protocol"})
     assert e2s.infer_grid(registered) is projected
     assert e2s.infer_grid(registered.expand_dims(time=[0])) is projected
     assert e2s.infer_grid(registered.isel(x=slice(2))).shape == (2, 2)
