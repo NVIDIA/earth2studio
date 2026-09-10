@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Hugging Face model packages now use the native Hub downloader, enabling Xet
+  transfers while retaining Earth2Studio's whole-file cache behavior.
 - Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
   `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
   emit a warning and will be removed in a future release.
@@ -80,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 
 - Added a `fuxi-s2s` optional dependency group for ONNX Runtime inference.
+- Raised the minimum `huggingface-hub` version to 0.32.0 so supported platforms
+  install the native Xet client.
 
 ## [0.18.0] - 2026-08-31
 

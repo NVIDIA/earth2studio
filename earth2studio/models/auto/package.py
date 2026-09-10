@@ -17,18 +17,21 @@
 import io
 import os
 import re
+import tempfile
 import warnings
+from pathlib import Path
+from typing import Any
 
 import aiohttp
 import fsspec
 import s3fs
-from fsspec.callbacks import Callback, TqdmCallback
+from fsspec.callbacks import DEFAULT_CALLBACK, Callback, TqdmCallback
 from fsspec.compression import compr
 from fsspec.core import BaseCache, split_protocol
 from fsspec.implementations.cached import LocalTempFile, WholeFileCacheFileSystem
 from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
 from fsspec.utils import infer_compression
-from huggingface_hub import HfFileSystem
+from huggingface_hub import HfFileSystem, hf_hub_download
 from loguru import logger
 from tqdm import tqdm
 
@@ -37,6 +40,75 @@ from earth2studio.models.auto.ngc import NGCModelFileSystem
 # TODO: Make this package wide? Same as in run.py
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
+
+class _HfHubFileSystem(HfFileSystem):
+    def get_file(
+        self,
+        rpath: str,
+        lpath: str | os.PathLike[str] | io.IOBase,
+        callback: Callback = DEFAULT_CALLBACK,
+        outfile: io.IOBase | None = None,
+        **kwargs: Any,
+    ) -> None:
+        revision = kwargs.get("revision")
+        unhandled_kwargs = set(kwargs) - {"revision"}
+        if (
+            outfile is not None
+            or not isinstance(lpath, (str, os.PathLike))
+            or unhandled_kwargs
+        ):
+            super().get_file(
+                rpath,
+                lpath,  # type: ignore[arg-type]
+                callback=callback,
+                outfile=outfile,
+                **kwargs,
+            )
+            return
+
+        resolved = self.resolve_path(rpath, revision=revision)
+        repo_id = getattr(resolved, "repo_id", None)
+        repo_type = getattr(resolved, "repo_type", None)
+        resolved_revision = getattr(resolved, "revision", None)
+        path_in_repo = getattr(resolved, "path_in_repo", None)
+        if (
+            not isinstance(repo_id, str)
+            or not isinstance(path_in_repo, str)
+            or not path_in_repo
+            or self.isdir(rpath)
+        ):
+            super().get_file(
+                rpath,
+                os.fspath(lpath),
+                callback=callback,
+                outfile=outfile,
+                **kwargs,
+            )
+            return
+
+        destination = Path(lpath)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            dir=destination.parent,
+            prefix=f".{destination.name}.huggingface.",
+        ) as staging_directory:
+            downloaded_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=path_in_repo,
+                repo_type=repo_type,
+                revision=resolved_revision,
+                local_dir=staging_directory,
+                endpoint=self.endpoint,
+                token=self.token,
+            )
+            if not isinstance(downloaded_path, str):
+                raise RuntimeError(f"Hugging Face did not return a path for {rpath}")
+
+            size = os.path.getsize(downloaded_path)
+            callback.set_size(size)
+            os.replace(downloaded_path, destination)
+            callback.absolute_update(size)
 
 
 class CallbackWholeFileCacheFileSystem(WholeFileCacheFileSystem):
@@ -197,7 +269,7 @@ class Package:
             # https://github.com/huggingface/huggingface_hub/blob/v0.23.4/src/huggingface_hub/hf_file_system.py#L816
             if "HF_HUB_DOWNLOAD_TIMEOUT" not in os.environ:
                 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(Package.default_timeout())
-            self.fs = HfFileSystem(
+            self.fs = _HfHubFileSystem(
                 target_options={"default_block_size": Package.default_blocksize()},
                 **fs_options,
             )

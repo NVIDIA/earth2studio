@@ -81,9 +81,7 @@ VARIABLES = [
 
 _TTR_INDEX = VARIABLES.index("ttr")
 _TP_INDEX = VARIABLES.index("tp")
-_HF_ROOT = (
-    "hf://Ayushrajtamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
-)
+_HF_ROOT = "hf://Artamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
 
 
 def _atomic_copy(source: Any, destination: Path) -> Path:

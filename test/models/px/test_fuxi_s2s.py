@@ -270,7 +270,7 @@ def test_fuxi_s2s_default_package_is_pinned() -> None:
     package = FuXiS2S.load_default_package()
 
     assert package.root == (
-        "hf://Ayushrajtamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
+        "hf://Artamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
     )
 
 

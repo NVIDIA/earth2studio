@@ -16,9 +16,12 @@
 
 import http.client
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import fsspec
 import pytest
+from huggingface_hub import HfFileSystem
 
 from earth2studio.data import CBottle3D
 from earth2studio.models.auto import (
@@ -29,6 +32,7 @@ from earth2studio.models.auto.ngc import NGCModelFileSystem
 from earth2studio.models.auto.package import (
     TqdmCallbackRelative,
     TqdmFormat,
+    _HfHubFileSystem,
 )
 from earth2studio.models.dx import (
     CBottleInfill,
@@ -207,6 +211,195 @@ def test_package_caching_behavior(
     else:
         assert cache_files_added == 0
         assert str(cache_folder) not in str(file_path)
+
+
+def test_hf_package_uses_native_hub_download(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache_path = tmp_path / "cache"
+    resolve_calls: list[tuple[str, str | None]] = []
+    download_calls: list[dict[str, Any]] = []
+
+    def resolve_path(
+        self: _HfHubFileSystem,
+        path: str,
+        revision: str | None = None,
+    ) -> SimpleNamespace:
+        resolve_calls.append((path, revision))
+        return SimpleNamespace(
+            repo_id="org/repo",
+            repo_type="model",
+            revision="0123456789abcdef",
+            path_in_repo="checkpoints/weights.bin",
+        )
+
+    def download(**kwargs: Any) -> str:
+        download_calls.append(kwargs)
+        source = Path(kwargs["local_dir"]) / "checkpoints" / "weights.bin"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"native-hub-download")
+        return str(source)
+
+    monkeypatch.setattr(_HfHubFileSystem, "resolve_path", resolve_path)
+    monkeypatch.setattr(_HfHubFileSystem, "ukey", lambda self, path: "etag")
+    monkeypatch.setattr(_HfHubFileSystem, "isdir", lambda self, path: False)
+    monkeypatch.setattr(
+        "earth2studio.models.auto.package.hf_hub_download",
+        download,
+    )
+
+    package = Package(
+        "hf://org/repo@0123456789abcdef/checkpoints",
+        fs_options={"endpoint": "https://hub.example", "token": "token"},
+        cache_options={"cache_storage": str(cache_path), "same_names": True},
+    )
+    first_path = Path(package.resolve("weights.bin"))
+    second_path = Path(package.resolve("weights.bin"))
+
+    assert first_path == second_path == cache_path / "weights.bin"
+    assert first_path.read_bytes() == b"native-hub-download"
+    assert resolve_calls == [
+        ("org/repo@0123456789abcdef/checkpoints/weights.bin", None)
+    ]
+    assert len(download_calls) == 1
+    download_call = download_calls[0]
+    staging_directory = Path(download_call.pop("local_dir"))
+    assert staging_directory.parent == cache_path
+    assert staging_directory.name.startswith(".weights.bin.huggingface.")
+    assert not staging_directory.exists()
+    assert download_call == {
+        "repo_id": "org/repo",
+        "filename": "checkpoints/weights.bin",
+        "repo_type": "model",
+        "revision": "0123456789abcdef",
+        "endpoint": "https://hub.example",
+        "token": "token",
+    }
+
+
+def test_hf_package_preserves_hashed_cache_names(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache_path = tmp_path / "cache"
+
+    monkeypatch.setattr(
+        _HfHubFileSystem,
+        "resolve_path",
+        lambda self, path, revision=None: SimpleNamespace(
+            repo_id="org/repo",
+            repo_type="model",
+            revision="main",
+            path_in_repo="weights.bin",
+        ),
+    )
+    monkeypatch.setattr(_HfHubFileSystem, "ukey", lambda self, path: "etag")
+    monkeypatch.setattr(_HfHubFileSystem, "isdir", lambda self, path: False)
+
+    def download(**kwargs: Any) -> str:
+        source = Path(kwargs["local_dir"]) / "weights.bin"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"copied-download")
+        return str(source)
+
+    monkeypatch.setattr(
+        "earth2studio.models.auto.package.hf_hub_download",
+        download,
+    )
+
+    package = Package(
+        "hf://org/repo",
+        cache_options={"cache_storage": str(cache_path), "same_names": False},
+    )
+    resolved_path = Path(package.resolve("weights.bin"))
+
+    assert resolved_path.parent == cache_path
+    assert resolved_path.name != "weights.bin"
+    assert resolved_path.read_bytes() == b"copied-download"
+
+
+def test_hf_package_retries_after_download_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache_path = tmp_path / "cache"
+    attempts = 0
+
+    monkeypatch.setattr(
+        _HfHubFileSystem,
+        "resolve_path",
+        lambda self, path, revision=None: SimpleNamespace(
+            repo_id="org/repo",
+            repo_type="model",
+            revision="main",
+            path_in_repo="weights.bin",
+        ),
+    )
+    monkeypatch.setattr(_HfHubFileSystem, "ukey", lambda self, path: "etag")
+    monkeypatch.setattr(_HfHubFileSystem, "isdir", lambda self, path: False)
+
+    def download(**kwargs: Any) -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("interrupted download")
+        source = Path(kwargs["local_dir"]) / "weights.bin"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"complete-download")
+        return str(source)
+
+    monkeypatch.setattr(
+        "earth2studio.models.auto.package.hf_hub_download",
+        download,
+    )
+
+    package = Package(
+        "hf://org/repo",
+        cache_options={"cache_storage": str(cache_path), "same_names": True},
+    )
+    with pytest.raises(RuntimeError, match="interrupted download"):
+        package.resolve("weights.bin")
+
+    assert not (cache_path / "weights.bin").exists()
+    resolved_path = Path(package.resolve("weights.bin"))
+    assert resolved_path.read_bytes() == b"complete-download"
+    assert attempts == 2
+
+
+def test_hf_package_directory_get_uses_filesystem_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fallback_calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(
+        _HfHubFileSystem,
+        "resolve_path",
+        lambda self, path, revision=None: SimpleNamespace(
+            repo_id="org/repo",
+            repo_type="model",
+            revision="main",
+            path_in_repo="checkpoints",
+        ),
+    )
+    monkeypatch.setattr(_HfHubFileSystem, "isdir", lambda self, path: True)
+
+    def fallback_get_file(
+        self: HfFileSystem,
+        rpath: str,
+        lpath: str,
+        **kwargs: Any,
+    ) -> None:
+        fallback_calls.append((rpath, lpath))
+
+    monkeypatch.setattr(HfFileSystem, "get_file", fallback_get_file)
+    filesystem = _HfHubFileSystem(skip_instance_cache=True)
+    destination = tmp_path / "checkpoints"
+
+    filesystem.get_file("org/repo/checkpoints", str(destination))
+
+    assert fallback_calls == [("org/repo/checkpoints", str(destination))]
 
 
 @pytest.mark.parametrize(

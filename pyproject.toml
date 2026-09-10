@@ -17,7 +17,7 @@ dependencies = [
     "gcsfs",
     "h5py>=3.2.0",
     "h5netcdf>=1.0.0",
-    "huggingface-hub>=0.27.0",
+    "huggingface-hub>=0.32.0",
     "loguru",
     "netCDF4>=1.6.4,<1.7.3", # https://github.com/Unidata/netcdf4-python/issues/1438
     "obspec>=0.1",
