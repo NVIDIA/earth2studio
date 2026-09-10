@@ -46,8 +46,55 @@ class PhooFuXiS2S(torch.nn.Module):
         return torch.cat((x[:, -1:], prediction), dim=1)
 
 
+class _PhooBinding:
+    """Minimal IO-binding mock for :class:`PhooStochasticSession`."""
+
+    def __init__(self) -> None:
+        self.inputs: dict[str, torch.Tensor] = {}
+        self.outputs: dict[str, torch.Tensor] = {}
+
+    def bind_input(
+        self,
+        name: str,
+        device_type: str,
+        device_id: int,
+        element_type: Any,
+        shape: tuple[int, ...],
+        buffer_ptr: int,
+    ) -> None:
+        self.inputs[name] = _tensor_from_ptr(buffer_ptr, shape, device_type, device_id)
+
+    def bind_output(
+        self,
+        name: str,
+        device_type: str,
+        device_id: int,
+        element_type: Any,
+        shape: tuple[int, ...],
+        buffer_ptr: int,
+    ) -> None:
+        self.outputs[name] = _tensor_from_ptr(buffer_ptr, shape, device_type, device_id)
+
+
+def _tensor_from_ptr(
+    ptr: int, shape: tuple[int, ...], device_type: str, device_id: int
+) -> torch.Tensor:
+    """Reconstruct a tensor view from a raw data pointer (CPU only in tests)."""
+    import ctypes
+
+    numel = 1
+    for s in shape:
+        numel *= s
+    arr = (ctypes.c_float * numel).from_address(ptr)
+    return torch.frombuffer(arr, dtype=torch.float32).reshape(shape)
+
+
 class PhooStochasticSession:
-    """Small ORT stand-in that returns a distinct sample on every call."""
+    """Small ORT stand-in that returns a distinct sample on every call.
+
+    Supports both the legacy ``run()`` API and the ``io_binding`` API
+    used by the production ``_forward`` implementation.
+    """
 
     def __init__(self) -> None:
         self.calls = 0
@@ -60,14 +107,16 @@ class PhooStochasticSession:
     def get_outputs(self) -> list[Any]:
         return [type("OrtValue", (), {"name": "output"})()]
 
-    def run(
-        self,
-        output_names: list[str],
-        inputs: dict[str, np.ndarray],
-    ) -> list[np.ndarray]:
+    def io_binding(self) -> _PhooBinding:
+        return _PhooBinding()
+
+    def run_with_iobinding(self, binding: _PhooBinding) -> None:
         self.calls += 1
-        prediction = inputs["input"][:, -1:] + self.calls
-        return [np.concatenate((inputs["input"][:, -1:], prediction), axis=1)]
+        inp = binding.inputs["input"]
+        prediction = inp[:, -1:] + self.calls
+        result = torch.cat((inp[:, -1:], prediction), dim=1)
+        out = binding.outputs["output"]
+        out.copy_(result)
 
 
 @pytest.fixture(scope="module")

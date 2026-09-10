@@ -186,15 +186,13 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Warning
     -------
-    The official checkpoint is licensed under CC BY-NC-ND 4.0. Its Zenodo
-    record restricts it to research use and prohibits commercial or competition
-    use without prior author permission. These restrictions apply to the
-    checkpoint, independently of Earth2Studio's Apache-2.0 source-code license.
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
 
     Badges
     ------
     region:global class:subseasonal-seasonal product:wind product:precip product:temp
-    product:atmos product:ocean year:2024 backend:onnx
+    product:atmos product:ocean year:2024 gpu:40gb backend:onnx
     """
 
     def __init__(self, onnx_path: str) -> None:
@@ -380,8 +378,19 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
         step: int,
     ) -> torch.Tensor:
-        """Run one FuXi-S2S ONNX step."""
+        """Run one FuXi-S2S ONNX step.
+
+        Uses ORT IO bindings so GPU tensors stay on-device throughout
+        inference, avoiding redundant GPU-to-CPU-to-GPU copies.
+
+        Note
+        ----
+        See the `ONNX Runtime Python API
+        <https://onnxruntime.ai/docs/api/python/api_summary.html>`_
+        for details on the IO-binding interface.
+        """
         ort_session = self._get_ort_session()
+        device = self.device_buffer.device
         input_names = {model_input.name for model_input in ort_session.get_inputs()}
         output_name = ort_session.get_outputs()[0].name
 
@@ -400,24 +409,60 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         day_of_year = self._day_of_year(valid_times)
 
         for index in range(model_input.shape[0]):
-            ort_inputs = {
-                "input": model_input[index : index + 1].contiguous().cpu().numpy()
-            }
+            binding = ort_session.io_binding()
+
+            # Bind the main tensor input directly from device memory
+            sample_input = model_input[index : index + 1].contiguous()
+            binding.bind_input(
+                name="input",
+                device_type=device.type,
+                device_id=device.index if device.index is not None else 0,
+                element_type=np.float32,
+                shape=tuple(sample_input.shape),
+                buffer_ptr=sample_input.data_ptr(),
+            )
+
+            # Scalar auxiliaries are always CPU-resident
             if "step" in input_names:
-                ort_inputs["step"] = np.array([step], dtype=np.float32)
+                step_tensor = torch.tensor(
+                    [step], dtype=torch.float32, device=torch.device("cpu")
+                )
+                binding.bind_input(
+                    name="step",
+                    device_type="cpu",
+                    device_id=0,
+                    element_type=np.float32,
+                    shape=(1,),
+                    buffer_ptr=step_tensor.data_ptr(),
+                )
             if "doy" in input_names:
-                ort_inputs["doy"] = np.array(
+                doy_tensor = torch.tensor(
                     [day_of_year[index]],
-                    dtype=np.float32,
+                    dtype=torch.float32,
+                    device=torch.device("cpu"),
+                )
+                binding.bind_input(
+                    name="doy",
+                    device_type="cpu",
+                    device_id=0,
+                    element_type=np.float32,
+                    shape=(1,),
+                    buffer_ptr=doy_tensor.data_ptr(),
                 )
 
-            sample_output = ort_session.run(
-                [output_name],
-                ort_inputs,
-            )[0]
-            output[index : index + 1] = torch.from_numpy(sample_output).to(
-                device=model_input.device,
+            # Bind output on the same device as the input tensor
+            sample_output = torch.empty_like(sample_input).contiguous()
+            binding.bind_output(
+                name=output_name,
+                device_type=device.type,
+                device_id=device.index if device.index is not None else 0,
+                element_type=np.float32,
+                shape=tuple(sample_output.shape),
+                buffer_ptr=sample_output.data_ptr(),
             )
+
+            ort_session.run_with_iobinding(binding)
+            output[index : index + 1] = sample_output
 
         output = output.reshape(
             x.shape[0],
