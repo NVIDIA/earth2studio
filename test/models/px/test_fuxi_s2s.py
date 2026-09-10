@@ -379,8 +379,18 @@ def test_fuxi_s2s_package(device: str) -> None:
         for name in ("input", "mean", "std"):
             with archive.open(f"data/{name}.nc") as stream:
                 datasets[name] = xr.open_dataset(io.BytesIO(stream.read())).load()
-        with archive.open("data/sample/total_precipitation.nc") as stream:
-            official_tp = xr.open_dataarray(io.BytesIO(stream.read())).load()
+        official_samples = {}
+        for variable, file_name in {
+            "sst": "sea_surface_temperature.nc",
+            "t2m": "2m_temperature.nc",
+            "tp": "total_precipitation.nc",
+            "ttr": "top_net_thermal_radiation.nc",
+            "z500": "geopotential.nc",
+        }.items():
+            with archive.open(f"data/sample/{file_name}") as stream:
+                official_samples[variable] = xr.open_dataarray(
+                    io.BytesIO(stream.read())
+                ).load()
 
     official_names = {
         "u10m": "10u",
@@ -396,21 +406,43 @@ def test_fuxi_s2s_package(device: str) -> None:
     scale = datasets["std"]["data"].sel(level=official_variables).values
     model_input = normalized * scale[None, :, None, None]
     model_input += center[None, :, None, None]
+    model_input[:, VARIABLES.index("sst")] = official_samples["sst"].values[:, 0]
+    np.testing.assert_allclose(
+        model_input[:, VARIABLES.index("t2m")],
+        official_samples["t2m"].values[:, 0],
+    )
+    np.testing.assert_allclose(
+        model_input[:, VARIABLES.index("z500")],
+        official_samples["z500"].sel(level=500).values,
+    )
+    np.testing.assert_array_equal(
+        np.isnan(model_input[:, VARIABLES.index("sst")]),
+        np.isnan(official_samples["sst"].values[:, 0]),
+    )
     x = torch.from_numpy(model_input).unsqueeze(0).to(device)
     x[:, :, VARIABLES.index("ttr")].mul_(3600.0)
     x[:, :, VARIABLES.index("tp")].expm1_().clamp_(min=0.0).div_(1000.0)
+    np.testing.assert_allclose(
+        x[0, :, VARIABLES.index("ttr")].cpu().numpy(),
+        official_samples["ttr"].values[:, 0],
+        rtol=1.0e-6,
+        atol=0.1,
+    )
 
     ort_input = model._prepare_input(x.float())
     expected_ort_input = torch.from_numpy(model_input).unsqueeze(0)
     expected_ort_input[:, :, VARIABLES.index("tp")] = torch.from_numpy(
-        official_tp.values[:, 0] * 1000.0
+        official_samples["tp"].values[:, 0] * 1000.0
     )
     torch.testing.assert_close(
         ort_input.cpu(),
         expected_ort_input,
         rtol=1.0e-5,
         atol=1.0e-5,
+        equal_nan=True,
     )
+    providers = model._get_ort_session().get_providers()
+    assert providers[0] == "CUDAExecutionProvider"
     output, output_coords = model(x, coords)
 
     assert output.shape == (1, 1, len(VARIABLES), 121, 240)
