@@ -3,32 +3,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from collections.abc import Callable
-from typing import Any
 
 import pytest
 import xarray as xr
 
-from earth2studio.grids import GridDefinition, GridTopology
+from earth2studio.grids import GridDefinition
 
 
 @pytest.fixture
-def check_grid() -> Callable[..., None]:
-    """Return a common grid contract checker."""
+def check_grid_contract():
+    """Return the shared grid contract assertion."""
 
-    def check(
-        grid: GridDefinition,
-        dims: tuple[str, ...],
-        shape: tuple[int, ...],
-        topology: GridTopology,
-    ) -> None:
+    def check(grid: GridDefinition, dims, shape, topology):
         assert isinstance(grid, GridDefinition)
-        assert grid.dims == dims
-        assert grid.shape == shape
-        assert grid.topology == topology
+        assert (grid.dims, grid.shape, grid.topology) == (dims, shape, topology)
 
-        indexes = grid.coords(only_index=True)
-        coordinates = grid.coords()
+        indexes, coordinates = grid.coords(only_index=True), grid.coords()
         assert tuple(indexes) == dims
         for dimension, size in zip(dims, shape, strict=True):
             assert indexes[dimension].dims == (dimension,)
@@ -37,15 +27,16 @@ def check_grid() -> Callable[..., None]:
         assert latitude.dims == longitude.dims == dims
         assert latitude.shape == longitude.shape == shape
 
-        attrs: dict[str, Any] = grid.attrs
-        assert attrs["type"] == type(grid).__name__
-        assert attrs["dims"] == list(dims)
-        assert attrs["shape"] == list(shape)
-        assert attrs["topology"] == topology
+        attrs = grid.attrs
+        assert (attrs["type"], attrs["dims"], attrs["shape"], attrs["topology"]) == (
+            type(grid).__name__,
+            list(dims),
+            list(shape),
+            topology,
+        )
         json.dumps(attrs)
         attrs["shape"] = []
         assert grid.attrs["shape"] == list(shape)
-        assert grid.fingerprint()
         assert grid.fingerprint() == grid.fingerprint()
 
     return check
