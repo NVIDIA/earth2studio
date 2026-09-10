@@ -27,7 +27,7 @@ See real examples:
 
 Conventions:
 - File lives at earth2studio/data/<source_name>.py
-- Class name: PascalCase (e.g. GFS, ARCO, CFS_FX, HimawariAHI)
+- Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
 """
 

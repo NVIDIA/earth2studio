@@ -4,11 +4,11 @@
     "question": "I want to run a 10-day global weather forecast with uncertainty estimates. I have a single H100 80GB GPU. Which Earth2Studio models and data sources should I use?",
     "expected_skill": "earth2studio-discover",
     "expected_script": null,
-    "ground_truth": "Recommends medium-range (MR) ensemble-capable prognostic models like FuXi, Pangu, or GenBiE. Suggests ERA5-based data sources (ARCO or CDS) or GFS for initialization. Points to medium-range ensemble examples. Verifies data source compatibility via lexicon/variable coverage.",
+    "ground_truth": "Recommends medium-range (MR) ensemble-capable prognostic models like FuXi, Pangu, or GenBiE. Suggests ERA5-based data sources (ARCO_ERA5 or CDS_ERA5) or GFS for initialization. Points to medium-range ensemble examples. Verifies data source compatibility via lexicon/variable coverage.",
     "expected_behavior": [
       "Recommends at least one model with Class badge MR",
       "Mentions ensemble or probabilistic forecasting capability",
-      "Suggests a compatible analysis data source for initialization (e.g. ARCO, CDS, or GFS)",
+      "Suggests a compatible analysis data source for initialization (e.g. ARCO_ERA5, CDS_ERA5, or GFS)",
       "Verifies data source compatibility via lexicon/variable coverage",
       "Cites at least one link to the Earth2Studio documentation"
     ]
@@ -50,7 +50,7 @@
     "expected_behavior": [
       "Recommends at least one model with Class badge S2S or CM",
       "Discusses forecast lead time capability of weeks to months",
-      "Suggests a data source with long historical coverage (e.g. ERA5 via CDS or ARCO)",
+      "Suggests a data source with long historical coverage (e.g. ERA5 via CDS_ERA5 or ARCO_ERA5)",
       "Mentions relevant climate variables or indices",
       "Points to at least one seasonal or climate example from the gallery"
     ]

@@ -451,6 +451,61 @@ def test_stormscope_call_with_conditioning(device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_conditioning_nan_check(device):
+    """A NaN at a gridpoint marked valid by conditioning_valid_mask is not
+    zero-filled by prep_input, so _forward must detect it and raise rather than
+    silently feeding NaNs into the diffusion sampler."""
+    nvar = 8
+    nvar_cond = 1
+    h, w = 32, 64
+
+    model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
+    model.conditioning_data_source = None
+
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    dc = OrderedDict([("y", model.y), ("x", model.x)])
+    r = Random(dc)
+
+    lead_time = model.input_coords()["lead_time"]
+    variable = model.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    conditioning = torch.randn(
+        len(time), len(lead_time), nvar_cond, h, w, device=device
+    )
+    conditioning_coords = OrderedDict(
+        {
+            "time": coords["time"],
+            "lead_time": coords["lead_time"],
+            "variable": model.conditioning_variables,
+            "y": model.y,
+            "x": model.x,
+        }
+    )
+
+    x = x.unsqueeze(0)
+    coords.update({"batch": np.arange(1)})
+    coords.move_to_end("batch", last=False)
+
+    conditioning = conditioning.unsqueeze(0)
+    conditioning_coords.update({"batch": np.arange(1)})
+    conditioning_coords.move_to_end("batch", last=False)
+
+    # Simulate a GOES fill-value pixel that lands inside the static
+    # conditioning_valid_mask: prep_input only zero-fills where the mask is
+    # False, so this NaN survives into the conditioning tensor untouched.
+    valid_yx = model.conditioning_valid_mask.nonzero(as_tuple=False)[0]
+    conditioning[..., valid_yx[0], valid_yx[1]] = torch.nan
+
+    with pytest.raises(ValueError, match="not sanitized") as excinfo:
+        model.call_with_conditioning(x, coords, conditioning, conditioning_coords)
+
+    # Error should name the offending tensor and variable, not a bare channel index
+    assert "conditioning" in str(excinfo.value)
+    assert str(model.conditioning_variables[0]) in str(excinfo.value)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_mrms(device):
     """Test StormScopeMRMS specific functionality"""
     # Create MRMS model (has refc variable and specific preprocessing)

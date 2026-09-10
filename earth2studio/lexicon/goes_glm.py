@@ -38,6 +38,11 @@ class GOESGLMLexicon(metaclass=LexiconType):
 
     - ``*_energy`` is the native GLM optical energy of the detection
       (Joules).
+    - ``*_area`` is the native GLM footprint area of the detection
+      (m2), i.e. the area the detection illuminated, which lets a
+      caller grid detections as an extent density rather than as
+      centroid counts. Only groups and flashes have one: an event is a
+      single pixel, so LCFA stores no event-level area.
     - ``*_count`` is synthetic: the data source fills it with 1.0 per
       record so users can sum or histogram to obtain per-cell event,
       group or flash density during downstream regridding.
@@ -57,9 +62,11 @@ class GOESGLMLexicon(metaclass=LexiconType):
         # Groups
         "lightning_group_energy": "group::group_energy",
         "lightning_group_count": "group::_count",
+        "lightning_group_area": "group::group_area",
         # Flashes
         "lightning_flash_energy": "flash::flash_energy",
         "lightning_flash_count": "flash::_count",
+        "lightning_flash_area": "flash::flash_area",
     }
 
     # Pre-0.19 variable ids, retained so existing pipelines keep working. These
@@ -119,9 +126,10 @@ class GOESGLMLexicon(metaclass=LexiconType):
         tuple[str, Callable]
             ``(key, modifier)`` where ``key`` is ``'{level}::{field}'``.
             ``field`` is the native GLM NetCDF variable name for the
-            ``*_energy`` variables and the synthetic sentinel ``"_count"``
-            for the ``*_count`` variables. ``modifier`` is the identity
-            function; values are returned in their physical units (Joules
-            for ``*_energy``, dimensionless 1.0 for ``*_count``).
+            ``*_energy`` and ``*_area`` variables and the synthetic
+            sentinel ``"_count"`` for the ``*_count`` variables.
+            ``modifier`` is the identity function; values are returned in
+            their physical units (Joules for ``*_energy``, m2 for
+            ``*_area``, dimensionless 1.0 for ``*_count``).
         """
         return cls.VOCAB[cls.resolve_alias(val)], lambda x: x

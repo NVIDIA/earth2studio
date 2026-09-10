@@ -593,7 +593,7 @@ class StormScopePipeline(Pipeline):
         conditioning (e.g. ``GFS_FX``) — via
         :class:`~src.data.ValidTimeForecastAdapter` — and plain
         :class:`~earth2studio.data.base.DataSource` conditioning
-        (e.g. ``ARCO`` ERA5) — forwarded directly.  Source type is
+        (e.g. ``ARCO_ERA5``) — forwarded directly.  Source type is
         detected by inspecting ``__call__``'s signature for a
         ``lead_time`` parameter, matching
         :func:`earth2studio.data.fetch_data`.
