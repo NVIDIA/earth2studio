@@ -245,7 +245,9 @@ class HEALPixGrid:
             if not selection:
                 return {"face": face_positions}
             bounded = geographic_subset_indexers(
-                self, coordinates.isel(face=face_positions), **selection
+                self,
+                xr.Dataset(coords=coordinates).isel(face=face_positions).coords,
+                **selection,
             )
             local_faces = np.arange(face_positions.size)[bounded.pop("face")]
             return {"face": face_positions[local_faces], **bounded}
