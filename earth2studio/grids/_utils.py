@@ -66,18 +66,18 @@ def metadata(definition: GridDefinition, **details: Any) -> dict[str, Any]:
 
 
 def geographic_subset_indexers(
-    definition: GridDefinition, coordinates: xr.Coordinates, **selection: Any
+    definition: GridDefinition,
+    coordinates: xr.Coordinates,
+    *,
+    bounds: tuple[float, float, float, float] | None = None,
+    bounds_crs: Any | None = None,
 ) -> dict[str, Any]:
     """Translate geographic bounds into positional indexers."""
-    unknown = set(selection) - {"bounds", "bounds_crs"}
-    if unknown:
-        raise ValueError(f"Unsupported grid subset options: {sorted(unknown)}")
-    if "bounds_crs" in selection and "bounds" not in selection:
+    if bounds is None and bounds_crs is not None:
         raise ValueError("Grid subset bounds_crs requires bounds")
-    if "bounds" not in selection:
+    if bounds is None:
         return {}
 
-    bounds = selection["bounds"]
     if len(bounds) != 4:
         raise ValueError("Bounds must contain (min_x, min_y, max_x, max_y)")
     min_x, min_y, max_x, max_y = (float(value) for value in bounds)
@@ -97,7 +97,9 @@ def geographic_subset_indexers(
     latitude, longitude = xr.broadcast(geographic["lat"], geographic["lon"])
     latitude_values = np.asarray(latitude)
     longitude_values = np.asarray(longitude)
-    target_crs = CRS.from_user_input(selection.get("bounds_crs", "OGC:CRS84"))
+    target_crs = CRS.from_user_input(
+        bounds_crs if bounds_crs is not None else "OGC:CRS84"
+    )
     if target_crs.is_geographic:
         x_values = (
             np.mod(longitude_values, 360)

@@ -79,10 +79,16 @@ class LatLonGrid:
         return xr.Coordinates({"lat": indexes["lat"], "lon": indexes["lon"]})
 
     def subset_indexers(
-        self, coordinates: xr.Coordinates, **selection: Any
+        self,
+        coordinates: xr.Coordinates,
+        *,
+        bounds: tuple[float, float, float, float] | None = None,
+        bounds_crs: Any | None = None,
     ) -> dict[str, Any]:
         """Translate geographic bounds into indexers."""
-        return geographic_subset_indexers(self, coordinates, **selection)
+        return geographic_subset_indexers(
+            self, coordinates, bounds=bounds, bounds_crs=bounds_crs
+        )
 
     def cell_bounds(self, indexes: Mapping[str, NDArray[Any]]) -> None:
         """Return no cell bounds."""

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import json
+from inspect import Parameter, signature
 
 import pytest
 import xarray as xr
@@ -29,6 +30,11 @@ def check_grid_contract():
     def check(grid: GridDefinition, dims, shape, topology):
         assert isinstance(grid, GridDefinition)
         assert (grid.dims, grid.shape, grid.topology) == (dims, shape, topology)
+        selection = signature(grid.subset_indexers).parameters
+        assert {"coordinates", "bounds", "bounds_crs"} <= set(selection)
+        assert all(
+            parameter.kind != Parameter.VAR_KEYWORD for parameter in selection.values()
+        )
 
         indexes, coordinates = grid.coords(only_index=True), grid.coords()
         assert tuple(indexes) == dims

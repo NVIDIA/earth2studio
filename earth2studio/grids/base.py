@@ -66,7 +66,11 @@ class GridDefinition(Protocol):
         ...
 
     def subset_indexers(
-        self, coordinates: xr.Coordinates, **selection: Any
+        self,
+        coordinates: xr.Coordinates,
+        *,
+        bounds: tuple[float, float, float, float] | None = None,
+        bounds_crs: Any | None = None,
     ) -> dict[str, Any]:
         """Translate a selection into positional dimension indexers."""
         ...

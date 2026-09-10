@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -232,18 +232,22 @@ class HEALPixGrid:
         return coordinates.assign(lat=(self.dims, latitude), lon=(self.dims, longitude))
 
     def subset_indexers(
-        self, coordinates: xr.Coordinates, **selection: Any
+        self,
+        coordinates: xr.Coordinates,
+        *,
+        bounds: tuple[float, float, float, float] | None = None,
+        bounds_crs: Any | None = None,
+        faces: int | Sequence[int] | NDArray[Any] | None = None,
     ) -> dict[str, Any]:
         """Translate bounds and faces into indexers."""
-        unknown = set(selection) - {"bounds", "bounds_crs", "faces"}
-        if unknown:
-            raise ValueError(f"Unsupported grid subset options: {sorted(unknown)}")
-
-        faces = selection.pop("faces", None)
         if faces is None:
-            return geographic_subset_indexers(self, coordinates, **selection)
-        faces = np.atleast_1d(faces).astype(int)
-        if faces.size == 0 or np.any((faces < 0) | (faces > 11)):
+            return geographic_subset_indexers(
+                self, coordinates, bounds=bounds, bounds_crs=bounds_crs
+            )
+        face_values: NDArray[np.int64] = np.asarray(
+            np.atleast_1d(faces), dtype=np.int64
+        )
+        if face_values.size == 0 or np.any((face_values < 0) | (face_values > 11)):
             raise ValueError("HEALPix faces must be integers from 0 through 11")
         if self.ordering == "ring":
             raise NotImplementedError(
@@ -252,27 +256,30 @@ class HEALPixGrid:
 
         if self.layout == "face":
             face_positions = np.flatnonzero(
-                np.isin(np.asarray(coordinates["face"]), np.unique(faces))
+                np.isin(np.asarray(coordinates["face"]), np.unique(face_values))
             )
-            if not selection:
-                return {"face": face_positions}
             bounded = geographic_subset_indexers(
                 self,
                 xr.Dataset(coords=coordinates).isel(face=face_positions).coords,
-                **selection,
+                bounds=bounds,
+                bounds_crs=bounds_crs,
             )
+            if not bounded:
+                return {"face": face_positions}
             local_faces = np.arange(face_positions.size)[bounded.pop("face")]
             return {"face": face_positions[local_faces], **bounded}
 
         pixels = np.asarray(coordinates["hpx"])
-        mask = np.isin(pixels // self.nside**2, np.unique(faces))
-        if selection:
-            selected = xr.Coordinates({"hpx": ("hpx", pixels[mask])})
-            bounded = geographic_subset_indexers(self, selected, **selection)
-            keep = np.zeros(mask.sum(), dtype=bool)
-            keep[bounded["hpx"]] = True
-            mask[np.flatnonzero(mask)] &= keep
+        mask = np.isin(pixels // self.nside**2, np.unique(face_values))
         positions = np.flatnonzero(mask)
+        bounded = geographic_subset_indexers(
+            self,
+            xr.Coordinates({"hpx": ("hpx", pixels[positions])}),
+            bounds=bounds,
+            bounds_crs=bounds_crs,
+        )
+        if bounded:
+            positions = positions[bounded["hpx"]]
         if positions.size == 0:
             raise ValueError("Grid subset must contain at least one spatial cell")
         return {"hpx": positions}

@@ -96,8 +96,6 @@ def test_grid_selection():
         ring.subset_indexers(ring.coords(only_index=True), faces=(0,))
     with pytest.raises(ValueError, match="0 through 11"):
         grid.subset_indexers(indexes, faces=())
-    with pytest.raises(ValueError, match="Unsupported"):
-        grid.subset_indexers(indexes, radius=1)
 
 
 def test_grid_validation():
