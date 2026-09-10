@@ -21,12 +21,12 @@ perturbation:
 data_source:
     _target_: earth2studio.data.NCAR_ERA5  # data source class
 
-#cyclone_tracking:
-#    path: '/home/ubuntu/projects/earth2studio/recipes/hens/outputs_beryl_poc'
-#    tracker:
-#        _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
-#        path_search_distance: 250
-#        path_search_window_size: 2
+cyclone_tracking:
+   path: '/home/ubuntu/projects/earth2studio/recipes/hens/outputs_beryl_poc'
+   tracker:
+       _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
+       path_search_distance: 250
+       path_search_window_size: 2
 
 file_output:
     path: '/home/ubuntu/projects/earth2studio/recipes/hens/outputs_beryl_poc'       # directory to which outfiles are written
