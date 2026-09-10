@@ -62,19 +62,25 @@ class LatLonGrid:
         *,
         only_index: bool = False,
     ) -> xr.Coordinates:
+        """Return latitude and longitude coordinates."""
         indexes = indexes or {"lat": self.latitude, "lon": self.longitude}
         return xr.Coordinates({"lat": indexes["lat"], "lon": indexes["lon"]})
 
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
     ) -> dict[str, Any]:
+        """Translate geographic bounds into indexers."""
         return geographic_subset_indexers(self, coordinates, **selection)
 
     def cell_bounds(self, indexes: Mapping[str, NDArray[Any]]) -> None:
+        """Return no cell bounds."""
         return None
 
-    def to_metadata(self) -> dict[str, Any]:
+    @property
+    def attrs(self) -> dict[str, Any]:
+        """Return serializable grid attributes."""
         return metadata(self)
 
     def fingerprint(self) -> str:
+        """Return stable geometry identity."""
         return coordinate_hash(self.latitude, self.longitude) + self.crs.to_wkt()

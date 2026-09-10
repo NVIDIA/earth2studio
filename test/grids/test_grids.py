@@ -33,7 +33,7 @@ def test_builtin_grid_registry_and_protocol():
         {dimension: np.asarray(indexes[dimension][:2]) for dimension in hrrr.dims}
     )
     assert geographic["lat"].shape == geographic["lon"].shape == (2, 2)
-    assert hrrr.to_metadata() == {
+    assert hrrr.attrs == {
         "type": "ProjectedGrid",
         "dims": ["y", "x"],
         "shape": [1059, 1799],
@@ -85,7 +85,7 @@ def test_grid_definitions_and_selection():
 
 def test_healpix_orderings_and_layouts():
     nested = e2s.resolve_grid("hpx6")
-    assert nested.shape == (49_152,) and nested.to_metadata()["nside"] == 64
+    assert nested.shape == (49_152,) and nested.attrs["nside"] == 64
     subset = nested.subset_indexers(nested.coords(only_index=True), faces=(1, 3))
     assert len(subset["hpx"]) == 2 * 64**2
     geographic = nested.coords({"hpx": np.arange(12)})
@@ -114,7 +114,7 @@ def test_healpix_orderings_and_layouts():
     assert coordinates["lat"].dims == faced.dims
     assert coordinates["lat"].shape == (12, 2, 2)
     assert faced.subset_indexers(coordinates, faces=(1, 3))["face"].tolist() == [1, 3]
-    assert faced.to_metadata()["origin"] == "north"
+    assert faced.attrs["origin"] == "north"
 
 
 def test_grid_registration_inference_and_validation():

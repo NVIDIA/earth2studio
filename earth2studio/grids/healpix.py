@@ -189,6 +189,7 @@ class HEALPixGrid:
         *,
         only_index: bool = False,
     ) -> xr.Coordinates:
+        """Return HEALPix indexes and geographic coordinates."""
         indexes = indexes or {
             dimension: np.arange(size)
             for dimension, size in zip(self.dims, self.shape, strict=True)
@@ -221,6 +222,7 @@ class HEALPixGrid:
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
     ) -> dict[str, Any]:
+        """Translate bounds and faces into indexers."""
         unknown = set(selection) - {"bounds", "bounds_crs", "faces"}
         if unknown:
             raise ValueError(f"Unsupported grid subset options: {sorted(unknown)}")
@@ -262,9 +264,12 @@ class HEALPixGrid:
         return {"hpx": positions}
 
     def cell_bounds(self, indexes: Mapping[str, NDArray[Any]]) -> None:
+        """Return no cell bounds."""
         return None
 
-    def to_metadata(self) -> dict[str, Any]:
+    @property
+    def attrs(self) -> dict[str, Any]:
+        """Return serializable grid attributes."""
         details: dict[str, Any] = {
             "level": self.level,
             "nside": self.nside,
@@ -276,6 +281,7 @@ class HEALPixGrid:
         return metadata(self, **details)
 
     def fingerprint(self) -> str:
+        """Return stable geometry identity."""
         return (
             f"healpix:{self.level}:{self.ordering}:{self.layout}:"
             f"{self.xy_origin}:{self.xy_clockwise}"

@@ -58,7 +58,7 @@ def _validate_definition(definition: GridDefinition) -> None:
         if coordinates[dimension].size != size:
             raise ValueError(f"Grid index coordinate '{dimension}' has the wrong size")
     try:
-        json.dumps(definition.to_metadata())
+        json.dumps(definition.attrs)
     except TypeError as error:
         raise TypeError("Grid metadata must be JSON serializable") from error
     if not definition.fingerprint():

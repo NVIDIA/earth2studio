@@ -63,6 +63,7 @@ class ProjectedGrid:
         *,
         only_index: bool = False,
     ) -> xr.Coordinates:
+        """Return projected and geographic coordinates."""
         indexes = indexes or {"y": self.y, "x": self.x}
         coordinates: dict[str, Any] = {"y": indexes["y"], "x": indexes["x"]}
         if only_index:
@@ -80,13 +81,18 @@ class ProjectedGrid:
     def subset_indexers(
         self, coordinates: xr.Coordinates, **selection: Any
     ) -> dict[str, Any]:
+        """Translate geographic bounds into indexers."""
         return geographic_subset_indexers(self, coordinates, **selection)
 
     def cell_bounds(self, indexes: Mapping[str, NDArray[Any]]) -> None:
+        """Return no cell bounds."""
         return None
 
-    def to_metadata(self) -> dict[str, Any]:
+    @property
+    def attrs(self) -> dict[str, Any]:
+        """Return serializable grid attributes."""
         return metadata(self)
 
     def fingerprint(self) -> str:
+        """Return stable geometry identity."""
         return coordinate_hash(self.y, self.x) + self.crs.to_wkt()

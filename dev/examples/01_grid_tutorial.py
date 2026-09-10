@@ -45,7 +45,7 @@ import earth2studio.grids as grids
 
 # %%
 hrrr = grids.resolve_grid("hrrr")
-print(hrrr.to_metadata())
+print(hrrr.attrs)
 
 # %%
 # Register a Projected Grid
@@ -95,7 +95,7 @@ dlesym = grids.HEALPixGrid(
     xy_origin="north",
     xy_clockwise=True,
 )
-print(dlesym.to_metadata())
+print(dlesym.attrs)
 print(dlesym.coords(only_index=True))
 
 # %%

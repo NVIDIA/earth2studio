@@ -63,8 +63,9 @@ class GridDefinition(Protocol):
         """Return geographic cell boundaries when available."""
         ...
 
-    def to_metadata(self) -> dict[str, Any]:
-        """Return a serializable grid description."""
+    @property
+    def attrs(self) -> dict[str, Any]:
+        """Return serializable Xarray attributes."""
         ...
 
     def fingerprint(self) -> str:
