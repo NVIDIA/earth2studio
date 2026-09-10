@@ -155,6 +155,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - https://www.nature.com/articles/s41467-024-50714-1
     - https://github.com/tpys/FuXi-S2S
     - https://zenodo.org/records/15718402
+    - https://huggingface.co/datasets/FudanFuXi/FuXi-S2S
 
     Parameters
     ----------
@@ -168,6 +169,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     model's 1.5-degree grid. Instantaneous fields use calendar-day averages
     from 00--23 UTC. Accumulated ``tp`` and ``ttr`` fields use the 24
     interval-ending values from 01 UTC through 00 UTC of the following day.
+    Their daily means retain the units of each one-hour accumulation; for
+    example, multiply predicted ``tp`` by 24 to obtain a daily total.
     Sea-surface temperature must retain ``NaN`` values over land. The wrapper
     does not aggregate hourly fields or regrid initial conditions; callers must
     provide these prepared daily inputs through an Earth2Studio data source.

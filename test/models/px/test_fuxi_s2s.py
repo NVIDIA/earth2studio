@@ -406,7 +406,10 @@ def test_fuxi_s2s_package(device: str) -> None:
     scale = datasets["std"]["data"].sel(level=official_variables).values
     model_input = normalized * scale[None, :, None, None]
     model_input += center[None, :, None, None]
-    model_input[:, VARIABLES.index("sst")] = official_samples["sst"].values[:, 0]
+    official_sst = official_samples["sst"].values[:, 0]
+    assert np.isnan(official_sst).any()
+    assert np.isfinite(official_sst).any()
+    model_input[:, VARIABLES.index("sst")] = official_sst
     np.testing.assert_allclose(
         model_input[:, VARIABLES.index("t2m")],
         official_samples["t2m"].values[:, 0],
@@ -417,7 +420,7 @@ def test_fuxi_s2s_package(device: str) -> None:
     )
     np.testing.assert_array_equal(
         np.isnan(model_input[:, VARIABLES.index("sst")]),
-        np.isnan(official_samples["sst"].values[:, 0]),
+        np.isnan(official_sst),
     )
     x = torch.from_numpy(model_input).unsqueeze(0).to(device)
     x[:, :, VARIABLES.index("ttr")].mul_(3600.0)
@@ -440,6 +443,10 @@ def test_fuxi_s2s_package(device: str) -> None:
         rtol=1.0e-5,
         atol=1.0e-5,
         equal_nan=True,
+    )
+    np.testing.assert_array_equal(
+        np.isnan(ort_input[0, :, VARIABLES.index("sst")].cpu().numpy()),
+        np.isnan(official_sst),
     )
     providers = model._get_ort_session().get_providers()
     assert providers[0] == "CUDAExecutionProvider"

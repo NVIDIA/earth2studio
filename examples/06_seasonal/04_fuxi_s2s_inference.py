@@ -151,7 +151,8 @@ print(f"Stochastic runtime seed: {random_seed}")
 # The archived input is normalized in the checkpoint's native units. We undo the
 # normalization, restore Earth2Studio's accumulated-field units, and expose it as a
 # small data source. In particular, ``tp`` is converted from ``log1p(mm)`` to metres
-# and ``ttr`` from W m\ :sup:`-2` to J m\ :sup:`-2`.
+# and ``ttr`` from W m\ :sup:`-2` to J m\ :sup:`-2`. Both remain daily means of
+# 24 one-hour accumulations rather than 24-hour totals.
 
 # %% tags=["e2sg-profile:setup"]
 sample_start = time.perf_counter()
@@ -202,7 +203,10 @@ initial_values[:, tp_index] = (
 )
 # The normalized archive stores zero over land, which reconstructs to the SST
 # climatological mean. Restore the official NaN land mask required by FuXi-S2S.
-initial_values[:, sst_index] = official_samples["sst"].values[:, 0]
+official_sst = official_samples["sst"].values[:, 0]
+if not np.isnan(official_sst).any() or not np.isfinite(official_sst).any():
+    raise RuntimeError("Official SST sample must contain both ocean data and land NaNs")
+initial_values[:, sst_index] = official_sst
 
 np.testing.assert_allclose(
     initial_values[:, tp_index],
@@ -226,11 +230,11 @@ np.testing.assert_allclose(
 )
 np.testing.assert_array_equal(
     np.isnan(initial_values[:, sst_index]),
-    np.isnan(official_samples["sst"].values[:, 0]),
+    np.isnan(official_sst),
 )
 np.testing.assert_allclose(
     initial_values[:, sst_index],
-    official_samples["sst"].values[:, 0],
+    official_sst,
     equal_nan=True,
 )
 
@@ -347,12 +351,19 @@ temperature_change = forecast["t2m"].isel(time=0, lead_time=-1) - forecast["t2m"
 if float(np.abs(temperature_change).mean().values) <= 0.01:
     raise RuntimeError("FuXi-S2S temperature does not evolve across the forecast")
 
+variable_metadata = {
+    "t2m": ("K", "daily mean"),
+    "tp": ("m", "daily mean of 24 one-hour accumulations"),
+    "z500": ("m^2 s^-2", "daily mean"),
+}
 validation_statistics = {
     variable: {
-        "min": float(forecast[variable].min().values),
-        "mean": float(forecast[variable].mean().values),
-        "max": float(forecast[variable].max().values),
-        "final_spatial_std": float(
+        "units": variable_metadata[variable][0],
+        "temporal_semantics": variable_metadata[variable][1],
+        "all_leads_grid_min": float(forecast[variable].min().values),
+        "all_leads_grid_mean_unweighted": float(forecast[variable].mean().values),
+        "all_leads_grid_max": float(forecast[variable].max().values),
+        "final_lead_grid_std_unweighted": float(
             forecast[variable].isel(time=0, lead_time=-1).std().values
         ),
     }
@@ -360,7 +371,7 @@ validation_statistics = {
 }
 print(f"{forecast_days}-day inference: {inference_seconds:.2f} seconds")
 print(forecast)
-print("Validation statistics:")
+print("Validation statistics (grid points are unweighted):")
 print(json.dumps(validation_statistics, indent=2))
 
 # %%
@@ -377,7 +388,7 @@ print(json.dumps(validation_statistics, indent=2))
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 from cartopy.util import add_cyclic_point
-from matplotlib.colors import BoundaryNorm, TwoSlopeNorm
+from matplotlib.colors import BoundaryNorm, ListedColormap, TwoSlopeNorm
 from PIL import Image
 
 plot_start = time.perf_counter()
@@ -435,6 +446,7 @@ temperature_limits = np.array(
 )
 
 temperature_image = None
+height_levels = np.arange(4800.0, 6121.0, 120.0)
 for ax, (title, field, geopotential_height) in zip(axes[0], temperature_products):
     cyclic_field, cyclic_lon = add_cyclic_point(
         field,
@@ -455,11 +467,16 @@ for ax, (title, field, geopotential_height) in zip(axes[0], temperature_products
         shading="auto",
         rasterized=True,
     )
+    if not np.any(
+        (height_levels >= np.nanmin(geopotential_height))
+        & (height_levels <= np.nanmax(geopotential_height))
+    ):
+        raise RuntimeError(f"No 500-hPa contour levels intersect {title!r}")
     height_contours = ax.contour(
         cyclic_lon,
         forecast["lat"].values,
         cyclic_height,
-        levels=np.arange(4800.0, 6121.0, 120.0),
+        levels=height_levels,
         colors="#303030",
         linewidths=0.45,
         transform=ccrs.PlateCarree(),
@@ -482,6 +499,9 @@ temperature_colorbar = fig.colorbar(
 temperature_colorbar.set_label("2-m temperature (°C); contours: 500-hPa height (m)")
 
 week_to_week_temperature_change = target_week_temperature - previous_week_temperature
+mean_absolute_weekly_change = float(np.mean(np.abs(week_to_week_temperature_change)))
+if mean_absolute_weekly_change <= 0.01:
+    raise RuntimeError("Week-to-week temperature product has insufficient variation")
 temperature_change_limit = max(
     float(np.ceil(np.nanpercentile(np.abs(week_to_week_temperature_change), 99.5))),
     1.0,
@@ -519,8 +539,12 @@ temperature_change_colorbar = fig.colorbar(
 )
 temperature_change_colorbar.set_label("2-m temperature change (°C)")
 
+# FuXi-S2S ``tp`` is the daily mean of 24 one-hour accumulations. Recover each
+# day's total with the factor of 24 before summing the seven daily predictions.
 target_week_precipitation = (
-    forecast["tp"].isel(time=0, lead_time=target_week).sum("lead_time").values * 1000.0
+    forecast["tp"].isel(time=0, lead_time=target_week).sum("lead_time").values
+    * 24.0
+    * 1000.0
 )
 if (
     not np.isfinite(target_week_precipitation).all()
@@ -528,7 +552,18 @@ if (
 ):
     raise RuntimeError("Invalid target-week precipitation product")
 precipitation_levels = np.array([1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 200.0, 400.0])
-precipitation_colormap = plt.get_cmap("YlGnBu").copy()
+precipitation_display_threshold = precipitation_levels[0]
+displayed_precipitation_count = int(
+    np.count_nonzero(target_week_precipitation >= precipitation_display_threshold)
+)
+if displayed_precipitation_count == 0:
+    raise RuntimeError("Target-week precipitation has no values at or above 1 mm")
+# Skip the nearly white end of YlGnBu so the first visible 1--5 mm bin remains
+# distinguishable from masked trace precipitation.
+precipitation_colormap = ListedColormap(
+    plt.get_cmap("YlGnBu")(np.linspace(0.12, 1.0, 256)),
+    name="fuxi_s2s_precipitation",
+)
 precipitation_colormap.set_bad((1.0, 1.0, 1.0, 0.0))
 precipitation_norm = BoundaryNorm(
     precipitation_levels,
@@ -537,7 +572,7 @@ precipitation_norm = BoundaryNorm(
 )
 masked_precipitation = np.ma.masked_less(
     target_week_precipitation,
-    precipitation_levels[0],
+    precipitation_display_threshold,
 )
 cyclic_precipitation, cyclic_lon = add_cyclic_point(
     masked_precipitation,
@@ -572,6 +607,31 @@ precipitation_colorbar = fig.colorbar(
 )
 precipitation_colorbar.set_label("7-day accumulation (mm); values below 1 mm masked")
 
+product_statistics = {
+    "week_to_week_t2m_change": {
+        "units": "degC",
+        "from_week": previous_week_number,
+        "to_week": target_week_number,
+        "grid_mean_unweighted": float(np.mean(week_to_week_temperature_change)),
+        "grid_mean_absolute_unweighted": mean_absolute_weekly_change,
+        "grid_p01": float(np.percentile(week_to_week_temperature_change, 1.0)),
+        "grid_p99": float(np.percentile(week_to_week_temperature_change, 99.0)),
+    },
+    "target_week_precipitation": {
+        "units": "mm",
+        "week": target_week_number,
+        "aggregation": "24 hourly accumulations per day summed across 7 days",
+        "grid_mean_unweighted": float(np.mean(target_week_precipitation)),
+        "grid_p50": float(np.percentile(target_week_precipitation, 50.0)),
+        "grid_p90": float(np.percentile(target_week_precipitation, 90.0)),
+        "grid_p99": float(np.percentile(target_week_precipitation, 99.0)),
+        "grid_max": float(np.max(target_week_precipitation)),
+        "grid_fraction_at_or_above_1_mm": float(
+            displayed_precipitation_count / target_week_precipitation.size
+        ),
+    },
+}
+
 fig.suptitle(
     "FuXi-S2S weekly forecast products\n"
     f"Single stochastic trajectory (seed {random_seed}); "
@@ -602,7 +662,10 @@ def _validate_plot(path: Path) -> dict[str, int | float | list[int]]:
     }
 
 
-plot_metadata = {str(forecast_plot_path): _validate_plot(forecast_plot_path)}
+plot_metadata = {
+    "relative_path": forecast_plot_path.name,
+    **_validate_plot(forecast_plot_path),
+}
 plot_seconds = time.perf_counter() - plot_start
 total_seconds = time.perf_counter() - total_start
 
@@ -621,7 +684,8 @@ report = {
         "total": total_seconds,
     },
     "variables": validation_statistics,
-    "plots": plot_metadata,
+    "products": product_statistics,
+    "plots": [plot_metadata],
 }
 report_path = output_directory / "04_fuxi_s2s_validation.json"
 report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
