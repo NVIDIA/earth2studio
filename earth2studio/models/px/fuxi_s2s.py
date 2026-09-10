@@ -17,7 +17,6 @@
 import hashlib
 import os
 import shutil
-import tarfile
 import tempfile
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
@@ -82,12 +81,13 @@ VARIABLES = [
 
 _TTR_INDEX = VARIABLES.index("ttr")
 _TP_INDEX = VARIABLES.index("tp")
-_ZENODO_ROOT = "https://zenodo.org/records/15718402/files"
-_MODEL_ARCHIVE = "model-1.0.tar?download=1"
+_HF_ROOT = (
+    "hf://Ayushrajtamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
+)
 
 
 def _atomic_copy(source: Any, destination: Path) -> Path:
-    """Copy an archive stream to a destination atomically."""
+    """Copy a file stream to a destination atomically."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         return destination
@@ -106,49 +106,6 @@ def _atomic_copy(source: Any, destination: Path) -> Path:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
     return destination
-
-
-def _extract_tar_member(
-    archive_path: str,
-    member_name: str,
-    destination: Path,
-) -> Path:
-    """Extract one regular-file member from a tar archive."""
-    if destination.exists():
-        return destination
-
-    with tarfile.open(archive_path, mode="r:*") as archive:
-        try:
-            member = archive.getmember(member_name)
-        except KeyError as error:
-            raise FileNotFoundError(
-                f"Could not find {member_name!r} in {archive_path}"
-            ) from error
-        if not member.isfile():
-            raise ValueError(f"Archive member {member_name!r} is not a regular file")
-        source = archive.extractfile(member)
-        if source is None:
-            raise OSError(f"Could not read archive member {member_name!r}")
-        with source:
-            return _atomic_copy(source, destination)
-
-
-def _resolve_default_assets(package: Package) -> Package:
-    """Download and safely unpack the official Zenodo model assets."""
-    asset_directory = Path(package.cache) / "assets"
-    model_archive = package.resolve(_MODEL_ARCHIVE)
-
-    _extract_tar_member(
-        model_archive,
-        "model-1.0/fuxi_s2s.onnx",
-        asset_directory / "fuxi_s2s.onnx",
-    )
-    _extract_tar_member(
-        model_archive,
-        "model-1.0/fuxi_s2s",
-        asset_directory / "fuxi_s2s",
-    )
-    return Package(str(asset_directory))
 
 
 def _resolve_model_assets(package: Package) -> Path:
@@ -301,20 +258,21 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load the official FuXi-S2S package from Zenodo.
+        """Load the FuXi-S2S package from an immutable Hugging Face mirror.
 
         Returns
         -------
         Package
-            Package pointing to the official Zenodo record.
+            Package pointing to the mirrored FuXi-S2S checkpoint.
 
         Note
         ----
-        The official checkpoint is licensed CC BY-NC-ND 4.0 and restricted to
-        non-commercial research use.
+        The mirror contains unchanged assets from the official Zenodo record.
+        The checkpoint is licensed CC BY-NC-ND 4.0 and restricted to
+        non-commercial research use by its authors.
         """
         return Package(
-            _ZENODO_ROOT,
+            _HF_ROOT,
             cache_options={
                 "cache_storage": Package.default_cache("fuxi_s2s"),
                 "same_names": True,
@@ -330,17 +288,12 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package containing ``fuxi_s2s.onnx`` and its external data file.
-            The default Zenodo package is unpacked into this layout
-            automatically.
 
         Returns
         -------
         PrognosticModel
             Loaded FuXi-S2S prognostic wrapper.
         """
-        if package.root.rstrip("/") == _ZENODO_ROOT:
-            package = _resolve_default_assets(package)
-
         onnx_path = _resolve_model_assets(package)
         return cls(str(onnx_path))
 

@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import io
-import tarfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -30,10 +29,7 @@ from onnx import TensorProto, helper, numpy_helper
 
 from earth2studio.models.auto import Package
 from earth2studio.models.px import FuXiS2S
-from earth2studio.models.px.fuxi_s2s import (
-    VARIABLES,
-    _extract_tar_member,
-)
+from earth2studio.models.px.fuxi_s2s import VARIABLES
 
 
 class PhooFuXiS2S(torch.nn.Module):
@@ -270,20 +266,12 @@ def test_fuxi_s2s_rejects_fractional_or_negative_latest_lead() -> None:
         model.output_coords(coords)
 
 
-def test_fuxi_s2s_extracts_only_requested_archive_member(tmp_path) -> None:
-    tar_path = tmp_path / "model.tar"
-    with tarfile.open(tar_path, mode="w") as archive:
-        member = tarfile.TarInfo("model-1.0/fuxi_s2s.onnx")
-        member.size = len(b"onnx")
-        archive.addfile(member, io.BytesIO(b"onnx"))
+def test_fuxi_s2s_default_package_is_pinned() -> None:
+    package = FuXiS2S.load_default_package()
 
-    onnx_path = _extract_tar_member(
-        str(tar_path),
-        "model-1.0/fuxi_s2s.onnx",
-        tmp_path / "assets" / "fuxi_s2s.onnx",
+    assert package.root == (
+        "hf://Ayushrajtamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
     )
-
-    assert onnx_path.read_bytes() == b"onnx"
 
 
 def test_fuxi_s2s_load_model_resolves_external_weights(
@@ -379,7 +367,14 @@ def test_fuxi_s2s_package(device: str) -> None:
     del coords["batch"]
     coords["time"] = np.array([np.datetime64("2020-06-02")])
 
-    with zipfile.ZipFile(package.resolve("data.zip?download=1")) as archive:
+    sample_package = Package(
+        "https://zenodo.org/records/15718402/files",
+        cache_options={
+            "cache_storage": Package.default_cache("fuxi_s2s"),
+            "same_names": True,
+        },
+    )
+    with zipfile.ZipFile(sample_package.resolve("data.zip?download=1")) as archive:
         datasets = {}
         for name in ("input", "mean", "std"):
             with archive.open(f"data/{name}.nc") as stream:
