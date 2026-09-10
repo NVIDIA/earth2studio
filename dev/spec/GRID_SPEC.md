@@ -2,15 +2,14 @@
 
 ## Goal
 
-Provide one explicit, lightweight contract for describing spatial grids without
-coupling grid geometry to weather data, model tensors, or regridding engines.
-The protocol only describes a grid. It does not define regridding methods, select a
-regridding engine, construct weights, or transform field data.
+Provide one lightweight contract for describing spatial grids without coupling grid
+geometry to field data or regridding engines. This protocol describes grids only; it
+does not select interpolation methods, construct weights, or transform field data.
 
 ## Interface
 
-`GridDefinition` is a runtime-checkable structural protocol. A grid object satisfies
-the protocol by implementing its members; inheritance is neither required nor used.
+`GridDefinition` is a runtime-checkable structural protocol. Implementations satisfy
+the interface directly; inheritance is not required.
 
 ```python
 @runtime_checkable
@@ -27,29 +26,28 @@ class GridDefinition(Protocol):
     @property
     def crs(self) -> pyproj.CRS | None: ...
 
-    def coordinates(self, indexes=None, *, only_index=False) -> xr.Coordinates: ...
+    def coords(self, indexes=None, *, only_index=False) -> xr.Coordinates: ...
     def subset_indexers(self, coordinates, **selection) -> dict[str, object]: ...
     def cell_bounds(self, indexes) -> xr.Coordinates | None: ...
     def to_metadata(self) -> dict[str, object]: ...
     def fingerprint(self) -> str: ...
 ```
 
-The members have the following meanings:
-
 - `dims` defines authoritative spatial dimension order
-- `shape` sizes each spatial dimension in the same order
+- `shape` sizes each dimension in the same order
 - `topology` identifies the geometry family
 - `crs` describes native coordinates when PyProj can represent them
-- `coordinates()` returns complete Xarray coordinates, or only dimension coordinates
-  when `only_index=True`
+- `coords()` returns complete Xarray coordinates, or dimension indexes with
+  `only_index=True`
 - `subset_indexers()` translates supported selections into Xarray indexers
 - `cell_bounds()` returns optional geographic cell geometry
-- `to_metadata()` returns a JSON-serializable description
+- `to_metadata()` returns a JSON-serializable description for attributes and agents
 - `fingerprint()` returns stable geometry identity for validation and caching
 
-## Definitions
+## Package
 
-Earth2Studio provides these implementations:
+Grid definitions live in `earth2studio.grids`, with one implementation per file. The
+package initializer exports definitions and owns the process-local registry.
 
 | Definition | Dimensions | Topology | Native CRS |
 | --- | --- | --- | --- |
@@ -57,91 +55,82 @@ Earth2Studio provides these implementations:
 | `ProjectedGrid` | `y, x` | Projected | Required |
 | `CurvilinearGrid` | `y, x` | Curvilinear | None |
 | `PointGrid` | `x` | Points | None |
-| `HEALPixGrid` | `hpx` | HEALPix | None |
+| `HEALPixGrid` | `hpx` or `face, height, width` | HEALPix | None |
 
 Users may implement the protocol directly for other grid families.
 
 ## Populating Xarray Coordinates
 
-A grid definition returns a complete Xarray coordinate set in one call:
+A definition provides complete coordinates in one call:
 
 ```python
-array = xr.DataArray(
-    data,
-    dims=definition.dims,
-    coords=definition.coordinates(),
+array = xr.DataArray(data, dims=definition.dims, coords=definition.coords())
+```
+
+Dimension coordinates preserve `definition.dims`. Projected, curvilinear, point, and
+HEALPix definitions add latitude and longitude as auxiliary coordinates. Use
+`only_index=True` when only inexpensive dimension indexes are needed:
+
+```python
+indexes = definition.coords(only_index=True)
+```
+
+Selected index values avoid generating geographic coordinates for the full grid:
+
+```python
+coordinates = definition.coords({"y": selected_y, "x": selected_x})
+```
+
+## HEALPix Representations
+
+HEALPix ordering and storage layout are explicit. `nested` and `ring` use a flat
+`hpx` dimension. `xy` supports flat `hpx` storage or an expanded
+`(face, height, width)` layout. XY also records its face origin and winding so layouts
+such as Earth2Grid's `HEALPIX_PAD_XY` are unambiguous:
+
+```python
+dlesym = grids.HEALPixGrid(
+    level=6,
+    ordering="xy",
+    layout="face",
+    xy_origin="north",
+    xy_clockwise=True,
 )
 ```
-
-By default, `coordinates()` includes ordered dimension coordinates and auxiliary
-latitude and longitude. Use `only_index=True` when only the inexpensive
-one-dimensional dimension coordinates are needed:
-
-```python
-indexes = definition.coordinates(only_index=True)
-```
-
-Selected index values may be supplied to avoid generating geographic coordinates for
-the full grid:
-
-```python
-coordinates = definition.coordinates({"y": selected_y, "x": selected_x})
-```
-
-The resulting spatial layouts are:
-
-| Definition | Dimensions | Auxiliary geographic coordinates |
-| --- | --- | --- |
-| `LatLonGrid` | `lat, lon` | Existing `lat` and `lon` dimensions |
-| `ProjectedGrid` | `y, x` | `lat(y, x)` and `lon(y, x)` |
-| `CurvilinearGrid` | `y, x` | `lat(y, x)` and `lon(y, x)` |
-| `PointGrid` | `x` | `lat(x)` and `lon(x)` |
-| `HEALPixGrid` | `hpx` | `lat(hpx)` and `lon(hpx)` |
-
-The `index` switch keeps dimension-only contracts inexpensive while the default makes
-normal Xarray construction concise.
 
 ## Registry
 
 The process-local registry maps stable names and aliases to complete definitions:
 
 ```python
-grid.register_grid("regional-lcc", definition, aliases=("regional",))
-definition = grid.resolve_grid("regional")
-names = grid.list_grids()
+grids.register_grid("regional-lcc", definition, aliases=("regional",))
+definition = grids.resolve_grid("regional")
+names = grids.list_grids()
 ```
 
 Registration validates protocol conformance, dimensions, shape, index coordinates,
 serializable metadata, and a nonempty fingerprint. Re-registering an identical
-definition is a no-op. Conflicting names and aliases raise an error. Names already
-recognized as CRS input by PyProj are reserved.
+definition is a no-op; conflicting names and aliases raise an error. Names recognized
+as CRS input by PyProj are reserved.
 
-Built-in registry entries include global 0.25-degree latitude-longitude grids, the
-HRRR CONUS 3-km Lambert grid, and nested HEALPix level 6.
+## Inferring Grid Type
 
-## Infering Grid Type
+`infer_grid()` follows an explicit-to-general chain:
 
-`infer_grid()` follows a deterministic, explicit-to-general chain:
-
-1. Resolve a registered grid from `earth2studio_grid_id`
-2. Inspect `lat` and `lon` dimensions:
-   - independent one-dimensional `lat` and `lon` become `LatLonGrid`
-   - one-dimensional `lat(x)` and `lon(x)` become `PointGrid`
-   - two-dimensional `lat(y, x)` and `lon(y, x)` become `CurvilinearGrid`
-3. Use `ProjectedGrid` for one-dimensional `y` and `x` with
-   `earth2studio_crs`
+1. Resolve and validate `earth2studio_grid_id`
+2. Infer a projected grid from `y`, `x`, and `earth2studio_crs`
+3. Infer rectilinear, point, or curvilinear layouts from latitude and longitude
 4. Raise when no supported layout is unambiguous
 
-`PointGrid` is the fallback for arbitrary geolocated samples that do not form a
-structured spatial grid. It is selected only when latitude and longitude share the
-same one-dimensional `x` coordinate; it is not a catch-all for missing or malformed
-geometry.
+`PointGrid` is the fallback for arbitrary samples represented as `lat(x)` and
+`lon(x)`. Generic `lat(hpx)` and `lon(hpx)` are not enough to distinguish HEALPix
+ordering, layout, or level, so HEALPix requires a registered grid identifier.
 
 ## Selection
 
-Grid selection returns positional Xarray indexers and never receives field data.
-Every definition supports geographic `bounds` and optional `bounds_crs`. HEALPix
-also supports face selection for nested ordering.
+Selection returns positional Xarray indexers and never receives field data. Every
+definition supports geographic `bounds` and optional `bounds_crs`. HEALPix also
+supports face selection when its ordering identifies faces.
 
 ```python
 indexers = definition.subset_indexers(
@@ -151,10 +140,3 @@ indexers = definition.subset_indexers(
 )
 subset = array.isel(indexers)
 ```
-
-## Regridding Boundary
-
-The protocol describes geometry but does not choose interpolation methods or engines.
-A regridder can use topology, CRS, geographic centers, optional cell bounds, and the
-fingerprint to select an implementation and cache weights. Unsupported grid pairs or
-methods must raise explicitly.

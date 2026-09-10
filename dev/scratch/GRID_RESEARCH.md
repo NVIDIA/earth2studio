@@ -85,10 +85,11 @@ than the initial Earth2Studio scope but identifies what would be required for tr
 mesh support.
 
 [xdggs represents discrete global grids with a one-dimensional cell coordinate](https://github.com/xarray-contrib/xdggs/blob/main/design_doc.md)
-plus grid parameters and specialized selection behavior. Its approach supports using
-one `hpx` dimension in Earth2Studio. HEALPix resolution and RING versus NESTED
-ordering must remain explicit because identical pixel numbers have different spatial
-meaning under the two orderings.
+plus grid parameters and specialized selection behavior. HEALPix resolution, RING,
+NESTED, or XY ordering, and flat versus face-oriented layout must remain explicit
+because they change the meaning of identical array positions. XY definitions must
+also record origin and winding; Earth2Grid's `HEALPIX_PAD_XY` convention supports
+DLESyM-style `(face, height, width)` arrays.
 
 ## Implications for Earth2Studio
 
@@ -97,8 +98,8 @@ meaning under the two orderings.
 A definition returns complete Xarray coordinates in one call:
 
 ```python
-coordinates = grid.coordinates()
-indexes = grid.coordinates(only_index=True)
+coordinates = grid.coords()
+indexes = grid.coords(only_index=True)
 ```
 
 Field data can reuse `coordinates` with `dims=grid.dims`. This keeps `y, x` as the
