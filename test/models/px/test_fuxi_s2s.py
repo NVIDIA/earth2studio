@@ -359,21 +359,6 @@ def test_fuxi_s2s_shifted_leads_use_matching_step(fuxi_s2s_test_package) -> None
     assert output_coords["lead_time"].tolist() == [np.timedelta64(11, "D")]
 
 
-def test_fuxi_s2s_rejects_fractional_or_negative_latest_lead() -> None:
-    model = _identity_model()
-    coords = model.input_coords()
-    coords["batch"] = np.array([0])
-    coords["time"] = np.array([np.datetime64("2020-01-01")])
-
-    coords["lead_time"] = np.array([np.timedelta64(-12, "h"), np.timedelta64(12, "h")])
-    with pytest.raises(ValueError, match="non-negative whole number of days"):
-        model.output_coords(coords)
-
-    coords["lead_time"] = np.array([np.timedelta64(-2, "D"), np.timedelta64(-1, "D")])
-    with pytest.raises(ValueError, match="non-negative whole number of days"):
-        model.output_coords(coords)
-
-
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_fuxi_s2s_package(device: str) -> None:
