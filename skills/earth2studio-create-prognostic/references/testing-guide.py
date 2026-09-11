@@ -38,6 +38,14 @@ See real examples:
 - test/models/px/test_aurora.py
 
 Use `uv run pytest` to execute tests
+
+Checkpoint coverage is conditional. Stateless prognostic models should state
+that checkpoint state is not required. Stateful models must add a level-2
+round-trip test: run through a saved boundary, call `ckpt.write`, construct a
+new model inside `with checkpoint.select(-1):`, and verify that the resumed
+iterator yields the next lead time and agrees with an uninterrupted rollout.
+Use `earth2studio.utils.checkpoint.Checkpoint` with a temporary path. Do not
+serialize model weights or full forecast history as component state.
 """
 
 import gc

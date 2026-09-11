@@ -24,6 +24,7 @@ success.
 - [ ] Read this SKILL.md completely first
 - [ ] Get the reference script, repo, paper, or model documentation (Step 0)
 - [ ] Classify the diagnostic as simple, AutoModel, or generative (Step 1)
+- [ ] Decide whether mutable RNG, sampler, or cache state requires checkpoint support
 - [ ] Propose dependency extras before editing dependency files (Step 1)
 - [ ] Create `earth2studio/models/dx/<name>.py` with diagnostic-only APIs
 - [ ] Create `test/models/dx/test_<name>.py` with mock tests
@@ -87,6 +88,7 @@ Load these files on demand during the matching workflow:
 | `references/skeleton-template.py` | Full diagnostic skeletons for simple, AutoModel, and generative wrappers | Steps 3-6 |
 | `references/method-templates.py` | Focused coordinate, loading, forward, and device method snippets | Steps 4-6 |
 | `references/testing-guide.py` | Mock, package, exception, sample, and seed test patterns | Step 7 |
+| `references/checkpointing.md` | Stateless and stateful diagnostic checkpoint patterns | Steps 1, 5, 7 |
 | `references/validation-guide.md` | Reference comparison, plots, PR hygiene, and review follow-up | Steps 10-11 |
 | `references/pr-body-template.md` | PR body template | Step 11 |
 | `references/pr-comment-template.md` | Validation comment template | Step 11 |
@@ -151,6 +153,7 @@ import numpy as np
 import torch
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state  # stateful models only
 from earth2studio.utils.type import CoordSystem
 ```
 
@@ -195,6 +198,10 @@ it a tensor dimension unless an existing dx pattern requires it.
 Then update output variables and, when needed, output lat/lon resolution.
 Generative diagnostics must add a `sample` dimension after `batch`.
 
+Deterministic stateless diagnostics do not need checkpoint state. Generative or
+otherwise stateful diagnostics must bind only the RNG, sampler, counter, or
+cache state needed by the next call.
+
 ### Step 5 - Implement Forward Pass
 
 Use a single-step `__call__`; never create an iterator. Validate coordinates
@@ -213,6 +220,13 @@ def __call__(self, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, 
 For generative diagnostics, loop over the batch dimension and generate
 `number_of_samples` per input item. Use explicit seeds for reproducibility when
 the reference implementation supports seeded sampling.
+
+If the diagnostic has mutable state, bind a dataclass with
+`bind_checkpoint_state` in `__init__`, restore it before the first call, and
+update it after a successful call. Construct restart-aware diagnostics inside
+the active checkpoint context. Do not checkpoint model weights, static buffers,
+or generated output history. If the diagnostic is stateless, document that
+checkpoint support is not required instead of adding a no-op state object.
 
 ### Step 6 - Implement Model Loading
 
@@ -239,6 +253,11 @@ Required tests:
 Generative diagnostics also require sample-count and deterministic-seed tests.
 Use `references/testing-guide.py`. Create a `Phoo<ModelName>` dummy that matches
 the real core model's interface and produces deterministic output.
+
+For stateful diagnostics, add a checkpoint round-trip test with a temporary
+checkpoint and verify that a resumed call produces the same next sample or
+counter value as an uninterrupted instance. Stateless diagnostics need no
+checkpoint-specific test.
 
 Run focused tests:
 
@@ -341,6 +360,7 @@ Do:
 - Keep `batch` as the first coordinate with `np.empty(0)` in `input_coords`.
 - Validate coordinates with `handshake_dim()` and `handshake_coords()`.
 - Add `sample` in generative `output_coords`.
+- Bind only required mutable state with `bind_checkpoint_state`; keep stateless diagnostics checkpoint-free.
 - Include the repo-standard SPDX/license header in every Python file.
 - Use `loguru.logger`, never `print()`, inside `earth2studio/`.
 
