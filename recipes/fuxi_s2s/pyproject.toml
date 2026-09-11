@@ -1,0 +1,35 @@
+[project]
+name = "earth2studio.recipe.fuxi-s2s"
+version = "0.1.0"
+description = "Single-member and ensemble FuXi-S2S inference from ARCO ERA5"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+authors = [
+  { name = "NVIDIA Earth-2 Team" },
+]
+dependencies = [
+  "cartopy>=0.24.1",
+  "dask[array]>=2023.1.0",
+  "earth2studio[fuxi-s2s]",
+  "matplotlib>=3.10.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/earth2studio/tree/main/recipes/fuxi_s2s"
+Documentation = "https://github.com/NVIDIA/earth2studio/tree/main/recipes/fuxi_s2s/README.md"
+Issues = "https://github.com/NVIDIA/earth2studio/issues"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+earth2studio = { path = "../../", editable = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]

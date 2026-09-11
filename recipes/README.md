@@ -54,6 +54,16 @@ directly.
     - Inference Compute Type: Multi-GPU
     - Estimated Runtime: 10 minutes to 2 hours
 
+- [FuXi-S2S from ARCO ERA5](./fuxi_s2s/)
+
+    A focused single-GPU recipe for running one stochastic FuXi-S2S trajectory or
+    a configurable ensemble from public hourly ARCO ERA5 data, with weekly maps
+    and ensemble-member summaries.
+
+    - Difficulty: Intermediate
+    - Inference Compute Type: Single GPU
+    - Estimated Runtime: 5 minutes to 2+ hours, depending on cache state and ensemble size
+
 - [Recipe Template](./template/)
 
     Recipe template for developers.
