@@ -149,6 +149,17 @@ def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
     assert len(rngs) == 2 and not np.array_equal(*rngs)
 
 
+def test_weathernext2_set_rng(mock_weathernext2_model):
+    mock_weathernext2_model.set_rng(123)
+    key = np.asarray(mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(456, reset=False)
+    np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(456)
+    assert not np.array_equal(key, mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(123)
+    np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
+
+
 def test_weathernext2_target_order(mock_weathernext2_model):
     targets = fiddle_config_io.get_fiddle_config_by_name(
         "weathernext2/configs/WeatherNextCyclones_Mini"

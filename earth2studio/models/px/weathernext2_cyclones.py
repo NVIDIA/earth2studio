@@ -119,8 +119,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ckpt = ckpt
         self.land_sea_mask = land_sea_mask
         self.geopotential_at_surface = geopotential_at_surface
-        self.seed = seed
-        self.prng_key = jax.random.PRNGKey(seed)
+        self.set_rng(seed)
         self.track_cyclones = track_cyclones
         self._cyclone_tracks = pd.DataFrame()
         self._cyclone_prediction_history: list[xr.Dataset] = []
@@ -159,6 +158,20 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lon": np.linspace(0, 360, n_lon, endpoint=False),
             }
         )
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the JAX random number generator.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the random number generator.
+        reset : bool, optional
+            Reset the generator state from ``seed``, by default True.
+        """
+        self.seed = seed
+        if reset:
+            self.prng_key = jax.random.PRNGKey(seed)
 
     @property
     def cyclone_tracks(self) -> "pd.DataFrame":
