@@ -6842,6 +6842,63 @@
       "product:atmos",
       "product:ocean",
       "year:2026",
+      "gpu:80gb",
+      "provider:google",
+      "backend:jax"
+    ],
+    "chips": [
+      "Prognostic",
+      "Medium Range",
+      "Google",
+      "JAX",
+      "Surface Winds",
+      "Surface Precipitation"
+    ],
+    "filters": {
+      "backend": [
+        "JAX"
+      ],
+      "class": [
+        "Medium Range"
+      ],
+      "gpu": [
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
+        "Atmosphere",
+        "Ocean"
+      ],
+      "provider": [
+        "Google"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "WeatherNext2Cyclones()",
+    "summary": "WeatherNext 2 Cyclones operational medium-range forecast model.",
+    "title": "WeatherNext2Cyclones",
+    "tone": "ocean",
+    "url": "../../../modules/generated/models/px/WeatherNext2Cyclones"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:medium-range",
+      "product:wind",
+      "product:precip",
+      "product:temp",
+      "product:atmos",
+      "product:ocean",
+      "year:2026",
       "gpu:40gb",
       "provider:google",
       "backend:jax"
@@ -6883,7 +6940,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "WeatherNext2CyclonesMini(ckpt: 'fgn.CheckPoint', land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, seed: int = 0, jit_compile: bool = True, track_cyclones: bool = False)",
+    "signature": "WeatherNext2CyclonesMini()",
     "summary": "WeatherNext 2 Cyclones Mini medium-range forecast model.",
     "title": "WeatherNext2CyclonesMini",
     "tone": "ocean",

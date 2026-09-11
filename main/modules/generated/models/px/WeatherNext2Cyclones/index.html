@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/models/px/WeatherNext2CyclonesMini/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/models/px/WeatherNext2Cyclones/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>WeatherNext2CyclonesMini - Earth2Studio</title>
+        <title>WeatherNext2Cyclones - Earth2Studio</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#weathernext2cyclonesmini" class="md-skip">
+        <a href="#weathernext2cyclones" class="md-skip">
           Skip to content
         </a>
       
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              WeatherNext2CyclonesMini
+              WeatherNext2Cyclones
             
           </span>
         </div>
@@ -3046,7 +3046,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.__call__" class="md-nav__link">
+  <a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.__call__" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
@@ -3057,7 +3057,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.create_iterator" class="md-nav__link">
+  <a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.create_iterator" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;create_iterator
@@ -3068,7 +3068,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.load_default_package" class="md-nav__link">
+  <a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.load_default_package" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_default_package
@@ -3079,7 +3079,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.load_model" class="md-nav__link">
+  <a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.load_model" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;load_model
@@ -3114,11 +3114,11 @@
   
 
 
-<h1 id="weathernext2cyclonesmini"><code>WeatherNext2CyclonesMini</code><a class="headerlink" href="#weathernext2cyclonesmini" title="Permanent link">&para;</a></h1>
-<p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:medium-range" data-badge-group="class" style="--badge-color:#0dcaf0;--badge-text-color:#000" title="Medium Range"><span class="mkdocs-badge__label">MRF</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:precip" data-badge-group="product" style="--badge-color:#339af0;--badge-text-color:#fff" title="Surface Precipitation"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud-rain"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:ocean" data-badge-group="product" style="--badge-color:#1098ad;--badge-text-color:#fff" title="Ocean"><span class="mkdocs-badge__icon"><i class="fa-solid fa-water"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:40gb" data-badge-group="gpu" style="--badge-color:#3d7a26;--badge-text-color:#fff" title="40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">40 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:google" data-badge-group="provider" style="--badge-color:#1a73e8;--badge-text-color:#fff"><span class="mkdocs-badge__label">Google</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:jax" data-badge-group="backend" style="--badge-color:#f57c00;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-code-branch"></i></span><span class="mkdocs-badge__label">JAX</span></span></span></p>
-<p><strong>Import path:</strong> <code>earth2studio.models.px.WeatherNext2CyclonesMini</code></p>
-<p><a href="" id="earth2studio.models.px.WeatherNext2CyclonesMini"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/weathernext2_cyclones.py#L759-L837" title="earth2studio/models/px/weathernext2_cyclones.py:759">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=weathernext#install-command" title="category=prognostic item=weathernext">View install commands</a></p>
+<h1 id="weathernext2cyclones"><code>WeatherNext2Cyclones</code><a class="headerlink" href="#weathernext2cyclones" title="Permanent link">&para;</a></h1>
+<p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:medium-range" data-badge-group="class" style="--badge-color:#0dcaf0;--badge-text-color:#000" title="Medium Range"><span class="mkdocs-badge__label">MRF</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:precip" data-badge-group="product" style="--badge-color:#339af0;--badge-text-color:#fff" title="Surface Precipitation"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud-rain"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:ocean" data-badge-group="product" style="--badge-color:#1098ad;--badge-text-color:#fff" title="Ocean"><span class="mkdocs-badge__icon"><i class="fa-solid fa-water"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:80gb" data-badge-group="gpu" style="--badge-color:#5aac44;--badge-text-color:#fff" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">80 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:google" data-badge-group="provider" style="--badge-color:#1a73e8;--badge-text-color:#fff"><span class="mkdocs-badge__label">Google</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:jax" data-badge-group="backend" style="--badge-color:#f57c00;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-code-branch"></i></span><span class="mkdocs-badge__label">JAX</span></span></span></p>
+<p><strong>Import path:</strong> <code>earth2studio.models.px.WeatherNext2Cyclones</code></p>
+<p><a href="" id="earth2studio.models.px.WeatherNext2Cyclones"></a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/weathernext2_cyclones.py#L841-L981" title="earth2studio/models/px/weathernext2_cyclones.py:841">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=weathernext#install-command" title="category=prognostic item=weathernext">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3133,25 +3133,36 @@
 
 
 
-        <p>WeatherNext 2 Cyclones Mini medium-range forecast model.</p>
-<p>WeatherNext 2 is Google DeepMind's global medium-range weather forecasting
-model family. This wrapper uses the public <code>WeatherNextCyclones_Mini</code>
-checkpoint and 1 degree sample grid.</p>
+        <p>WeatherNext 2 Cyclones operational medium-range forecast model.</p>
+<p>This wrapper uses Google DeepMind's operational 0.25 degree
+<code>WeatherNextCyclones_&lt;2025</code> checkpoint family. These are the models that
+ran during the 2025 Atlantic hurricane season. Four trained checkpoint
+members are available; <code>load_model</code> selects member 1 by default.</p>
 <p>The model requires two input states, valid at <code>-6h</code> and <code>0h</code> lead time,
-and predicts 6 hours forward per model call. By default this wrapper returns
-only the gridded weather fields expected by Earth2Studio prognostic models.
-Cyclone tracking can be enabled with <code>track_cyclones=True</code> to accumulate
-WeatherNext's tropical cyclone track diagnostics in the <code>cyclone_tracks</code>
-property without changing the model output type.</p>
+and predicts 6 hours forward per model call. Cyclone tracking can be enabled
+with <code>track_cyclones=True</code> to accumulate WeatherNext's tropical cyclone
+diagnostics in the <code>cyclone_tracks</code> property.</p>
 
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>To avoid JAX preallocating GPU memory and use the CUDA virtual memory
+management allocator, set these variables before importing JAX or
+Earth2Studio:</p>
+<p>.. code-block:: console</p>
+<div class="highlight"><pre><span></span><code>export XLA_PYTHON_CLIENT_PREALLOCATE=false
+export XLA_PYTHON_CLIENT_ALLOCATOR=vmm
+</code></pre></div>
+</details>
 
 <details class="note" open>
   <summary>Note</summary>
   <p>For more information see the following references:</p>
 <ul>
 <li><a href="https://doi.org/10.1038/s41586-026-10953-2">doi.org/10.1038/s41586-026-10953-2</a></li>
-<li><a class="magiclink magiclink-github magiclink-repository" href="https://github.com/google-deepmind/weathernext" title="GitHub Repository: google-deepmind/weathernext">google-deepmind/weathernext</a></li>
+<li><a class="magiclink magiclink-github magiclink-repository" href="https://github.com/google-deepmind/weathernext#provided-pretrained-models" title="GitHub Repository: google-deepmind/weathernext#provided-pretrained-models">google-deepmind/weathernext#provided-pretrained-models</a></li>
 <li><a href="https://huggingface.co/kashif/weathernext2">huggingface.co/kashif/weathernext2</a></li>
+<li><a href="https://docs.jax.dev/en/latest/gpu_memory_allocation.html">docs.jax.dev/en/latest/gpu_memory_allocation.html</a></li>
 </ul>
 </details>
 
@@ -3226,8 +3237,8 @@ by default False.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <p>Access tropical cyclone tracks after a model call:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">WeatherNext2CyclonesMini</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">WeatherNext2CyclonesMini</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">(),</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">WeatherNext2Cyclones</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">WeatherNext2Cyclones</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">(),</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">track_cyclones</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span><span class="p">)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>
@@ -3262,11 +3273,11 @@ duration threshold is set by
 <div class="doc doc-object doc-function">
 
 
-<h3 id="px.weathernext2_cyclones.WeatherNext2CyclonesMini.__call__" class="doc doc-heading">
+<h3 id="px.weathernext2_cyclones.WeatherNext2Cyclones.__call__" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">__call__</span>
 
 
-<a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
@@ -3322,11 +3333,11 @@ duration threshold is set by
 <div class="doc doc-object doc-function">
 
 
-<h3 id="px.weathernext2_cyclones.WeatherNext2CyclonesMini.create_iterator" class="doc doc-heading">
+<h3 id="px.weathernext2_cyclones.WeatherNext2Cyclones.create_iterator" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">create_iterator</span>
 
 
-<a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.create_iterator" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.create_iterator" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_iterator</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Iterator" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator">Iterator</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]]</span>
@@ -3382,7 +3393,7 @@ duration threshold is set by
 <div class="doc doc-object doc-function">
 
 
-<h3 id="px.weathernext2_cyclones.WeatherNext2CyclonesMini.load_default_package" class="doc doc-heading">
+<h3 id="px.weathernext2_cyclones.WeatherNext2Cyclones.load_default_package" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">load_default_package</span>
 
 
@@ -3390,7 +3401,7 @@ duration threshold is set by
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
 
-<a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.load_default_package" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.load_default_package" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_default_package</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="earth2studio.models.auto.Package" href="../../auto/Package/#earth2studio.models.auto.Package">Package</a></span>
 </code></pre></div>
 
@@ -3423,7 +3434,7 @@ duration threshold is set by
 <div class="doc doc-object doc-function">
 
 
-<h3 id="px.weathernext2_cyclones.WeatherNext2CyclonesMini.load_model" class="doc doc-heading">
+<h3 id="px.weathernext2_cyclones.WeatherNext2Cyclones.load_model" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">load_model</span>
 
 
@@ -3431,18 +3442,19 @@ duration threshold is set by
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
 
-<a href="#px.weathernext2_cyclones.WeatherNext2CyclonesMini.load_model" class="headerlink" title="Permanent link">&para;</a></h3>
+<a href="#px.weathernext2_cyclones.WeatherNext2Cyclones.load_model" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_model</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">package</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="earth2studio.models.auto.Package" href="../../auto/Package/#earth2studio.models.auto.Package">Package</a></span><span class="p">,</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">jit_compile</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">track_cyclones</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">checkpoint_member</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Load prognostic model from package.</p>
+        <p>Load the operational prognostic model from a package.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3486,6 +3498,16 @@ duration threshold is set by
 by default False.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+            <b><code>checkpoint_member</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>, default:
+                  <code>1</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Operational checkpoint member from 1 through 4, by default 1.</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -3512,7 +3534,7 @@ by default False.</p>
 
     </div>
 
-</div><!-- e2sg-backreferences: earth2studio.models.px.WeatherNext2CyclonesMini -->
+</div><!-- e2sg-backreferences: earth2studio.models.px.WeatherNext2Cyclones -->
 
 
 

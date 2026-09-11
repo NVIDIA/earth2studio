@@ -3100,11 +3100,32 @@
         "product:atmos",
         "product:ocean",
         "year:2026",
+        "gpu:80gb",
+        "provider:google",
+        "backend:jax"
+      ],
+      "signature": "WeatherNext2Cyclones()",
+      "source": "modules/generated/models/px/WeatherNext2Cyclones.md",
+      "summary": "WeatherNext 2 Cyclones operational medium-range forecast model.",
+      "symbol": "earth2studio.models.px.WeatherNext2Cyclones",
+      "title": "WeatherNext2Cyclones",
+      "url": "modules/generated/models/px/WeatherNext2Cyclones/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:wind",
+        "product:precip",
+        "product:temp",
+        "product:atmos",
+        "product:ocean",
+        "year:2026",
         "gpu:40gb",
         "provider:google",
         "backend:jax"
       ],
-      "signature": "WeatherNext2CyclonesMini(ckpt: 'fgn.CheckPoint', land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, seed: int = 0, jit_compile: bool = True, track_cyclones: bool = False)",
+      "signature": "WeatherNext2CyclonesMini()",
       "source": "modules/generated/models/px/WeatherNext2CyclonesMini.md",
       "summary": "WeatherNext 2 Cyclones Mini medium-range forecast model.",
       "symbol": "earth2studio.models.px.WeatherNext2CyclonesMini",
