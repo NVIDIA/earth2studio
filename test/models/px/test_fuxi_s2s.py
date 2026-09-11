@@ -16,6 +16,8 @@
 
 import io
 import zipfile
+from collections import OrderedDict
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -27,9 +29,11 @@ import torch
 import xarray as xr
 from onnx import TensorProto, helper, numpy_helper
 
+from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.px import FuXiS2S
 from earth2studio.models.px.fuxi_s2s import VARIABLES
+from earth2studio.utils import handshake_dim
 
 
 class PhooFuXiS2S(torch.nn.Module):
@@ -119,7 +123,7 @@ class PhooStochasticSession:
         out.copy_(result)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def fuxi_s2s_test_package(tmp_path_factory) -> Package:
     tmp_path = tmp_path_factory.mktemp("fuxi_s2s")
     torch.onnx.export(
@@ -199,66 +203,125 @@ def test_fuxi_s2s_unit_conversions() -> None:
     )
 
 
-def test_fuxi_s2s_call(fuxi_s2s_test_package) -> None:
-    model = FuXiS2S.load_model(fuxi_s2s_test_package)
-    coords = model.input_coords()
-    del coords["batch"]
-    coords["time"] = np.array([np.datetime64("2020-01-01")])
-    x = torch.ones(1, 2, len(VARIABLES), 121, 240)
-    x[:, :, VARIABLES.index("ttr")] = 3600.0
-    x[:, :, VARIABLES.index("tp")] = 0.001
+class TestFuXiS2SMock:
 
-    output, output_coords = model(x, coords)
-
-    expected_model_output = model._prepare_input(x[:, -1:]) + 1.0 / 365.0
-    expected = model._prepare_output(expected_model_output)
-    torch.testing.assert_close(output, expected)
-    assert output.shape == (1, 1, len(VARIABLES), 121, 240)
-    assert output_coords["lead_time"].tolist() == [np.timedelta64(1, "D")]
-
-
-def test_fuxi_s2s_call_invalid_coords(fuxi_s2s_test_package) -> None:
-    model = FuXiS2S.load_model(fuxi_s2s_test_package)
-    coords = model.input_coords()
-    del coords["batch"]
-    coords["time"] = np.array([np.datetime64("2020-01-01")])
-    coords["lat"] = coords["lat"][::-1]
-    x = torch.ones(1, 2, len(VARIABLES), 121, 240)
-
-    with pytest.raises(ValueError):
-        model(x, coords)
-
-
-def test_fuxi_s2s_iter(fuxi_s2s_test_package) -> None:
-    model = FuXiS2S.load_model(fuxi_s2s_test_package)
-    coords = model.input_coords()
-    del coords["batch"]
-    coords["time"] = np.array([np.datetime64("2020-01-01")])
-    coords["ensemble"] = np.arange(2)
-    coords.move_to_end("ensemble", last=False)
-    x = torch.ones(2, 1, 2, len(VARIABLES), 121, 240)
-    model_iterator = model.create_iterator(x, coords)
-
-    initial, initial_coords = next(model_iterator)
-    first, first_coords = next(model_iterator)
-    second, second_coords = next(model_iterator)
-
-    assert initial.shape == first.shape == second.shape
-    assert initial.shape == (2, 1, 1, len(VARIABLES), 121, 240)
-    np.testing.assert_array_equal(initial_coords["ensemble"], np.arange(2))
-    np.testing.assert_array_equal(first_coords["ensemble"], np.arange(2))
-    np.testing.assert_array_equal(second_coords["ensemble"], np.arange(2))
-    assert initial_coords["lead_time"].tolist() == [np.timedelta64(0, "D")]
-    assert first_coords["lead_time"].tolist() == [np.timedelta64(1, "D")]
-    assert second_coords["lead_time"].tolist() == [np.timedelta64(2, "D")]
-    torch.testing.assert_close(
-        first[..., 0, :, :],
-        torch.full_like(first[..., 0, :, :], 1.0 + 1.0 / 365.0),
+    @pytest.mark.parametrize(
+        "time",
+        [
+            np.array([np.datetime64("2020-01-01T00:00")]),
+            np.array(
+                [
+                    np.datetime64("2020-01-01T00:00"),
+                    np.datetime64("2020-06-15T00:00"),
+                ]
+            ),
+        ],
     )
-    torch.testing.assert_close(
-        second[..., 0, :, :],
-        torch.full_like(second[..., 0, :, :], 2.0 + 3.0 / 365.0),
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_fuxi_s2s_call(self, time, fuxi_s2s_test_package, device) -> None:
+        model = FuXiS2S.load_model(fuxi_s2s_test_package).to(device)
+
+        dc = model.input_coords()
+        del dc["batch"]
+        del dc["time"]
+        del dc["lead_time"]
+        del dc["variable"]
+        r = Random(dc)
+
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+        out, out_coords = model(x, coords)
+
+        if not isinstance(time, Iterable):
+            time = [time]
+
+        assert out.shape == torch.Size([len(time), 1, len(VARIABLES), 121, 240])
+        assert (out_coords["time"] == time).all()
+        np.testing.assert_array_equal(
+            out_coords["lead_time"],
+            np.array([np.timedelta64(1, "D")]),
+        )
+        handshake_dim(out_coords, "lon", 4)
+        handshake_dim(out_coords, "lat", 3)
+        handshake_dim(out_coords, "variable", 2)
+        handshake_dim(out_coords, "lead_time", 1)
+        handshake_dim(out_coords, "time", 0)
+
+    @pytest.mark.parametrize(
+        "dc",
+        [
+            OrderedDict({"lat": np.linspace(-90, 90, 121)}),
+            OrderedDict(
+                {"lat": np.linspace(90, -90, 121), "phoo": np.random.randn(240)}
+            ),
+            OrderedDict(
+                {
+                    "lat": np.linspace(90, -90, 121),
+                    "lon": np.random.randn(1),
+                }
+            ),
+        ],
     )
+    @pytest.mark.parametrize("device", ["cuda:0"])
+    def test_fuxi_s2s_exceptions(self, dc, fuxi_s2s_test_package, device) -> None:
+        time = np.array([np.datetime64("2020-01-01T00:00")])
+        model = FuXiS2S.load_model(fuxi_s2s_test_package).to(device)
+
+        r = Random(dc)
+
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+        with pytest.raises((KeyError, ValueError)):
+            model(x, coords)
+
+    @pytest.mark.parametrize("ensemble", [2])
+    @pytest.mark.parametrize("device", ["cpu", "cuda"])
+    def test_fuxi_s2s_iter(self, ensemble, fuxi_s2s_test_package, device) -> None:
+        time = np.array([np.datetime64("2020-01-01T00:00")])
+        model = FuXiS2S.load_model(fuxi_s2s_test_package).to(device)
+
+        dc = model.input_coords()
+        del dc["batch"]
+        del dc["time"]
+        del dc["lead_time"]
+        del dc["variable"]
+        r = Random(dc)
+
+        lead_time = model.input_coords()["lead_time"]
+        variable = model.input_coords()["variable"]
+        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+        x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
+        coords.update({"ensemble": np.arange(ensemble)})
+        coords.move_to_end("ensemble", last=False)
+
+        p_iter = model.create_iterator(x, coords)
+
+        if not isinstance(time, Iterable):
+            time = [time]
+
+        # Initial yield should return the input
+        out, out_coords = next(p_iter)
+        assert out.shape[0] == ensemble
+
+        for i, (out, out_coords) in enumerate(p_iter):
+            assert len(out.shape) == 6
+            assert out.shape[0] == ensemble
+            assert (out_coords["time"] == time).all()
+            assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "D")
+            handshake_dim(out_coords, "lon", 5)
+            handshake_dim(out_coords, "lat", 4)
+            handshake_dim(out_coords, "variable", 3)
+            handshake_dim(out_coords, "lead_time", 2)
+            handshake_dim(out_coords, "time", 1)
+            handshake_dim(out_coords, "ensemble", 0)
+
+            if i > 3:
+                break
 
 
 def test_fuxi_s2s_ensemble_members_use_independent_ort_calls() -> None:
