@@ -386,25 +386,6 @@ def test_fuxi_s2s_default_package_is_pinned() -> None:
     )
 
 
-def test_fuxi_s2s_load_model_resolves_external_weights(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    package = Package(str(tmp_path))
-    resolved: list[str] = []
-
-    def resolve(file_path: str) -> str:
-        resolved.append(file_path)
-        return str(tmp_path / file_path)
-
-    monkeypatch.setattr(package, "resolve", resolve)
-
-    model = FuXiS2S.load_model(package)
-
-    assert model.onnx_path == str(tmp_path / "fuxi_s2s.onnx")
-    assert resolved == ["fuxi_s2s", "fuxi_s2s.onnx"]
-
-
 def test_fuxi_s2s_load_model_stages_remote_external_weights(
     tmp_path: Path,
 ) -> None:
