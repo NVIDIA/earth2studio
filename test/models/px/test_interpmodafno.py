@@ -78,15 +78,15 @@ def test_forecast_interpolation_call(time, device):
     ).to(device)
 
     # Create domain coordinates
-    dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: model._input_tensor_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Run forward pass
     out, out_coords = model(x, coords)
@@ -96,7 +96,9 @@ def test_forecast_interpolation_call(time, device):
 
     # Verify output shape and coordinates
     assert out.shape == torch.Size([len(time), 1, 73, 720, 1440])
-    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == model._output_tensor_coords(coords)["variable"]
+    ).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -143,15 +145,15 @@ def test_forecast_interpolation_iter(ensemble, history, device):
     ).to(device)
 
     # Create domain coordinates
-    dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: model._input_tensor_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -177,7 +179,7 @@ def test_forecast_interpolation_iter(ensemble, history, device):
         # Check coordinates
         assert (
             out_coords["variable"]
-            == model.output_coords(model.input_coords())["variable"]
+            == model._output_tensor_coords(model._input_tensor_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
 
@@ -232,9 +234,9 @@ def test_forecast_interpolation_exceptions(dc, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Expect an exception when running the model with invalid inputs
     with pytest.raises((KeyError, ValueError)):
@@ -249,7 +251,7 @@ def test_forecast_interpolation_exceptions(dc, device):
         num_interp_steps=6,
     ).to(device)
     with pytest.raises(ValueError):
-        model.input_coords()
+        model._input_tensor_coords()
 
 
 @pytest.fixture(scope="function")
@@ -278,15 +280,15 @@ def test_forecast_interpolation_package(device, model):
     model = model.to(device)
 
     # Create domain coordinates
-    dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: model._input_tensor_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Run forward pass
     out, out_coords = model(x, coords)
@@ -296,7 +298,9 @@ def test_forecast_interpolation_package(device, model):
 
     # Verify output shape and coordinates
     assert out.shape == torch.Size([len(time), 1, 73, 720, 1440])
-    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == model._output_tensor_coords(coords)["variable"]
+    ).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)

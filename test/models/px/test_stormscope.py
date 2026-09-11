@@ -163,9 +163,9 @@ def test_stormscope_call(time, device, batch):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add batch dimension
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
@@ -180,7 +180,9 @@ def test_stormscope_call(time, device, batch):
 
     # Check output shape and coordinates
     assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
-    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == model._output_tensor_coords(coords)["variable"]
+    ).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "x", 5)
     handshake_dim(out_coords, "y", 4)
@@ -222,9 +224,9 @@ def test_stormscope_amp_compile(amp, compile, device):
 
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
@@ -256,9 +258,9 @@ def test_stormscope_iter(batch, device):
     r = Random(dc)
 
     # Get Data
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add batch dimension
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
@@ -281,7 +283,7 @@ def test_stormscope_iter(batch, device):
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
         assert (
             out_coords["variable"]
-            == model.output_coords(model.input_coords())["variable"]
+            == model._output_tensor_coords(model._input_tensor_coords())["variable"]
         ).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
@@ -314,9 +316,9 @@ def test_stormscope_interpolation(device):
     dc = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Test that prep_input can handle the different grid
     x_prep, x_prep_coords = model.prep_input(x, coords)
@@ -357,15 +359,15 @@ def test_stormscope_next_input(sliding_window, device, batch):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
     # Simulate a prediction
-    pred_coords = model.output_coords(coords)
+    pred_coords = model._output_tensor_coords(coords)
     pred = torch.randn(
         batch,
         len(time),
@@ -412,9 +414,9 @@ def test_stormscope_call_with_conditioning(device):
     r = Random(dc)
 
     # Get input data
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Manually create conditioning data
     conditioning = torch.randn(
@@ -466,9 +468,9 @@ def test_stormscope_conditioning_nan_check(device):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     conditioning = torch.randn(
         len(time), len(lead_time), nvar_cond, h, w, device=device
@@ -552,9 +554,9 @@ def test_stormscope_mrms(device):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Set some values to very low reflectivity
     x[:, :, :, :, :] = -25.0  # Should be imputed to -10
@@ -583,9 +585,9 @@ def test_stormscope_exceptions(device):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Should raise error when trying to fetch conditioning without data source
     with pytest.raises(RuntimeError):
@@ -597,7 +599,9 @@ def test_stormscope_exceptions(device):
     h_input, w_input = 16, 32
     dc2 = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
     r2 = Random(dc2)
-    x2, coords2 = fetch_data(r2, time, variable, lead_time, device=device)
+    x2, coords2 = fetch_data(
+        r2, time, variable, lead_time, device=device
+    ).e2s.to_torch()
 
     with pytest.raises(ValueError):
         # Should fail because we're passing data on wrong grid without interpolator
@@ -696,7 +700,7 @@ def test_stormscope_package_loading():
 
     batch_size = 1
     time = np.array([np.datetime64("2025-07-01T00:00")])
-    coords = model.input_coords()
+    coords = model._input_tensor_coords()
     coords["batch"] = np.arange(batch_size)
     coords["time"] = time
     lead_times = coords["lead_time"]
@@ -744,7 +748,7 @@ def test_stormscope_package_loading():
     else:
         out, out_coords = model(x, coords)
 
-    expected_coords = model.output_coords(coords)
+    expected_coords = model._output_tensor_coords(coords)
     expected_shape = (
         batch_size,
         len(time),

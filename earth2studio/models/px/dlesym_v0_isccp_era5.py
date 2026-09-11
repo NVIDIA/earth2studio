@@ -246,7 +246,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             )
 
         # Set before super().__init__() because the parent __init__ calls
-        # self.input_coords(), which (via Python dispatch) hits this subclass's
+        # self._input_tensor_coords(), which (via Python dispatch) hits this subclass's
         # override and reads self.use_ttr.
         self.use_ttr = use_ttr
         super().__init__(*args, **kwargs)
@@ -283,9 +283,9 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
                 "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
             )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model."""
-        coords = super().input_coords()
+        coords = super()._input_tensor_coords()
         if self.use_ttr:
             variables = list(coords["variable"])
             variables[variables.index("rlut")] = "ttr"
@@ -474,7 +474,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             Output tensor and output coordinates (in model variable space:
             ``rlut`` rather than ``ttr``).
         """
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         if self.use_ttr:
             x = self._apply_ttr_to_olr(x, coords)
@@ -494,7 +494,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         coords = coords.copy()
         # Saved for output_coords validation after each forward step: the
         # parent's output_coords validates `coords["variable"]` against
-        # `self.input_coords()` (which advertises ``ttr`` in user-space).
+        # `self._input_tensor_coords()` (which advertises ``ttr`` in user-space).
         base_vars = coords["variable"]
 
         if self.use_ttr:
@@ -515,7 +515,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             # validation; restore it from base_vars.
             base_coords = coords.copy()
             base_coords["variable"] = base_vars
-            coords = self.output_coords(base_coords)
+            coords = self._output_tensor_coords(base_coords)
 
             x, coords = self.rear_hook(x, coords)
 
@@ -650,7 +650,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
             space: ``rlut`` rather than ``ttr``).
         """
         # Validate + build output coords against the user-space (``ttr``) input.
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         coords = coords.copy()
         if self.use_ttr:
@@ -713,7 +713,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
             # validation; restore it from base_vars.
             base_coords = coords.copy()
             base_coords["variable"] = base_vars
-            coords = self.output_coords(base_coords)
+            coords = self._output_tensor_coords(base_coords)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)

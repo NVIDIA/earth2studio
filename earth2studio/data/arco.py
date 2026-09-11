@@ -81,6 +81,7 @@ class ARCO_ERA5:
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
     ARCO_ML_PATH = "/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1"
     ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
+    time_step = np.timedelta64(1, "h")
 
     def __init__(
         self,

@@ -163,16 +163,16 @@ def test_ACE2ERA5_call(device):
     p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
     # Build a Random data source over the model grid
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -184,7 +184,7 @@ def test_ACE2ERA5_call(device):
     assert out.shape[1] == 1  # one lead time step
     assert out.shape[3] == len(p.lat)
     assert out.shape[4] == len(p.lon)
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -204,16 +204,16 @@ def test_ACE2ERA5_iter(batch, device):
     forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
     p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to the front
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
@@ -230,7 +230,9 @@ def test_ACE2ERA5_iter(batch, device):
 
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+        ).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -252,16 +254,16 @@ def test_ace2era5_package(device):
     p = model.to(device)
 
     # Build a Random data source over the model grid
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -273,7 +275,7 @@ def test_ace2era5_package(device):
     assert out.shape[1] == 1  # one lead time step
     assert out.shape[3] == len(p.lat)
     assert out.shape[4] == len(p.lon)
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

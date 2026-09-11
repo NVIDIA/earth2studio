@@ -157,7 +157,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.device = torch.ones(1).device  # Hack to get default device
         self.ort = None
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -168,7 +168,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(
+    def _output_tensor_coords(
         self,
         input_coords: CoordSystem,
     ) -> CoordSystem:
@@ -190,7 +190,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
@@ -259,10 +259,10 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if lead_time is not None:
             previous_lead_time = self._output_coords["lead_time"]
             self._output_coords["lead_time"] = lead_time
-            output_coords = self.output_coords(coords)
+            output_coords = self._output_tensor_coords(coords)
             self._output_coords["lead_time"] = previous_lead_time
         else:
-            output_coords = self.output_coords(coords)
+            output_coords = self._output_tensor_coords(coords)
 
         # Ref: https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -430,7 +430,7 @@ class Pangu24(PanguBase):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         yield x, coords
 
@@ -549,7 +549,7 @@ class Pangu6(PanguBase):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         yield x, coords
 
@@ -687,7 +687,7 @@ class Pangu3(PanguBase):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         yield x, coords
 

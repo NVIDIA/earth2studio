@@ -99,16 +99,16 @@ def _make_ensemble_model(device: str = "cpu") -> Aurora1p5Ensemble:
 def test_aurora1p5_call(time, device):
     p = _make_model(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -116,7 +116,7 @@ def test_aurora1p5_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, _N_VARS, _H, _W])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -131,16 +131,16 @@ def test_aurora1p5_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(ensemble)})
@@ -155,7 +155,9 @@ def test_aurora1p5_iter(ensemble, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, _N_VARS, _H, _W])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"].shape == (1,)
@@ -176,16 +178,16 @@ def test_aurora1p5_iter_repeated(device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     def collect(n=3):
         it = p.create_iterator(x, coords)
@@ -215,9 +217,9 @@ def test_aurora1p5_exceptions(dc, device):
     p = _make_model(device)
 
     r = Random(dc)
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
@@ -236,21 +238,21 @@ def test_aurora1p5_package(model, device):
     time = np.array([np.datetime64("2023-01-01T00:00")])
     p = model.to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
     assert out.shape == torch.Size([len(time), 1, _N_VARS, _H, _W])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -269,16 +271,16 @@ def test_aurora1p5_ensemble_iter(n_members, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_ensemble_model(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(n_members, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(n_members)})
@@ -307,16 +309,16 @@ def test_aurora1p5_ensemble_package(ensemble_model, device):
     time = np.array([np.datetime64("2023-01-01T00:00")])
     p = ensemble_model.to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     n_members = 1
     x = x.unsqueeze(0).repeat(n_members, 1, 1, 1, 1, 1)

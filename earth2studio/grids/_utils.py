@@ -58,6 +58,7 @@ def metadata(definition: GridDefinition, **details: Any) -> dict[str, Any]:
         "dims": list(definition.dims),
         "shape": list(definition.shape),
         "topology": definition.topology,
+        "fingerprint": definition.fingerprint(),
     }
     if definition.crs is not None:
         result["crs"] = definition.crs.to_string()

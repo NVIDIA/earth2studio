@@ -240,7 +240,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
@@ -251,7 +251,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(
+    def _output_tensor_coords(
         self,
         input_coords: CoordSystem,
     ) -> CoordSystem:
@@ -848,10 +848,10 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         device = x.device
 
         with jax.default_device(self.get_jax_device_from_tensor(x)):
-            x, coords = map_coords(x, coords, self.input_coords())
+            x, coords = map_coords(x, coords, self._input_tensor_coords())
 
             # Validate spatial dimensions match expected grid
-            target_input_coords = self.input_coords()
+            target_input_coords = self._input_tensor_coords()
             handshake_coords(coords, target_input_coords, "lat")
             handshake_coords(coords, target_input_coords, "lon")
 
@@ -890,7 +890,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 results.append(self.iterator_result_to_tensor(predictions))
 
             out = torch.cat(results, dim=1) if n_times > 1 else results[0]
-            output_coords = self.output_coords(coords)
+            output_coords = self._output_tensor_coords(coords)
 
             out = out.to(device)
 
@@ -917,7 +917,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system at each time step
         """
         coords = coords.copy()
-        coords_out = self.output_coords(coords)
+        coords_out = self._output_tensor_coords(coords)
 
         device = x.device
 
@@ -939,7 +939,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield out, coords_out
 
         while True:
-            coords = self.output_coords(coords)
+            coords = self._output_tensor_coords(coords)
 
             # Get next prediction from all time iterators
             results = [

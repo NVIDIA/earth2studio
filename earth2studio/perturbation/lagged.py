@@ -91,12 +91,13 @@ class LaggedEnsemble:
             )
         y = torch.clone(x)
         for i, lag in enumerate(self.lags):
-            y[i] = fetch_data(
+            array = fetch_data(
                 source=self.source,
                 time=coords["time"] + lag,
                 variable=coords["variable"],
                 lead_time=coords["lead_time"],
                 device=y.device,
-            )[0]
+            )
+            y[i] = array.e2s.to_torch()[0]
 
         return y, coords

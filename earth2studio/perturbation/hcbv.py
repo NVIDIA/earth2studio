@@ -77,7 +77,7 @@ class HemisphericCentredBredVector:
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor(
-                [noise_amplitude] * len(self.model.input_coords()["variable"])
+                [noise_amplitude] * len(self.model._input_tensor_coords()["variable"])
             )[:, None, None]
         )
         self.integration_steps = integration_steps
@@ -92,21 +92,22 @@ class HemisphericCentredBredVector:
         """Creates and initializes the perturbation generator"""
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
-        input_coords = self.model.input_coords()
+        input_coords = self.model._input_tensor_coords()
 
         time = to_time_array(time)
         warmup_times = (
             time
             + np.arange(-self.integration_steps, 1)
-            * self.model.output_coords(input_coords)["lead_time"]
+            * self.model._output_tensor_coords(input_coords)["lead_time"]
         )
-        input_data, data_coords = fetch_data(
+        array = fetch_data(
             source=self.data,
             time=warmup_times,
             variable=input_coords["variable"],
             lead_time=input_coords["lead_time"],
             device="cpu",
         )
+        input_data, data_coords = array.e2s.to_torch()
         input_coords["time"] = to_time_array(warmup_times)
         input_data, data_coords = map_coords(input_data, data_coords, input_coords)
 
@@ -157,7 +158,7 @@ class HemisphericCentredBredVector:
     def set_clip_indices(self) -> None:
         """If humidity and tcwv in variable set, add to list of variables to clip"""
         self.clip_idcs = []
-        for ii, var in enumerate(self.model.input_coords()["variable"]):
+        for ii, var in enumerate(self.model._input_tensor_coords()["variable"]):
             if var[0] == "q" or var == "tcwv" or var[0] == "r" or var[:2] == "tp":
                 self.clip_idcs.append(ii)
         return

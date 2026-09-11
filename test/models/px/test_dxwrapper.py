@@ -163,7 +163,7 @@ def test_dxwrapper_call(device, model_type, times):
             sincos_latlon=sincos_latlon,
         ).to(device)
 
-    px_out_coords = px_model.output_coords(px_model.input_coords())
+    px_out_coords = px_model._output_tensor_coords(px_model._input_tensor_coords())
     sp_model = DerivedSurfacePressure(
         p_levels=[50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000],
         surface_geopotential=torch.zeros(721, 1440),
@@ -180,21 +180,22 @@ def test_dxwrapper_call(device, model_type, times):
         device=device
     )
 
-    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: wrapped_model._input_tensor_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
 
     x, coords = fetch_data(
         data,
         times,
-        variable=wrapped_model.input_coords()["variable"],
+        variable=wrapped_model._input_tensor_coords()["variable"],
         device=device,
-    )
-    x, input_coords = map_coords(x, coords, wrapped_model.input_coords())
+    ).e2s.to_torch()
+    x, input_coords = map_coords(x, coords, wrapped_model._input_tensor_coords())
     x, coords = wrapped_model(x, input_coords)
 
     coord_shape = tuple(coord.shape[0] for coord in coords.values())
     expected_shape = tuple(
-        coord.shape[0] for coord in wrapped_model.output_coords(input_coords).values()
+        coord.shape[0]
+        for coord in wrapped_model._output_tensor_coords(input_coords).values()
     )
     assert x.shape == coord_shape
     assert x.shape == expected_shape
@@ -242,7 +243,7 @@ def test_dxwrapper_iter(device, times, number_of_samples):
     lon = np.linspace(0, 360, 1440, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
-        variable=corrdiff_model.input_coords()["variable"],
+        variable=corrdiff_model._input_tensor_coords()["variable"],
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     ).to(device)
@@ -252,23 +253,24 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         dx_model=corrdiff_model,
     ).to(device=device)
 
-    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: wrapped_model._input_tensor_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
 
     x, coords = fetch_data(
         data,
         times,
-        variable=px_model.input_coords()["variable"],
+        variable=px_model._input_tensor_coords()["variable"],
         device=device,
-    )
-    x, coords = map_coords(x, coords, wrapped_model.input_coords())
+    ).e2s.to_torch()
+    x, coords = map_coords(x, coords, wrapped_model._input_tensor_coords())
     # Get generator
     p_iter = wrapped_model.create_iterator(x, coords)
     for i, (out, out_coords) in enumerate(p_iter):
 
         coord_shape = tuple(coord.shape[0] for coord in out_coords.values())
         expected_shape = tuple(
-            coord.shape[0] for coord in wrapped_model.output_coords(coords).values()
+            coord.shape[0]
+            for coord in wrapped_model._output_tensor_coords(coords).values()
         )
         assert out.shape == coord_shape
         assert out.shape == expected_shape
@@ -311,7 +313,7 @@ def test_dxwrapper_run(device, times, number_of_samples):
     lon = np.linspace(0, 360, 1440, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
-        variable=corrdiff_model.input_coords()["variable"],
+        variable=corrdiff_model._input_tensor_coords()["variable"],
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     ).to(device)
@@ -321,16 +323,16 @@ def test_dxwrapper_run(device, times, number_of_samples):
         dx_model=corrdiff_model,
     ).to(device=device)
 
-    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: wrapped_model._input_tensor_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
 
     x, coords = fetch_data(
         data,
         times,
-        variable=px_model.input_coords()["variable"],
+        variable=px_model._input_tensor_coords()["variable"],
         device=device,
-    )
-    x, coords = map_coords(x, coords, wrapped_model.input_coords())
+    ).e2s.to_torch()
+    x, coords = map_coords(x, coords, wrapped_model._input_tensor_coords())
     io = XarrayBackend()
     deterministic(times, 2, wrapped_model, data, io, device=device)
 

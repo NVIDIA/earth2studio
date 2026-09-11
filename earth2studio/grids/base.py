@@ -26,6 +26,7 @@ from numpy.typing import NDArray
 from pyproj import CRS
 
 E2S_CRS = "earth2studio_crs"
+E2S_GRID = "earth2studio_grid"
 E2S_GRID_ID = "earth2studio_grid_id"
 
 GridTopology = Literal["rectilinear", "projected", "curvilinear", "healpix", "points"]

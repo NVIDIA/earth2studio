@@ -90,16 +90,16 @@ def _input(
     time: np.ndarray,
     device: str = "cpu",
 ) -> tuple[torch.Tensor, OrderedDict]:
-    dc = ucast_model.input_coords()
+    dc = ucast_model._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
 
     ds = Random(dc)
-    lead_time = ucast_model.input_coords()["lead_time"]
-    variable = ucast_model.input_coords()["variable"]
-    return fetch_data(ds, time, variable, lead_time, device=device)
+    lead_time = ucast_model._input_tensor_coords()["lead_time"]
+    variable = ucast_model._input_tensor_coords()["variable"]
+    return fetch_data(ds, time, variable, lead_time, device=device).e2s.to_torch()
 
 
 def _check_output_coords(

@@ -94,7 +94,7 @@ class TestFuXiMock:
         # Use dummy package
         p = FuXi.load_model(fuxi_test_package).to(device)
 
-        dc = p.input_coords()
+        dc = p._input_tensor_coords()
         del dc["batch"]
         del dc["time"]
         del dc["lead_time"]
@@ -103,9 +103,11 @@ class TestFuXiMock:
         r = Random(dc)
 
         # Get Data and convert to tensor, coords
-        lead_time = p.input_coords()["lead_time"]
-        variable = p.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        lead_time = p._input_tensor_coords()["lead_time"]
+        variable = p._input_tensor_coords()["variable"]
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device
+        ).e2s.to_torch()
 
         # Same values, variable/lead_time permuted in memory: a data source that
         # transposes on the way out yields a strided tensor and must not change
@@ -123,12 +125,14 @@ class TestFuXiMock:
             [
                 len(time),
                 1,
-                len(p.output_coords(p.input_coords())["variable"]),
+                len(p._output_tensor_coords(p._input_tensor_coords())["variable"]),
                 721,
                 1440,
             ]
         )
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+        ).all()
         assert (out_coords["time"] == time).all()
         assert torch.allclose(
             out[:, :, :-1],
@@ -150,7 +154,7 @@ class TestFuXiMock:
         # Use dummy package
         p = FuXi.load_model(fuxi_test_package).to(device)
 
-        dc = p.input_coords()
+        dc = p._input_tensor_coords()
         del dc["batch"]
         del dc["time"]
         del dc["lead_time"]
@@ -159,9 +163,11 @@ class TestFuXiMock:
         r = Random(dc)
 
         # Get Data and convert to tensor, coords
-        lead_time = p.input_coords()["lead_time"]
-        variable = p.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        lead_time = p._input_tensor_coords()["lead_time"]
+        variable = p._input_tensor_coords()["variable"]
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device
+        ).e2s.to_torch()
 
         # Add ensemble to front
         x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -192,7 +198,8 @@ class TestFuXiMock:
             assert len(out.shape) == 6
             assert out.shape[0] == ensemble
             assert (
-                out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+                out_coords["variable"]
+                == p._output_tensor_coords(p._input_tensor_coords())["variable"]
             ).all()
             assert (out_coords["time"] == time).all()
             assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -216,13 +223,14 @@ class TestFuXiMock:
                 ensemble,
                 len(time),
                 1,
-                len(p.output_coords(p.input_coords())["variable"]),
+                len(p._output_tensor_coords(p._input_tensor_coords())["variable"]),
                 721,
                 1440,
             ]
         )
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+            out_coords["variable"]
+            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
         ).all()
         assert torch.allclose(
             out[:, :, :-1],
@@ -248,9 +256,11 @@ class TestFuXiMock:
         r = Random(dc)
 
         # Get Data and convert to tensor, coords
-        lead_time = p.input_coords()["lead_time"]
-        variable = p.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        lead_time = p._input_tensor_coords()["lead_time"]
+        variable = p._input_tensor_coords()["variable"]
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device
+        ).e2s.to_torch()
 
         with pytest.raises((KeyError, ValueError)):
             p(x, coords)
@@ -265,7 +275,7 @@ def test_fuxi_package(device):
         package = FuXi.load_default_package()
         p = FuXi.load_model(package).to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -274,9 +284,9 @@ def test_fuxi_package(device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -284,9 +294,9 @@ def test_fuxi_package(device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(coords)["variable"]), 721, 1440]
+        [len(time), 1, len(p._output_tensor_coords(coords)["variable"]), 721, 1440]
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

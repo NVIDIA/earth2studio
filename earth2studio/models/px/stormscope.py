@@ -703,13 +703,13 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device=self.latitudes.device
         )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system. Subclasses should override for specific variants."""
         raise NotImplementedError(
             "StormScopeBase.input_coords must be implemented by a subclass."
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model.
 
         Parameters
@@ -1408,7 +1408,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning = None
             conditioning_coords = None
 
-        output_coords = self.output_coords(x_coords)
+        output_coords = self._output_tensor_coords(x_coords)
 
         x = self._forward(
             x,
@@ -1462,7 +1462,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning, conditioning_coords = self.prep_input(
             conditioning, conditioning_coords, conditioning=True
         )
-        output_coords = self.output_coords(x_coords)
+        output_coords = self._output_tensor_coords(x_coords)
 
         x = self._forward(
             x,
@@ -1667,7 +1667,7 @@ class StormScopeGOES(StormScopeBase):
             compile=compile,
         )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -1681,7 +1681,7 @@ class StormScopeGOES(StormScopeBase):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -1704,7 +1704,7 @@ class StormScopeGOES(StormScopeBase):
                 "x": self.x,
             }
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
         handshake_dim(input_coords, "variable", 3)
@@ -1737,15 +1737,14 @@ class StormScopeGOES(StormScopeBase):
                 "StormScopeGOES has been called without initializing the model's conditioning_data_source"
             )
 
-        conditioning, conditioning_coords = fetch_data(
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
             lead_time=coords["lead_time"],
             device=device,
         )
-
-        return conditioning, conditioning_coords
+        return conditioning.e2s.to_torch()
 
     @classmethod
     def load_model(
@@ -2202,13 +2201,14 @@ class StormScopeMRMS(StormScopeBase):
                 "StormScopeMRMS.fetch_glm called without a glm_data_source; pass "
                 "one to load_model (e.g. earth2studio.data.GOESGLMGrid)."
             )
-        glm, glm_coords = fetch_data(
+        glm = fetch_data(
             self.glm_data_source,
             time=coords["time"],
             variable=np.asarray(self.glm_variables),
             lead_time=coords["lead_time"],
             device=device,
         )
+        glm, glm_coords = glm.e2s.to_torch()
         if self.glm_interp is None:
             self.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
         glm = self.interpolate_glm(glm)
@@ -2221,7 +2221,7 @@ class StormScopeMRMS(StormScopeBase):
         new_coords["x"] = self.x
         return glm, new_coords
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -2235,7 +2235,7 @@ class StormScopeMRMS(StormScopeBase):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -2258,7 +2258,7 @@ class StormScopeMRMS(StormScopeBase):
                 "x": self.x,
             }
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
         handshake_dim(input_coords, "variable", 3)
@@ -2291,14 +2291,14 @@ class StormScopeMRMS(StormScopeBase):
                 "StormScopeMRMS has been called without initializing the model's conditioning_data_source"
             )
 
-        conditioning, conditioning_coords = fetch_data(
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
             lead_time=coords["lead_time"],
             device=device,
         )
-        return conditioning, conditioning_coords
+        return conditioning.e2s.to_torch()
 
     def build_input_interpolator(
         self,

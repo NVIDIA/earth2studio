@@ -52,6 +52,11 @@ def test_numpy_torch_and_batch_round_trip():
     assert restored.name == array.name and restored.attrs == array.attrs
     assert array.e2s.as_numpy().data is array.data
 
+    templated = from_torch(tensor, array)
+    xr.testing.assert_identical(
+        templated.coords.to_dataset(), array.coords.to_dataset()
+    )
+
     _, generated_coords = xr.DataArray(np.ones((2, 3)), dims=("x", "y")).e2s.to_torch()
     np.testing.assert_array_equal(generated_coords["x"], np.arange(2))
 

@@ -315,7 +315,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_times = input_times
         self.output_times = output_times
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -329,7 +329,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
@@ -355,7 +355,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
 
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
@@ -637,7 +637,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coordinate system.
         """
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         # x: (batch, time, n_input_times, C, H, W)
         B, T, L, C, H, W = x.shape
@@ -670,9 +670,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
-            containing raw MTG frames; must conform to ``self.input_coords()``.
+            containing raw MTG frames; must conform to ``self._input_tensor_coords()``.
         coords : CoordSystem
-            Input coordinate system; must conform to ``self.input_coords()``.
+            Input coordinate system; must conform to ``self._input_tensor_coords()``.
 
         Yields
         ------
@@ -702,7 +702,10 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                             x[i0:i1, j, k] = x[i0:i1, j, k + 1]
                         x[i0:i1, j, -1] = x_next
 
-                yield (self.denormalize(x[:, :, -1:]), self.output_coords(coords))
+                yield (
+                    self.denormalize(x[:, :, -1:]),
+                    self._output_tensor_coords(coords),
+                )
 
                 # roll time step
                 coords["lead_time"] = coords["lead_time"] + time_step
@@ -726,9 +729,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor; must conform to ``self.input_coords()``.
+            Input tensor; must conform to ``self._input_tensor_coords()``.
         coords : CoordSystem
-            Input coordinate system; must conform to ``self.input_coords()``.
+            Input coordinate system; must conform to ``self._input_tensor_coords()``.
 
         Yields
         ------

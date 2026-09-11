@@ -163,13 +163,13 @@ def test_aifsens_call(time, device):
         invariants=invariants,
     ).to(device)
 
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: p._input_tensor_coords()[k] for k in ["lat", "lon"]}
 
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -177,7 +177,7 @@ def test_aifsens_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -219,13 +219,13 @@ def test_aifsens_iter(ensemble, device):
         invariants=invariants,
     ).to(device)
 
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: p._input_tensor_coords()[k] for k in ["lat", "lon"]}
 
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(ensemble)})
@@ -242,7 +242,8 @@ def test_aifsens_iter(ensemble, device):
             [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
         )
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+            out_coords["variable"]
+            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i), "h")
@@ -293,9 +294,9 @@ def test_aifsens_exceptions(dc, device):
 
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
@@ -335,13 +336,13 @@ def test_aifsens_package(device, ensemble, model):
     assert len(p.input_variables) == EXPECTED_INPUT_VARIABLES
     assert len(p.output_variables) == EXPECTED_OUTPUT_VARIABLES
 
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: p._input_tensor_coords()[k] for k in ["lat", "lon"]}
 
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     coords = {"ensemble": np.arange(ensemble, dtype=int)} | coords
     x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
@@ -354,7 +355,7 @@ def test_aifsens_package(device, ensemble, model):
     assert out.shape == torch.Size(
         [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 5)
     handshake_dim(out_coords, "lat", 4)
     handshake_dim(out_coords, "variable", 3)

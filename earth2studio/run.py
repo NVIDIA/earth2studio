@@ -91,20 +91,20 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = prognostic._input_tensor_coords()
     time = to_time_array(time)
 
     # Set up IO backend
-    total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
-    for key, value in prognostic.output_coords(
-        prognostic.input_coords()
+    total_coords = prognostic._output_tensor_coords(prognostic_ic).copy()
+    for key, value in prognostic._output_tensor_coords(
+        prognostic_ic
     ).items():  # Scrub batch dims
         if value.shape == (0,):
             del total_coords[key]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
+            prognostic._output_tensor_coords(prognostic_ic)["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
@@ -141,7 +141,7 @@ def deterministic(
             interp_to = None
             interp_method = "nearest"
 
-        x, coords = fetch_data(
+        array = fetch_data(
             source=data,
             time=time,
             variable=prognostic_ic["variable"],
@@ -150,12 +150,13 @@ def deterministic(
             interp_to=interp_to,
             interp_method=interp_method,
         )
+        x, coords = array.e2s.to_torch()
 
         logger.success(f"Fetched data from {data.__class__.__name__}")
         # --8<-- [end:fetch-data]
 
         # Map lat and lon if needed
-        x, coords = map_coords(x, coords, prognostic.input_coords())
+        x, coords = map_coords(x, coords, prognostic_ic)
         # Create prognostic iterator
         model = prognostic.create_iterator(x, coords)
 
@@ -245,13 +246,13 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = prognostic._input_tensor_coords()
     diagnostic_ic = diagnostic.input_coords()
     time = to_time_array(time)
 
-    total_coords = prognostic.output_coords(prognostic.input_coords())
-    for key, value in prognostic.output_coords(
-        prognostic.input_coords()
+    total_coords = prognostic._output_tensor_coords(prognostic_ic)
+    for key, value in prognostic._output_tensor_coords(
+        prognostic_ic
     ).items():  # Scrub batch dims
         if key in diagnostic.output_coords(diagnostic_ic):
             total_coords[key] = diagnostic.output_coords(diagnostic_ic)[key]
@@ -260,7 +261,7 @@ def diagnostic(
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
+            prognostic._output_tensor_coords(prognostic_ic)["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
@@ -295,7 +296,7 @@ def diagnostic(
             interp_to = None
             interp_method = "nearest"
 
-        x, coords = fetch_data(
+        array = fetch_data(
             source=data,
             time=time,
             variable=prognostic_ic["variable"],
@@ -304,6 +305,7 @@ def diagnostic(
             interp_to=interp_to,
             interp_method=interp_method,
         )
+        x, coords = array.e2s.to_torch()
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         x, coords = map_coords(x, coords, prognostic_ic)
@@ -401,7 +403,7 @@ def ensemble(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = prognostic._input_tensor_coords()
     time = to_time_array(time)
     if hasattr(prognostic, "interp_method"):
         interp_to = prognostic_ic
@@ -410,7 +412,7 @@ def ensemble(
         interp_to = None
         interp_method = "nearest"
 
-    x0, coords0 = fetch_data(
+    initial = fetch_data(
         source=data,
         time=time,
         variable=prognostic_ic["variable"],
@@ -419,15 +421,16 @@ def ensemble(
         interp_to=interp_to,
         interp_method=interp_method,
     )
+    x0, coords0 = initial.e2s.to_torch()
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
+    total_coords = prognostic._output_tensor_coords(prognostic_ic).copy()
     if "batch" in total_coords:
         del total_coords["batch"]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
+            prognostic._output_tensor_coords(prognostic_ic)["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()

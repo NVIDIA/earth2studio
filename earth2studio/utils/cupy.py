@@ -28,6 +28,18 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.grids import (
+    E2S_GRID,
+    E2S_GRID_ID,
+    GridDefinition,
+    HEALPixGrid,
+    infer_grid,
+    resolve_grid,
+)
+from earth2studio.utils.coordinate import (
+    E2S_DYNAMIC_DIMS,
+    statistics_from_metadata,
+)
 from earth2studio.utils.type import CoordSystem
 
 _BATCH_METADATA_KEY = "_earth2studio_batch"
@@ -115,7 +127,7 @@ def _coord_system(array: xr.DataArray) -> CoordSystem:
 
 def from_torch(
     tensor: torch.Tensor,
-    coords: CoordSystem,
+    coords: CoordSystem | xr.DataArray,
     name: Hashable | None = None,
     attrs: Mapping[Any, Any] | None = None,
     requires_grad: bool = False,
@@ -129,8 +141,8 @@ def from_torch(
     ----------
     tensor : torch.Tensor
         Tensor containing the data.
-    coords : CoordSystem
-        Ordered coordinate mapping with one entry per tensor dimension.
+    coords : CoordSystem | xr.DataArray
+        Ordered coordinate mapping or DataArray coordinate template.
     name : Hashable | None, optional
         DataArray name, by default None
     attrs : Mapping[Any, Any] | None, optional
@@ -159,17 +171,28 @@ def from_torch(
             "Torch conversion with requires_grad=True is not implemented"
         )
 
-    if len(coords) != tensor.ndim:
-        raise ValueError("Coordinate dimensions do not match the tensor rank")
-
-    xr_coords: dict[str, np.ndarray] = {}
-    for (dim, values), size in zip(coords.items(), tensor.shape, strict=True):
-        coordinate = np.asarray(values)
-        if coordinate.ndim != 1 or coordinate.shape[0] != size:
-            raise ValueError(
-                f"Coordinate '{dim}' does not match tensor dimension size {size}"
-            )
-        xr_coords[dim] = coordinate
+    if isinstance(coords, xr.DataArray):
+        if tuple(coords.shape) != tuple(tensor.shape):
+            raise ValueError("Coordinate template shape does not match the tensor")
+        dimensions = coords.dims
+        xr_coords: Mapping[Any, Any] = {
+            key: value.variable for key, value in coords.coords.items()
+        }
+        name = coords.name if name is None else name
+        attrs = coords.attrs if attrs is None else attrs
+    else:
+        if len(coords) != tensor.ndim:
+            raise ValueError("Coordinate dimensions do not match the tensor rank")
+        dimensions = tuple(coords)
+        converted: dict[str, np.ndarray] = {}
+        for (dim, values), size in zip(coords.items(), tensor.shape, strict=True):
+            coordinate = np.asarray(values)
+            if coordinate.ndim != 1 or coordinate.shape[0] != size:
+                raise ValueError(
+                    f"Coordinate '{dim}' does not match tensor dimension size {size}"
+                )
+            converted[dim] = coordinate
+        xr_coords = converted
 
     detached = tensor.detach()
     if detached.device.type == "cpu":
@@ -182,7 +205,7 @@ def from_torch(
     return xr.DataArray(
         data=data,
         coords=xr_coords,
-        dims=tuple(coords),
+        dims=dimensions,
         name=name,
         attrs=dict(attrs) if attrs is not None else None,
     )
@@ -194,6 +217,34 @@ class Earth2StudioAccessor:
 
     def __init__(self, array: xr.DataArray) -> None:
         self._array = array
+
+    @property
+    def dynamic_dims(self) -> tuple[Hashable, ...]:
+        """Return wildcard dimensions in a coordinate signature."""
+        return tuple(self._array.attrs.get(E2S_DYNAMIC_DIMS, ()))
+
+    def get_grid(self) -> GridDefinition | None:
+        """Return the explicit or inferred grid attached to this DataArray."""
+        grid = self._array.attrs.get(E2S_GRID_ID)
+        if grid is not None:
+            return resolve_grid(grid)
+        metadata = self._array.attrs.get(E2S_GRID, {})
+        if metadata.get("type") == "HEALPixGrid":
+            return HEALPixGrid(
+                level=metadata["level"],
+                ordering=metadata["ordering"],
+                layout=metadata["layout"],
+                xy_origin=metadata.get("origin", "south"),
+                xy_clockwise=metadata.get("clockwise", False),
+            )
+        try:
+            return infer_grid(self._array)
+        except ValueError:
+            return None
+
+    def get_statistic(self, variable: str) -> str | None:
+        """Return the temporal-statistic modifier for a variable."""
+        return statistics_from_metadata(self._array).get(variable)
 
     @property
     def is_cupy(self) -> bool:

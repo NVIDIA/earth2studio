@@ -18,7 +18,6 @@ from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
-from typing import cast
 
 import numpy as np
 import torch
@@ -160,7 +159,7 @@ class S2SEnsembleRunner:
         )
         logger.info(f"Inference device: {self.device}")
         self.prognostic = prognostic.to(self.device)
-        self.prognostic_ic = prognostic.input_coords()
+        self.prognostic_ic = prognostic._input_tensor_coords()
 
         self.dx_model_dict = dx_model_dict
         dx_ic_dict = {}
@@ -184,17 +183,14 @@ class S2SEnsembleRunner:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0, self.coords0 = cast(
-            tuple[torch.Tensor, CoordSystem],
-            fetch_data(
-                source=data,
-                time=time,
-                variable=self.prognostic_ic["variable"],
-                lead_time=self.prognostic_ic["lead_time"],
-                device="cpu",
-                legacy=True,
-            ),
+        array = fetch_data(
+            source=data,
+            time=time,
+            variable=self.prognostic_ic["variable"],
+            lead_time=self.prognostic_ic["lead_time"],
+            device="cpu",
         )
+        self.x0, self.coords0 = array.e2s.to_torch()
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         return
@@ -220,9 +216,7 @@ class S2SEnsembleRunner:
         # add lead time dimension
         total_coords["lead_time"] = np.asarray(
             [
-                self.prognostic.output_coords(self.prognostic.input_coords())[
-                    "lead_time"
-                ]
+                self.prognostic._output_tensor_coords(self.prognostic_ic)["lead_time"]
                 * ii
                 for ii in range(self.nsteps + 1)
             ]

@@ -58,11 +58,11 @@ def mock_weathernext2_model():
 
 
 def fetch_random_input(model, time=TEST_TIME, device="cpu"):
-    coords = model.input_coords()
+    coords = model._input_tensor_coords()
     spatial = OrderedDict((dim, coords[dim]) for dim in ("lat", "lon"))
     return fetch_data(
         Random(spatial), time, coords["variable"], coords["lead_time"], device=device
-    )
+    ).e2s.to_torch()
 
 
 def assert_output(out, coords, time=TEST_TIME):
@@ -190,10 +190,10 @@ def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
     x, coords = fetch_data(
         Random(coords),
         TEST_TIME,
-        model.input_coords()["variable"],
-        model.input_coords()["lead_time"],
+        model._input_tensor_coords()["variable"],
+        model._input_tensor_coords()["lead_time"],
         device=device,
-    )
+    ).e2s.to_torch()
     with pytest.raises((KeyError, ValueError)):
         model(x, coords)
 
@@ -205,7 +205,7 @@ def test_weathernext2_package():
         WeatherNext2CyclonesMini.load_default_package(), jit_compile=False
     ).to("cuda:0")
     assert (
-        len(model.input_coords()["lat"]),
-        len(model.input_coords()["lon"]),
-        len(model.output_coords(model.input_coords())["variable"]),
+        len(model._input_tensor_coords()["lat"]),
+        len(model._input_tensor_coords()["lon"]),
+        len(model._output_tensor_coords(model._input_tensor_coords())["variable"]),
     ) == (181, 360, 84)

@@ -169,7 +169,7 @@ class HENSPerturbation:
                 f"provide path to data set containing {lead_time}h deterministic [r]mse"
             )
 
-        model_vars = model.input_coords()["variable"]
+        model_vars = model._input_tensor_coords()["variable"]
         if perturbed_var is None:
             perturbed_var = model_vars
         elif isinstance(perturbed_var, str):

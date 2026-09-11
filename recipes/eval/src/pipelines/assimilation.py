@@ -397,7 +397,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
             return []
 
         model = self._load_prognostic_for_predownload(cfg)
-        ic_lead_times = model.input_coords()["lead_time"]
+        ic_lead_times = model._input_tensor_coords()["lead_time"]
         unique_ic_times = sorted({i.time for i in build_work_items(cfg)})
         times: list[np.datetime64] = sorted(
             {t + lt for t in unique_ic_times for lt in ic_lead_times}
@@ -424,8 +424,8 @@ class AssimilationForecastPipeline(ForecastPipeline):
             return []
 
         model = self._load_prognostic_for_predownload(cfg)
-        ic_coords = model.input_coords()
-        spatial_ref = model.output_coords(ic_coords)
+        ic_coords = model._input_tensor_coords()
+        spatial_ref = model._output_tensor_coords(ic_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})

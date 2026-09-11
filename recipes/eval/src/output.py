@@ -139,8 +139,8 @@ def build_forecast_coords(
         Full coordinate system suitable for passing to
         :meth:`OutputManager.validate_output_store`.
     """
-    input_c = prognostic.input_coords()
-    output_c = prognostic.output_coords(input_c)
+    input_c = prognostic._input_tensor_coords()
+    output_c = prognostic._output_tensor_coords(input_c)
 
     total: CoordSystem = OrderedDict()
     if ensemble_size > 1:

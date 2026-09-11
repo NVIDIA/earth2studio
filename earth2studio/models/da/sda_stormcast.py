@@ -683,7 +683,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             variable=self.conditioning_variables,
             lead_time=x.coords["lead_time"].data,
             device=self.device,
-            legacy=False,
         )
 
         # Interpolate conditioning from regular lat/lon grid to HRRR curvilinear grid

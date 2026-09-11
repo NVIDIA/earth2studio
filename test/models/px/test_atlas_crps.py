@@ -122,7 +122,7 @@ def test_atlas_crps_call(time, device, batch_size, atlas_crps_test_components):
     """Test AtlasCRPS __call__ method with different times and devices."""
     p = AtlasCRPS(**atlas_crps_test_components).to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -131,9 +131,9 @@ def test_atlas_crps_call(time, device, batch_size, atlas_crps_test_components):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add batch dimension
     x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
@@ -150,12 +150,12 @@ def test_atlas_crps_call(time, device, batch_size, atlas_crps_test_components):
             batch_size,
             len(time),
             1,
-            len(p.output_coords(p.input_coords())["variable"]),
+            len(p._output_tensor_coords(p._input_tensor_coords())["variable"]),
             721,
             1440,
         ]
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
 
@@ -178,7 +178,7 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
 
     p = AtlasCRPS(**atlas_crps_test_components).to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -187,9 +187,9 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -210,7 +210,8 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
         assert len(out.shape) == 6
         assert out.shape[0] == ensemble
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+            out_coords["variable"]
+            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -245,9 +246,9 @@ def test_atlas_crps_exceptions(dc, atlas_crps_test_components, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError, RuntimeError)):
         p(x, coords)
@@ -273,13 +274,13 @@ def test_atlas_crps_prep_next_input(atlas_crps_test_components, batch_size, devi
 
     # Input state at t-6h and t=0
     x = torch.randn(batch_size, 1, time_steps, n_vars, lat, lon, device=device)
-    coords = p.input_coords()
+    coords = p._input_tensor_coords()
     coords["batch"] = np.arange(batch_size)
     coords["time"] = np.array([np.datetime64("2020-01-01T00:00")])
 
     # Prediction at t+6h (output has shape [batch, 1, n_vars, lat, lon])
     x_pred = torch.randn(batch_size, 1, 1, n_vars, lat, lon, device=device)
-    coords_pred = p.output_coords(coords)
+    coords_pred = p._output_tensor_coords(coords)
     coords_pred["batch"] = coords["batch"]
     coords_pred["time"] = coords["time"]
 
@@ -324,7 +325,7 @@ def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, de
     x = torch.randn(
         ensemble_size, batch_size, 1, time_steps, n_vars, lat, lon, device=device
     )
-    coords = p.input_coords()
+    coords = p._input_tensor_coords()
     coords.update({"ensemble": np.arange(ensemble_size)})
     coords.move_to_end("ensemble", last=False)
     coords["batch"] = np.arange(batch_size)
@@ -334,7 +335,7 @@ def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, de
     x_pred = torch.randn(
         ensemble_size, batch_size, 1, 1, n_vars, lat, lon, device=device
     )
-    coords_pred = p.output_coords(coords)
+    coords_pred = p._output_tensor_coords(coords)
     coords_pred.update({"ensemble": coords["ensemble"]})
     coords_pred.move_to_end("ensemble", last=False)
     coords_pred["batch"] = coords["batch"]
@@ -357,7 +358,7 @@ def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, de
 def test_atlas_crps_input_coords(atlas_crps_test_components):
     """Test that input_coords returns expected coordinate system."""
     p = AtlasCRPS(**atlas_crps_test_components)
-    coords = p.input_coords()
+    coords = p._input_tensor_coords()
 
     # Check expected keys
     assert "batch" in coords
@@ -389,8 +390,8 @@ def test_atlas_crps_input_coords(atlas_crps_test_components):
 def test_atlas_crps_output_coords(atlas_crps_test_components):
     """Test that output_coords returns expected coordinate system."""
     p = AtlasCRPS(**atlas_crps_test_components)
-    input_coords = p.input_coords()
-    output_coords = p.output_coords(input_coords)
+    input_coords = p._input_tensor_coords()
+    output_coords = p._output_tensor_coords(input_coords)
 
     # Check expected keys
     assert "batch" in output_coords
@@ -422,7 +423,7 @@ def test_atlas_crps_package(device):
 
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    input_coords = model.input_coords()
+    input_coords = model._input_tensor_coords()
     lead_time = input_coords["lead_time"]
     variable = input_coords["variable"]
     lat = len(input_coords["lat"])
@@ -442,7 +443,7 @@ def test_atlas_crps_package(device):
     input_coords["time"] = time
 
     output, output_coords = model(x, input_coords)
-    expected_coords = model.output_coords(input_coords)
+    expected_coords = model._output_tensor_coords(input_coords)
 
     assert output.shape == (
         batch_size,

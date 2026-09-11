@@ -127,8 +127,8 @@ def test_dlesym_forward(device, grid_type, batch_size):
 
     # Create test input
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
     x = torch.randn(
         batch_size,
         len(time),
@@ -138,14 +138,14 @@ def test_dlesym_forward(device, grid_type, batch_size):
         device=device,
     )
 
-    output_vars = model.output_coords(model.input_coords())["variable"]
+    output_vars = model._output_tensor_coords(model._input_tensor_coords())["variable"]
 
     # Test forward pass
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.arange(batch_size)
     in_coords["time"] = time
     output, output_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    expected_coords = model._output_tensor_coords(in_coords)
     assert output.shape == (
         batch_size,
         len(time),
@@ -191,7 +191,7 @@ def test_dlesym_latlon_regridding(device, batch_size):
     model = build_dlesym_model(device, type="ll")
 
     # Test basic coordinate conversion
-    ll_coords = model.input_coords()
+    ll_coords = model._input_tensor_coords()
     hpx_coords = model.coords_to_hpx(ll_coords)
     for coord in ["lat", "lon"]:
         assert coord not in hpx_coords
@@ -202,8 +202,8 @@ def test_dlesym_latlon_regridding(device, batch_size):
 
     # Test regridding
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
     x_ll = torch.randn(
         batch_size,
         len(time),
@@ -215,7 +215,7 @@ def test_dlesym_latlon_regridding(device, batch_size):
     )
 
     # Test round-trip regridding
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.arange(batch_size)
     in_coords["time"] = time
     x_hpx = model.to_hpx(x_ll)
@@ -250,8 +250,8 @@ def test_dlesym_iterator(device, grid_type, batch_size):
     spatial_dims = (12, nside, nside) if grid_type == "hpx" else (721, 1440)
     # Create test input
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
     x = torch.randn(
         batch_size,
         len(time),
@@ -261,10 +261,10 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         device=device,
     )
 
-    output_vars = model.output_coords(model.input_coords())["variable"]
+    output_vars = model._output_tensor_coords(model._input_tensor_coords())["variable"]
 
     # Test iterator
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.arange(batch_size)
     in_coords["time"] = time
     iterator = model.create_iterator(x, in_coords)
@@ -312,8 +312,8 @@ def test_dlesym_package(device):
     batch_size = 1
 
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
     x = torch.randn(
         batch_size,
         len(time),
@@ -324,11 +324,11 @@ def test_dlesym_package(device):
     )
 
     # Test forward pass
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.arange(batch_size)
     in_coords["time"] = time
     output, output_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    expected_coords = model._output_tensor_coords(in_coords)
     assert output.shape == (
         batch_size,
         len(time),

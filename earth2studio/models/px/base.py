@@ -20,6 +20,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import torch
 
+from earth2studio.utils.coordinate import CoordinateSystem
 from earth2studio.utils.type import CoordSystem
 
 
@@ -70,36 +71,42 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of prognostic model, time dimension should contain
-        time-delta objects
+    def input_coords(self) -> CoordinateSystem:
+        """Return ordered allocation-free input coordinate signatures.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        tuple[xr.DataArray, ...]
+            Ordered input signatures
         """
         pass
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model give an input coordinate
-        system.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return ordered output signatures for one forecast step.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : tuple[xr.DataArray, ...]
+            Ordered input signatures
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        tuple[xr.DataArray, ...]
+            Ordered output signatures
 
         Raises
         ------
         ValueError
             If input_coords are not valid
         """
+        pass
+
+    def _input_tensor_coords(self) -> CoordSystem:
+        """Return coordinates used by the tensor execution path."""
+        pass
+
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Return tensor output coordinates for one forecast step."""
         pass
 
     def to(self, device: Any) -> PrognosticModel:

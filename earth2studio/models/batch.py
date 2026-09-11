@@ -30,6 +30,16 @@ FuncType = Callable[..., Any]
 F = TypeVar("F", bound=FuncType)
 
 
+def _input_coords(model: Any) -> CoordSystem:
+    method = getattr(model, "_input_tensor_coords", model.input_coords)
+    return method()
+
+
+def _output_coords(model: Any, input_coords: CoordSystem) -> CoordSystem:
+    method = getattr(model, "_output_tensor_coords", model.output_coords)
+    return method(input_coords)
+
+
 class batch_func:
     """Batch utility decorator which can be added to prognostic and diagnostic models
     to help enable support for automatic batching of data. This class contains a
@@ -97,10 +107,10 @@ class batch_func:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
-        input_coords = model.input_coords()
+        input_coords = _input_coords(model)
         if (
             next(iter(input_coords)) != "batch"
-            or next(iter(model.output_coords(input_coords))) != "batch"
+            or next(iter(_output_coords(model, input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
@@ -312,7 +322,7 @@ class batch_coords:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
-        input_coords = model.input_coords()
+        input_coords = _input_coords(model)
         if next(iter(input_coords)) != "batch":
             raise ValueError(
                 "Model input coordinate systems not compatible with batch processing"

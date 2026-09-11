@@ -240,7 +240,7 @@ def model():
 def build_input(model, time, batch=1):
     """Build a deterministic initial-condition tensor and coordinates."""
     torch.manual_seed(1)
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     x = torch.randn(batch, len(time), 1, len(in_coords["variable"]), N_LAT, N_LON)
     coords = in_coords.copy()
     coords["batch"] = np.arange(batch)
@@ -287,7 +287,7 @@ def test_samudrace_iter_device(model, device):
 
     assert out.device == torch.device(device)
     assert out.shape == (1, len(time), 1, len(OUT_VARS), N_LAT, N_LON)
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
     handshake_dim(out_coords, "lon", 5)
@@ -305,13 +305,13 @@ def test_samudrace_iter_device(model, device):
 
 
 def test_samudrace_input_coords(model):
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     assert list(in_coords["variable"]) == IN_VARS
     assert in_coords["lead_time"][0] == np.timedelta64(0, "h")
     assert in_coords["lat"][0] > in_coords["lat"][-1]
     assert in_coords["lat"].shape == (N_LAT,)
     assert in_coords["lon"].shape == (N_LON,)
-    out_coords = model.output_coords(model.input_coords())
+    out_coords = model._output_tensor_coords(model._input_tensor_coords())
     # The stepper owns the ordering within each component; atmosphere output
     # variables come first, then ocean output variables
     out_list = list(out_coords["variable"])
@@ -326,7 +326,7 @@ def test_samudrace_iter(model, batch):
     time = np.array([np.datetime64("2001-01-01T00:00")])
     x, coords = build_input(model, time, batch=batch)
 
-    var_list = list(model.output_coords(coords.copy())["variable"])
+    var_list = list(model._output_tensor_coords(coords.copy())["variable"])
     ocean_prog_idx = {name: var_list.index(name) for name in OCEAN_PROG_NAMES}
     ocean_diag_idx = var_list.index("o_diag")
     in_var_list = list(coords["variable"])
@@ -401,7 +401,7 @@ def test_samudrace_parity(model):
     outputs = [
         out for out, _ in (next(p_iter) for _ in range(n_cycles * N_INNER_STEPS))
     ]
-    var_list = list(model.output_coords(coords.copy())["variable"])
+    var_list = list(model._output_tensor_coords(coords.copy())["variable"])
 
     # Direct fme trajectory: one predict call over n_cycles coupled
     # steps with an independently assembled forcing window
@@ -577,7 +577,7 @@ def test_samudrace_forcing_window_from_file(model, tmp_path):
         next(p_iter)  # initial condition
         outputs = [out for out, _ in (next(p_iter) for _ in range(N_INNER_STEPS))]
 
-    var_list = list(p.output_coords(coords.copy())["variable"])
+    var_list = list(p._output_tensor_coords(coords.copy())["variable"])
     for out in outputs:
         assert out.shape == (1, 1, 1, len(OUT_VARS), N_LAT, N_LON)
         for name in ATMOS_OUT_NAMES:
@@ -663,8 +663,10 @@ def test_samudrace_package():
     package = Package(snapshot_path)
     model = SamudrACE.load_model(package, scenario="0151")
 
-    in_coords = model.input_coords()
-    out_vars = list(model.output_coords(model.input_coords())["variable"])
+    in_coords = model._input_tensor_coords()
+    out_vars = list(
+        model._output_tensor_coords(model._input_tensor_coords())["variable"]
+    )
     # Variable lists derive from the checkpoint through the lexicon
     assert "t2m" in in_coords["variable"]
     assert "thetao2p5m" in in_coords["variable"]

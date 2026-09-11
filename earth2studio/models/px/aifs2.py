@@ -330,7 +330,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )[0],
         )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -359,7 +359,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -390,7 +390,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -530,12 +530,12 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 invariants = torch.load(invariants_path, weights_only=True)
             else:
                 ifs = IFS(cache=True, verbose=False)
-                invariants, _ = fetch_data(
+                invariants = fetch_data(
                     source=ifs,
                     time=np.array([np.datetime64("2026-05-15T00:00:00")]),
                     variable=["lsm", "sdor", "slor", "z", "wmb"],
                 )
-                invariants = invariants.squeeze()
+                invariants = invariants.e2s.to_torch()[0].squeeze()
                 # Cache the invariants tensor
                 os.makedirs(cache_dir, exist_ok=True)
                 torch.save(invariants, invariants_path)
@@ -969,7 +969,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
         step: int = 0,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x, fcstep=step)
             out = torch.zeros(
@@ -1007,7 +1007,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         x = self._prepare_input(x, coords)
         x, out_coords = self._forward(x, coords)
         x = self._prepare_output(x, out_coords)
@@ -1056,7 +1056,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
         output_tensor, coords_out = self._fill_input(x, coords)
         coords_out["lead_time"] = coords["lead_time"][1:]
         yield output_tensor[:, :, 1:], coords_out
@@ -1084,7 +1084,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Update coordinates
             coords["lead_time"] = (
                 coords["lead_time"]
-                + self.output_coords(self.input_coords())["lead_time"]
+                + self._output_tensor_coords(self._input_tensor_coords())["lead_time"]
             )
             # Prepare input tensor
             x = self._update_input(y, coords)
