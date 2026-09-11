@@ -41,7 +41,7 @@ from earth2studio.utils.type import CoordSystem
 try:
     from onnxruntime import InferenceSession  # type: ignore[import-untyped]
 except ImportError:
-    OptionalDependencyFailure("fuxi-s2s")
+    OptionalDependencyFailure("fuxi")
     InferenceSession = TypeVar("InferenceSession")  # type: ignore
 
 PRESSURE_LEVELS = (
@@ -81,7 +81,6 @@ VARIABLES = [
 
 _TTR_INDEX = VARIABLES.index("ttr")
 _TP_INDEX = VARIABLES.index("tp")
-_HF_ROOT = "hf://Artamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
 
 
 def _atomic_copy(source: Any, destination: Path) -> Path:
@@ -150,7 +149,10 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     corresponding calendar-day aggregate; it is not an instantaneous midnight
     state.
 
-    For more information see:
+    Note
+    ----
+    This model uses the ONNX checkpoint from the original publication repository. For
+    additional information see the following resources:
 
     - https://www.nature.com/articles/s41467-024-50714-1
     - https://github.com/tpys/FuXi-S2S
@@ -178,16 +180,51 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     The official ONNX graph samples flow-dependent perturbations internally, so
     each forecast trajectory is one stochastic ensemble member. Member ``00`` in
     the official inference script is the first stochastic member, not a
-    deterministic control. To generate multiple members with Earth2Studio, use
-    :func:`earth2studio.run.ensemble` with
-    :class:`earth2studio.perturbation.Zero`. ``Zero`` prevents an additional
-    initial-condition perturbation while preserving FuXi-S2S's internal
-    stochastic sampling.
+    deterministic control.
 
     Warning
     -------
     We encourage users to familiarize themselves with the license restrictions of this
     model's checkpoints.
+
+    Example
+    -------
+    ```python
+    class DailyMeanARCO:
+        def __init__(self) -> None:
+            self.arco = ARCO_ERA5()
+
+        def __call__(
+            self,
+            time: datetime | list[datetime] | TimeArray,
+            variable: str | list[str] | VariableArray,
+        ) -> xr.DataArray:
+            time, variable = prep_data_inputs(time, variable)
+            daily_arrays = []
+            for day in time:
+                # Approximate daily means from 6-hourly ARCO ERA5
+                sub_daily = [day + timedelta(hours=h) for h in (0, 6, 12, 18)]
+                da_mean = self.arco(sub_daily, variable).mean("time", skipna=True)
+                daily_arrays.append(
+                    da_mean.interp(lat=S2S_LAT, lon=S2S_LON, method="linear")
+                )
+            da_out = xr.concat(daily_arrays, dim="time")
+            da_out = da_out.assign_coords(
+                time=np.array(time, dtype="datetime64[ns]")
+            )
+            return da_out
+
+
+    # Load the model
+    package = FuXiS2S.load_default_package()
+    model = FuXiS2S.load_model(package).to("cuda:0")
+
+    # Run a single deterministic step
+    import earth2studio.run as run
+    from earth2studio.io import ZarrBackend
+
+    io = run.deterministic(["2024-01-15"], 1, model, DailyMeanARCO(), ZarrBackend())
+    ```
 
     Badges
     ------
@@ -271,7 +308,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         non-commercial research use by its authors.
         """
         return Package(
-            _HF_ROOT,
+            "hf://Artamta/FuXi-S2S-ONNX@5d7a6b132aaaaa070d2856d002f95911140db0ff",
             cache_options={
                 "cache_storage": Package.default_cache("fuxi_s2s"),
                 "same_names": True,
