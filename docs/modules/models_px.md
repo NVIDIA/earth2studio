@@ -57,6 +57,7 @@ earth2studio.models.px.StormScopeGOES
 earth2studio.models.px.StormScopeMeteosatEU
 earth2studio.models.px.StormScopeMRMS
 earth2studio.models.px.UCast
+earth2studio.models.px.WeatherNext2Cyclones
 earth2studio.models.px.WeatherNext2CyclonesMini
 {% endautosummary %}
 

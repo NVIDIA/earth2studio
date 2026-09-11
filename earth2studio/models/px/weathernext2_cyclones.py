@@ -98,90 +98,12 @@ def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
     return tracks
 
 
-MODEL_NAME = "WeatherNextCyclones_Mini"
-MODEL_SPLIT = "2024"
-PARAMS_PATH = f"params/{MODEL_NAME}_<{MODEL_SPLIT}.npz"
-SAMPLE_PATH = (
-    "dataset/source-hres_forecast_init-2024-10-07 00:00:00_"
-    "res-1.0_levels-13_steps-01.nc"
-)
+class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """Shared implementation for WeatherNext 2 model variants."""
 
-
-@check_optional_dependencies()
-class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """WeatherNext 2 Cyclones Mini medium-range forecast model.
-
-    WeatherNext 2 is Google DeepMind's global medium-range weather forecasting
-    model family. This wrapper currently uses the public
-    ``WeatherNextCyclones_Mini`` checkpoint and 1 degree sample grid, which is the
-    mini model configuration that can be validated on the available single-GPU
-    test hardware.
-
-    The model requires two input states, valid at ``-6h`` and ``0h`` lead time,
-    and predicts 6 hours forward per model call. By default this wrapper returns
-    only the gridded weather fields expected by Earth2Studio prognostic models.
-    Cyclone tracking can be enabled with ``track_cyclones=True`` to accumulate
-    WeatherNext's tropical cyclone track diagnostics in the ``cyclone_tracks``
-    property without changing the model output type.
-
-
-    Note
-    ----
-    For more information see the following references:
-
-    - https://doi.org/10.1038/s41586-026-10953-2
-    - https://github.com/google-deepmind/weathernext
-
-    Warning
-    -------
-    The cyclone-tracking interface, including ``track_cyclones`` and
-    ``cyclone_tracks``, is in beta and may change in future releases as
-    Earth2Studio standardizes how track diagnostics are exposed.
-
-    We encourage users to familiarize themselves with the license restrictions of this
-    model's checkpoints.
-
-    Parameters
-    ----------
-    ckpt : fgn.CheckPoint
-        Model checkpoint containing weights.
-    land_sea_mask : np.ndarray
-        Land-sea mask on the WeatherNext grid.
-    geopotential_at_surface : np.ndarray
-        Surface geopotential on the WeatherNext grid.
-    seed : int, optional
-        Initial random seed for the stochastic FGN noise generator, by default 0.
-    jit_compile : bool, optional
-        JIT-compile the model forward pass, by default True.
-    track_cyclones : bool, optional
-        Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
-        by default False.
-
-    Examples
-    --------
-    Access tropical cyclone tracks after a model call:
-
-    >>> model = WeatherNext2CyclonesMini.load_model(
-    ...     WeatherNext2CyclonesMini.load_default_package(),
-    ...     track_cyclones=True,
-    ... )
-    >>> x, coords = model(x, coords)
-    >>> tracks = model.cyclone_tracks
-    >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
-
-    The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
-    for the minimum sea-level pressure and surface wind speed diagnostics.
-
-    The tracker filters short-lived cyclogenesis tracks, so short rollouts can
-    return an empty dataframe even when cyclone tracking is active. The active
-    duration threshold is set by
-    `model._cyclone_tracker.cyclogenesis_minimum_duration`.
-
-    Badges
-    ------
-    region:global class:medium-range product:wind product:precip product:temp product:atmos
-    product:ocean year:2026 gpu:40gb provider:google backend:jax
-    """
+    MODEL_NAME: str
+    PARAMS_PATH: str
+    SAMPLE_PATH: str
 
     def __init__(
         self,
@@ -197,8 +119,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         self.ckpt = ckpt
         self.land_sea_mask = land_sea_mask
         self.geopotential_at_surface = geopotential_at_surface
-        self.seed = seed
-        self.prng_key = jax.random.PRNGKey(seed)
+        self.set_rng(seed)
         self.track_cyclones = track_cyclones
         self._cyclone_tracks = pd.DataFrame()
         self._cyclone_prediction_history: list[xr.Dataset] = []
@@ -237,6 +158,20 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 "lon": np.linspace(0, 360, n_lon, endpoint=False),
             }
         )
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the JAX random number generator.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the random number generator.
+        reset : bool, optional
+            Reset the generator state from ``seed``, by default True.
+        """
+        self.seed = seed
+        if reset:
+            self.prng_key = jax.random.PRNGKey(seed)
 
     @property
     def cyclone_tracks(self) -> "pd.DataFrame":
@@ -413,11 +348,11 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         PrognosticModel
             Prognostic model.
         """
-        params_path = package.resolve(PARAMS_PATH)
+        params_path = package.resolve(cls.PARAMS_PATH)
         with open(params_path, "rb") as f:
             ckpt = checkpoint.load(f, fgn.CheckPoint)
 
-        sample_input = xr.load_dataset(package.resolve(SAMPLE_PATH))
+        sample_input = xr.load_dataset(package.resolve(cls.SAMPLE_PATH))
         land_sea_mask = sample_input["land_sea_mask"].values
         geopotential_at_surface = sample_input["geopotential_at_surface"].values
 
@@ -432,7 +367,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
     def _load_task_config(self) -> Any:
         config = fiddle_config_io.get_fiddle_config_by_name(
-            f"weathernext2/configs/{MODEL_NAME}"
+            f"weathernext2/configs/{self.MODEL_NAME}"
         )
         target_variables = (
             config.task.target_variables
@@ -449,7 +384,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         """Build WeatherNext 2 inference function from checkpoint."""
         config = copy.deepcopy(
             fiddle_config_io.get_fiddle_config_by_name(
-                f"weathernext2/configs/{MODEL_NAME}"
+                f"weathernext2/configs/{self.MODEL_NAME}"
             )
         )
         task_config = self.task_config
@@ -726,9 +661,11 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             out = torch.cat(results, dim=1) if len(results) > 1 else results[0]
             return out.to(device), self.output_coords(coords)
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
+    def _yield_predictions(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        iterators: list[Iterator[xr.Dataset]],
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
         self.output_coords(coords)
@@ -750,7 +687,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
         while True:
             coords = self.output_coords(coords)
-            predictions = [next(it) for it in self.iterators]
+            predictions = [next(it) for it in iterators]
             if len(predictions) == 1:
                 self._update_cyclone_tracks(
                     predictions[0], coords, accumulate_predictions=True
@@ -763,6 +700,38 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             x = torch.cat(results, dim=1) if len(results) > 1 else results[0]
             x, coords = self.rear_hook(x, coords)
             yield x.to(device), coords.copy()
+
+    @batch_func()
+    def _default_generator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
+        with jax.default_device(self.get_jax_device_from_tensor(x)):
+            time_dim = list(coords.keys()).index("time")
+            iterators: list[Iterator[xr.Dataset]] = []
+            for t in range(len(coords["time"])):
+                x_t = x.narrow(time_dim, t, 1)
+                coords_t = coords.copy()
+                coords_t["time"] = coords["time"][t : t + 1]
+                data, target_lead_times = self.from_dataarray_to_dataset(
+                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
+                )
+                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
+                    data,
+                    target_lead_times=target_lead_times,
+                    **dataclasses.asdict(self.task_config),
+                )
+                self.prng_key, rng = jax.random.split(self.prng_key)
+                iterators.append(
+                    self._chunked_prediction_generator(
+                        predictor_fn=self.run_forward,
+                        rng=rng,
+                        inputs=inputs,
+                        targets_template=targets * np.nan,
+                        batch=data,
+                        forcings=forcings,
+                    )
+                )
+            yield from self._yield_predictions(x, coords, iterators)
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
@@ -783,30 +752,230 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         """
         self.output_coords(coords)
         self._reset_cyclone_tracks()
-        with jax.default_device(self.get_jax_device_from_tensor(x)):
-            time_dim = list(coords.keys()).index("time")
-            self.iterators = []
-            for t in range(len(coords["time"])):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
-                data, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    data,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.task_config),
-                )
-                self.prng_key, rng = jax.random.split(self.prng_key)
-                self.iterators.append(
-                    self._chunked_prediction_generator(
-                        predictor_fn=self.run_forward,
-                        rng=rng,
-                        inputs=inputs,
-                        targets_template=targets * np.nan,
-                        batch=data,
-                        forcings=forcings,
-                    )
-                )
-            yield from self._default_generator(x, coords)
+        yield from self._default_generator(x, coords)
+
+
+@check_optional_dependencies()
+class WeatherNext2CyclonesMini(_WeatherNext2Base):
+    """WeatherNext 2 Cyclones Mini medium-range forecast model.
+
+    WeatherNext 2 is Google DeepMind's global medium-range weather forecasting
+    model family. This wrapper uses the public ``WeatherNextCyclones_Mini``
+    checkpoint and 1 degree sample grid.
+
+    The model requires two input states, valid at ``-6h`` and ``0h`` lead time,
+    and predicts 6 hours forward per model call. By default this wrapper returns
+    only the gridded weather fields expected by Earth2Studio prognostic models.
+    Cyclone tracking can be enabled with ``track_cyclones=True`` to accumulate
+    WeatherNext's tropical cyclone track diagnostics in the ``cyclone_tracks``
+    property without changing the model output type.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://doi.org/10.1038/s41586-026-10953-2
+    - https://github.com/google-deepmind/weathernext
+    - https://huggingface.co/kashif/weathernext2
+
+    Warning
+    -------
+    The cyclone-tracking interface, including ``track_cyclones`` and
+    ``cyclone_tracks``, is in beta and may change in future releases as
+    Earth2Studio standardizes how track diagnostics are exposed.
+
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
+
+    Parameters
+    ----------
+    ckpt : fgn.CheckPoint
+        Model checkpoint containing weights.
+    land_sea_mask : np.ndarray
+        Land-sea mask on the WeatherNext grid.
+    geopotential_at_surface : np.ndarray
+        Surface geopotential on the WeatherNext grid.
+    seed : int, optional
+        Initial random seed for the stochastic FGN noise generator, by default 0.
+    jit_compile : bool, optional
+        JIT-compile the model forward pass, by default True.
+    track_cyclones : bool, optional
+        Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+        by default False.
+
+    Examples
+    --------
+    Access tropical cyclone tracks after a model call:
+
+    >>> model = WeatherNext2CyclonesMini.load_model(
+    ...     WeatherNext2CyclonesMini.load_default_package(),
+    ...     track_cyclones=True,
+    ... )
+    >>> x, coords = model(x, coords)
+    >>> tracks = model.cyclone_tracks
+    >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
+
+    The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
+    for the minimum sea-level pressure and surface wind speed diagnostics.
+
+    The tracker filters short-lived cyclogenesis tracks, so short rollouts can
+    return an empty dataframe even when cyclone tracking is active. The active
+    duration threshold is set by
+    `model._cyclone_tracker.cyclogenesis_minimum_duration`.
+
+    Badges
+    ------
+    region:global class:medium-range product:wind product:precip product:temp product:atmos
+    product:ocean year:2026 gpu:40gb provider:google backend:jax
+    """
+
+    MODEL_NAME = "WeatherNextCyclones_Mini"
+    PARAMS_PATH = "params/WeatherNextCyclones_Mini_<2024.npz"
+    SAMPLE_PATH = (
+        "dataset/source-hres_forecast_init-2024-10-07 00:00:00_"
+        "res-1.0_levels-13_steps-01.nc"
+    )
+
+
+@check_optional_dependencies()
+class WeatherNext2Cyclones(_WeatherNext2Base):
+    """WeatherNext 2 Cyclones operational medium-range forecast model.
+
+    This wrapper uses Google DeepMind's operational 0.25 degree
+    ``WeatherNextCyclones_<2025`` checkpoint family. These are the models that
+    ran during the 2025 Atlantic hurricane season. Four trained checkpoint
+    members are available; ``load_model`` selects member 1 by default.
+
+    The model requires two input states, valid at ``-6h`` and ``0h`` lead time,
+    and predicts 6 hours forward per model call. Cyclone tracking can be enabled
+    with ``track_cyclones=True`` to accumulate WeatherNext's tropical cyclone
+    diagnostics in the ``cyclone_tracks`` property.
+
+    Note
+    ----
+    To avoid JAX preallocating GPU memory and use the CUDA virtual memory
+    management allocator, set these variables before importing JAX or
+    Earth2Studio:
+
+    .. code-block:: console
+
+        export XLA_PYTHON_CLIENT_PREALLOCATE=false
+        export XLA_PYTHON_CLIENT_ALLOCATOR=vmm
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://doi.org/10.1038/s41586-026-10953-2
+    - https://github.com/google-deepmind/weathernext#provided-pretrained-models
+    - https://huggingface.co/kashif/weathernext2
+    - https://docs.jax.dev/en/latest/gpu_memory_allocation.html
+
+    Warning
+    -------
+    The cyclone-tracking interface, including ``track_cyclones`` and
+    ``cyclone_tracks``, is in beta and may change in future releases as
+    Earth2Studio standardizes how track diagnostics are exposed.
+
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
+
+    Parameters
+    ----------
+    ckpt : fgn.CheckPoint
+        Model checkpoint containing weights.
+    land_sea_mask : np.ndarray
+        Land-sea mask on the WeatherNext grid.
+    geopotential_at_surface : np.ndarray
+        Surface geopotential on the WeatherNext grid.
+    seed : int, optional
+        Initial random seed for the stochastic FGN noise generator, by default 0.
+    jit_compile : bool, optional
+        JIT-compile the model forward pass, by default True.
+    track_cyclones : bool, optional
+        Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+        by default False.
+
+    Examples
+    --------
+    Access tropical cyclone tracks after a model call:
+
+    >>> model = WeatherNext2Cyclones.load_model(
+    ...     WeatherNext2Cyclones.load_default_package(),
+    ...     track_cyclones=True,
+    ... )
+    >>> x, coords = model(x, coords)
+    >>> tracks = model.cyclone_tracks
+    >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
+
+    The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
+    for the minimum sea-level pressure and surface wind speed diagnostics.
+
+    The tracker filters short-lived cyclogenesis tracks, so short rollouts can
+    return an empty dataframe even when cyclone tracking is active. The active
+    duration threshold is set by
+    `model._cyclone_tracker.cyclogenesis_minimum_duration`.
+
+    Badges
+    ------
+    region:global class:medium-range product:wind product:precip product:temp product:atmos
+    product:ocean year:2026 gpu:80gb provider:google backend:jax
+    """
+
+    MODEL_NAME = "WeatherNextCyclones"
+    PARAMS_PATH = "params/WeatherNextCyclones_<2025_model{checkpoint_member}.npz"
+    SAMPLE_PATH = (
+        "dataset/source-hres_forecast_init-2024-10-07 00:00:00_"
+        "res-0.25_levels-13_steps-01.nc"
+    )
+
+    @classmethod
+    def _params_path(cls, checkpoint_member: int) -> str:
+        if checkpoint_member not in range(1, 5):
+            raise ValueError("checkpoint_member must be an integer from 1 through 4")
+        return cls.PARAMS_PATH.format(checkpoint_member=checkpoint_member)
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(
+        cls,
+        package: Package,
+        seed: int = 0,
+        jit_compile: bool = True,
+        track_cyclones: bool = False,
+        checkpoint_member: int = 1,
+    ) -> PrognosticModel:
+        """Load the operational prognostic model from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from.
+        seed : int, optional
+            Initial random seed for the stochastic FGN noise generator, by default 0.
+        jit_compile : bool, optional
+            JIT-compile the model forward pass, by default True.
+        track_cyclones : bool, optional
+            Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+            by default False.
+        checkpoint_member : int, optional
+            Operational checkpoint member from 1 through 4, by default 1.
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model.
+        """
+        params_path = package.resolve(cls._params_path(checkpoint_member))
+        with open(params_path, "rb") as f:
+            ckpt = checkpoint.load(f, fgn.CheckPoint)
+
+        sample_input = xr.load_dataset(package.resolve(cls.SAMPLE_PATH))
+        return cls(
+            ckpt,
+            sample_input["land_sea_mask"].values,
+            sample_input["geopotential_at_surface"].values,
+            seed=seed,
+            jit_compile=jit_compile,
+            track_cyclones=track_cyclones,
+        )
