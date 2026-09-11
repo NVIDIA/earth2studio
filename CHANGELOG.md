@@ -80,10 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-- Added a `fuxi-s2s` optional dependency group for ONNX Runtime inference.
-- Raised the minimum `huggingface-hub` version to 0.32.0 so supported platforms
-  install the native Xet client.
-
 ## [0.18.0] - 2026-08-31
 
 ### Added
