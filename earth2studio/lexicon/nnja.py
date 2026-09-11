@@ -123,6 +123,9 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
       (``13001``). They are intentionally outside this lexicon. In particular,
       UFS diagnostic ``gps_t`` and ``gps_q`` are model-background values
       sampled at the bending-angle location, not these BUFR retrieval fields.
+      The schema-level ``pres`` column of ``gps`` rows is instead derived from
+      the occultation's own refractivity levels (``HEIT``/``ARFR``) and the
+      standard atmosphere, see :mod:`earth2studio.data.utils_gpsro`.
 
     Modifier functions convert raw PrepBUFR observation values to
     Earth2Studio standard units:

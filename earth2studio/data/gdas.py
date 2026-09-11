@@ -75,8 +75,12 @@ class NomadsGDASObsConv:
 
     GPSRO rows use the shared columns with product-specific meanings:
     ``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
-    identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
-    ``elev`` is impact parameter minus Earth radius of curvature.
+    identifiers, ``quality`` is the QFRO flag table, ``elev`` is the
+    refraction-corrected tangent height (impact parameter minus Earth radius
+    of curvature when the occultation carries no refractivity levels), and
+    ``pres`` is a source-only pressure coordinate derived from the message's
+    refractivity profile and the standard atmosphere
+    (:mod:`earth2studio.data.utils_gpsro`).
 
     The output schema matches :class:`UFSObsConv` with additional PrepBUFR
     ``quality``, ``pressure_quality``, and ``level_cat`` metadata.

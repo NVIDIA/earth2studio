@@ -12,7 +12,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_ncep
+from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_gpsro, utils_ncep
 from earth2studio.data.utils_bufr import OBS_TOB, OBS_TQM
 from earth2studio.lexicon import GDASObsConvLexicon, NNJAObsConvLexicon
 
@@ -270,8 +270,12 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
     assert nnja_df["variable"].tolist() == ["gps"]
     assert nnja_df["observation"].tolist() == pytest.approx([0.00123])
     assert nnja_df.loc[0, "time"] == pd.Timestamp("2024-01-01 00:30:15.250")
-    assert pd.isna(nnja_df.loc[0, "pres"])
+    # No refractivity levels in the message: geometric impact height and the
+    # standard atmosphere on it (Pa).
     assert nnja_df.loc[0, "elev"] == pytest.approx(2_000.0)
+    assert nnja_df.loc[0, "pres"] == pytest.approx(
+        100.0 * utils_gpsro.height_to_pressure_hpa(np.array([2_000.0]))[0], rel=1e-6
+    )
 
     nnja_task = utils_ncep.NCEPObsTask(
         route="gpsro",
@@ -292,6 +296,111 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
     nnja_public = nnja._decode_file(str(local_path), nnja_task)
     gdas_public = gdas._decode_file(str(local_path), gdas_task)
     pd.testing.assert_frame_equal(nnja_public, gdas_public, check_exact=True)
+
+
+def _gpsro_message_with_refractivity(qfro: int) -> SimpleNamespace:
+    """One occultation: three MEFR=0 bending-angle levels and a refractivity
+    block laid out HEIT -> ARFR (value) -> ARFR (error) per level."""
+    header = [
+        (utils_ncep.GPSRO_SAID, 3),
+        (utils_ncep.GPSRO_PTID, 27),
+        (utils_ncep.GPSRO_QFRO, qfro),
+        (utils_ncep.GPSRO_ELRC, 6_371_000.0),
+        (utils_ncep.GPSRO_LAT, -10.5),
+        (utils_ncep.GPSRO_LON, -70.25),
+        (utils_ncep.GPSRO_YEAR, 2024),
+        (utils_ncep.GPSRO_MONTH, 1),
+        (utils_ncep.GPSRO_DAY, 1),
+        (utils_ncep.GPSRO_HOUR, 0),
+        (utils_ncep.GPSRO_MIN, 30),
+        (utils_ncep.GPSRO_SEC, 0.0),
+    ]
+    bending = []
+    for impact_height in (2_000.0, 10_000.0, 40_000.0):
+        bending += [
+            (utils_ncep.GPSRO_LAT, -10.5),
+            (utils_ncep.GPSRO_LON, -70.25),
+            (utils_ncep.GPSRO_MEFR, 0.0),
+            (utils_ncep.GPSRO_IMPP, 6_371_000.0 + impact_height),
+            (utils_ncep.GPSRO_BNDA, 0.01),
+            (utils_ncep.GPSRO_BNDA, 0.001),
+        ]
+    refractivity = []
+    for height in np.arange(0.0, 60_001.0, 200.0):
+        refractivity += [
+            (utils_ncep.GPSRO_HEIT, float(height)),
+            (utils_ncep.GPSRO_ARFR, float(300.0 * np.exp(-height / 7_000.0))),
+            (utils_ncep.GPSRO_ARFR, 0.5),
+        ]
+    return _message(header + bending + refractivity)
+
+
+def _decode_gpsro_message(
+    tmp_path, monkeypatch, decoded: SimpleNamespace, **kwargs
+) -> pd.DataFrame:
+    local_path = tmp_path / "refractivity.gpsro.bufr"
+    local_path.write_bytes(b"gpsro-bytes")
+    message_bytes = b"gpsro-message"
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda file_data, *, silence_noise: ({}, {}, [(message_bytes, 0)]),
+    )
+    monkeypatch.setattr(
+        utils_ncep,
+        "_create_decoder",
+        lambda _table_b, _table_d: _Decoder(message_bytes, decoded),
+    )
+    return utils_ncep.decode_gpsro(
+        str(local_path),
+        _gpsro_plan(NNJAObsConvLexicon, "gps", utils_ncep.GPSRO_BNDA),
+        datetime(2024, 1, 1),
+        datetime(2024, 1, 1, 1),
+        decode_workers=1,
+        **kwargs,
+    )
+
+
+def test_gpsro_refractivity_levels_derive_pressure_and_corrected_height(
+    tmp_path, monkeypatch
+):
+    df = _decode_gpsro_message(
+        tmp_path, monkeypatch, _gpsro_message_with_refractivity(qfro=0)
+    )
+    assert len(df) == 3
+    geometric = np.array([2_000.0, 10_000.0, 40_000.0])
+    profile_height = np.arange(0.0, 60_001.0, 200.0)
+    profile_n = 300.0 * np.exp(-profile_height / 7_000.0)
+    expected_p, expected_h = utils_gpsro.gpsro_level_coordinates(
+        6_371_000.0 + geometric, 6_371_000.0, profile_height, profile_n
+    )
+    # The refraction-corrected tangent height sits below the geometric one and
+    # the pressure is the blended/dry column, not the standard atmosphere.
+    assert np.all(df["elev"].to_numpy() < geometric)
+    np.testing.assert_allclose(df["elev"].to_numpy(), expected_h, rtol=1e-6)
+    np.testing.assert_allclose(df["pres"].to_numpy(), 100.0 * expected_p, rtol=1e-6)
+    standard = 100.0 * utils_gpsro.height_to_pressure_hpa(expected_h)
+    assert not np.allclose(df["pres"].to_numpy()[1:], standard[1:], rtol=1e-3)
+    assert df["quality"].tolist() == [0, 0, 0]
+
+
+def test_gpsro_reject_qfro_bits_drops_flagged_occultation(tmp_path, monkeypatch):
+    flagged = _gpsro_message_with_refractivity(qfro=2048)  # bit 5 (1 = MSB)
+    kept = _decode_gpsro_message(tmp_path, monkeypatch, flagged)
+    assert len(kept) == 3
+    dropped = _decode_gpsro_message(
+        tmp_path, monkeypatch, flagged, reject_qfro_bits=(5,)
+    )
+    assert dropped.empty
+    other_bit = _decode_gpsro_message(
+        tmp_path, monkeypatch, flagged, reject_qfro_bits=(1,)
+    )
+    assert len(other_bit) == 3
+
+    source = NNJAObsConv(
+        cache=False, verbose=False, decode_workers=1, gpsro_reject_qfro_bits=[5]
+    )
+    assert source._gpsro_reject_qfro_bits == (5,)
 
 
 def test_cat_delimits_levels_and_repeated_pob_remains_an_event_slot():
@@ -432,8 +541,11 @@ def test_extract_gpsro_subset_bending_angle_rows_and_metadata():
     assert row["time"] == datetime(2024, 1, 1, 0, 30, 15, 250000)
     assert row["lat"] == pytest.approx(np.float32(-9.75))
     assert row["lon"] == pytest.approx(np.float32(290.5))
-    assert row["pres"] is None
+    # No refractivity block: geometric impact height, standard atmosphere (Pa).
     assert row["elev"] == pytest.approx(np.float32(2_000.0))
+    assert row["pres"] == pytest.approx(
+        100.0 * utils_gpsro.height_to_pressure_hpa(np.array([2_000.0]))[0], rel=1e-6
+    )
     assert row["type"] == np.uint16(3)
     assert row["class"] == "GPSRO"
     assert row["station"] == "00030027"
