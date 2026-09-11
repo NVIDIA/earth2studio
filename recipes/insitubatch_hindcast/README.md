@@ -85,7 +85,7 @@ disk hit instead of a network round-trip — but zarr still decodes the chunk ag
 identical in both configurations; only the fetch component of the wall moves.
 
 | store | chunks | requested → decodes | cache **on** | cache off |
-|-------|--------|---------------------|--------------|-----------|
+| ------- | -------- | --------------------- | -------------- | ----------- |
 | **WB2** 240×121 6-h | `(8,240,121)` fat | 5760 → **33** (174×) | **6.8×** | 9.4× |
 | **ARCO** 721×1440 1-h | `(1,721,1440)` chunk-1 | 576 → 162 (3.6×) | **1.2×** | 1.7× |
 
@@ -112,7 +112,7 @@ times first. Against a valid-time-deduplicated baseline the advantage is smaller
 the number of sample-axis steps per chunk:
 
 | store | unique valid times × vars | insitubatch decodes | advantage |
-|-------|--------------------------|---------------------|-----------|
+| ------- | -------------------------- | --------------------- | ----------- |
 | **WB2** | 87 × 3 = 261 | 33 | **7.9×** (= 8 steps/chunk) |
 | **ARCO** | 162 × 1 = 162 | 162 | **1.0× — none** |
 
@@ -162,7 +162,7 @@ done
 ```
 
 | mode | wall | **peak RSS** | field reads |
-|------|------|--------------|-------------|
+| ------ | ------ | -------------- | ------------- |
 | `e2s` — live per-init `fetch_data`, dense buffer | 29.0 s | 3.10 GB | 14 760 |
 | `dense` — insitubatch, `batch_size=N` | 4.3 s | 7.63 GB | 60 |
 | `stream` — insitubatch, `batch_size=W` | 2.9 s | **1.85 GB** | 60 |
@@ -210,7 +210,7 @@ python bench_cache.py --store arco --vars t2m \
 ```
 
 | store | field size | cold → warm wall | **cloud fetches (cold → warm)** |
-|-------|------------|------------------|----------------------------------|
+| ------- | ------------ | ------------------ | ---------------------------------- |
 | **WB2** 240×121 | 116 KB | 1.16 s → 0.81 s (1.4×) | **33 → 0** |
 | **ARCO** 721×1440 | 4 MB | 0.81 s → 0.59 s (1.4×) | **54 → 0** |
 

@@ -91,10 +91,12 @@ VAR_MAP = {
 
 
 def anon_store(url: str) -> Any:
+    """Open ``url`` as an anonymous (unsigned) obstore zarr store."""
     return obstore_store(url, skip_signature=True)
 
 
 def load_before_cls(spec: str) -> Any:
+    """Import and return the ``module:attr`` baseline data source named by ``spec``."""
     mod, _, name = spec.partition(":")
     import importlib
 
@@ -110,6 +112,7 @@ def run_after(
     batch_size: int,
     max_inflight: int,
 ) -> dict[str, Any]:
+    """Time the insitubatch leg: one streaming pass over every init and lead."""
     leads = np.array([np.timedelta64(h, "h") for h in leads_h])
     feed = InSituForecastFeed(
         anon_store(cfg["url"]),
@@ -170,6 +173,7 @@ def run_before(
     leads_h: list[int],
     cache: bool,
 ) -> dict[str, Any]:
+    """Time the status-quo leg: one per-init verification fetch, as Earth2Studio does it."""
     src = before_cls(cache=cache, verbose=False)
     init_dt = init_times64.astype("datetime64[s]").astype("O")
     leads_td = [np.timedelta64(h, "h") for h in leads_h]
@@ -184,6 +188,7 @@ def run_before(
 
 
 def main() -> None:
+    """Parse arguments and run the before/after hindcast comparison."""
     p = argparse.ArgumentParser()
     p.add_argument("--store", choices=list(STORES), default="wb2")
     p.add_argument("--vars", nargs="+", default=["t2m"])
@@ -234,6 +239,7 @@ def main() -> None:
     )
 
     def med3(w: list[float]) -> tuple[float, float, float]:
+        """Return ``(median, min, max)`` of the wall times in ``w``."""
         w = sorted(w)
         return w[len(w) // 2], w[0], w[-1]
 

@@ -62,6 +62,7 @@ VAR_MAP = {
 
 
 def anon_store(url: str) -> Any:
+    """Open ``url`` as an anonymous (unsigned) obstore zarr store."""
     return obstore_store(url, skip_signature=True)
 
 
@@ -75,6 +76,7 @@ def run(
     max_inflight: int,
     cache_dir: str,
 ) -> dict[str, Any]:
+    """Time one pass over the feed, returning wall seconds and cache hit/miss counts."""
     leads = np.array([np.timedelta64(h, "h") for h in leads_h])
     feed = InSituForecastFeed(
         anon_store(cfg["url"]),
@@ -103,6 +105,7 @@ def run(
 
 
 def main() -> None:
+    """Parse arguments and run the cold-then-warm cache benchmark."""
     p = argparse.ArgumentParser()
     p.add_argument("--store", choices=list(STORES), default="wb2")
     p.add_argument("--vars", nargs="+", default=["t2m", "u10m", "v10m"])

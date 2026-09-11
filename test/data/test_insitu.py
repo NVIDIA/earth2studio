@@ -353,8 +353,10 @@ def test_many_leads_over_variables_with_unequal_chunking(tmp_path):
     group = zarr.open_group(store=store, mode="a")
     del group["10m_u_component_of_wind"]
     arr = group.create_array(
-        "10m_u_component_of_wind", shape=srcs["10m_u_component_of_wind"].shape,
-        chunks=(3, *srcs["10m_u_component_of_wind"].shape[1:]), dtype="f4",
+        "10m_u_component_of_wind",
+        shape=srcs["10m_u_component_of_wind"].shape,
+        chunks=(3, *srcs["10m_u_component_of_wind"].shape[1:]),
+        dtype="f4",
     )
     arr[:] = srcs["10m_u_component_of_wind"]
 
@@ -371,7 +373,9 @@ def test_many_leads_over_variables_with_unequal_chunking(tmp_path):
         assert x.shape[1] == len(leads) and x.shape[2] == 2
         for i, t0 in enumerate(coords["time"]):
             anchor = int(np.where(feed.time == t0)[0][0])
-            for li in range(len(leads)):  # lead li is anchor + li steps (6 h == one step)
+            for li in range(
+                len(leads)
+            ):  # lead li is anchor + li steps (6 h == one step)
                 np.testing.assert_allclose(
                     x[i, li, 0].cpu().numpy(), srcs["2m_temperature"][anchor + li]
                 )
@@ -399,14 +403,18 @@ def test_readonly_cache_serves_a_warm_cache_and_writes_nothing(tmp_path):
     warm = InSituForecastFeed(store, ["t2m"], **common)
     first = [x.clone() for x, _ in warm]
     warm.dataset.close()
-    before = sorted((f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir())
+    before = sorted(
+        (f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir()
+    )
 
     reader = InSituForecastFeed(store, ["t2m"], readonly_cache=True, **common)
     second = [x.clone() for x, _ in reader]
     assert reader.dataset.cache_misses == 0, "a warm read-only run must not miss"
     reader.dataset.close()
 
-    after = sorted((f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir())
+    after = sorted(
+        (f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir()
+    )
     assert before == after, "a read-only opener must not write to the cache directory"
     for a, b in zip(first, second, strict=True):
         np.testing.assert_array_equal(a.cpu().numpy(), b.cpu().numpy())

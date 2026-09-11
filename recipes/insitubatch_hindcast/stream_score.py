@@ -57,10 +57,12 @@ DT = np.timedelta64(6, "h")
 
 
 def anon_store() -> Any:
+    """Open the WeatherBench2 ERA5 store anonymously (unsigned)."""
     return obstore_store(URL, skip_signature=True)
 
 
 def peak_rss_gb() -> float:
+    """Peak resident set size of this process, in GB."""
     return (
         resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6
     )  # ru_maxrss is KB on Linux
@@ -74,11 +76,13 @@ class RmseAccumulator:
         self.n: dict[int, int] = {}
 
     def update(self, lead_h: int, pred: torch.Tensor, truth: torch.Tensor) -> None:
+        """Accumulate squared error for one lead from a (prediction, truth) pair."""
         e = (pred - truth).float()
         self.sse[lead_h] = self.sse.get(lead_h, 0.0) + float((e * e).sum())
         self.n[lead_h] = self.n.get(lead_h, 0) + e.numel()
 
     def table(self) -> dict[int, float]:
+        """Return per-lead RMSE, keyed by lead hour."""
         return {h: (self.sse[h] / self.n[h]) ** 0.5 for h in sorted(self.sse)}
 
 
@@ -89,6 +93,7 @@ def build_feed(
     leads_h: list[int],
     batch_size: int,
 ) -> InSituForecastFeed:
+    """Build the feed for this campaign's window, variables and lead times."""
     leads = np.array([np.timedelta64(h, "h") for h in leads_h])  # includes 0 (the IC)
     return InSituForecastFeed(
         anon_store(),
@@ -102,6 +107,7 @@ def build_feed(
 
 
 def make_model(variables: list[str], feed: InSituForecastFeed) -> Persistence:
+    """Build the persistence baseline over the feed's lat/lon domain."""
     domain = OrderedDict([("lat", feed.lat), ("lon", feed.lon)])
     return Persistence(variable=variables, domain_coords=domain, history=1, dt=DT)
 
@@ -145,6 +151,7 @@ def run_insitu(
     nsteps: int,
     batch_size: int,
 ) -> tuple["RmseAccumulator", int]:
+    """Score the campaign through the insitubatch feed; returns the accumulator and decode count."""
     feed = build_feed(variables, start, n_init, leads_h, batch_size)
     model = make_model(variables, feed)
     acc = RmseAccumulator()
@@ -161,6 +168,7 @@ def run_insitu(
 def run_e2s(
     variables: list[str], start: int, n_init: int, leads_h: list[int], nsteps: int
 ) -> tuple["RmseAccumulator", int]:
+    """Score the campaign through Earth2Studio's own fetch_data path, as the baseline."""
     from earth2studio.data.wb2 import WB2ERA5_121x240
 
     src = WB2ERA5_121x240(cache=False, verbose=False)
@@ -216,6 +224,7 @@ def run_e2s(
 
 
 def main() -> None:
+    """Parse arguments and run one scoring mode."""
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["stream", "dense", "e2s"], required=True)
     p.add_argument("--vars", nargs="+", default=["t2m", "u10m", "v10m"])
