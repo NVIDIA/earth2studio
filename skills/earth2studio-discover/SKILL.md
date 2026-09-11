@@ -121,7 +121,7 @@ earth2studio/lexicon/wb2.py
 
 Each defines a `VOCAB: dict[str, str | tuple]` mapping Earth2Studio variable names to source-specific identifiers.
 
-Surface compatibility results clearly: *"GraphCastOperational needs [list of variables] — GFS and ERA5 (via ARCO/CDS) both provide these, but HRRR does not cover pressure levels above X."*
+Surface compatibility results clearly: *"GraphCastOperational needs [list of variables] — GFS and ERA5 (via ARCO_ERA5/CDS_ERA5) both provide these, but HRRR does not cover pressure levels above X."*
 
 ### Step 5. Suggest examples
 

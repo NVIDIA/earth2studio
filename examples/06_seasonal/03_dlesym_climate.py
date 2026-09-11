@@ -76,7 +76,7 @@ load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5LatLon
@@ -86,11 +86,12 @@ if not torch.cuda.is_available():
     raise RuntimeError("GPU/CUDA required for DLESyM")
 
 # Create the data source
-data = ARCO()
+data = ARCO_ERA5()
 
 # Load the coupled prognostic (lat/lon variant) and the precip diagnostic.
 package = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
 model = DLESyMv0_ISCCP_ERA5LatLon.load_model(package).to(device)
+
 
 # The prognostic output is already in OLR space, so we load the precip
 # diagnostic with ``use_ttr=False`` -- no further TTR -> OLR transform is needed

@@ -17,7 +17,7 @@
 #
 # Target reference for eval 1:
 # Fetch global 2m temperature for 2024-01-01 00Z using a fast analysis source.
-# GFS is recommended for speed (operational, no auth), ARCO is an alternative.
+# GFS is recommended for speed (operational, no auth), ARCO_ERA5 is an alternative.
 
 from datetime import datetime
 

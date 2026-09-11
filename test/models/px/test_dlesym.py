@@ -333,7 +333,7 @@ def test_dlesym_package(device):
         batch_size,
         len(time),
         len(dlesym_src._ATMOS_OUTPUT_TIMES),
-        len(variable),
+        len(expected_coords["variable"]),
         *spatial_dims,
     )
     for key in output_coords:

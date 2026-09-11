@@ -34,7 +34,14 @@ Issues = "https://github.com/NVIDIA/earth2studio/issues"
 
 # ==== UV configuration ====
 [tool.uv]
-override-dependencies = ["onnx; python_full_version < '3.13'"]
+override-dependencies = [
+    "onnx; python_full_version < '3.13'",
+    # NATTEN ships prebuilt C++/CUDA extensions per (torch, CUDA) pair; the plain
+    # PyPI package has no libnatten, which StormScope requires.  Must match the
+    # installed torch exactly (currently 2.11.0+cu130).
+    "natten==0.21.6+torch2110cu130",
+]
+find-links = ["https://whl.natten.org"]
 no-build-isolation-package = ["torch-harmonics"]
 
 [tool.uv.sources]

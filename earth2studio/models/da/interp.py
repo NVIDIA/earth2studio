@@ -74,7 +74,8 @@ class InterpEquirectangular(torch.nn.Module):
 
     Badges
     ------
-    region:global region:na class:da product:atmos product:insitu
+    region:global region:na class:data-assimilation product:atmos product:insitu
+    provider:nvidia backend:pytorch
     """
 
     # Acceptable variables for this model

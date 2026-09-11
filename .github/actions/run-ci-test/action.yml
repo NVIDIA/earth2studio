@@ -28,6 +28,10 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Verify test container Torch version
+      shell: bash
+      run: test/_ci/check_torch_version.sh
+
     - name: Configure git safe directory
       shell: bash
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections.abc import Callable
 
 import numpy as np
@@ -74,6 +75,9 @@ LEVELS = [
 
 MDL_LEVELS = np.arange(1, 138)
 
+# Number of trailing hourly samples summed together for each accumulated
+# variable, e.g. "tp06" is the trailing 6-hour sum of hourly "tp" and
+# "ttr03" is the trailing 3-hour sum of hourly "ttr".
 ACCUMULATION_HOURS = {
     "cp06": 6,
     "ro06": 6,
@@ -81,11 +85,12 @@ ACCUMULATION_HOURS = {
     "ssrd06": 6,
     "strd06": 6,
     "tp06": 6,
+    "ttr03": 3,
 }
 
 
-class ARCOLexicon(metaclass=LexiconType):
-    """ARCO Lexicon
+class ARCO_ERA5Lexicon(metaclass=LexiconType):
+    """ARCO ERA5 Lexicon
     ARCO specified <Variable ID>::<Pressure Level>
 
     Note
@@ -111,7 +116,7 @@ class ARCOLexicon(metaclass=LexiconType):
         "ttr": "top_net_thermal_radiation::",
         "skt": "skin_temperature::",
         "sic": "sea_ice_cover::",
-        # AIFS/AIFS ENS and AIFS2 aliases backed by ARCO ERA5 single-level fields.
+        # AIFS/AIFS ENS and AIFS2 aliases backed by ARCO_ERA5 single-level fields.
         "cdww": "coefficient_of_drag_with_waves::",
         "cp06": "convective_precipitation::",
         "cos_mwd": "mean_wave_direction::",
@@ -137,6 +142,7 @@ class ARCOLexicon(metaclass=LexiconType):
         "tcc": "total_cloud_cover::",
         "tcw": "total_column_water::",
         "tp06": "total_precipitation::",
+        "ttr03": "top_net_thermal_radiation::",
         "wmb": "model_bathymetry::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
@@ -194,7 +200,7 @@ class ARCOLexicon(metaclass=LexiconType):
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:
-        """Return name in ARCO vocabulary."""
+        """Return name in ARCO_ERA5 vocabulary."""
         arco_key = cls.VOCAB[val]
 
         if val == "cos_mwd":
@@ -214,3 +220,16 @@ class ARCOLexicon(metaclass=LexiconType):
                 return x
 
         return arco_key, mod
+
+
+def __getattr__(name: str) -> type[ARCO_ERA5Lexicon]:
+    """Return deprecated lexicon aliases."""
+    if name == "ARCOLexicon":
+        warnings.warn(
+            "ARCOLexicon has been renamed to ARCO_ERA5Lexicon and will be removed "
+            "in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return ARCO_ERA5Lexicon
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

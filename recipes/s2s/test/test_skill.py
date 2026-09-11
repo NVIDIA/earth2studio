@@ -23,7 +23,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.data.utils import fetch_data
 from earth2studio.statistics import crps
 from earth2studio.utils.coords import CoordSystem
@@ -59,7 +59,7 @@ def main() -> None:
 
     verif_lead_times = np.arange(4, 30, 4, dtype="timedelta64[D]")
     vars = ["t2m", "z500"]
-    data_source = ARCO(verbose=False)
+    data_source = ARCO_ERA5(verbose=False)
     metric = crps(
         ensemble_dimension="ensemble", reduction_dimensions=["lat", "lon"], fair=True
     )

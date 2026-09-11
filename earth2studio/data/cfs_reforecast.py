@@ -204,7 +204,7 @@ class CFS_Reforecast_FX:
 
     Badges
     ------
-    region:global dataclass:reanalysis product:wind product:temp product:atmos
+    region:global dataclass:reanalysis product:wind product:temp product:atmos provider:noaa
     """
 
     # NCEI HTTPS base path; both pgbf and flxf live under the same parent
@@ -623,7 +623,7 @@ class CFS_Reforecast_FX_Flux(CFS_Reforecast_FX):
 
     Badges
     ------
-    region:global dataclass:reanalysis product:precip product:land product:atmos
+    region:global dataclass:reanalysis product:precip product:land product:atmos provider:noaa
     """
 
     CFS_PRODUCT = "flxf"

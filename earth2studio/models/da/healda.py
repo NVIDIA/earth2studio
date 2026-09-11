@@ -153,6 +153,12 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     ``earth2studio.data.UFSObsConv`` and ``earth2studio.data.UFSObsSat`` and
     produces a global analysis field.
 
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/healda
+
     Parameters
     ----------
     model : torch.nn.Module
@@ -178,8 +184,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:da product:wind product:temp product:atmos product:sat
+    region:global class:data-assimilation product:wind product:temp product:atmos product:sat
     product:insitu year:2026 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(

@@ -129,7 +129,7 @@ io_unperturbed = ZarrBackend(
 nsteps = 4 * 12
 nensemble = 16
 batch_size = 4
-forecast_date = "2024-01-30"
+forecast_date = "2024-01-01"
 output_coords = {
     "lat": np.arange(25.0, 60.0, 0.25),
     "lon": np.arange(230.0, 300.0, 0.25),

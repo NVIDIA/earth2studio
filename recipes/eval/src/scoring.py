@@ -45,6 +45,7 @@ from earth2studio.utils.coords import CoordSystem
 
 from .distributed import get_rank
 from .output import OutputManager
+from .regions import parse_regions, region_masks, spatial_dims
 from .work import write_scoring_marker
 
 # Dimensions that are never spatial.
@@ -85,6 +86,78 @@ def _is_statistic(obj: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
+class RegionalMetric:
+    """One metric applied per named region, stacked on a ``region`` axis.
+
+    Wraps per-region instances of the same underlying metric (each built
+    with region-masked weights) behind the Metric protocol, so the store
+    schema, chunking validation, and write path treat it as any other
+    metric — its output simply carries a leading string-labeled ``region``
+    dimension.
+
+    Parameters
+    ----------
+    per_region : OrderedDict[str, Any]
+        Metric instances keyed by region name, in config order.
+    """
+
+    def __init__(self, per_region: OrderedDict[str, Any]) -> None:
+        self._per_region = per_region
+        first = next(iter(per_region.values()))
+        self.reduction_dimensions = first.reduction_dimensions
+        self._inner_is_statistic = _is_statistic(first)
+
+    def _region_coords(self, inner: CoordSystem) -> CoordSystem:
+        coords: CoordSystem = OrderedDict()
+        coords["region"] = np.array(list(self._per_region))
+        coords.update(inner)
+        return coords
+
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Inner metric's output coords behind a leading ``region`` axis."""
+        first = next(iter(self._per_region.values()))
+        return self._region_coords(first.output_coords(input_coords))
+
+    def __call__(
+        self,
+        x: torch.Tensor,
+        x_coords: CoordSystem,
+        y: torch.Tensor | None = None,
+        y_coords: CoordSystem | None = None,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Apply every region's instance and stack the results."""
+        values = []
+        inner_coords: CoordSystem = OrderedDict()
+        for metric in self._per_region.values():
+            if self._inner_is_statistic:
+                value, inner_coords = metric(x, x_coords)
+            else:
+                value, inner_coords = metric(x, x_coords, y, y_coords)
+            values.append(value)
+        return torch.stack(values, dim=0), self._region_coords(inner_coords)
+
+
+def _embed_mask(
+    mask: torch.Tensor,
+    red_dims: list[str],
+    spatial_coords: CoordSystem,
+) -> torch.Tensor:
+    """Reshape a spatial-shaped region mask onto a metric's reduction dims.
+
+    The mask carries one axis per spatial dimension (grid order, and not
+    separable for union regions); the metric wants weights with exactly one
+    axis per reduction dimension.  Permute the mask's axes into reduction
+    order and insert size-1 axes for non-spatial reduction dims.
+    """
+    dims = spatial_dims(spatial_coords)
+    perm = [dims.index(d) for d in red_dims if d in dims]
+    out = mask.permute(perm)
+    for i, d in enumerate(red_dims):
+        if d not in dims:
+            out = out.unsqueeze(i)
+    return out
+
+
 def instantiate_metrics(
     cfg: DictConfig,
     spatial_coords: CoordSystem,
@@ -96,14 +169,18 @@ def instantiate_metrics(
     metric's ``reduction_dimensions``, cosine latitude weights are injected
     automatically.
 
+    With ``scoring.regions``, every metric that reduces over all spatial
+    dimensions and accepts a ``weights`` argument becomes a
+    :class:`RegionalMetric` - adding a labeled ``region`` axis to its scores.
+
     Parameters
     ----------
     cfg : DictConfig
-        Full Hydra config (reads ``cfg.scoring.metrics`` and
-        ``cfg.scoring.lat_weights``).
+        Full Hydra config (reads ``cfg.scoring.metrics``,
+        ``cfg.scoring.lat_weights`` and ``cfg.scoring.regions``).
     spatial_coords : CoordSystem
         Spatial coordinate arrays from the prediction store (used to
-        compute latitude weights).
+        compute latitude weights and region masks).
 
     Returns
     -------
@@ -111,12 +188,16 @@ def instantiate_metrics(
         Metric instances keyed by their config name.
     """
     use_lat_weights = cfg.scoring.get("lat_weights", False)
+    regions = parse_regions(cfg.scoring.get("regions", None))
+    masks = region_masks(spatial_coords, regions) if regions is not None else None
+    grid_dims = spatial_dims(spatial_coords)
     metrics: OrderedDict = OrderedDict()
 
     for name, metric_cfg in cfg.scoring.metrics.items():
         cfg_dict: dict = OmegaConf.to_container(metric_cfg, resolve=True)
         target = cfg_dict.pop("_target_")
         cls = hydra.utils.get_class(target)
+        red_dims = list(cfg_dict.get("reduction_dimensions", []))
 
         # Inject cosine latitude weights when appropriate.
         # Weights must have exactly len(reduction_dimensions) dims with
@@ -124,12 +205,11 @@ def instantiate_metrics(
         if (
             use_lat_weights
             and "lat" in spatial_coords
-            and "lat" in cfg_dict.get("reduction_dimensions", [])
+            and "lat" in red_dims
             and "weights" not in cfg_dict
         ):
             lat_vals = spatial_coords["lat"]
             weights_1d = lat_weight(torch.tensor(lat_vals, dtype=torch.float32))
-            red_dims = cfg_dict["reduction_dimensions"]
             shape = [
                 len(spatial_coords[d]) if d in spatial_coords else 1 for d in red_dims
             ]
@@ -141,8 +221,42 @@ def instantiate_metrics(
             weights = weights * weights_1d.reshape(view_shape)
             cfg_dict["weights"] = weights
 
-        metrics[name] = cls(**cfg_dict)
-        logger.info(f"Instantiated metric '{name}': {target}")
+        # Region-mask the metric when it can carry the masking: it must
+        # reduce over every spatial dimension (a partial spatial reduction
+        # would leave masked-out gridpoints in the output) and take a
+        # weights argument to fold the mask into.
+        maskable = (
+            set(grid_dims) <= set(red_dims)
+            and "weights" in inspect.signature(cls.__init__).parameters
+        )
+        if masks is not None and not maskable:
+            logger.warning(
+                f"Metric '{name}' cannot be region-masked (needs a 'weights' "
+                "argument and a full spatial reduction) — scored on the "
+                "whole grid only."
+            )
+
+        if masks is not None and maskable:
+            base = cfg_dict.pop("weights", None)
+            if base is None:
+                base = torch.ones(
+                    [
+                        len(spatial_coords[d]) if d in spatial_coords else 1
+                        for d in red_dims
+                    ]
+                )
+            per_region: OrderedDict = OrderedDict()
+            for region_name, mask in masks.items():
+                embedded = _embed_mask(mask, red_dims, spatial_coords).to(base.dtype)
+                per_region[region_name] = cls(**cfg_dict, weights=base * embedded)
+            metrics[name] = RegionalMetric(per_region)
+            logger.info(
+                f"Instantiated metric '{name}': {target} "
+                f"({len(per_region)} regions)"
+            )
+        else:
+            metrics[name] = cls(**cfg_dict)
+            logger.info(f"Instantiated metric '{name}': {target}")
 
     return metrics
 

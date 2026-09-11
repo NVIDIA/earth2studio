@@ -65,6 +65,7 @@ ERA5_SINGLE_VARIABLES = (
     "stl3",
     "stl4",
     "swvl1",
+    "swvl2",
     "t2m",
     "tcc",
     "tcw",

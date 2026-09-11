@@ -51,6 +51,10 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         to 1.
     dt : np.timedelta64, optional
         Time-step size of model between inputs and output, by default np.timedelta64(6, "h")
+
+    Badges
+    ------
+    region:global provider:nvidia backend:pytorch
     """
 
     def __init__(

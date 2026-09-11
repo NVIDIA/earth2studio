@@ -45,6 +45,7 @@ from earth2studio.data.utils import (
     managed_session,
     obstore_fetch_to_cache,
     obstore_list_prefix,
+    obstore_read_chunked,
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
@@ -200,6 +201,38 @@ def test_fetch_data(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
+    assert not torch.isnan(x).any()
+
+
+def test_fetch_data_out_of_ns_range():
+    """Times outside the datetime64[ns] range must reach the source unwrapped.
+
+    Climate emulators trained on model-year calendars (such as SamudrACE, whose
+    CM4 initial conditions are at model year 151-319) fall outside the
+    nanosecond-precision range, which numpy wraps silently rather than raising.
+    """
+    domain = OrderedDict({"lat": np.random.randn(8), "lon": np.random.randn(16)})
+    random_source = Random(domain)
+    received: list[np.ndarray] = []
+
+    class RecordingSource:
+        """Data source that records the times it is asked for."""
+
+        def __call__(self, time, variable):
+            """Record the requested times and delegate to a Random source."""
+            received.append(np.asarray(time))
+            return random_source(time, variable)
+
+    time = np.array([np.datetime64("0311-01-01T00:00:00", "s")])
+    variable = np.array(["a"])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+
+    x, coords = fetch_data(RecordingSource(), time, variable, lead_time)
+
+    assert len(received) == len(lead_time)
+    assert received[0][0] == time[0]
+    assert received[1][0] == time[0] + np.timedelta64(6, "h")
+    assert np.all(coords["time"] == time)
     assert not torch.isnan(x).any()
 
 
@@ -870,6 +903,81 @@ async def test_obstore_fetch_to_cache(tmp_path):
     )
     assert Path(path).read_bytes() == payload
 
+    # Chunked fetches only support whole-object reads
+    with pytest.raises(ValueError):
+        await obstore_fetch_to_cache(
+            store, "some/key", str(tmp_path), byte_offset=8, chunked=True
+        )
+
+
+class _FakeByteRangeStore:
+    """Fake obspec store serving head/range requests from an in-memory blob."""
+
+    def __init__(self, blob: bytes):
+        self.blob = blob
+        self.requested_ranges: list[tuple[int, int]] = []
+
+    async def head_async(self, key):
+        return {"size": len(self.blob)}
+
+    async def get_range_async(self, key, *, start, end=None, length=None):
+        if end is None:
+            end = start + length
+        self.requested_ranges.append((start, end))
+        return self.blob[start:end]
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_large():
+    """A large object is reassembled exactly from non-overlapping,
+    in-order byte ranges that cover [0, size)."""
+    chunk_size = 1024 * 1024
+    size = 20 * chunk_size + 12345  # not a multiple of chunk_size
+    blob = np.random.default_rng(0).integers(0, 256, size, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(blob)
+
+    data = await obstore_read_chunked(store, "some/key.h5", chunk_size=chunk_size)
+
+    assert data == blob
+    # More than one range GET was issued (chunked path taken)
+    assert len(store.requested_ranges) == 21
+    # Ranges tile [0, size) exactly: non-overlapping, in-order coverage
+    ranges = sorted(store.requested_ranges)
+    assert ranges[0][0] == 0
+    assert ranges[-1][1] == size
+    for (_, prev_end), (next_start, _) in zip(ranges[:-1], ranges[1:]):
+        assert next_start == prev_end
+    # All but the tail range are exactly chunk_size long
+    assert all(end - start == chunk_size for start, end in ranges[:-1])
+    assert ranges[-1][1] - ranges[-1][0] == size % chunk_size
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_small():
+    """An object at most chunk_size bytes long uses a single range GET."""
+    blob = np.random.default_rng(1).integers(0, 256, 4096, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(blob)
+
+    data = await obstore_read_chunked(store, "some/key.h5", chunk_size=1024 * 1024)
+
+    assert data == blob
+    assert store.requested_ranges == [(0, len(blob))]
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_not_found():
+    """Missing objects surface as FileNotFoundError so retry semantics hold."""
+
+    class _MissingStore:
+        async def head_async(self, key):
+            raise FileNotFoundError(key)
+
+        async def get_range_async(self, key, **kwargs):
+            raise AssertionError("should not be reached")
+
+    with pytest.raises(FileNotFoundError):
+        await obstore_read_chunked(_MissingStore(), "missing/key.h5")
+
 
 @pytest.fixture
 def local_zarr_array(tmp_path):
@@ -1053,3 +1161,39 @@ async def test_local_caching_store_survives_cache_write_error(
 
     # Read still returns the remote data despite the cache write blowing up
     assert await cached.get("c/0/0", proto) is not None
+
+
+@pytest.mark.parametrize("chunked", [False, True])
+def test_table_to_dataframe(chunked):
+    import pyarrow as pa
+
+    from earth2studio.data.utils import table_to_dataframe
+
+    table = pa.table(
+        {
+            "satellite": pa.array(["npp", "npp", "n20"], pa.string()),
+            "station": pa.array(["A1", "B2", "C3"], pa.string()),
+            "lat": pa.array([10.0, 11.0, 12.0], pa.float32()),
+            "count": pa.array([1, 2, 3], pa.uint16()),
+        }
+    )
+    if chunked:
+        table = pa.concat_tables([table, table])
+
+    # Default: every column Arrow-backed, no dictionary encoding
+    df = table_to_dataframe(table)
+    assert str(df["lat"].dtype) == "float[pyarrow]"
+    assert str(df["count"].dtype) == "uint16[pyarrow]"
+    assert str(df["satellite"].dtype) == "string[pyarrow]"
+
+    # Requested string columns are dictionary-encoded with int8 indices;
+    # non-string and absent names are ignored rather than raising
+    df = table_to_dataframe(
+        table, dict_string_columns=("satellite", "lat", "not_a_column")
+    )
+    assert "dictionary" in str(df["satellite"].dtype)
+    assert "int8" in str(df["satellite"].dtype)
+    assert str(df["lat"].dtype) == "float[pyarrow]"
+    assert str(df["station"].dtype) == "string[pyarrow]"
+    assert list(df["satellite"][:3]) == ["npp", "npp", "n20"]
+    assert len(df) == (6 if chunked else 3)

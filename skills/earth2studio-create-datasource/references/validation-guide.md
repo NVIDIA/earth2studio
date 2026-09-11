@@ -208,7 +208,7 @@ git add earth2studio/data/<filename>.py \
         earth2studio/lexicon/__init__.py \
         earth2studio/lexicon/base.py \
         test/data/test_<filename>.py \
-        docs/modules/datasources_*.rst \
+        docs/modules/datasources_*.md \
         pyproject.toml \
         CHANGELOG.md
 git commit -m "feat: add <SourceName> data source

@@ -55,11 +55,10 @@ In this example you will learn:
 # StormCast-CONUS requires a low-resolution global conditioning source. We use
 # [`earth2studio.data.GFS_FX`][earth2studio.data.GFS_FX] (the default), which provides GFS forecast
 # fields interpolated to the HRRR grid. An analysis source such as
-# [`earth2studio.data.ARCO`][earth2studio.data.ARCO] can also be used.
+# [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5] can also be used.
 #
 # %%
 import os
-from datetime import datetime, timedelta
 
 import numpy as np
 from loguru import logger
@@ -103,8 +102,7 @@ io = ZarrBackend()
 import earth2studio.run as run
 
 nsteps = 4
-today = datetime.today() - timedelta(days=1)
-date = today.isoformat().split("T")[0]
+date = "2022-11-04T18:00:00"
 
 io = run.deterministic(
     [date],

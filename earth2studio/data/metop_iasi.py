@@ -818,7 +818,7 @@ class MetOpIASI:
 
     Badges
     ------
-    region:global dataclass:observation product:sat
+    region:global dataclass:observation product:sat provider:eumetsat
     """
 
     SOURCE_ID = "earth2studio.data.metop_iasi"

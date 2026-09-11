@@ -351,18 +351,23 @@ class TestGHCNMock:
             verbose=False,
         )
 
-        # Mock the async filesystem
-        mock_fs = MagicMock()
-        mock_fs.set_session = AsyncMock(return_value=MagicMock(close=AsyncMock()))
-        mock_fs._ls = AsyncMock(
-            return_value=[
-                f"noaa-ghcn-pds/parquet/by_year/YEAR=2023/ELEMENT={element}/part.parquet"
-            ]
-        )
-        mock_fs._cat_file = AsyncMock(return_value=parquet_bytes)
-        ds.fs = mock_fs
-
-        result = ds(datetime(2023, 1, 1), [variable])
+        # Mock the obstore listing and byte reads
+        ds.store = MagicMock()
+        with (
+            patch(
+                "earth2studio.data.ghcn.obstore_list_prefix",
+                AsyncMock(
+                    return_value=[
+                        f"parquet/by_year/YEAR=2023/ELEMENT={element}/part.parquet"
+                    ]
+                ),
+            ),
+            patch(
+                "earth2studio.data.ghcn.obstore_read_range",
+                AsyncMock(return_value=parquet_bytes),
+            ),
+        ):
+            result = ds(datetime(2023, 1, 1), [variable])
 
         assert list(result.columns) == ds.SCHEMA.names
         assert set(result["variable"].unique()) == {variable}
@@ -372,3 +377,74 @@ class TestGHCNMock:
         # Verify longitude normalization ([-84.44 + 360] % 360 = 275.56)
         assert all(result["lon"] >= 0)
         assert all(result["lon"] < 360)
+
+    @patch("earth2studio.data.ghcn.GHCNDaily.get_station_metadata")
+    def test_task_timeout_matches_fetch_layout(self, mock_get_meta):
+        """by_station fetches use a 60s per-attempt timeout and by_year
+        fallback fetches use 300s.
+
+        Regression test: `task_timeout` used to be picked via
+        `fetcher is self._fetch_station_element`, a bound-method identity
+        comparison that is always False in CPython, so every fetch silently
+        used the 300s timeout regardless of layout.
+        """
+        mock_get_meta.return_value = self._build_station_metadata()
+
+        captured: list[tuple[str, float | None]] = []
+
+        async def fake_async_retry(coro_func, *args, task_timeout=None, **kwargs):
+            captured.append((coro_func.__name__, task_timeout))
+            return pd.DataFrame(columns=["ID", "DATE", "DATA_VALUE", "Q_FLAG"])
+
+        with patch("earth2studio.data.ghcn.async_retry", fake_async_retry):
+            # Few stations -> by_station layout, 60s per-attempt timeout
+            ds = GHCNDaily(
+                stations=["USW00013722"],
+                time_tolerance=timedelta(days=0),
+                cache=False,
+                verbose=False,
+            )
+            ds.store = MagicMock()
+            ds(datetime(2023, 1, 1), ["t2m_max"])
+
+            # More stations than _BY_STATION_MAX_STATIONS -> by_year
+            # fallback, 300s per-attempt timeout
+            many_stations = [
+                f"USW{i:08d}" for i in range(ds._BY_STATION_MAX_STATIONS + 1)
+            ]
+            ds_many = GHCNDaily(
+                stations=many_stations,
+                time_tolerance=timedelta(days=0),
+                cache=False,
+                verbose=False,
+            )
+            ds_many.store = MagicMock()
+            ds_many(datetime(2023, 1, 1), ["t2m_max"])
+
+        assert captured[0] == ("_fetch_station_element", 60.0)
+        assert captured[-1] == ("_fetch_year_element", 300.0)
+
+
+def test_ghcn_cache_freshness(tmp_path):
+    """Mutable-partition cache files expire after the freshness window;
+    immutable ones (max_age_s=None) never do."""
+    import os
+
+    from earth2studio.data.ghcn import _MUTABLE_CACHE_MAX_AGE_S, _cache_file_fresh
+
+    missing = str(tmp_path / "missing.parquet")
+    assert not _cache_file_fresh(missing, None)
+    assert not _cache_file_fresh(missing, _MUTABLE_CACHE_MAX_AGE_S)
+
+    path = tmp_path / "cached.parquet"
+    path.write_bytes(b"data")
+
+    # Fresh file is served under both policies
+    assert _cache_file_fresh(str(path), _MUTABLE_CACHE_MAX_AGE_S)
+    assert _cache_file_fresh(str(path), None)
+
+    # Backdate the mtime past the window: mutable expires, immutable persists
+    stale = path.stat().st_mtime - (_MUTABLE_CACHE_MAX_AGE_S + 60)
+    os.utime(path, (stale, stale))
+    assert not _cache_file_fresh(str(path), _MUTABLE_CACHE_MAX_AGE_S)
+    assert _cache_file_fresh(str(path), None)

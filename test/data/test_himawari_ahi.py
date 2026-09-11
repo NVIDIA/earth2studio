@@ -334,6 +334,12 @@ def test_himawari_call_mock(tmp_path: pathlib.Path):
                 async def buffer_async(self):
                     return data
 
+                def __aiter__(self):
+                    async def _chunks():
+                        yield data
+
+                    return _chunks()
+
             return _Result()
 
     # Spy on the gather call: fetch() must not pass a gather-level

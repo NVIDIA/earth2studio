@@ -24,13 +24,12 @@ import torch
 import torch.nn as nn
 from loguru import logger
 
-from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.models.auto.package import Package
+from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -119,7 +118,7 @@ VARIABLES: list[str] = [
     "q925",
     "q1000",
     "sst",
-    "tp",
+    "tp06",
 ]
 
 # Helper for datetime convention compatible with custom cos zenith calculation
@@ -139,6 +138,12 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Atlas consumes two input lead times (t-6h and t) and predicts a single step at
     t+6h on a 721x1440 latitude-longitude grid.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/atlas-era5
 
     Parameters
     ----------
@@ -170,8 +175,9 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:precip product:temp product:atmos year:2026
+    region:global class:medium-range product:wind product:precip product:temp product:atmos year:2026
     gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     DT = np.timedelta64(6, "h")
@@ -526,7 +532,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default package for the Atlas model."""
         package = Package(
-            "hf://nvidia/atlas-era5@fdce0480c5e6f03d409089bf285f4bcc1d84519e",
+            "hf://nvidia/atlas-era5@893a38550aa313c97c41382a5003d209d60a840b",
             cache_options={
                 "cache_storage": Package.default_cache("atlas"),
                 "same_names": False,  # prevents overwrites from files with same name in different directories
@@ -545,7 +551,28 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "Python, as documented in the Atlas API docs."
             )
 
-        with open(package.resolve("config.json")) as f:
+        # Resolve the package-root config.json so HuggingFace records the download
+        # (its content is not used here now that the merged si/crps package layout
+        # moved the functional config under si/config.json); tolerate its absence.
+        try:
+            package.resolve("config.json")
+        except FileNotFoundError:
+            pass
+
+        config_path = None
+        for candidate in ("si/config.json", "config.json"):
+            try:
+                config_path = package.resolve(candidate)
+                break
+            except FileNotFoundError:
+                continue
+        if config_path is None:
+            raise FileNotFoundError(
+                "Could not locate Atlas config.json in package "
+                "(checked si/config.json and config.json)"
+            )
+
+        with open(config_path) as f:
             config = json.load(f)
 
         modelpkg = config["package"]
@@ -556,7 +583,9 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ae_path = package.resolve(ae_cfg["model_path"])
             aeprocessor_path = package.resolve(ae_cfg["processor_path"])
             ae = Module.from_checkpoint(ae_path)
+            ae.eval()
             aeprocessor = Module.from_checkpoint(aeprocessor_path)
+            aeprocessor.eval()
 
             autoencoders.append(ae)
             autoencoder_processors.append(aeprocessor)
@@ -564,9 +593,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model = Module.from_checkpoint(
             package.resolve(modelpkg["genmodel"]["model_path"])
         )
+        model.eval()
         model_processor = Module.from_checkpoint(
             package.resolve(modelpkg["genmodel"]["processor_path"])
         )
+        model_processor.eval()
 
         sinterpolant = StochasticInterpolant(
             alpha=config["sinterpolant"]["alpha"],

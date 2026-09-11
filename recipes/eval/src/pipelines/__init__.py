@@ -23,8 +23,9 @@ from omegaconf import DictConfig
 
 from .assimilation import AssimilationForecastPipeline, AssimilationPipeline
 from .base import Pipeline, PredownloadFrameStore, PredownloadStore
+from .diagnostic import DiagnosticPipeline
 from .dlesym import DLESyMPipeline
-from .forecast import DiagnosticPipeline, ForecastPipeline
+from .forecast import ForecastPipeline
 from .stormscope import StormScopePipeline
 
 __all__ = [

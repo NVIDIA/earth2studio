@@ -77,6 +77,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+    - https://huggingface.co/nvidia/cbottle
 
     Parameters
     ----------
@@ -98,8 +99,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:cm product:wind product:precip product:temp
+    region:global class:climate product:wind product:precip product:temp
     product:atmos product:ocean year:2025 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     output_variables = VARIABLES

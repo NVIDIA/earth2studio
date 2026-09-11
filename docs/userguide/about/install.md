@@ -48,7 +48,7 @@ the following commands:
 ```bash
 mkdir earth2studio-project && cd earth2studio-project
 uv init --python=3.13
-uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0"
 ```
 
 ### Docker Container { #pytorch_container_environment }
@@ -66,7 +66,7 @@ apt-get update && apt-get install -y git make curl cmake python3-dev \
 unset PIP_CONSTRAINT
 curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
 uv pip install --system --break-system-packages \
-    "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
+    "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0"
 ```
 
 !!! note "Extra Dependencies"
@@ -74,7 +74,7 @@ uv pip install --system --break-system-packages \
 
     ```bash
     uv pip install --system --break-system-packages \
-        "earth2studio[aifs,data] @ git+https://github.com/NVIDIA/earth2studio.git@0.17.0"
+        "earth2studio[aifs,data] @ git+https://github.com/NVIDIA/earth2studio.git@0.18.0"
     ```
 
 ??? warning "Earth2Studio in Docker"

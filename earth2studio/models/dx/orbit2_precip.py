@@ -122,6 +122,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     following references:
 
     - https://dl.acm.org/doi/10.1145/3712285.3771989
+    - https://huggingface.co/jychoi-hpc/ORBIT-2
 
     Note
     ----
@@ -211,7 +212,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:mrf product:precip year:2025 gpu:40gb
+    region:global class:medium-range product:precip year:2025 gpu:40gb
+    backend:pytorch
     """
 
     def __init__(

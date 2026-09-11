@@ -8,6 +8,8 @@ docs_dir: docs
 exclude_docs: |
   _build/**
   overrides/**
+  scorecard/config/**
+  **/__pycache__/
 site_dir: site
 strict: false
 copyright: Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
@@ -129,7 +131,10 @@ plugins:
     group_labels:
       region: Region
       class: Class
+      provider: Provider
+      backend: Backend
       dataclass: Data Class
+      dataset: Dataset Family
       year: Release
       product: Product
       gpu:
@@ -138,75 +143,164 @@ plugins:
     definitions:
       region:global:
         label: Global
+        name: Global
         icon: <i class="fa-solid fa-globe"></i>
         color: '#0d47a1'
         text_color: '#fff'
       region:na:
         label: NA
+        name: North America
         icon: <i class="fa-solid fa-earth-americas"></i>
         color: '#1565c0'
         text_color: '#fff'
         tooltip: North America
       region:eu:
         label: EU
+        name: Europe
         icon: <i class="fa-solid fa-earth-europe"></i>
         color: '#1976d2'
         text_color: '#fff'
         tooltip: Europe
       region:as:
         label: AS
+        name: Asia
         icon: <i class="fa-solid fa-earth-asia"></i>
         color: '#1e88e5'
         text_color: '#fff'
         tooltip: Asia
       region:au:
         label: AU
+        name: Australia
         icon: <i class="fa-solid fa-earth-oceania"></i>
         color: '#42a5f5'
         text_color: '#000'
         tooltip: Australia
       region:af:
         label: AF
+        name: Africa
         icon: <i class="fa-solid fa-earth-africa"></i>
         color: '#64b5f6'
         text_color: '#000'
         tooltip: Africa
       region:sa:
         label: SA
+        name: South America
         icon: <i class="fa-solid fa-earth-americas"></i>
         color: '#90caf9'
         text_color: '#000'
         tooltip: South America
-      class:nwc:
+      class:nowcasting:
         label: NWC
+        name: Nowcasting
         color: '#198754'
         text_color: '#fff'
         tooltip: Nowcasting
-      class:ds:
+      class:downscaling:
         label: DS
+        name: Downscaling
         color: '#20c997'
         text_color: '#000'
         tooltip: Downscaling
-      class:mrf:
+      class:medium-range:
         label: MRF
+        name: Medium Range
         color: '#0dcaf0'
         text_color: '#000'
         tooltip: Medium Range
-      class:s2s:
+      class:subseasonal-seasonal:
         label: S2S
+        name: Sub-Seasonal to Seasonal
         color: '#6610f2'
         text_color: '#fff'
         tooltip: Sub-Seasonal to Seasonal
-      class:da:
+      class:data-assimilation:
         label: DA
+        name: Data Assimilation
         color: '#d63384'
         text_color: '#fff'
         tooltip: Data Assimilation
-      class:cm:
+      class:climate:
         label: CM
+        name: Climate
         color: '#ccff00'
         text_color: '#000'
         tooltip: Climate Model
+      provider:nvidia:
+        label: NVIDIA
+        color: '#3d7a26'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:ecmwf:
+        label: ECMWF
+        color: '#0b7285'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:copernicus:
+        label: Copernicus
+        name: Copernicus
+        color: '#005ea8'
+        text_color: '#fff'
+        tooltip: Copernicus Climate and Atmosphere Data Stores
+        hide_in: [autosummary, filter]
+      provider:ai2:
+        label: AI2
+        color: '#6741d9'
+        text_color: '#fff'
+        tooltip: AI2
+        hide_in: [autosummary, filter]
+      provider:google:
+        label: Google
+        color: '#1a73e8'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:microsoft:
+        label: Microsoft
+        color: '#5e5e5e'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:noaa:
+        label: NOAA
+        color: '#0057b8'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:ncar:
+        label: NCAR
+        color: '#7b2cbf'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:dynamical:
+        label: Dynamical
+        color: '#343a40'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:earthmover:
+        label: EarthMover
+        color: '#6D0EDB'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      provider:eumetsat:
+        label: EUMETSAT
+        color: '#006b75'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      backend:pytorch:
+        label: PyTorch
+        icon: <i class="fa-solid fa-fire"></i>
+        color: '#ee4c2c'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      backend:jax:
+        label: JAX
+        icon: <i class="fa-solid fa-code-branch"></i>
+        color: '#f57c00'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
+      backend:onnx:
+        label: ONNX
+        icon: <i class="fa-solid fa-diagram-project"></i>
+        color: '#005ced'
+        text_color: '#fff'
+        hide_in: [autosummary, filter]
       dataclass:analysis:
         label: ''
         icon: <i class="fa-solid fa-chart-line"></i>
@@ -231,6 +325,48 @@ plugins:
         color: '#b451ed'
         text_color: '#fff'
         tooltip: Numerical / AI Simulation
+      dataset:era5:
+        label: ERA5
+        name: ERA5
+        color: '#4263eb'
+        text_color: '#fff'
+        tooltip: ECMWF Reanalysis v5
+        hide_in: [autosummary, filter]
+      dataset:aifs:
+        label: AIFS
+        name: AIFS
+        color: '#5f3dc4'
+        text_color: '#fff'
+        tooltip: ECMWF AI Forecasting System
+        hide_in: [autosummary, filter]
+      dataset:ifs:
+        label: IFS
+        name: IFS
+        color: '#364fc7'
+        text_color: '#fff'
+        tooltip: ECMWF Integrated Forecasting System
+        hide_in: [autosummary, filter]
+      dataset:gfs:
+        label: GFS
+        name: GFS
+        color: '#1971c2'
+        text_color: '#fff'
+        tooltip: NOAA Global Forecast System
+        hide_in: [autosummary, filter]
+      dataset:hrrr:
+        label: HRRR
+        name: HRRR
+        color: '#087f5b'
+        text_color: '#fff'
+        tooltip: NOAA High-Resolution Rapid Refresh
+        hide_in: [autosummary, filter]
+      dataset:cmip6:
+        label: CMIP6
+        name: CMIP6
+        color: '#e67700'
+        text_color: '#fff'
+        tooltip: Coupled Model Intercomparison Project Phase 6
+        hide_in: [autosummary, filter]
       year:2021:
         label: '2021'
         color: '#F2F2F2'
@@ -350,6 +486,7 @@ plugins:
     examples_dir: examples
     output_dir: examples
     cache_dir: .e2sgallery
+    invalidate_on_lock_change: false
     execute: never
     jobs: 1
     fail_fast: true
@@ -419,18 +556,28 @@ nav:
   - Statistics: modules/statistics.md
   - Utilities: modules/utils_all.md
   - Workflows: modules/workflows.md
-- Examples: examples/index.md
+- Examples:
+  - examples/index.md
+  - Recipes: recipes/index.md
 - Blog:
   - Overview: blog/index.md
   - Posts:
     - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
+    - A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI: blog/posts/earth2_soil_health_prediction.md
   - Archive: blog/archive.md
   - Categories:
     - Overview: blog/categories.md
     - Documentation: blog/categories/documentation.md
-- Recipes: https://github.com/NVIDIA/earth2studio/tree/main/recipes
+- Scorecards:
+  - scorecard/generated/index.md
+  - Prognostic models:
+    - FCN3: scorecard/generated/fcn3.md
+    - Aurora: scorecard/generated/aurora.md
+    - GraphCast: scorecard/generated/graphcast.md
+    - Atlas CRPS: scorecard/generated/atlas_crps.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
+  404.md
   modules/generated/**
   examples/**
   userguide/about/index.md

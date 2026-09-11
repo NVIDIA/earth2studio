@@ -1,0 +1,50 @@
+# @package scoring.regions
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ---------------------------------------------------------------------------
+# The scorecard's regional splits: the whole grid, the standard verification
+# bands (tropics / extra-tropics / hemispheres / polar caps), the headline
+# verification boxes (Europe, North America, North Atlantic, North Pacific,
+# East Asia, Australia-New Zealand), and continental splits.  The recipe's
+# scoring.regions accepts any named boxes, so a campaign can swap in its own
+# set.
+#     defaults:
+#         - /regions/standard
+#
+# A region may be a list of boxes — their union — which is how the
+# extra-tropics (both |lat| >= 20 bands) is expressed.  Longitudes may be
+# negative (degrees west); boxes wrap across the meridian where min > max,
+# and a 360° span means every longitude.
+# ---------------------------------------------------------------------------
+global: null
+tropics: {lat: [-20, 20], lon: [0, 360]}
+extra_tropics:
+  - {lat: [20, 90], lon: [0, 360]}
+  - {lat: [-90, -20], lon: [0, 360]}
+northern_hemisphere: {lat: [20, 90], lon: [0, 360]}
+southern_hemisphere: {lat: [-90, -20], lon: [0, 360]}
+arctic: {lat: [60, 90], lon: [0, 360]}
+antarctica: {lat: [-90, -60], lon: [0, 360]}
+europe: {lat: [35, 75], lon: [-12.5, 42.5]}
+north_america: {lat: [25, 60], lon: [-120, -75]}
+north_atlantic: {lat: [25, 65], lon: [-70, -10]}
+north_pacific: {lat: [25, 60], lon: [145, -130]}
+east_asia: {lat: [25, 60], lon: [102.5, 150]}
+australia_new_zealand: {lat: [-45, -12.5], lon: [120, 175]}
+south_america: {lat: [-60, 15], lon: [-85, -30]}
+africa: {lat: [-40, 40], lon: [-20, 55]}
+asia: {lat: [0, 85], lon: [45, 180]}
+oceania: {lat: [-55, 0], lon: [110, 180]}

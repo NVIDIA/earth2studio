@@ -41,7 +41,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Any, cast
 
 import hydra
 import numpy as np
@@ -196,6 +196,36 @@ class PredownloadFrameStore:
     role: str = "observation"
 
 
+def is_explicit_rng_component(component: Any) -> bool:
+    """Best-effort check for a component that needs a component-specific reseed.
+
+    Three signals, since models expose this differently: an explicit
+    ``set_rng`` hook (e.g. FCN3), a sample-indexed generative draw
+    (``number_of_samples`` + ``seed``, e.g. CorrDiff), or a truthy
+    ``stochastic`` flag for models that keep dropout active instead (e.g.
+    U-CAST).  These are exactly the mechanisms :meth:`Pipeline.seed_member`
+    dispatches on, so this is the predicate a :meth:`Pipeline.explicit_rng_components`
+    override should filter with — returning a component that fails this
+    check makes the method's contract ("components that need one of these
+    three hooks") misleading even though :meth:`seed_member` itself would
+    just silently no-op on it.
+
+    This is *not* a general "does this component's output depend on RNG
+    state" check — a model can be fully stochastic (e.g. a diffusion
+    sampler drawing unique noise per member) while exposing none of these
+    three hooks, relying instead on :meth:`Pipeline.seed_member`'s
+    unconditional ``torch.manual_seed`` call.  Such a model correctly
+    returns ``False`` here even though its output is RNG-dependent; a
+    false negative just means no component-specific reseed hook fires,
+    not that the member draws are non-unique.
+    """
+    return (
+        hasattr(component, "set_rng")
+        or (hasattr(component, "number_of_samples") and hasattr(component, "seed"))
+        or bool(getattr(component, "stochastic", False))
+    )
+
+
 # ======================================================================
 # Pipeline ABC
 # ======================================================================
@@ -268,6 +298,34 @@ class Pipeline(ABC):
     ``None`` as the ``data_source`` argument.  BYO is handled inside
     the pipeline's own config block (e.g. overriding
     ``cfg.model.goes.ic_source._target_``)."""
+
+    supports_online_scoring: bool = False
+    """Whether this pipeline may be driven by the online scorer.
+
+    Online scoring rests on one invariant:
+
+        For a fixed IC, the sequence of coords yielded by :meth:`run_item`
+        is identical across ensemble members.
+
+    Every rank in an ensemble group calls :meth:`run_item` on the same IC
+    with a different ``ensemble_id`` and the per-lead-step group reduction
+    is what synchronizes them — so a member-dependent yield sequence
+    deadlocks the group rather than producing a wrong answer.  (The scorer
+    cross-checks each step's lead time across the group when
+    ``scoring.online.validate_coords`` is set, turning that deadlock into a
+    clean error.)
+
+    The flag defaults to ``False``: support is an explicit, per-pipeline
+    claim rather than something inherited for free.  A pipeline sets it to
+    ``True`` only once its yield sequence and seeding have been validated
+    (grouping invariance, online-vs-offline parity, member reproducibility
+    — see the recipe's online-scoring validation gates)."""
+
+    _members_per_rank: int = 1
+    """Ensemble members this rank carries per rollout (``K``).  Set by
+    :meth:`run` from its ``member_batch`` argument before the first
+    :meth:`run_item` / :meth:`run_item_batched` call.  Consulted by the
+    default :meth:`seed_member` for sample-indexed stochastic components."""
 
     _run_item_includes_batch_dim: bool = False
     """Whether :meth:`run_item` yields tensors with a leading ``batch`` dim.
@@ -388,6 +446,150 @@ class Pipeline(ABC):
     # ------------------------------------------------------------------
     # Optional hooks with defaults
     # ------------------------------------------------------------------
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Run several ensemble members of one IC through a single rollout.
+
+        The member-batched twin of :meth:`run_item`, used by online scoring
+        when a rank carries more than one member
+        (``scoring.online.members_per_rank > 1``).  All *items* share an
+        initial-condition time and differ only in ``ensemble_id`` / ``seed``.
+
+        Why it exists: with one member per rank, an ensemble group spans
+        ``M`` ranks — typically several nodes — and the CRPS member
+        exchange runs over the inter-node fabric.  Batching ``K`` members
+        onto each rank shrinks the group to ``M/K`` ranks, which is what
+        lets a group fit inside a node and move that exchange onto NVLink
+        (~10x cheaper).  It also unblocks running an ensemble at all when
+        ``world_size < M``.
+
+        Implementations must yield ``(tensor, coords)`` pairs whose coords
+        carry an ``ensemble`` axis holding *exactly* the items'
+        ``ensemble_id`` values, in order — the online scorer writes
+        per-member statistics at those absolute indices and validates them.
+
+        Parameters
+        ----------
+        items : list[WorkItem]
+            Members of one IC to run together, in ensemble-id order.
+        data_source : DataSource
+            Source for fetching input data.
+        device : torch.device
+            Target device for tensors.
+
+        Yields
+        ------
+        tuple[torch.Tensor, CoordSystem]
+            ``(data, coords)`` pairs with a leading ``ensemble`` dimension.
+
+        Raises
+        ------
+        NotImplementedError
+            By default.  Pipelines opt in by overriding this method.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement run_item_batched, so it "
+            "cannot carry more than one ensemble member per rank.  Either set "
+            "scoring.online.members_per_rank=1 (and launch at least "
+            "`ensemble_size` ranks), or implement the batched rollout."
+        )
+
+    def supports_member_batching(self) -> bool:
+        """Whether :meth:`run_item_batched` is implemented.
+
+        Checked by ``main.py`` before work is distributed, so an
+        unsupported ``members_per_rank`` fails at startup rather than after
+        the models have loaded.
+
+        Defaults to checking whether the concrete class overrides
+        :meth:`run_item_batched` at all.  This is only a safe proxy when a
+        subclass either implements both :meth:`run_item` and
+        :meth:`run_item_batched` itself, or inherits both unmodified from
+        the same ancestor.  A pipeline that overrides :meth:`run_item` with
+        behavior its ancestor's inherited :meth:`run_item_batched` does not
+        replicate (e.g. extra masking or skipped yields) must override this
+        method to return ``False`` explicitly — otherwise the batched path
+        silently diverges from the unbatched one.
+        """
+        return type(self).run_item_batched is not Pipeline.run_item_batched
+
+    def explicit_rng_components(self) -> list[Any]:
+        """Models this pipeline drives that need a component-specific reseed hook.
+
+        Consulted by :meth:`seed_member`, which always calls
+        ``torch.manual_seed(item.seed)`` unconditionally first — that alone
+        is enough to give perturbation methods and any model that draws
+        from the global RNG (e.g. a diffusion sampler with no exposed seed
+        hook) a unique, reproducible draw per member.  Default: empty.
+
+        An empty return here does **not** imply the pipeline's ensemble is
+        degenerate — it only means no component needs one of the three
+        hooks :func:`is_explicit_rng_component` checks for beyond the
+        global reseed.  A pipeline whose stochasticity comes purely from
+        IC perturbations or from a generative model with no ``set_rng`` /
+        ``number_of_samples`` / ``stochastic`` hook legitimately returns
+        ``[]`` here while still producing a non-degenerate ensemble.
+
+        An override must return *only* components that actually satisfy
+        :func:`is_explicit_rng_component` — filter with it rather than
+        returning every model this pipeline drives.  A component that
+        fails the check is a no-op in :meth:`seed_member`, so including it
+        anyway causes no bug, but it makes this method's return value an
+        inaccurate signal of which models need explicit reseeding (e.g.
+        for a future "ensemble_size > 1 with no explicit RNG component"
+        warning — note such a warning would still need to special-case
+        perturbation-only and global-RNG-only ensembles to avoid false
+        positives).
+        """
+        return []
+
+    def seed_member(self, item: WorkItem) -> None:
+        """Place every stochastic component in the state for member ``item.ensemble_id``.
+
+        Call this from :meth:`run_item` / :meth:`run_item_batched` before
+        the first model invocation.  ``torch.manual_seed(item.seed)`` runs
+        unconditionally first, so perturbation methods and any incidental
+        global-RNG use are covered regardless of what the model itself
+        does.  Each entry from :meth:`explicit_rng_components` is then
+        dispatched by the mechanism it exposes:
+
+        * has ``set_rng`` — ``component.set_rng(seed=item.seed, reset=True)``.
+        * has ``number_of_samples`` and ``seed`` — sample-indexed draw;
+          ``component.seed = item.seed`` and ``component.number_of_samples``
+          is set from :attr:`_members_per_rank`.  Member ``m`` of IC ``t``
+          is then a reproducible, independent draw indexed by ``(t, m)`` —
+          it is not required to equal the ``m``-th sample of a
+          single-process, ``M``-sample call.
+        * neither — global-RNG component; already covered by the
+          unconditional ``torch.manual_seed`` above.
+
+        Override only for a mechanism genuinely new to these three.
+        """
+        torch.manual_seed(item.seed)
+        for component in self.explicit_rng_components():
+            if hasattr(component, "set_rng"):
+                component.set_rng(seed=item.seed, reset=True)
+            elif hasattr(component, "number_of_samples") and hasattr(component, "seed"):
+                component.seed = item.seed
+                component.number_of_samples = self._members_per_rank
+
+    def known_missing_leads(self) -> set[np.timedelta64]:
+        """Lead times this pipeline structurally never yields.
+
+        Consulted by the online scorer's ``finish_item`` so its
+        missing-lead-time warning fires only for a genuine gap (a crashed
+        or partially resumed IC) rather than every single IC.  Default:
+        empty — most pipelines yield every lead time in their own output
+        schema.  ``DLESyMPipeline`` overrides this to declare
+        ``lead_time=0``, which its ``run_item`` deliberately skips (the
+        model's IC-window yield falls outside the output schema).
+        """
+        return set()
 
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
         """Declare zarr stores that ``predownload.py`` should populate.
@@ -545,7 +747,9 @@ class Pipeline(ABC):
         tuple[torch.Tensor, CoordSystem]
             Possibly-modified ``(x, coords)`` pair.
         """
-        if not has_ensemble:
+        if not has_ensemble or "ensemble" in coords:
+            # A batched rollout already carries its members on an
+            # ``ensemble`` axis, so there is nothing to inject.
             return x, coords
         x = x.unsqueeze(0)
         coords = CoordSystem({"ensemble": np.array([item.ensemble_id])} | dict(coords))
@@ -581,12 +785,14 @@ class Pipeline(ABC):
         self,
         work_items: list[WorkItem],
         data_source: DataSource | None,
-        output_mgr: OutputManager,
+        output_mgr: OutputManager | None,
         output_variables: list[str],
         device: torch.device,
         cfg: DictConfig | None = None,
+        scorer: Any = None,
+        member_batch: int = 1,
     ) -> None:
-        """Iterate work items, filter+regrid outputs, and write to the store.
+        """Iterate work items, filter+regrid outputs, and write/score them.
 
         Shared outer loop.  For each work item:
 
@@ -594,11 +800,18 @@ class Pipeline(ABC):
         2. Filters each yielded chunk to the configured output variables
            and the model's native spatial grid.
         3. If an output regridder is configured, applies it.
-        4. Injects the ensemble dim via :meth:`_inject_ensemble`.
-        5. Writes the chunk via :class:`OutputManager`.
+        4. Hands the chunk to the online scorer, when one is supplied.
+        5. Injects the ensemble dim via :meth:`_inject_ensemble` and writes
+           the chunk via :class:`OutputManager`, when one is supplied.
+
+        Steps 4 and 5 are independent: an online run with
+        ``output.retain=none`` scores without ever materializing
+        ``forecast.zarr``, while ``output.retain=all`` does both.
 
         When ``cfg.resume`` is true, a completion marker is written after
-        each work item so that resumed runs can skip it.
+        each work item so that resumed runs can skip it.  Online runs track
+        their own, IC-granular markers inside the scorer instead — an
+        ensemble group's unit of durability is the IC, not the member.
 
         Parameters
         ----------
@@ -608,8 +821,9 @@ class Pipeline(ABC):
             Source for fetching input data.  ``None`` is allowed for
             pipelines that set :attr:`needs_data_source` to ``False``
             (they manage their own sources internally).
-        output_mgr : OutputManager
-            Context-managed output handler (store already validated).
+        output_mgr : OutputManager | None
+            Context-managed output handler (store already validated), or
+            ``None`` to skip raw output entirely.
         output_variables : list[str]
             Variable names to sub-select before writing.
         device : torch.device
@@ -617,17 +831,40 @@ class Pipeline(ABC):
         cfg : DictConfig | None
             Full Hydra config.  Required when ``resume=true`` so that
             completion markers can be written.
+        scorer : src.online.OnlineScorer | None
+            When set, each yielded chunk is accumulated into sufficient
+            statistics as it is produced.  Typed loosely to keep
+            :mod:`src.online` (and its distributed machinery) off the
+            import path of runs that don't use it.
+        member_batch : int
+            Ensemble members to run together per rollout.  ``1`` (the
+            default) drives :meth:`run_item` once per work item.  Greater
+            than 1 groups *work_items* into consecutive blocks of that size
+            — which :func:`src.work.build_group_work_items` lays out as one
+            block per IC — and drives :meth:`run_item_batched` instead.
         """
         if not work_items:
             logger.warning("No work items for this rank — skipping inference.")
             return
+        if output_mgr is None and scorer is None:
+            raise ValueError(
+                "Pipeline.run needs an output manager, an online scorer, or "
+                "both — otherwise the run produces nothing."
+            )
+        if member_batch > 1 and len(work_items) % member_batch:
+            raise ValueError(
+                f"member_batch={member_batch} does not divide the "
+                f"{len(work_items)} assigned work items, so the batches would "
+                "straddle initial conditions."
+            )
 
         resume = cfg.get("resume", False) if cfg is not None else False
+        self._members_per_rank = member_batch
 
         # Filter at the model's native grid — cheaper than regridding
         # all model-output channels only to throw some away.
         native_filter = build_output_coords(self._spatial_ref, output_variables)
-        has_ensemble = "ensemble" in output_mgr.io.coords
+        has_ensemble = output_mgr is not None and "ensemble" in output_mgr.io.coords
 
         # Move output regridder to device once.
         if self._output_regridder is not None:
@@ -639,8 +876,23 @@ class Pipeline(ABC):
         # None is only passed when needs_data_source=False, in which case
         # the subclass's run_item ignores the argument.
         ds = cast(DataSource, data_source)
-        for item in tqdm(work_items, desc="Work items", position=0, disable=rank != 0):
-            for x_step, coords_step in self.run_item(item, ds, device):
+        batches = [
+            work_items[i : i + member_batch]
+            for i in range(0, len(work_items), member_batch)
+        ]
+        for batch in tqdm(batches, desc="Work items", position=0, disable=rank != 0):
+            # Every member of a batch shares an IC; the first stands in for
+            # the batch wherever a single item is needed (markers, seeds).
+            item = batch[0]
+            if scorer is not None:
+                scorer.begin_item(item)
+
+            steps = (
+                self.run_item(item, ds, device)
+                if member_batch == 1
+                else self.run_item_batched(batch, ds, device)
+            )
+            for x_step, coords_step in steps:
                 if self._run_item_includes_batch_dim and "batch" in coords_step:
                     batch_axis = list(coords_step.keys()).index("batch")
                     x_step = x_step.squeeze(batch_axis)
@@ -654,13 +906,21 @@ class Pipeline(ABC):
                         x_out, coords_out
                     )
 
-                x_out, coords_out = self._inject_ensemble(
-                    x_out, coords_out, item, has_ensemble
-                )
-                output_mgr.write(x_out, coords_out)
+                if scorer is not None:
+                    scorer.update(x_out, coords_out)
 
-            if resume:
+                if output_mgr is not None:
+                    x_write, coords_write = self._inject_ensemble(
+                        x_out, coords_out, item, has_ensemble
+                    )
+                    output_mgr.write(x_write, coords_write)
+
+            if scorer is not None:
+                scorer.finish_item(item)
+
+            if resume and output_mgr is not None:
                 output_mgr.flush()
-                write_marker(item, cfg)
+                for done in batch:
+                    write_marker(done, cfg)
 
         logger.success("Inference complete.")

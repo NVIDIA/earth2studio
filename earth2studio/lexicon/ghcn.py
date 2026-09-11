@@ -40,6 +40,7 @@ class GHCNDailyLexicon(metaclass=LexiconType):
     - https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt
     - https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily
     - https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/GHCND_documentation.pdf
+    - https://www.ncei.noaa.gov/oa/global-historical-climatology-network/
     """
 
     VOCAB: dict[str, str] = {
@@ -136,7 +137,6 @@ class GHCNHourlyLexicon(metaclass=LexiconType):
     Additional resources:
 
     - https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
-    - https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/access/
     """
 
     # Maps e2s variable name → GHCNh parquet column name (None = derived).

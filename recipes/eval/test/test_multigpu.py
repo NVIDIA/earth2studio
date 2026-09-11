@@ -90,3 +90,38 @@ class TestMultiGPU2:
             f"Worker failed (rc={result.returncode}):\n"
             f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
+
+    @pytest.mark.parametrize(
+        "worker",
+        ["online_grouping_invariance", "online_grouping_invariance_sync"],
+    )
+    def test_online_grouping_invariance(self, tmp_path, worker):
+        """Online statistics must not depend on how the ensemble is split."""
+        result = _run_worker(worker, nproc=2, output_dir=str(tmp_path))
+        assert result.returncode == 0, (
+            f"Worker failed (rc={result.returncode}):\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.device_count() < 4,
+    reason="Requires at least 4 CUDA GPUs",
+)
+class TestMultiGPU4:
+    @pytest.mark.parametrize(
+        "worker",
+        ["online_grouping_invariance", "online_grouping_invariance_sync"],
+    )
+    def test_online_grouping_invariance(self, tmp_path, worker):
+        """Same check at G = 4 — catches member-indexing bugs G = 2 hides.
+
+        At G = 2 the all-gather returns two blocks, so a rank that mixed up
+        "mine" and "theirs" can still land on the right answer by symmetry;
+        G = 4 is the smallest size where the blocks are distinguishable.
+        """
+        result = _run_worker(worker, nproc=4, output_dir=str(tmp_path))
+        assert result.returncode == 0, (
+            f"Worker failed (rc={result.returncode}):\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )

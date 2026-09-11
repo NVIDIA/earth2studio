@@ -14,9 +14,9 @@
 
 Common pairings:
 
-- **Global models** (AIFS, Pangu, GraphCast, SFNO, etc.) → GFS, ARCO, CDS, WB2ERA5, IFS
+- **Global models** (AIFS, Pangu, GraphCast, SFNO, etc.) → GFS, ARCO_ERA5, CDS_ERA5, WB2ERA5, IFS
 - **Regional models** (StormCast, HRRR-based) → HRRR
-- **Historical/research runs** → ARCO, CDS, WB2ERA5, NCAR_ERA5
+- **Historical/research runs** → ARCO_ERA5, CDS_ERA5, WB2ERA5, NCAR_ERA5
 
 ## IO Backend Selection
 

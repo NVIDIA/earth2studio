@@ -24,9 +24,10 @@ import torch
 import xarray as xr
 
 try:
-    from graphcast import graphcast
+    from weathernext.utils import variables
+    from weathernext.weathernext1_graph import graphcast
 except ImportError:
-    pytest.importorskip("graphcast")
+    pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
@@ -74,7 +75,7 @@ def mock_GraphCastSmall_model():
         input_variables=graphcast.TASK.input_variables,
         target_variables=graphcast.TASK.target_variables,
         forcing_variables=graphcast.TASK.forcing_variables,
-        pressure_levels=graphcast.PRESSURE_LEVELS[13],
+        pressure_levels=variables.PRESSURE_LEVELS[13],
         input_duration=graphcast.TASK.input_duration,
     )
 
@@ -88,23 +89,23 @@ def mock_GraphCastSmall_model():
 
     static_data = {}
     for v in (
-        graphcast.ALL_ATMOSPHERIC_VARS
+        variables.ALL_ATMOSPHERIC_VARS
         + graphcast.TARGET_SURFACE_VARS
         + graphcast.FORCING_VARS
     ):
         if v in graphcast.TARGET_ATMOSPHERIC_VARS:
-            static_data[v] = ("level", np.ones(len(graphcast.PRESSURE_LEVELS[37])))
+            static_data[v] = ("level", np.ones(len(variables.PRESSURE_LEVELS[37])))
         else:
             static_data[v] = 1
 
     diffs_stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+        static_data, coords={"level": list(variables.PRESSURE_LEVELS[37])}
     )
     mean_by_level = xr.Dataset(
-        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+        static_data, coords={"level": list(variables.PRESSURE_LEVELS[37])}
     )
     stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[37])}
+        static_data, coords={"level": list(variables.PRESSURE_LEVELS[37])}
     )
 
     # Create a proper checkpoint with initialized parameters
@@ -136,7 +137,7 @@ def mock_GraphCastSmall_model():
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
 def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
 
     p = mock_GraphCastSmall_model.to(device)
@@ -172,7 +173,7 @@ def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch(
-    "graphcast.rollout.chunked_prediction_generator",
+    "weathernext.utils.rollout.chunked_prediction_generator",
     mocked_chunked_prediction_generator,
 )
 def test_graphcast_small_iter(ensemble, device, mock_GraphCastSmall_model):
@@ -303,7 +304,7 @@ def mock_GraphCastOperational_model():
         input_variables=graphcast.TASK.input_variables,
         target_variables=graphcast.TASK.target_variables,
         forcing_variables=graphcast.TASK.forcing_variables,
-        pressure_levels=graphcast.PRESSURE_LEVELS[13],
+        pressure_levels=variables.PRESSURE_LEVELS[13],
         input_duration=graphcast.TASK.input_duration,
     )
 
@@ -317,22 +318,22 @@ def mock_GraphCastOperational_model():
 
     static_data = {}
     for v in (
-        graphcast.ALL_ATMOSPHERIC_VARS
+        variables.ALL_ATMOSPHERIC_VARS
         + graphcast.TARGET_SURFACE_VARS
         + graphcast.FORCING_VARS
     ):
         if v in graphcast.TARGET_ATMOSPHERIC_VARS:
-            static_data[v] = ("level", np.ones(len(graphcast.PRESSURE_LEVELS[13])))
+            static_data[v] = ("level", np.ones(len(variables.PRESSURE_LEVELS[13])))
         else:
             static_data[v] = 1
     diffs_stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[13])}
+        static_data, coords={"level": list(variables.PRESSURE_LEVELS[13])}
     )
     mean_by_level = xr.Dataset(
-        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[13])}
+        static_data, coords={"level": list(variables.PRESSURE_LEVELS[13])}
     )
     stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(graphcast.PRESSURE_LEVELS[13])}
+        static_data, coords={"level": list(variables.PRESSURE_LEVELS[13])}
     )
     ckpt = CKPT(model_config, task_config)
     p = GraphCastOperational(
@@ -357,7 +358,7 @@ def mock_GraphCastOperational_model():
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch("graphcast.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
 def test_graphcast_operational_call(time, device, mock_GraphCastOperational_model):
 
     p = mock_GraphCastOperational_model.to(device)
@@ -392,7 +393,7 @@ def test_graphcast_operational_call(time, device, mock_GraphCastOperational_mode
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @mock.patch(
-    "graphcast.rollout.chunked_prediction_generator",
+    "weathernext.utils.rollout.chunked_prediction_generator",
     mocked_chunked_prediction_generator,
 )
 def test_graphcast_operational_iter(ensemble, device, mock_GraphCastOperational_model):

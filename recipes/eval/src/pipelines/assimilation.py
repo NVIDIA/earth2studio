@@ -32,13 +32,14 @@ declared under ``cfg.model.da.obs_sources``), so ``needs_data_source`` is
 ``False`` and ``main.py`` skips top-level source resolution.  The DA model
 is expected to emit its analysis on the grid evaluation happens on — for
 HealDA, load with ``lat_lon: true`` and an ``output_resolution`` matching
-the verification source (``[721, 1440]`` for ARCO/ERA5 0.25°).
+the verification source (``[721, 1440]`` for ARCO_ERA5 0.25°).
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -62,7 +63,12 @@ from ..assimilation import (
 )
 from ..output import build_analysis_coords
 from ..work import WorkItem
-from .base import Pipeline, PredownloadFrameStore, PredownloadStore
+from .base import (
+    Pipeline,
+    PredownloadFrameStore,
+    PredownloadStore,
+    is_explicit_rng_component,
+)
 from .forecast import ForecastPipeline, _align_to_grid
 
 
@@ -127,7 +133,7 @@ class AssimilationPipeline(Pipeline):
     """
 
     needs_data_source = False
-
+    supports_online_scoring = True
     model: AssimilationModel
     obs_set: ObsSourceSet
     runner: AssimilationRunner
@@ -156,7 +162,7 @@ class AssimilationPipeline(Pipeline):
         sources have their own caches); only gridded verification data is
         predownloaded, at the analysis times themselves.  The store grid
         comes from the DA model's output coords, so the verification
-        source must return data on that grid (e.g. ARCO with HealDA's
+        source must return data on that grid (e.g. ARCO_ERA5 with HealDA's
         ``output_resolution: [721, 1440]``) — a mismatch fails loudly at
         download time.
         """
@@ -187,22 +193,64 @@ class AssimilationPipeline(Pipeline):
         times: list[np.datetime64] = sorted({i.time for i in build_work_items(cfg)})
         return _declare_obs_frame_stores(cfg, times)
 
+    def explicit_rng_components(self) -> list[Any]:
+        return [self.model] if is_explicit_rng_component(self.model) else []
+
     def run_item(
         self,
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        if hasattr(self.model, "set_rng"):
-            self.model.set_rng(seed=item.seed, reset=True)
-        else:
-            # No-op for deterministic DA models; makes stochastic ones
-            # reproducible per ensemble member.
-            torch.manual_seed(item.seed)
+        self.seed_member(item)
 
         analysis = self.runner.analysis(item.time)
         x, coords = analysis_to_tensor(analysis, device)
         x, coords = insert_zero_lead_time(x, coords)
+        yield x, coords
+
+    def run_item_batched(
+        self,
+        items: list[WorkItem],
+        data_source: DataSource,
+        device: torch.device,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Run several ensemble members of one IC's analysis together.
+
+        Unlike :class:`~.forecast.ForecastPipeline`, the DA runner has no
+        batched-analysis API — :meth:`~src.assimilation.AssimilationRunner.analysis`
+        produces one member per call — so members run serially, each seeded
+        via :meth:`seed_member` before its own call (a no-op for a
+        deterministic DA model), and are stacked onto a leading ``ensemble``
+        axis afterward.
+        """
+        if not items:
+            return
+        times = {item.time for item in items}
+        if len(times) != 1:
+            raise ValueError(
+                f"run_item_batched expects one initial condition per batch, "
+                f"got {sorted(str(t) for t in times)}."
+            )
+
+        member_ids = np.array([item.ensemble_id for item in items])
+        slices: list[torch.Tensor] = []
+        coords0: CoordSystem | None = None
+        for item in items:
+            self.seed_member(item)
+            analysis = self.runner.analysis(item.time)
+            x, coords = analysis_to_tensor(analysis, device)
+            x, coords = insert_zero_lead_time(x, coords)
+            slices.append(x)
+            coords0 = coords
+        if coords0 is None:
+            raise RuntimeError(
+                "run_item_batched produced no coords — items was checked "
+                "non-empty above."
+            )
+
+        x = torch.stack(slices, dim=0)
+        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
         yield x, coords
 
 

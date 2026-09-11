@@ -39,6 +39,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
 )
+from earth2studio.data.utils_eumetsat import eumetsat_credentials
 from earth2studio.lexicon.meteosat import MeteosatFCILexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -49,10 +50,12 @@ from earth2studio.utils.type import TimeArray, VariableArray
 try:
     import eumdac
     import netCDF4
+    import urllib3
 except ImportError:
     OptionalDependencyFailure("data")
     eumdac = None  # type: ignore[assignment]
     netCDF4 = None  # type: ignore[assignment]
+    urllib3 = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -329,11 +332,11 @@ class MeteosatFCI:
     Additional information on the data repository:
 
     - https://data.eumetsat.int/product/EO:EUM:DAT:0662
-    - https://www.eumetsat.int/mtg-fci-level-1c-full-disk
+    - https://user.eumetsat.int/resources/user-guides/mtg-fci-level-1c-data-guide
 
     Badges
     ------
-    region:eu region:af dataclass:observation product:sat
+    region:eu region:af dataclass:observation product:sat provider:eumetsat
     """
 
     COLLECTION_ID: dict[Literal["FDHSI", "HRFI"], str] = {
@@ -382,34 +385,33 @@ class MeteosatFCI:
         self.async_timeout = async_timeout
         self._retries = retries
         self._tmp_cache_hash: str | None = None
+        self._open_datasets: dict[str, netCDF4.Dataset] = {}
 
         # Grid (lazily computed on first access)
         self._grid: tuple[np.ndarray, np.ndarray] | None = None
 
-        # Credentials from environment variables
-        self._consumer_key = os.environ.get("EUMETSAT_CONSUMER_KEY", "")
-        self._consumer_secret = os.environ.get("EUMETSAT_CONSUMER_SECRET", "")
-        # Attempt read from .eumdc/credentials file
-        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/config.py?ref_type=heads#L14
-        # https://gitlab.eumetsat.int/eumetlab/data-services/eumdac/-/blob/public/eumdac/cli_helpers.py?ref_type=heads#L165
-        if not self._consumer_key or not self._consumer_secret:
-            eumdac_credentials_file = (
-                pathlib.Path(
-                    os.getenv("EUMDAC_CONFIG_DIR", (pathlib.Path.home() / ".eumdac"))
-                )
-                / "credentials"
+        # Credentials from environment variables, falling back to the eumdac
+        # CLI credentials file
+        self._consumer_key, self._consumer_secret = eumetsat_credentials()
+
+    def available_variables(self) -> set[str]:
+        """Return variables available at the current resolution.
+
+        Returns
+        -------
+        set
+            Set of strings indicating the variables available at the resolution
+            passed to the constructor.
+        """
+        return {
+            k
+            for (k, v) in MeteosatFCILexicon.VOCAB.items()
+            if self._resolution
+            in (
+                _VARIABLE_RESOLUTION[collection].get(v[0])
+                for collection in _VARIABLE_RESOLUTION
             )
-            try:
-                with open(eumdac_credentials_file) as f:
-                    credentials = f.read().strip()
-                key, secret = credentials.split(",", 1)
-                self._consumer_key = key.strip()
-                self._consumer_secret = secret.strip()
-            except (OSError, ValueError):
-                logger.warning(
-                    "EUMETSAT_CONSUMER_KEY and/or EUMETSAT_CONSUMER_SECRET not set. "
-                    "Data fetching will fail."
-                )
+        }
 
     def __call__(
         self,
@@ -524,7 +526,13 @@ class MeteosatFCI:
                 collection,
                 retries=self._retries,
                 backoff=2.0,
-                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+                exceptions=(
+                    OSError,
+                    IOError,
+                    TimeoutError,
+                    ConnectionError,
+                    urllib3.exceptions.ProtocolError,
+                ),
             )
             for (t, collection) in downloads
         ]
@@ -538,15 +546,20 @@ class MeteosatFCI:
         # Phase 2: Read NetCDF segments sequentially (HDF5/netCDF4 is
         # not thread-safe — concurrent reads cause segfaults)
         for i, t in enumerate(time):
-            for j, v in enumerate(variable):
-                product_dir = product_dir_map[t, collections[v]]
-                channel_name, modifier = MeteosatFCILexicon[v]  # type: ignore[misc]
-                if collections[v] == "HRFI":
-                    channel_name += "_hr"
-                data = self._read_channel(product_dir, channel_name, self._pixel_roi)
-                if self.flip_north_south:
-                    data = np.flipud(data)
-                xr_array[i, j] = modifier(data)
+            try:
+                for j, v in enumerate(variable):
+                    product_dir = product_dir_map[t, collections[v]]
+                    channel_name, modifier = MeteosatFCILexicon[v]  # type: ignore[misc]
+                    if collections[v] == "HRFI":
+                        channel_name += "_hr"
+                    data = self._read_channel(
+                        product_dir, channel_name, self._pixel_roi
+                    )
+                    if self.flip_north_south:
+                        data = np.flipud(data)
+                    xr_array[i, j] = modifier(data)
+            finally:
+                self._cleanup_datasets()
 
         # Attach grid coordinates
         if self.flip_north_south:
@@ -674,6 +687,18 @@ class MeteosatFCI:
         # Remove zip to save space
         os.remove(zip_path)
 
+    def _ensure_dataset(self, bf: str) -> netCDF4.Dataset:
+        """Open FCI NetCDF file if not already open."""
+        if bf not in self._open_datasets:
+            self._open_datasets[bf] = netCDF4.Dataset(bf, "r")
+        return self._open_datasets[bf]
+
+    def _cleanup_datasets(self) -> None:
+        """Close all opened datasets."""
+        for ds in self._open_datasets.values():
+            ds.close()
+        self._open_datasets.clear()
+
     def _read_channel(
         self,
         product_dir: str,
@@ -733,64 +758,62 @@ class MeteosatFCI:
         segment_i_offset = 0
 
         for bf in body_files:
-            ds = netCDF4.Dataset(bf, "r")
+            ds = self._ensure_dataset(bf)
+
+            # Navigate to the channel group
             try:
-                # Navigate to the channel group
-                try:
-                    grp = ds[group_path]
-                except (IndexError, KeyError):
-                    logger.debug(
-                        "Group '{}' not found in {}; skipping",
-                        group_path,
-                        os.path.basename(bf),
-                    )
-                    continue
+                grp = ds[group_path]
+            except (IndexError, KeyError):
+                logger.debug(
+                    "Group '{}' not found in {}; skipping",
+                    group_path,
+                    os.path.basename(bf),
+                )
+                continue
 
-                if "effective_radiance" not in grp.variables:
-                    logger.debug(
-                        "effective_radiance not in group '{}' of {}; skipping",
-                        group_path,
-                        os.path.basename(bf),
-                    )
-                    continue
+            if "effective_radiance" not in grp.variables:
+                logger.debug(
+                    "effective_radiance not in group '{}' of {}; skipping",
+                    group_path,
+                    os.path.basename(bf),
+                )
+                continue
 
-                var = grp.variables["effective_radiance"]
-                shape = var.shape
-                local_nrows = shape[-2]
+            var = grp.variables["effective_radiance"]
+            shape = var.shape
+            local_nrows = shape[-2]
 
-                if (i0 >= segment_i_offset + local_nrows) or (i1 <= segment_i_offset):
-                    segment_i_offset += local_nrows
-                    continue
-
-                local_i0 = max(0, i0 - segment_i_offset)
-                local_i1 = min(local_nrows, i1 - segment_i_offset)
-
-                # Disable auto scale/offset so we can handle fill values
-                # and apply the transform ourselves exactly once.
-                ds.set_auto_maskandscale(False)
-                raw = var[..., local_i0:local_i1, j0:j1]
-                if raw.ndim == 3:
-                    raw = raw[0]
-
-                fill = getattr(var, "_FillValue", None)
-                scale = getattr(var, "scale_factor", 1.0)
-                offset = getattr(var, "add_offset", 0.0)
-
-                data = raw.astype(np.float64) * scale + offset
-                if channel_name in ("ir_38", "ir_38_hr"):
-                    warm_scale = getattr(var, "warm_scale_factor", 1.0)
-                    warm_offset = getattr(var, "warm_add_offset", 0.0)
-                    hdr_mask = raw > 4095
-                    data[hdr_mask] = (
-                        raw[hdr_mask].astype(np.float64) * warm_scale + warm_offset
-                    )
-
-                if fill is not None:
-                    data[raw == fill] = np.nan
-                segments.append(data)
+            if (i0 >= segment_i_offset + local_nrows) or (i1 <= segment_i_offset):
                 segment_i_offset += local_nrows
-            finally:
-                ds.close()
+                continue
+
+            local_i0 = max(0, i0 - segment_i_offset)
+            local_i1 = min(local_nrows, i1 - segment_i_offset)
+
+            # Disable auto scale/offset so we can handle fill values
+            # and apply the transform ourselves exactly once.
+            ds.set_auto_maskandscale(False)
+            raw = var[..., local_i0:local_i1, j0:j1]
+            if raw.ndim == 3:
+                raw = raw[0]
+
+            fill = getattr(var, "_FillValue", None)
+            scale = getattr(var, "scale_factor", 1.0)
+            offset = getattr(var, "add_offset", 0.0)
+
+            data = raw.astype(np.float64) * scale + offset
+            if channel_name in ("ir_38", "ir_38_hr"):
+                warm_scale = getattr(var, "warm_scale_factor", 1.0)
+                warm_offset = getattr(var, "warm_add_offset", 0.0)
+                hdr_mask = raw > 4095
+                data[hdr_mask] = (
+                    raw[hdr_mask].astype(np.float64) * warm_scale + warm_offset
+                )
+
+            if fill is not None:
+                data[raw == fill] = np.nan
+            segments.append(data)
+            segment_i_offset += local_nrows
 
         if not segments:
             raise ValueError(
@@ -942,6 +965,7 @@ class MeteosatFCI:
     @staticmethod
     def projection_extent(
         resolution: Literal["2km", "1km", "500m"] = "2km",
+        pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None,
     ) -> tuple[float, float, float, float]:
         """Return the geostationary projection extent in metres for plotting.
 
@@ -955,6 +979,12 @@ class MeteosatFCI:
         resolution : Literal["2km", "1km", "500m"], optional
             Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
             ``'2km'``
+        pixel_bbox : tuple[tuple[int, int], tuple[int, int]] | None, optional
+            Bounding box ``((row_start, row_end), (col_start, col_end))`` in
+            pixel coordinates, matching the ``pixel_bbox`` argument accepted
+            by the :class:`MeteosatFCI` constructor. When provided, the
+            extent is computed for this cropped sub-region of the full disk
+            rather than the full disk itself. By default None (full disk).
 
         Returns
         -------
@@ -963,6 +993,10 @@ class MeteosatFCI:
         """
         fci_x = MeteosatFCI.FCI_X[resolution]
         fci_y = MeteosatFCI.FCI_Y[resolution]
+        if pixel_bbox is not None:
+            (i0, i1), (j0, j1) = pixel_bbox
+            fci_y = fci_y[i0:i1]
+            fci_x = fci_x[j0:j1]
 
         h = PERSPECTIVE_POINT_HEIGHT
         # Pixel edges span 0.5 to N+0.5; extent uses outermost edges
@@ -972,8 +1006,8 @@ class MeteosatFCI:
         y_max = (fci_y[-1] + 0.5 * (fci_y[-1] - fci_y[-2])) * h
 
         return (
-            min(x_min, x_max),
-            max(x_min, x_max),
+            -max(x_min, x_max),  # min-max swap accounts for FCI east-west convention
+            -min(x_min, x_max),
             min(y_min, y_max),
             max(y_min, y_max),
         )

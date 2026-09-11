@@ -1,6 +1,6 @@
 ---
 name: earth2studio-install
-version: 0.16.0
+version: 0.18.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
@@ -65,12 +65,26 @@ between releases. **Before executing or recommending any install command,
 fetch the live installation docs:**
 
 ```text
-https://nvidia.github.io/earth2studio/userguide/about/install.html
+https://nvidia.github.io/earth2studio/main/userguide/about/install/
 ```
 
 Parse the page for the current version tag, available extras, and any
 special build notes. The workflow below is structural guidance — the
 specific commands come from the live page.
+
+**Local fallback:** if WebFetch is unavailable or the live page does not
+render fully (e.g. JavaScript widget), read the install configuration
+file in the repository instead:
+
+```text
+docs/userguide/about/install_options.yml
+```
+
+This YAML file is the single source of truth used to generate the
+install page. It contains the current release tag, every optional extra
+grouped by category (prognostic, diagnostic, data-assimilation, data,
+perturbation, statistics, utils), per-extra preinstall steps, warnings,
+and command templates for both uv and pip.
 
 ## Instructions
 
@@ -78,10 +92,14 @@ specific commands come from the live page.
 
 Use WebFetch on the install URL above. Extract:
 
-- Current release version tag (e.g. `@0.14.0`)
+- Current release version tag (e.g. `@0.18.0`)
 - Available optional extras by category
 - Known build quirks (e.g. `--no-build-isolation` for pip,
   manual pre-installs)
+
+If the live page is incomplete or unavailable, read
+`docs/userguide/about/install_options.yml` from the repository to
+obtain the same information.
 
 Keep this data in working memory for all subsequent steps.
 
@@ -117,10 +135,10 @@ docs:
 
 | Category | Example extras |
 |----------|---------------|
-| Prognostic (forecasting) | aifs, aurora, graphcast, pangu, sfno, stormcast, ... |
-| Diagnostic (post-processing) | corrdiff, climatenet, precip-afno, ... |
-| Data assimilation (beta) | da-healda, da-interp, da-stormcast |
-| Submodules | data, perturbation, statistics |
+| Prognostic (forecasting) | ace2, aifs, aifs2, atlas, aurora, dlesym, dlwp, fcn, fcn3, fengwu, fuxi, gencast, graphcast, pangu, samudrace, sfno, stormcast, stormcast-conus, stormscope, ucast, ... |
+| Diagnostic (post-processing) | cbottle, climatenet, corrdiff, cosmo, cyclone, derived, orbit, precip-afno, solarradiation-afno, windgust-afno, ... |
+| Data assimilation (beta) | da-cosmo, da-healda, da-interp, da-stormcast |
+| Submodules | data, perturbation, statistics, utils |
 
 The exact list comes from the live docs — cite those, not this table.
 
@@ -137,12 +155,13 @@ Provide the exact commands from the live docs for their selections.
 Key warnings to surface:
 
 - **Slow builds**: flash-attention (AIFS variants), natten
-  (Atlas, StormScope), torch-harmonics CUDA extensions (FCN3, SFNO)
-  — can take 10-30+ minutes
+  (Atlas, StormCast-CONUS, StormScope, CorrDiff COSMO), torch-harmonics
+  CUDA extensions (FCN3, SFNO) — can take 10-30+ minutes
 - **pip-specific manual steps**: some models require
   `--no-build-isolation` or pre-installing packages like earth2grid,
   torch-harmonics, or makani
-- **Data assimilation models**: require CuPy + cuDF (CUDA 12)
+- **Data assimilation models**: require CuPy (+ cuDF for most; `da-cosmo` is
+  CuPy-only), defaulting to CUDA 13 (`cupy-cuda13x`, `cudf-cu13`)
 
 ### Step 6. Configuration (offer, don't force)
 
@@ -160,8 +179,8 @@ relevant (e.g. limited disk, shared filesystem, CI environment):
 
 If installation fails, point the user to:
 
-- <https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html>
-- <https://nvidia.github.io/earth2studio/userguide/support/faq.html>
+- <https://nvidia.github.io/earth2studio/main/userguide/support/troubleshooting/>
+- <https://nvidia.github.io/earth2studio/main/userguide/support/faq/>
 
 Common issues:
 

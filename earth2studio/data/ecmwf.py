@@ -588,13 +588,13 @@ class IFS(_ECMWFOpenDataSource):
     Additional information on the data repository can be referenced here:
 
     - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
 
     Badges
     ------
-    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -702,13 +702,13 @@ class IFS_FX(_ECMWFOpenDataSource):
     Additional information on the data repository can be referenced here:
 
     - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -840,13 +840,13 @@ class IFS_ENS(_ECMWFOpenDataSource):
     Additional information on the data repository can be referenced here:
 
     - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
 
     Badges
     ------
-    region:global dataclass:analysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:analysis dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -990,13 +990,13 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     Additional information on the data repository can be referenced here:
 
     - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:ifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = IFSLexicon
@@ -1144,13 +1144,13 @@ class AIFS_FX(_ECMWFOpenDataSource):
     Additional information on the data repository can be referenced here:
 
     - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:aifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = AIFSLexicon
@@ -1265,13 +1265,13 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     Additional information on the data repository can be referenced here:
 
     - https://github.com/ecmwf/ecmwf-opendata
-    - https://confluence.ecmwf.int/display/DAC/ECMWF+open+data%3A+real-time+forecasts
+    - https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
     - https://registry.opendata.aws/ecmwf-forecasts/
     - https://console.cloud.google.com/storage/browser/ecmwf-open-data/
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:precip product:temp product:atmos
+    region:global dataclass:simulation dataset:aifs product:wind product:precip product:temp product:atmos provider:ecmwf
     """
 
     LEXICON = AIFSLexicon

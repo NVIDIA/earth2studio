@@ -43,4 +43,6 @@ def lat_weight(lat: T) -> T:
     """
     lib = np if isinstance(lat, np.ndarray) else torch
     weights = lib.cos(lat * lib.pi / 180.0)
+    # prevent rounding to a small NEGATIVE number in float32
+    weights = lib.clip(weights, 0.0, None) if lib is np else weights.clamp(min=0.0)
     return weights / weights.mean()

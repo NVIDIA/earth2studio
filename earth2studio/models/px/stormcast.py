@@ -138,8 +138,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:na class:nwc product:wind product:temp product:radar product:atmos year:2024
+    region:na class:nowcasting product:wind product:temp product:radar product:atmos year:2024
     gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -486,6 +487,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         output_coords = self.output_coords(coords)
 
+        x = x.clone()  # prevent editing of argument
         for i, _ in enumerate(coords["batch"]):
             for j, _ in enumerate(coords["time"]):
                 for k, _ in enumerate(coords["lead_time"]):

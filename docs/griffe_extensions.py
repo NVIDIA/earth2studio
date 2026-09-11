@@ -22,7 +22,7 @@ import re
 import griffe
 
 BADGE_RE = re.compile(
-    r"\b(?:region|class|dataclass|year|product|gpu):[A-Za-z0-9_.-]+\b"
+    r"\b(?:region|class|task|dataclass|year|product|gpu|provider|backend):[A-Za-z0-9_.-]+\b"
 )
 RST_INLINE_ROLE_RE = re.compile(
     r":(?:(?P<domain>[A-Za-z][\w-]*):)?"

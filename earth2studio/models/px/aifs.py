@@ -95,7 +95,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:precip product:temp product:atmos product:land product:solar year:2025 gpu:40gb
+    region:global class:medium-range product:wind product:precip product:temp product:atmos product:land product:solar year:2025 gpu:40gb
+    provider:ecmwf backend:pytorch
     """
 
     VARIABLES = [

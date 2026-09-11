@@ -201,7 +201,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
     analyses and as such recommended to be initialized with IFS analyses.
     The open-data IFS does not publish sea ice concentration (``sic``).
-    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO`
+    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO_ERA5`
     (which provide all required variables) may be used instead. GFS is not
     supported due to missing surface variables.
 
@@ -228,7 +228,8 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    region:global class:medium-range product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    provider:microsoft backend:pytorch
     """
 
     def __init__(
@@ -644,7 +645,8 @@ class Aurora1p5Ensemble(Aurora1p5):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    region:global class:medium-range product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    provider:microsoft backend:pytorch
     """
 
     def __init__(

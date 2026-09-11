@@ -30,13 +30,13 @@ defaults:
     shell: bash
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.5
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
   E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
   DOC_PUBLIC_BUILD: "false"
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
-  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/.cache/earth2studio-data
+  EARTH2STUDIO_DATA_CACHE: ${{ github.workspace }}/docs-data
   EARTHMOVER_API_KEY: ${{ secrets.EARTHMOVER_API_KEY }}
   EARTHMOVER_ORGANIZATION: ${{ secrets.EARTHMOVER_ORGANIZATION }}
   EUMETSAT_CONSUMER_KEY: ${{ secrets.EUMETSAT_CONSUMER_KEY }}
@@ -47,6 +47,8 @@ env:
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
+  XLA_PYTHON_CLIENT_ALLOCATOR: vmm
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
 
 jobs:
   changes:
@@ -172,7 +174,7 @@ jobs:
     timeout-minutes: 180
     container:
       image: *e2s_ci_image
-      options: --shm-size=20g
+      options: --shm-size=20g --cap-add=SYS_NICE
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -191,10 +193,9 @@ jobs:
       - name: Build docs
         uses: ./.github/actions/build-light-docs
         with:
-          artifact-name: docs-pr-html
-          artifact-retention-days: "10"
           gallery-cache-name: main
           save-caches: "false"
+          upload-artifact: "false"
 
   test:
     name: Test
@@ -205,7 +206,7 @@ jobs:
     runs-on: linux-amd64-gpu-h100-latest-1
     container:
       image: *e2s_ci_image
-      options: --shm-size=20g
+      options: --shm-size=20g --cap-add=SYS_NICE
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

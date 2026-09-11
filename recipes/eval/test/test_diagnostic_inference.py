@@ -25,6 +25,7 @@ import pytest
 import torch
 from src.output import OutputManager, build_diagnostic_coords
 from src.pipelines import DiagnosticPipeline
+from src.pipelines.diagnostic import _spatial_ref_from_output_coords
 from src.work import WorkItem
 
 _DIST_PATH = "src.output.DistributedManager"
@@ -66,7 +67,9 @@ def _make_diagnostic_pipeline(diagnostics):
     pipeline._all_input_vars = all_input_vars
 
     dx0 = pipeline.diagnostics[0]
-    pipeline._spatial_ref = dx0.output_coords(pipeline._dx_input_coords[id(dx0)])
+    pipeline._spatial_ref = _spatial_ref_from_output_coords(
+        dx0.output_coords(pipeline._dx_input_coords[id(dx0)])
+    )
     pipeline._zero_lead = np.array([np.timedelta64(0, "ns")])
     return pipeline
 
@@ -232,3 +235,89 @@ class TestDiagnosticPipeline:
         assert "lead_time" in coords
         assert len(coords["lead_time"]) == 1
         assert coords["lead_time"][0] == np.timedelta64(0, "ns")
+
+
+# ---------------------------------------------------------------------------
+# Generative diagnostics (phase 3): sample -> ensemble
+# ---------------------------------------------------------------------------
+#
+# A generative diagnostic (e.g. CorrDiff) emits its own leading 'sample'
+# axis instead of expressing ensemble draws through the pipeline's own
+# machinery.  DiagnosticPipeline must: (1) strip 'sample' from the static
+# spatial reference so it isn't classified as a bogus spatial dim, (2) set
+# number_of_samples from the member block size (via seed_member), and (3)
+# rename each call's 'sample' axis to 'ensemble', carrying this rank's
+# *global* member ids.
+
+
+class TestGenerativeDiagnosticSampleAxis:
+    def test_spatial_ref_excludes_sample(self, fake_generative_diagnostic):
+        pipeline = _make_diagnostic_pipeline([fake_generative_diagnostic])
+        assert "sample" not in pipeline._spatial_ref
+        assert "lat" in pipeline._spatial_ref
+        assert "lon" in pipeline._spatial_ref
+
+    def test_run_item_renames_sample_to_this_members_ensemble_id(
+        self, fake_generative_diagnostic, data_source
+    ):
+        pipeline = _make_diagnostic_pipeline([fake_generative_diagnostic])
+        item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=3, seed=7)
+
+        x, coords = next(
+            iter(pipeline.run_item(item, data_source, torch.device("cpu")))
+        )
+
+        # seed_member set number_of_samples from _members_per_rank (default
+        # 1, since run_item is unbatched -- the G=M, K=1 layout).
+        assert fake_generative_diagnostic.number_of_samples == 1
+        assert "sample" not in coords
+        assert "ensemble" in coords
+        np.testing.assert_array_equal(coords["ensemble"], np.array([3]))
+        assert x.shape[list(coords).index("ensemble")] == 1
+
+    def test_run_item_batched_renames_sample_to_the_batchs_member_ids(
+        self, fake_generative_diagnostic, data_source
+    ):
+        pipeline = _make_diagnostic_pipeline([fake_generative_diagnostic])
+        items = [
+            WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=eid, seed=eid)
+            for eid in (2, 3, 4)
+        ]
+        # Normally set by Pipeline.run() from its member_batch argument;
+        # set directly here since the test drives run_item_batched itself.
+        pipeline._members_per_rank = len(items)
+
+        x, coords = next(
+            iter(pipeline.run_item_batched(items, data_source, torch.device("cpu")))
+        )
+
+        assert fake_generative_diagnostic.number_of_samples == 3
+        assert "sample" not in coords
+        assert "ensemble" in coords
+        np.testing.assert_array_equal(coords["ensemble"], np.array([2, 3, 4]))
+        assert x.shape[list(coords).index("ensemble")] == 3
+
+    def test_deterministic_and_generative_diagnostics_align(
+        self, fake_generative_diagnostic, fake_diagnostic, data_source
+    ):
+        """Mixing a sample-bearing diagnostic with a deterministic one must
+        broadcast the deterministic output (and the raw fetched input)
+        onto the same ensemble axis before cat_coords -- which requires
+        every operand to carry identical dim names in identical order --
+        rather than erroring on the mismatch.
+        """
+        pipeline = _make_diagnostic_pipeline(
+            [fake_generative_diagnostic, fake_diagnostic]
+        )
+        item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=1, seed=1)
+
+        x, coords = next(
+            iter(pipeline.run_item(item, data_source, torch.device("cpu")))
+        )
+
+        assert "ensemble" in coords
+        np.testing.assert_array_equal(coords["ensemble"], np.array([1]))
+        variables = [str(v) for v in coords["variable"]]
+        assert "sample_out" in variables, "generative diagnostic's own output"
+        assert "diag_a" in variables, "deterministic diagnostic's output"
+        assert "t2m" in variables, "raw fetched input passed through"

@@ -370,6 +370,10 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     prepare_output_tensor : PrepareOutputTensor | None, optional
         Callable or Protocol-implementing object to prepare output tensor. If None,
         uses PrepareOutputTensorDefault which concatenates all outputs, by default None
+
+    Badges
+    ------
+    region:global provider:nvidia backend:pytorch
     """
 
     def __init__(

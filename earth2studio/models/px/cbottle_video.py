@@ -94,6 +94,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+    - https://huggingface.co/nvidia/cbottle
 
     Parameters
     ----------
@@ -121,8 +122,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:cm product:wind product:precip product:temp product:atmos
+    region:global class:climate product:wind product:precip product:temp product:atmos
     product:solar year:2025 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))

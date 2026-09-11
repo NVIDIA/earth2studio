@@ -11,7 +11,10 @@ resolution-markers = [
 ]
 
 [manifest]
-overrides = [{ name = "onnx", marker = "python_full_version < '3.13'" }]
+overrides = [
+    { name = "natten", specifier = "==0.21.6+torch2110cu130" },
+    { name = "onnx", marker = "python_full_version < '3.13'" },
+]
 
 [[package]]
 name = "affine"
@@ -1033,6 +1036,7 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "loguru" },
     { name = "netcdf4" },
+    { name = "obspec" },
     { name = "obstore" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -1061,7 +1065,9 @@ data = [
     { name = "eccodeslib" },
     { name = "ecmwf-opendata" },
     { name = "eumdac" },
+    { name = "gribberish", marker = "python_full_version >= '3.12'" },
     { name = "httpx" },
+    { name = "icechunk", marker = "python_full_version >= '3.12'" },
     { name = "intake-esgf", marker = "python_full_version >= '3.12'" },
     { name = "pcodec", marker = "python_full_version >= '3.12'" },
     { name = "planetary-computer" },
@@ -1118,8 +1124,8 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'serve'", specifier = ">=1.15.0" },
     { name = "azure-storage-blob", marker = "extra == 'all'", specifier = ">=12.19.0" },
     { name = "azure-storage-blob", marker = "extra == 'serve'", specifier = ">=12.19.0" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NickGeneva/cBottle.git?rev=e48c7eb518d49d4a92b2a1397d683e765c02c354" },
-    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NickGeneva/cBottle.git?rev=e48c7eb518d49d4a92b2a1397d683e765c02c354" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/NVlabs/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587" },
+    { name = "cbottle", marker = "python_full_version >= '3.12' and extra == 'cbottle'", git = "https://github.com/NVlabs/cBottle.git?rev=f0f519987589cc0b368ab892a1adfb2fb30a5587" },
     { name = "cdsapi", marker = "extra == 'all'", specifier = ">=0.7.5" },
     { name = "cdsapi", marker = "extra == 'data'", specifier = ">=0.7.5" },
     { name = "cfgrib", marker = "extra == 'all'", git = "https://github.com/NickGeneva/cfgrib.git?rev=6a9af3173d7050b5fa5d221755f97e6ecb8c3433" },
@@ -1170,6 +1176,7 @@ requires-dist = [
     { name = "einops", marker = "extra == 'all'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'atlas'" },
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
+    { name = "einops", marker = "extra == 'cosmo'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'da-stormcast'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
     { name = "eumdac", marker = "extra == 'all'", specifier = ">=3.1.0" },
@@ -1189,6 +1196,8 @@ requires-dist = [
     { name = "graphcast", marker = "extra == 'all'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "graphcast", marker = "extra == 'gencast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "graphcast", marker = "extra == 'graphcast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
+    { name = "gribberish", marker = "python_full_version >= '3.12' and extra == 'all'", specifier = ">=1.5.0" },
+    { name = "gribberish", marker = "python_full_version >= '3.12' and extra == 'data'", specifier = ">=1.5.0" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
     { name = "hiredis", marker = "extra == 'all'", specifier = ">=2.0.0" },
@@ -1202,6 +1211,8 @@ requires-dist = [
     { name = "hydra-core", marker = "extra == 'all'", specifier = ">=1.3.2" },
     { name = "hydra-core", marker = "extra == 'dlesym'", specifier = ">=1.3.2" },
     { name = "hydra-core", marker = "extra == 'serve'", specifier = ">=1.3.0" },
+    { name = "icechunk", marker = "python_full_version >= '3.12' and extra == 'all'", specifier = ">=2.0.0" },
+    { name = "icechunk", marker = "python_full_version >= '3.12' and extra == 'data'", specifier = ">=2.0.0" },
     { name = "importlib-metadata", marker = "extra == 'all'" },
     { name = "importlib-metadata", marker = "extra == 'dlwp'" },
     { name = "intake-esgf", marker = "python_full_version >= '3.12' and extra == 'all'", specifier = ">=2026.1.26" },
@@ -1213,8 +1224,8 @@ requires-dist = [
     { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
     { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
     { name = "makani", marker = "extra == 'sfno'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
-    { name = "microsoft-aurora", marker = "extra == 'all'", specifier = ">=1.6.0" },
-    { name = "microsoft-aurora", marker = "extra == 'aurora'", specifier = ">=1.6.0" },
+    { name = "microsoft-aurora", marker = "extra == 'all'", specifier = ">=2.0.0" },
+    { name = "microsoft-aurora", marker = "extra == 'aurora'", specifier = ">=2.0.0" },
     { name = "moviepy", marker = "extra == 'all'" },
     { name = "moviepy", marker = "extra == 'fcn3'" },
     { name = "moviepy", marker = "extra == 'sfno'" },
@@ -1222,16 +1233,20 @@ requires-dist = [
     { name = "multi-storage-client", marker = "extra == 'serve'", specifier = ">=0.44.0" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'all'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'atlas'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'cosmo'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormcast-conus'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormscope'" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
+    { name = "nvidia-physicsnemo", marker = "python_full_version < '3.14' and extra == 'all'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "python_full_version < '3.14' and extra == 'da-healda'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0,<=2.1.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.1.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.2.0a0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'da-healda'", specifier = ">=2.0,<=2.1.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=bf0ad4f43275b84a7beab35127d57a99cd359260" },
     { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
@@ -1242,18 +1257,23 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast-conus'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=bf0ad4f43275b84a7beab35127d57a99cd359260" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = ">=2.1.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'cosmo'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'stormcast-conus'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormscope'", specifier = ">=0.2.11" },
+    { name = "obspec", specifier = ">=0.1" },
     { name = "obstore", specifier = ">=0.8" },
     { name = "omegaconf", marker = "extra == 'all'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'da-stormcast'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'dlesym'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'stormcast-conus'", specifier = ">=2.3.0" },
     { name = "onnx", marker = "extra == 'all'" },
     { name = "onnx", marker = "extra == 'fengwu'" },
     { name = "onnx", marker = "extra == 'fuxi'" },
@@ -1321,6 +1341,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'perturbation'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'sfno'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'stormcast'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'stormcast-conus'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'stormscope'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'utils'", specifier = ">=1.15.2" },
     { name = "timm", marker = "extra == 'all'" },
@@ -1348,7 +1369,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormscope", "ucast", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
@@ -1357,7 +1378,7 @@ build = [
     { name = "setuptools", specifier = ">=70.0.0" },
 ]
 dev = [
-    { name = "black", specifier = "==24.1.0" },
+    { name = "black", specifier = "==26.5.1" },
     { name = "coverage", specifier = ">=6.5.0" },
     { name = "hatch", specifier = ">=1.16.5" },
     { name = "interrogate", specifier = ">=1.5.0" },
@@ -1378,18 +1399,17 @@ dev = [
 ]
 docs = [
     { name = "cartopy" },
-    { name = "jupytext", specifier = ">=1.15.0" },
+    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=5eaddfe1fd4e842d6e2a5fa63a9a8718eeed7e9a" },
+    { name = "griffe-inherited-docstrings", specifier = ">=1.1.3" },
     { name = "matplotlib" },
-    { name = "myst-parser", specifier = ">=0.18.0" },
-    { name = "nvidia-sphinx-theme" },
+    { name = "mike", specifier = ">=2.1.0" },
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-badges", git = "https://github.com/NickGeneva/mkdocs-badges.git?rev=edd9365ed6cbcce883fc0c183c14fc7350e1c728" },
+    { name = "mkdocs-material", specifier = ">=9.6.0" },
+    { name = "mkdocstrings", specifier = ">=1.0.4" },
+    { name = "mkdocstrings-python", specifier = ">=2.0.5" },
     { name = "scipy" },
-    { name = "sphinx", specifier = ">=6.0.0" },
-    { name = "sphinx-autodoc-typehints", specifier = ">=1.24.0" },
-    { name = "sphinx-badges" },
-    { name = "sphinx-design" },
-    { name = "sphinx-favicon", specifier = ">=1.0.1" },
-    { name = "sphinx-gallery", specifier = ">=0.12.0" },
-    { name = "sphinx-togglebutton", specifier = ">=0.3.0" },
+    { name = "zensical", specifier = ">=0.0.53" },
 ]
 
 [[package]]
@@ -1894,6 +1914,52 @@ wheels = [
 [package.optional-dependencies]
 grpc = [
     { name = "grpcio" },
+]
+
+[[package]]
+name = "gribberish"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f1/82/235485420d78041a0061f09d69ab552a7eb3d7ae0ace6c9746e60e5953e1/gribberish-1.7.0.tar.gz", hash = "sha256:637f5565983d3a5b8a3b7fbee5af7edaaf177124856903a76298eebb9ed98c0f", size = 3286022, upload-time = "2026-08-13T18:13:46.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/31/cb6e6c291d87fb69fde85d59276b4d19579af113073a12a8fb3b45d5f041/gribberish-1.7.0-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:651cabb946737b825b9b47c07f52d1319824784c5fb729e92178773c2faa4d3b", size = 785078, upload-time = "2026-08-13T18:13:19.669Z" },
+    { url = "https://files.pythonhosted.org/packages/10/b2/bf3cd80f3dc25795f1a263f7116fd2eadcc96e15bcce0575df4495ce344f/gribberish-1.7.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a666f4de67e58527a27356c467153ed9c40119a54894d975fdfd71b97542d650", size = 726813, upload-time = "2026-08-13T18:13:13.022Z" },
+    { url = "https://files.pythonhosted.org/packages/75/b5/5baf61f0aa8ba3adeec3852b077ffa926f3315dbde4b84e174f4b555d381/gribberish-1.7.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1138b116cde761603ffa976ef088a581e4b6d581dbe488b7d4d486a48e962b5f", size = 765931, upload-time = "2026-08-13T18:12:53.606Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/51/ecb3992abf2e1baebe82eb9eed5262e8e1885a2548effedeba145c3c91ef/gribberish-1.7.0-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:9c051a7d7505a094b9e63d37f018d13769153cb244417ef5178722f043d6aa62", size = 789429, upload-time = "2026-08-13T18:13:00.243Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/c5/dc6381e5ce90b2002737df4514c32773b320729f80c4a92868cd2a00e72f/gribberish-1.7.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:741c766ced991b3517af9ecd2389bf97a33ba0ceb3f82f316116cab24f87fcda", size = 819001, upload-time = "2026-08-13T18:13:06.873Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/ac/1b55661a9757e5aafaffd381ea2aad27c5c81ac37fad1846ca5d2a456f1f/gribberish-1.7.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:c7891b7d3f9ef6eaace0e280626d7c058abc0dad3da8b48629467ab0ebd615ef", size = 951569, upload-time = "2026-08-13T18:13:25.727Z" },
+    { url = "https://files.pythonhosted.org/packages/52/30/567a7d674010764706c24ebed69c719b80fa5e2a5027b319e94406a9650a/gribberish-1.7.0-cp311-cp311-musllinux_1_2_armv7l.whl", hash = "sha256:1e3bec0971b2c73eff16e0b90b029865048241cf6ed558d3ed9ffee79b83afd8", size = 1068297, upload-time = "2026-08-13T18:13:32.25Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/a9/17551655ac24da4b6ecdfb5c136683c25855ae86543d3cee1ee625650fed/gribberish-1.7.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:1561930706bc5c4c370e805362376ee18d08147bff47bb18e6802cdc59bdccdf", size = 1034600, upload-time = "2026-08-13T18:13:39.404Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/6d/1b18c89bbe6e079b16ce3dbb25f4f71a1471fbce4ac9040c6d4035cd70e8/gribberish-1.7.0-cp311-cp311-win_amd64.whl", hash = "sha256:26ccd582c1425515858ab06b23cd6f3094c65ed42138b159cfffb02cfb3d9d4f", size = 716436, upload-time = "2026-08-13T18:13:47.74Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/81/a26093776d9c9efbce42e5e95b66bfd282560dcb9d606416271f95c4243d/gribberish-1.7.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:e1840c2f68e055b3efa3ccc5ec9485aaeb927b9e27ba492cac864d0137db054c", size = 787002, upload-time = "2026-08-13T18:13:20.901Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/e5/00b41c7aea2baa498b7c22d8bbd0b92e96c8c181dd17d5b50759948da03f/gribberish-1.7.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6ddb80d021ff373e0fcd5d29ea7aab0a589e5b0c6f4adec02439618cbce9bcc2", size = 726967, upload-time = "2026-08-13T18:13:14.476Z" },
+    { url = "https://files.pythonhosted.org/packages/df/7d/1998468b05f32fa93e0e3d2f03688dda182933f4a13fd5f233a39e2d1581/gribberish-1.7.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a21531a0d6b9d78b56853575419a7bbf1ff8a2bce73552230ea8933cebc27098", size = 766260, upload-time = "2026-08-13T18:12:55.073Z" },
+    { url = "https://files.pythonhosted.org/packages/53/e1/80e2ee2ce2ef1a7f58f443d186bfc0e093794b92938563464611afcc0f0f/gribberish-1.7.0-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:30295947fb86f82a3b4e034d24940361fc164fc7104729b481f2298cdd036e54", size = 790320, upload-time = "2026-08-13T18:13:01.489Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/4d/ef5f1046baf29bd2f10d5cb6eac4b803cb38492cfa2fcf5ffc763003237a/gribberish-1.7.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1011eba4ed604b782b28f6b1d18982a0d9241dbcb53bde5b7aaa6fea6d9eefc0", size = 821591, upload-time = "2026-08-13T18:13:08.257Z" },
+    { url = "https://files.pythonhosted.org/packages/50/ac/b42c17212d7db978882eb6f319f89379a314f90fddab273fa4b59ae06e81/gribberish-1.7.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:9d1277a56ff7aaeb1938d41c6741fa9ebae520904af53d92cd9bbdeebe0dd844", size = 951801, upload-time = "2026-08-13T18:13:27.014Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/3f/97e899fc44405a60af0fb79ec81bd5412dbc9d81ad4118956b640e7a0d40/gribberish-1.7.0-cp312-cp312-musllinux_1_2_armv7l.whl", hash = "sha256:36bbb339ff1612ee1b360a859aff4f490120a4265b2c13ee3245e1bd28bdfaea", size = 1069191, upload-time = "2026-08-13T18:13:33.629Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/44/730d5eebf65d44313ed98d14025898e751ab47a5782ff0985c11e22b015b/gribberish-1.7.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:f448031880b92df8e7681cccdfd5b3c78bfe2fb869f9c04539d0c680a53afa84", size = 1037617, upload-time = "2026-08-13T18:13:40.653Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/76/f50cc49ab0dd06e6fa998b7b1652cc4f35495e5dee45010d70bda79854ed/gribberish-1.7.0-cp312-cp312-win_amd64.whl", hash = "sha256:9b37b272928bcf0b984cfb884c06953203b0e536d94e9233fc021aa007cf08bb", size = 718001, upload-time = "2026-08-13T18:13:49.225Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/ed/063edf0f79e7b55263f25d7a125ae1da341157795275a6692f4a9454ea0e/gribberish-1.7.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:16cf0e68edd8b6d299a9678145c4e0bd501095eb8a52964e125cc2bdafd940cf", size = 786910, upload-time = "2026-08-13T18:13:22.077Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/70/9ea308092be946f948867c592e17fc3692308cdc2ea87a0c8d000b50b01f/gribberish-1.7.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d154c4418ad4a55c02f52f6ddd595158183ee7cfd71f32e7d003648e3e7cb689", size = 726794, upload-time = "2026-08-13T18:13:15.878Z" },
+    { url = "https://files.pythonhosted.org/packages/56/21/48a9e2c42cb757d57ad8414488f005887279d91bfd1e75b0ab9d286a859b/gribberish-1.7.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:41e5e4c9c682b0eeb982ee47b947d813ab49cdd405aa078d5e138171a88c6f63", size = 766247, upload-time = "2026-08-13T18:12:56.394Z" },
+    { url = "https://files.pythonhosted.org/packages/16/b1/31da4fc5de0b11ec40eb347fcca8523a0457400ad5eec415f9db644f4c21/gribberish-1.7.0-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:e7b358d5d0b637f2561ac8f5f368860af6a69c6d49b0ebcb0ee3b66e69427310", size = 789838, upload-time = "2026-08-13T18:13:02.872Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/24/4dd8476c4614a15e15205ddb6d6b5fa8d558fd5d8d287da0ca201f81e972/gribberish-1.7.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:349f2f12f106c731a678aad94f35a9603b3f403c30ea6c1315dab4623004aa8e", size = 821077, upload-time = "2026-08-13T18:13:09.5Z" },
+    { url = "https://files.pythonhosted.org/packages/43/21/d23d70bde7833282ccb157a5bebf7768a9c08c768e58539f3d66e72d6df3/gribberish-1.7.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:e988a8a491bbe74c7e17a195742eb2bec1c2bb58512e0835320d06c732cffb73", size = 951532, upload-time = "2026-08-13T18:13:28.221Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/83/3497ee042178fa9dbe1d39da687b30bc89020de9cd1d92a0faa13f9b88bb/gribberish-1.7.0-cp313-cp313-musllinux_1_2_armv7l.whl", hash = "sha256:747219c1706073a344904c80c11e3f42ffb848979cacd77901f0997648e57d12", size = 1068855, upload-time = "2026-08-13T18:13:35.569Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/eb/a48c7372227d511d664ab77db2239ed15e95c5685f80cdaca8633d39fb86/gribberish-1.7.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:b40e7f67cfe603a5072545e87ff3b5cdb5b61a5950ff0e827aef931cf5c51542", size = 1037502, upload-time = "2026-08-13T18:13:41.843Z" },
+    { url = "https://files.pythonhosted.org/packages/04/a8/1b6cd48fb2c3cb8b05585d4e1a402ee3794f883cffdf6f72815c997323da/gribberish-1.7.0-cp313-cp313-win_amd64.whl", hash = "sha256:10a7ff2e3a286435bf7cf37a66895c65b47588fe8cd1394f0c2ddd69978063c3", size = 717787, upload-time = "2026-08-13T18:13:50.396Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/76/353f664d0aa8af8f99b263ebff44a3a03cb55e7021b3d5b7d99aae98fbe5/gribberish-1.7.0-pp311-pypy311_pp73-macosx_10_12_x86_64.whl", hash = "sha256:c5d545bbdc3dba4a634af3a963fa5316f0d6d1c7b807ca2d61e35f84dbb801cf", size = 784553, upload-time = "2026-08-13T18:13:24.424Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/cd/57f7479efc6ebcd019d9dc72ee4f6ab58776d7c31eae7cd49b7a6de7a420/gribberish-1.7.0-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:043b87214cb469f36355329b2bc17856cc9ec35f2158bf58e92e927394550d10", size = 726569, upload-time = "2026-08-13T18:13:18.454Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/33/c85a13359b1080880407364a1a7494a020b1476b8c73d64e8ad4029492c9/gribberish-1.7.0-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3b41bcac9beca054077aafc91823049660ad492f2a95f56e4f12760c6bad3ea0", size = 767388, upload-time = "2026-08-13T18:12:58.912Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/6f/a0523de959668d9299dbb375446a8addd55af9dd2153a88f41c7d054820c/gribberish-1.7.0-pp311-pypy311_pp73-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:8e348f8fe20cf6a6ab3eb1bf26ea3eaea18d55b85b6fc843d642ab0b2b71b69d", size = 789978, upload-time = "2026-08-13T18:13:05.559Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/cc/5a0659b9e1c686b60725205d3ee061530ad8286c272c6c4c158824d4e5de/gribberish-1.7.0-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:25edd53872570fcfd44c953d040d614bf75012210099b6f1908e4fe5a8f7d487", size = 820198, upload-time = "2026-08-13T18:13:11.674Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/00/83dd139c5e9986f8984ce3d6f3ee4bc8db00284c7e75783d1a72a3fa0c08/gribberish-1.7.0-pp311-pypy311_pp73-musllinux_1_2_aarch64.whl", hash = "sha256:849d3df3284545796e53be95a8f574cbeea115f2d9dfff7698d19e77fd122832", size = 952163, upload-time = "2026-08-13T18:13:30.88Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/1f/88f0352dc41c39eae6b70adaf1168e17c6d7ceb4ff216892c220722f058f/gribberish-1.7.0-pp311-pypy311_pp73-musllinux_1_2_armv7l.whl", hash = "sha256:9bafc95b5b2b810ffcb3ccd100602c843b44cbc5316eefa6a34937049db0b2ac", size = 1068818, upload-time = "2026-08-13T18:13:38.14Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/16/595ba8bc3132b272074e4c516b5e95de2ecb53f00fb5c4e3a3af9a841bac/gribberish-1.7.0-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:58d22f8e0e9482a46503a7f28fa1214dab53201cfa5a63981567563a168ad636", size = 1036026, upload-time = "2026-08-13T18:13:44.494Z" },
 ]
 
 [[package]]
@@ -2811,9 +2877,18 @@ wheels = [
 
 [[package]]
 name = "natten"
-version = "0.21.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/06/2f/e10aa0edfa2e203fc649a4a52ed9e946decc16824f4740cf61d85a7f9a88/natten-0.21.6.tar.gz", hash = "sha256:c26871225fa533f8a9433ccd4496e3c4dcf6d0e0da369a2f6b547d4321a25dc1", size = 2863866, upload-time = "2026-04-14T18:15:50.885Z" }
+version = "0.21.6+torch2110cu130"
+source = { registry = "https://whl.natten.org/" }
+wheels = [
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp311-cp311-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp311-cp311-linux_x86_64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp312-cp312-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp312-cp312-linux_x86_64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313-linux_x86_64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313t-linux_aarch64.whl" },
+    { url = "https://github.com/SHI-Labs/NATTEN/releases/download/v0.21.6/natten-0.21.6%2Btorch2110cu130-cp313-cp313t-linux_x86_64.whl" },
+]
 
 [[package]]
 name = "netcdf4"
@@ -3264,6 +3339,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
+]
+
+[[package]]
+name = "obspec"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e2/94/7a9ad6927cac6ec7680e11772fb692145a05a93bafd80b84f6f0ef12f4e7/obspec-0.1.0.tar.gz", hash = "sha256:b189781a53f82ef8d6abf0c9e77fd4c46ac9f244d5a91eb35ee61c2e2b204a4a", size = 117254, upload-time = "2025-06-25T05:24:00.002Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bb/69/96feeac84ce0b871567225c78515f3b557c023e72ed9b4f1833f3662bd6b/obspec-0.1.0-py3-none-any.whl", hash = "sha256:307f0fa2c2998b324ecf0eed6a2a89049a4c40c9b1fa2b5e1af28f0ee72136b3", size = 15231, upload-time = "2025-06-25T05:23:58.735Z" },
 ]
 
 [[package]]

@@ -151,7 +151,8 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2024 gpu:48gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2024 gpu:48gb
+    provider:microsoft backend:pytorch
     """
 
     def __init__(
@@ -404,7 +405,11 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.output_coords(coords)
 
-        yield x[:, :, 1:], coords
+        # First yield is the initial condition: drop the t-6h history frame
+        # from the tensor AND the coords, so lead_time matches the data.
+        coords_out = coords.copy()
+        coords_out["lead_time"] = coords["lead_time"][1:]
+        yield x[:, :, 1:], coords_out
 
         while True:
             # Front hook

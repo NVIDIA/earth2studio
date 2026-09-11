@@ -123,20 +123,18 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 > [!NOTE]
 > As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
 
-- [**Aurora v1.5**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.Aurora1p5.html),
-    Microsoft Aurora v1.5 deterministic and ensemble model wrapper for global
-    weather forecasting.
-- [**StormCast CONUS**](https://nvidia.github.io/earth2studio/modules/generated/models/px/earth2studio.models.px.StormCastCONUS.html),
-    StormCast CONUS prognostic model for convective-scale forecasting over the
-    contiguous United States.
-- [**Dynamical.org Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.DynamicalGFS.html),
-    a comprehensive suite of analysis and forecast data sources reading from
-    anonymous Icechunk repositories (AIFS, GFS, GEFS, HRRR, MRMS, ICON-EU, IFS-ENS).
-- [**EarthMover Data Sources**](https://nvidia.github.io/earth2studio/modules/generated/data/earth2studio.data.EarthMoverERA5.html),
-    EarthMover ERA5 0.25-degree reanalysis and IFS 0.1-degree forecast sources
-    hosted by BrightBand.
-- [**StormScope NSRDB**](https://nvidia.github.io/earth2studio/modules/generated/models/dx/earth2studio.models.dx.StormScopeDxNSRDB.html),
-    solar irradiance (GHI) estimation diagnostic model.
+- [**SamudrACE**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/SamudrACE/),
+    coupled atmosphere-ocean prognostic model for extended-range forecasting.
+- [**Atlas CRPS**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/AtlasCRPS/),
+    ensemble prognostic model with noise-conditioned transformer blocks sharing
+    the Atlas autoencoder.
+- [**StormScope MeteoSat EU**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormScopeMeteoSatEU/),
+    European domain satellite nowcasting model.
+- [**CorrDiff COSMO-ERA5 SDA**](https://nvidia.github.io/earth2studio/main/modules/generated/models/da/CorrDiffCosmoEra5SDA/),
+    score-based data assimilation for the CorrDiff-COSMO downscaler.
+- [**New Documentation**](https://nvidia.github.io/earth2studio/), redesigned home
+    page, model catalog, interactive install guide, and per-model scorecards with
+    skill plots (RMSE, MAE, CRPS, spread, log spectral distance).
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
@@ -204,24 +202,24 @@ Earth2Studio is provided under the Apache License 2.0, refer to the
 
 <!-- Doc links -->
 [e2studio_docs_url]: https://nvidia.github.io/earth2studio/
-[e2studio_install_url]: https://nvidia.github.io/earth2studio/userguide/about/install.html
-[e2studio_userguide_url]: https://nvidia.github.io/earth2studio/userguide/
-[e2studio_examples_url]: https://nvidia.github.io/earth2studio/examples/
-[e2studio_api_url]: https://nvidia.github.io/earth2studio/modules/
-[e2studio_customization_url]: https://nvidia.github.io/earth2studio/examples/extend/index.html
-[e2studio_px_url]: https://nvidia.github.io/earth2studio/userguide/components/prognostic.html
-[e2studio_px_api]: https://nvidia.github.io/earth2studio/modules/models_px.html
-[e2studio_dx_url]: https://nvidia.github.io/earth2studio/userguide/components/diagnostic.html
-[e2studio_dx_api]: https://nvidia.github.io/earth2studio/modules/models_dx.html
-[e2studio_data_url]: https://nvidia.github.io/earth2studio/userguide/components/datasources.html
-[e2studio_data_api]: https://nvidia.github.io/earth2studio/modules/datasources_analysis.html
-[e2studio_io_url]: https://nvidia.github.io/earth2studio/userguide/components/io.html
-[e2studio_io_api]: https://nvidia.github.io/earth2studio/modules/io.html
-[e2studio_pb_url]: https://nvidia.github.io/earth2studio/userguide/components/perturbation.html
-[e2studio_pb_api]: https://nvidia.github.io/earth2studio/modules/perturbation.html
-[e2studio_stat_url]: https://nvidia.github.io/earth2studio/userguide/components/statistics.html
-[e2studio_stat_api]: https://nvidia.github.io/earth2studio/modules/statistics.html
-[e2studio_lex_url]: https://nvidia.github.io/earth2studio/userguide/advanced/lexicon.html
+[e2studio_install_url]: https://nvidia.github.io/earth2studio/main/userguide/about/install/
+[e2studio_userguide_url]: https://nvidia.github.io/earth2studio/main/userguide/
+[e2studio_examples_url]: https://nvidia.github.io/earth2studio/main/examples/
+[e2studio_api_url]: https://nvidia.github.io/earth2studio/main/modules/
+[e2studio_customization_url]: https://nvidia.github.io/earth2studio/main/examples/08_extend/
+[e2studio_px_url]: https://nvidia.github.io/earth2studio/main/userguide/components/prognostic/
+[e2studio_px_api]: https://nvidia.github.io/earth2studio/main/modules/models_px/
+[e2studio_dx_url]: https://nvidia.github.io/earth2studio/main/userguide/components/diagnostic/
+[e2studio_dx_api]: https://nvidia.github.io/earth2studio/main/modules/models_dx/
+[e2studio_data_url]: https://nvidia.github.io/earth2studio/main/userguide/components/datasources/
+[e2studio_data_api]: https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/
+[e2studio_io_url]: https://nvidia.github.io/earth2studio/main/userguide/components/io/
+[e2studio_io_api]: https://nvidia.github.io/earth2studio/main/modules/io/
+[e2studio_pb_url]: https://nvidia.github.io/earth2studio/main/userguide/components/perturbation/
+[e2studio_pb_api]: https://nvidia.github.io/earth2studio/main/modules/perturbation/
+[e2studio_stat_url]: https://nvidia.github.io/earth2studio/main/userguide/components/statistics/
+[e2studio_stat_api]: https://nvidia.github.io/earth2studio/main/modules/statistics/
+[e2studio_lex_url]: https://nvidia.github.io/earth2studio/main/userguide/advanced/lexicon/
 
 <!-- Misc links -->
 [physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo

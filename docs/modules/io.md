@@ -5,13 +5,14 @@
 IO Backends for saving your inference results for further post processing.
 
 <!-- e2s-autosummary
-currentmodule: earth2studio
+currentmodule: earth2studio.io
 template: io
-output: generated/io/1
+output: generated/io
 -->
 
 {% autosummary %}
 earth2studio.io.AsyncZarrBackend
+earth2studio.io.IceChunkBackend
 earth2studio.io.KVBackend
 earth2studio.io.NetCDF4Backend
 earth2studio.io.XarrayBackend

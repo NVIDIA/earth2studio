@@ -103,6 +103,8 @@ _build
 docs/modules/generated
 docs/modules/backreferences
 docs/examples
+docs/scorecard/generated
+docs/_static/scorecard/eval_scores_*.json
 
 # Pytestmon
 .testmondata*

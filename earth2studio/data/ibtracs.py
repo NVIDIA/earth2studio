@@ -130,7 +130,7 @@ class IBTrACS:
     Additional information on the data repository can be referenced here:
 
     - https://www.ncei.noaa.gov/products/international-best-track-archive
-    - https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/doc/IBTrACS_version4_Technical_Details.pdf
+    - https://www.ncei.noaa.gov/sites/default/files/2025-04/IBTrACS_version4r01_Technical_Details.pdf
 
     Example
     -------
@@ -149,7 +149,7 @@ class IBTrACS:
     ```
     Badges
     ------
-    region:global dataclass:observation product:wind product:atmos
+    region:global dataclass:observation product:wind product:atmos provider:noaa
     """
 
     SOURCE_ID = "earth2studio.data.ibtracs"

@@ -111,7 +111,21 @@ def load_scores(cfg: DictConfig) -> xr.Dataset:
             "Run scoring (score.py) before generating a report."
         )
     logger.info(f"Opened score store: {store_path}")
-    return xr.open_zarr(store_path)
+    ds = xr.open_zarr(store_path)
+    if "region" in ds.dims:
+        labels = [str(r) for r in ds.region.values]
+        pick = str(
+            cfg.get("report", {}).get(
+                "region", "global" if "global" in labels else labels[0]
+            )
+        )
+        if pick not in labels:
+            raise ValueError(
+                f"report.region '{pick}' is not in the store's regions {labels}."
+            )
+        logger.info(f"Score store has regional splits {labels}; using '{pick}'.")
+        ds = ds.sel(region=pick)
+    return ds
 
 
 def parse_score_arrays(

@@ -24,7 +24,12 @@ from earth2studio.utils.type import CoordSystem
 
 
 class Identity(torch.nn.Module):
-    """Identity diagnostic that is coordinate insensitive. Typically used for testing."""
+    """Identity diagnostic that is coordinate insensitive. Typically used for testing.
+
+    Badges
+    ------
+    region:global provider:nvidia backend:pytorch
+    """
 
     def __init__(self) -> None:
         super().__init__()
