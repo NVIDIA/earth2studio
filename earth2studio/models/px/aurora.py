@@ -195,7 +195,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.device = torch.ones(1).device  # Hack to get default device
         self.preds_idx = 0
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -206,7 +206,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(
+    def _output_tensor_coords(
         self,
         input_coords: CoordSystem,
     ) -> CoordSystem:
@@ -228,7 +228,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -391,7 +391,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system 6 hours in the future
         """
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         x = self._forward(x, coords)
 
@@ -403,7 +403,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         # First yield is the initial condition: drop the t-6h history frame
         # from the tensor AND the coords, so lead_time matches the data.
@@ -423,7 +423,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             coords["lead_time"] = (
                 coords["lead_time"]
-                + self.output_coords(self.input_coords())["lead_time"]
+                + self._output_tensor_coords(self._input_tensor_coords())["lead_time"]
             )
             # Concat the step now and prediction for next step
             x = torch.cat([init_x, x], dim=2)

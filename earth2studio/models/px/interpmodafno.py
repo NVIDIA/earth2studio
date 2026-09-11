@@ -203,7 +203,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _compute_latlon(self) -> None:
         # compute sin/cos of lat/lon
-        coords = self.output_coords(self.input_coords())
+        coords = self._output_tensor_coords(self._input_tensor_coords())
         lat = np.deg2rad(coords["lat"])
         lon = np.deg2rad(coords["lon"])
         lat, lon = np.meshgrid(lat, lon, indexing="ij")
@@ -219,7 +219,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __str__(self) -> str:
         return "InterpModAFNO"
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
         Returns
         -------
@@ -239,13 +239,13 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lon": np.empty(0),
             }
         )
-        for key, value in self.px_model.input_coords().items():
+        for key, value in self.px_model._input_tensor_coords().items():
             if key in input_coords:
                 input_coords[key] = value
         return input_coords
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
         Parameters
         ----------
@@ -401,11 +401,11 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         t0 = coords["time"][:, None] + coords["lead_time"][None, :]
         coords_end = coords
         for _ in range(self.num_interp_steps):
-            coords_end = self.output_coords(coords_end)
+            coords_end = self._output_tensor_coords(coords_end)
         t1 = coords_end["time"][:, None] + coords_end["lead_time"][None, :]
 
         for interp_step in range(1, self.num_interp_steps):
-            coords = self.output_coords(coords)
+            coords = self._output_tensor_coords(coords)
 
             for ti, t in enumerate(coords["time"]):
                 for lti, lt in enumerate(coords["lead_time"]):
@@ -471,9 +471,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if not hasattr(self, "sincos_latlon"):
             self._compute_latlon()
 
-        for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
+        iterator = self.px_model.create_iterator(x, coords)
+        for fc_step, (x, coords) in enumerate(iterator):
             # Make sure prognostic model has all 73 required variables
-            x, coords = map_coords(x, coords, self.output_coords(coords))
+            x, coords = map_coords(x, coords, self._output_tensor_coords(coords))
             if fc_step == 0:
                 x0 = x
                 coords0 = coords
@@ -482,7 +483,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 x1 = x
                 for x, coords in self._interpolate(x0, x1, coords0):
                     yield (x, coords)
-                coords = self.output_coords(coords)
+                coords = self._output_tensor_coords(coords)
                 yield (x1, coords)
                 x0 = x1
                 coords0 = coords

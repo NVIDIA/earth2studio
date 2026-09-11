@@ -274,7 +274,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -285,7 +285,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(
+    def _output_tensor_coords(
         self,
         input_coords: CoordSystem,
     ) -> CoordSystem:
@@ -307,7 +307,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -507,7 +507,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 1 hour in the future
         """
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         x = self._forward_sub_steps(x, coords, lead_time_hours=[1])[0]
         return x, output_coords
 
@@ -526,7 +526,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.preds_idx = 0
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         ic_coords = coords.copy()
         ic_coords["lead_time"] = np.array([coords["lead_time"][-1]])

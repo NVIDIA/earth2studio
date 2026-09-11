@@ -246,7 +246,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             self.needs_regrid = False
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -269,7 +269,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return coords
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -300,7 +300,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][0]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -493,13 +493,14 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         year_times = np.arange(start, end, self._dt, dtype="datetime64[ns]")
         lead_time = np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]")
 
-        forcing_x, year_coords = fetch_data(
+        forcing = fetch_data(
             self.forcing_data_source,
             time=year_times,
             lead_time=lead_time,
             variable=self._forcing_vars_e2s,
             device=device,
         )
+        forcing_x, year_coords = forcing.e2s.to_torch()
         self._forcing_cache.clear()
         self._forcing_cache[cache_key] = (forcing_x, year_coords)
         return self._forcing_cache[cache_key]
@@ -536,13 +537,14 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             int(valid_time.astype("datetime64[ns]").astype(np.int64)),
         )
         if cache_key not in self._forcing_cache:
-            self._forcing_cache[cache_key] = fetch_data(
+            forcing = fetch_data(
                 self.forcing_data_source,
                 time=np.array([valid_time], dtype="datetime64[ns]"),
                 lead_time=np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]"),
                 variable=self._forcing_vars_e2s,
                 device=device,
             )
+            self._forcing_cache[cache_key] = forcing.e2s.to_torch()
         forcing_x, forcing_coords = self._forcing_cache[cache_key]
         return forcing_x, forcing_coords.copy()
 
@@ -622,7 +624,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Predict one step forward
         paired, _ = self.stepper.predict_paired(ic, forcing_batch)
         y = self._batch_data_to_tensor(paired.prediction)
-        out_coords = self.output_coords(coords)
+        out_coords = self._output_tensor_coords(coords)
         return y, out_coords
 
     def _build_initial_output(

@@ -207,7 +207,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning_stds is not None:
             self.register_buffer("conditioning_stds", conditioning_stds)
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -221,7 +221,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -247,7 +247,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
 
         handshake_dim(input_coords, "hrrr_x", 5)
         handshake_dim(input_coords, "hrrr_y", 4)
@@ -453,7 +453,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # TODO: Eventually pull out interpolation into model and remove it from fetch
         # data potentially
-        conditioning, conditioning_coords = fetch_data(
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
@@ -462,6 +462,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
             interp_method="linear",
         )
+        conditioning, conditioning_coords = conditioning.e2s.to_torch()
         # ensure data dimensions in the expected order
         conditioning_coords_ordered = OrderedDict(
             {
@@ -485,7 +486,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_coords(conditioning_coords, coords, "lead_time")
         handshake_coords(conditioning_coords, coords, "time")
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         x = x.clone()  # prevent editing of argument
         for i, _ in enumerate(coords["batch"]):
@@ -505,7 +506,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
         coords = coords.copy()
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
         yield x, coords
 
         if self.conditioning_data_source is None:

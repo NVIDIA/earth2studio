@@ -190,7 +190,7 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
     model = _build_model(device, nside=nside, use_ttr=use_ttr)
 
     # When use_ttr=True the wrapper advertises ``ttr`` in input_coords.
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     expected_input_var = "ttr" if use_ttr else "rlut"
     assert expected_input_var in list(in_coords["variable"])
 
@@ -210,7 +210,7 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
     in_coords["time"] = time
 
     out, out_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    expected_coords = model._output_tensor_coords(in_coords)
 
     # Output should always be in model variable space (rlut), regardless of
     # whether the input was provided as ttr.
@@ -238,7 +238,7 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
     nside = 16
     model = _build_model(device, nside=nside, use_ttr=True)
 
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.array([0])
     in_coords["time"] = np.array([np.datetime64("2020-07-15T00:00")])
 
@@ -279,7 +279,7 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
 
     nside = 16
     model = _build_model(device, nside=nside, use_ttr=True)
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
 
     time = np.array([np.datetime64("2020-01-01T00:00")])
     x = torch.randn(
@@ -385,7 +385,7 @@ def test_dlesym_v0_isccp_era5_missing_rlut_raises():
 def test_dlesym_v0_isccp_era5_latlon_input_coords(use_ttr):
     """LatLon variant advertises lat/lon dims and base (non-derived) variables."""
     model = _build_latlon_model("cpu", nside=16, use_ttr=use_ttr)
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
 
     # Lat/lon dims present, HEALPix dims absent.
     for dim in ["lat", "lon"]:
@@ -419,7 +419,7 @@ def test_dlesym_v0_isccp_era5_latlon_forward(device, use_ttr, batch_size):
     nside = 64  # lat/lon regridders target the fixed 721x1440 grid
     model = _build_latlon_model(device, nside=nside, use_ttr=use_ttr)
 
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     expected_input_var = "ttr" if use_ttr else "rlut"
     assert expected_input_var in list(in_coords["variable"])
 
@@ -437,7 +437,7 @@ def test_dlesym_v0_isccp_era5_latlon_forward(device, use_ttr, batch_size):
     in_coords["time"] = time
 
     out, out_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    expected_coords = model._output_tensor_coords(in_coords)
 
     # Output is on the lat/lon grid and in model variable space (rlut).
     assert "rlut" in list(out_coords["variable"])
@@ -463,7 +463,7 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
 
     nside = 64
     model = _build_latlon_model(device, nside=nside, use_ttr=True)
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
 
     time = np.array([np.datetime64("2020-01-01T00:00")])
     x = torch.randn(
@@ -508,7 +508,7 @@ def test_dlesym_v0_isccp_era5_package(device):
     nside = model.nside
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.arange(batch_size)
     in_coords["time"] = time
 
@@ -524,7 +524,7 @@ def test_dlesym_v0_isccp_era5_package(device):
     )
 
     out, out_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    expected_coords = model._output_tensor_coords(in_coords)
 
     n_vars = len(in_coords["variable"])
     assert out.shape == (
@@ -552,7 +552,7 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
 
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     in_coords["batch"] = np.arange(batch_size)
     in_coords["time"] = time
 
@@ -569,7 +569,7 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
     )
 
     out, out_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    expected_coords = model._output_tensor_coords(in_coords)
 
     n_out_vars = len(out_coords["variable"])
     assert out.shape == (

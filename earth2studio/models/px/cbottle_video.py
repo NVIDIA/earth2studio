@@ -186,7 +186,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of prognostic model
 
         Returns
@@ -217,7 +217,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -230,7 +230,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "variable", 3)
         handshake_dim(input_coords, "lead_time", 2)
         handshake_dim(input_coords, "time", 1)
@@ -525,7 +525,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system 6 hours in the future
         """
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         times = coords["time"].repeat(coords["batch"].shape[0])
 
@@ -543,7 +543,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
         times = coords["time"].repeat(coords["batch"].shape[0])
-        coords = self.output_coords(coords)
+        coords = self._output_tensor_coords(coords)
         domain_shape = list(x.shape)[3:]  # Auto handle lat/lon vs healpix
         start_frame = True
         while True:

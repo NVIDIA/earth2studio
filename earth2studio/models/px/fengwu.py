@@ -165,7 +165,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center.unsqueeze(-1).unsqueeze(-1))
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -186,7 +186,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -213,7 +213,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
@@ -338,7 +338,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[torch.Tensor, CoordSystem]
             Output tensor and coordinate system 6 hours in the future
         """
-        return self._forward(x, self.ort), self.output_coords(coords)
+        return self._forward(x, self.ort), self._output_tensor_coords(coords)
 
     @batch_func()
     def _default_generator(
@@ -346,7 +346,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         out = x[:, 1:]
         out_coords = coords.copy()
@@ -359,7 +359,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Forward is identity operator
             out = self._forward(x, self.ort)
-            out_coords = self.output_coords(coords)
+            out_coords = self._output_tensor_coords(coords)
 
             # Rear hook
             out, out_coords = self.rear_hook(out, out_coords)

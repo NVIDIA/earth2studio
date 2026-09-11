@@ -57,7 +57,9 @@ def initialise_output_coords(
     out_coords = OrderedDict(
         {
             k: v
-            for k, v in model.output_coords(model.input_coords()).items()
+            for k, v in model._output_tensor_coords(
+                model._input_tensor_coords()
+            ).items()
             if (k != "batch") and (v.shape != 0)
         }
     )

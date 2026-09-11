@@ -27,6 +27,7 @@ from pyproj import CRS
 
 from earth2studio.grids.base import (
     E2S_CRS,
+    E2S_GRID,
     E2S_GRID_ID,
     GridDefinition,
     GridTopology,
@@ -206,6 +207,7 @@ register_grid(
 
 __all__ = [
     "E2S_CRS",
+    "E2S_GRID",
     "E2S_GRID_ID",
     "CurvilinearGrid",
     "GridDefinition",

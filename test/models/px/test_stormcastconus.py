@@ -219,9 +219,9 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
     )
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -230,7 +230,7 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
     assert out.shape == torch.Size([len(time), 1, NVAR, ny, nx])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "hrrr_x", 4)
     handshake_dim(out_coords, "hrrr_y", 3)
@@ -255,9 +255,9 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
     )
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Prepend ensemble dimension
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -273,7 +273,8 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, NVAR, ny, nx])
         assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+            out_coords["variable"]
+            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
@@ -319,15 +320,15 @@ def test_stormcastconus_exceptions(device):
         ]
     )
     r = Random(dc)
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
     x, coords = fetch_data(
         r,
         np.array([np.datetime64("2020-04-05T00:00")]),
         variable,
         lead_time,
         device=device,
-    )
+    ).e2s.to_torch()
 
     with pytest.raises(RuntimeError):
         p(x, coords)
@@ -427,16 +428,16 @@ def test_stormcastconus_package(cond_dims, device, model):
     )
     p.num_diffusion_steps = 2
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(coords)["variable"]), 1024, 1792]
+        [len(time), 1, len(p._output_tensor_coords(coords)["variable"]), 1024, 1792]
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "hrrr_x", 4)
     handshake_dim(out_coords, "hrrr_y", 3)

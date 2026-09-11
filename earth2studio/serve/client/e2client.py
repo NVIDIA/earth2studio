@@ -345,7 +345,7 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         self.variables = np.array(variables)
         self.device = device
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """
         Return empty input coordinate system.
 
@@ -368,7 +368,7 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
             }
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """
         Generate output coordinate system based on data source coordinates.
 
@@ -467,12 +467,13 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         times = self.data_source.da.coords["time"].values
         start_time = times[0]
         for time in times:
-            x, coords = fetch_data(
+            array = fetch_data(
                 self.data_source,
                 time=np.array([time]),
                 variable=self.variables,
                 device=self.device,
             )
+            x, coords = array.e2s.to_torch()
             if self.iter_coord == "lead_time":
                 x, coords = _convert_time_to_lead_time(x, coords, start_time)
 

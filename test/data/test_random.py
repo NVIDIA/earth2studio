@@ -20,8 +20,10 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 
 from earth2studio.data import Random, Random_FX, RandomDataFrame
+from earth2studio.utils.coordinate import coord_array
 
 
 @pytest.mark.parametrize(
@@ -98,6 +100,23 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
     assert shape[3] == len(coords["lat"])
     assert shape[4] == len(coords["lon"])
     assert not np.isnan(data.values).any()
+
+
+def test_random_coordinate_signature():
+    signature = coord_array(
+        ("batch", "lead_time", "variable", "y", "x"),
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a"],
+            "y": range(2),
+            "x": range(3),
+        },
+        dynamic=("batch",),
+    )
+    array = Random(signature)(datetime.datetime.now(), "a")
+    assert isinstance(array, xr.DataArray)
+    assert array.dims == ("time", "variable", "y", "x")
+    assert array.shape == (1, 1, 2, 3)
 
 
 @pytest.mark.parametrize(

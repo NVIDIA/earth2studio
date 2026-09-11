@@ -37,7 +37,7 @@ def _initial_condition(source: Random | Random_FX):
         time=TIME,
         variable=VARIABLE,
         lead_time=np.array([np.timedelta64(0, "h")]),
-    )
+    ).e2s.to_torch()
 
 
 @pytest.mark.parametrize("source_type", [Random, Random_FX])
@@ -92,11 +92,11 @@ def test_datareplay_iter(source_type):
 
 def test_datareplay_input_coords_copy():
     replay = DataReplay(Random(DOMAIN), "t2m", DOMAIN)
-    coords = replay.input_coords()
+    coords = replay._input_tensor_coords()
     coords["variable"][0] = "msl"
 
     assert str(replay) == "DataReplay()"
-    assert replay.input_coords()["variable"][0] == "t2m"
+    assert replay._input_tensor_coords()["variable"][0] == "t2m"
 
 
 def test_datareplay_output_coords_copy():
@@ -105,7 +105,7 @@ def test_datareplay_output_coords_copy():
     replay = DataReplay(source, VARIABLE, DOMAIN)
     original_lead_time = coords["lead_time"].copy()
 
-    output_coords = replay.output_coords(coords)
+    output_coords = replay._output_tensor_coords(coords)
 
     np.testing.assert_array_equal(coords["lead_time"], original_lead_time)
     assert output_coords is not coords

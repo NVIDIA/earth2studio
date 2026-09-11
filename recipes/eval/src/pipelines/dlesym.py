@@ -124,8 +124,8 @@ class DLESyMPipeline(ForecastPipeline):
 
         # CPU-inspect the model to infer IC requirements + output lead times.
         model = load_prognostic(cfg)
-        ic_coords = model.input_coords()
-        out_coords = model.output_coords(ic_coords)
+        ic_coords = model._input_tensor_coords()
+        out_coords = model._output_tensor_coords(ic_coords)
         spatial_ref = out_coords  # lat/lon (LatLon) or face/height/width (raw)
 
         all_items = build_work_items(cfg)

@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.grids import ProjectedGrid
 from earth2studio.models.px import Persistence
 from earth2studio.utils.checkpoint import Checkpoint
 
@@ -52,9 +53,9 @@ def test_persistence_lat_lon(
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Get generator
     out, out_coords = p(x, coords)
@@ -86,9 +87,9 @@ def test_persistence_unstructured(variable, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Get generator
     out, out_coords = p(x, coords)
@@ -119,9 +120,9 @@ def test_persistence_iter(ensemble, variable, history, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -151,7 +152,9 @@ def test_persistence_checkpoint_state_round_trip(tmp_path):
     domain_coords = OrderedDict({"lat": np.arange(2), "lon": np.arange(3)})
     lead_time = np.asarray([np.timedelta64(-6, "h"), np.timedelta64(0, "h")])
     data = Random(domain_coords)
-    x, coords = fetch_data(data, time, np.asarray(variable), lead_time, device="cpu")
+    x, coords = fetch_data(
+        data, time, np.asarray(variable), lead_time, device="cpu"
+    ).e2s.to_torch()
     checkpoint = Checkpoint("persistence", path=tmp_path, mode="append", level=2)
 
     with checkpoint as ckpt:
@@ -194,9 +197,23 @@ def test_persistence_coords(dc, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_persistence_coordinate_signatures():
+    domain = OrderedDict(y=np.arange(2), x=np.arange(3))
+    grid = ProjectedGrid(domain["y"], domain["x"], "EPSG:3857")
+    model = Persistence("tp06", domain, grid=grid)
+
+    input_signature = model.input_coords()[0]
+    output_signature = model.output_coords((input_signature,))[0]
+    for signature in (input_signature, output_signature):
+        assert signature.data.nbytes == 0
+        assert signature.e2s.get_grid().fingerprint() == grid.fingerprint()
+        assert signature.coords["variable"] == "tp"
+        assert signature.e2s.get_statistic("tp") == "sum:6h"

@@ -21,6 +21,7 @@ import numpy as np
 import torch
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
+from earth2studio.grids import GridDefinition
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -43,6 +44,8 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         Spatial coordinates expected from the source.
     step : np.timedelta64, optional
         Time between frames, by default np.timedelta64(6, "h")
+    grid : str | GridDefinition | None, optional
+        Explicit spatial grid, inferred from domain coordinates by default.
 
     Badges
     ------
@@ -55,6 +58,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         variable: str | list[str],
         domain_coords: CoordSystem,
         step: np.timedelta64 = np.timedelta64(6, "h"),
+        grid: str | GridDefinition | None = None,
     ) -> None:
         super().__init__()
         if not isinstance(step, np.timedelta64):
@@ -67,6 +71,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
 
         self.source = source
         self.step = step
+        self._grid = grid
         self._variable = np.asarray(variable).copy()
         self._domain_coords = OrderedDict(
             (key, np.asarray(value).copy()) for key, value in domain_coords.items()
@@ -81,7 +86,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
             }
         )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
@@ -94,7 +99,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system one step ahead.
 
         Parameters
@@ -107,7 +112,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         CoordSystem
             Output coordinate system.
         """
-        target_coords = self.input_coords()
+        target_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "lead_time", 2)
         for index, key in enumerate(target_coords):
             if key not in ("batch", "time", "lead_time"):
@@ -130,26 +135,31 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         batch_size: int,
         device: torch.device,
     ) -> torch.Tensor:
-        fetched, fetched_coords = fetch_data(
+        fetched = fetch_data(
             self.source,
             time=coords["time"],
             variable=self._variable,
             lead_time=coords["lead_time"],
             device=device,
         )
+        fetched_tensor, fetched_coords = fetched.e2s.to_torch()
 
         for key in ("time", "lead_time", "variable", *self._domain_coords):
             handshake_coords(fetched_coords, coords, key)
-        if not torch.isfinite(fetched).all():
+        if not torch.isfinite(fetched_tensor).all():
             raise ValueError("DataReplay source returned non-finite values")
 
-        return fetched.unsqueeze(0).expand(batch_size, *fetched.shape).contiguous()
+        return (
+            fetched_tensor.unsqueeze(0)
+            .expand(batch_size, *fetched_tensor.shape)
+            .contiguous()
+        )
 
     def _forward(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
         self._require_time(coords)
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         output = self._fetch(output_coords, x.shape[0], x.device)
         return output.to(x.dtype), output_coords
 
@@ -178,7 +188,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         self._require_time(coords)
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         coords = coords.copy()
         coords["lead_time"] = coords["lead_time"][-1:]

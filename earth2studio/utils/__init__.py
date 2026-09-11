@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .coordinate import (
+    CoordinateSystem,
+    coord_array,
+    handshake_dataarray,
+    handshake_dataarrays,
+)
 from .coords import (
     convert_multidim_to_singledim,
     handshake_coords,

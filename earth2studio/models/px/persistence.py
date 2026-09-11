@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
+from earth2studio.grids import GridDefinition
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -51,6 +52,8 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         to 1.
     dt : np.timedelta64, optional
         Time-step size of model between inputs and output, by default np.timedelta64(6, "h")
+    grid : str | GridDefinition | None, optional
+        Explicit spatial grid, inferred from domain coordinates by default.
 
     Badges
     ------
@@ -63,8 +66,10 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         domain_coords: CoordSystem,
         history: int = 1,
         dt: np.timedelta64 = np.timedelta64(6, "h"),
+        grid: str | GridDefinition | None = None,
     ):
         super().__init__()
+        self._grid = grid
 
         if isinstance(variable, str):
             variable = [variable]
@@ -98,7 +103,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> str:
         return "persistence"
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -109,7 +114,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -132,7 +137,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
@@ -183,7 +188,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordSystem]:
         # Model is identity operator
         # Update coordinates
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         return x[:, -1:], output_coords
 
@@ -217,7 +222,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
 
         x, coords, restored = self._restore_checkpoint_state(x, coords)
-        self.output_coords(coords.copy())
+        self._output_tensor_coords(coords.copy())
         if not restored:
             coords_out = coords.copy()
             coords_out["lead_time"] = coords["lead_time"][-1:]

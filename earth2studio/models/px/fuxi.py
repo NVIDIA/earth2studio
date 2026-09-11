@@ -170,7 +170,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Load short model into memory
         self.ort = create_ort_session(ort_short, self.device)
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -192,7 +192,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -221,7 +221,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             handshake_dim(test_coords, key, i)
             if key != "batch" and key != "time":
@@ -324,7 +324,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ort_session: InferenceSession,
     ) -> tuple[torch.Tensor, CoordSystem]:
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         # Ref https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -433,7 +433,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
 
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -470,7 +470,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = out
             coords["lead_time"] = (
                 coords["lead_time"]
-                + self.output_coords(self.input_coords())["lead_time"]
+                + self._output_tensor_coords(self._input_tensor_coords())["lead_time"]
             )
 
     def create_iterator(

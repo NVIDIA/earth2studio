@@ -110,7 +110,7 @@ class TestCBottleVideoMock:
         ).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
-        coords = px.input_coords()
+        coords = px._input_tensor_coords()
         coords["batch"] = np.arange(x.shape[0])
         coords["time"] = time
 
@@ -120,7 +120,9 @@ class TestCBottleVideoMock:
         assert out.shape == torch.Size(
             [x.shape[0], x.shape[1], x.shape[2], 45, 721, 1440]
         )
-        assert np.all(out_coords["variable"] == px.output_coords(coords)["variable"])
+        assert np.all(
+            out_coords["variable"] == px._output_tensor_coords(coords)["variable"]
+        )
         handshake_dim(out_coords, "lon", 5)
         handshake_dim(out_coords, "lat", 4)
         handshake_dim(out_coords, "variable", 3)
@@ -144,7 +146,7 @@ class TestCBottleVideoMock:
         px = CBottleVideo(mock_core_model, mock_sst_ds, lat_lon=False).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
-        coords = px.input_coords()
+        coords = px._input_tensor_coords()
         coords["batch"] = np.arange(x.shape[0])
         coords["time"] = time
 
@@ -152,7 +154,9 @@ class TestCBottleVideoMock:
         out, out_coords = px(x, coords)
 
         assert out.shape == torch.Size([x.shape[0], x.shape[1], x.shape[2], 45, 49152])
-        assert np.all(out_coords["variable"] == px.output_coords(coords)["variable"])
+        assert np.all(
+            out_coords["variable"] == px._output_tensor_coords(coords)["variable"]
+        )
         handshake_dim(out_coords, "hpx", 4)
         handshake_dim(out_coords, "variable", 3)
         handshake_dim(out_coords, "lead_time", 2)
@@ -170,7 +174,7 @@ class TestCBottleVideoMock:
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
         px.sampler_steps = 2  # Speed up sampler
         # Initialize Data Source
-        dc = px.input_coords()
+        dc = px._input_tensor_coords()
         del dc["batch"]
         del dc["time"]
         del dc["lead_time"]
@@ -178,9 +182,11 @@ class TestCBottleVideoMock:
         r = Random(dc)
 
         # Get Data and convert to tensor, coords
-        lead_time = px.input_coords()["lead_time"]
-        variable = px.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        lead_time = px._input_tensor_coords()["lead_time"]
+        variable = px._input_tensor_coords()["variable"]
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device
+        ).e2s.to_torch()
 
         # Add ensemble to front
         x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -194,7 +200,7 @@ class TestCBottleVideoMock:
             assert len(out.shape) == 6
             assert out.shape == torch.Size([ensemble, len(time), 1, 45, 721, 1440])
             assert (
-                out_coords["variable"] == px.output_coords(coords)["variable"]
+                out_coords["variable"] == px._output_tensor_coords(coords)["variable"]
             ).all()
             assert (out_coords["ensemble"] == np.arange(ensemble)).all()
             assert (out_coords["time"] == time).all()
@@ -220,9 +226,11 @@ class TestCBottleVideoMock:
         r = Random(dc)
 
         # Get Data and convert to tensor, coords
-        lead_time = px.input_coords()["lead_time"]
-        variable = px.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        lead_time = px._input_tensor_coords()["lead_time"]
+        variable = px._input_tensor_coords()["variable"]
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device
+        ).e2s.to_torch()
 
         with pytest.raises((KeyError, ValueError)):
             px(x, coords)
@@ -240,7 +248,7 @@ def test_cbottle_video_package(device):
     px = model.to(device)
     px.sampler_steps = 2
 
-    dc = px.input_coords()
+    dc = px._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -249,14 +257,16 @@ def test_cbottle_video_package(device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = px.input_coords()["lead_time"]
-    variable = px.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = px._input_tensor_coords()["lead_time"]
+    variable = px._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = px(x, coords)
 
     assert out.shape == torch.Size([len(time), 1, 45, 721, 1440])
-    assert (out_coords["variable"] == px.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == px._output_tensor_coords(coords)["variable"]
+    ).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

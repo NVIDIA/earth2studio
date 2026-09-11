@@ -289,7 +289,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.lat = model_lat.copy()
         self.lon = atmos_hc.lon.cpu().numpy().copy()
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
@@ -309,7 +309,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
@@ -339,7 +339,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][0]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -807,7 +807,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"{len(coords['lead_time'])}"
             )
         # Raises on coordinate handshake failure
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
     def __call__(
         self, x: torch.Tensor, coords: CoordSystem

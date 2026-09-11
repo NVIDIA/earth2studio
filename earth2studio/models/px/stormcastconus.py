@@ -323,7 +323,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -337,7 +337,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -362,7 +362,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
 
         handshake_dim(input_coords, "hrrr_x", 5)
         handshake_dim(input_coords, "hrrr_y", 4)
@@ -605,7 +605,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         conditioning = self._get_conditioning(output_coords, x.shape[0], x.device)
         x = x.clone()  # prevent editing of argument
 
@@ -749,7 +749,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             init_time = coords["time"]
             lead_time = coords["lead_time"]
 
-        conditioning, conditioning_coords = fetch_data(
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=init_time,
             variable=self.conditioning_variables,
@@ -758,6 +758,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
             interp_method="linear",
         )
+        conditioning, conditioning_coords = conditioning.e2s.to_torch()
         # ensure data dimensions in the expected order
         conditioning_coords_ordered = OrderedDict(
             {

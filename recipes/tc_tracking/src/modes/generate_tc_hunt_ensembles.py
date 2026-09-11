@@ -174,7 +174,7 @@ def run_inference(
 
     cyclone_tracking = None
     if "cyclone_tracking" in cfg:
-        oco = model.output_coords(model.input_coords())
+        oco = model._output_tensor_coords(model._input_tensor_coords())
 
         heights, height_coords = (
             load_heights(cfg.cyclone_tracking.orography_path)
@@ -224,13 +224,14 @@ def run_inference(
             store = nc_stores[ic]
 
         if ic not in ic_data_cache:
-            x0, coords0 = fetch_data(
+            array = fetch_data(
                 data_source,
                 time=[np.datetime64(ic)],
-                lead_time=model.input_coords()["lead_time"],
-                variable=model.input_coords()["variable"],
+                lead_time=model._input_tensor_coords()["lead_time"],
+                variable=model._input_tensor_coords()["variable"],
                 device=dist.device,
             )
+            x0, coords0 = array.e2s.to_torch()
             ic_data_cache[ic] = (x0, coords0)
         else:
             x0, coords0 = ic_data_cache[ic]

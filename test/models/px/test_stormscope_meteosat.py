@@ -157,7 +157,7 @@ def create_spoof_model(
 
 def test_stormscope_meteosat_coords():
     model = create_spoof_model()
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
 
     assert list(in_coords.keys()) == [
         "batch",
@@ -202,9 +202,9 @@ def test_stormscope_meteosat_call(time, device, batch, model_batch_size):
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
@@ -218,7 +218,9 @@ def test_stormscope_meteosat_call(time, device, batch, model_batch_size):
     h, w = len(model.mtg_y), len(model.mtg_x)
     assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
     assert torch.isfinite(out).all()
-    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == model._output_tensor_coords(coords)["variable"]
+    ).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "x", 5)
     handshake_dim(out_coords, "y", 4)
@@ -272,9 +274,9 @@ def test_stormscope_meteosat_amp(use_amp, device):
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
@@ -309,9 +311,9 @@ def test_stormscope_meteosat_iter(time, batch, device):
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
@@ -602,7 +604,7 @@ def test_stormscope_meteosat_exceptions():
     nvar = 3
     model = create_spoof_model(nvar=nvar)
 
-    in_coords = model.input_coords()
+    in_coords = model._input_tensor_coords()
     time = np.array([np.datetime64("2024-06-01T00:00")])
 
     bad_variable_order = OrderedDict(
@@ -616,7 +618,7 @@ def test_stormscope_meteosat_exceptions():
         }
     )
     with pytest.raises(ValueError):
-        model.output_coords(bad_variable_order)
+        model._output_tensor_coords(bad_variable_order)
 
     bad_grid_size = OrderedDict(
         {
@@ -629,7 +631,7 @@ def test_stormscope_meteosat_exceptions():
         }
     )
     with pytest.raises(ValueError):
-        model.output_coords(bad_grid_size)
+        model._output_tensor_coords(bad_grid_size)
 
 
 @pytest.mark.package
@@ -650,12 +652,12 @@ def test_stormscope_meteosat_package():
     model.num_diffusion_steps = 2
 
     time = np.array([np.datetime64("2024-06-01T00:00")])
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model._input_tensor_coords()["lead_time"]
+    variable = model._input_tensor_coords()["variable"]
 
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
     r = Random(dc)
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
@@ -672,7 +674,9 @@ def test_stormscope_meteosat_package():
     # Off-Earth pixels are intentionally masked to NaN in denormalize(); only
     # on-Earth pixels are expected to be finite.
     assert torch.isfinite(out[..., model.earth_mask]).all()
-    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == model._output_tensor_coords(coords)["variable"]
+    ).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "x", 5)
     handshake_dim(out_coords, "y", 4)

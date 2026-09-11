@@ -24,6 +24,7 @@ import torch
 from earth2studio.data import Constant, Random
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.persistence import Persistence
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.perturbation import (
     Brown,
     Gaussian,
@@ -35,18 +36,18 @@ from earth2studio.utils.type import CoordSystem
 # Fake PX model
 @pytest.fixture
 def model():
-    class FooModel(torch.nn.Module):
+    class FooModel(torch.nn.Module, PrognosticMixin):
         def __init__(self):
             super().__init__()
             self.register_buffer("scale", torch.Tensor([0.1]))
             self.index = 0
             self._input_coords = None
 
-        def input_coords(self):
+        def _input_tensor_coords(self):
             return self._input_coords
 
         @batch_coords()
-        def output_coords(self, input_coords: CoordSystem):
+        def _output_tensor_coords(self, input_coords: CoordSystem):
             output_coords = input_coords.copy()
             output_coords["lead_time"] = np.array([np.timedelta64(1, "s")])
             return output_coords

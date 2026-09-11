@@ -37,6 +37,19 @@ class IncrementFCNModel(torch.nn.Module):
         return x + 1
 
 
+def test_fcn_coordinate_signatures():
+    model = FCN(PhooFCNModel(), torch.zeros(26, 1, 1), torch.ones(26, 1, 1))
+    input_signature = model.input_coords()[0]
+    output_signature = model.output_coords((input_signature,))[0]
+
+    assert input_signature.data.nbytes == output_signature.data.nbytes == 0
+    assert (
+        input_signature.e2s.get_grid().fingerprint()
+        == output_signature.e2s.get_grid().fingerprint()
+    )
+    assert output_signature.coords["lead_time"] == np.timedelta64(6, "h")
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -59,7 +72,7 @@ def test_fcn_call(time, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -67,9 +80,9 @@ def test_fcn_call(time, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -77,7 +90,7 @@ def test_fcn_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -99,7 +112,7 @@ def test_fcn_iter(ensemble, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -107,9 +120,9 @@ def test_fcn_iter(ensemble, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -126,7 +139,9 @@ def test_fcn_iter(ensemble, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
@@ -138,7 +153,7 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
     center = torch.zeros(26, 1, 1)
     scale = torch.ones(26, 1, 1)
     source_model = FCN(IncrementFCNModel(), center, scale)
-    base_coords = source_model.input_coords()
+    base_coords = source_model._input_tensor_coords()
     coords = OrderedDict(
         {
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
@@ -194,9 +209,9 @@ def test_fcn_exceptions(dc, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
@@ -218,7 +233,7 @@ def test_fcn_package(model, device):
     # Test the cached model package FCN
     p = model.to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["lead_time"]
     del dc["variable"]
@@ -226,9 +241,9 @@ def test_fcn_package(model, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
@@ -236,7 +251,7 @@ def test_fcn_package(model, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

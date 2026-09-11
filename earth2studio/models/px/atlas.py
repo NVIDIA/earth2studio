@@ -199,7 +199,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sinterpolant = sinterpolant
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system expected by Atlas.
 
         Notes
@@ -236,7 +236,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return coords
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system produced by a single Atlas step (t+6h).
 
         Parameters
@@ -275,7 +275,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -429,7 +429,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             logger.info("Atlas input contains NaNs, replacing with 0.0")
             x = torch.nan_to_num(x, nan=0.0)
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         out = torch.empty_like(x[:, :, :1])
 
         # Loop over init times
@@ -456,7 +456,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             logger.info("Atlas input contains NaNs, replacing with 0.0")
             x = torch.nan_to_num(x, nan=0.0)
 
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         out = torch.empty_like(x[:, :, :1])
         latents_out: list[list[torch.Tensor | None]] = [
             [None for _ in coords["time"]] for _ in coords["batch"]
@@ -501,7 +501,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = coords.copy()
 
         # Validate coords
-        _ = self.output_coords(coords)
+        _ = self._output_tensor_coords(coords)
 
         # Sanitize NaNs in input sst
         if torch.isnan(x).any():

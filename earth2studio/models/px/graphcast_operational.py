@@ -395,7 +395,6 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         index = 0
         while True:
-
             # Reset forcings time to targets_chunk_time
             forcings = forcings.assign_coords(time=targets_chunk_time)
             forcings = forcings.compute()
@@ -459,7 +458,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
 
-        coords_out = self.output_coords(coords)
+        coords_out = self._output_tensor_coords(coords)
 
         # Get device
         device = x.device
@@ -473,9 +472,8 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         yield out, coords_out
 
         while True:
-
             # Forward is identity operator
-            coords = self.output_coords(coords)
+            coords = self._output_tensor_coords(coords)
 
             # Get next prediction from all time iterators
             results = [
@@ -624,7 +622,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             # Map lat and lon if needed
-            x, coords = map_coords(x, coords, self.input_coords())
+            x, coords = map_coords(x, coords, self._input_tensor_coords())
 
             # Loop over time dimension (JAX model supports single init time only)
             time_dim = list(coords.keys()).index("time")
@@ -655,7 +653,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 results.append(self.iterator_result_to_tensor(predictions))
 
             out = torch.cat(results, dim=1) if n_times > 1 else results[0]
-            output_coords = self.output_coords(coords)
+            output_coords = self._output_tensor_coords(coords)
 
             # Convert to device
             out = out.to(device)
@@ -763,7 +761,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out_data, target_lead_times
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -774,7 +772,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(
+    def _output_tensor_coords(
         self,
         input_coords: CoordSystem,
     ) -> CoordSystem:

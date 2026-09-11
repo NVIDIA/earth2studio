@@ -336,7 +336,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 [self._cyclone_tracks, tracks], ignore_index=True
             )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
@@ -347,7 +347,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         return self._input_coords.copy()
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
@@ -693,7 +693,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         self._reset_cyclone_tracks()
         device = x.device
         with jax.default_device(self.get_jax_device_from_tensor(x)):
-            x, coords = map_coords(x, coords, self.input_coords())
+            x, coords = map_coords(x, coords, self._input_tensor_coords())
             time_dim = list(coords.keys()).index("time")
             results = []
             for t in range(len(coords["time"])):
@@ -718,20 +718,20 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 )
                 self._update_cyclone_tracks(
                     predictions,
-                    self.output_coords(coords_t),
+                    self._output_tensor_coords(coords_t),
                     accumulate_predictions=False,
                 )
                 results.append(self.iterator_result_to_tensor(predictions))
 
             out = torch.cat(results, dim=1) if len(results) > 1 else results[0]
-            return out.to(device), self.output_coords(coords)
+            return out.to(device), self._output_tensor_coords(coords)
 
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
         device = x.device
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -749,7 +749,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         ), coords_out
 
         while True:
-            coords = self.output_coords(coords)
+            coords = self._output_tensor_coords(coords)
             predictions = [next(it) for it in self.iterators]
             if len(predictions) == 1:
                 self._update_cyclone_tracks(
@@ -781,7 +781,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         Iterator[tuple[torch.Tensor, CoordSystem]]
             Iterator that generates model time steps.
         """
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
         self._reset_cyclone_tracks()
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             time_dim = list(coords.keys()).index("time")

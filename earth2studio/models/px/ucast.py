@@ -713,7 +713,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model."""
         return self._input_coords.copy()
 
@@ -723,7 +723,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         input_variables = np.asarray(input_coords.get("variable", []))
         if not self.preload_static_fields and input_variables.shape[0] == len(
             VARIABLES
@@ -736,7 +736,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 handshake_coords(test_coords, target_input_coords, key)
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model."""
         self._check_input_coords(input_coords)
         output_coords = self._output_coords.copy()
@@ -952,7 +952,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Runs the 12-hour U-CAST prognostic model one step."""
-        out_coords = self.output_coords(coords)
+        out_coords = self._output_tensor_coords(coords)
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
         handshake_size(coords, "lead_time", history_size)
         handshake_size(coords, "variable", n_variables)
@@ -983,7 +983,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
         coords = coords.copy()
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
         handshake_size(coords, "lead_time", history_size)
         handshake_size(coords, "variable", n_variables)
@@ -1022,7 +1022,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 static_condition=static_condition,
                 return_state=True,
             )
-            out_coords = self.output_coords(coords)
+            out_coords = self._output_tensor_coords(coords)
             out, out_coords = self.rear_hook(out, out_coords)
 
             x = torch.cat([x[:, :, 1:], out], dim=2)

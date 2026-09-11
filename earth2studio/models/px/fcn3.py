@@ -195,7 +195,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.seed = seed
         self.model.set_rng(reset=reset, seed=seed)
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
         Returns
         -------
@@ -214,7 +214,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -243,7 +243,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -362,7 +362,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: torch.Tensor,
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         x = x.squeeze(2)
 
         # For normalization, we will use both z-normalization and minmax normalization
@@ -425,7 +425,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
-        self.output_coords(coords)
+        self._output_tensor_coords(coords)
 
         # Initialize the internal noise states
         self._reset_internal_state(len(coords["batch"]), len(coords["time"]))

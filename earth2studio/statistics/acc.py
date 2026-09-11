@@ -149,12 +149,15 @@ class acc:
         # Get climatology information
         if self.climatology is not None:
             if "lead_time" in output_coords:
-                clim, _ = fetch_data(
-                    self.climatology,
-                    output_coords["time"],
-                    output_coords["variable"],
-                    lead_time=output_coords["lead_time"],
-                    device=x.device,
+                clim = (
+                    fetch_data(
+                        self.climatology,
+                        output_coords["time"],
+                        output_coords["variable"],
+                        lead_time=output_coords["lead_time"],
+                    )
+                    .e2s.to_torch()[0]
+                    .to(x.device)
                 )
             else:
                 da = self.climatology(output_coords["time"], output_coords["variable"])

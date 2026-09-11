@@ -123,8 +123,8 @@ class ForecastPipeline(Pipeline):
         if cfg.get("ensemble_size", 1) > 1 and "perturbation" in cfg:
             self.perturbation = hydra.utils.instantiate(cfg.perturbation)
 
-        self._prognostic_ic = self.prognostic.input_coords()
-        self._spatial_ref = self.prognostic.output_coords(self._prognostic_ic)
+        self._prognostic_ic = self.prognostic._input_tensor_coords()
+        self._spatial_ref = self.prognostic._output_tensor_coords(self._prognostic_ic)
         self._dx_input_coords = {id(dx): dx.input_coords() for dx in self.diagnostics}
 
     def build_total_coords(
@@ -163,8 +163,8 @@ class ForecastPipeline(Pipeline):
         # Inspect the prognostic (CPU — no weights copied to device) to infer
         # IC lead_times, variables, and step stride.
         model = load_prognostic(cfg, self._model_node(cfg))
-        ic_coords = model.input_coords()
-        spatial_ref = model.output_coords(ic_coords)
+        ic_coords = model._input_tensor_coords()
+        spatial_ref = model._output_tensor_coords(ic_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})

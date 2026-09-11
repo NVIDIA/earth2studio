@@ -436,7 +436,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 f"must match number of diagnostic models ({len(self.dx_model)})"
             )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -453,12 +453,12 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 "variable": np.empty(0),
             }
         )
-        for key, value in self.px_model.input_coords().items():
+        for key, value in self.px_model._input_tensor_coords().items():
             input_coords[key] = value
 
         return input_coords
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -471,7 +471,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        px_coords = self.px_model.output_coords(input_coords)
+        px_coords = self.px_model._output_tensor_coords(input_coords)
         dx_coords = []
         for model, prepare_dx_input in zip(self.dx_model, self.prepare_dx_input_coords):
             # This is kinda annnoying at the moment, but I'm not sure of a better way yet

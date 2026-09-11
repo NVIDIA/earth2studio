@@ -216,7 +216,7 @@ def test_gencast_mini_call(time, device, mock_GenCastMini_model):
 
     p = mock_GenCastMini_model.to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -226,12 +226,12 @@ def test_gencast_mini_call(time, device, mock_GenCastMini_model):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     out, out_coords = p(x, coords)
     assert out.shape == torch.Size([len(time), 1, 84, 181, 360])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -253,7 +253,7 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GenCastMini_model.to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -262,9 +262,9 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -286,7 +286,9 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 84, 181, 360])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"] == np.timedelta64(12 * (i + 1), "h")
@@ -310,9 +312,9 @@ def test_gencast_mini_exceptions(dc, device, mock_GenCastMini_model):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
@@ -344,7 +346,7 @@ def test_gencast_mini_package(model, device):
     # Test the cached model package gencast mini
     p = model.to(device)
 
-    dc = p.input_coords()
+    dc = p._input_tensor_coords()
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
@@ -353,9 +355,9 @@ def test_gencast_mini_package(model, device):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    lead_time = p._input_tensor_coords()["lead_time"]
+    variable = p._input_tensor_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Check iter
     p_iter = p.create_iterator(x, coords)
@@ -366,7 +368,7 @@ def test_gencast_mini_package(model, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 84, 181, 360])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
