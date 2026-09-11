@@ -6048,6 +6048,60 @@
   {
     "badges": [
       "region:global",
+      "class:subseasonal-seasonal",
+      "product:wind",
+      "product:precip",
+      "product:temp",
+      "product:atmos",
+      "product:ocean",
+      "year:2024",
+      "gpu:40gb",
+      "backend:onnx"
+    ],
+    "chips": [
+      "Prognostic",
+      "Sub-Seasonal to Seasonal",
+      "ONNX",
+      "Surface Winds",
+      "Surface Precipitation",
+      "Surface Temperature"
+    ],
+    "filters": {
+      "backend": [
+        "ONNX"
+      ],
+      "class": [
+        "Sub-Seasonal to Seasonal"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
+        "Atmosphere",
+        "Ocean"
+      ],
+      "provider": [],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2024"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "FuXiS2S(onnx_path: str)",
+    "summary": "FuXi-S2S global daily-mean prognostic model.",
+    "title": "FuXiS2S",
+    "tone": "ocean",
+    "url": "../../../modules/generated/models/px/FuXiS2S"
+  },
+  {
+    "badges": [
+      "region:global",
       "class:medium-range",
       "product:wind",
       "product:precip",

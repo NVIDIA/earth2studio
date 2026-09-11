@@ -185,6 +185,7 @@ categories:
         summary: FuXi model dependencies.
         api_refs:
           - earth2studio.models.px.FuXi
+          - earth2studio.models.px.FuXiS2S
         notes:
           - text: Requires ONNX Runtime GPU.
             href: https://onnxruntime.ai/docs/install/#python-installs

@@ -2807,6 +2807,26 @@
     {
       "classifiers": [
         "region:global",
+        "class:subseasonal-seasonal",
+        "product:wind",
+        "product:precip",
+        "product:temp",
+        "product:atmos",
+        "product:ocean",
+        "year:2024",
+        "gpu:40gb",
+        "backend:onnx"
+      ],
+      "signature": "FuXiS2S(onnx_path: str)",
+      "source": "modules/generated/models/px/FuXiS2S.md",
+      "summary": "FuXi-S2S global daily-mean prognostic model.",
+      "symbol": "earth2studio.models.px.FuXiS2S",
+      "title": "FuXiS2S",
+      "url": "modules/generated/models/px/FuXiS2S/"
+    },
+    {
+      "classifiers": [
+        "region:global",
         "class:medium-range",
         "product:wind",
         "product:precip",
