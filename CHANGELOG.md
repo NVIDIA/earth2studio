@@ -37,8 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Hugging Face model packages now use the native Hub downloader, enabling Xet
-  transfers while retaining Earth2Studio's whole-file cache behavior.
 - Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
   `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
   emit a warning and will be removed in a future release.
