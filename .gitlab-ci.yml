@@ -9,6 +9,10 @@ stages:
 workflow:
    name: $PIPELINE_WORKFLOW_NAME
 
+variables:
+  XLA_PYTHON_CLIENT_ALLOCATOR: "vmm"
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+
 build-ci-env:
   stage: build
   needs: []
