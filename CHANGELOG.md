@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `NNJAObsSatwnd`, a data source for the raw NCEP `satwnd` atmospheric
+  motion vector dump in the NNJA archive (1979-present), with GSI report types
+  derived from `(subset, SAID, SWCM)` via a port of `read_satwnd.f90`'s
+  `sattabin` table and per-producer quality indicators resolved the way GSI
+  reads them (`earth2studio.data.utils_satwnd`)
 
 ### Changed
 

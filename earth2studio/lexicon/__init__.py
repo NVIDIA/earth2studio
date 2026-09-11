@@ -53,7 +53,7 @@ from .metop import (
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
-from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon
+from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon, NNJAObsSatwndLexicon
 from .opera import OPERALexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
