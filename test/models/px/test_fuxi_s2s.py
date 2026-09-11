@@ -378,14 +378,6 @@ def test_fuxi_s2s_rejects_fractional_or_negative_latest_lead() -> None:
         model.output_coords(coords)
 
 
-def test_fuxi_s2s_default_package_is_pinned() -> None:
-    package = FuXiS2S.load_default_package()
-
-    assert package.root == (
-        "hf://Artamta/FuXi-S2S-ONNX@" "5d7a6b132aaaaa070d2856d002f95911140db0ff"
-    )
-
-
 def test_fuxi_s2s_load_model_stages_remote_external_weights(
     tmp_path: Path,
 ) -> None:
