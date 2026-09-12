@@ -46,9 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `InSituForecastFeed`'s `var_map` accepts `"array::level"` (e.g. `z500 ->
   "geopotential::500"`) to select one level of a level-dimensioned array, the spelling
   `WB2Lexicon` already uses -- so a model's own channel list can be passed straight through.
-  Channels sharing an array share one read, since a stored chunk holds every level of a step:
-  U-CAST's 83 channels cost the 11 arrays that hold them, not 83. Without this the feed could
-  only drive models needing no pressure levels, which is none of them.
+  Channels sharing an array share one read, since a stored chunk holds every level of a step,
+  so U-CAST's 83 channels resolve onto the 11 arrays that hold them. Without this the feed
+  could only drive models needing no pressure levels, which is none of them.
 
 ### Changed
 

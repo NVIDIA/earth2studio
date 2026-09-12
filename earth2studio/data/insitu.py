@@ -205,9 +205,9 @@ class InSituForecastFeed:
     to store array names when they differ (e.g. ``t2m -> 2m_temperature``). A value may name a
     level as ``"array::level"`` (e.g. ``z500 -> "geopotential::500"``) to select one level of a
     ``(sample, level, *field)`` array -- the spelling :class:`WB2Lexicon` already uses, so its
-    vocabulary can be passed through unchanged. Channels sharing an array share one read: a
-    stored chunk holds every level anyway, so U-CAST's 83 channels cost the 11 arrays that
-    hold them, not 83. Build ``store`` with :func:`insitubatch.obstore_store` /
+    vocabulary can be passed through unchanged. Channels sharing an array share one read,
+    since a stored chunk holds every level anyway: U-CAST's 83 channels resolve onto the 11
+    arrays that hold them. Build ``store`` with :func:`insitubatch.obstore_store` /
     :func:`insitubatch.fsspec_store` (e.g. anon public buckets). ``self.dataset`` exposes the
     underlying :class:`InSituDataset` for its ``cache_hits`` / ``cache_misses`` /
     ``resident_peak`` counters.
@@ -374,8 +374,10 @@ class InSituForecastFeed:
             )
 
         # One shifted geometry per (lead, array); the label grid indexes them for the stacker.
-        # Keying by array rather than by channel is what makes 83 channels over 11 arrays cost
-        # 11 reads per lead rather than 83.
+        # Keying by array rather than by channel keeps the plan honest -- one read per array per
+        # lead, which is what actually happens. It is not a fetch saving: the pool keys slots by
+        # (path, chunk), so 13 geometries naming one array at one offset already collapse to a
+        # single decode (measured). This just stops the plan from naming 83 reads it never makes.
         geometries: dict[str, object] = {}
         self.labels: list[list[str]] = []
         for li, k in enumerate(self.lead_steps):

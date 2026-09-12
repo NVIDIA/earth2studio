@@ -158,7 +158,7 @@ were already resident.
 **22 chunks for 1328 requested field reads.** A `var_map` value may name a level as
 `"array::level"` to select one level of a `(sample, level, …)` array, and channels sharing an
 array share one read — a stored chunk holds every level of a step anyway, so U-CAST's 83
-channels cost the **11 arrays** that hold them, not 83.
+channels resolve onto the **11 arrays** that hold them.
 
 This pulls a 6.7 GB checkpoint on first run. U-CAST is stochastic, so the z500 means move in
 the last digit or two between runs while the decode count does not; sanity-check the magnitude
