@@ -1,325 +1,304 @@
 # insitubatch × Earth2Studio: streaming hindcast IO
 
-Two runnable benchmarks that feed ERA5 into an Earth2Studio prognostic **without** the dense
-`fetch_data` grid — reading the analysis store with [insitubatch](https://github.com/emfdavid/insitubatch)
-(`earth2studio.data.insitu.InSituForecastFeed`) instead. They quantify what a streaming,
-read-planning loader changes for an IO-bound hindcast / scoring campaign.
+`earth2studio.data.insitu.InSituForecastFeed` feeds ERA5 into a prognostic **without** building
+the dense `(init, lead)` grid that `fetch_data` materializes. It reads the analysis store with
+[insitubatch](https://github.com/emfdavid/insitubatch), planning the reads so each stored chunk
+is decoded once no matter how many `(init, lead)` pairs need it, and yielding batches as they
+are ready.
 
-The motivation is `recipes/eval`, which requires a `predownload.py` pass before `main.py`.
+What that buys an Earth2Studio campaign:
 
-That predownload is a **deliberate cluster-scale ETL, not a workaround**, and it already
-de-duplicates. `compute_verification_times` (`src/predownload_utils.py`) collapses the
-`(init, lead)` grid onto the set of unique valid times; `predownload.py` then fetches those
-partitioned across ranks by `distribute_work` (documented invocation:
-`torchrun --nproc_per_node=8`), one timestamp at a time within a rank, each written and flushed to
-zarr with a resume marker before the next. Rank-parallel, resumable, and it leaves a durable store
-many checkpoints can be scored against — pre-regridded onto the model grid in the StormScope case.
-Separating the phases is itself the point on a GPU cluster: bulk IO runs on cheap CPU nodes and
-expensive GPU time stays off the network.
+- **Verification reads collapse onto chunks.** A scoring grid needs ERA5 at `valid = init + lead`
+  for every pair; consecutive inits share valid times, and a fat time-chunk holds several steps.
+- **Bounded memory over a long campaign.** Peak memory tracks the window you stream, not the
+  size of the campaign, so a 120-init run costs what a 12-init run costs.
+- **No materialized copy of the verification set** — and with `cache_dir`, a re-score reads the
+  chunks it touched back from local disk instead of the cloud.
 
-**insitubatch does not replace that, and structurally cannot** — its parallelism lives in one async
-event loop rather than worker processes, so it does not scale a bulk fetch across nodes. What it
-replaces is the predownload-then-read *cycle* for streaming consumption: one box, no separate phase,
-no materialized copy of the verification set. Rank-parallel training and inference are unaffected
-(each DDP rank streams its own shard); the bulk ETL phase is the part insitubatch has no answer for.
+It does **not** replace `recipes/eval`'s `predownload.py`, and structurally cannot: insitubatch's
+parallelism lives in one async event loop rather than worker processes, so it does not scale a
+bulk fetch across nodes. Predownload buys rank-parallel fetch, resumability, and a durable
+pre-regridded artifact. What the feed replaces is the predownload-then-read *cycle* for streaming
+consumption on a single box. Rank-parallel training and inference are unaffected — each DDP rank
+streams its own shard.
 
-Within that scope the gap is narrower than "no de-duplication", and lives in two places:
+## Install
 
-1. **The live path has none.** Every pipeline call site fetches per work item
-   (`fetch_data(time=[item.time], ...)` in `src/pipelines/forecast.py`, `dlesym.py`,
-   `assimilation.py`) with no memory of what a neighbouring init already read. §1 measures this.
-2. **Timestamp granularity is coarser than chunk granularity.** Even a perfect valid-time de-dup
-   issues one read per unique time; a fat time-chunk holding 8 steps serves 8 of them from one
-   decode. §1 WB2 measures that residual.
-
-§3 covers the remaining difference: predownload leaves a materialized copy of the verification set
-on disk, where the persistent cache holds only the chunks actually touched.
-
-## Setup
-
-insitubatch has its own extra (it needs Python >= 3.12, which is zarr-v3's floor from
-3.2.0 — folding it into `data` would raise that floor for every other data source). The
-benchmarks need both: `insitu` for the feed, `data` for the Earth2Studio sources the
-baseline legs read.
+insitubatch has its own extra, because it needs Python >= 3.12 (zarr-v3's floor, not
+insitubatch's choice); folding it into `data` would raise that floor for every other source.
 
 ```bash
 uv sync --extra data --extra insitu
 ```
 
-Both stores are anonymous public GCS buckets (WeatherBench2 ERA5, ARCO ERA5); no credentials
-needed. Every measurement below reads over **obstore anon on both the before and after side**, so
-the delta isolates insitubatch's read-planning + streaming rather than the storage backend.
+## Getting started
 
-Run the benchmarks with Earth2Studio's per-fetch debug logging suppressed. It emits one line per
-`(time, variable)` — 5760 lines in §1, 14 760 in §2, essentially all on the baseline leg — from
-inside the timed region, and it is not free. **Every number below is measured with it off:**
+Score a forecast against ERA5 on a public store — no credentials, no predownload pass. The feed
+replaces `fetch_data`; everything after it is the ordinary Earth2Studio loop.
 
-```bash
-export LOGURU_LEVEL=INFO
+```python
+from collections import OrderedDict
+
+import numpy as np
+from insitubatch import obstore_store
+
+from earth2studio.data.insitu import InSituForecastFeed
+from earth2studio.models.px import Persistence
+from earth2studio.utils.coords import map_coords
+
+WB2 = (
+    "gs://weatherbench2/datasets/era5/"
+    "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
+)
+
+# Lead 0 is the initial condition; the rest are verification targets.
+leads = np.array([np.timedelta64(h, "h") for h in (0, 6, 12, 18)])
+
+feed = InSituForecastFeed(
+    obstore_store(WB2, skip_signature=True),  # anonymous public read
+    variables=["t2m"],
+    var_map={"t2m": "2m_temperature"},  # store array name differs
+    lead_times=leads,
+    sample_range=(1000, 1016),  # 16 consecutive init times
+    batch_size=4,  # 4 inits per batch
+    transpose_inner=True,  # WB2 is stored lon-major
+)
+
+model = Persistence(
+    variable=["t2m"],
+    domain_coords=OrderedDict([("lat", feed.lat), ("lon", feed.lon)]),
+    history=1,
+    dt=np.timedelta64(6, "h"),
+)
+
+for x, coords in feed:
+    # x is (inits, leads, variables, lat, lon); lead index 0 is the IC.
+    ic, ic_coords = map_coords(
+        x[:, 0:1],
+        OrderedDict(
+            [
+                ("time", coords["time"]),
+                ("lead_time", coords["lead_time"][0:1]),
+                ("variable", coords["variable"]),
+                ("lat", coords["lat"]),
+                ("lon", coords["lon"]),
+            ]
+        ),
+        model.input_coords(),
+    )
+    for step, (fx, _fc) in enumerate(model.create_iterator(ic, ic_coords)):
+        if step == 0:
+            continue  # step 0 is the IC
+        rmse = (fx[:, -1] - x[:, step]).pow(2).mean().sqrt()
+        print(f"init {coords['time'][0]}  lead {6*step:>3}h  RMSE {rmse:.3f}")
+        if step == len(leads) - 1:
+            break
+    break
+
+print(f"chunks decoded: {feed.dataset.cache_misses}")
+feed.dataset.close()
 ```
 
-(`LOGURU_LEVEL` configures loguru's default handler. It gates these benchmarks, but several other
-Earth2Studio data modules call `logger.remove()` at import and re-add a handler with no level, for
-which the variable has no effect.)
+```text
+init 1959-09-08T00:00:00.000000000  lead   6h  RMSE 2.666
+init 1959-09-08T00:00:00.000000000  lead  12h  RMSE 3.672
+init 1959-09-08T00:00:00.000000000  lead  18h  RMSE 3.211
+chunks decoded: 3
+```
 
-## 1. `bench_hindcast.py` — verification-read de-duplication
+**Three chunks for 64 requested field reads** (16 inits × 4 leads): the window spans sample
+indices 1000–1018, and WB2 chunks the time axis 8 steps deep, so those 64 reads live in 3 chunks.
+`feed.dataset` also exposes `cache_hits` and `resident_peak`.
 
-A scoring grid needs ERA5 at `valid = init + lead` for every `(init, lead)`. Consecutive init
-times share valid times, and a fat time-chunk holds several steps, so the requested reads collapse
-onto far fewer stored chunks. BEFORE = E2S's per-init `fetch_data`; AFTER = the insitubatch feed
-(each lead a sample-axis `shift` view; each shared chunk decoded once).
+The knobs that matter: `variables` / `var_map` select arrays and name them; `lead_times` takes a
+model's `input_coords()["lead_time"]` for a history window (values `<= 0`), verification leads
+(`> 0`), or their union; `sample_range` picks the init window; `batch_size` is inits per batch and
+sets the streaming memory; `transpose_inner=True` for lon-major stores.
 
-The BEFORE leg runs in two configurations, because Earth2Studio's data sources cache by default
-(`cache=True`) and that materially changes the wall:
+### With a real checkpoint
+
+`Persistence` keeps the example above free of a checkpoint download, but nothing in it is
+specific to `Persistence`. `ucast_example.py` runs the same pattern against U-CAST, which takes
+83 channels and a two-step history. Most of those channels are one level of a pressure-level
+array, and `WB2Lexicon` already names each channel's array and level in the spelling `var_map`
+accepts — so the model describes its own inputs and the feed resolves them:
+
+```python
+model = UCast.load_model(UCast.load_default_package())
+ic = model.input_coords()
+
+feed = InSituForecastFeed(
+    obstore_store(WB2, skip_signature=True),
+    variables=ic["variable"],                                  # 83 channels
+    var_map={v: WB2Lexicon.VOCAB[v] for v in ic["variable"]},  # "geopotential::500"
+    lead_times=ic["lead_time"],                                # [-12h, 0h] history
+    sample_range=(2000, 2008),
+    batch_size=4,
+    transpose_inner=True,
+)
+```
+
+```bash
+python ucast_example.py                      # CPU
+python ucast_example.py --device cuda        # batches land on the GPU
+```
+
+```text
+83 channels over 11 arrays; 8 inits x 2 history steps = 1328 requested field reads
+  batch 0 (from 1960-05-15T00:00)  lead  12 hours  z500 mean 54147.2 m2/s2
+  batch 0 (from 1960-05-15T00:00)  lead  24 hours  z500 mean 54170.4 m2/s2
+  batch 1 (from 1960-05-16T00:00)  lead  12 hours  z500 mean 54151.4 m2/s2
+  batch 1 (from 1960-05-16T00:00)  lead  24 hours  z500 mean 54171.1 m2/s2
+chunks decoded: 22
+```
+
+Both batches together cost the same 22 decodes the first one did: the second batch's chunks
+were already resident.
+
+**22 chunks for 1328 requested field reads.** A `var_map` value may name a level as
+`"array::level"` to select one level of a `(sample, level, …)` array, and channels sharing an
+array share one read — a stored chunk holds every level of a step anyway, so U-CAST's 83
+channels cost the **11 arrays** that hold them, not 83.
+
+This pulls a 6.7 GB checkpoint on first run. U-CAST is stochastic, so the z500 means move in
+the last digit or two between runs while the decode count does not; sanity-check the magnitude
+rather than the digits (ERA5's own z500 over this window averages ~54056 m²/s²). With
+`--device cuda` the feed lands each batch straight on the GPU: at `batch_size=4` U-CAST peaks
+at 6.3 GB, so a 23 GB L4 has room to spare, and the decode count is the same 22 either way.
+
+### Re-scoring the same ground truth
+
+A checkpoint sweep reads one fixed verification set many times. `cache_dir` persists the decoded
+chunks a run touches, and a later run over the same store reads them from local disk instead of
+the cloud — only the chunks touched, no dense copy, and a reanalysis store never goes stale. For
+the many-scorers shape, warm it once and give the scoring jobs `readonly_cache=True`: they take
+the directory lock shared, write nothing, and a miss **raises** rather than quietly reaching for
+the cloud — so a campaign whose cost model assumes no egress fails loudly instead of surprising
+you with a bill.
+
+## Benchmarks
+
+Two runnable benchmarks quantify the two claims. Both read the **same store over obstore anon on
+both sides**, so the delta is read planning, not the storage backend.
+
+```bash
+export LOGURU_LEVEL=INFO   # these scripts log per-read at DEBUG
+export TMPDIR=/mnt/nvme    # put the baseline's cache on your fastest disk
+```
+
+All numbers below: **GCP n2-standard-8 (8 vCPU, 31 GB) + local NVMe, us-central1**, reading
+in-region public GCS; insitubatch 0.2.0, zarr 3.3.0. Walls are medians over the stated repeats,
+measured in one session with both legs interleaved. **Decode counts are deterministic; walls are
+not** — quote the counts.
+
+### 1. `bench_hindcast.py` — verification-read de-duplication
+
+BEFORE is Earth2Studio's per-init `fetch_data`; AFTER is the feed over the same window. The
+BEFORE leg runs in two configurations, because E2S's sources cache by default (`cache=True`) and
+that materially changes the wall.
 
 ```bash
 python bench_hindcast.py --store wb2 --vars t2m u10m v10m \
-  --n-init 48 --max-lead-h 240 --repeats 5 --before-cache
+  --n-init 48 --max-lead-h 240 --repeats 14 --before-cache
 python bench_hindcast.py --store arco --vars t2m --lead-step-h 6 \
   --n-init 24 --max-lead-h 144 --repeats 10 --before-cache
 ```
 
-Drop `--before-cache` for the uncached leg. `LocalCachingStore` sits at the `Store.get` level and
-holds *compressed* buffers keyed by chunk path, so with the cache on a redundant read costs a local
-disk hit instead of a network round-trip — but zarr still decodes the chunk again. Decode counts are
-identical in both configurations; only the fetch component of the wall moves.
-
 | store | chunks | requested → decodes | cache **on** | cache off |
-| ------- | -------- | --------------------- | -------------- | ----------- |
-| **WB2** 240×121 6-h | `(8,240,121)` fat | 5760 → **33** (174×) | **6.8×** | 9.4× |
-| **ARCO** 721×1440 1-h | `(1,721,1440)` chunk-1 | 576 → 162 (3.6×) | **1.2×** | 1.7× |
+| --- | --- | --- | --- | --- |
+| **WB2** 240×121 6-h | `(8,240,121)` fat | 5760 → **33** (174×) | **9.4×** | 14.6× |
+| **ARCO** 721×1440 1-h | `(1,721,1440)` chunk-1 | 576 → **162** (3.6×) | **1.6×** | 1.7× |
 
-Medians: WB2 8.22→1.21 s cached (5 repeats), 10.95→1.17 s uncached (10 repeats); ARCO
-3.78→3.16 s cached, 5.20→3.11 s uncached (10 repeats each).
+Medians: WB2 8.72→0.93 s cached (14 repeats), 12.65→0.87 s uncached (12); ARCO 3.86→2.40 s
+cached, 4.34→2.57 s uncached (10 repeats each).
 
-**Put the baseline's cache on your fastest local disk.** It is written cold on every repeat here, so
-the device shows up in the wall. ARCO's cache is 363 MB (162 chunks) and moving it from the boot
-disk to local NVMe took the cached baseline 4.31→3.78 s, i.e. 1.4×→**1.2×** — quoted above is the
-NVMe figure, the one favourable to the baseline. WB2's cache is ~10 MB and does not move. Point
-`TMPDIR` at the fast device: `TMPDIR=/mnt/nvme python bench_hindcast.py … --before-cache`.
+Quote the cache-on column — it is how a stock Earth2Studio run behaves; drop `--before-cache` for
+the other. `LocalCachingStore` sits at the `Store.get` level and holds *compressed* buffers, so a
+redundant read costs a local disk hit instead of a round-trip, but zarr still decodes the chunk
+again: **decode counts are identical in both configurations**, and no byte cache addresses decode.
+That is why the cache recovers only part of the WB2 baseline — its chunks are ~116 KB, so the
+network was never the bottleneck there; the cost is 5760 decodes against 33.
 
-At 1.2× on ARCO the two distributions overlap (feed 2.69–3.98 s against a tight 3.71–4.02 s). Read
-that row as the boundary case it is, not as a win.
+**These ratios are against the live path, not against `predownload.py`.** The BEFORE leg
+re-requests every `(init, lead)` pair, which is what the pipelines do
+(`fetch_data(time=[item.time], …)` per work item, no memory across items) — predownload
+de-duplicates valid times first. Against a valid-time-deduplicated baseline the advantage is
+smaller, and it is exactly the sample-axis steps per chunk: WB2 261 unique reads → 33 decodes =
+**7.9×**; ARCO 162 → 162 = **1.0×, none**. On a chunk-1 store, chunk granularity *is* timestamp
+granularity. That is arithmetic from the geometry, not a measurement.
 
-Quote the cache-on column: it is how a stock Earth2Studio run behaves. The cache recovers only ~25%
-of the WB2 baseline wall (10.89→8.22 s) because WB2 chunks are ~116 KB — the network was never the
-bottleneck there. The cost is 5760 decodes against 33, and no byte cache addresses decode.
+### 2. `stream_score.py` — streaming vs dense materialization
 
-**These de-dup ratios are against the *live* path, not against `predownload.py`.** The BEFORE leg
-re-requests every `(init, lead)` pair, which is what the pipelines do (`fetch_data(time=[item.time],
-…)` per work item, no memory across items) but *not* what predownload does — it de-duplicates valid
-times first. Against a valid-time-deduplicated baseline the advantage is smaller, and it is exactly
-the number of sample-axis steps per chunk:
+`create_iterator` already streams the forecast lead-by-lead and scoring is pointwise per
+`(init, lead)`, so the verification never needs to be dense. Roll out a window of inits, score
+each lead against a just-read slice, discard.
 
-| store | unique valid times × vars | insitubatch decodes | advantage |
-| ------- | -------------------------- | --------------------- | ----------- |
-| **WB2** | 87 × 3 = 261 | 33 | **7.9×** (= 8 steps/chunk) |
-| **ARCO** | 162 × 1 = 162 | 162 | **1.0× — none** |
+```bash
+for m in stream dense e2s; do
+  python stream_score.py --mode $m --n-init 120 --n-leads 40
+done
+```
 
-That is arithmetic, not a measurement: WB2's 48 consecutive 6-h inits with leads +1…+40 span valid
-indices 1001–1087 (87 times, chunks 125–135 = 11 × 3 vars = the 33 decoded); ARCO's 24 consecutive
-1-h inits with leads +6…+144 cover every index in [6, 167] (162 times = the 162 decoded). On a
-chunk-1 store, chunk granularity *is* timestamp granularity, so against a de-duplicated baseline
-insitubatch decodes nothing fewer. The wall for that baseline is not measured here.
+| mode | wall | **peak RSS** | field reads |
+| --- | --- | --- | --- |
+| `stream` — feed, `batch_size=W` | 2.8–3.6 s | **1.72 GB** | 60 |
+| `dense` — feed, `batch_size=N` | 4.1 s | 7.49 GB | 60 |
 
-WB2's fat time-chunk amortizes 8 steps per decode, so the de-dup ratio is large and the fields are
-small — insitubatch dominates. ARCO is the **honest** case (see caveats). ARCO's per-repeat spread
-is wide on this box (±15% on both legs); its row is the median of 10 repeats.
+Same reads, same backend, same store: the only difference is materialization, and streaming is
+both lower-memory and no slower. Peak memory for `stream` tracks the window, so it is flat in
+campaign size where `dense` grows with it — that bounded-memory property, more than throughput,
+is the point for a long campaign.
 
-These walls were measured on 2026-08-05 and supersede the figures this recipe carried previously
-(12.8× WB2, 1.5× ARCO), which were cache-off only. One difference is **not** the cache: the
-insitubatch leg no longer reproduces its earlier WB2 wall — 0.84 s then, 1.17 s now (median of 10
-repeats, range 1.02–1.24) against an unchanged 10.95 s baseline. The current figure reproduces
-across independent runs and repeat counts and the earlier one does not, so it is the one quoted;
-the cause of the shift is unexplained. Every comparison above has both legs measured in the same
-session, so the ratios hold regardless.
+The third mode, `e2s`, scores the same campaign through live per-init `fetch_data` with **no
+insitubatch in the loop**, and all three agree to three decimals on RMSE at every lead
+(3.637 / 5.061 / 5.071 at 24/120/240 h). That agreement is the correctness check — throughput
+alone would not catch a loader that silently aliased or double-lent a buffer. It issues **14 760
+field reads against the feed's 60**, a real read-count difference, but its wall is **not** quoted
+as a speedup: it accumulates into a dense buffer that is this harness's construction rather than
+Earth2Studio's, and a real predownload would first collapse those 120 inits × 41 leads onto the
+~160 unique valid times they span.
 
-**Separating read elimination from read throughput.** The speedups above conflate two things:
-reading *less*, and reading *fast*. To isolate the second, run the same store with no redundancy at
-all — one init at unit lead spacing, so every requested read is unique:
+## Where it does not win
+
+De-duplication is the mechanism, so removing the redundancy removes the advantage. Run ARCO with
+one init at unit lead spacing — every requested read unique, 0.67 GB moved either way:
 
 ```bash
 python bench_hindcast.py --store arco --vars t2m --lead-step-h 1 \
   --max-lead-h 162 --n-init 1 --repeats 8
 ```
 
-162 requested = 162 unique = 0.67 GB moved on both sides. E2S: **1.38 s** (486 MB/s); the feed:
-**1.61 s** (416 MB/s) — the feed is **~17% slower per byte**, roughly at parity (medians over three
-independent 8-repeat runs). insitubatch's modest ARCO result is therefore *not* a throughput
-deficit; see the honest boundary below for where the gap actually comes from.
+162 requested = 162 unique, de-dup ratio **1.0×**, and the feed comes out **~10% slower** than
+`fetch_data` (1.45 s baseline against 1.59 s) — at parity per byte, near enough. So read the ARCO
+row above as the boundary case it is: de-duplication removes a redundant sample's fetch and
+decode but **not its assembly** — the tensor still has one slot per requested `(init, lead)` —
+which is why 3.6× fewer decodes nets only ~1.6× wall. Where fields are small (WB2), assembly is
+negligible and most of the ratio converts.
 
-## 2. `stream_score.py` — streaming vs dense materialization
+A degenerate `batch_size=N` also throws the memory advantage away: `dense` above peaks at 7.49 GB
+against `stream`'s 1.72 GB. The large wins land where the chunk layout maps many samples onto
+shared chunks — overlapping windows, verification grids, fat time-chunks.
 
-The model's `create_iterator` already streams the forecast lead-by-lead, and scoring is pointwise
-per `(init, lead)` — so the verification never needs to be a dense tensor. Interleave instead:
-roll out a window of inits, score each lead against a just-read verification slice, discard. Three
-modes, all producing **identical RMSE** (a correctness check):
+## Scope / caveats
 
-```bash
-for m in e2s dense stream; do
-  python stream_score.py --mode $m --n-init 120 --n-leads 40
-done
-```
-
-| mode | wall | **peak RSS** | field reads |
-| ------ | ------ | -------------- | ------------- |
-| `e2s` — live per-init `fetch_data`, dense buffer | 29.0 s | 3.10 GB | 14 760 |
-| `dense` — insitubatch, `batch_size=N` | 4.3 s | 7.63 GB | 60 |
-| `stream` — insitubatch, `batch_size=W` | 2.9 s | **1.85 GB** | 60 |
-
-All three agree to three decimals on RMSE at every lead (3.637 / 5.061 / 5.071 at 24 h / 120 h /
-240 h), and the `e2s` mode computes it through an entirely independent path — live per-init
-`fetch_data` via `WB2ERA5_121x240`, no insitubatch in the loop. That agreement is the correctness
-check; throughput alone would not catch a loader that silently aliased or double-lent a buffer.
-
-> **The `e2s` leg is not `recipes/eval`'s predownload, and its 14 760 field reads overstate the
-> status quo.** It fetches per init with all leads and accumulates into a dense scoring buffer —
-> that dense buffer is this harness's construction, not Earth2Studio's. A real predownload would
-> first collapse these 120 inits × 41 leads onto the ~160 unique valid times they span. The
-> streaming-vs-dense memory result (the point of this section) is unaffected, since it compares the
-> two insitubatch modes; the `e2s` wall is not a fair status-quo baseline and is pending a rerun
-> against a valid-time-deduplicated fetch.
-
-Streaming's peak memory is **flat at ~1.9 GB across N = 120 / 240 / 480**, while the dense grid is
-7.63 GB at N = 120 and **OOMs a 15 GB box by ~N = 240**. Dense scales with campaign size; streaming
-does not. That bounded-memory property — not just throughput — is the point for a long campaign.
-
-(Persistence is a checkpoint-free model that exercises the real `create_iterator` seam on CPU; a
-real NVIDIA checkpoint — SFNO/FCN — is a drop-in with the same code on a GPU.)
-
-## 3. `bench_cache.py` — cross-run persistent cache
-
-A re-scored campaign shouldn't re-fetch the same ground truth. On a cluster that is exactly what
-`predownload.py` is for, and this is not an argument against it. `InSituForecastFeed(cache_dir=...)`
-covers the same need without a separate phase: the first run decodes each shared chunk once **and**
-persists it to local disk; a later run over the same store reads those chunks back as cache hits,
-touching the cloud zero times. Only the chunks actually touched, no materialized copy of the grid —
-and because a reanalysis store is static, the cache never goes stale.
-
-The trade is scope. Predownload buys rank-parallel bulk fetch, resumability, and a durable
-pre-regridded artifact; the cache buys the same re-score property with no ETL phase to schedule and
-no full copy to provision. Which one fits depends on whether you have a cluster to run the phase on
-— for the common eval shape of many checkpoints against one fixed verification set on a single box,
-the cache is the cheaper path.
-
-```bash
-python bench_cache.py --store wb2 --vars t2m u10m v10m \
-  --n-init 48 --max-lead-h 240 --cache-dir /mnt/nvme/insitu_cache
-python bench_cache.py --store arco --vars t2m \
-  --n-init 12 --max-lead-h 48 --cache-dir /mnt/nvme/insitu_cache
-```
-
-| store | field size | cold → warm wall | **cloud fetches (cold → warm)** |
-| ------- | ------------ | ------------------ | ---------------------------------- |
-| **WB2** 240×121 | 116 KB | 1.16 s → 0.81 s (1.4×) | **33 → 0** |
-| **ARCO** 721×1440 | 4 MB | 0.81 s → 0.59 s (1.4×) | **54 → 0** |
-
-The deterministic result is **zero cloud fetches on re-score** — the warm run serves every chunk
-from local disk. The wall speedup is secondary and modest: 1.4× on both stores, despite a 35×
-difference in field size, so it is *not* tracking how IO-bound the cold fetch is. On this box's
-cheap same-region reads the cloud fetch simply isn't the bottleneck, so removing it entirely buys
-little; the wall win grows under metered egress, requester-pays, or cross-region access, while the
-fetch-elimination holds everywhere. The cold wall includes the one-time persist write, so it runs
-slightly above the persist-off de-dup figure in §1.
-
-The benchmark wipes and rebuilds `<cache-dir>/bench_cold_warm/<store>/` so the cold leg starts
-empty; it never touches the rest of `--cache-dir`.
-
-**Many scorers, one warm cache.** The re-score shape is usually one warming job and then
-several scoring jobs — a checkpoint sweep against one fixed verification set. Give the
-scorers `readonly_cache=True`:
-
-```python
-warm  = InSituForecastFeed(store, vars, cache_dir="/mnt/nvme/era5-verif", ...)   # one writer
-score = InSituForecastFeed(store, vars, cache_dir="/mnt/nvme/era5-verif",
-                           readonly_cache=True, ...)                             # any number
-```
-
-A writer takes the directory lock exclusively, so a second writer fails at construction
-naming the holder's PID — the case that could previously corrupt both. Read-only openers
-take it *shared*: they coexist with each other, write nothing, and a cache **miss raises**
-rather than silently re-fetching. That last part is the point on a metered-egress campaign —
-a warming run whose window or variable set was narrower than the scoring run's becomes an
-error at the first chunk it needs, not a surprise bill.
-
-## How to read these numbers — framing insitubatch
-
-insitubatch is a **streaming batch loader** that trains/infers in place on cloud zarr: all
-parallelism lives in one async event loop, the Python hot path is O(chunks) not O(samples), and
-memory is bounded by a residency budget rather than the working set. The two benchmarks above
-sharpen its positioning into three evidence-backed claims:
-
-1. **Competitive with an optimized parallel loader, at lower memory.** On a well-chunked store and
-   for streaming consumption it matches a hand-tuned concurrent fetch's throughput while holding
-   *bounded* memory (streaming: flat ~1.9 GB where a dense verification grid OOMs). Evidence: §2.
-2. **Far ahead when the chunking strategy isn't sample-optimized.** When the access pattern maps
-   many samples onto shared chunks — overlapping windows, verification grids, fat chunks holding
-   several steps — its read planning de-duplicates and a per-sample parallel fetch re-reads.
-   Evidence: §1 WB2 (174× fewer decodes, 6.8× wall against a default-configured source), measured
-   against the **live** `fetch_data` path, which de-duplicates nothing across work items. Against
-   `recipes/eval`'s offline valid-time de-dup the advantage narrows to exactly the steps per chunk
-   — 7.9× on WB2, and **nothing at all on a chunk-1 store like ARCO** — though it needs no offline
-   pass to get it.
-3. **Honest boundary — you can use it sub-optimally.** It is not a universal speed win, and on a
-   chunk-1 store with large fields the reason is *not* raw throughput: with redundancy removed from
-   both sides the feed is only ~17% slower per byte than E2S's unbounded gather (§1). The gap opens
-   because **de-duplication removes the fetch and decode of a redundant sample, but not its
-   assembly** — the tensor the model consumes still has one slot per requested `(init, lead)`.
-   Subtracting the two §1 ARCO configurations, each redundant sample costs E2S several ms (it
-   re-fetches, or re-reads from its local cache) against the feed's re-assembly from an
-   already-resident chunk — cheaper, but not by the full de-dup ratio, which is why 3.6× fewer
-   decodes nets only 1.2× wall against a default-configured baseline. (That per-sample split was
-   quantified against the cache-off
-   baseline and needs re-deriving for the cached one; the direction holds, the coefficients do
-   not.) Where fields are small (§1 WB2) assembly is negligible and much more of the de-dup ratio
-   converts. And a degenerate
-   `batch_size=N` throws away the memory advantage: §2 `dense` peaks at 7.63 GB, *worse* than the
-   dense-buffer baseline it replaces (3.10 GB). The tool is **generally optimal for streaming with
-   bounded memory** — that is the sweet spot.
-
-A fourth boundary is scope rather than misuse: **insitubatch does not replace a rank-parallel bulk
-ETL.** `predownload.py` scales a fetch across nodes, resumes after a failure, and leaves a durable
-pre-regridded artifact; one async event loop does none of those. Everything measured here compares
-streaming consumption, not the ETL phase.
-
-One line: *stream training/inference batches from cloud tensors in place, with bounded memory —
-competitive with hand-tuned parallel loaders on optimized layouts, and far ahead when the chunking
-causes duplicate reads.*
-
-## Caveats / methodology
-
-- **Single environment, preliminary.** One n2-standard-8-class box (15 GB RAM), cold reads,
-  anonymous GCS. Numbers to be **cross-posted** after NVIDIA-side runs on the target infrastructure.
-- **§2 and §3 were measured with the baseline's cache off.** Only §1 has been re-run in both
-  configurations. §2's `e2s` leg additionally lacks valid-time de-duplication (see the note there),
-  so its wall overstates the status quo on two counts, not one. Both are pending a re-run.
-- **The zero-redundancy control below is unaffected by the cache setting** — with every requested
-  read unique there is nothing for a byte cache to serve.
-- **obstore on both sides.** Earth2Studio's zarr data sources migrated to obstore in
-  [#955](https://github.com/NVIDIA/earth2studio/pull/955); the feed uses insitubatch's
-  `obstore_store` to match, so neither side carries a backend handicap. The de-duplication ratios
-  are backend-independent — swapping both sides to `fsspec_store(url, token="anon")` changes the
-  wall clock but not the chunk counts.
-- **These numbers supersede an earlier gcsfs measurement.** This recipe was first measured on
-  2026-07-04, over gcsfs on both sides and before #955 landed, and reported 15.4× (§1 WB2), ~1.9×
-  (§1 ARCO), 39.6 s (§2 `e2s`) and ~2.2× (§3 ARCO). Every headline is lower now. That run predates
-  #955, read over gcsfs on both sides, and was measured with the debug logging above still enabled
-  — so it is superseded rather than a controlled comparison, and should not be quoted. One
-  difference is established independently of all that: the §3 ARCO row was reading an unwritten
-  region of the store (below) — all-NaN fills that never touched the network — so it measured
-  nothing, and its "~2.2×, scales with field size" result was an artifact.
-- **ARCO's time axis begins in 1900, its data in 1940.** The store declares
-  `hours since 1900-01-01` over 1 323 648 steps to 2050, but chunks outside ~1940–2023 were never
-  written and read back as NaN fill in ~20 ms without a network request. `--start` therefore
-  defaults per store (ARCO: `1051896` = 2020-01-01) and both benchmarks now fail loudly if a window
-  reads back entirely NaN. Earth2Studio's `ARCO` source validates this independently and refuses
-  pre-1940 requests; insitubatch does not, so a window outside the populated range returns fill
-  data rather than raising.
-- **Surface variables only** (`t2m`, `u10m`, `v10m`); pressure-level variables need level indexing,
-  not yet wired in the adapter.
+- **Single environment, preliminary.** One n2-standard-8-class box, in-region anonymous GCS.
+  Numbers to be cross-posted after NVIDIA-side runs on target infrastructure.
+- **Pressure levels are selected, not reduced.** `"array::level"` indexes a store that keeps
+  level as a dimension (the WB2 and ARCO layouts). A store that flattens level into array names
+  needs no level syntax at all. What the feed does not do is derive fields across variables —
+  that belongs upstream of it.
+- **ARCO's time axis begins in 1900, its data in 1940.** Chunks outside ~1940–2023 read back as
+  NaN fill in ~20 ms with no network request, so `--start` defaults per store (ARCO `1051896` =
+  2020-01-01) and both benchmarks fail loudly if a window reads back entirely NaN. Earth2Studio's
+  `ARCO` source refuses pre-1940 requests; insitubatch does not.
 - **Persistent cache footprint.** The cache stores *decoded* chunks, so per-chunk bytes exceed the
-  compressed store — but it is bounded to the unique chunks touched (decode-once), not the dense
-  grid a predownload materializes. The `cache_dir` path is the cache identity; use a fresh one when
-  the store or variable set changes.
-- **The win is the IO-bound campaign** (many inits, verification-heavy — hindcast scoring, lagged
-  ensembles). A single-IC long rollout is compute-bound, where the loader is a rounding error.
+  compressed store — but it is bounded to the unique chunks touched, not the dense grid a
+  predownload materializes. The `cache_dir` path is the cache identity.
+- **One process per `cache_dir`** (exclusive advisory lock; `readonly_cache=True` openers share
+  it). Released by the kernel on process death, so there is no stale lock to clean up.
+- **The win is the IO-bound campaign** — many inits, verification-heavy: hindcast scoring, lagged
+  ensembles. A single-IC long rollout is compute-bound, where the loader is a rounding error.
+- `Persistence` keeps the first example free of a checkpoint download while still exercising the
+  real `create_iterator` seam; the U-CAST example above is the same code against a real
+  checkpoint, and both run on CPU. A model needing a grid the store does not carry (SFNO wants
+  721×1440) needs a store at that resolution, not a change here.
