@@ -34,6 +34,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `readonly_cache` to `InSituForecastFeed`, for scoring many checkpoints against one
+  warmed verification cache: read-only openers share the cache directory lock, write
+  nothing, and raise on a miss instead of silently re-fetching
+- Added `insitu` optional dependency extra for `earth2studio.data.insitu`, keeping
+  insitubatch's Python >= 3.12 floor (zarr-v3's, from zarr 3.2.0) out of the `data` extra
+- Added optional `InSituForecastFeed` (`earth2studio.data.insitu`), an insitubatch-backed
+  streaming initial-condition / verification feed that reads a cloud zarr analysis store
+  with a de-duplicating read plan and yields `(torch.Tensor, CoordSystem)` batches for
+  IO-bound hindcast / scoring campaigns.
+- `InSituForecastFeed`'s `var_map` accepts `"array::level"` (e.g. `z500 ->
+  "geopotential::500"`) to select one level of a level-dimensioned array, the spelling
+  `WB2Lexicon` already uses -- so a model's own channel list can be passed straight through.
+  Channels sharing an array share one read, since a stored chunk holds every level of a step,
+  so U-CAST's 83 channels resolve onto the 11 arrays that hold them. Without this the feed
+  could only drive models needing no pressure levels, which is none of them.
 
 ### Changed
 

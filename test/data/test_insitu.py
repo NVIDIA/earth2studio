@@ -1,0 +1,570 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Offline tests for the insitubatch initial-condition / verification feed.
+
+The feed takes an injected zarr ``Store``, so the whole surface is exercised against a
+small synthetic store on disk -- no network, no live bucket. The fixture mirrors the
+public WB2 / ARCO layout the adapter targets: a fat time-chunk (several sample-axis steps
+per stored chunk) plus 1-D ``time`` (CF-encoded) / ``latitude`` / ``longitude`` coordinate
+arrays.
+"""
+
+from importlib.metadata import version
+
+import numpy as np
+import pytest
+
+pytest.importorskip("insitubatch", reason="insitubatch is an optional dependency")
+
+from insitubatch import ensure_local_dir, obstore_store  # noqa: E402
+
+from earth2studio.data.insitu import (  # noqa: E402
+    InSituForecastFeed,
+    decode_cf_time,
+)
+
+pytestmark = pytest.mark.skipif(
+    int(version("zarr").split(".")[0]) < 3, reason="Requires zarr v3"
+)
+
+TIME_UNITS = "hours since 1959-01-01"
+STEP_H = 6  # store sample-axis step (6-hourly, like WB2)
+
+
+def write_store(
+    tmp_path,
+    *,
+    n=48,
+    spc=8,
+    lat=4,
+    lon=5,
+    inner_latlon=True,
+    seed=0,
+    time_gap=None,
+    levels=None,
+):
+    """Write a synthetic analysis store; return ``(store, {array_name: source_ndarray})``.
+
+    ``spc`` steps per stored chunk is the fat time-chunk that lets an overlapping
+    ``(init, lead)`` grid collapse onto few decodes. ``inner_latlon`` lays fields out
+    ``(lat, lon)`` (the contract order); set it ``False`` for the ``(lon, lat)`` layout that
+    ``transpose_inner=True`` is meant to fix.
+    """
+    import zarr
+
+    url = f"file://{tmp_path}/analysis.zarr"
+    ensure_local_dir(url)
+    store = obstore_store(url, read_only=False)
+    group = zarr.open_group(store=store, mode="w")
+
+    # CF-encoded time coordinate: 6-hourly integers since a reanalysis epoch.
+    t = group.create_array("time", shape=(n,), chunks=(n,), dtype="i8")
+    values = (np.arange(n) * STEP_H).astype("i8")
+    if time_gap is not None:  # a concatenation seam / missing window
+        values[time_gap:] += STEP_H
+    t[:] = values
+    t.attrs["units"] = TIME_UNITS
+
+    inner = (lat, lon) if inner_latlon else (lon, lat)
+    group.create_array("latitude", shape=(lat,), chunks=(lat,), dtype="f4")[:] = (
+        np.linspace(90.0, -90.0, lat, dtype="f4")
+    )
+    group.create_array("longitude", shape=(lon,), chunks=(lon,), dtype="f4")[:] = (
+        np.linspace(0.0, 360.0, lon, endpoint=False, dtype="f4")
+    )
+
+    rng = np.random.default_rng(seed)
+    srcs: dict[str, np.ndarray] = {}
+    for name in ("2m_temperature", "10m_u_component_of_wind"):
+        arr = group.create_array(
+            name, shape=(n, *inner), chunks=(spc, *inner), dtype="f4"
+        )
+        data = rng.standard_normal((n, *inner)).astype("f4")
+        arr[:] = data
+        srcs[name] = data
+
+    # A pressure-level array keeps level as a dimension -- (sample, level, *field) -- the WB2
+    # 240x121 layout, where one stored chunk holds every level of a step.
+    if levels is not None:
+        group.create_array(
+            "level", shape=(len(levels),), chunks=(len(levels),), dtype="i4"
+        )[:] = np.asarray(levels, dtype="i4")
+        arr = group.create_array(
+            "geopotential",
+            shape=(n, len(levels), *inner),
+            chunks=(spc, len(levels), *inner),
+            dtype="f4",
+        )
+        data = rng.standard_normal((n, len(levels), *inner)).astype("f4")
+        arr[:] = data
+        srcs["geopotential"] = data
+    return store, srcs
+
+
+def read_store_time(store):
+    import zarr
+
+    g = zarr.open_group(store=store, mode="r")
+    attrs = dict(g["time"].attrs)
+    return decode_cf_time(np.asarray(g["time"][:]), attrs["units"])
+
+
+def test_decode_cf_time_matches_manual_offset():
+    # "hours since 1959-01-01" -> datetime64[ns]; index 4 is +24h.
+    values = np.array([0, 6, 12, 18, 24], dtype="i8")
+    out = decode_cf_time(values, TIME_UNITS)
+    assert out.dtype == np.dtype("datetime64[ns]")
+    assert out[0] == np.datetime64("1959-01-01T00:00")
+    assert out[4] == np.datetime64("1959-01-02T00:00")
+
+
+def test_feed_contract(tmp_path):
+    """One batch: tensor layout, coord keys/order/dtypes, and lead-axis values."""
+    store, _ = write_store(tmp_path)
+    variables = ["t2m", "u10m"]
+    var_map = {"t2m": "2m_temperature", "u10m": "10m_u_component_of_wind"}
+    leads = np.array([np.timedelta64(h, "h") for h in (0, 6, 12)])
+
+    feed = InSituForecastFeed(
+        store,
+        variables=variables,
+        var_map=var_map,
+        lead_times=leads,
+        sample_range=(0, 8),
+        batch_size=8,
+    )
+    batches = list(feed)
+    feed.dataset.close()
+
+    assert len(batches) == 1
+    x, coords = batches[0]
+    # (time, lead_time, variable, lat, lon)
+    assert x.shape == (8, len(leads), len(variables), 4, 5)
+    assert x.dtype.is_floating_point
+
+    assert list(coords.keys()) == ["time", "lead_time", "variable", "lat", "lon"]
+    assert coords["time"].dtype == np.dtype("datetime64[ns]")
+    assert coords["lead_time"].dtype == np.dtype("timedelta64[ns]")
+    assert np.array_equal(coords["variable"], np.array(variables))
+    assert coords["lat"].dtype == np.float32 and coords["lon"].dtype == np.float32
+    assert np.array_equal(coords["lead_time"], leads.astype("timedelta64[ns]"))
+    # init times are the first 8 store steps
+    assert np.array_equal(coords["time"], read_store_time(store)[:8])
+
+
+def test_feed_values_are_shift_views(tmp_path):
+    """Each (lead, variable) cell is a sample-axis shift view of the stored array."""
+    store, srcs = write_store(tmp_path)
+    variables = ["t2m", "u10m"]
+    var_map = {"t2m": "2m_temperature", "u10m": "10m_u_component_of_wind"}
+    lead_steps = (0, 1, 2)  # in units of the 6-h store step
+    leads = np.array([np.timedelta64(k * STEP_H, "h") for k in lead_steps])
+
+    feed = InSituForecastFeed(
+        store,
+        variables=variables,
+        var_map=var_map,
+        lead_times=leads,
+        sample_range=(0, 8),
+        batch_size=8,
+    )
+    ((x, _coords),) = list(feed)
+    feed.dataset.close()
+    x = x.numpy()
+
+    for li, k in enumerate(lead_steps):
+        for vi, vid in enumerate(variables):
+            src = srcs[var_map[vid]]
+            for t in range(8):  # init index t -> valid index t + k
+                np.testing.assert_array_equal(x[t, li, vi], src[t + k])
+
+
+def test_decode_once_dedup(tmp_path):
+    """The thesis: an overlapping (init, lead) grid decodes each shared chunk once.
+
+    48 requested field-reads (8 inits x 3 leads x 2 vars) touch sample indices 0..9, which
+    span two fat chunks (spc=8) per variable -> exactly 4 unique decodes.
+    """
+    store, _ = write_store(tmp_path, n=48, spc=8)
+    variables = ["t2m", "u10m"]
+    var_map = {"t2m": "2m_temperature", "u10m": "10m_u_component_of_wind"}
+    leads = np.array([np.timedelta64(h, "h") for h in (0, 6, 12)])
+
+    feed = InSituForecastFeed(
+        store,
+        variables=variables,
+        var_map=var_map,
+        lead_times=leads,
+        sample_range=(0, 8),
+        batch_size=8,
+    )
+    list(feed)
+    decodes = feed.dataset.cache_misses
+    feed.dataset.close()
+
+    requested = 8 * len(leads) * len(variables)
+    # touched sample indices 0..9 -> chunks {0, 1} (spc=8), per each of 2 variables
+    touched = {i + k for i in range(8) for k in (0, 1, 2)}
+    unique_chunks = len({idx // 8 for idx in touched}) * len(variables)
+    assert decodes == unique_chunks == 4
+    assert decodes < requested
+
+
+def test_transpose_inner_swaps_field_axes(tmp_path):
+    """A store laid out (lon, lat) yields (lat, lon) fields under transpose_inner=True."""
+    store, srcs = write_store(tmp_path, lat=4, lon=5, inner_latlon=False)
+    feed = InSituForecastFeed(
+        store,
+        variables=["t2m"],
+        var_map={"t2m": "2m_temperature"},
+        sample_range=(0, 8),
+        batch_size=8,
+        transpose_inner=True,
+    )
+    x, coords = list(feed)[0]
+    feed.dataset.close()
+
+    assert x.shape[-2:] == (4, 5)  # (lat, lon)
+    assert coords["lat"].shape[0] == 4 and coords["lon"].shape[0] == 5
+    # value at (0,0) is the stored (lon, lat) field transposed
+    np.testing.assert_array_equal(x.numpy()[0, 0, 0], srcs["2m_temperature"][0].T)
+
+
+def test_persistent_cache_across_runs(tmp_path):
+    """cache_dir persists decoded chunks: a second run over the same store hits the cache."""
+    store, _ = write_store(tmp_path, n=48, spc=8)
+    kw = {
+        "variables": ["t2m"],
+        "var_map": {"t2m": "2m_temperature"},
+        "lead_times": np.array([np.timedelta64(h, "h") for h in (0, 6, 12)]),
+        "sample_range": (0, 8),
+        "batch_size": 8,
+        "cache_dir": str(tmp_path / "cache"),
+    }
+
+    cold = InSituForecastFeed(store, **kw)
+    list(cold)
+    cold_misses, cold_hits = cold.dataset.cache_misses, cold.dataset.cache_hits
+    cold.dataset.close()
+
+    warm = InSituForecastFeed(store, **kw)
+    list(warm)
+    warm_misses, warm_hits = warm.dataset.cache_misses, warm.dataset.cache_hits
+    warm.dataset.close()
+
+    assert cold_misses > 0 and cold_hits == 0  # cold run fetches + populates the cache
+    assert warm_hits == cold_misses  # warm run serves every chunk from disk
+    assert warm_misses == 0  # ... and fetches nothing
+
+
+def test_lead_not_multiple_of_store_step_raises(tmp_path):
+    store, _ = write_store(tmp_path)  # 6-h store step
+    with pytest.raises(ValueError, match="integer multiple of the store step"):
+        InSituForecastFeed(
+            store,
+            variables=["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array(
+                [np.timedelta64(90, "m")]
+            ),  # 1.5 h, not a multiple of 6 h
+            sample_range=(0, 4),
+        )
+
+
+def test_verification_lead_past_store_end_raises(tmp_path):
+    """A positive lead whose read leaves the store end is rejected, not silently dropped."""
+    store, _ = write_store(tmp_path, n=48)  # 6-h step; 240 h = 40 steps
+    with pytest.raises(ValueError, match=r"outside the store|valid init range"):
+        InSituForecastFeed(
+            store,
+            variables=["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array([np.timedelta64(h, "h") for h in (0, 240)]),
+            sample_range=(0, 20),  # init 20 + 40-step lead -> index 60 >> 48
+        )
+
+
+def test_history_lead_before_store_start_raises(tmp_path):
+    """A negative (history) lead whose read precedes index 0 is rejected."""
+    store, _ = write_store(tmp_path, n=48)
+    with pytest.raises(ValueError, match=r"outside the store|valid init range"):
+        InSituForecastFeed(
+            store,
+            variables=["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array(
+                [np.timedelta64(h, "h") for h in (-240, 0)]
+            ),  # -40 steps
+            sample_range=(0, 44),  # init 0 - 40-step history -> index -40
+        )
+
+
+def test_sample_range_none_defaults_to_valid_window(tmp_path):
+    """With no sample_range, the feed covers exactly the inits whose leads all fit the store."""
+    store, _ = write_store(tmp_path, n=48)  # spc=8
+    feed = InSituForecastFeed(
+        store,
+        variables=["t2m"],
+        var_map={"t2m": "2m_temperature"},
+        lead_times=np.array(
+            [np.timedelta64(h, "h") for h in (0, 6, 12)]
+        ),  # steps 0,1,2
+        batch_size=8,
+    )
+    n_inits = sum(x.shape[0] for x, _ in feed)
+    feed.dataset.close()
+    # valid_anchor_range([0,1,2], 48) = [0, 46): the last two inits would read past the end
+    assert n_inits == 46
+
+
+def test_var_map_missing_an_entry_raises_at_construction(tmp_path):
+    """A missing mapping is a configuration mistake, not a KeyError three frames deep in
+    the loader. Name the ids that have no entry, and what was given."""
+    store, _ = write_store(tmp_path)
+    with pytest.raises(ValueError, match=r"var_map has no entry for \['v10m'\]"):
+        InSituForecastFeed(
+            store,
+            ["t2m", "v10m"],
+            var_map={"t2m": "2m_temperature"},
+        )
+
+
+def test_irregular_time_axis_raises(tmp_path):
+    """Leads map to sample-axis steps through one dt, so a seam in the time axis would
+    score against the wrong valid times -- silently, and only after the seam."""
+    store, _ = write_store(tmp_path, time_gap=20)
+    with pytest.raises(ValueError, match="not uniformly spaced"):
+        InSituForecastFeed(
+            store,
+            ["t2m"],
+            var_map={"t2m": "2m_temperature"},
+            lead_times=np.array([np.timedelta64(6, "h")]),
+        )
+
+
+def test_single_step_time_axis_raises(tmp_path):
+    """The degenerate axis the dt read would IndexError on."""
+    store, _ = write_store(tmp_path, n=1, spc=1)
+    with pytest.raises(ValueError, match="needs at least two"):
+        InSituForecastFeed(store, ["t2m"], var_map={"t2m": "2m_temperature"})
+
+
+def test_many_leads_over_variables_with_unequal_chunking(tmp_path):
+    """The adapter's real hindcast shape, which nothing exercised end to end: several leads
+    x several variables, over arrays whose sample-chunk sizes differ.
+
+    The read plan is built from the *reference* geometry, but every variable's reads come
+    from its own chunk grid -- so a coarser second array must still deliver byte-exact data
+    at every lead. This is the composition Negin asked about.
+    """
+    import zarr
+
+    store, srcs = write_store(tmp_path, n=48, spc=8)
+    # Re-chunk the second variable to a different sample-chunk size (3 vs 8, non-divisible).
+    group = zarr.open_group(store=store, mode="a")
+    del group["10m_u_component_of_wind"]
+    arr = group.create_array(
+        "10m_u_component_of_wind",
+        shape=srcs["10m_u_component_of_wind"].shape,
+        chunks=(3, *srcs["10m_u_component_of_wind"].shape[1:]),
+        dtype="f4",
+    )
+    arr[:] = srcs["10m_u_component_of_wind"]
+
+    leads = np.array([np.timedelta64(h, "h") for h in (0, 6, 12, 18, 24, 30)])
+    feed = InSituForecastFeed(
+        store,
+        ["t2m", "u10m"],
+        var_map={"t2m": "2m_temperature", "u10m": "10m_u_component_of_wind"},
+        lead_times=leads,
+        batch_size=4,
+    )
+    seen = 0
+    for x, coords in feed:
+        assert x.shape[1] == len(leads) and x.shape[2] == 2
+        for i, t0 in enumerate(coords["time"]):
+            anchor = int(np.where(feed.time == t0)[0][0])
+            for li in range(
+                len(leads)
+            ):  # lead li is anchor + li steps (6 h == one step)
+                np.testing.assert_allclose(
+                    x[i, li, 0].cpu().numpy(), srcs["2m_temperature"][anchor + li]
+                )
+                np.testing.assert_allclose(
+                    x[i, li, 1].cpu().numpy(),
+                    srcs["10m_u_component_of_wind"][anchor + li],
+                )
+            seen += 1
+    assert seen > 0
+
+
+def test_readonly_cache_serves_a_warm_cache_and_writes_nothing(tmp_path):
+    """The many-scorers workflow: one run warms, later runs open read-only.
+
+    A read-only opener must serve every chunk from disk (no misses), leave the directory
+    byte-for-byte alone, and return exactly what the warming run returned.
+    """
+    store, _ = write_store(tmp_path)
+    cache = str(tmp_path / "cache")
+    common = dict(
+        var_map={"t2m": "2m_temperature"},
+        lead_times=np.array([np.timedelta64(h, "h") for h in (0, 6, 12)]),
+        cache_dir=cache,
+    )
+    warm = InSituForecastFeed(store, ["t2m"], **common)
+    first = [x.clone() for x, _ in warm]
+    warm.dataset.close()
+    before = sorted(
+        (f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir()
+    )
+
+    reader = InSituForecastFeed(store, ["t2m"], readonly_cache=True, **common)
+    second = [x.clone() for x, _ in reader]
+    assert reader.dataset.cache_misses == 0, "a warm read-only run must not miss"
+    reader.dataset.close()
+
+    after = sorted(
+        (f.name, f.stat().st_mtime_ns) for f in (tmp_path / "cache").iterdir()
+    )
+    assert before == after, "a read-only opener must not write to the cache directory"
+    for a, b in zip(first, second, strict=True):
+        np.testing.assert_array_equal(a.cpu().numpy(), b.cpu().numpy())
+
+
+def test_readonly_cache_without_a_cache_dir_raises(tmp_path):
+    """The flag is an assertion about a cache; without one there is nothing to assert."""
+    store, _ = write_store(tmp_path)
+    with pytest.raises(ValueError, match="readonly_cache=True needs a cache_dir"):
+        InSituForecastFeed(
+            store, ["t2m"], var_map={"t2m": "2m_temperature"}, readonly_cache=True
+        )
+
+
+LEVELS = [250, 500, 850]
+
+
+def test_level_selection_reads_the_requested_level(tmp_path):
+    """``"geopotential::500"`` selects level 500, not merely *a* level.
+
+    A wrong axis or an off-by-one here yields a plausible field rather than an error, so the
+    assertion is against the source array and a second level is checked to differ.
+    """
+    store, srcs = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    feed = InSituForecastFeed(
+        store,
+        variables=["z500", "t2m"],
+        var_map={"z500": "geopotential::500", "t2m": "2m_temperature"},
+        lead_times=np.array([np.timedelta64(0, "h")]),
+        sample_range=(0, 4),
+        batch_size=4,
+    )
+    x, coords = next(iter(feed))
+    feed.dataset.close()
+
+    assert list(coords["variable"]) == ["z500", "t2m"]
+    assert x.shape[2] == 2  # one entry per channel; no stray level axis
+    want = srcs["geopotential"][0, LEVELS.index(500)]
+    np.testing.assert_array_equal(x[0, 0, 0].numpy(), want)
+    np.testing.assert_array_equal(x[0, 0, 1].numpy(), srcs["2m_temperature"][0])
+    # NULL: a different level must not match, or the check above proves nothing.
+    other = srcs["geopotential"][0, LEVELS.index(850)]
+    assert not np.array_equal(x[0, 0, 0].numpy(), other)
+
+
+def test_channels_sharing_an_array_share_one_decode(tmp_path):
+    """Three levels of one array cost what one level costs: the chunk holds them all."""
+    store, _ = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    leads = np.array([np.timedelta64(0, "h")])
+
+    def decodes(variables, var_map):
+        feed = InSituForecastFeed(
+            store,
+            variables=variables,
+            var_map=var_map,
+            lead_times=leads,
+            sample_range=(0, 8),
+            batch_size=8,
+        )
+        list(feed)
+        n = feed.dataset.cache_misses
+        feed.dataset.close()
+        return n
+
+    one = decodes(["z500"], {"z500": "geopotential::500"})
+    three = decodes(
+        ["z250", "z500", "z850"],
+        {f"z{lev}": f"geopotential::{lev}" for lev in LEVELS},
+    )
+    assert three == one, f"3 levels took {three} decodes against {one} for one level"
+
+
+def test_surface_spelling_with_trailing_separator(tmp_path):
+    """``WB2Lexicon`` spells a surface variable ``"name::"``; an empty level means no level."""
+    store, srcs = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    feed = InSituForecastFeed(
+        store,
+        variables=["t2m"],
+        var_map={"t2m": "2m_temperature::"},
+        lead_times=np.array([np.timedelta64(0, "h")]),
+        sample_range=(0, 4),
+        batch_size=4,
+    )
+    x, _ = next(iter(feed))
+    feed.dataset.close()
+    np.testing.assert_array_equal(x[0, 0, 0].numpy(), srcs["2m_temperature"][0])
+
+
+def test_unknown_level_raises(tmp_path):
+    store, _ = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    with pytest.raises(ValueError, match="level 700 requested"):
+        InSituForecastFeed(
+            store,
+            variables=["z700"],
+            var_map={"z700": "geopotential::700"},
+            lead_times=np.array([np.timedelta64(0, "h")]),
+            sample_range=(0, 4),
+        )
+
+
+def test_level_request_without_a_level_coordinate_raises(tmp_path):
+    """Asking for a level in a store that has no level coordinate fails at construction."""
+    store, _ = write_store(tmp_path, n=48, spc=8)  # no levels written
+    with pytest.raises(ValueError, match="no 'level' coordinate"):
+        InSituForecastFeed(
+            store,
+            variables=["z500"],
+            var_map={"z500": "2m_temperature::500"},
+            lead_times=np.array([np.timedelta64(0, "h")]),
+            sample_range=(0, 4),
+        )
+
+
+def test_array_mapped_both_with_and_without_a_level_raises(tmp_path):
+    """Channels sharing an array share a read, so they must agree on selecting a level.
+
+    Without this check the two shapes -- (n_time, n_level, *field) and (n_time, *field) --
+    meet in ``torch.stack`` and fail there, naming neither the array nor the channels.
+    """
+    store, _ = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    with pytest.raises(ValueError, match="both with and without a level"):
+        InSituForecastFeed(
+            store,
+            variables=["z", "z500"],
+            var_map={"z": "geopotential", "z500": "geopotential::500"},
+            lead_times=np.array([np.timedelta64(0, "h")]),
+            sample_range=(0, 4),
+        )
