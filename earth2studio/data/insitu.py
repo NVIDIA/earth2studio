@@ -208,8 +208,9 @@ class InSituForecastFeed:
     vocabulary can be passed through unchanged. Channels sharing an array share one read: a
     stored chunk holds every level anyway, so U-CAST's 83 channels cost the 11 arrays that
     hold them, not 83. Build ``store`` with :func:`insitubatch.obstore_store` /
-    :func:`insitubatch.fsspec_store` (e.g. anon public buckets). ``self.dataset`` exposes the underlying :class:`InSituDataset` for its
-    ``cache_hits`` / ``cache_misses`` / ``resident_peak`` counters.
+    :func:`insitubatch.fsspec_store` (e.g. anon public buckets). ``self.dataset`` exposes the
+    underlying :class:`InSituDataset` for its ``cache_hits`` / ``cache_misses`` /
+    ``resident_peak`` counters.
 
     Setting ``cache_dir`` turns on a **cross-run persistent cache**: the decoded chunks a run
     touches are written there (decode-once, no reshard) and a later run over the same store
