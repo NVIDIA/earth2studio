@@ -25,6 +25,9 @@ rollout produces it, accumulate RMSE, discard.
 
 Three modes over one hindcast campaign (N inits x L leads x V vars), scored vs ERA5 with Persistence:
   e2s    = E2S WB2 fetch_data (redundant per-(time,var) reads) -> dense grid -> roll out + score.
+           Pass ``--before-cache`` to run it with the source's own default cache ON, which is
+           how a stock Earth2Studio run behaves; without it every redundant read goes to the
+           cloud. Report the cached leg for wall-clock -- it is the honest status quo.
   dense  = insitubatch, batch_size=N -> one dense materialization (the E2S shape, deduped reads).
   stream = insitubatch, batch_size=W -> windowed stream; roll out + score each window inline, discard.
 
@@ -34,6 +37,7 @@ N*L vs W*L. `e2s` adds the redundant-read wall of the status quo.
 """
 
 import argparse
+import os
 import resource
 import time
 from collections import OrderedDict
@@ -41,6 +45,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from bench_hindcast import before_cache_root, wipe_before_cache
 from insitubatch import obstore_store
 
 from earth2studio.data.insitu import InSituForecastFeed, decode_cf_time
@@ -166,12 +171,17 @@ def run_insitu(
 
 
 def run_e2s(
-    variables: list[str], start: int, n_init: int, leads_h: list[int], nsteps: int
+    variables: list[str],
+    start: int,
+    n_init: int,
+    leads_h: list[int],
+    nsteps: int,
+    cache: bool,
 ) -> tuple["RmseAccumulator", int]:
     """Score the campaign through Earth2Studio's own fetch_data path, as the baseline."""
     from earth2studio.data.wb2 import WB2ERA5_121x240
 
-    src = WB2ERA5_121x240(cache=False, verbose=False)
+    src = WB2ERA5_121x240(cache=cache, verbose=False)
     g_store = anon_store()
     import zarr
 
@@ -232,14 +242,31 @@ def main() -> None:
     p.add_argument("--n-init", type=int, default=120)
     p.add_argument("--n-leads", type=int, default=40)
     p.add_argument("--window", type=int, default=8)
+    p.add_argument(
+        "--before-cache",
+        action="store_true",
+        help="run the e2s leg with Earth2Studio's per-source cache ON (its own "
+        "default), so redundant reads hit local disk instead of the cloud. Uses the "
+        "same bench-owned cache directory as bench_hindcast.py, wiped first so the "
+        "pass starts cold. No effect on the insitubatch modes.",
+    )
     args = p.parse_args()
+
+    if args.mode == "e2s" and args.before_cache:
+        # Redirect Earth2Studio's cache to the bench-owned directory before the source
+        # is constructed. DATA_CACHE takes precedence downstream, so set both.
+        os.environ["EARTH2STUDIO_CACHE"] = before_cache_root()
+        os.environ["EARTH2STUDIO_DATA_CACHE"] = before_cache_root()
+        wipe_before_cache()
 
     leads_h = [6 * k for k in range(args.n_leads + 1)]  # 0, 6, .., n_leads*6  (0 = IC)
     nsteps = args.n_leads
 
     t0 = time.perf_counter()
     if args.mode == "e2s":
-        acc, reads = run_e2s(args.vars, args.start, args.n_init, leads_h, nsteps)
+        acc, reads = run_e2s(
+            args.vars, args.start, args.n_init, leads_h, nsteps, args.before_cache
+        )
     else:
         bs = args.window if args.mode == "stream" else args.n_init
         acc, reads = run_insitu(args.vars, args.start, args.n_init, leads_h, nsteps, bs)
@@ -252,10 +279,12 @@ def main() -> None:
     print(f"  wall        : {wall:.2f} s")
     print(f"  peak RSS    : {peak_rss_gb():.2f} GB")
     print(f"  reads/decodes: {reads}")
+    # Label the probes actually reported: at --n-leads below 40 the campaign stops short
+    # of 240h, and printing nsteps*6 under a hard-coded "240h" would misname the number.
+    probes = sorted({h for h in (24, 120, 240) if h <= nsteps * 6} | {nsteps * 6})
     print(
-        f"  RMSE @ 24h/120h/240h: "
-        f"{rmse.get(24, float('nan')):.3f} / {rmse.get(120, float('nan')):.3f} / "
-        f"{rmse.get(min(240, nsteps*6), float('nan')):.3f}"
+        f"  RMSE @ {'/'.join(f'{h}h' for h in probes)}: "
+        + " / ".join(f"{rmse.get(h, float('nan')):.3f}" for h in probes)
     )
 
 
