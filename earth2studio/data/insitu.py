@@ -18,17 +18,19 @@
 
 Earth2Studio's standard path is ``DataSource -> xr.DataArray -> fetch_data ->
 prep_data_array -> (torch.Tensor, coords)``; xarray is load-bearing down to
-``prep_data_array``, and ``fetch_data`` gathers one read per ``(time, lead_time)`` with
-no de-duplication. For an IO-bound hindcast / scoring campaign the ``(init, lead)`` grid
-maps many requested slices onto the **same** stored chunk (consecutive init times share
-valid times; a fat time-chunk holds several steps), so that path re-reads and re-decodes
-the same bytes over and over.
+``prep_data_array``, and ``fetch_data`` issues one read per ``(time, lead_time)`` and keeps
+no memory across calls. A source's own cache (on by default) turns a repeated read into a
+local disk hit, but it holds *compressed* bytes keyed by chunk, so a chunk covering several
+time steps is decoded again for every step asked of it. For an IO-bound hindcast / scoring
+campaign the ``(init, lead)`` grid maps many requested slices onto the **same** stored chunk
+(consecutive init times share valid times; a fat time-chunk holds several steps), so that
+grid costs a decode per requested slice rather than per chunk.
 
 This module skips xarray: it reads the analysis store with **insitubatch**
-(:class:`~insitubatch.source.InSituDataset` -- bounded-fan-out async prefetch, a read plan
-that decodes each shared chunk once) and converts each numpy ``Batch`` to the exact
-``(x, coords)`` tuple ``fetch_data(..., legacy=True)`` returns, so it is a drop-in for the
-initial-condition feed of ``earth2studio.run`` workflows.
+(:class:`~insitubatch.source.InSituDataset` -- an async read plan that fetches ahead within a
+fixed memory budget and decodes each shared chunk once) and converts each numpy ``Batch`` to
+the exact ``(x, coords)`` tuple ``fetch_data(..., legacy=True)`` returns, so it is a drop-in
+for the initial-condition feed of ``earth2studio.run`` workflows.
 
 The lead axis is unified: pass ``lead_times`` covering a model's input history (``<= 0``,
 e.g. ``[-6h, 0]`` for a 2-step history model) and/or verification leads (``> 0``, for
@@ -100,6 +102,7 @@ def batch_to_xcoords(
     lon: np.ndarray,
     transpose_inner: bool = False,
     device: torch.device | str = "cpu",
+    levels: list[int | None] | None = None,
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Convert one insitubatch ``Batch`` to the ``fetch_data(legacy=True)`` contract.
 
@@ -110,12 +113,23 @@ def batch_to_xcoords(
     ``variable`` (str), ``lat``/``lon`` (float32) -- so it drops straight into
     ``prognostic.create_iterator`` after ``map_coords``. ``transpose_inner`` swaps the two
     field axes when the store lays fields out ``(lon, lat)`` but the contract wants
-    ``(lat, lon)``.
+    ``(lat, lon)``. ``levels`` gives a per-variable index into a level-dimensioned array's
+    second axis (``None`` for an array that already holds one field per sample).
     """
     tensors = to_torch(batch)  # {label: (n_time, *inner)} via zero-copy DLPack
-    # (n_time, var, *inner) per lead -> stack the lead axis -> (n_time, lead, var, *inner).
+
+    def field(li: int, vi: int) -> torch.Tensor:
+        """The ``(n_time, *field)`` slice for one (lead, variable), level-selected."""
+        t = tensors[labels[li][vi]]
+        j = None if levels is None else levels[vi]
+        # A level-dimensioned array arrives whole -- (n_time, n_level, *field) -- because the
+        # stored chunk holds every level anyway; selecting here costs no extra read, and lets
+        # several channels share one decode of one array.
+        return t if j is None else t[:, j]
+
+    # (n_time, var, *field) per lead -> stack the lead axis -> (n_time, lead, var, *field).
     per_lead = [
-        torch.stack([tensors[labels[li][vi]] for vi in range(len(variables))], dim=1)
+        torch.stack([field(li, vi) for vi in range(len(variables))], dim=1)
         for li in range(len(lead_time))
     ]
     x = torch.stack(per_lead, dim=1)
@@ -132,6 +146,43 @@ def batch_to_xcoords(
         ]
     )
     return x, coords
+
+
+def _level_indices(
+    store: Store,
+    arrays: list[str],
+    wanted: list[int | None],
+    level_name: str,
+) -> list[int | None]:
+    """Resolve each channel's requested level to an index into its array's level axis.
+
+    A ``var_map`` value of ``"geopotential::500"`` asks for level 500 of a
+    ``(sample, level, *field)`` array; the index comes from the store's own level
+    coordinate, so the caller names the level in physical units rather than by position.
+    Returns ``None`` for a channel whose array already holds one field per sample.
+    """
+    if all(w is None for w in wanted):
+        return [None] * len(wanted)
+    group = zarr.open_group(store=store, mode="r")
+    if level_name not in list(group.array_keys()):
+        raise ValueError(
+            f"a var_map entry requested a level, but the store has no {level_name!r} "
+            f"coordinate to resolve it against; pass level_name= if it is named differently"
+        )
+    coord = np.asarray(group[level_name][:])
+    out: list[int | None] = []
+    for array, want in zip(arrays, wanted, strict=True):
+        if want is None:
+            out.append(None)
+            continue
+        hit = np.flatnonzero(coord == want)
+        if hit.size == 0:
+            raise ValueError(
+                f"level {want} requested for array {array!r} is not in the store's "
+                f"{level_name!r} coordinate {coord.tolist()}"
+            )
+        out.append(int(hit[0]))
+    return out
 
 
 @check_optional_dependencies()
@@ -151,9 +202,13 @@ class InSituForecastFeed:
     exactly the in-bounds init window for the requested leads.
 
     ``variables`` are the ids to expose on the ``variable`` coordinate; ``var_map`` maps them
-    to store array names when they differ (e.g. ``t2m -> 2m_temperature``). Build ``store``
-    with :func:`insitubatch.obstore_store` / :func:`insitubatch.fsspec_store` (e.g. anon
-    public buckets). ``self.dataset`` exposes the underlying :class:`InSituDataset` for its
+    to store array names when they differ (e.g. ``t2m -> 2m_temperature``). A value may name a
+    level as ``"array::level"`` (e.g. ``z500 -> "geopotential::500"``) to select one level of a
+    ``(sample, level, *field)`` array -- the spelling :class:`WB2Lexicon` already uses, so its
+    vocabulary can be passed through unchanged. Channels sharing an array share one read: a
+    stored chunk holds every level anyway, so U-CAST's 83 channels cost the 11 arrays that
+    hold them, not 83. Build ``store`` with :func:`insitubatch.obstore_store` /
+    :func:`insitubatch.fsspec_store` (e.g. anon public buckets). ``self.dataset`` exposes the underlying :class:`InSituDataset` for its
     ``cache_hits`` / ``cache_misses`` / ``resident_peak`` counters.
 
     Setting ``cache_dir`` turns on a **cross-run persistent cache**: the decoded chunks a run
@@ -197,6 +252,7 @@ class InSituForecastFeed:
         time_name: str = "time",
         lat_name: str = "latitude",
         lon_name: str = "longitude",
+        level_name: str = "level",
         sample_range: tuple[int, int] | None = None,
         batch_size: int = 8,
         max_inflight: int | None = None,
@@ -270,8 +326,31 @@ class InSituForecastFeed:
             )
         self.lead_steps = np.round(steps).astype(np.int64)
 
-        arrays = [vmap[v] for v in self.variables]
-        opened = open_geometries(store, variables=arrays)
+        # ``var_map`` values may name a level: "geopotential::500" selects level 500 of a
+        # (sample, level, *field) array, matching the spelling in WB2Lexicon. Several channels
+        # may name one array (z50..z1000 are 13 channels of `geopotential`); they share one
+        # geometry, so the array is read and decoded once for all of them.
+        specs = [vmap[v].split("::", 1) for v in self.variables]
+        arrays = [spec[0] for spec in specs]
+        # A trailing "::" with no level is how WB2Lexicon spells a surface variable, so an
+        # empty level reads as "no level axis" rather than as a parse error -- which lets a
+        # caller hand this feed `WB2Lexicon.VOCAB` entries unchanged.
+        wanted = [
+            int(spec[1]) if len(spec) == 2 and spec[1] != "" else None for spec in specs
+        ]
+        # One array cannot be both level-selected and taken whole: the two shapes differ, and
+        # the channels share a read, so catch it here rather than in a stack() shape error.
+        for a in set(arrays):
+            uses = {
+                w is None for w, arr in zip(wanted, arrays, strict=True) if arr == a
+            }
+            if len(uses) > 1:
+                raise ValueError(
+                    f"array {a!r} is mapped both with and without a level; every channel "
+                    f"reading one array must select a level, or none of them may"
+                )
+        opened = open_geometries(store, variables=sorted(set(arrays)))
+        self.levels = _level_indices(store, arrays, wanted, level_name)
 
         # Each lead shifts the read to anchor + step, so init times near a store edge whose
         # shifted read would leave [0, n_samples) are unusable. valid_anchor_range gives the
@@ -293,14 +372,16 @@ class InSituForecastFeed:
                 f"leads is [{lo}, {hi})"
             )
 
-        # One shifted geometry per (lead, variable); label grid indexes them for the stacker.
+        # One shifted geometry per (lead, array); the label grid indexes them for the stacker.
+        # Keying by array rather than by channel is what makes 83 channels over 11 arrays cost
+        # 11 reads per lead rather than 83.
         geometries: dict[str, object] = {}
         self.labels: list[list[str]] = []
         for li, k in enumerate(self.lead_steps):
             row = []
-            for v in self.variables:
-                label = f"{v}#{li}"
-                geometries[label] = opened[vmap[v]].shift(int(k))
+            for a in arrays:
+                label = f"{a}#{li}"
+                geometries[label] = opened[a].shift(int(k))
                 row.append(label)
             self.labels.append(row)
 
@@ -333,4 +414,5 @@ class InSituForecastFeed:
                 lon=self.lon,
                 transpose_inner=self.transpose_inner,
                 device=self.device,
+                levels=self.levels,
             )

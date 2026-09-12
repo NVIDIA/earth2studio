@@ -46,7 +46,16 @@ STEP_H = 6  # store sample-axis step (6-hourly, like WB2)
 
 
 def write_store(
-    tmp_path, *, n=48, spc=8, lat=4, lon=5, inner_latlon=True, seed=0, time_gap=None
+    tmp_path,
+    *,
+    n=48,
+    spc=8,
+    lat=4,
+    lon=5,
+    inner_latlon=True,
+    seed=0,
+    time_gap=None,
+    levels=None,
 ):
     """Write a synthetic analysis store; return ``(store, {array_name: source_ndarray})``.
 
@@ -87,6 +96,22 @@ def write_store(
         data = rng.standard_normal((n, *inner)).astype("f4")
         arr[:] = data
         srcs[name] = data
+
+    # A pressure-level array keeps level as a dimension -- (sample, level, *field) -- the WB2
+    # 240x121 layout, where one stored chunk holds every level of a step.
+    if levels is not None:
+        group.create_array(
+            "level", shape=(len(levels),), chunks=(len(levels),), dtype="i4"
+        )[:] = np.asarray(levels, dtype="i4")
+        arr = group.create_array(
+            "geopotential",
+            shape=(n, len(levels), *inner),
+            chunks=(spc, len(levels), *inner),
+            dtype="f4",
+        )
+        data = rng.standard_normal((n, len(levels), *inner)).astype("f4")
+        arr[:] = data
+        srcs["geopotential"] = data
     return store, srcs
 
 
@@ -426,4 +451,120 @@ def test_readonly_cache_without_a_cache_dir_raises(tmp_path):
     with pytest.raises(ValueError, match="readonly_cache=True needs a cache_dir"):
         InSituForecastFeed(
             store, ["t2m"], var_map={"t2m": "2m_temperature"}, readonly_cache=True
+        )
+
+
+LEVELS = [250, 500, 850]
+
+
+def test_level_selection_reads_the_requested_level(tmp_path):
+    """``"geopotential::500"`` selects level 500, not merely *a* level.
+
+    A wrong axis or an off-by-one here yields a plausible field rather than an error, so the
+    assertion is against the source array and a second level is checked to differ.
+    """
+    store, srcs = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    feed = InSituForecastFeed(
+        store,
+        variables=["z500", "t2m"],
+        var_map={"z500": "geopotential::500", "t2m": "2m_temperature"},
+        lead_times=np.array([np.timedelta64(0, "h")]),
+        sample_range=(0, 4),
+        batch_size=4,
+    )
+    x, coords = next(iter(feed))
+    feed.dataset.close()
+
+    assert list(coords["variable"]) == ["z500", "t2m"]
+    assert x.shape[2] == 2  # one entry per channel; no stray level axis
+    want = srcs["geopotential"][0, LEVELS.index(500)]
+    np.testing.assert_array_equal(x[0, 0, 0].numpy(), want)
+    np.testing.assert_array_equal(x[0, 0, 1].numpy(), srcs["2m_temperature"][0])
+    # NULL: a different level must not match, or the check above proves nothing.
+    other = srcs["geopotential"][0, LEVELS.index(850)]
+    assert not np.array_equal(x[0, 0, 0].numpy(), other)
+
+
+def test_channels_sharing_an_array_share_one_decode(tmp_path):
+    """Three levels of one array cost what one level costs: the chunk holds them all."""
+    store, _ = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    leads = np.array([np.timedelta64(0, "h")])
+
+    def decodes(variables, var_map):
+        feed = InSituForecastFeed(
+            store,
+            variables=variables,
+            var_map=var_map,
+            lead_times=leads,
+            sample_range=(0, 8),
+            batch_size=8,
+        )
+        list(feed)
+        n = feed.dataset.cache_misses
+        feed.dataset.close()
+        return n
+
+    one = decodes(["z500"], {"z500": "geopotential::500"})
+    three = decodes(
+        ["z250", "z500", "z850"],
+        {f"z{lev}": f"geopotential::{lev}" for lev in LEVELS},
+    )
+    assert three == one, f"3 levels took {three} decodes against {one} for one level"
+
+
+def test_surface_spelling_with_trailing_separator(tmp_path):
+    """``WB2Lexicon`` spells a surface variable ``"name::"``; an empty level means no level."""
+    store, srcs = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    feed = InSituForecastFeed(
+        store,
+        variables=["t2m"],
+        var_map={"t2m": "2m_temperature::"},
+        lead_times=np.array([np.timedelta64(0, "h")]),
+        sample_range=(0, 4),
+        batch_size=4,
+    )
+    x, _ = next(iter(feed))
+    feed.dataset.close()
+    np.testing.assert_array_equal(x[0, 0, 0].numpy(), srcs["2m_temperature"][0])
+
+
+def test_unknown_level_raises(tmp_path):
+    store, _ = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    with pytest.raises(ValueError, match="level 700 requested"):
+        InSituForecastFeed(
+            store,
+            variables=["z700"],
+            var_map={"z700": "geopotential::700"},
+            lead_times=np.array([np.timedelta64(0, "h")]),
+            sample_range=(0, 4),
+        )
+
+
+def test_level_request_without_a_level_coordinate_raises(tmp_path):
+    """Asking for a level in a store that has no level coordinate fails at construction."""
+    store, _ = write_store(tmp_path, n=48, spc=8)  # no levels written
+    with pytest.raises(ValueError, match="no 'level' coordinate"):
+        InSituForecastFeed(
+            store,
+            variables=["z500"],
+            var_map={"z500": "2m_temperature::500"},
+            lead_times=np.array([np.timedelta64(0, "h")]),
+            sample_range=(0, 4),
+        )
+
+
+def test_array_mapped_both_with_and_without_a_level_raises(tmp_path):
+    """Channels sharing an array share a read, so they must agree on selecting a level.
+
+    Without this check the two shapes -- (n_time, n_level, *field) and (n_time, *field) --
+    meet in ``torch.stack`` and fail there, naming neither the array nor the channels.
+    """
+    store, _ = write_store(tmp_path, n=48, spc=8, levels=LEVELS)
+    with pytest.raises(ValueError, match="both with and without a level"):
+        InSituForecastFeed(
+            store,
+            variables=["z", "z500"],
+            var_map={"z": "geopotential", "z500": "geopotential::500"},
+            lead_times=np.array([np.timedelta64(0, "h")]),
+            sample_range=(0, 4),
         )
