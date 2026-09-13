@@ -885,9 +885,11 @@ def write_to_disk(
 
     file_name = cfg.project + "_" + str(ic)[:13] + pkg
 
-    def metadata_for(io: IOBackend) -> dict[str, Any]:
-        # Only called once the backend is known, since reading io.coords can hit
-        # storage on backends this function does not support.
+    def metadata_for(
+        io: ZarrBackend | NetCDF4Backend | XarrayBackend | KVBackend,
+    ) -> dict[str, Any]:
+        # Only called once the backend is known: the IOBackend protocol does not
+        # declare coords, and reading it can hit storage on other backends.
         return reproducibility_metadata(io.coords, cfg, model_dict, base_random_seed)
 
     for k, io in io_dict.items():
