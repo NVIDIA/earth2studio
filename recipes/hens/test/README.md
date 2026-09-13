@@ -58,3 +58,28 @@ If the files are not identical, the script will report:
 ```text
 Not all files are identical
 ```
+
+## Test 2: Reproducibility Metadata Across IO Backends
+
+Checks that the reproducibility metadata (`random_seed`, `batch_ids`,
+`model_package`, `nensemble`, `batch_size`, `torch_version`) is written for every
+supported IO backend with `thread_io` both off and on, and that the forecast data
+itself survives alongside it. The data is synthetic, so no GPU and no model
+checkpoint are needed. It takes about half a minute, mostly to import the recipe
+dependencies:
+
+```bash
+cd earth2studio/recipes/hens
+uv run pytest
+```
+
+### Expected Metadata Result
+
+```text
+test/test_write_to_disk.py ........                                      [100%]
+
+8 passed
+```
+
+This is a unit test rather than a full pipeline run, so unlike Test 1 it does not
+need any model registry or output from a previous run.
