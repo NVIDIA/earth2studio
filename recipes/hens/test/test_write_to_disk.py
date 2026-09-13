@@ -98,6 +98,15 @@ def _make_cfg(out_dir: Path, thread_io: bool) -> DictConfig:
     )
 
 
+# Stand-ins for user backends selected through the config's `_target_`.
+class _CustomXarrayBackend(XarrayBackend):
+    pass
+
+
+class _CustomKVBackend(KVBackend):
+    pass
+
+
 def _make_backend(
     backend: str, out_base: Path
 ) -> KVBackend | NetCDF4Backend | XarrayBackend | ZarrBackend:
@@ -112,6 +121,10 @@ def _make_backend(
         io = XarrayBackend()
     elif backend == "kv":
         io = KVBackend()
+    elif backend == "xarray-subclass":
+        io = _CustomXarrayBackend()
+    elif backend == "kv-subclass":
+        io = _CustomKVBackend()
     else:
         raise ValueError(f"unknown backend {backend}")
 
@@ -161,7 +174,12 @@ def _run(tmp_path: Path, backend: str, thread_io: bool) -> tuple[dict, dict]:
 
 
 @pytest.mark.parametrize("thread_io", [False, True])
-@pytest.mark.parametrize("backend", ["zarr", "netcdf4", "xarray", "kv"])
+@pytest.mark.parametrize(
+    "backend",
+    # The two subclasses cover user backends selected through the config. They must
+    # be exported like their base class, since skipping one loses the forecast.
+    ["zarr", "netcdf4", "xarray", "kv", "xarray-subclass", "kv-subclass"],
+)
 def test_write_to_disk_metadata_and_forecast(
     tmp_path: Path, backend: str, thread_io: bool
 ) -> None:

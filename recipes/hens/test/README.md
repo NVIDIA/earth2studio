@@ -76,9 +76,9 @@ uv run pytest
 ### Expected Metadata Result
 
 ```text
-test/test_write_to_disk.py ........                                      [100%]
+test/test_write_to_disk.py ............                                  [100%]
 
-8 passed
+12 passed
 ```
 
 This is a unit test rather than a full pipeline run, so unlike Test 1 it does not

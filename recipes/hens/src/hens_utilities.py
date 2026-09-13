@@ -835,11 +835,6 @@ def update_model_dict(model_dict: dict, root: str) -> dict:
     return model_dict
 
 
-# Only these exact backend classes are supported. Subclasses may need different steps
-# to finish writing.
-SUPPORTED_IO_BACKENDS = (ZarrBackend, NetCDF4Backend, XarrayBackend, KVBackend)
-
-
 def write_to_disk(
     cfg: DictConfig,
     ic: str | np.datetime64,
@@ -890,32 +885,26 @@ def write_to_disk(
 
     file_name = cfg.project + "_" + str(ic)[:13] + pkg
 
+    def metadata_for(io: IOBackend) -> dict[str, Any]:
+        # Only called once the backend is known, since reading io.coords can hit
+        # storage on backends this function does not support.
+        return reproducibility_metadata(io.coords, cfg, model_dict, base_random_seed)
+
     for k, io in io_dict.items():
-        if type(io) not in SUPPORTED_IO_BACKENDS:
-            # Skip this output instead of stopping the remaining forecast pairs.
-            logger.warning(
-                f"Skipping output '{k}': write_to_disk does not support "
-                f"{type(io).__name__}. Reproducibility metadata was not added. "
-                "Forecast data is preserved only if the backend already wrote it."
-            )
-            continue
-
-        # Keep this after the type check because reading io.coords may access storage.
-        metadata = reproducibility_metadata(
-            io.coords, cfg, model_dict, base_random_seed
-        )
-
+        # write_to_disk only adds metadata for these concrete backends, so a
+        # subclass that persists differently must be handled explicitly.
         if type(io) is ZarrBackend:
             # Write all attributes in one metadata operation.
-            io.root.update_attributes(metadata)
+            io.root.update_attributes(metadata_for(io))
         elif type(io) is NetCDF4Backend:
             # Flush the metadata and release the HDF5 file lock.
-            io.root.setncatts(metadata)
+            io.root.setncatts(metadata_for(io))
             io.close()
-        else:
-            # Export the complete dataset for in-memory backends.
-            dataset = io.to_xarray() if type(io) is KVBackend else io.root
-            dataset = dataset.assign_attrs(metadata)
+        # write_to_disk exports these in-memory backends itself, and compatible
+        # subclasses share the same export interface.
+        elif isinstance(io, (XarrayBackend, KVBackend)):
+            dataset = io.to_xarray() if isinstance(io, KVBackend) else io.root
+            dataset = dataset.assign_attrs(metadata_for(io))
             netcdf_kwargs = {
                 "path": os.path.join(cfg.file_output.path, k, file_name) + ".nc",
                 "format": "NETCDF4",
@@ -926,6 +915,13 @@ def write_to_disk(
                 )
             else:
                 dataset.to_netcdf(**netcdf_kwargs)
+        else:
+            # Skip this output instead of stopping the remaining forecast pairs.
+            logger.warning(
+                f"Skipping output '{k}': write_to_disk does not support "
+                f"{type(io).__name__}. Reproducibility metadata was not added. "
+                "Forecast data is preserved only if the backend already wrote it."
+            )
 
     return writer_executor, writer_threads
 
