@@ -234,11 +234,32 @@ Required tests:
 |----------|---------|
 | `test_<model>_call` | Forward pass with mock or simple model |
 | `test_<model>_exceptions` | Invalid coordinate order, values, or variables raise errors |
+| `test_<model>_conformance` | `check_diagnostic_contract` against the mock model |
 | `test_<model>_package` | Real weights with `@pytest.mark.package` for AutoModel/generative diagnostics |
 
 Generative diagnostics also require sample-count and deterministic-seed tests.
 Use `references/testing-guide.py`. Create a `Phoo<ModelName>` dummy that matches
 the real core model's interface and produces deterministic output.
+
+`test_<model>_conformance` needs no new fixture — call
+`check_diagnostic_contract` on the same mock-model instance the other tests
+build:
+
+```python
+from earth2studio.models.conformance import check_diagnostic_contract
+
+
+def test_<model>_conformance():
+    model = ModelName(Phoo<ModelName>())  # or your existing mock-model fixture
+    assert check_diagnostic_contract(model) == []
+```
+
+If the model declares `stochastic = True`, the mock's forward pass must
+return a different result across calls (e.g. add `torch.randn_like`) or the
+check fails `D9` — a deterministic mock cannot demonstrate that seeding
+produces different output. If any rule cannot be satisfied by construction,
+call `check_diagnostic_contract` and assert the specific rule appears in the
+skip list rather than omitting the test.
 
 Run focused tests:
 

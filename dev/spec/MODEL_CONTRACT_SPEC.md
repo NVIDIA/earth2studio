@@ -400,6 +400,22 @@ The probe tensor is pseudo-random rather than zero, so that a model writing into
 input is detectable. Models that reject unphysical input will need a fixture that
 supplies a realistic initial condition.
 
+### Enforcement
+
+A model creation skill produces a `test_<model>_conformance` test alongside a model's
+other required tests, checking the mock-weight instance the rest of the test file
+already builds — no real weights, no network. `test/models/test_conformance.py`
+checks the checker itself and `test/models/test_model_conformance.py` is the
+completeness gate: every class reachable from `earth2studio.models.px` /
+`earth2studio.models.dx` must be listed there as conformant or explicitly exempt with
+a reason, discovered by introspecting the namespace rather than trusting a
+hand-maintained list, so a new model cannot land without either passing the contract
+or documenting why it does not. All three run in CI on every pull request.
+
+Every model that predates this spec is currently listed as exempt pending backfill —
+the gate stops new gaps from opening, and existing ones close incrementally as each
+model's test file gains a conformance test.
+
 ## Open Questions
 
 - `P13` compares rollouts with `torch.allclose`, so a deterministic model running on
