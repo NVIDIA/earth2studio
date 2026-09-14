@@ -54,7 +54,7 @@ activate `earth2studio-data-fetch` first.
 
 ### Developer
 
-- `.claude/skills-dev/developer-release-rebase/` — Prepare a new minor
+- `skills/developer-release-rebase/` — Prepare a new minor
   alpha release (rebase, bump version, changelog, PR). Developer only.
 
 ## Python environment
