@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
+  `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
+  analysis stable (the old defaults could diverge to non-finite output).
 - Fixed empty reduction dimensions in statistics, skipping for mean and
   rejecting as undefined for variance/std reductions.
 - `StormCast.__call__` no longer writes its output into the input tensor.
