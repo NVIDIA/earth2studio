@@ -123,7 +123,7 @@ def _stats_field(ds: xr.Dataset, e2s_name: str, shape: tuple[int, int]) -> np.nd
         value = np.asarray(ds[name].values)[int(level)]
     else:
         value = np.asarray(ds[cesm].values)
-    return np.broadcast_to(np.asarray(value, dtype=np.float32), shape).copy()
+    return np.broadcast_to(np.asarray(value, dtype=np.float64), shape).copy()
 
 
 class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -222,10 +222,15 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ):
         super().__init__()
         self.model = core_model
+        # CREDIT applies the statistics in float32, except the gridded surface
+        # pressure statistics and the forcing statistics, which stay in float64;
+        # the same precision is kept here so results match bit for bit.
         self.register_buffer("center", center.float())
         self.register_buffer("scale", scale.float())
-        self.register_buffer("forcing_center", forcing_center.float())
-        self.register_buffer("forcing_scale", forcing_scale.float())
+        self.register_buffer("ps_center", center[_PS].double())
+        self.register_buffer("ps_scale", scale[_PS].double())
+        self.register_buffer("forcing_center", forcing_center.double())
+        self.register_buffer("forcing_scale", forcing_scale.double())
         self.register_buffer("tracer_center", tracer_center.float())
         self.register_buffer("tracer_scale", tracer_scale.float())
         self.register_buffer("statics", statics.float())
@@ -369,10 +374,12 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             np.stack([_stats_field(std_ds, v, shape) for v in OUTPUT_VARIABLES])
         )
         forcing_center = torch.tensor(
-            [float(mean_ds[CAMulatorLexicon[v][0]]) for v in FORCING_VARIABLES]
+            [float(mean_ds[CAMulatorLexicon[v][0]]) for v in FORCING_VARIABLES],
+            dtype=torch.float64,
         )
         forcing_scale = torch.tensor(
-            [float(std_ds[CAMulatorLexicon[v][0]]) for v in FORCING_VARIABLES]
+            [float(std_ds[CAMulatorLexicon[v][0]]) for v in FORCING_VARIABLES],
+            dtype=torch.float64,
         )
         tracer_center = torch.tensor(
             [
@@ -444,9 +451,11 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing = torch.from_numpy(np.ascontiguousarray(da.values)).to(device).float()
         forcing = torch.flip(forcing, dims=(-2,))
         forcing[:, 3] = forcing[:, 3] * 1.0e-6  # ppm -> mol mol-1
-        return (
-            forcing - self.forcing_center.view(1, -1, 1, 1)
+        # Normalized in float64 like CREDIT, then cast at the network input
+        forcing = (
+            forcing.double() - self.forcing_center.view(1, -1, 1, 1)
         ) / self.forcing_scale.view(1, -1, 1, 1)
+        return forcing.float()
 
     def _denorm(self, y: torch.Tensor, ch: slice | int) -> torch.Tensor:
         return y[:, ch] * self.scale[ch] + self.center[ch]
@@ -533,32 +542,61 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return y
 
     @torch.inference_mode()
+    def _normalize_state(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize a physical state ``(batch, time, 1, 130, lat, lon)`` in
+        Earth2Studio orientation into the network's ``(batch, time, 130, lat, lon)``
+        south-to-north float32 state. The arithmetic runs in the input dtype, so a
+        float64 input reproduces a normalized CAMulator state exactly."""
+        state = torch.flip(x[:, :, 0], dims=(-2,))
+        center = self.center[:_N_STATE].to(state.dtype)
+        scale = self.scale[:_N_STATE].to(state.dtype)
+        state_n = (state - center) / scale
+        state_n[:, :, _PS] = (
+            (state[:, :, _PS].double() - self.ps_center) / self.ps_scale
+        ).to(state.dtype)
+        return state_n.float()
+
+    @torch.inference_mode()
+    def _step(
+        self, state_n: torch.Tensor, coords: CoordSystem, device: torch.device
+    ) -> torch.Tensor:
+        """Advance a normalized state ``(batch, time, 130, lat, lon)`` by one step,
+        returning the post-processed normalized prediction
+        ``(batch, time, 147, lat, lon)``."""
+        b, t, _, h, w = state_n.shape
+        forcing = self._fetch_forcing(coords, device)  # (t, 4, h, w)
+        statics = self.statics.expand(b, t, -1, h, w)
+        inp = torch.cat(
+            [state_n, statics, forcing.unsqueeze(0).expand(b, -1, -1, -1, -1)], dim=2
+        )
+        inp = inp.reshape(b * t, -1, h, w)
+        y = self.model(inp.unsqueeze(2)).squeeze(2)
+        y = self._postprocess(inp, y)
+        return y.reshape(b, t, _N_OUT, h, w)
+
+    @torch.inference_mode()
+    def _denormalize_output(self, y_n: torch.Tensor) -> torch.Tensor:
+        """Convert a normalized prediction ``(batch, time, 147, lat, lon)`` to
+        physical Earth2Studio units and orientation ``(batch, time, 1, 147, lat, lon)``.
+        """
+        y = y_n * self.scale + self.center
+        y[:, :, _PS] = (
+            y_n[:, :, _PS].double() * self.ps_scale + self.ps_center
+        ).float()
+        # Unit conversions in float64, rounded once: the correctly rounded float32
+        # value, independent of the device's scalar-division kernel
+        for i, mod in enumerate(self._output_mods):
+            y[:, :, i] = mod(y[:, :, i].double()).float()
+        return torch.flip(y, dims=(-2,)).unsqueeze(2)
+
     def _forward(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
         out_coords = self.output_coords(coords)
         device = self.device_buffer.device
-        x = x.to(device)
-        b, t, _, _, h, w = x.shape
-
-        # Earth2Studio latitude is north-to-south; the network works south-to-north
-        state = torch.flip(x[:, :, 0], dims=(-2,)).float()
-        state = (state - self.center[:_N_STATE]) / self.scale[:_N_STATE]
-        forcing = self._fetch_forcing(coords, device)  # (t, 4, h, w)
-        statics = self.statics.expand(b, t, -1, h, w)
-        inp = torch.cat(
-            [state, statics, forcing.unsqueeze(0).expand(b, -1, -1, -1, -1)], dim=2
-        )
-        inp = inp.reshape(b * t, -1, h, w)
-
-        y = self.model(inp.unsqueeze(2)).squeeze(2)
-        y = self._postprocess(inp, y)
-        y = y * self.scale + self.center
-        for i, mod in enumerate(self._output_mods):
-            y[:, i] = mod(y[:, i])
-
-        y = torch.flip(y, dims=(-2,)).reshape(b, t, 1, _N_OUT, h, w)
-        return y, out_coords
+        state_n = self._normalize_state(x.to(device))
+        y_n = self._step(state_n, coords, device)
+        return self._denormalize_output(y_n), out_coords
 
     @batch_func()
     def __call__(
@@ -586,25 +624,39 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
         self.output_coords(coords)
+        device = self.device_buffer.device
+        x = x.to(device)
 
         ic_coords = coords.copy()
         ic_coords["variable"] = np.array(OUTPUT_VARIABLES)
         ic = torch.full(
             (*x.shape[:3], _N_OUT, *x.shape[4:]),
             float("nan"),
-            device=x.device,
-            dtype=x.dtype,
+            device=device,
+            dtype=torch.float32,
         )
         ic[:, :, :, :_N_STATE] = x
         yield ic, ic_coords
 
+        # The normalized state is carried between steps, as in CREDIT, so that a
+        # rollout does not accumulate physical <-> normalized round-off. Hooks that
+        # modify the physical tensors re-enter through normalization.
+        state_n = self._normalize_state(x)
         while True:
-            x, coords = self.front_hook(x, coords)
-            out, out_coords = self._forward(x, coords)
-            out, out_coords = self.rear_hook(out, out_coords)
-            yield out, out_coords.copy()
+            x_hook, coords = self.front_hook(x, coords)
+            if x_hook is not x:
+                state_n = self._normalize_state(x_hook.to(device))
+            y_n = self._step(state_n, coords, device)
+            out = self._denormalize_output(y_n)
+            out_coords = self.output_coords(coords)
+            out_hook, out_coords = self.rear_hook(out, out_coords)
+            yield out_hook, out_coords.copy()
 
-            x = out[:, :, :, :_N_STATE]
+            if out_hook is out:
+                state_n = y_n[:, :, :_N_STATE]
+            else:
+                state_n = self._normalize_state(out_hook[:, :, :, :_N_STATE].to(device))
+            x = out_hook[:, :, :, :_N_STATE]
             coords = out_coords.copy()
             coords["variable"] = np.array(PROGNOSTIC_VARIABLES)
 
