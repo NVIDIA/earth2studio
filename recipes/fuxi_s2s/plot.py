@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
 
 import cartopy.crs as ccrs  # type: ignore[import-untyped]
 import dask.array as da
