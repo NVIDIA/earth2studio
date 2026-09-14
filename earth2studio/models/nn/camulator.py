@@ -61,7 +61,9 @@ class EarthPadding:
             bot = torch.flip(xroll[..., -self.pad_lat[1] :, :], (-2,))
             x = torch.cat([top, x, bot], dim=-2)
         if any(p > 0 for p in self.pad_lon):
-            x = F.pad(x, (self.pad_lon[0], self.pad_lon[1], 0, 0, 0, 0), mode="circular")
+            x = F.pad(
+                x, (self.pad_lon[0], self.pad_lon[1], 0, 0, 0, 0), mode="circular"
+            )
         return x
 
     def unpad(self, x: torch.Tensor) -> torch.Tensor:
@@ -111,7 +113,12 @@ class UpBlockPS(nn.Module):
     and a residual conv stack."""
 
     def __init__(
-        self, in_ch: int, out_ch: int, num_groups: int, scale: int = 2, num_residuals: int = 2
+        self,
+        in_ch: int,
+        out_ch: int,
+        num_groups: int,
+        scale: int = 2,
+        num_residuals: int = 2,
     ):
         super().__init__()
         self.conv = nn.Conv2d(in_ch, out_ch * scale**2, 3, stride=1, padding=1)
@@ -151,7 +158,11 @@ class CrossEmbedLayer(nn.Module):
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
             self.convs.append(
                 nn.Conv2d(
-                    dim_in, dim_scale, kernel, stride=stride, padding=(kernel - stride) // 2
+                    dim_in,
+                    dim_scale,
+                    kernel,
+                    stride=stride,
+                    padding=(kernel - stride) // 2,
                 )
             )
 
@@ -318,9 +329,13 @@ class Transformer(nn.Module):
             self.layers.append(
                 nn.ModuleList(
                     [
-                        Attention(dim, "short", local_window_size, dim_head, attn_dropout),
+                        Attention(
+                            dim, "short", local_window_size, dim_head, attn_dropout
+                        ),
                         FeedForward(dim, dropout=ff_dropout),
-                        Attention(dim, "long", global_window_size, dim_head, attn_dropout),
+                        Attention(
+                            dim, "long", global_window_size, dim_head, attn_dropout
+                        ),
                         FeedForward(dim, dropout=ff_dropout),
                     ]
                 )
@@ -419,7 +434,9 @@ class CamulatorNet(nn.Module):
         self.use_padding = any(p > 0 for p in (*pad_lat, *pad_lon))
 
         self.input_channels = channels * levels + surface_channels + input_only_channels
-        self.output_channels = channels * levels + surface_channels + output_only_channels
+        self.output_channels = (
+            channels * levels + surface_channels + output_only_channels
+        )
 
         dims = [self.input_channels, *dim]
         self.layers = nn.ModuleList([])
@@ -451,7 +468,9 @@ class CamulatorNet(nn.Module):
         self.up_block3 = UpBlockPS(2 * (last_dim // 4), last_dim // 8, dim[0])
         scale = 2
         self.up_block4 = nn.Sequential(
-            nn.Conv2d(2 * (last_dim // 8), self.output_channels * scale**2, 3, padding=1),
+            nn.Conv2d(
+                2 * (last_dim // 8), self.output_channels * scale**2, 3, padding=1
+            ),
             nn.PixelShuffle(scale),
             nn.Conv2d(self.output_channels, self.output_channels, 3, padding=1),
         )

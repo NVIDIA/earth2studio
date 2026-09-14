@@ -74,6 +74,14 @@ class CAMulatorForcing:
     verbose : bool, optional
         Log download progress, by default True
 
+    Warning
+    -------
+    The forcing is served from single NetCDF files downloaded on first use: about
+    1.3 GB for the cyclic year and 9.7 GB for the transient record. With
+    ``cache=True`` the file lives in the HuggingFace hub cache (``HF_HOME``);
+    with ``cache=False`` it is deleted after every call, which is unsuitable for
+    model rollouts.
+
     Note
     ----
     Additional information on the forcing data can be found at:
@@ -83,7 +91,7 @@ class CAMulatorForcing:
 
     Badges
     ------
-    region:global dataclass:simulation product:atmos product:ocean
+    region:global dataclass:simulation product:atmos product:ocean provider:ncar
     """
 
     def __init__(
@@ -195,10 +203,7 @@ class CAMulatorForcing:
 
     def _index_of(self, time: datetime) -> int:
         """Index of the requested (Gregorian) time in the no-leap forcing record."""
-        if time.hour % 6 or time.minute or time.second or time.microsecond:
-            raise ValueError(
-                f"CAMulator forcing is 6-hourly (00/06/12/18 UTC); got {time}"
-            )
+        self._validate_time([time])
         month, day = time.month, time.day
         if (month, day) == (2, 29):
             if self._leap_day == "raise":
@@ -232,7 +237,9 @@ class CAMulatorForcing:
             path = self._forcing_file
         else:
             path = self._fetch_file(_FORCING_FILES[self._mode])
-        self._ds = xr.open_dataset(path, use_cftime=True)
+        self._ds = xr.open_dataset(
+            path, decode_times=xr.coders.CFDatetimeCoder(use_cftime=True)
+        )
 
         times = self._ds["time"].values
         for i, t in enumerate(times):
@@ -259,9 +266,54 @@ class CAMulatorForcing:
             HF_REPO_ID, filename, revision=CAMULATOR_HF_REVISION, local_dir=self.cache
         )
 
+    @classmethod
+    def _validate_time(cls, times: list[datetime]) -> None:
+        """Verify that the requested times fall on the 6-hourly forcing grid.
+
+        Parameters
+        ----------
+        times : list[datetime]
+            Requested times
+
+        Raises
+        ------
+        ValueError
+            If a time is not at 00, 06, 12 or 18 UTC
+        """
+        for time in times:
+            if time.hour % 6 or time.minute or time.second or time.microsecond:
+                raise ValueError(
+                    f"CAMulator forcing is 6-hourly (00/06/12/18 UTC); got {time}"
+                )
+
     @property
     def cache(self) -> str:
         """Return the local cache path for downloaded files."""
         if not self._cache and self._tmp_cache_hash is None:
             self._tmp_cache_hash = uuid.uuid4().hex[:8]
         return datasource_cache_dir("camulator", self._cache, self._tmp_cache_hash)
+
+    @classmethod
+    def available(cls, time: datetime | np.datetime64) -> bool:
+        """Checks if the given time is on the 6-hourly CAMulator forcing grid.
+        Whether a particular date exists in the record depends on the ``mode`` of
+        the instance (any date for the cyclic year, 1980-2014 for the transient
+        record), which is checked when data is requested.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Time to check
+
+        Returns
+        -------
+        bool
+            True if the time falls on 00, 06, 12 or 18 UTC
+        """
+        if isinstance(time, np.datetime64):
+            time = time.astype("datetime64[us]").astype(datetime)
+        try:
+            cls._validate_time([time])
+        except ValueError:
+            return False
+        return True

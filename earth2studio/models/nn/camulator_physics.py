@@ -178,7 +178,9 @@ def global_mass_fix(
     torch.Tensor
         Corrected surface pressure, shape (batch, lat, lon).
     """
-    mass_dry_t0 = weighted_sum(column_integral(1 - q_in, sp_in, hyai, hybi) / GRAVITY, area)
+    mass_dry_t0 = weighted_sum(
+        column_integral(1 - q_in, sp_in, hyai, hybi) / GRAVITY, area
+    )
 
     delta_a = hyai.diff().view(1, -1, 1, 1)
     delta_b = hybi.diff().view(1, -1, 1, 1)
@@ -338,7 +340,9 @@ def global_energy_fix(
     return (e_t1_correct - e_qgk_t1) / cp_t1
 
 
-def _gaussian_1d(sigma: float, dtype: torch.dtype, device: torch.device) -> torch.Tensor:
+def _gaussian_1d(
+    sigma: float, dtype: torch.dtype, device: torch.device
+) -> torch.Tensor:
     ks = int(2 * sigma * 3 + 1)
     if ks % 2 == 0:
         ks += 1
@@ -444,5 +448,7 @@ def wind_artifact_filter(
                 den = (blend * field_smooth**2).sum(dim=(-2, -1), keepdim=True)
                 alpha = torch.clamp(torch.sqrt(num / (den + 1e-12)), max=4.0)
                 field_smooth = alpha * field_smooth
-            y[:, offset + level] = (blend * field_smooth + (1 - blend) * field).squeeze(1)
+            y[:, offset + level] = (blend * field_smooth + (1 - blend) * field).squeeze(
+                1
+            )
     return y

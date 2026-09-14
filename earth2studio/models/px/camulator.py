@@ -20,7 +20,6 @@ from collections.abc import Generator, Iterator
 import numpy as np
 import torch
 import xarray as xr
-from loguru import logger
 
 from earth2studio.data.base import DataSource
 from earth2studio.data.camulator import (
@@ -110,7 +109,9 @@ _TRACERS: list[tuple[int, str, float, float]] = [
 _MEAN_FILE = "normalization/mean_6h_Coupled_1980_2014_32lev_1.0deg_ERA5scaled_F32_Qtot_Mixed_Modal.nc"
 _STD_FILE = "normalization/std_6h_Coupled_1980_2014_32lev_1.0deg_ERA5scaled_F32_Qtot_Mixed_Modal.nc"
 _STATICS_FILE = "normalization/statics_b_credit_runs_f32_02.nc"
-_PHYSICS_FILE = "normalization/b.e21.CREDIT_climate.statics_1.0deg_32levs_latlon_F32_hyai_fixed.nc"
+_PHYSICS_FILE = (
+    "normalization/b.e21.CREDIT_climate.statics_1.0deg_32levs_latlon_F32_hyai_fixed.nc"
+)
 
 
 def _stats_field(ds: xr.Dataset, e2s_name: str, shape: tuple[int, int]) -> np.ndarray:
@@ -374,13 +375,21 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             [float(std_ds[CAMulatorLexicon[v][0]]) for v in FORCING_VARIABLES]
         )
         tracer_center = torch.tensor(
-            [float(np.asarray(mean_ds[name].values).flatten()[0]) for _, name, _, _ in _TRACERS]
+            [
+                float(np.asarray(mean_ds[name].values).flatten()[0])
+                for _, name, _, _ in _TRACERS
+            ]
         )
         tracer_scale = torch.tensor(
-            [float(np.asarray(std_ds[name].values).flatten()[0]) for _, name, _, _ in _TRACERS]
+            [
+                float(np.asarray(std_ds[name].values).flatten()[0])
+                for _, name, _, _ in _TRACERS
+            ]
         )
         statics = torch.from_numpy(
-            np.stack([statics_ds[v].values.astype(np.float32) for v in STATIC_VARIABLES])
+            np.stack(
+                [statics_ds[v].values.astype(np.float32) for v in STATIC_VARIABLES]
+            )
         )
         hyai = torch.from_numpy(physics_ds["hyai"].values.astype(np.float32))
         hybi = torch.from_numpy(physics_ds["hybi"].values.astype(np.float32))
@@ -391,7 +400,10 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         core_model = CamulatorNet()
         # CREDIT checkpoints bundle optimizer/scheduler state alongside the weights
         state = torch.load(
-            package.resolve(checkpoint), map_location="cpu", mmap=True, weights_only=False
+            package.resolve(checkpoint),
+            map_location="cpu",
+            mmap=True,
+            weights_only=False,
         )
         state_dict = {
             k: v
@@ -432,9 +444,9 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing = torch.from_numpy(np.ascontiguousarray(da.values)).to(device).float()
         forcing = torch.flip(forcing, dims=(-2,))
         forcing[:, 3] = forcing[:, 3] * 1.0e-6  # ppm -> mol mol-1
-        return (forcing - self.forcing_center.view(1, -1, 1, 1)) / self.forcing_scale.view(
-            1, -1, 1, 1
-        )
+        return (
+            forcing - self.forcing_center.view(1, -1, 1, 1)
+        ) / self.forcing_scale.view(1, -1, 1, 1)
 
     def _denorm(self, y: torch.Tensor, ch: slice | int) -> torch.Tensor:
         return y[:, ch] * self.scale[ch] + self.center[ch]
@@ -534,7 +546,9 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         state = (state - self.center[:_N_STATE]) / self.scale[:_N_STATE]
         forcing = self._fetch_forcing(coords, device)  # (t, 4, h, w)
         statics = self.statics.expand(b, t, -1, h, w)
-        inp = torch.cat([state, statics, forcing.unsqueeze(0).expand(b, -1, -1, -1, -1)], dim=2)
+        inp = torch.cat(
+            [state, statics, forcing.unsqueeze(0).expand(b, -1, -1, -1, -1)], dim=2
+        )
         inp = inp.reshape(b * t, -1, h, w)
 
         y = self.model(inp.unsqueeze(2)).squeeze(2)
@@ -576,7 +590,10 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ic_coords = coords.copy()
         ic_coords["variable"] = np.array(OUTPUT_VARIABLES)
         ic = torch.full(
-            (*x.shape[:3], _N_OUT, *x.shape[4:]), float("nan"), device=x.device, dtype=x.dtype
+            (*x.shape[:3], _N_OUT, *x.shape[4:]),
+            float("nan"),
+            device=x.device,
+            dtype=x.dtype,
         )
         ic[:, :, :, :_N_STATE] = x
         yield ic, ic_coords

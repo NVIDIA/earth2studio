@@ -90,7 +90,6 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_atlas.py": ["atlas"],
     "test/models/px/test_atlas_crps.py": ["atlas"],
     "test/models/px/test_aurora.py": ["aurora"],
-    "test/models/px/test_camulator.py": ["camulator"],
     "test/models/px/test_cbottle_video.py": ["cbottle"],
     "test/models/px/test_dlesym.py": ["dlesym"],
     "test/models/px/test_dlesym_v0_isccp_era5.py": ["dlesym"],
