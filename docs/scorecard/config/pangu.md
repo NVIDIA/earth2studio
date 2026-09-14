@@ -32,5 +32,5 @@ frame.
 
 ## Reference
 
-Bi, K., Xie, L., Zhang, H., Chen, X., Gu, X., & Tian, Q. (2023). Accurate medium-range global weather forecasting with 3D neural networks. Nature, 619(7970), 533-538.
+Bi, K., Xie, L., Zhang, H., Chen, X., Gu, X., and Tian, Q. (2023). Accurate medium-range global weather forecasting with 3D neural networks. Nature, 619(7970), 533-538.
 [doi:10.1038/s41586-023-06185-3](https://doi.org/10.1038/s41586-023-06185-3).

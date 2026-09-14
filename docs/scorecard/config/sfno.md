@@ -29,5 +29,8 @@ resolution with a 6-hour step, initialized from a single ERA5 analysis frame.
 
 ## Reference
 
-Bonev, B., Kurth, T., Hundt, C., Pathak, J., Baust, M., Kashinath, K., & Anandkumar, A. (2023, July). Spherical fourier neural operators: Learning stable dynamics on the sphere. In International conference on machine learning (pp. 2806-2823). PMLR.
+Bonev, B., Kurth, T., Hundt, C., Pathak, J., Baust, M., Kashinath, K., and
+Anandkumar, A. (2023). Spherical Fourier neural operators: learning stable
+dynamics on the sphere. In Proceedings of the International Conference
+on Machine Learning (ICML), PMLR 202, 2806-2823.
 [arxiv.org/abs/2306.03838](https://arxiv.org/abs/2306.03838).

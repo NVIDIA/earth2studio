@@ -31,5 +31,9 @@ counterpart in the verification store, so the scorecard skips them.
 
 ## Reference
 
-Kurth, T., Subramanian, S., Harrington, P., Pathak, J., Mardani, M., Hall, D., ... & Anandkumar, A. (2023, June). Fourcastnet: Accelerating global high-resolution weather forecasting using adaptive fourier neural operators. In Proceedings of the platform for advanced scientific computing conference (pp. 1-11).
+Kurth, T., Subramanian, S., Harrington, P., Pathak, J., Mardani, M., Hall,
+D., Miele, A., Kashinath, K., and Anandkumar, A. (2023). FourCastNet:
+accelerating global high-resolution weather forecasting using adaptive
+Fourier neural operators. In Proceedings of the Platform for Advanced
+Scientific Computing Conference (PASC '23), 1-11.
 [arxiv.org/abs/2202.11214](https://arxiv.org/abs/2202.11214).

@@ -30,5 +30,8 @@ recent ERA5 analysis frames, 6 hours apart, and forecasts 69 variables at
 
 ## Reference
 
-Chen, K., Han, T., Gong, J., Bai, L., Ling, F., Luo, J. J., ... & Ouyang, W. (2023). Fengwu: Pushing the skillful global medium-range weather forecast beyond 10 days lead. arXiv preprint arXiv:2304.02948.
+Chen, K., Han, T., Gong, J., Bai, L., Ling, F., Luo, J.-J., Chen, X., Ma, L.,
+Zhang, T., Su, R., Ci, Y., Li, B., Yang, X., and Ouyang, W. (2023). FengWu:
+pushing the skillful global medium-range weather forecast beyond 10 days
+lead. [arxiv.org/abs/2304.02948](https://arxiv.org/abs/2304.02948).
 [arxiv.org/abs/2304.02948](https://arxiv.org/abs/2304.02948).

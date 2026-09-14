@@ -31,5 +31,8 @@ faces map back to the 0.25° grid for verification.
 
 ## Reference
 
-Weyn, J. A., Durran, D. R., & Caruana, R. (2020). Improving data‐driven global weather prediction using deep convolutional neural networks on a cubed sphere. Journal of Advances in Modeling Earth Systems, 12(9), e2020MS002109.
+Weyn, J. A., Durran, D. R., and Caruana, R. (2020). Improving data-driven
+global weather prediction using deep convolutional neural networks on a
+cubed sphere. Journal of Advances in Modeling Earth Systems, 12(9),
+e2020MS002109.
 [doi:10.1029/2020MS002109](https://doi.org/10.1029/2020MS002109).
