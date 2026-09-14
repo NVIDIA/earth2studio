@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
+  (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
+  source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
+  artifact filter applied at inference.
 - Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
 - Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
   (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).

@@ -18,6 +18,7 @@ import warnings
 
 from .ace import ACELexicon
 from .arco import ARCO_ERA5Lexicon
+from .camulator import CAMulatorLexicon
 from .cams import CAMSGlobalLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDS_ERA5Lexicon

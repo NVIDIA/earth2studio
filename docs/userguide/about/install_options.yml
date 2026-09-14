@@ -68,6 +68,17 @@ categories:
         summary: ACE-2 model dependencies.
         api_refs:
           - earth2studio.models.px.ACE2ERA5
+      - id: camulator
+        label: CAMulator
+        extra: camulator
+        summary: NSF NCAR CAMulator climate emulator (no additional packages).
+        api_refs:
+          - earth2studio.models.px.CAMulator
+        notes:
+          - text: The default checkpoint is ~4.8 GB and the default cyclic forcing
+              file ~1.3 GB; both are downloaded from HuggingFace on first use.
+            href: https://huggingface.co/willychap/camulator
+            label: CAMulator model card
       - id: aifs
         label: AIFS
         extra: aifs

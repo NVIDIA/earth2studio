@@ -26,6 +26,7 @@ from earth2studio.models.px.atlas_crps import AtlasCRPS
 from earth2studio.models.px.aurora import Aurora
 from earth2studio.models.px.aurora1p5 import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.camulator import CAMulator
 from earth2studio.models.px.cbottle_video import CBottleVideo
 from earth2studio.models.px.datareplay import DataReplay
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
