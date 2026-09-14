@@ -10,6 +10,10 @@ wrappers already implement; it does not add capability.
 The contract is enforced by `earth2studio.models.conformance`, which reports the rule
 identifiers used below. A model that passes is drivable by any conforming caller.
 
+`AssimilationModel` is deliberately out of scope, and the omission is a scoping
+decision rather than an oversight — see Open Questions for the gaps it has and why
+they need their own document.
+
 ## Coordinate Systems
 
 A coordinate system is an `OrderedDict[str, np.ndarray]`. Order is part of the
@@ -45,8 +49,9 @@ anything.
 | `P11` | The model declares a boolean `stochastic` attribute |
 | `P12` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `P13` | Seeding determines a rollout, and different seeds give different rollouts |
-| `P14` | Stepping the model does not modify its input tensor or coordinate system |
-| `P15` | A yielded tensor does not change once a later step is produced |
+| `P14` | After `set_rng()`, seeding and stepping leave global RNG state unperturbed |
+| `P15` | Stepping the model does not modify its input tensor or coordinate system |
+| `P16` | A yielded tensor does not change once a later step is produced |
 
 ### Diagnostic
 
@@ -61,6 +66,7 @@ anything.
 | `D7` | The model declares a boolean `stochastic` attribute |
 | `D8` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `D9` | Seeding determines the output, and different seeds give different output |
+| `D10` | After `set_rng()`, seeding and calling leave global RNG state unperturbed |
 
 ## Lead Time
 
@@ -138,7 +144,7 @@ across four wrappers.
 A model borrows the tensor it is given and owns the tensor it returns.
 
 `__call__` and `create_iterator()` must not write into the caller's input tensor or
-coordinate system (`P14`, `D6`). Mutating the input does not save memory: a model
+coordinate system (`P15`, `D6`). Mutating the input does not save memory: a model
 that clones and then mutates holds two copies at peak, exactly as one that builds
 its output out-of-place. Mutating the caller's buffer instead of cloning saves that
 peak only by destroying data the caller may still need — which forces *every* caller
@@ -149,9 +155,9 @@ the comment `# prevent editing of argument` — and it has already failed once i
 field. `stormcast` wrote forecast results back into the caller's initial condition
 while `stormcastconus` cloned, which is
 [issue #1133](https://github.com/NVIDIA/earth2studio/issues/1133), fixed per-model in
-PR #1134. A per-model fix does not prevent the next occurrence; `P14` does.
+PR #1134. A per-model fix does not prevent the next occurrence; `P15` does.
 
-`P15` is the related guarantee for the iterator: once a later step is produced, an
+`P16` is the related guarantee for the iterator: once a later step is produced, an
 earlier yield must not have changed. A model may return a view into its own buffers,
 but not a view into a buffer it will overwrite on the next step. Without this, a
 caller that holds a yield across steps reads the wrong values, and holding a yield
@@ -165,13 +171,13 @@ not offer it.
 Note that the `batch_func` decorator does *not* protect the input tensor:
 `_compress_batch` reshapes with `unsqueeze` and `flatten`, both of which return
 views, so a write inside a decorated method reaches the caller. It does shield the
-coordinate system, which it rebuilds. `P14`'s tensor half is therefore the load
+coordinate system, which it rebuilds. `P15`'s tensor half is therefore the load
 bearing one.
 
 ## Stochasticity
 
 A model declares whether it draws randomness. The requirement is identical for both
-protocols — `P11`-`P13` for prognostics, `D7`-`D9` for diagnostics — because the
+protocols — `P11`-`P14` for prognostics, `D7`-`D10` for diagnostics — because the
 caller's need is identical: a driver scheduling ensemble members has to know whether
 members will differ and how to make them reproducible, and it does not care which
 protocol the component implements.
@@ -198,6 +204,44 @@ leaves an already-initialized generator alone, which is what a caller wants when
 reseeding mid-rollout would break a noise trajectory. A model that is never seeded
 falls back to the global RNG rather than failing.
 
+The two arguments serve two different callers, and the distinction is what `reset`
+does to an *already-initialized* generator: `reset=True` replaces it, `reset=False`
+leaves it drawing from where it left off — so the seed argument is only consulted the
+first time a model is seeded, and ignored on every `reset=False` call after that.
+
+An ensemble driver wants replacement: each member is a fresh, independent trajectory,
+so it reseeds with `reset=True` (the default) before every rollout.
+
+```python
+driver_rng = np.random.default_rng(0)
+
+for member in range(n_members):
+    model.set_rng(int(driver_rng.integers(2**32)))  # reset=True: fresh generator
+    run(model)
+```
+
+A hook installed on the iterator wants the opposite. It runs once per step, *inside*
+the rollout the driver already seeded, and its job is to keep drawing from that same
+generator across steps — a new draw each step, not a restart to the first draw. If
+the hook does not know whether the model has been seeded yet (it may run before or
+after the driver, depending on setup order), it seeds defensively:
+
+```python
+@model.add_front_hook
+def perturb(values, coords):
+    # reset=False: a no-op if the driver already seeded the model, so this call
+    # cannot clobber the trajectory in progress. Only takes effect as a fallback
+    # if perturb runs before the driver has seeded anything.
+    model.set_rng(fallback_seed, reset=False)
+    noise = torch.randn(values.shape, generator=model.generator)
+    return values + noise, coords
+```
+
+Had the hook called `set_rng(fallback_seed, reset=True)` instead, every step would
+reinitialize the generator to the same state, so `perturb` would draw the *same*
+noise at every step — silently collapsing what should be `nsteps` independent
+perturbations into one value repeated across the whole forecast.
+
 The only difference between the protocols is what reproducibility ranges over. `P13`
 is a property of a rollout: the same seed reproduces every step. `D9` is a property
 of a single call, because a diagnostic has no rollout.
@@ -205,6 +249,58 @@ of a single call, because a diagnostic has no rollout.
 An `int` seed rather than a `torch.Generator` is deliberate: several wrappers
 delegate to a core model that accepts only a seed, and every existing implementation
 already takes one.
+
+### RNG isolation
+
+A seeded model must keep its randomness to itself. `P14` and `D10`: once `set_rng()`
+has been called, neither seeding nor stepping may leave the global RNG state
+perturbed.
+
+The harm is specific. A wrapper that seeds the global RNG reaches every other
+consumer in the process — a second model in a cascade, a perturbation method, a
+dataloader — and resets its stream to a fixed point. Two ensemble members that should
+differ draw identical noise from an unrelated component. `P13` and `D9` make this
+worse rather than catching it: they pass when the model is checked alone, and the
+failure only appears once the model is one component of a pipeline.
+
+The rule constrains the effect, not the mechanism. Three implementations satisfy it:
+
+- a local `torch.Generator` seeded in `set_rng` and threaded into every draw;
+- a functional PRNG key, as the JAX-backed wrappers already use;
+- global seeding confined to a `torch.random.fork_rng()` block, which snapshots the
+  RNG state, lets the seeded code run, and restores the state on exit.
+
+The third is what makes the rule satisfiable for a model whose randomness is drawn
+inside an external package with no generator injection point — `aifs2ens` calls
+`torch.manual_seed(self.seed + step)` because `anemoi` offers nothing else. Forking
+keeps that call and removes its blast radius:
+
+```python
+def set_rng(self, seed: int, reset: bool = True) -> None:
+    if reset or self._seed is None:
+        self._seed = seed
+
+# at the step
+with torch.random.fork_rng(devices=[x.device] if x.is_cuda else []):
+    torch.manual_seed(self._seed + step)
+    out = self.core_model(...)
+```
+
+Pass `devices` explicitly: the default forks every visible CUDA device and warns. The
+residual cost is a state copy per step, negligible against a model forward.
+
+**Known deviation.** Of the three wrappers that implement `set_rng` today, `dlesym`
+seeds a local `torch.Generator` and conforms; `fcn3` delegates to its core model, so
+conformance depends on what that model does internally; and `aurora1p5` is a bare
+`torch.manual_seed(seed)` and fails `P14`. That is the same wrapper whose
+constructor seed already conflicts with `set_rng` below, so both of its seeding
+defects are fixed by the same rewrite.
+
+The rule is scoped to models that implement `set_rng`, and to the state *after* it is
+called. An unseeded model drawing from the global generator merely *advances* it,
+which is what any program using the default RNG does and is not the harm being
+prevented; forbidding it would contradict the global-RNG fallback above. Reseeding is
+the harm, because it destroys independence rather than consuming it.
 
 ### Seeding is the only entry point
 
@@ -234,12 +330,28 @@ Three wrappers implement `set_rng` today, with two incompatible signatures
 discover it by `hasattr`. Those three now declare `stochastic`; `dlesym` declares it
 as a property because it is conditional on `use_cln`.
 
-The remaining stochastic wrappers hold a `seed` attribute and seed the global RNG
-instead: prognostic `aifs2ens`, `gencast_mini`, `cbottle_video`,
-`weathernext2_cyclones_mini`, `atlas_crps`, and `stormscope`; diagnostic `corrdiff`,
-`corrdiff_cosmo_era5`, `cbottle_sr`, and `stormscope_dx_nsrdb`. Each needs a
-`stochastic` declaration and a `set_rng` from its owner — they are left undeclared
-here rather than guessed at.
+The remaining stochastic wrappers each need a `stochastic` declaration and a
+`set_rng` from its owner — they are left undeclared here rather than guessed at. They
+divide by how their randomness is reached today, which is what determines the work
+`P14`/`D10` implies for each:
+
+| Mechanism today | Wrappers | Work |
+| --- | --- | --- |
+| Functional PRNG key | `gencast_mini`, `weathernext2_cyclones_mini` | declare and wrap |
+| Local `torch.Generator` | `corrdiff` | declare and wrap |
+| Seed passed to core model | `cbottle_video` | declare and wrap |
+| Global `torch.manual_seed` | `aifs2ens`, `cbottle_sr`, `stormscope_dx_nsrdb` | fork the RNG |
+| None at all | `atlas_crps`, `stormscope` | add seeding, forked |
+
+"Declare and wrap" means the randomness is already isolated, so only the `stochastic`
+declaration and a `set_rng` entry point are missing. "Fork the RNG" means the seeding
+call stays as written and moves inside `torch.random.fork_rng()`.
+
+Every wrapper in the tree is therefore reachable, and none needs a change to an
+upstream package. The last row is the case that gains most: `atlas_crps` currently
+documents "use `torch.manual_seed` for reproducible members", which is to say it
+pushes global reseeding onto the caller and offers no per-instance control. A forked
+`set_rng` gives it control it does not have today rather than taking any away.
 
 The diagnostics share one further pattern worth naming before it is standardized:
 `seed=None` means *draw a fresh seed per call*, implemented as
@@ -262,9 +374,14 @@ The return value lists rules that could not be evaluated and why — a rule that
 run is reported rather than passed silently.
 
 `rollout=False` restricts the check to the rules that need no forward pass
-(`P1`-`P6`, `P11`, `P12`), for models too expensive to step in continuous
-integration. `check_diagnostic_contract(model, forward=False)` is the equivalent,
-leaving `D1`-`D4`, `D7`, and `D8`.
+(`P1`-`P6`, `P11`, `P12`, and the seeding half of `P14`), for models too expensive to
+step in continuous integration. `check_diagnostic_contract(model, forward=False)` is
+the equivalent, leaving `D1`-`D4`, `D7`, `D8`, and the seeding half of `D10`.
+
+`P14` and `D10` are evaluated in two halves because only one of them needs a model
+step: whether `set_rng()` itself perturbs the global RNG is answerable for free, and
+it is the half that catches the common violation of implementing `set_rng` as a bare
+`torch.manual_seed`.
 
 The rollout rules build a probe input from `input_coords()`, which requires deriving
 a tensor shape from a coordinate system. A one-dimensional coordinate contributes one
@@ -276,7 +393,7 @@ an `n`-dimensional entry is followed by `n - 1` partners of the same shape, and 
 group contributes that shape once.
 
 A coordinate system that does not satisfy that convention implies no shape, so no
-probe input can be built and `P7`-`P10` and `P13`-`P15` are reported as skipped
+probe input can be built and `P7`-`P10` and `P13`-`P16` are reported as skipped
 rather than passed.
 
 The probe tensor is pseudo-random rather than zero, so that a model writing into its
@@ -288,6 +405,48 @@ supplies a realistic initial condition.
 - `P13` compares rollouts with `torch.allclose`, so a deterministic model running on
   nondeterministic GPU kernels may report as stochastic. The tolerance may need to
   be configurable.
+- `stochastic` currently answers two questions at once: *will ensemble members
+  differ?* and *can I reproduce them?* `P12` fuses them by requiring `set_rng`
+  whenever `stochastic` is `True`. A model whose randomness is drawn by an opaque
+  dependency — one that neither accepts a generator nor draws from a forkable global
+  RNG — would be stochastic but unseedable, and could not satisfy both. No such model
+  is in the tree today: every wrapper is either already isolated or reachable by
+  forking, which is why the two are not split here. If one arrives, the split is
+  adding a `seedable` declaration and demoting `P13` to a skip, not reopening `P14`.
+- `P14` and `D10` are scoped to models that implement `set_rng`. A model declaring
+  `stochastic=False` that reseeds the global RNG anyway would go uncaught, but it
+  would be pathological, and none exists today. Widening the rule to every model is
+  cheap if one shows up.
+- `AssimilationModel` needs an equivalent contract, but writing one means *choosing*
+  between live divergences rather than codifying settled behavior, which is why it is
+  not folded in here. Four gaps, in severity order:
+  1. `output_coords()` has no callable contract. The protocol declares
+     `(input_coords, *args, **kwargs)`, and the implementations split:
+     `InterpEquirectangular` requires `request_time` as a positional with no default,
+     `HealDA` takes it as an optional keyword, and `StormCastSDA` and
+     `CorrDiffCosmoEra5SDA` accept `input_coords` alone and reject it. No caller can
+     resolve output coordinates generically, which forfeits the plan-before-allocate
+     property that `P8` and `D5` give the other two protocols.
+  2. There is no priming-yield convention. `HealDA`, `InterpEquirectangular`, and
+     `CorrDiffCosmoEra5SDA` prime with `yield None`; `StormCastSDA` primes by
+     yielding the initial state. `CorrDiffCosmoEra5SDA` documents the split in its
+     own docstring — "unlike StormCast, yields no initial state" — so it is a known,
+     unresolved divergence. This is the `P7` question for the send-protocol
+     generator.
+  3. Stochasticity is undeclared. `CorrDiffCosmoEra5SDA` holds `self.seed` and
+     derives per-member seeds as `seed + i`, the same pattern the diagnostics use,
+     with no `set_rng`. `P11`-`P14` port across unchanged.
+  4. Input immutability matters more here, not less. Inputs are `pd.DataFrame` and
+     `xr.DataArray`, which are mutated in place far more idiomatically than tensors,
+     so the `P15`/`D6` hazard is larger while the defensive-clone convention that
+     grew up around the tensor models does not exist.
+
+  A conformance checker is feasible on the same pattern: `FrameSchema` is an
+  `OrderedDict[str, np.ndarray]` mapping column names to representative arrays, so a
+  probe DataFrame is constructible exactly as `_sample_tensor` builds a probe tensor.
+  The generator lifecycle — what `send(None)` means mid-stream, whether `__call__` is
+  equivalent to one generator step, who closes the generator — would need deciding
+  first.
 - The forcing and conditioning declaration is deliberately absent. It is shared with
   the coupling and labelled-array proposals and must be agreed across all three
   before it is specified here

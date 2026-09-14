@@ -39,7 +39,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.conformance import (
-    ContractViolation,
+    ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import Persistence
@@ -266,5 +266,57 @@ class UnseededPersistence(NoisyPersistence):
 
 try:
     check_prognostic_contract(UnseededPersistence("t2m", domain, history=2))
-except ContractViolation as error:
+except ContractException as error:
     print(error)
+
+# %%
+# Keep Randomness Local
+# ---------------------
+# A seeded model must not leave the global RNG state perturbed. Seeding it reaches
+# every other consumer in the process — a second model in a cascade, a perturbation
+# method, a dataloader — and resets its stream. The failure hides during a
+# single-model check and only appears once the model is one part of a pipeline, so
+# the contract checks for it directly.
+
+
+# %%
+class GlobalSeedPersistence(NoisyPersistence):
+    """A stochastic model that seeds the global generator."""
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the global RNG, reaching every other consumer in the process."""
+        torch.manual_seed(seed)
+
+
+try:
+    check_prognostic_contract(GlobalSeedPersistence("t2m", domain, history=2))
+except ContractException as error:
+    print(error)
+
+# %%
+# The rule constrains the effect rather than the mechanism, which matters for a model
+# whose randomness is drawn inside an external package that exposes no generator.
+# Seeding globally is still allowed as long as it is confined to a
+# ``torch.random.fork_rng()`` block, which restores the state on exit.
+
+
+# %%
+class ForkedSeedPersistence(NoisyPersistence):
+    """A model that seeds globally, but only inside a fork."""
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Record the seed; the draw itself is seeded inside a fork."""
+        if reset or getattr(self, "_seed", None) is None:
+            self._seed = seed
+
+    def _forward(
+        self, values: torch.Tensor, step_coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        out, out_coords = Persistence._forward(self, values, step_coords)
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(self._seed)
+            noise = torch.randn(out.shape)
+        return out + noise, out_coords
+
+
+print(check_prognostic_contract(ForkedSeedPersistence("t2m", domain, history=2)))

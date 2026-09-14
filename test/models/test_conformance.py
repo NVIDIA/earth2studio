@@ -23,7 +23,7 @@ import torch
 
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.conformance import (
-    ContractViolation,
+    ContractException,
     _expected_shape,
     check_diagnostic_contract,
     check_prognostic_contract,
@@ -105,18 +105,21 @@ class ToyPrognostic(torch.nn.Module, PrognosticMixin):
 
 def _violations(model, **kwargs) -> set[str]:
     """Return the rule identifiers a model violates."""
-    with pytest.raises(ContractViolation) as error:
+    with pytest.raises(ContractException) as error:
         check_prognostic_contract(model, **kwargs)
     return {violation.split(":")[0] for violation in error.value.violations}
 
 
 def test_conformance_reference_model():
-    assert check_prognostic_contract(ToyPrognostic()) == []
+    assert check_prognostic_contract(ToyPrognostic()) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 def test_conformance_diagnostic():
     assert check_diagnostic_contract(Identity()) == [
-        "D4: model declares fewer than three dimensions"
+        "D4: model declares fewer than three dimensions",
+        "D10: model does not declare itself stochastic",
     ]
 
 
@@ -144,7 +147,7 @@ class StochasticIdentity(Identity):
 
 def _diagnostic_violations(model, **kwargs) -> set[str]:
     """Return the rule identifiers a diagnostic violates."""
-    with pytest.raises(ContractViolation) as error:
+    with pytest.raises(ContractException) as error:
         check_diagnostic_contract(model, **kwargs)
     return {violation.split(":")[0] for violation in error.value.violations}
 
@@ -187,7 +190,7 @@ def test_conformance_detects_diagnostic_input_mutation():
             x.add_(1)
             return x, self.output_coords(coords)
 
-    with pytest.raises(ContractViolation) as error:
+    with pytest.raises(ContractException) as error:
         check_diagnostic_contract(MutatingIdentity())
     assert {v.split(":")[0] for v in error.value.violations} == {"D6"}
 
@@ -202,7 +205,7 @@ def test_conformance_detects_input_mutation():
             x.add_(1)
             return x, self.output_coords(coords)
 
-    assert "P14" in _violations(MutatesInput())
+    assert "P15" in _violations(MutatesInput())
 
 
 def test_conformance_detects_aliased_yields():
@@ -223,16 +226,19 @@ def test_conformance_detects_aliased_yields():
                 buffer, coords = self.rear_hook(buffer, coords)
                 yield buffer, coords.copy()
 
-    assert "P15" in _violations(AliasedYields())
+    assert "P16" in _violations(AliasedYields())
 
 
 @pytest.mark.parametrize("history", [1, 2])
 def test_conformance_persistence(history):
     model = Persistence("t2m", DOMAIN, history=history)
     assert check_prognostic_contract(model, rollout=False) == [
-        "P7-P10, P13-P15: rollout checks disabled"
+        "P14: model does not declare itself stochastic",
+        "P7-P10, P13, P15, P16: rollout checks disabled",
     ]
-    assert check_prognostic_contract(model) == []
+    assert check_prognostic_contract(model) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 def test_conformance_curvilinear_coords():
@@ -240,7 +246,9 @@ def test_conformance_curvilinear_coords():
     lat, lon = np.meshgrid(np.linspace(0, 1, 4), np.linspace(0, 1, 6), indexing="ij")
     model = Persistence("t2m", OrderedDict({"lat": lat, "lon": lon}))
     assert _expected_shape(model.input_coords()) == (0, 1, 1, 4, 6)
-    assert check_prognostic_contract(model) == []
+    assert check_prognostic_contract(model) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 def test_expected_shape_rejects_inconsistent_groups():
@@ -465,9 +473,94 @@ def test_conformance_detects_unreached_randomness():
     assert _violations(Unseeded()) == {"P13"}
 
 
+def test_conformance_detects_global_seeding_in_set_rng():
+    """The common violation: set_rng implemented as a bare torch.manual_seed."""
+
+    class GlobalSeeder(StochasticToy):
+        def set_rng(self, seed: int, reset: bool = True) -> None:
+            """Seed the global generator, reaching every other RNG consumer."""
+            torch.manual_seed(seed)
+
+        def _step(
+            self, x: torch.Tensor, coords: CoordSystem
+        ) -> tuple[torch.Tensor, CoordSystem]:
+            return x + torch.randn(x.shape), self.output_coords(coords)
+
+    # Caught without a rollout: the seeding half of P14 needs no forward pass
+    assert "P14" in _violations(GlobalSeeder(), rollout=False)
+
+
+def test_conformance_detects_global_seeding_mid_step():
+    """A clean set_rng does not excuse reseeding the global RNG while stepping."""
+
+    class ReseedsPerStep(StochasticToy):
+        def _step(
+            self, x: torch.Tensor, coords: CoordSystem
+        ) -> tuple[torch.Tensor, CoordSystem]:
+            torch.manual_seed(0)
+            return super()._step(x, coords)
+
+    violations = _violations(ReseedsPerStep())
+    assert "P14" in violations
+
+
+def test_conformance_accepts_forked_global_seeding():
+    """The escape hatch for models whose randomness lives in an external package.
+
+    ``aifs2ens`` seeds the global RNG per step because ``anemoi`` exposes no
+    generator. Forking keeps the call and removes its blast radius, so the model
+    conforms without an upstream change.
+    """
+
+    class ForkedSeeder(StochasticToy):
+        def set_rng(self, seed: int, reset: bool = True) -> None:
+            """Record the seed; the draw itself is seeded inside a fork."""
+            if reset or getattr(self, "_seed", None) is None:
+                self._seed = seed
+
+        def _step(
+            self, x: torch.Tensor, coords: CoordSystem
+        ) -> tuple[torch.Tensor, CoordSystem]:
+            with torch.random.fork_rng(devices=[]):
+                torch.manual_seed(self._seed)
+                noise = torch.randn(x.shape)
+            return x + noise, self.output_coords(coords)
+
+    assert check_prognostic_contract(ForkedSeeder()) == []
+
+
+def test_conformance_detects_global_seeding_diagnostic():
+    """D10 is the diagnostic half of the same rule."""
+
+    class GlobalSeeder(StochasticIdentity):
+        def set_rng(self, seed: int, reset: bool = True) -> None:
+            """Seed the global generator rather than a local one."""
+            torch.manual_seed(seed)
+
+    assert "D10" in _diagnostic_violations(GlobalSeeder(), forward=False)
+
+
+def test_conformance_unseeded_global_draws_are_not_violations():
+    """Advancing the global RNG is not the harm; reseeding it is.
+
+    A model that never has ``set_rng`` called still draws from the global generator
+    by the spec's own fallback, so consuming from it must stay legal.
+    """
+
+    class GlobalDraws(ToyPrognostic):
+        def _step(
+            self, x: torch.Tensor, coords: CoordSystem
+        ) -> tuple[torch.Tensor, CoordSystem]:
+            return x + torch.randn(x.shape) * 0, self.output_coords(coords)
+
+    assert check_prognostic_contract(GlobalDraws()) == [
+        "P14: model does not declare itself stochastic"
+    ]
+
+
 def test_contract_rules_documented():
     rules = dict(iter_contract_rules())
-    assert set(rules) == {f"P{i}" for i in range(1, 16)} | {
-        f"D{i}" for i in range(1, 10)
+    assert set(rules) == {f"P{i}" for i in range(1, 17)} | {
+        f"D{i}" for i in range(1, 11)
     }
     assert all(summary.endswith(".") for summary in rules.values())

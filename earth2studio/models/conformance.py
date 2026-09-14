@@ -16,7 +16,7 @@
 
 """Conformance checks for the Earth2Studio model contract.
 
-The rule identifiers reported here (``P1``-``P15``, ``D1``-``D9``) match the rule
+The rule identifiers reported here (``P1``-``P16``, ``D1``-``D10``) match the rule
 table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
 """
 
@@ -36,8 +36,12 @@ from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.type import CoordSystem
 
+# Distinct from any seed the checks pass to set_rng, so that a model reseeding the
+# global generator is observable even when it reseeds to the value already in place
+_PROBE_SEED = 0x5EED
 
-class ContractViolation(AssertionError):
+
+class ContractException(Exception):
     """Raised when a model violates the Earth2Studio model contract.
 
     Parameters
@@ -75,7 +79,7 @@ class _Report:
     def raise_for_violations(self) -> None:
         """Raise if any rule failed."""
         if self.violations:
-            raise ContractViolation(self.model, self.violations)
+            raise ContractException(self.model, self.violations)
 
 
 def _expected_shape(coords: CoordSystem) -> tuple[int, ...] | None:
@@ -256,8 +260,9 @@ def check_prognostic_contract(
     model : PrognosticModel
         Model to check
     rollout : bool, optional
-        Whether to run the rules that require a forward pass (``P7``-``P10``), by
-        default True. Set to False for models too expensive to step in CI.
+        Whether to run the rules that require a forward pass (``P7``-``P10``,
+        ``P13``-``P16``), by default True. Set to False for models too expensive to
+        step in CI.
     nsteps : int, optional
         Forecast steps to draw from the iterator when ``rollout`` is True, by
         default 2
@@ -271,7 +276,7 @@ def check_prognostic_contract(
 
     Raises
     ------
-    ContractViolation
+    ContractException
         If the model violates any evaluated rule
     """
     report = _Report(model)
@@ -321,13 +326,21 @@ def check_prognostic_contract(
         )
         _check_rebasing(report, model, input_coords, output_coords)
 
-    stochastic = _check_stochasticity(report, model)
+    stochastic = _check_stochasticity(report, model, device=device)
+
+    # P14 belongs in the rollout set only when its seeding half found a set_rng to
+    # check; otherwise _check_stochasticity has already skipped it with its own reason
+    rollout_rules = (
+        "P7-P10, P13-P16"
+        if stochastic and callable(getattr(model, "set_rng", None))
+        else "P7-P10, P13, P15, P16"
+    )
 
     if not rollout:
-        report.skip("P7-P10, P13-P15", "rollout checks disabled")
+        report.skip(rollout_rules, "rollout checks disabled")
     elif _expected_shape(_concretize(input_coords)) is None:
         report.skip(
-            "P7-P10, P13-P15",
+            rollout_rules,
             "input_coords() does not imply a tensor shape, so no probe input can be "
             "built",
         )
@@ -380,9 +393,9 @@ def _check_immutability(
     coords: CoordSystem,
     pristine_coords: CoordSystem,
     path: str,
-    rule: str = "P14",
+    rule: str = "P15",
 ) -> None:
-    """Evaluate the input immutability rule (``P14``, ``D6``) for one call path."""
+    """Evaluate the input immutability rule (``P15``, ``D6``) for one call path."""
     report.require(
         rule,
         x.shape == pristine_x.shape and torch.equal(x, pristine_x),
@@ -401,7 +414,7 @@ def _check_immutability(
 
 
 def _check_call_immutability(
-    report: _Report, model: Any, coords: CoordSystem, device: Any, rule: str = "P14"
+    report: _Report, model: Any, coords: CoordSystem, device: Any, rule: str = "P15"
 ) -> None:
     """Evaluate input immutability for the single-step ``__call__`` path."""
     x = _sample_tensor(coords, device)
@@ -425,7 +438,7 @@ def _check_rollout(
 ) -> None:
     """Evaluate the rules that require stepping the model.
 
-    Covers ``P7``-``P10`` and ``P13``-``P15``.
+    Covers ``P7``-``P10`` and ``P13``-``P16``.
     """
     coords = _concretize(input_coords)
     x = _sample_tensor(coords, device)
@@ -454,7 +467,7 @@ def _check_rollout(
     )
     for index, ((values, _), snapshot) in enumerate(zip(steps, snapshots)):
         if not report.require(
-            "P15",
+            "P16",
             values.shape == snapshot.shape and torch.equal(values, snapshot),
             f"yield {index} changed after later steps were produced, so the yields "
             "alias one buffer; a caller holding a yield across steps — an async IO "
@@ -514,6 +527,7 @@ def _check_rollout(
     _check_call_immutability(report, model, coords, device)
     _check_hook_scope(report, model, coords, device)
     _check_reproducibility(report, model, coords, device, nsteps, stochastic)
+    _check_step_rng_isolation(report, model, coords, device, stochastic)
 
 
 def _rollout_values(
@@ -521,11 +535,81 @@ def _rollout_values(
 ) -> torch.Tensor:
     """Concatenate the forecast steps of a rollout into one tensor.
 
-    The input is cloned per rollout so that a model violating ``P14`` cannot make
+    The input is cloned per rollout so that a model violating ``P15`` cannot make
     successive rollouts disagree for the wrong reason.
     """
     steps = islice(model.create_iterator(x.clone(), coords.copy()), 1, nsteps + 1)
     return torch.cat([values.flatten().clone() for values, _ in steps])
+
+
+def _fork_devices(device: Any) -> list[int]:
+    """CUDA device indices to fork RNG state for, empty when checking on CPU."""
+    resolved = torch.device(device)
+    if resolved.type != "cuda":
+        return []
+    index = resolved.index
+    return [index if index is not None else torch.cuda.current_device()]
+
+
+def _rng_state(device: Any) -> tuple[torch.Tensor, list[torch.Tensor]]:
+    """Snapshot the global RNG state that a caller owns.
+
+    CUDA state is only read when the check runs on a CUDA device, so that a CPU check
+    does not initialize a CUDA context. ``torch.manual_seed`` seeds the CPU generator
+    as well as every device, so the CPU half of the snapshot catches it either way.
+    """
+    uses_cuda = torch.device(device).type == "cuda"
+    cuda_states = torch.cuda.get_rng_state_all() if uses_cuda else []
+    return torch.get_rng_state(), cuda_states
+
+
+def _rng_state_unchanged(
+    before: tuple[torch.Tensor, list[torch.Tensor]],
+    after: tuple[torch.Tensor, list[torch.Tensor]],
+) -> bool:
+    """Whether two global RNG snapshots are identical."""
+    cpu_before, cuda_before = before
+    cpu_after, cuda_after = after
+    if not torch.equal(cpu_before, cpu_after):
+        return False
+    return len(cuda_before) == len(cuda_after) and all(
+        torch.equal(one, other) for one, other in zip(cuda_before, cuda_after)
+    )
+
+
+def _check_rng_isolation(
+    report: _Report,
+    action: Callable[[], Any],
+    path: str,
+    rule: str,
+    device: Any,
+) -> None:
+    """Evaluate the RNG isolation rule (``P14``, ``D10``) for one code path.
+
+    Only reseeding is a violation. An unseeded model drawing from the global
+    generator merely advances it, which is what any program using the default RNG
+    does; callers of this helper seed the model first so that a conforming model has
+    already routed its randomness to a generator of its own.
+
+    The probe seed is set first because comparing states alone cannot see an
+    *idempotent* reseed: an earlier rule may have left the global generator on the
+    same seed the model is about to set, and the two states would then match. Seeding
+    to a value no check passes in makes any reseed observable. The whole probe runs
+    inside a fork, so checking a model does not perturb the caller's own RNG.
+    """
+    with torch.random.fork_rng(devices=_fork_devices(device)):
+        torch.manual_seed(_PROBE_SEED)
+        before = _rng_state(device)
+        action()
+        after = _rng_state(device)
+    report.require(
+        rule,
+        _rng_state_unchanged(before, after),
+        f"{path} left the global RNG state perturbed, which silently reseeds every "
+        "other consumer in the process — a second model in a cascade, a perturbation "
+        "method, a dataloader. Seed a local torch.Generator, or confine global "
+        "seeding to a torch.random.fork_rng() block",
+    )
 
 
 def _check_stochasticity(
@@ -533,11 +617,17 @@ def _check_stochasticity(
     model: Any,
     declare_rule: str = "P11",
     set_rng_rule: str = "P12",
+    isolation_rule: str = "P14",
+    device: Any = "cpu",
 ) -> bool:
     """Evaluate the stochasticity declaration rules.
 
-    Shared by both protocols: ``P11``/``P12`` for prognostics, ``D7``/``D8`` for
-    diagnostics. The rule identifiers differ, the requirement does not.
+    Shared by both protocols: ``P11``/``P12``/``P14`` for prognostics,
+    ``D7``/``D8``/``D10`` for diagnostics. The rule identifiers differ, the
+    requirement does not.
+
+    The seeding half of the isolation rule is evaluated here because it needs no
+    forward pass; the stepping half runs with the rules that do.
 
     Returns
     -------
@@ -555,6 +645,7 @@ def _check_stochasticity(
 
     set_rng = getattr(model, "set_rng", None)
     if not stochastic:
+        report.skip(isolation_rule, "model does not declare itself stochastic")
         return False
 
     if not report.require(
@@ -563,6 +654,7 @@ def _check_stochasticity(
         "a stochastic model must implement set_rng(seed, reset=True) so a caller "
         "can make its output reproducible",
     ):
+        report.skip(isolation_rule, "stochastic model does not implement set_rng")
         return True
 
     parameters = [
@@ -576,6 +668,14 @@ def _check_stochasticity(
         parameters[:1] == ["seed"],
         "set_rng() must take the seed as its first positional argument, got "
         f"{parameters or 'no positional arguments'}",
+    )
+
+    _check_rng_isolation(
+        report,
+        lambda: cast(Callable, set_rng)(0),
+        "set_rng()",
+        isolation_rule,
+        device,
     )
     return True
 
@@ -678,6 +778,56 @@ def _check_reproducibility(
     )
 
 
+def _check_step_rng_isolation(
+    report: _Report,
+    model: PrognosticModel,
+    coords: CoordSystem,
+    device: Any,
+    stochastic: bool,
+) -> None:
+    """Evaluate the stepping half of the RNG isolation rule (``P14``).
+
+    The model is seeded first: a conforming ``set_rng`` has routed randomness to a
+    generator of the model's own by this point, so a step that still moves the global
+    state is reseeding it rather than drawing from it.
+    """
+    set_rng = getattr(model, "set_rng", None)
+    if not stochastic or not callable(set_rng):
+        return  # already reported as skipped by _check_stochasticity
+
+    set_rng(0)
+    x = _sample_tensor(coords, device)
+
+    def step() -> None:
+        for _ in islice(model.create_iterator(x, coords.copy()), 2):
+            pass
+
+    _check_rng_isolation(report, step, "stepping a seeded model", "P14", device)
+
+
+def _check_call_rng_isolation(
+    report: _Report,
+    model: DiagnosticModel,
+    coords: CoordSystem,
+    device: Any,
+    stochastic: bool,
+) -> None:
+    """Evaluate the calling half of the RNG isolation rule (``D10``)."""
+    set_rng = getattr(model, "set_rng", None)
+    if not stochastic or not callable(set_rng):
+        return  # already reported as skipped by _check_stochasticity
+
+    set_rng(0)
+    x = _sample_tensor(coords, device)
+    _check_rng_isolation(
+        report,
+        lambda: model(x, coords.copy()),
+        "calling a seeded model",
+        "D10",
+        device,
+    )
+
+
 def _check_hook_scope(
     report: _Report, model: PrognosticModel, coords: CoordSystem, device: Any
 ) -> None:
@@ -744,8 +894,8 @@ def check_diagnostic_contract(
     model : DiagnosticModel
         Model to check
     forward : bool, optional
-        Whether to run the rule that requires a forward pass (``D5``), by default
-        True
+        Whether to run the rules that require a forward pass (``D5``, ``D6``,
+        ``D9``, ``D10``), by default True
     device : Any, optional
         Device to run the forward pass on, by default ``"cpu"``
 
@@ -756,7 +906,7 @@ def check_diagnostic_contract(
 
     Raises
     ------
-    ContractViolation
+    ContractException
         If the model violates any evaluated rule
     """
     report = _Report(model)
@@ -776,14 +926,21 @@ def check_diagnostic_contract(
         invalid_rule="D4",
     )
 
-    stochastic = _check_stochasticity(report, model, "D7", "D8")
+    stochastic = _check_stochasticity(report, model, "D7", "D8", "D10", device)
+
+    # As above: D10 joins the forward set only if its seeding half had a set_rng
+    forward_rules = (
+        "D5, D6, D9, D10"
+        if stochastic and callable(getattr(model, "set_rng", None))
+        else "D5, D6, D9"
+    )
 
     coords = _concretize(input_coords)
     if not forward:
-        report.skip("D5, D6, D9", "forward check disabled")
+        report.skip(forward_rules, "forward check disabled")
     elif _expected_shape(coords) is None or output_coords is None:
         report.skip(
-            "D5, D6, D9",
+            forward_rules,
             "input_coords() does not imply a tensor shape, so no probe input can be "
             "built",
         )
@@ -805,6 +962,7 @@ def check_diagnostic_contract(
             )
         _check_call_immutability(report, model, coords, device, rule="D6")
         _check_diagnostic_reproducibility(report, model, coords, device, stochastic)
+        _check_call_rng_isolation(report, model, coords, device, stochastic)
 
     report.raise_for_violations()
     return report.skipped
@@ -835,8 +993,9 @@ _RULES = {
     "P11": "The model declares a boolean 'stochastic' attribute.",
     "P12": "A stochastic model implements set_rng(seed, reset=True).",
     "P13": "Seeding determines a rollout, and different seeds give different rollouts.",
-    "P14": "Stepping the model does not modify its input tensor or coordinates.",
-    "P15": "A yielded tensor does not change once a later step is produced.",
+    "P14": "After set_rng(), seeding and stepping leave global RNG state unperturbed.",
+    "P15": "Stepping the model does not modify its input tensor or coordinates.",
+    "P16": "A yielded tensor does not change once a later step is produced.",
     "D1": "A diagnostic model structurally satisfies the DiagnosticModel protocol.",
     "D2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
     "D3": "output_coords() treats its argument as read-only.",
@@ -846,4 +1005,5 @@ _RULES = {
     "D7": "The model declares a boolean 'stochastic' attribute.",
     "D8": "A stochastic model implements set_rng(seed, reset=True).",
     "D9": "Seeding determines the output, and different seeds give different output.",
+    "D10": "After set_rng(), seeding and calling leave global RNG state unperturbed.",
 }
