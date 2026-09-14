@@ -26,16 +26,6 @@ examples, built to be adapted for real projects.
 
     [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/s2s)
 
-- :material-weather-partly-cloudy: **FuXi-S2S from ARCO ERA5**
-
-    ---
-
-    Run one stochastic FuXi-S2S trajectory or a configurable ensemble from
-    public hourly ERA5 initial conditions, then render weekly maps and
-    ensemble-member summaries.
-
-    [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/fuxi_s2s)
-
 - :material-weather-hurricane: **Tropical Cyclone Tracking**
 
     ---
