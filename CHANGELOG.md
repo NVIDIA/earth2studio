@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`)
+- `HealDA` now derives a GPS-RO pressure/height coordinate per occultation from
+  `gps_refractivity` rows (`earth2studio.models.da.utils_gpsro`) and rejects
+  occultations with `QFRO` bit 5 set when a `quality` column is present
 
 ### Changed
 

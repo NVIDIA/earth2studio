@@ -37,6 +37,8 @@ class GDASObsConvLexicon(metaclass=LexiconType):
     - ``pres``: source pressure-observation POB rows (hPa / MB) → Pa (×100)
     - ``u``, ``v``: UOB/VOB already in m s-1 (no conversion)
     - ``gps``: combined ionosphere-corrected bending angle (no conversion)
+    - ``gps_refractivity``: refractivity (N-units) at the message's ``HEIT``
+      height levels (no conversion)
 
     The GPSRO dump can also contain provider 1D-Var retrieval profiles for
     pressure (descriptor ``10004``), temperature (``12001``), and specific
@@ -59,6 +61,7 @@ class GDASObsConvLexicon(metaclass=LexiconType):
         "t": "TOB",
         "pres": "POB",
         "gps": "gpsro::15037",
+        "gps_refractivity": "gpsro::15036",
     }
 
     @classmethod
