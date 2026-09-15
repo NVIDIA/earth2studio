@@ -994,6 +994,11 @@ def main() -> int:
         and "_region_" not in name
         and name not in BASELINES
     )
+    # Skip exports (for example data published ahead of its docs) instead of
+    # rendering placeholder pages.
+    for model in [m for m in models if not (CONFIG / f"{m}.md").exists()]:
+        print(f"!! no config/{model}.md -- skipping export eval_scores_{model}.json")
+        models.remove(model)
     if not models:
         raise SystemExit(
             f"no eval_scores_<model>.json under {STATIC} -- run the recipe's "
