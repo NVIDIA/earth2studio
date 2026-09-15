@@ -5,9 +5,10 @@
 """Tests for source-only GPS-RO vertical coordinates."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
-from earth2studio.data import utils_gpsro
+from earth2studio.models.da import utils_gpsro
 
 RADIUS = 6_371_000.0
 SCALE_HEIGHT = 7_000.0
@@ -157,3 +158,91 @@ def test_qfro_bit_set_uses_msb_numbering():
         False,
         False,
     ]
+
+
+def _occultation_frame(
+    time: str, type_: int, station: str, geometric: list[float], with_profile: bool
+) -> pd.DataFrame:
+    rows = [
+        {
+            "time": pd.Timestamp(time),
+            "type": type_,
+            "station": station,
+            "elev": np.float32(h),
+            "pres": np.nan,
+            "observation": np.float32(0.01),
+            "variable": "gps",
+        }
+        for h in geometric
+    ]
+    if with_profile:
+        height, refractivity = _exponential_profile(step_m=200.0)
+        rows += [
+            {
+                "time": pd.Timestamp(time),
+                "type": type_,
+                "station": station,
+                "elev": np.float32(h),
+                "pres": np.nan,
+                "observation": np.float32(n),
+                "variable": "gps_refractivity",
+            }
+            for h, n in zip(height, refractivity)
+        ]
+    return pd.DataFrame(rows)
+
+
+def test_assign_gpsro_coordinates_two_occultations_independent():
+    geometric_a = [2_000.0, 10_000.0, 40_000.0]
+    geometric_b = [3_000.0, 25_000.0]
+    frame = pd.concat(
+        [
+            _occultation_frame("2024-01-01T00:30", 3, "00030027", geometric_a, True),
+            _occultation_frame("2024-01-01T00:31", 3, "00030028", geometric_b, False),
+            pd.DataFrame(
+                [
+                    {
+                        "time": pd.Timestamp("2024-01-01T00:00"),
+                        "type": 120,
+                        "station": "72469",
+                        "elev": np.float32(1_500.0),
+                        "pres": np.float32(85_000.0),
+                        "observation": np.float32(280.0),
+                        "variable": "t",
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
+    out = utils_gpsro.assign_gpsro_coordinates(frame)
+    assert not (out["variable"] == "gps_refractivity").any()
+    assert len(out) == len(geometric_a) + len(geometric_b) + 1
+
+    height, refractivity = _exponential_profile(step_m=200.0)
+    expected_p, expected_h = utils_gpsro.gpsro_level_coordinates(
+        np.array(geometric_a) + RADIUS, RADIUS, height, refractivity
+    )
+    rows_a = out[out["station"] == "00030027"]
+    np.testing.assert_allclose(rows_a["elev"].to_numpy(), expected_h, rtol=1e-6)
+    np.testing.assert_allclose(rows_a["pres"].to_numpy(), 100.0 * expected_p, rtol=1e-6)
+    assert np.all(rows_a["elev"].to_numpy() < np.array(geometric_a))
+
+    # No refractivity rows: geometric height, standard atmosphere pressure.
+    rows_b = out[out["station"] == "00030028"]
+    np.testing.assert_allclose(rows_b["elev"].to_numpy(), geometric_b, rtol=1e-6)
+    np.testing.assert_allclose(
+        rows_b["pres"].to_numpy(),
+        100.0 * utils_gpsro.height_to_pressure_hpa(np.array(geometric_b)),
+        rtol=1e-6,
+    )
+
+    conv = out[out["variable"] == "t"].iloc[0]
+    assert conv["pres"] == pytest.approx(85_000.0)
+    assert conv["elev"] == pytest.approx(1_500.0)
+
+
+def test_assign_gpsro_coordinates_without_gps_rows_only_drops_profile():
+    frame = _occultation_frame("2024-01-01T00:30", 3, "00030027", [], True)
+    out = utils_gpsro.assign_gpsro_coordinates(frame)
+    assert out.empty

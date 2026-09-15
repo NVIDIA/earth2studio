@@ -32,19 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
-- Added `earth2studio.data.utils_gpsro` with source-only GPS-RO vertical
-  coordinates (refraction-corrected tangent height, hydrostatic dry pressure
-  from refractivity, standard-atmosphere pressure and their 5 km blend) matching
-  the HealDA `gpsro_v3` training loader's fallback order
-- Added `gpsro_reject_qfro_bits` to `NNJAObsConv` to drop GPS-RO occultations
-  by WMO `QFRO` flag bits
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`)
+- `HealDA` now derives a GPS-RO pressure/height coordinate per occultation from
+  `gps_refractivity` rows (`earth2studio.models.da.utils_gpsro`) and rejects
+  occultations with `QFRO` bit 5 set when a `quality` column is present
 
 ### Changed
-
-- `NNJAObsConv` and `NomadsGDASObsConv` GPS-RO rows now carry a derived
-  pressure coordinate in `pres` (previously null) and the refraction-corrected
-  tangent height in `elev` (previously the geometric impact height) whenever the
-  occultation has refractivity levels
 
 - Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
   `CDS_ERA5`, respectively. The former names remain as deprecated aliases that

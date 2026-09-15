@@ -46,6 +46,7 @@ _SOURCE_KEYS = {
     "t": "prepbufr::TOB",
     "pres": "prepbufr::POB",
     "gps": "gpsro::15037",
+    "gps_refractivity": "gpsro::15036",
 }
 
 
@@ -117,15 +118,15 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         occurs once per frequency in each occultation. The source emits
         only the ionosphere-corrected (frequency-combined, MEFR == 0)
         observation instance during decode.
+      - ``15036`` -- refractivity (N-units) at the message's geometric
+        height levels (``HEIT``), exposed as ``gps_refractivity``; only the
+        value slot is emitted, not its error.
 
       The same source file can contain provider 1D-Var retrieval profiles:
       pressure (``10004``), temperature (``12001``), and specific humidity
       (``13001``). They are intentionally outside this lexicon. In particular,
       UFS diagnostic ``gps_t`` and ``gps_q`` are model-background values
       sampled at the bending-angle location, not these BUFR retrieval fields.
-      The schema-level ``pres`` column of ``gps`` rows is instead derived from
-      the occultation's own refractivity levels (``HEIT``/``ARFR``) and the
-      standard atmosphere, see :mod:`earth2studio.data.utils_gpsro`.
 
     Modifier functions convert raw PrepBUFR observation values to
     Earth2Studio standard units:
@@ -158,6 +159,8 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         "pres": "prepbufr::POB",
         # GPS RO ionosphere-corrected bending angle from gps/gpsro/.
         "gps": "gpsro::15037",
+        # GPS RO refractivity levels (N-units) at HEIT heights.
+        "gps_refractivity": "gpsro::15036",
     }
 
     @classmethod

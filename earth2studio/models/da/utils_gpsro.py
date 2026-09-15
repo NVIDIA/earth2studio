@@ -14,32 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Source-only vertical coordinates for GPS radio-occultation bending angles.
+"""HealDA's vertical-coordinate convention for GPS radio-occultation levels.
 
-A bending-angle level carries an impact parameter, not a pressure. Data
-assimilation models that mix GPS-RO with conventional observations (HealDA)
-need a finite pressure coordinate per level, and the NNJA ``gpsro_v3`` training
-archive derives one from the same BUFR message without touching any retrieval
-product:
+A bending-angle level carries an impact parameter, not a pressure. HealDA
+mixes GPS-RO with conventional observations and needs a finite pressure and
+height per level; it derives both from the occultation's own refractivity
+levels (``HEIT``/``ARFR``), never from a retrieval product:
 
 - ``refraction_corrected_height``: the height where the refractive index
-  profile satisfies ``n(h) * (R_c + h) = a`` for impact parameter ``a``, from
-  the message's own refractivity levels (``HEIT``/``ARFR``).
+  profile satisfies ``n(h) * (R_c + h) = a`` for impact parameter ``a``.
 - ``dry_pressure_hpa``: hydrostatic integration of the dry-air density implied
   by refractivity, ``rho = 100 N / (k1 R_d)``.
 - ``height_to_pressure_hpa``: the 1976 US Standard Atmosphere at a height.
 - ``blended_pressure_hpa``: ``0.8 * standard + 0.2 * dry`` below 5 km and pure
   dry above.
 
-``gpsro_level_coordinates`` combines them with the same fallback order as the
-HealDA GPS-RO loader (blended -> dry -> standard -> standard at geometric
-impact height) so a level always gets a finite pressure when its impact
-height is finite.
+``gpsro_level_coordinates`` combines them with the fallback order used in
+HealDA training (blended -> dry -> standard -> standard at geometric impact
+height) so a level always gets a finite pressure when its impact height is
+finite. ``assign_gpsro_coordinates`` applies it per occultation to a
+conventional observation DataFrame.
 """
 
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 
 # Smith-Weintraub dry-air refractivity constant, K hPa^-1.
 K1_REFRACTIVITY = 77.6
@@ -49,6 +49,11 @@ BLEND_TOP_M = 5000.0
 BLEND_STANDARD_WEIGHT = 0.8
 # Log-linear fit depth for the top-of-profile boundary pressure.
 SCALE_HEIGHT_FIT_DEPTH_M = 10_000.0
+# Mean Earth radius; the message ELRC differs by <~20 km, which moves the
+# refraction-corrected height by only metres.
+NOMINAL_RADIUS_CURVATURE_M = 6_371_000.0
+GPS_VARIABLE = "gps"
+GPS_REFRACTIVITY_VARIABLE = "gps_refractivity"
 
 
 def height_to_pressure_hpa(height_m: np.ndarray) -> np.ndarray:
@@ -137,7 +142,7 @@ def refraction_corrected_height(
     profile_refractivity : np.ndarray
         Refractivity at those levels (N-units).
     iterations : int, optional
-        Fixed-point iterations, by default 8.
+        Fixed-point iterations, by default 24.
 
     Returns
     -------
@@ -298,3 +303,60 @@ def qfro_bit_set(qfro: np.ndarray | int | None, bit: int) -> np.ndarray:
     values = np.asarray(qfro, dtype=np.float64)
     values = np.where(np.isnan(values), 0.0, values).astype(np.int64)
     return ((values >> (16 - int(bit))) & 1) == 1
+
+
+def assign_gpsro_coordinates(
+    frame: pd.DataFrame, radius_curvature_m: float = NOMINAL_RADIUS_CURVATURE_M
+) -> pd.DataFrame:
+    """Derive ``pres``/``elev`` for ``gps`` rows from ``gps_refractivity`` rows.
+
+    Rows are grouped into occultations by ``time`` and ``type`` (plus
+    ``station`` when present). Within each occultation the ``gps`` rows'
+    geometric impact height (``elev``) and the refractivity profile
+    (``gps_refractivity`` observation vs ``elev``) feed
+    :func:`gpsro_level_coordinates`; ``pres`` becomes the derived pressure in
+    Pa and ``elev`` the refraction-corrected height. All ``gps_refractivity``
+    rows are dropped from the result.
+
+    Parameters
+    ----------
+    frame : pd.DataFrame
+        Conventional observations in the NCEP public schema.
+    radius_curvature_m : float, optional
+        Earth radius of curvature used to recover the impact parameter, by
+        default :data:`NOMINAL_RADIUS_CURVATURE_M` (metre-level height error
+        versus the message's ``ELRC``).
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of ``frame`` without refractivity rows.
+    """
+    out = frame.reset_index(drop=True)
+    variable = out["variable"].astype(str)
+    is_gps = (variable == GPS_VARIABLE).to_numpy()
+    is_profile = (variable == GPS_REFRACTIVITY_VARIABLE).to_numpy()
+    if not is_gps.any():
+        return out.loc[~is_profile].copy()
+
+    keys = ["time", "type"] + (["station"] if "station" in out.columns else [])
+    pres = out["pres"].to_numpy(dtype=np.float64, na_value=np.nan).copy()
+    elev = out["elev"].to_numpy(dtype=np.float64, na_value=np.nan).copy()
+    gps_family = out.loc[is_gps | is_profile]
+    for _, group in gps_family.groupby(keys, sort=False, dropna=False):
+        group_idx = group.index.to_numpy()
+        gps_idx = group_idx[is_gps[group_idx]]
+        if gps_idx.size == 0:
+            continue
+        profile_idx = group_idx[is_profile[group_idx]]
+        pressure_hpa, height = gpsro_level_coordinates(
+            elev[gps_idx] + radius_curvature_m,
+            radius_curvature_m,
+            elev[profile_idx],
+            out["observation"].to_numpy(dtype=np.float64, na_value=np.nan)[profile_idx],
+        )
+        pres[gps_idx] = pressure_hpa.astype(np.float64) * 100.0
+        elev[gps_idx] = height
+    out["pres"] = pres.astype(np.float32)
+    out["elev"] = elev.astype(np.float32)
+    return out.loc[~is_profile].copy()
