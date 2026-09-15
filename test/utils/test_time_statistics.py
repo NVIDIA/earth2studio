@@ -94,18 +94,61 @@ def test_time_statistic_source_coordinates():
     ),
 )
 def test_time_statistic_block_reductions(method, expected):
+    target = np.datetime64("2026-08-28T03:00")
+    delta_t = np.timedelta64(1, "h")
+    times = np.arange(target - np.timedelta64(4, "h"), target + delta_t, delta_t)
     array = xr.DataArray(
-        [[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]],
+        [[99.0, 99.0], [1.0, 4.0], [2.0, 5.0], [3.0, 6.0], [99.0, 99.0]],
         dims=("time", "variable"),
-        coords={"variable": ["u10m", "v10m"]},
+        coords={"time": times, "variable": ["u10m", "v10m"]},
         attrs={"units": "m/s"},
     )
-    result = e2s.apply_time_statistic(array, f"{method}:3h")
+    result = e2s.apply_time_statistic(
+        array, f"{method}:3h", target=target, delta_t=delta_t
+    )
     np.testing.assert_array_equal(result, expected)
     assert result.attrs == array.attrs
 
     with pytest.raises(ValueError, match="not present"):
-        e2s.apply_time_statistic(array, f"{method}:3h", "lead_time")
+        e2s.apply_time_statistic(array, f"{method}:3h", target, delta_t, "lead_time")
+
+
+def test_time_statistic_window_validation():
+    target = np.datetime64("2026-08-28T03:00")
+    delta_t = np.timedelta64(1, "h")
+    array = xr.DataArray(
+        [1.0, 2.0, 3.0],
+        dims="valid_time",
+        coords={
+            "valid_time": np.arange(target - np.timedelta64(3, "h"), target, delta_t)
+        },
+    )
+    assert e2s.apply_time_statistic(array, "sum:3h", target, delta_t, "valid_time") == 6
+
+    with pytest.raises(ValueError, match="missing required"):
+        e2s.apply_time_statistic(
+            array.drop_sel(valid_time=array.valid_time.values[1]),
+            "sum:3h",
+            target,
+            delta_t,
+            "valid_time",
+        )
+    with pytest.raises(ValueError, match="contains duplicates"):
+        e2s.apply_time_statistic(
+            xr.concat([array, array.isel(valid_time=[0])], "valid_time"),
+            "sum:3h",
+            target,
+            delta_t,
+            "valid_time",
+        )
+    with pytest.raises(TypeError, match="datetime or timedelta"):
+        e2s.apply_time_statistic(
+            xr.DataArray([1, 2], dims="step", coords={"step": [0, 1]}),
+            "sum:2h",
+            2,
+            delta_t,
+            "step",
+        )
 
 
 def test_custom_time_statistic_and_dimension_inference():
@@ -114,7 +157,24 @@ def test_custom_time_statistic_and_dimension_inference():
 
     e2s.register_time_statistic("range", value_range)
     assert "range" in e2s.list_time_statistics()
-    array = xr.DataArray(np.arange(6).reshape(2, 3), dims=("time", "lead_time"))
-    np.testing.assert_array_equal(e2s.apply_time_statistic(array, "range:3h"), [2, 2])
+    array = xr.DataArray(
+        np.arange(6).reshape(2, 3),
+        dims=("time", "lead_time"),
+        coords={"lead_time": np.arange(3).astype("timedelta64[h]")},
+    )
+    np.testing.assert_array_equal(
+        e2s.apply_time_statistic(
+            array,
+            "range:3h",
+            np.timedelta64(3, "h"),
+            np.timedelta64(1, "h"),
+        ),
+        [2, 2],
+    )
     with pytest.raises(ValueError, match="no 'time'"):
-        e2s.apply_time_statistic(xr.DataArray([1, 2], dims="sample"), "mean:2h")
+        e2s.apply_time_statistic(
+            xr.DataArray([1, 2], dims="sample"),
+            "mean:2h",
+            np.datetime64("2026-08-28"),
+            np.timedelta64(1, "h"),
+        )

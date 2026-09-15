@@ -31,6 +31,7 @@ from numpy.typing import NDArray
 TimeReduction: TypeAlias = Callable[[xr.DataArray, Hashable], xr.DataArray]
 StatisticDeclaration: TypeAlias = Mapping[str, str] | str | None
 Duration: TypeAlias = str | np.timedelta64
+TemporalTarget: TypeAlias = np.datetime64 | np.timedelta64
 
 _DURATION_PATTERN = re.compile(r"^([+-]?)(\d+)(ns|us|ms|min|m|s|h|d)$")
 _DURATION_UNITS = {"min": "m", "m": "m", "d": "D"}
@@ -204,20 +205,72 @@ def source_lead_times(
     return target[..., None] + _parse(modifier).offsets(delta_t)
 
 
-def apply_time_statistic(
-    array: xr.DataArray, modifier: str, dimension: Hashable | None = None
+def _select_time_window(
+    array: xr.DataArray,
+    window: _Window,
+    target: TemporalTarget,
+    delta_t: np.timedelta64,
+    dimension: Hashable,
 ) -> xr.DataArray:
-    """Apply one statistic to an entire variable block."""
-    if dimension is None:
-        dimension = next(
-            (name for name in ("lead_time", "time") if name in array.dims), None
+    index = array.get_index(dimension)
+    if not index.is_unique:
+        raise ValueError(f"Reduction coordinate '{dimension}' contains duplicates")
+
+    required = target + window.offsets(delta_t)
+    positions = index.get_indexer(required)
+    if np.any(positions < 0):
+        raise ValueError(
+            f"Reduction coordinate '{dimension}' is missing required values: "
+            f"{required[positions < 0]}"
         )
-        if dimension is None:
-            raise ValueError("Array has no 'time' or 'lead_time' dimension")
+    return array.isel({dimension: positions})
+
+
+def apply_time_statistic(
+    array: xr.DataArray,
+    modifier: str,
+    target: TemporalTarget,
+    delta_t: np.timedelta64,
+    dimension: Hashable | None = None,
+) -> xr.DataArray:
+    """Select one temporal window and reduce an entire variable block.
+
+    Parameters
+    ----------
+    array : xr.DataArray
+        Data containing the source coordinates required by the statistic.
+    modifier : str
+        Statistic method and window, such as ``"mean:24h"``.
+    target : np.datetime64 | np.timedelta64
+        Scalar valid time or forecast lead time anchoring the window.
+    delta_t : np.timedelta64
+        Source cadence used to enumerate the required coordinates.
+    dimension : Hashable, optional
+        Temporal dimension to reduce. If omitted, ``lead_time`` then ``time`` is
+        selected.
+
+    Returns
+    -------
+    xr.DataArray
+        Data reduced over the requested temporal window.
+    """
+    if dimension is None:
+        try:
+            dimension = next(
+                name for name in ("lead_time", "time") if name in array.dims
+            )
+        except StopIteration as error:
+            raise ValueError("Array has no 'time' or 'lead_time' dimension") from error
     if dimension not in array.dims:
         raise ValueError(f"Reduction dimension '{dimension}' is not present")
+
+    if array.get_index(dimension).dtype.kind not in "Mm":
+        raise TypeError(
+            f"Reduction coordinate '{dimension}' must contain datetime or timedelta values"
+        )
     window = _parse(modifier)
-    return _TIME_STATISTICS[window.method](array, dimension)
+    selected = _select_time_window(array, window, target, delta_t, dimension)
+    return _TIME_STATISTICS[window.method](selected, dimension)
 
 
 def time_statistic_metadata(modifier: str) -> dict[str, str]:

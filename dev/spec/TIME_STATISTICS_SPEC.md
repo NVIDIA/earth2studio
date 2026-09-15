@@ -66,7 +66,7 @@ each variable block over the required coordinates and applies the statistic once
 for modifier, group in groups.items():
     times = source_times(modifier, valid_time, delta_t)
     block = source(times, group)
-    result = apply_time_statistic(block, modifier)
+    result = apply_time_statistic(block, modifier, valid_time, delta_t)
 ```
 
 This loop belongs inside `fetch_data`; callers continue to provide only the simple
@@ -74,10 +74,22 @@ statistics declaration.
 
 ## Reduction
 
-`apply_time_statistic()` reduces an entire variable block. It uses `lead_time` when
-present, otherwise `time`; callers may override the dimension for custom arrays.
+`apply_time_statistic()` derives the exact half-open window from a scalar target and
+source cadence before reducing an entire variable block. Values outside the window
+are excluded. Missing or duplicate required coordinates raise an error rather than
+producing a partial statistic. It uses `lead_time` when present, otherwise `time`;
+callers may override the dimension for custom datetime or timedelta coordinates.
 Xarray dispatch preserves NumPy, CuPy, or Dask execution without an implicit device
 transfer.
+
+```python
+result = apply_time_statistic(
+    block,
+    "mean:24h",
+    target=valid_time,
+    delta_t=np.timedelta64(6, "h"),
+)
+```
 
 Custom block reductions use the same window syntax:
 

@@ -33,7 +33,7 @@ wind = xr.DataArray(
     dims=("time", "variable"),
     coords={"time": times, "variable": ["u10m", "v10m"]},
 )
-result = e2s.apply_time_statistic(wind, modifier)
+result = e2s.apply_time_statistic(wind, modifier, target=valid_time, delta_t=delta_t)
 print(result)
 
 # %%
@@ -56,4 +56,4 @@ def value_range(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
 
 
 e2s.register_time_statistic("range", value_range)
-print(e2s.apply_time_statistic(wind, "range:24h"))
+print(e2s.apply_time_statistic(wind, "range:24h", target=valid_time, delta_t=delta_t))
