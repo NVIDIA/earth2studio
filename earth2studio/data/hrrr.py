@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import functools
 import hashlib
 import os
 import pathlib
@@ -24,20 +22,25 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-import gcsfs
 import numpy as np
-import pygrib
-import s3fs
+import obstore as obs
 import xarray as xr
-from fsspec.implementations.http import HTTPFileSystem
 from loguru import logger
+from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    async_retry,
+    cancellable_to_thread,
     datasource_cache_root,
+    decode_grib_message,
+    gather_with_concurrency,
+    obstore_fetch_to_cache,
+    obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
+    resolve_async_workers,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.imports import (
@@ -77,24 +80,23 @@ class HRRR:
     The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
     coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
 
-    .. code-block:: python
+    ```python
+    import cartopy.crs as ccrs
 
-        import cartopy.crs as ccrs
+    proj_hrrr = ccrs.LambertConformal(
+        central_longitude=262.5,
+        central_latitude=38.5,
+        standard_parallels=(38.5, 38.5),
+        globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+    )
 
-        proj_hrrr = ccrs.LambertConformal(
-            central_longitude=262.5,
-            central_latitude=38.5,
-            standard_parallels=(38.5, 38.5),
-            globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
-        )
-
+    ```
     Parameters
     ----------
     source : str, optional
         Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
     max_workers : int, optional
-        Max works in async io thread pool. Only applied when using sync call function
-        and will modify the default async loop if one exists, by default 24
+        Deprecated, has no effect. Kept for API compatibility, by default 24
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -102,6 +104,11 @@ class HRRR:
     async_timeout : int, optional
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
+    async_workers : int, optional
+        Maximum number of concurrent downloads. By default None, which autoscales to
+        the number of download tasks (capped at 64)
+    retries : int, optional
+        Number of retries for each download task on transient errors, by default 3
 
     Warning
     -------
@@ -120,7 +127,7 @@ class HRRR:
 
     Badges
     ------
-    region:na dataclass:analysis product:wind product:precip product:temp product:atmos product:radar
+    region:na dataclass:analysis dataset:hrrr product:wind product:precip product:temp product:atmos product:radar provider:noaa
     """
 
     HRRR_BUCKET_NAME = "noaa-hrrr-bdp-pds"
@@ -140,11 +147,15 @@ class HRRR:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        async_workers: int | None = None,
+        retries: int = 3,
     ):
         self._source = source
         self._cache = cache
         self._verbose = verbose
         self._max_workers = max_workers
+        self._async_workers = async_workers
+        self._retries = retries
 
         self.lexicon = HRRRLexicon
         self.async_timeout = async_timeout
@@ -196,41 +207,29 @@ class HRRR:
         else:
             raise ValueError(f"Invalid HRRR source { self._source}")
 
-        # Filesystem is lazily initialized on first call
-        self.fs: s3fs.S3FileSystem | gcsfs.GCSFileSystem | HTTPFileSystem | None = None
+        # Object store is lazily initialized on first call
+        self.store: ObjectStore | None = None
 
     async def _async_init(self) -> None:
-        """Async initialization of fsspec file stores
+        """Async initialization of the object store
 
         Note
         ----
-        Async fsspec expects initialization inside of the execution loop
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
         """
         if self._source == "aws":
-            self.fs = s3fs.S3FileSystem(
-                anon=self.HRRR_BUCKET_ANON,
-                client_kwargs={},
-                asynchronous=True,
-                skip_instance_cache=True,
-            )
+            store_url = f"s3://{self.HRRR_BUCKET_NAME}"
         elif self._source == "google":
-            fs = gcsfs.GCSFileSystem(
-                cache_timeout=-1,
-                token=(
-                    "anon" if self.HRRR_BUCKET_ANON else None
-                ),  # noqa: S106 # nosec B106
-                access="read_only",
-                block_size=8**20,
-            )
-            fs._loop = asyncio.get_event_loop()
-            self.fs = fs
-        elif self._source == "azure":
-            raise NotImplementedError(
-                "Azure data source not implemented yet, open an issue if needed"
-            )
-        elif self._source == "nomads":
-            # HTTP file system, tried FTP but didnt work
-            self.fs = HTTPFileSystem(asynchronous=True)
+            store_url = f"gs://{self.uri_prefix}"
+        else:  # nomads
+            store_url = self.uri_prefix.rstrip("/")
+        self.store = obstore_store_from_url(
+            store_url,
+            anonymous=self.HRRR_BUCKET_ANON,
+            max_pool_connections=self._async_workers or 64,
+        )
 
     def __call__(
         self,
@@ -283,7 +282,8 @@ class HRRR:
         xr.DataArray
             HRRR weather data array
         """
-        if self.fs is None:
+        # Lazily initialize the object store on first use
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -293,25 +293,20 @@ class HRRR:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session(refresh=True)
-        else:
-            session = None
-
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
-            data=np.zeros(
+            data=np.full(
                 (
                     len(time),
                     1,
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
@@ -327,18 +322,16 @@ class HRRR:
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        async_tasks = []
         async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
-        await tqdm.gather(
-            *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
+        await gather_with_concurrency(
+            coros,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+            task_timeout=120.0,
+            desc="Fetching HRRR data",
+            verbose=(not self._verbose),
         )
-
-        if session:
-            await session.close()
 
         xr_array = xr_array.isel(lead_time=0)
         del xr_array.coords["lead_time"]
@@ -373,9 +366,13 @@ class HRRR:
             for lt in lead_time
             for p in products
         ]
-        func_map = map(self._fetch_index, args)
-        results = await tqdm.gather(
-            *func_map, desc="Fetching HRRR index files", disable=True
+        index_coros = [self._fetch_index(uri) for uri in args]
+        results = await gather_with_concurrency(
+            index_coros,
+            max_workers=resolve_async_workers(self._async_workers, len(index_coros)),
+            task_timeout=60.0,
+            desc="Fetching HRRR index files",
+            verbose=True,
         )
         for i, t in enumerate(time):
             for j, lt in enumerate(lead_time):
@@ -407,7 +404,11 @@ class HRRR:
                         # could do this better with templates, but this is single instance
                         if variable_name == "APCP":
                             hours = int(lt.total_seconds() // 3600)
-                            hrrr_key = f"{variable_name}::{level}::{hours-1:d}-{hours:d} hour acc fcst"
+                            if hours == 0:
+                                accumulation = "0-0 day acc fcst"
+                            else:
+                                accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
+                            hrrr_key = f"{variable_name}::{level}::{accumulation}"
 
                     except KeyError as e:
                         logger.error(
@@ -447,11 +448,16 @@ class HRRR:
         xr_array: xr.DataArray,
     ) -> xr.DataArray:
         """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(
+        out = await async_retry(
+            self.fetch_array,
             task.hrrr_file_uri,
             task.hrrr_byte_offset,
             task.hrrr_byte_length,
             task.hrrr_modifier,
+            retries=self._retries,
+            backoff=1.0,
+            task_timeout=60.0,
+            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
         )
         i, j, k = task.data_array_indices
         xr_array[i, j, k] = out
@@ -478,8 +484,8 @@ class HRRR:
 
         Returns
         -------
-        xr.DataArray
-            FS data array for given time and lead time
+        np.ndarray
+            HRRR array for given time and lead time
         """
         logger.debug(f"Fetching HRRR grib file: {grib_uri} {byte_offset}-{byte_length}")
         # Download the grib file to cache
@@ -488,21 +494,11 @@ class HRRR:
             byte_offset=byte_offset,
             byte_length=byte_length,
         )
-        # Load with pygrib, xarray with cfgrib is 10x slower and leaks memory
-        try:
-            grbs = pygrib.open(grib_file)
-        except Exception as e:
-            logger.error(f"Failed to open grib file {grib_file}")
-            raise e
-        try:
-            values = modifier(grbs[1].values)
-        except Exception as e:
-            logger.error(f"Failed to read grib file {grib_file}")
-            raise e
-        finally:
-            grbs.close()
-
-        return values
+        # pygrib decode is blocking and GIL-bound; run in a thread with timeout
+        values = await cancellable_to_thread(
+            decode_grib_message, grib_file, timeout=30.0
+        )
+        return modifier(values)
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for HRRR based on offline knowledge
@@ -569,32 +565,28 @@ class HRRR:
         self, path: str, byte_offset: int = 0, byte_length: int | None = None
     ) -> str:
         """Fetches remote file into cache"""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
+        # Hash the original prefixed uri (not the store-relative key) so warm
+        # caches populated before the obstore migration remain valid
         sha = hashlib.sha256((path + str(byte_offset)).encode())
         filename = sha.hexdigest()
-        cache_path = os.path.join(self.cache, filename)
 
+        # Strip the bucket / url prefix to get the store-relative key
+        key = path.removeprefix(self.uri_prefix).lstrip("/")
         try:
-            if not pathlib.Path(cache_path).is_file():
-                if self.fs.async_impl:
-                    if byte_length:
-                        byte_length = int(byte_offset + byte_length)
-                    data = await self.fs._cat_file(
-                        path, start=byte_offset, end=byte_length
-                    )
-                else:
-                    data = await asyncio.to_thread(
-                        self.fs.read_block, path, offset=byte_offset, length=byte_length
-                    )
-                with open(cache_path, "wb") as file:
-                    await asyncio.to_thread(file.write, data)
+            return await obstore_fetch_to_cache(
+                self.store,
+                key,
+                self.cache,
+                byte_offset=byte_offset,
+                byte_length=byte_length,
+                cache_key=filename,
+            )
         except FileNotFoundError as e:
             logger.error(f"Failed to download file {path}, not found")
             raise e
-
-        return cache_path
 
     def _grib_uri(
         self, time: datetime, lead_time: timedelta, product: str = "wrfsfc"
@@ -693,15 +685,18 @@ class HRRR:
             _ds = np.timedelta64(1, "s")
             time = datetime.fromtimestamp((time - _unix) / _ds, timezone.utc)
 
-        fs = s3fs.S3FileSystem(anon=cls.HRRR_BUCKET_ANON)
-        # Object store directory for given time
+        store = obstore_store_from_url(
+            f"s3://{cls.HRRR_BUCKET_NAME}", anonymous=cls.HRRR_BUCKET_ANON
+        )
+        # Object store key for given time
         # Just picking the first variable to look for
         file_name = f"hrrr.{time.year}{time.month:0>2}{time.day:0>2}/conus"
         file_name = f"{file_name}/hrrr.t{time.hour:0>2}z.wrfnatf00.grib2.idx"
-        s3_uri = f"s3://{cls.HRRR_BUCKET_NAME}/{file_name}"
-        exists = fs.exists(s3_uri)
-
-        return exists
+        try:
+            obs.head(store, file_name)
+        except (FileNotFoundError, obs.exceptions.NotFoundError):
+            return False
+        return True
 
 
 class HRRR_FX(HRRR):
@@ -716,8 +711,7 @@ class HRRR_FX(HRRR):
     source : str, optional
         Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
     max_workers : int, optional
-        Max works in async io thread pool. Only applied when using sync call function
-        and will modify the default async loop if one exists, by default 24
+        Deprecated, has no effect. Kept for API compatibility, by default 24
     cache : bool, optional
         Cache data source on local memory, by default True
     verbose : bool, optional
@@ -725,6 +719,11 @@ class HRRR_FX(HRRR):
     async_timeout : int, optional
         Time in sec after which download will be cancelled if not finished successfully,
         by default 600
+    async_workers : int, optional
+        Maximum number of concurrent downloads. By default None, which autoscales to
+        the number of download tasks (capped at 64)
+    retries : int, optional
+        Number of retries for each download task on transient errors, by default 3
 
     Warning
     -------
@@ -746,7 +745,7 @@ class HRRR_FX(HRRR):
 
     Badges
     ------
-    region:na dataclass:simulation product:wind product:precip product:temp product:atmos product:radar
+    region:na dataclass:simulation dataset:hrrr product:wind product:precip product:temp product:atmos product:radar provider:noaa
     """
 
     def __init__(
@@ -756,6 +755,8 @@ class HRRR_FX(HRRR):
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        async_workers: int | None = None,
+        retries: int = 3,
     ):
         super().__init__(
             source=source,
@@ -763,6 +764,8 @@ class HRRR_FX(HRRR):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            async_workers=async_workers,
+            retries=retries,
         )
         self.lexicon = HRRRFXLexicon  # type: ignore
 
@@ -823,7 +826,8 @@ class HRRR_FX(HRRR):
         xr.DataArray
             HRRR forecast data array
         """
-        if self.fs is None:
+        # Lazily initialize the object store on first use
+        if self.store is None:
             await self._async_init()
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
@@ -834,26 +838,21 @@ class HRRR_FX(HRRR):
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
 
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        if isinstance(self.fs, s3fs.S3FileSystem):
-            session = await self.fs.set_session(refresh=True)
-        else:
-            session = None
-
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
         xr_array = xr.DataArray(
-            data=np.empty(
+            data=np.full(
                 (
                     len(time),
                     len(lead_time),
                     len(variable),
                     len(self.HRRR_Y),
                     len(self.HRRR_X),
-                )
+                ),
+                np.nan,
             ),
             dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
             coords={
@@ -869,18 +868,16 @@ class HRRR_FX(HRRR):
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        async_tasks = []
         async_tasks = await self._create_tasks(time, lead_time, variable)
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
-        await tqdm.gather(
-            *func_map, desc="Fetching HRRR data", disable=(not self._verbose)
+        await gather_with_concurrency(
+            coros,
+            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+            task_timeout=120.0,
+            desc="Fetching HRRR data",
+            verbose=(not self._verbose),
         )
-
-        if session:
-            await session.close()
 
         return xr_array
 

@@ -36,6 +36,7 @@ In this example you will learn:
 - Instantiating cBottle infill diagnostic model
 - Creating a simple infilling inference workflow
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -53,9 +54,9 @@ In this example you will learn:
 # %%
 # Thus, we need the following:
 #
-# - Datasource: Generate data from the CBottle3D data api :py:class:`earth2studio.data.CBottle3D`.
-# - Datasource: Pull data from the WeatherBench2 data api :py:class:`earth2studio.data.WB2ERA5`.
-# - Diagnostic Model: Use the built in CBottle Infill Model :py:class:`earth2studio.models.dx.CBottleInfill`.
+# - Datasource: Generate data from the CBottle3D data api [`earth2studio.data.CBottle3D`][earth2studio.data.CBottle3D].
+# - Datasource: Pull data from the WeatherBench2 data api [`earth2studio.data.WB2ERA5`][earth2studio.data.WB2ERA5].
+# - Diagnostic Model: Use the built in CBottle Infill Model [`earth2studio.models.dx.CBottleInfill`][earth2studio.models.dx.CBottleInfill].
 
 # %%
 import os

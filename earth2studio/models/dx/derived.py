@@ -42,6 +42,7 @@ class DerivedWS(torch.nn.Module):
     Badges
     ------
     region:global product:wind product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -133,6 +134,7 @@ class DerivedRH(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -209,7 +211,7 @@ class DerivedRH(torch.nn.Module):
         es_w = 611.21 * torch.exp(17.502 * (t - 273.16) / (t - 32.19))
         es_i = 611.21 * torch.exp(22.587 * (t - 273.16) / (t + 0.7))
 
-        alpha = torch.clip((t - 250.16) / (273.16 - 250.16), 0, 1.2) ** 2
+        alpha = torch.clip((t - 250.16) / (273.16 - 250.16), 0, 1.0) ** 2
         es = alpha * es_w + (1 - alpha) * es_i
         out_tensor = 100 * e / es
         out_tensor = torch.clamp(out_tensor, 0, 100)
@@ -227,12 +229,13 @@ class DerivedRHDewpoint(torch.nn.Module):
 
     - https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)
     - https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)
-    - https://doi.org/10.1175/1520-0450(1996)035<0601:IMFAOS>2.0.CO;2 (Eq. 21)
+    - https://doi.org/10.1175/1520-0450%281996%29035%3C0601%3AIMFAOS%3E2.0.CO%3B2 (Eq. 21)
     - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
 
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self) -> None:
@@ -338,6 +341,7 @@ class DerivedVPD(torch.nn.Module):
     Badges
     ------
     region:global product:veg product:atmos
+    provider:nvidia backend:pytorch
     """
 
     def __init__(self, levels: list[int | str] = [100]) -> None:
@@ -441,6 +445,7 @@ class DerivedSurfacePressure(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     Rs = 287.053  # gas constant for dry air (J/kg/K)
@@ -460,7 +465,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         self.corr_adjustment = corr_adjustment
 
         p_levels = torch.as_tensor(p_levels, dtype=torch.float32)
-        (p_levels, _) = torch.sort(p_levels, descending=True)
+        p_levels, _ = torch.sort(p_levels, descending=True)
         self.in_variables = [f"z{int(level)}" for level in p_levels]
         if self.temperature_correction:
             self.in_variables.extend(f"t{int(level)}" for level in p_levels)
@@ -593,7 +598,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         # linear interpolation of log_p
         log_p = log_p0 + dz / (z1 - z0) * (log_p1 - log_p0)
 
-        if self.temperature_correction:
+        if self.temperature_correction and t_levels is not None:
             # apply second-order correction based on temperature
             t0 = t_levels[plevel_indices, all_indices]
             t1 = t_levels[plevel_indices + 1, all_indices]
@@ -666,6 +671,7 @@ class DerivedTCWV(torch.nn.Module):
     Badges
     ------
     region:global product:atmos
+    provider:nvidia backend:pytorch
     """
 
     g = 9.8067  # Earth's gravitational constant (m/s**2)

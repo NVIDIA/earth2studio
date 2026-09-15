@@ -91,6 +91,29 @@ def test_weighted_mean(device: str) -> None:
         handshake_coords(out_test_coords, c, ci)
 
 
+def test_mean_without_reduction_dimensions() -> None:
+    coords = OrderedDict(
+        {
+            "time": np.arange(2),
+            "station": np.arange(5),
+        }
+    )
+    x = torch.randn((2, 5))
+
+    y, output_coords = moments.mean([])(x, coords)
+
+    assert torch.equal(y, x)
+    assert list(output_coords) == list(coords)
+    for dimension in coords:
+        assert np.array_equal(output_coords[dimension], coords[dimension])
+
+
+@pytest.mark.parametrize("statistic", [moments.variance, moments.std])
+def test_variance_and_std_require_reduction_dimensions(statistic) -> None:
+    with pytest.raises(ValueError, match="at least one reduction dimension"):
+        statistic([])
+
+
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_batch_mean(device) -> None:
 

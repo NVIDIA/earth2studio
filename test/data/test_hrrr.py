@@ -18,12 +18,11 @@ import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
-import gcsfs
 import numpy as np
 import pytest
-import s3fs
-from fsspec.implementations.http import HTTPFileSystem
+from obstore.store import GCSStore, HTTPStore, S3Store
 
 from earth2studio.data import HRRR, HRRR_FX
 
@@ -115,41 +114,24 @@ def test_hrrr_init():
     """Test HRRR initialization with different sources and parameters"""
     # Test AWS source
     ds = HRRR(source="aws", cache=True, verbose=True, async_timeout=300)
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        # If no event loop exists, create one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    loop.run_until_complete(ds._async_init())
+    assert ds.store is None  # Lazy init
+    asyncio.run(ds._async_init())
 
     assert ds.uri_prefix == "noaa-hrrr-bdp-pds"
-    assert isinstance(ds.fs, s3fs.S3FileSystem)
+    assert isinstance(ds.store, S3Store)
     assert ds.async_timeout == 300
 
     # Test Google source
     ds = HRRR(source="google", cache=False, verbose=False)
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        # If no event loop exists, create one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    loop.run_until_complete(ds._async_init())
+    asyncio.run(ds._async_init())
     assert ds.uri_prefix == "high-resolution-rapid-refresh"
-    assert isinstance(ds.fs, gcsfs.GCSFileSystem)
+    assert isinstance(ds.store, GCSStore)
 
     # Test Nomads source
     ds = HRRR(source="nomads")
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        # If no event loop exists, create one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    loop.run_until_complete(ds._async_init())
+    asyncio.run(ds._async_init())
     assert ds.uri_prefix == "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/"
-    assert isinstance(ds.fs, HTTPFileSystem)
+    assert isinstance(ds.store, HTTPStore)
 
     # Test invalid source
     with pytest.raises(ValueError):
@@ -266,3 +248,200 @@ def test_hrrr_fx_available(lead_time):
     with pytest.raises(ValueError):
         ds = HRRR_FX()
         ds(time, lead_time, variable)
+
+
+# ----------------------------------------------------------------------
+# Index parser (offline, no network)
+# ----------------------------------------------------------------------
+
+
+_MOCK_HRRR_IDX = (
+    "1:0:d=2024010100:REFC:entire atmosphere:anl:\n"
+    "2:375155:d=2024010100:TMP:2 m above ground:anl:\n"
+    "3:475155:d=2024010100:HGT:500 mb:anl:\n"
+    "4:575155:d=2024010100:UGRD:10 m above ground:anl:\n"
+)
+
+
+@pytest.mark.timeout(10)
+def test_hrrr_index_parser(tmp_path):
+    # Write a fake .idx file and patch _fetch_remote_file to return it.
+    idx_path = tmp_path / "fake.grib2.idx"
+    idx_path.write_text(_MOCK_HRRR_IDX)
+
+    ds = HRRR(cache=False)
+
+    async def _fake_fetch(uri):
+        return str(idx_path)
+
+    with patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch):
+        table = asyncio.run(ds._fetch_index("dummy-uri"))
+
+    # Last record is dropped (no next line to compute its length from)
+    assert len(table) == 3
+    assert table["1::REFC::entire atmosphere::anl"] == (0, 375155)
+    assert table["2::TMP::2 m above ground::anl"] == (375155, 100000)
+    assert table["3::HGT::500 mb::anl"] == (475155, 100000)
+
+
+@pytest.mark.timeout(10)
+def test_hrrr_index_parser_max_byte_size(tmp_path):
+    # A record spanning more than MAX_BYTE_SIZE must raise.
+    idx_path = tmp_path / "fake.grib2.idx"
+    idx_path.write_text(
+        "1:0:d=2024010100:REFC:entire atmosphere:anl:\n"
+        "2:6000000:d=2024010100:TMP:2 m above ground:anl:\n"
+    )
+
+    ds = HRRR(cache=False)
+
+    async def _fake_fetch(uri):
+        return str(idx_path)
+
+    with patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch):
+        with pytest.raises(ValueError):
+            asyncio.run(ds._fetch_index("dummy-uri"))
+
+
+# ----------------------------------------------------------------------
+# Mock end-to-end (no network, exercises __call__ path)
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.timeout(15)
+@pytest.mark.parametrize("source", ["aws", "google"])
+def test_hrrr_call_mock(source, tmp_path, monkeypatch):
+    """Exercise the full __call__ path using mocked index + grib decode.
+
+    The real (offline) store construction runs for both the aws (S3) and
+    google (GCS) sources; only the remote reads are mocked out.
+    """
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    fake_index = {
+        "1::TMP::2 m above ground::anl": (0, 65300),
+        "2::HGT::500 mb::anl": (65300, 31215),
+    }
+    fake_grid = np.random.rand(1059, 1799).astype(np.float32)
+
+    async def _fake_fetch_index(uri):
+        return fake_index
+
+    async def _fake_fetch_remote_file(*args, **kwargs):
+        return str(tmp_path / "ignored.grib2")
+
+    ds = HRRR(source=source, cache=True, verbose=False)
+
+    with (
+        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
+        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
+    ):
+        data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
+
+    # Store was built lazily for the requested source
+    assert isinstance(ds.store, S3Store if source == "aws" else GCSStore)
+    assert data.shape == (1, 2, 1059, 1799)
+    # t2m is identity, z500 multiplies HGT by 9.81 — both records used the
+    # same mock grid, so t2m matches the grid and z500 = grid * 9.81.
+    np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
+    np.testing.assert_allclose(
+        data.sel(variable="z500").values[0], fake_grid * 9.81, rtol=1e-6
+    )
+
+
+@pytest.mark.timeout(15)
+def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
+    """Exercise the HRRR_FX __call__ path with multiple lead times."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    fake_index = {
+        "1::TMP::2 m above ground::anl": (0, 65300),
+        "2::TMP::2 m above ground::6 hour fcst": (65300, 65300),
+    }
+    fake_grid = np.random.rand(1059, 1799).astype(np.float32)
+
+    async def _fake_fetch_index(uri):
+        return fake_index
+
+    async def _fake_fetch_remote_file(*args, **kwargs):
+        return str(tmp_path / "ignored.grib2")
+
+    ds = HRRR_FX(source="aws", cache=True, verbose=False)
+
+    with (
+        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
+        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
+    ):
+        data = ds(
+            datetime(2024, 1, 1),
+            [timedelta(hours=0), timedelta(hours=6)],
+            ["t2m", "z500"],
+        )
+
+    assert data.shape == (1, 2, 2, 1059, 1799)
+    for j in range(2):
+        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
+    assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(10)
+def test_hrrr_special_variable_lookups():
+    fake_index = {
+        "84::APCP::surface::0-0 day acc fcst": (100, 10),
+        "84::APCP::surface::0-1 hour acc fcst": (110, 10),
+        "116::TCDC::entire atmosphere::1 hour fcst": (210, 10),
+        "68::WEASD::surface::1 hour fcst": (310, 10),
+        "70::SNOD::surface::1 hour fcst": (410, 10),
+        "69::SNOWC::surface::1 hour fcst": (510, 10),
+    }
+    time = [datetime(2026, 7, 20)]
+    analysis = HRRR(cache=False, verbose=False)
+    forecast = HRRR_FX(cache=False, verbose=False)
+    fetch_index = AsyncMock(return_value=fake_index)
+    with (
+        patch.object(analysis, "_fetch_index", new=fetch_index),
+        patch.object(forecast, "_fetch_index", new=fetch_index),
+    ):
+        [analysis_task] = asyncio.run(
+            analysis._create_tasks(time, [timedelta(0)], ["tp"])
+        )
+        forecast_tasks = asyncio.run(
+            forecast._create_tasks(
+                time,
+                [timedelta(hours=1)],
+                ["tp", "tcc", "sd", "sde", "snowc"],
+            )
+        )
+    offsets = [task.hrrr_byte_offset for task in forecast_tasks]
+    assert analysis_task.hrrr_byte_offset == 100
+    assert offsets == [110, 210, 310, 410, 510]
+
+
+@pytest.mark.timeout(15)
+def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
+    # If the requested variable is absent from the .idx, _create_tasks warns
+    # and skips it, so the output slot must remain detectably missing.
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    # Index only has t2m; z500 is missing on purpose.
+    partial_index = {"1::TMP::2 m above ground::anl": (0, 65300)}
+    fake_grid = np.random.rand(1059, 1799).astype(np.float32) + 1.0
+
+    async def _fake_fetch_index(uri):
+        return partial_index
+
+    async def _fake_fetch_remote_file(*args, **kwargs):
+        return str(tmp_path / "ignored.grib2")
+
+    ds = HRRR(source="aws", cache=True, verbose=False)
+    with (
+        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
+        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
+    ):
+        data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
+
+    np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
+    assert np.isnan(data.sel(variable="z500").values).all()

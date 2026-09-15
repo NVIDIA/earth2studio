@@ -170,7 +170,7 @@ class CAMS_FX:
 
     Badges
     ------
-    region:global dataclass:simulation product:wind product:temp product:atmos
+    region:global dataclass:simulation product:wind product:temp product:atmos provider:copernicus
     """
 
     MAX_LEAD_HOURS = 120

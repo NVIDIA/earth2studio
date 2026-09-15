@@ -99,6 +99,8 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         4 fields embedding location information (cos(lat), sin(lat), cos(lon), sin(lon))
     """
 
+    freq: str  # Class variable to be defined by subclasses
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -361,7 +363,8 @@ class SolarRadiationAFNO1H(SolarRadiationAFNO):
 
     Badges
     ------
-    region:global class:mrf product:solar year:2024 gpu:40gb
+    region:global class:medium-range product:solar year:2024 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     freq = "1h"
@@ -385,7 +388,8 @@ class SolarRadiationAFNO6H(SolarRadiationAFNO):
 
     Badges
     ------
-    region:global class:mrf product:solar year:2024 gpu:40gb
+    region:global class:medium-range product:solar year:2024 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     freq = "6h"

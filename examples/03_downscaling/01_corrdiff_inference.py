@@ -37,6 +37,7 @@ In this example you will learn:
 - Initializing and running CorrDiff diagnostic model
 - Post-processing results.
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[corrdiff] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -50,7 +51,7 @@ In this example you will learn:
 #
 # As usual, we start with creating a simple workflow to run CorrDiff in. To maximize the
 # generalization of this workflow, we use dependency injection following the pattern
-# provided inside :py:obj:`earth2studio.run`. Since CorrDiff is a diagnostic model, this
+# provided inside [`earth2studio.run`][earth2studio.run]. Since CorrDiff is a diagnostic model, this
 # workflow won't predict a time-series, rather just an instantaneous prediction.
 #
 #
@@ -156,9 +157,9 @@ def run(
 #
 # It's clear we need the following:
 #
-# - Diagnostic Model: CorrDiff model for Taiwan :py:class:`earth2studio.models.dx.CorrDiffTaiwan`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Diagnostic Model: CorrDiff model for Taiwan [`earth2studio.models.dx.CorrDiffTaiwan`][earth2studio.models.dx.CorrDiffTaiwan].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
 
 # %%

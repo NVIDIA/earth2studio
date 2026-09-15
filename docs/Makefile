@@ -1,20 +1,27 @@
-# Minimal makefile for Sphinx documentation
-#
+# Minimal makefile for Zensical documentation.
 
-# You can set these variables from the command line, and also
-# from the environment for the first two.
-SPHINXOPTS    ?=
-SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = .
-BUILDDIR      = _build
+ZENSICAL ?= zensical
+SOURCEDIR = .
+BUILDDIR = _build/html
+SITEDIR = ../site
+PORT ?= 8001
 
-# Put it first so that "make" without argument is like "make help".
+.PHONY: help html build serve clean
 help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@echo "Zensical targets: html, build, serve, clean"
 
-.PHONY: help Makefile
+html build:
+	cd .. && python docs/generate_api.py
+	cd .. && python docs/generate_install_options.py
+	rm -rf "$(BUILDDIR)"
+	cd .. && E2S_GALLERY_EXECUTE=never $(ZENSICAL) build --clean
+	mkdir -p _build
+	rsync -a --delete "$(SITEDIR)/" "$(BUILDDIR)/"
 
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+serve:
+	cd .. && python docs/generate_api.py
+	cd .. && python docs/generate_install_options.py
+	cd .. && E2S_GALLERY_EXECUTE=never $(ZENSICAL) serve -a 0.0.0.0:$(PORT)
+
+clean:
+	rm -rf "$(BUILDDIR)" "$(SITEDIR)"

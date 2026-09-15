@@ -1,243 +1,87 @@
 # Documentation
 
-Earth2Studio uses Sphinx to build documentation that is hosted on Github pages.
-We have the following philosophies for the three main sections of documentation:
+Earth2Studio builds its documentation with
+[MkDocs](https://www.mkdocs.org/) and
+[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/).
 
-1. API documentation is a requirement. [Interrogate](https://github.com/econchick/interrogate)
-is used to enforce that all public methods are documented.
+## Source layout
 
-2. Examples are generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.html)
-and are used as end-to-end tests for the package.
+- `docs/modules/`: API landing pages consumed by `docs/generate_api.py`.
+- `docs/userguide/`: conceptual and developer guides.
+- `examples/`: executable gallery sources.
+- `docs/examples/`: generated gallery pages; do not edit these directly.
 
-3. User guide is written using [MyST](https://myst-parser.readthedocs.io/en/latest/index.html)
-and aims to document concepts that cannot be fully communicated in examples.
+The docs generators also create the model catalog, installation options, and scorecard pages.
+`earth2studio-gallery` renders examples and retained execution results without Sphinx.
 
-## API Documentation
+## Docstrings
 
-API documentation or doc-strings are a requirement for public Earth2studio classes and
-functions.
-Consistent documentation styling improves user and developer experience.
-To make the doc-strings between different parts of the code as consistent as possible,
-the following styles are used:
+Public classes and functions require docstrings; Interrogate enforces coverage. Use
+[NumPy-style docstrings](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
+with these conventions:
 
-- [NumPy style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
-doc-strings are used in all Python files.
-
-- The doc string description starts on the same line as the first `"""`.
-
-- Class doc-strings are placed under the class definition not the `__init__` function.
-
-- Type hints are included in the doc strings for each input argument / returned object.
-
-- Optional/keyword arguments are denoted by `optional` following the type hint. The
-default value is provided by adding ", by default [default value]" to the end of the
-doc string.
-
-- Periods should be used at the end of complete sentences, but are not required at the
-end of "by default [default value]" or incomplete sentences.
-
-For VSCode users, the
-[autoDocstring extension](https://marketplace.visualstudio.com/items?itemName=njpwerner.autodocstring)
-is highly encouraged.
-Refer to the following doc-string samples for guidance:
+- Start the summary on the opening `"""` line.
+- Document classes on the class definition, not `__init__`.
+- Include argument and return types.
+- Mark optional arguments and state their defaults.
+- End complete sentences with periods.
 
 ```python
 def timearray_to_datetime(time: TimeArray) -> list[datetime]:
-    """Simple converter from numpy datetime64 array into a list of datetimes.
+    """Convert a NumPy datetime64 array into Python datetimes.
 
     Parameters
     ----------
     time : TimeArray
-        Numpy datetime64 array
+        NumPy datetime64 array.
 
     Returns
     -------
     list[datetime]
-        List of datetime object
+        Converted datetime objects.
     """
 ```
 
-```python
-class CorrelatedSphericalGaussian:
-    """Produces Gaussian random field on the sphere with Matern covariance peturbation
-    method output to a lat lon grid.
+## Local builds
 
-    Warning
-    -------
-    Presently this method generates noise on equirectangular grid of size [N, 2*N] when
-    N is even or [N+1, 2*N] when N is odd.
+- `make docs`: generate all pages and build from retained example results.
+- `make docs-full`: execute stale examples, regenerate the gallery, and build.
+- `make docs-dev`: serve locally with live reload.
+- `make docs-dev FILENAME=<selector>`: execute one example, then serve the complete gallery.
 
-    Parameters
-    ----------
-    noise_amplitude : float | torch.Tensor
-        Overall amplitude scaling factor for the noise field. Must be provided.
-    sigma : float, optional
-        Standard deviation of the noise field, by default 1.0
-    length_scale : float, optional
-        Spatial correlation length scale in meters, by default 5.0e5
-    time_scale : float, optional
-        Temporal correlation scale in hours for the AR(1) process, by default 48.0
-
-    Raises
-    ------
-    ValueError
-        If noise_amplitude is not provided
-    """
-    ...
-```
-
-(examples_userguide)=
-
-## Example Documentation
-
-Examples in Earth2Studio are created with the intent to teach or demonstrate a specific
-feature, workflow, concept, or use case to users.
-If you are interested in contributing an example, reach out to us in a Github
-issue to discuss further.
-The example scripts used to populate the documentation are placed in the
-[examples](https://github.com/NVIDIA/earth2studio/tree/main/examples) folder of the repo.
-The python scripts and Jupyter notebooks present on the documentation webpage are auto
-generated using [sphinx-gallery](https://sphinx-gallery.github.io/stable/index.html).
-
-### Definition
-
-Examples demonstrate how to use Earth2Studio APIs.
-Examples should be short and concise, designed to be run in a short wall-clock time of
-under 10 minutes on a typical data-center level GPU.
-The script must be runnable on a single 80Gb H100 GPU using minimal extra dependencies.
-Additional requirements might be required for running the example inside the CD pipeline,
-which will be addressed on a case-by-case basis.
-
-### Creating a New Example
-
-In Earth2Studio, Jupyter lab notebooks are not used to avoid bloat in the commit
-history.
-Instead, [Sphinx Gallery](https://sphinx-gallery.github.io/stable/index.html) is used to
-represent notebooks as code.
-Sphinx Gallery supports embedded reST (reStructuredText) syntax in the form of comments.
-These comments are automatically rendered as formatted text on the documentation web
-pages and as markdown cells in the converted Jupyter notebooks.
-For more details on the syntax, refer to the [embedded reST documentation](https://sphinx-gallery.github.io/stable/syntax.html#embed-rest-in-your-example-python-files).
-
-To specify required dependencies, use [uv inline metadata](https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies>),
-which allows each example to use different dependency groups or packages not shipped
-with Earth2Studio.
-To create an example, the best method is to copy an existing example and follow the
-structure:
-
-```python
-# %%
-"""
-Example Title
-==============
-
-Brief one-liner of what this will do (used on hover of thumbnail in docs).
-
-Then add a more verbose description on a new line here.
-This can be multiply lines with references if needed.
-Include a list of the specific unique items this example includes, for example:
-
-In this example you will learn:
-
-- How to instantiate a built in prognostic model
-- Creating a data source and IO object
-- Running a basic built in workflow
-- Post-processing results
-"""
-# /// script
-# dependencies = [
-#   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
-#   "cartopy",
-#   "other dependencies...",
-# ]
-# ///
-
-# %%
-# Set Up
-# ------
-# RST section briefly describing set up of the needed components
-#
-# This should include an explicit list of key features like so, this enable cross-referencing
-# in the API docs.
-#
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
-
-# %%
-# Add the following to set up output folder and env variables
-import os
-
-os.makedirs("outputs", exist_ok=True)
-from dotenv import load_dotenv
-
-load_dotenv()  # TODO: make common example prep function
-
-# Import modules and initialize
-
-# %%
-# Execute the Workflow
-# --------------------
-# RST section briefly describing running the inference job
-
-# %%
-import earth2studio.run as run
-
-# Execute inference
-
-# %%
-# Post-Processing
-# ---------------
-# RST section briefly describing what will be plotted
-
-# %%
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
-
-# Some post-processing part, save figure to outputs folder
-plt.savefig("outputs/XX_my_example.jpg")
-```
-
-Examples should always have at least one or more graphics.
-The first will always be the thumbnail.
-Animations are not supported.
-
-(building_documentation)=
-
-## Building Documentation
-
-To build the core documentation without executing examples use:
+For example:
 
 ```bash
-make docs
-
-# The above command required sphinx-build command.
-# If it is not automatically found, try setting it explicitly.
-SPHINXBUILD="python -m sphinx.cmd.build" make docs
+make docs-dev FILENAME=01_getting_started/01_deterministic_workflow.py
 ```
 
-For full docs, where all examples are run, use:
+Build output is written to `site/`. Project-mode examples use the repository's `pyproject.toml`
+and `uv.lock`, syncing only their declared extras.
+
+## CI builds
+
+- Pull requests run `make docs` only. They do not execute examples, upload the site, write caches,
+  or deploy.
+- Pushes to `main` run the cache-only docs workflow and deploy the site.
+- The manual full workflow publishes the cache-only site, runs all eight example sections
+  sequentially, then publishes the site again with the updated Gallery results.
+
+Each example section has its own data cache. Gallery results use one rolling cache passed between
+sections. Missing caches are valid cold starts; interrupted restores fail the job. Model downloads
+are not cached. The remaining sections continue after a section failure, but the final publish
+requires every section to succeed.
+
+Use the `util-clear-cache` workflow to clear Gallery or docs-data caches.
+
+## GitHub Pages
+
+Keep `docs/.nojekyll` in the source tree. It allows GitHub Pages to serve generated directories
+such as `_static/` and `examples/_assets/`.
+
+Versioned deployments use [Mike](https://github.com/jimporter/mike):
 
 ```bash
-make docs-full
+DOC_VERSION=0.18.0 make docs-deploy-version
 ```
 
-Sometimes when developing an example you want to see what the end result looks like.
-For development, it is recommend to use the following process:
-
-```bash
-# Run this once
-make docs
-
-# Run this to generate your example
-make docs-dev FILENAME=<example filename .py>
-```
-
-Build files will always be in `docs/_build/html`.
-Because the docs are static, Python can be used to host them [locally](http://localhost:8000):
-
-```bash
-cd docs/_build/html
-
-python -m http.server 8000
-```
+Versions are published at `https://nvidia.github.io/earth2studio/<version>/`.

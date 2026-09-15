@@ -4,11 +4,8 @@ Earth2Studio recipes are reference solutions that focus on solving specific use 
 Recipes provide more complex implementations that may require deeper domain knowledge
 and familiarity with the codebase.
 
-:::{admonition} Warning
-:class: warning
-
-Earth2Studio recipes are in beta and can change dramatically or be moved.
-:::
+!!! warning "Warning"
+    Earth2Studio recipes are in beta and can change dramatically or be moved.
 
 ## What is a Recipe?
 
@@ -35,7 +32,7 @@ Here's how examples differ:
 - Requirements provided in `pyproject.toml`
 - May require more specific hardware or system dependencies
 
-Refer to {ref}`examples_userguide` for more information on creating an example.
+Refer to [Examples](../../examples/index.md) for more information on creating an example.
 
 ## Recipe Structure
 

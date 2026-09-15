@@ -77,6 +77,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     - https://arxiv.org/abs/2505.06474v1
     - https://github.com/NVlabs/cBottle
     - https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+    - https://huggingface.co/nvidia/cbottle
 
     Parameters
     ----------
@@ -92,17 +93,15 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 200
-    batch_size : int, optional
-        Batch size to generate time samples at, consider adjusting based on hardware
-        being used, by default 4
     seed : int | None, optional
         If set, will fix the seed of the random generator for latent variables (no
         effect), by default None
 
     Badges
     ------
-    region:global class:cm product:wind product:precip product:temp
+    region:global class:climate product:wind product:precip product:temp
     product:atmos product:ocean year:2025 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     output_variables = VARIABLES

@@ -21,6 +21,7 @@ import torch
 from earth2studio.utils.type import CoordSystem
 
 
+# --8<-- [start:io-backend-interface]
 @runtime_checkable
 class IOBackend(Protocol):
     """Interface for a generic IO backend."""
@@ -62,3 +63,6 @@ class IOBackend(Protocol):
             Name(s) of the array(s) that will be written to.
         """
         pass
+
+
+# --8<-- [end:io-backend-interface]

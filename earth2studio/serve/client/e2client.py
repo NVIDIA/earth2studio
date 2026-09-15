@@ -467,13 +467,13 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         times = self.data_source.da.coords["time"].values
         start_time = times[0]
         for time in times:
-            (x, coords) = fetch_data(
+            x, coords = fetch_data(
                 self.data_source,
                 time=np.array([time]),
                 variable=self.variables,
                 device=self.device,
             )
             if self.iter_coord == "lead_time":
-                (x, coords) = _convert_time_to_lead_time(x, coords, start_time)
+                x, coords = _convert_time_to_lead_time(x, coords, start_time)
 
             yield (x, coords)

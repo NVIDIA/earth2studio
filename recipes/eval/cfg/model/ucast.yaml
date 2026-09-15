@@ -1,0 +1,8 @@
+# U-CAST — 1.5-degree global probabilistic weather model
+# 12-hour time step, 121x240 lat/lon grid, 83 prognostic variables.
+# History model: inputs at t-12h and t, so each IC needs two analysis times.
+# Ensemble members come from dropout left active at inference (there is no
+# set_rng hook) — the per-member seed reaches it via torch's global RNG.
+architecture: earth2studio.models.px.UCast
+# Omit package_path to use the default HuggingFace checkpoint.
+# package_path: /path/to/custom/checkpoint

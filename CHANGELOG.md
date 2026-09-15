@@ -7,16 +7,282 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0a0] - 2026-07-xx
+## [0.19.0a0] - xxxx-xx-xx
+
+### Added
+
+- Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
+- Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
+  (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
+- Added HRRR land-sea mask and surface geopotential variables.
+- Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
+  source (`MeteosatLI`), providing per-flash, per-group and per-event
+  detections from the LFL, LGR and LEF collections as a data frame
+- Added group- and flash-level variables to the `GOESGLM` data source
+- Added footprint size variables to the optical lightning imager vocabulary:
+  `lightning_group_area` and `lightning_flash_area` for `GOESGLM` (native GLM
+  footprint area in square meters) and `lightning_group_footprint_pixels` for
+  `MeteosatLI`, complementing the existing
+  `lightning_flash_footprint_pixels`. These give group and flash detections a
+  footprint size for extent-density gridding.
+- Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
+  ONNX sessions at construction instead of on first use in a rollout
+- Added regional splits to evaluation recipe scoring, in both the online
+  and store-then-score pathways: `scoring.regions` takes named coordinate
+  boxes and adds a labeled `region` axis to the score stores.
+- New eval recipe optional per-member online metrics include MAE
+  (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
+- Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
+  views with baseline overlays; GraphCast and Atlas CRPS added
+
+### Changed
+
+- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
+  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
+  emit a warning and will be removed in a future release.
+- Unified the lightning variable vocabulary across optical lightning imagers
+  (GOES GLM, MTG LI) onto `lightning_{event,group,flash}_{count,energy,
+  radiance}` names, plus `lightning_flash_duration` and
+  `lightning_flash_footprint_pixels`. `GOESGLM` variable ids `flashe` and
+  `flashc` are renamed to `lightning_event_energy` and `lightning_event_count`
+  respectively.
+- Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
+  on the model, instead of reconstructing them on every rollout call
+- `GOES.fetch_array` now logs a warning when a fetched variable has
+  fill-valued (NaN) pixels on the Earth disk, indicating a real data quality
+  issue at that timestamp; NaNs within 3px of the disk edge, where our
+  geometry and NOAA's retrieval can disagree about visibility, are logged at
+  debug level instead
+- `StormScope` now raises if its normalized state or conditioning contains
+  non-finite values not sanitized by `valid_mask`/`conditioning_valid_mask`,
+  instead of silently passing them to the diffusion sampler
+- Scorecard campaigns score online over 48 initial conditions and the
+  score data moved to the HF Earth2Studio assets dataset
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
+  `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
+  analysis stable (the old defaults could diverge to non-finite output).
+- Fixed empty reduction dimensions in statistics, skipping for mean and
+  rejecting as undefined for variance/std reductions.
+- `StormCast.__call__` no longer writes its output into the input tensor.
+  The initial condition passed in is left untouched, matching `StormCastCONUS`
+- Evaluation recipe: clearing resume markers no longer races between
+  ranks. Concurrent removal of the same progress directory retries until
+  the directory no longer exists
+
+### Security
+
+### Dependencies
+
+## [0.18.0] - 2026-08-31
+
+### Added
+
+- Added model scorecards to the documentation (beta): one page per model with
+  interactive skill plots (RMSE, MAE, CRPS, spread, log spectral distance),
+  variable tables and run provenance, generated at docs build time from JSON
+  score exports produced by the new `recipes/eval/scorecard` campaigns
+  (FCN3 and Aurora to start)
+- Added IEM parsed ASOS/AWOS station observation data source (`IEM_ASOS`)
+- Added `IceChunkBackend` IO backend for writing versioned, transactional
+  output to an Icechunk repository, with non-blocking writes by default
+  (`blocking=True` to opt back into synchronous writes)
+- `ZarrBackend` (and `IceChunkBackend`) write/read now use basic slice
+  indexing for contiguous coordinate subsets, ~7x faster than the previous
+  fancy-indexing path on step-by-step forecast writes
+- Added SamudrACE coupled atmosphere-ocean prognostic model (`SamudrACE`) with its
+  initial-condition and forcing data sources (`SamudrACEData`, `SamudrACEForcingData`)
+- Added `CorrDiffCosmoEra5SDA`, score-based data assimilation (DPS) for the
+  CorrDiff-COSMO downscaler
+- Added Zarr v3 sharding support to `AsyncZarrBackend`
+- Added obstore support to `AsyncZarrBackend` via a new `store` parameter
+  (store URL, obstore store, or zarr store)
+- Added a working `add_array` plus `__contains__`, `__getitem__`, `__iter__`,
+  `__len__`, `store` and `coords` to `AsyncZarrBackend`, matching `ZarrBackend`, and
+  `output.io_backend` to the eval recipe to select between them (`async_zarr` is the
+  new default)
+- Added hyperspectral IR sounder variables (`airs`, `iasi`, `cris`) to
+  `NNJAObsSat`, returned as brightness temperature (K) with per-channel
+  wavenumbers alongside the existing microwave sensors
+- Added Atlas CRPS ensemble prognostic model (`AtlasCRPS`), which generates ensemble
+  members from noise conditioned transformer blocks and shares the Atlas autoencoder
+- Added `earth2studio.data.utils.table_to_dataframe`, a shared Arrow-to-pandas
+  conversion producing fully Arrow-backed (`pd.ArrowDtype`) DataFrames with
+  optional dictionary encoding of low-cardinality string columns
+- Added `StormScopeMeteoSatEU` European domain satellite nowcasting model
+
+### Changed
+
+- GFS, HRRR, and GEFS GRIB sources now fill unresolved output regions with
+  `NaN` instead of zeros or uninitialized memory, making missing index records
+  detectable
+- `UFSObsConv` and `UFSObsSat` now decode diag files in parallel across a
+  persistent spawn-based process pool (new `decode_workers` parameter,
+  default `"auto"`); each file is decoded once per request window, frames are
+  assembled and time-masked inside the workers, and the fetch falls back to
+  serial decode if the workers cannot start. Output is unchanged; a warm
+  48-hour HealDA fetch decodes ~2x faster serially and further with workers
+- Updated StormCast SDA example to use the `GHCNHourly` data source.
+- Vectorized the `NNJAObsSat` IR sounder decode (one NumPy pass per footprint
+  instead of per-channel operations; IASI ~7.8x, CrIS ~5.8x faster) and moved
+  decode workers to per-batch Arrow tables instead of pickled row dicts
+  (~6.2x less accumulation memory, near-zero cross-process serialization cost)
+- `NNJAObsSat` output DataFrames now use Arrow-backed dtypes for every column
+  across both microwave and IR sensors: floats as `float[pyarrow]`/
+  `double[pyarrow]`, times as `timestamp[ns][pyarrow]`, and the `satellite`,
+  `variable`, and `class` string columns dictionary-encoded
+- `AsyncZarrBackend` now throttles on in flight writes rather than submitted writes, and
+  waits for whichever write completes first rather than the oldest.
+- Migrated GOES data source from s3fs to obstore; hour-directory listings are
+  now async and memoized, so same-hour timestamps share one LIST request
+  (~30% faster)
+- Migrated GOES GLM data source from s3fs to obstore; listings of complete
+  hours are memoized per instance while the current hour is always re-listed
+- Migrated Himawari AHI data source from s3fs to obstore with memoized
+  minute-directory listings (scans older than an hour)
+- Migrated Planetary Computer data sources from `planetary_computer.sign()` +
+  httpx streaming to obstore `AzureStore` with the
+  `PlanetaryComputerCredentialProvider`, which fetches and renews SAS tokens
+  automatically; the `planetary-computer` and `httpx` packages are no longer
+  required by the data extra
+- `PlanetaryComputerECMWFOpenDataIFS` now downloads only the GRIB messages for
+  the requested variables via byte ranges resolved from the item's GRIB index
+  asset (~6x faster and ~25-180x less transfer than the previous whole-file
+  download, depending on variable count), falling back to whole-file when an
+  item has no index asset
+- `obstore_fetch_to_cache` gained an opt-in `atomic` mode that publishes cache
+  files via temp file + rename, so interrupted or concurrent downloads cannot
+  leave a partial file as a poisoned cache entry; used by the Planetary
+  Computer sources' fetches. Off by default, leaving the other
+  obstore-migrated data sources' cache writes unchanged.
+- Migrated GHCNDaily and GHCNHourly data sources to obstore; GHCNDaily
+  station-scale requests now fetch per-station parquet files instead of
+  global by_year partitions (~25x faster), and their default
+  `async_workers` is raised from 16 to 32 since fetches are small,
+  latency-bound requests where throughput scales with concurrency
+  (roughly halves wall time again for large station lists)
+- Migrated JPSS VIIRS, ATMS, and CrIS data sources from s3fs to obstore;
+  day-directory listings of completed days are memoized per instance while
+  in-progress days are always re-listed, and the CrIS SDR/GEO dual listings
+  remain concurrent
+- Vectorized the JPSS ATMS BUFR decode (numpy column assembly + Arrow table
+  accumulation instead of per-row dicts), roughly halving end-to-end fetch
+  time; decoded output is bit-identical to the previous implementation
+- JPSS VIIRS HDF5 decode now runs in worker threads (serialized by an HDF5
+  lock) so decoding no longer blocks concurrent granule downloads
+- JPSS ATMS now decodes each BUFR file as soon as its download completes
+  (pipelined with in-flight downloads, one decode per unique file) instead
+  of decoding after all downloads finish
+- JPSS CrIS granule downloads now fetch large objects as concurrent byte
+  ranges (1 MiB x 8 streams per file) instead of one single-stream GET,
+  roughly halving fetch time for typical requests
+- Migrated ISD, IBTrACS, CFS reforecast, and OPERA data sources from
+  fsspec/s3fs to obstore
+- CFS reforecast grib decoding now resolves all requested variables in a
+  single pass over the file's messages instead of one `pygrib.select` scan
+  per variable (~20x faster for full-lexicon requests)
+- Consolidated the four identical per-source grib decode helpers
+  (`_decode_gfs_grib`, `_decode_hrrr_grib`, `_decode_gefs_grib`,
+  `_decode_cfs_grib`) into a shared `decode_grib_message` helper in
+  `earth2studio.data.utils`
+- Migrated MRMS data source from s3fs to obstore, with memoized day-directory
+  listings and threaded, header-based grid decoding
+- Migrated NClimGridDaily data source from s3fs to obstore; monthly NetCDF
+  files are now downloaded once into the cache and shared across all
+  (day, variable) slices instead of being streamed per slice over fsspec
+- Updated `DLESyM` and `DLESyMLatLon` default package to provide newer
+  CRPS-trained checkpoints used in the AI Weather Quest competition
+
+### Deprecated
+
+- Deprecated the `fs_factory` parameter of `AsyncZarrBackend` in favor of
+  `store`; the default local write path no longer uses fsspec
+
+### Fixed
+
+- Fixed intermittent repeated FengWu forecast timesteps by synchronizing ONNX
+  Runtime I/O buffers with PyTorch.
+- Fixed HRRR GRIB index lookups for total precipitation at lead zero and for
+  snow depth, snow cover, and total cloud cover at positive forecast lead
+  times.
+- Fixed the March 22, 2021 GFS archive cutoff and historical `GFS_FX` total
+  precipitation lookups.
+- Fixed `lat_weight` returning a small negative weight at the poles in
+  float32, which could give NaN under `sqrt`. Weights are now clamped to be non-negative.
+- Fixed `SamudrACE` inference being non-reproducible run-to-run: toggling
+  `torch.backends.cudnn.benchmark` on and off around each coupled cycle
+  re-triggered cuDNN's GPU-timing-based algorithm search every cycle
+- Fixed `Aurora.create_iterator` first yield pairing a lead-sliced tensor with
+  unsliced coords: `lead_time` kept `[-6h, 0h]` while the tensor held one
+  step. Coords are now sliced the same way as FuXi, DLWP and FengWu, so the
+  initial condition is yielded at `lead_time=[0h]`
+- Fixed `CFS_Reforecast_FX` and `CFS_Reforecast_FX_Flux` pointing at the retired
+  NCEI archive path; the reforecast archive moved to
+  `https://www.ncei.noaa.gov/oa/prod-cfs-reforecast` with renamed product subdirs
+- Fixed `CorrDiffCosmoEra5` loading files from the wrong resolution when cache names
+  collided. Cache names now include the resolution.
+- Fixed `OPERA` data source returning negative precipitation values (`-99.0 mm/h`
+  for `tprate`, `-0.099 m` for `tp01`) for pixels where the radar detected no rain.
+  Undetect pixels for RATE and ACRR quantities are now filled with `0.0` instead
+  of the reflectivity sentinel `-99.0 dBZ`.
+- Fixed `GHCNHourly` station discovery to use the published GHCNh station
+  list (`ghcnh-station-list.csv`) instead of the GHCN-Daily station list.
+- Fixed `to_time_array` and `fetch_data` silently wrapping timestamps outside the
+  `datetime64[ns]` range (roughly 1678-2262) to unrelated dates, which prevented
+  workflows such as `run.deterministic` from using the model-year calendars of
+  climate emulators (for example the CM4 initial conditions of `SamudrACE`).
+  Nanosecond precision is still used whenever the times are representable.
+- Fixed `AIFS2` and `AIFS2ENS` assigning time-dependent forcing values to the wrong
+  samples when processing multiple batches and initialization times.
+- Fixed `AsyncZarrBackend` discarding exceptions raised by non-blocking writes. A write
+  future that had already completed was never resulted, so its error was swallowed
+- Fixed `AsyncZarrBackend` bugs covering non-blocking write safety, tensor aliasing,
+  metadata visibility, coordinate parsing, and shard buffer allocation.
+- Fixed Atlas models using incorrect total precipitation accumulation, now models
+  correctly use `tp06`.
+
+### Security
+
+- Added `zizmor` static security auditing of GitHub Actions workflows (pre-commit
+  hook, `make zizmor` lint step, and a code scanning workflow)
+
+### Dependencies
+
+- Added `obspec>=0.1` core dependency; the shared obstore helpers are typed
+  against its vendor-neutral store protocols
+- Updated GraphCast and GenCast optional dependencies to use WeatherNext.
+
+## [0.17.0] - 2026-07-30
 
 ### Added
 
 - Added GHCN hourly data source (`GHCNHourly`), superseding the deprecated ISD source
 - Added EarthMover ERA5 0.25 degree reanalysis data source
 - Added EarthMover IFS 0.1 degree data source and forecast source hosted by BrightBand
-- Added `async_workers` and `retries` parameters to GFS / GFS_FX data sources
+- Added `async_workers` and `retries` parameters to GFS / GFS_FX, HRRR / HRRR_FX,
+  GEFS_FX / GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux and NCAR_ERA5 data sources
 - Added shared obstore byte-range helpers (`obstore_store_from_url`,
   `obstore_read_range`, `obstore_fetch_to_cache`) in `earth2studio.data.utils`
+- Added dynamical.org analysis and forecast data sources, reading anonymous Icechunk
+  repositories: `DynamicalAIFS`, `DynamicalAIFS_ENS`, `DynamicalGFS`, `DynamicalGEFS`,
+  `DynamicalHRRR`, `DynamicalMRMS`, `DynamicalGFS_FX`, `DynamicalGEFS_FX`,
+  `DynamicalHRRR_FX`, `DynamicalICON_EU_FX`, `DynamicalIFS_ENS`,
+  `DynamicalIFS_ENS_FX`,
+  `DynamicalAIFS_FX` and `DynamicalAIFSENS_FX`.
+- Added Aurora v1.5 deterministic and ensemble model wrapper (`Aurora1p5`, `Aurora1p5Ensemble`)
+- Added StormCast CONUS prognostic model (`StormCastCONUS`)
+- Added `DataReplay` for replaying `DataSource` and `ForecastSource` data through the
+  prognostic iterator interface.
+- Added NNJA satellite observation data frame source (`NNJAObsSat`)
+- Added StormScope NSRDB solar irradiance (GHI) estimation model (`StormScopeDxNSRDB`)
+- Added COSMO-REA downscaling diagnostic model (`CorrDiffCosmoEra5`) for diffusion
+  downscaling of ERA5 to COSMO-REA6 (6 km) and COSMO-REA2 (2.2 km).
 
 ### Changed
 
@@ -27,18 +293,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   predictions for GOES GLM Lightning density.
 - Migrated GFS / GFS_FX data sources from s3fs to obstore for index and byte-range
   GRIB fetches; downloads now use bounded concurrency with retry on transient errors
+- Migrated the remaining GRIB byte-range data sources (HRRR / HRRR_FX, GEFS_FX /
+  GEFS_FX_721x1440, CFS_FX / CFS_FX_Flux, NCAR_ERA5) from s3fs/gcsfs to obstore with
+  bounded concurrency and retry on transient errors
+- Migrated HTTP-backed GRIB sources (GFS `ncep`, HRRR `nomads`, CFS `nomads`) to
+  obstore `HTTPStore` against the NOMADS HTTPS endpoint (GFS `ncep` previously used
+  FTP); no fsspec fallbacks remain in the GRIB byte-range sources
 - Refactored UFS observation sources (`UFSObsConv`, `UFSObsSat`) onto the shared
   obstore byte-range helpers
 - Zarr-reading data sources (`ARCO`, `WB2ERA5` and other WeatherBench 2 sources, and
   the `rx` prescriptive sources) now read via `obstore`-backed zarr stores instead of
   fsspec
-
-### Deprecated
-
-### Removed
+- UFS observation sources (`UFSObsConv`, `UFSObsSat`) now tolerate missing diag files
+  by warning and skipping instead of erroring
+- Updated the OPERA data source to represent undetect values as `-99.0`, while
+  retaining `NaN` for no-data values.
+- NNJA Obs data source now accepts any time / tolerance rather than 6-hour strides
+- Renamed `NomadsGDASObsConv` `max_workers` parameter to `async_workers` for
+  consistency with other observation data sources
 
 ### Fixed
 
+- Fixed `PrecipitationAFNOv2` and `WindgustAFNO` passing latitude and longitude in
+  swapped order to `cos_zenith_angle`, which produced an incorrect solar-zenith-angle
+  input channel.
+- Fixed incorrect interpolation values at the lower grid edge when an output
+  coordinate matched the first input coordinate.
+- Corrected the `PrecipitationAFNOv2` docstring: the model predicts precipitation
+  accumulated over the following six hours `[t, t+6h]`, not the prior six hours.
+- Fixed `DerivedRH` mixed-phase saturation blend clipping the liquid-water fraction
+  ratio to 1.2 instead of 1.0 before squaring, which let the effective weight reach
+  1.44 and inflated relative humidity above freezing.
+- Changed ISD schema `source` type to string since the field is alphanumeric. Enforced
+  `float32` dtypes for `lat`, `lon`, `elev`, and `observation`.
 - Fixed NNJA observation sources blocking the shared fsspec IO loop with
   CPU-bound PrepBUFR decode work, which stalled concurrent fetches from other
   data sources.
@@ -47,13 +334,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved ACE2ERA5 inference performance by caching yearly forcing values
 - Fixed ACE2ERA5 forcing data retrieval for static variables requested across
   multiple times.
-
-### Security
+- Added CF-convention scale/offset when retrieving JPSS data.
 
 ### Dependencies
 
 - Removed `multi-storage-client` from the `data` optional dependency group,
   succeeded by `obstore`
+- Added `icechunk>=2.0.0` to the `data` optional dependency group (Python ≥3.12 only)
 
 ## [0.16.0] - 2026-06-29
 

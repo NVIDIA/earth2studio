@@ -22,6 +22,7 @@ import torch
 from earth2studio.utils.type import CoordSystem
 
 
+# --8<-- [start:diagnostic-model-interface]
 @runtime_checkable
 class DiagnosticModel(Protocol):
     """Diagnostic model interface"""
@@ -93,3 +94,6 @@ class DiagnosticModel(Protocol):
             Returns instance of diagnostic
         """
         pass
+
+
+# --8<-- [end:diagnostic-model-interface]

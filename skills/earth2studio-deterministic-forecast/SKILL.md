@@ -57,7 +57,7 @@ Fetch prognostic models page. Filter by time horizon, region, VRAM. Note model's
 ### 3. Select Data Source
 
 Data source must provide all model input variables. Verify via lexicon at
-`earth2studio/lexicon/<source>.py`. Common pairings: Global models → GFS/ARCO/IFS;
+`earth2studio/lexicon/<source>.py`. Common pairings: Global models → GFS/ARCO_ERA5/IFS;
 Regional → HRRR.
 
 ### 4. Select IO Backend

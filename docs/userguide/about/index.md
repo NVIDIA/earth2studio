@@ -1,9 +1,7 @@
+<!-- markdownlint-disable MD033 -->
+
 # Getting Started
 
-```{toctree}
-:maxdepth: 1
+This page has moved to the [User Guide overview](overview.md).
 
-install
-intro
-data
-```
+<meta http-equiv="refresh" content="0; url=overview/">

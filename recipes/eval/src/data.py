@@ -100,6 +100,114 @@ def resolve_ic_source(
     return hydra.utils.instantiate(live_source)
 
 
+def frame_store_path(output_path: str, name: str) -> str:
+    """Return the on-disk directory of a predownloaded DataFrame store.
+
+    Shared by the predownload writer and
+    :class:`PredownloadedFrameSource` so the layout is defined once:
+    ``<output_path>/<name>.parquet/`` holding one parquet file per
+    analysis time.
+    """
+    return os.path.join(output_path, f"{name}.parquet")
+
+
+def frame_filename(time: np.datetime64) -> str:
+    """Return the per-time parquet filename inside a frame store.
+
+    Uses the same compact-timestamp convention as the progress markers
+    (``20240101T000000.parquet``) so files sort chronologically.
+    """
+    ts = str(np.datetime64(time, "s")).replace("-", "").replace(":", "")
+    return f"{ts}.parquet"
+
+
+class PredownloadedFrameSource:
+    """DataFrameSource backed by a predownloaded parquet directory.
+
+    Serves observation DataFrames cached by ``predownload.py`` (one
+    parquet file per analysis time, see :func:`frame_store_path` /
+    :func:`frame_filename`) through the ``DataFrameSource`` protocol, so
+    :func:`earth2studio.data.fetch_dataframe` works on it unchanged —
+    including re-attaching the ``request_time`` attrs that DA models
+    rely on.
+
+    Each stored frame already holds the full observation window for its
+    analysis time (the live source's ``time_tolerance`` expansion
+    happened at download time), so lookups are exact-filename matches:
+    requesting a time that was not predownloaded raises
+    ``FileNotFoundError`` rather than silently returning nothing.
+
+    Parameters
+    ----------
+    store_path : str
+        Path to the ``<name>.parquet`` directory on disk.
+    """
+
+    def __init__(self, store_path: str) -> None:
+        if not os.path.isdir(store_path):
+            raise FileNotFoundError(
+                f"PredownloadedFrameSource: no frame store at '{store_path}'."
+            )
+        self._store_path = store_path
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: Any = None,
+    ) -> pd.DataFrame:
+        """Return the stored observation frame(s) for the requested times.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis times to return frames for.  Each must have been
+            predownloaded.
+        variable : str | list[str] | VariableArray
+            Variables to return.  When the stored frame carries a
+            ``variable`` column, rows are narrowed to this set;
+            otherwise the frame is returned as stored (it was already
+            fetched with the model's schema variables).
+        fields : array-like, optional
+            Columns to return.  ``None`` returns all stored columns.
+
+        Returns
+        -------
+        pd.DataFrame
+            Concatenation of the per-time frames, in request order.
+        """
+        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        pieces: list[pd.DataFrame] = []
+        for t in times:
+            path = os.path.join(self._store_path, frame_filename(t))
+            if not os.path.exists(path):
+                raise FileNotFoundError(
+                    f"Predownloaded observation frame for {t} not found at "
+                    f"'{path}'.  Re-run predownload.py with this time included "
+                    "(or remove the store directory to fetch live)."
+                )
+            pieces.append(pd.read_parquet(path))
+        df = pieces[0] if len(pieces) == 1 else pd.concat(pieces, ignore_index=True)
+
+        if variable is not None and "variable" in df.columns:
+            requested = [str(v) for v in np.atleast_1d(variable)]
+            df = df[df["variable"].isin(requested)].reset_index(drop=True)
+
+        if fields is not None:
+            requested_fields = [str(f) for f in np.atleast_1d(fields)]
+            missing = [f for f in requested_fields if f not in df.columns]
+            if missing:
+                raise KeyError(
+                    f"Predownloaded frame store '{self._store_path}' is missing "
+                    f"requested fields {missing} (stored columns: "
+                    f"{list(df.columns)}).  The store was likely built for a "
+                    "different model schema — re-run predownload.py with "
+                    "predownload.overwrite=true."
+                )
+            df = df[requested_fields]
+        return df
+
+
 class PredownloadedSource:
     """DataSource backed by a predownloaded zarr store.
 

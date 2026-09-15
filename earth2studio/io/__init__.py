@@ -16,6 +16,7 @@
 
 from .async_zarr import AsyncZarrBackend
 from .base import IOBackend
+from .icechunk import IceChunkBackend
 from .kv import KVBackend
 from .netcdf4 import NetCDF4Backend
 from .xarray import XarrayBackend

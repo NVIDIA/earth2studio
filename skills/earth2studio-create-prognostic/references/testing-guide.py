@@ -53,7 +53,6 @@ from earth2studio.models.auto import Package
 from earth2studio.models.px import ModelName  # TODO: Import your model
 from earth2studio.utils import handshake_dim
 
-
 # =============================================================================
 # DUMMY MODEL (Phoo Pattern)
 # =============================================================================

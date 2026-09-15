@@ -1,8 +1,4 @@
 # Support
 
-```{toctree}
-:maxdepth: 1
-
-troubleshooting
-faq
-```
+- [Troubleshooting](troubleshooting.md)
+- [Frequently Asked Questions](faq.md)

@@ -329,7 +329,8 @@ Result object for accessing remote inference outputs.
 #### RemoteEarth2WorkflowResult methods
 
 - `as_dataset()` → `xr.Dataset`: Wait for completion and return result as xarray Dataset
-- `as_data_source()` → `InferenceOutputSource`: Wait for completion and return as Earth2Studio data source
+- `as_data_source()` → `InferenceOutputSource`: Wait for completion and return as
+  Earth2Studio data source
 - `as_model(iter_coord="lead_time")` → `InferenceOutputModel`: Model iterable over time steps
 
 ### Earth2StudioClient

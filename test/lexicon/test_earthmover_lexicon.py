@@ -102,6 +102,7 @@ ERA5_SURFACE_VOCAB = {
     "stl3": "stl3::sfc::",
     "stl4": "stl4::sfc::",
     "swvl1": "swvl1::sfc::",
+    "swvl2": "swvl2::sfc::",
     "t2m": "t2m::sfc::",
     "tcc": "tcc::sfc::",
     "tcw": "tcw::sfc::",

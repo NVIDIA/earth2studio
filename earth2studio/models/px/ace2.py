@@ -156,8 +156,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:cm product:wind product:precip product:temp product:atmos
+    region:global class:climate product:wind product:precip product:temp product:atmos
     product:ocean product:land year:2024 gpu:40gb
+    provider:ai2 backend:pytorch
     """
 
     def __init__(

@@ -79,7 +79,7 @@ class TestBuildPipeline:
 
     def test_diagnostic_by_fqn(self):
         cfg = OmegaConf.create(
-            {"pipeline": "src.pipelines.forecast.DiagnosticPipeline"}
+            {"pipeline": "src.pipelines.diagnostic.DiagnosticPipeline"}
         )
         pipeline = build_pipeline(cfg)
         assert isinstance(pipeline, DiagnosticPipeline)

@@ -89,7 +89,8 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind year:2024 gpu:40gb
+    region:global class:medium-range product:wind year:2024 gpu:40gb
+    provider:nvidia backend:pytorch
     """
 
     def __init__(
@@ -217,8 +218,10 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         out = torch.zeros_like(x[..., :1, :, :])
         x = (x - self.center) / self.scale
 
-        grid_x, grid_y = torch.meshgrid(
-            torch.tensor(coords["lat"]), torch.tensor(coords["lon"])
+        lat_grid, lon_grid = torch.meshgrid(
+            torch.tensor(coords["lat"]),
+            torch.tensor(coords["lon"]),
+            indexing="ij",
         )
 
         # compute solar zenith angle and concatenate
@@ -226,7 +229,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             for k, t in enumerate(coords["time"]):
                 for lt, dt in enumerate(coords["lead_time"]):
                     sza = (
-                        self._compute_sza(grid_x, grid_y, t, dt)
+                        self._compute_sza(lon_grid, lat_grid, t, dt)
                         .unsqueeze(0)
                         .unsqueeze(0)
                         .to(x.device)

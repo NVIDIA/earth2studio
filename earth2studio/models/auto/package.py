@@ -314,8 +314,8 @@ class Package:
 
         Parameters
         ----------
-        path : str
-            local path of file in package directory
+        file_path : str
+            Local path of file in package directory
 
         Returns
         -------
@@ -334,8 +334,8 @@ class Package:
 
         Parameters
         ----------
-        path : str
-            local path of file in package directory
+        file_path : str
+            Local path of file in package directory
 
         Returns
         -------

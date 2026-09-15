@@ -69,6 +69,7 @@ class DLESyMPipeline(ForecastPipeline):
     different perturbations).
     """
 
+    supports_online_scoring = True
     _ocean_variables: list[str]
 
     def setup(self, cfg: DictConfig, device: torch.device) -> None:
@@ -85,6 +86,23 @@ class DLESyMPipeline(ForecastPipeline):
                 f"Got: {type(self.prognostic).__name__}"
             )
         self._ocean_variables = list(self.prognostic.ocean_variables)
+
+    def supports_member_batching(self) -> bool:
+        """DLESyM only overrides :meth:`run_item`, not :meth:`run_item_batched`.
+
+        The inherited :class:`~.forecast.ForecastPipeline` batched rollout
+        knows nothing about DLESyM's IC-window skip or ocean masking
+        (:meth:`run_item` / :meth:`_mask_invalid_ocean`), so it must not be
+        used — ``members_per_rank > 1`` always falls back to one member per
+        rank for this pipeline.
+        """
+        return False
+
+    def known_missing_leads(self) -> set[np.timedelta64]:
+        """``lead_time=0`` — :meth:`run_item` skips the model's IC-window
+        yield, whose lead times fall outside the output schema, so this
+        pipeline never has a step to report at lead 0."""
+        return {np.timedelta64(0, "ns")}
 
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
         """Declare IC + optional verification stores for a DLESyM run.
@@ -149,12 +167,10 @@ class DLESyMPipeline(ForecastPipeline):
         )
         x, coords = map_coords(x, coords, self._prognostic_ic)
 
-        if self.perturbation is not None:
-            torch.manual_seed(item.seed)
-            x, coords = self.perturbation(x, coords)
+        self.seed_member(item)
 
-        if hasattr(self.prognostic, "set_rng"):
-            self.prognostic.set_rng(seed=item.seed, reset=True)
+        if self.perturbation is not None:
+            x, coords = self.perturbation(x, coords)
 
         model_iter = self.prognostic.create_iterator(x, coords)
 

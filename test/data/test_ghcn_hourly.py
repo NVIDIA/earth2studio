@@ -16,7 +16,7 @@
 
 import io
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -175,16 +175,27 @@ class TestGHCNHourlyMock:
             verbose=False,
         )
 
-    def _mock_fs(self, parquet_bytes: bytes) -> MagicMock:
-        mock_fs = MagicMock()
-        mock_fs.set_session = AsyncMock(return_value=MagicMock(close=AsyncMock()))
-        mock_fs._cat_file = AsyncMock(return_value=parquet_bytes)
-        return mock_fs
+    @pytest.fixture(autouse=True)
+    def _obstore_patches(self):
+        self._patchers = []
+        yield
+        for p in self._patchers:
+            p.stop()
+
+    def _mock_read(self, ds: GHCNHourly, parquet_bytes: bytes) -> None:
+        """Point the data source at a mocked obstore read returning the bytes."""
+        ds.store = MagicMock()
+        p = patch(
+            "earth2studio.data.ghcn.obstore_read_range",
+            AsyncMock(return_value=parquet_bytes),
+        )
+        p.start()
+        self._patchers.append(p)
 
     def test_mock_ws10m(self):
         """wind_speed column returned as ws10m in m/s."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(wind_speed=10.0))
+        self._mock_read(ds, _build_mock_parquet_bytes(wind_speed=10.0))
 
         result = ds(datetime(2024, 1, 1, 12), ["ws10m"])
 
@@ -196,8 +207,8 @@ class TestGHCNHourlyMock:
         """u10m / v10m derived from wind_direction=0° and wind_speed=10 m/s."""
         # dir=0 (wind from north) → u=0, v=-10
         ds = self._ds()
-        ds.fs = self._mock_fs(
-            _build_mock_parquet_bytes(wind_speed=10.0, wind_direction="000")
+        self._mock_read(
+            ds, _build_mock_parquet_bytes(wind_speed=10.0, wind_direction="000")
         )
 
         result = ds(datetime(2024, 1, 1, 12), ["u10m", "v10m"])
@@ -210,7 +221,7 @@ class TestGHCNHourlyMock:
     def test_mock_t2m(self):
         """temperature column converted from °C to K."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(temperature=20.0))
+        self._mock_read(ds, _build_mock_parquet_bytes(temperature=20.0))
 
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -220,7 +231,7 @@ class TestGHCNHourlyMock:
     def test_mock_d2m(self):
         """dew_point_temperature column converted from °C to K."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(dew_point_temperature=10.0))
+        self._mock_read(ds, _build_mock_parquet_bytes(dew_point_temperature=10.0))
 
         result = ds(datetime(2024, 1, 1, 12), ["d2m"])
 
@@ -230,7 +241,7 @@ class TestGHCNHourlyMock:
     def test_mock_tp(self):
         """precipitation column converted from mm to m."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(precipitation=5.0))
+        self._mock_read(ds, _build_mock_parquet_bytes(precipitation=5.0))
 
         result = ds(datetime(2024, 1, 1, 12), ["tp"])
 
@@ -240,7 +251,7 @@ class TestGHCNHourlyMock:
     def test_mock_fg10m(self):
         """wind_gust column returned as fg10m in m/s."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(wind_gust=15.0))
+        self._mock_read(ds, _build_mock_parquet_bytes(wind_gust=15.0))
 
         result = ds(datetime(2024, 1, 1, 12), ["fg10m"])
 
@@ -250,7 +261,7 @@ class TestGHCNHourlyMock:
     def test_mock_tcc_few(self):
         """sky_cover_layer_1='FEW' maps to ~0.1875 fraction."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(sky_cover_layer_1="FEW:02"))
+        self._mock_read(ds, _build_mock_parquet_bytes(sky_cover_layer_1="FEW:02"))
 
         result = ds(datetime(2024, 1, 1, 12), ["tcc"])
 
@@ -260,7 +271,7 @@ class TestGHCNHourlyMock:
     def test_mock_tcc_ovc(self):
         """sky_cover_layer_1='OVC' maps to 1.0 fraction."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(sky_cover_layer_1="OVC:000"))
+        self._mock_read(ds, _build_mock_parquet_bytes(sky_cover_layer_1="OVC:000"))
 
         result = ds(datetime(2024, 1, 1, 12), ["tcc"])
 
@@ -270,7 +281,7 @@ class TestGHCNHourlyMock:
     def test_mock_tcc_clr(self):
         """sky_cover_layer_1='CLR' maps to 0.0 fraction."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(sky_cover_layer_1="CLR"))
+        self._mock_read(ds, _build_mock_parquet_bytes(sky_cover_layer_1="CLR"))
 
         result = ds(datetime(2024, 1, 1, 12), ["tcc"])
 
@@ -280,7 +291,7 @@ class TestGHCNHourlyMock:
     def test_schema_columns_present(self):
         """All SCHEMA columns appear in the output."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+        self._mock_read(ds, _build_mock_parquet_bytes())
 
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -290,7 +301,7 @@ class TestGHCNHourlyMock:
     def test_lon_normalized_to_360(self):
         """Longitude is converted to [0, 360) convention."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+        self._mock_read(ds, _build_mock_parquet_bytes())
 
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -301,7 +312,7 @@ class TestGHCNHourlyMock:
         """Returns empty DataFrame when no observations fall in the time window."""
         ds = self._ds()
         # parquet has a row at 12:00, request at 00:00 with ±10 min tolerance
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(date="2024-01-01T12:00:00"))
+        self._mock_read(ds, _build_mock_parquet_bytes(date="2024-01-01T12:00:00"))
 
         result = ds(datetime(2024, 1, 1, 0), ["t2m"])
 
@@ -311,7 +322,7 @@ class TestGHCNHourlyMock:
     def test_invalid_variable_raises(self):
         """KeyError raised for variable not in GHCNHourlyLexicon."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+        self._mock_read(ds, _build_mock_parquet_bytes())
 
         with pytest.raises(KeyError):
             ds(datetime(2024, 1, 1, 12), ["not_a_variable"])
@@ -319,7 +330,7 @@ class TestGHCNHourlyMock:
     def test_pre_1901_time_raises(self):
         """ValueError raised for times before the GHCNh record start."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+        self._mock_read(ds, _build_mock_parquet_bytes())
 
         with pytest.raises(ValueError):
             ds(datetime(1800, 1, 1), ["t2m"])
@@ -327,7 +338,7 @@ class TestGHCNHourlyMock:
     def test_sparse_parquet_missing_optional_columns(self):
         """Station parquet with no wind/precip/sky columns still returns t2m."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_sparse_parquet_bytes(temperature=15.0))
+        self._mock_read(ds, _build_sparse_parquet_bytes(temperature=15.0))
 
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -338,7 +349,7 @@ class TestGHCNHourlyMock:
     def test_missing_wind_gust_gives_nan(self):
         """NaN wind_gust column → fg10m rows dropped (no observations)."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(wind_gust=np.nan))
+        self._mock_read(ds, _build_mock_parquet_bytes(wind_gust=np.nan))
 
         result = ds(datetime(2024, 1, 1, 12), ["fg10m"])
 
@@ -355,7 +366,7 @@ class TestGHCNHourlyMock:
             cache=True,
             verbose=False,
         )
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+        self._mock_read(ds, _build_mock_parquet_bytes())
 
         ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -366,7 +377,7 @@ class TestGHCNHourlyMock:
         """'station' column matches the requested station ID."""
         station = "USW00013874"
         ds = self._ds(station=station)
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes(station=station))
+        self._mock_read(ds, _build_mock_parquet_bytes(station=station))
 
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -376,7 +387,7 @@ class TestGHCNHourlyMock:
     def test_source_attr_set(self):
         """DataFrame attrs['source'] is set to GHCNHourly.SOURCE_ID."""
         ds = self._ds()
-        ds.fs = self._mock_fs(_build_mock_parquet_bytes())
+        self._mock_read(ds, _build_mock_parquet_bytes())
 
         result = ds(datetime(2024, 1, 1, 12), ["t2m"])
 
@@ -397,14 +408,10 @@ class TestGHCNHourlyMock:
 
         call_count = 0
 
-        async def _cat_file(url: str) -> bytes:
+        async def _read_range(store, key: str) -> bytes:
             nonlocal call_count
             call_count += 1
-            return prev_year_bytes if "2023" in url else curr_year_bytes
-
-        mock_fs = MagicMock()
-        mock_fs.set_session = AsyncMock(return_value=MagicMock(close=AsyncMock()))
-        mock_fs._cat_file = _cat_file
+            return prev_year_bytes if "2023" in key else curr_year_bytes
 
         ds = GHCNHourly(
             stations=["USW00013874"],
@@ -412,7 +419,10 @@ class TestGHCNHourlyMock:
             cache=False,
             verbose=False,
         )
-        ds.fs = mock_fs
+        ds.store = MagicMock()
+        p = patch("earth2studio.data.ghcn.obstore_read_range", _read_range)
+        p.start()
+        self._patchers.append(p)
 
         result = ds(datetime(2024, 1, 1, 0, 0), ["t2m"])
 

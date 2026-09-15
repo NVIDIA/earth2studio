@@ -168,13 +168,13 @@ def test_source_call_mock(tmp_path, monkeypatch):
     # ds = SourceName(cache=True)
 
     # FILL: Patch the async methods that do real I/O
-    # Strategy: patch _async_init (skip fs creation) + fetch_array (skip network)
+    # Strategy: patch _async_init (skip store creation) + fetch_array (skip network)
     #
     # with (
     #     patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
     #     patch.object(ds, "fetch_array", side_effect=_fake_fetch_array),
     # ):
-    #     ds.fs = object()  # type: ignore[assignment]  # truthy sentinel
+    #     ds.store = object()  # type: ignore[assignment]  # truthy sentinel
     #     data = ds(_TEST_TIME, ["t2m", "msl"])
     #
     # # Verify output shape and content

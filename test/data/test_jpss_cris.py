@@ -711,6 +711,116 @@ def test_jpss_cris_subsample_mock(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Offline fake obspec store tests of _create_tasks (no network)
+# ---------------------------------------------------------------------------
+class _FakeCrISStore:
+    """Fake obspec store listing SDR/GEO day directories per prefix."""
+
+    def __init__(self, sdr_files, geo_files):
+        self.sdr_files = sdr_files
+        self.geo_files = geo_files
+
+    def list_async(self, prefix=None, **kwargs):
+        async def _gen():
+            if prefix.startswith("CrIS-FS-SDR/"):
+                yield [{"path": prefix + f} for f in self.sdr_files]
+            elif prefix.startswith("CrIS-SDR-GEO/"):
+                yield [{"path": prefix + f} for f in self.geo_files]
+            else:
+                yield []
+
+        return _gen()
+
+
+def _make_cris_datasource(fake_store):
+    ds = JPSS_CRIS(
+        satellites=["n20"],
+        time_tolerance=timedelta(minutes=10),
+        cache=False,
+        verbose=False,
+    )
+    # Inject the fake store — no obstore internals need patching
+    ds.stores = {"noaa-nesdis-n20-pds": fake_store}
+    return ds
+
+
+@pytest.mark.timeout(15)
+def test_jpss_cris_create_tasks_pairs_sdr_with_geo():
+    """SDR files inside the tolerance window pair with their GEO file."""
+    import asyncio
+
+    in_window = "j01_d20240601_t1200000_e1200320_b12345"
+    out_window = "j01_d20240601_t0100000_e0100320_b12300"
+    sdr_files = [
+        f"SCRIF_{in_window}_c20240601130000_oebc_ops.h5",
+        f"SCRIF_{out_window}_c20240601020000_oebc_ops.h5",
+    ]
+    geo_files = [
+        f"GCRSO_{in_window}_c20240601130099_oebc_ops.h5",
+        f"GCRSO_{out_window}_c20240601020099_oebc_ops.h5",
+    ]
+    ds = _make_cris_datasource(_FakeCrISStore(sdr_files, geo_files))
+
+    tasks = asyncio.run(ds._create_tasks([datetime(2024, 6, 1, 12)], ["crisfsr"]))
+
+    assert len(tasks) == 1
+    assert tasks[0].sdr_uri == (
+        "s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/2024/06/01/"
+        f"SCRIF_{in_window}_c20240601130000_oebc_ops.h5"
+    )
+    assert tasks[0].geo_uri == (
+        "s3://noaa-nesdis-n20-pds/CrIS-SDR-GEO/2024/06/01/"
+        f"GCRSO_{in_window}_c20240601130099_oebc_ops.h5"
+    )
+    assert tasks[0].satellite == "n20"
+    assert tasks[0].variable == "crisfsr"
+
+
+@pytest.mark.timeout(15)
+def test_jpss_cris_create_tasks_skips_sdr_without_geo():
+    """An in-window SDR granule with no matching GEO file is skipped."""
+    import asyncio
+
+    from loguru import logger
+
+    sdr_files = ["SCRIF_j01_d20240601_t1200000_e1200320_b12345_c202406_oebc_ops.h5"]
+    ds = _make_cris_datasource(_FakeCrISStore(sdr_files, []))
+
+    messages: list[str] = []
+    handler_id = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    try:
+        tasks = asyncio.run(ds._create_tasks([datetime(2024, 6, 1, 12)], ["crisfsr"]))
+    finally:
+        logger.remove(handler_id)
+
+    assert tasks == []
+    assert any("No matching GEO file" in m for m in messages)
+
+
+@pytest.mark.timeout(15)
+def test_jpss_cris_create_tasks_empty_listing():
+    """A missing/empty day directory yields no tasks and no exception."""
+    import asyncio
+
+    from loguru import logger
+
+    ds = _make_cris_datasource(_FakeCrISStore([], []))
+
+    messages: list[str] = []
+    handler_id = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    try:
+        tasks = asyncio.run(ds._create_tasks([datetime(2024, 6, 1, 12)], ["crisfsr"]))
+    finally:
+        logger.remove(handler_id)
+
+    assert tasks == []
+    assert any(
+        "No CrIS data at s3://noaa-nesdis-n20-pds/CrIS-FS-SDR/2024/06/01/" in m
+        for m in messages
+    )
+
+
+# ---------------------------------------------------------------------------
 # Validation / error tests (no network)
 # ---------------------------------------------------------------------------
 @pytest.mark.timeout(15)

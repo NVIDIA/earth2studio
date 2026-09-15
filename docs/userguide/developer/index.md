@@ -1,14 +1,10 @@
 # Developer Guide
 
-```{toctree}
-:maxdepth: 1
-
-overview
-dependency
-style
-documentation
-testing
-build
-recipes
-skills
-```
+- [Overview](overview.md)
+- [Dependencies](dependency.md)
+- [Style](style.md)
+- [Documentation](documentation.md)
+- [Testing](testing.md)
+- [Build](build.md)
+- [Recipes](recipes.md)
+- [Skills](skills.md)

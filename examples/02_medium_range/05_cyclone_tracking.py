@@ -34,9 +34,10 @@ In this example you will learn:
 - How to couple the TC tracker to a prognostic model
 - Post-processing results
 """
+
 # /// script
 # dependencies = [
-#   "torch==2.11.0", # Match lock file to avoid torch-harmonics issue
+#   "torch==2.13.0", # Match torch-harmonics examples
 #   "earth2studio[cyclone,sfno] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
 # ]
@@ -47,15 +48,15 @@ In this example you will learn:
 # ------
 # This example will look at tracking cyclones during August 2009, a moment in time when
 # multiple tropical cyclones where impacting East Asia.
-# Earth2Studio provides multiple variations of TC trackers such as :py:class:`earth2studio.models.dx.TCTrackerVitart`
-# and :py:class:`earth2studio.models.dx.TCTrackerWuDuan`.
+# Earth2Studio provides multiple variations of TC trackers such as [`earth2studio.models.dx.TCTrackerVitart`][earth2studio.models.dx.TCTrackerVitart]
+# and [`earth2studio.models.dx.TCTrackerWuDuan`][earth2studio.models.dx.TCTrackerWuDuan].
 # The difference being the underlying algorithm used to identify the center.
 #
 # This example needs the following:
 #
-# - Diagostic Model: Use the TC tracker :py:class:`earth2studio.models.dx.TCTrackerWuDuan`.
-# - Datasource: Pull data from the WB2 ERA5 data api :py:class:`earth2studio.data.WB2ERA5`.
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
+# - Diagostic Model: Use the TC tracker [`earth2studio.models.dx.TCTrackerWuDuan`][earth2studio.models.dx.TCTrackerWuDuan].
+# - Datasource: Pull data from the WB2 ERA5 data api [`earth2studio.data.WB2ERA5`][earth2studio.data.WB2ERA5].
+# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
 
 # %%
 import os
@@ -69,7 +70,7 @@ from datetime import datetime, timedelta
 
 import torch
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.models.dx import TCTrackerWuDuan
 from earth2studio.models.px import SFNO
 from earth2studio.utils.time import to_time_array
@@ -82,7 +83,7 @@ package = SFNO.load_default_package()
 prognostic = SFNO.load_model(package)
 
 # Create the data source
-data = ARCO()
+data = ARCO_ERA5()
 
 nsteps = 16  # Number of steps to run the tracker for into future
 start_time = datetime(2009, 8, 5)  # Start date for inference
@@ -110,7 +111,7 @@ for step, time in enumerate(times):
     da = data(time, tracker.input_coords()["variable"])
     x, coords = prep_data_array(da, device=device)
     output, output_coords = tracker(x, coords)
-    print(f"Step {step}: ARCO tracks output shape {output.shape}")
+    print(f"Step {step}: ARCO ERA5 tracks output shape {output.shape}")
 
 era5_tracks = output.cpu()
 torch.save(era5_tracks, "outputs/13_era5_paths.pt")
@@ -171,7 +172,7 @@ torch.save(sfno_tracks, "outputs/13_sfno_paths.pt")
 #
 # Finally we can plot the results to compare the track ground truths from ERA5 with
 # those produced by SFNO.
-# Recall the outputs of :py:class:`earth2studio.models.dx.TCTrackerWuDuan` has the path
+# Recall the outputs of [`earth2studio.models.dx.TCTrackerWuDuan`][earth2studio.models.dx.TCTrackerWuDuan] has the path
 # ID in the second dimension, thus that is what will determine the number of lines.
 # The lat/lon coords are the first two variables in the last dimension.
 # Lastly we just need to be mindful of the NaN filler values which can get easily

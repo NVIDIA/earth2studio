@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
@@ -217,6 +218,75 @@ def test_jpss_atms_call_mock(tmp_path):
     assert df["satellite"].iloc[0] == "n20"
     assert "quality" in df.columns
     assert (df["quality"] == 0).all()
+
+
+class _FakeATMSStore:
+    """Fake obspec store that lists a fixed set of bucket-relative keys."""
+
+    def __init__(self, keys):
+        self._keys = keys
+
+    def list_async(self, prefix=None, **kwargs):
+        keys = [k for k in self._keys if prefix is None or k.startswith(prefix)]
+
+        async def _gen():
+            yield [{"path": k} for k in keys]
+
+        return _gen()
+
+
+@pytest.mark.timeout(15)
+def test_jpss_atms_create_tasks_fake_store():
+    """_create_tasks with a fake obspec store: only files inside the time
+    tolerance window become tasks, with full s3://bucket/... URIs."""
+    day_prefix = "ATMS_BUFR/2024/06/01/"
+    in_window = (
+        f"{day_prefix}"
+        "ATMS_v1r0_j01_s20240601115800_e20240601115900_c20240601130000.bufr"
+    )
+    out_of_window = (
+        f"{day_prefix}"
+        "ATMS_v1r0_j01_s20240601123000_e20240601123100_c20240601140000.bufr"
+    )
+    unparseable = f"{day_prefix}random_file.bufr"
+
+    ds = JPSS_ATMS(
+        satellites=["n20"],
+        time_tolerance=timedelta(minutes=5),
+        cache=False,
+        verbose=False,
+    )
+    ds.stores = {
+        "noaa-nesdis-n20-pds": _FakeATMSStore([in_window, out_of_window, unparseable])
+    }
+
+    tasks = asyncio.run(
+        ds._create_tasks([datetime(2024, 6, 1, 12)], ["atms"]),
+    )
+
+    # Only the file inside ±5 min becomes a task
+    assert len(tasks) == 1
+    task = tasks[0]
+    assert task.s3_uri == f"s3://noaa-nesdis-n20-pds/{in_window}"
+    assert task.satellite == "n20"
+    assert task.variable == "atms"
+
+
+@pytest.mark.timeout(15)
+def test_jpss_atms_create_tasks_empty_listing():
+    """Empty listing (missing day prefix) yields no tasks and no exception."""
+    ds = JPSS_ATMS(
+        satellites=["n20"],
+        time_tolerance=timedelta(minutes=5),
+        cache=False,
+        verbose=False,
+    )
+    ds.stores = {"noaa-nesdis-n20-pds": _FakeATMSStore([])}
+
+    tasks = asyncio.run(
+        ds._create_tasks([datetime(2024, 6, 1, 12)], ["atms"]),
+    )
+    assert tasks == []
 
 
 # ---------------------------------------------------------------------------

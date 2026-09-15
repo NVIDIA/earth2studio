@@ -7,7 +7,7 @@ a new feature that will be a part of the next release.
 Make sure you select your installed Earth2Studio version in the docs to see the list of
 features present.
 If you would like to use a new feature, install from source following the
-{ref}`install_guide` guide.
+[Install](../about/install.md#install_guide) guide.
 
 ## Will Earth2Studio add XYZ model?
 

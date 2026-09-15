@@ -35,6 +35,7 @@ In this example you will learn:
 - Performing super resolution on ERA5 data after infilling with cBottle
 - Post-processing and visualizing super-resolution results
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[cbottle] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -54,10 +55,10 @@ In this example you will learn:
 # %%
 # We need the following components:
 #
-# - Datasource: Generate data from the CBottle3D data api :py:class:`earth2studio.data.CBottle3D`.
-# - Datasource: Pull data from the WeatherBench2 data api :py:class:`earth2studio.data.WB2ERA5`.
-# - Diagnostic Model: Use the built in CBottle Infill Model :py:class:`earth2studio.models.dx.CBottleInfill`.
-# - Super Resolution Model: Use the CBottleSR super resolution model :py:class:`earth2studio.models.dx.CBottleSR`.
+# - Datasource: Generate data from the CBottle3D data api [`earth2studio.data.CBottle3D`][earth2studio.data.CBottle3D].
+# - Datasource: Pull data from the WeatherBench2 data api [`earth2studio.data.WB2ERA5`][earth2studio.data.WB2ERA5].
+# - Diagnostic Model: Use the built in CBottle Infill Model [`earth2studio.models.dx.CBottleInfill`][earth2studio.models.dx.CBottleInfill].
+# - Super Resolution Model: Use the CBottleSR super resolution model [`earth2studio.models.dx.CBottleSR`][earth2studio.models.dx.CBottleSR].
 
 # %%
 

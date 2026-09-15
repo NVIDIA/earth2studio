@@ -82,7 +82,7 @@ The authoritative coding rules live in `.agents/rules/`. These are for
 relevant rule file(s) before writing or reviewing code:
 
 | Rule file | Topic |
-|---|---|
+| --- | --- |
 | `e2s-000-python-style-guide.mdc` | Style, formatting, type hints, license header |
 | `e2s-001-dependency-management.mdc` | Adding / updating dependencies |
 | `e2s-002-api-documentation.mdc` | Docstrings and public API docs |

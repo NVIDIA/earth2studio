@@ -97,13 +97,14 @@ If the branch is already rebased, skip this and proceed.
 ## Step 3 — Update CHANGELOG.md
 
 Read `CHANGELOG.md` and insert a new blank section **above** the most recent
-version entry. Use `xxxx-xx-xx` as the date placeholder — never fill in today's
-date for the new development version.
+version entry. Use `YYYY-MM-xx` as the date placeholder where `YYYY-MM` is the
+month after the released version's date (e.g., if releasing `0.17.0` on
+`2026-07-30`, the next dev section gets `2026-08-xx`).
 
 The new section must look exactly like this (substituting the version number):
 
 ```markdown
-## [X.(Y+1).0a0] - xxxx-xx-xx
+## [X.(Y+1).0a0] - YYYY-MM-xx
 
 ### Added
 
@@ -168,32 +169,24 @@ look correct.
 
 ## Step 6 — Update Install Guide Version Tag
 
-Update `docs/userguide/about/install.md` to reference the new released version tag.
+Update the install documentation to reference the new released version tag.
 
-1. Replace all occurrences of the **previous** release tag (e.g., `@0.14.0`) with
-   the **new** release tag (e.g., `@0.15.0`) in the install guide.
-2. Update the Docker container tag (e.g., `nvcr.io/nvidia/pytorch:XX.YY-py3`) to
+1. Open `docs/userguide/about/install_options.yml` and update the `release_ref`
+   field under `package:` from the **previous** release version to the **new**
+   released version (e.g., `release_ref: 0.15.0`). This field drives the
+   install selector widget that generates install commands on the docs site.
+2. Open `docs/userguide/about/install.md` and replace all occurrences of the
+   **previous** release tag (e.g., `@0.14.0`) with the **new** release tag
+   (e.g., `@0.15.0`) in the hardcoded install examples (uv project, Docker,
+   extras note).
+3. Update the Docker container tag (e.g., `nvcr.io/nvidia/pytorch:XX.YY-py3`) to
    the latest recommended container version if it has changed.
-3. Show a `git diff docs/userguide/about/install.md` summary so the user can
-   verify the changes look correct.
+4. Show a `git diff docs/userguide/about/` summary so the user can verify the
+   changes look correct.
 
 ---
 
-## Step 7 — Update Documentation Version Switcher
-
-Update `docs/_static/switcher.json` to include the new released version.
-
-1. Read `docs/_static/switcher.json`.
-2. Add a new entry for the released version (e.g., `X.Y.0`) immediately after
-   the `main` entry (which should remain at the top with `"preferred": true`).
-3. The new version entry should **not** have `"preferred": true` — only `main`
-   should be preferred.
-
-Show the diff to the user for review.
-
----
-
-## Step 8 — Update README Latest News
+## Step 7 — Update README Latest News
 
 Update the "Latest News" section in `README.md` with highlights from the
 **released** version's CHANGELOG entry (the section just below the new blank
@@ -219,20 +212,14 @@ proceeding.
 
 ---
 
-## Step 9 — Update Skill Versions
+## Step 8 — Update Skill Versions
 
-Update the `version` field in every skill's `SKILL.md` frontmatter to match the
-new released version **without** the alpha/beta/rc suffix.
-
-1. Glob for all `skills/*/SKILL.md` files (covers `skills/`,
-   `.opencode/skills/`, and `.claude/skills/` — they are hard-linked).
-2. For each file, replace the current `version:` value with `X.(Y+1).0`
-   (the clean release version, e.g. `0.16.0` — no `a0`, `b1`, or `rcN`).
-3. Show a summary of the changes to the user.
+**Skip this step.** Skill versions are managed separately and should NOT
+be updated during the release rebase process.
 
 ---
 
-## Step 10 — Update GitHub Issue Templates
+## Step 9 — Update GitHub Issue Templates
 
 Update the suggested version placeholder in the bug report template to
 reference the new released version.
@@ -244,7 +231,7 @@ reference the new released version.
 
 ---
 
-## Step 11 — Commit and Push
+## Step 10 — Commit and Push
 
 Stage only the expected files and commit:
 
@@ -253,8 +240,8 @@ git add CHANGELOG.md
 git add earth2studio/__init__.py
 git add examples/
 git add README.md
-git add docs/_static/switcher.json
 git add docs/userguide/about/install.md
+git add docs/userguide/about/install_options.yml
 git add skills/
 git add .github/
 git commit -m "Update version to X.(Y+1).0a0"

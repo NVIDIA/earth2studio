@@ -1,11 +1,9 @@
-(automodel_userguide)=
-
-# AutoModels
+# AutoModels { #automodel_userguide }
 
 Earth2Studio offers a selection of pre-trained model checkpoints.
 The fetching and caching of the model's checkpoint files is the responsibility of the
-{py:class}`earth2studio.models.auto.AutoModelMixin` and
-{py:class}`earth2studio.models.auto.Package` classes.
+`earth2studio.models.auto.AutoModelMixin` and
+`earth2studio.models.auto.Package` classes.
 Understanding how these classes work can help users customize where model checkpoints
 are stored as well as how to add their own pre-trained model to the package.
 
@@ -31,45 +29,41 @@ viable object assuming the egress cost for downloads are covered by the owner.
 
 ## AutoModelMixin
 
-The {py:class}`earth2studio.models.auto.AutoModelMixin` class provides the interface
+The `earth2studio.models.auto.AutoModelMixin` class provides the interface
 that pre-trained models in Earth2Studio use.
 Any automodel in Earth2Studio needs to implement both the
-{py:func}`load_default_package` and {py:func}`load_model` functions.
+`load_default_package` and `load_model` functions.
 
-```{eval-rst}
-.. autoclass:: earth2studio.models.auto.AutoModelMixin
-    :noindex:
-    :members: load_default_package, load_model
-```
+| Method | Purpose |
+| --- | --- |
+| `load_default_package()` | Return the default `Package` pointing at the model assets. |
+| `load_model(package)` | Instantiate the model and load weights from the provided package. |
 
-{py:func}`load_default_package` is typically simple to implement, typically a single
-line of code that creates the {py:obj}`earth2studio.models.auto.Package` object.
-{py:func}`load_model` does the heavy lifting, instantiating the model and loading the
+`load_default_package` is typically simple to implement, typically a single
+line of code that creates the `earth2studio.models.auto.Package` object.
+`load_model` does the heavy lifting, instantiating the model and loading the
 pre-trained weights.
 All pre-trained models in Earth2Studio implement these methods.
 For example, have a look at the FourCastNet implementations:
 
-```{literalinclude} ../../../earth2studio/models/px/fcn.py
-    :pyobject: FCN.load_default_package
-    :language: python
+```python
+--8<-- "earth2studio/models/px/fcn.py:fcn-default-package"
 ```
 
-```{literalinclude} ../../../earth2studio/models/px/fcn.py
-    :pyobject: FCN.load_model
-    :language: python
+```python
+--8<-- "earth2studio/models/px/fcn.py:fcn-load-model"
 ```
 
-:::{note}
-The {py:func}`load_default_package` doesn't perform any downloading.
-Rather, it creates a pointer to the directory the checkpoint files exist in, offering a
-primitive abstract filesystem.
-{py:func}`load_model` triggers the download of any files when the path is accessed using
-`package.get("local/dir/to/file")`.
-:::
+!!! note
+    The `load_default_package` doesn't perform any downloading.
+    Rather, it creates a pointer to the directory the checkpoint files exist in, offering a
+    primitive abstract filesystem.
+    `load_model` triggers the download of any files when the path is accessed using
+    `package.get("local/dir/to/file")`.
 
 ## Package
 
-The {py:class}`earth2studio.models.auto.Package` class is an abstract representation of
+The `earth2studio.models.auto.Package` class is an abstract representation of
 a storage location that contains some artifacts used to load a pre-trained model.
 This class abstracts away the download and caching of files on the local machine.
 Given that a supported remote store type is used, the use of the package class is as
@@ -93,11 +87,10 @@ will be fetched and cached on the local machine.
 A file buffer will then be returned pointing to the cached version of the file.
 The cached path is a directory on the local file system, which can be configured using
 environment variables.
-See {ref}`configuration_userguide` section for details.
+See [Configuration](../about/install.md#configuration_userguide) section for details.
 
-:::{note}
-Earth2Studio file system uses [Fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
-caching for files in packages.
-We encourage users that are interested in this type of utility to learn more about
-Fsspec and the specification it defines for advanced usage.
-:::
+!!! note
+    Earth2Studio file system uses [Fsspec](https://filesystem-spec.readthedocs.io/en/latest/)
+    caching for files in packages.
+    We encourage users that are interested in this type of utility to learn more about
+    Fsspec and the specification it defines for advanced usage.

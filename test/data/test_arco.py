@@ -21,7 +21,7 @@ import shutil
 import numpy as np
 import pytest
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO, ARCO_ERA5
 
 
 @pytest.mark.slow
@@ -44,7 +44,7 @@ from earth2studio.data import ARCO
 def test_arco_fetch(time, variable, disable_msc, monkeypatch):
 
     monkeypatch.setenv("EARTH2STUDIO_DISABLE_MSC", disable_msc)
-    ds = ARCO(cache=False)
+    ds = ARCO_ERA5(cache=False)
     data = ds(time, variable)
     shape = data.shape
 
@@ -73,7 +73,7 @@ def test_arco_fetch(time, variable, disable_msc, monkeypatch):
 @pytest.mark.parametrize("cache", [True, False])
 def test_arco_cache(time, variable, cache):
 
-    ds = ARCO(cache=cache)
+    ds = ARCO_ERA5(cache=cache)
     data = ds(time, variable)
     shape = data.shape
 
@@ -113,7 +113,17 @@ def test_arco_cache(time, variable, cache):
 )
 @pytest.mark.parametrize("variable", ["mpl"])
 def test_arco_available(time, variable):
-    assert not ARCO.available(time)
+    assert not ARCO_ERA5.available(time)
     with pytest.raises(ValueError):
-        ds = ARCO()
+        ds = ARCO_ERA5()
         ds(time, variable)
+
+
+def test_arco_deprecation_warning():
+    """The legacy ARCO alias instantiates the ERA5 data source with a warning."""
+    with pytest.warns(DeprecationWarning, match="ARCO.*will be removed"):
+        data_source = ARCO()
+
+    assert isinstance(data_source, ARCO_ERA5)
+    assert isinstance(data_source, ARCO)
+    assert ARCO.available(datetime.datetime(1939, 2, 25)) is False

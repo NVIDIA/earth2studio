@@ -134,7 +134,14 @@ def test_aurora_iter(ensemble, device):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
+    # First yield is the initial condition at lead time 0: the t-6h history
+    # frame is dropped from tensor AND coords, which must agree (regression
+    # test for coords previously keeping lead_time=[-6h, 0h] while the
+    # tensor was sliced to one step).
+    out, out_coords = next(p_iter)
+    assert out.shape[2] == 1
+    assert out_coords["lead_time"].shape == (1,)
+    assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 69, 720, 1440])

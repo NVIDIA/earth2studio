@@ -25,8 +25,8 @@ installed on the system.
 For example:
 
 ```bash
->>> from earth2studio.data import CDS
->>> CDS()
+>>> from earth2studio.data import CDS_ERA5
+>>> CDS_ERA5()
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
   File "/earth2studio/earth2studio/data/cds.py", line 90, in __init__
@@ -46,7 +46,7 @@ uv sync --extra data
 ```
 
 will fix the problem.
-For additional information, refer to the {ref}`optional_dependencies` section.
+For additional information, refer to the [Install Guide](../about/install.md#install_guide).
 
 ## Earth2Studio not authorized to download public models from NGC
 
@@ -90,7 +90,8 @@ There are a few options to try outside of just waiting for the build to complete
   contributor projects like [flashattn.dev](https://flashattn.dev/#finder).
 
 2. If using a Docker container is an option, the PyTorch Docker container on NGC has
-  flash attention already built inside of it. Refer to {ref}`pytorch_container_environment`
+  flash attention already built inside of it. Refer to
+  [Docker Container](../about/install.md#pytorch_container_environment)
   for details on how to install Earth2Studio inside a container.
 
 3. Speed up the compile time by increasing the number of jobs used during the build
@@ -197,7 +198,7 @@ compiled packages across virtual environments, so you may need to clear the cach
 
 ## RuntimeError: Cannot find the ecCodes library
 
-This can surface when using a data source (including: CDS, GFS, HRRR) that needs to
+This can surface when using a data source (including: CDS_ERA5, GFS, HRRR) that needs to
 read grib files indicating that ECMWF's eccodes library needs to be installed.
 Eccodes has several [install methods](https://github.com/ecmwf/eccodes), provided on
 [conda-forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and

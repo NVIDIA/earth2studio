@@ -14,13 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
+
 from .ace import ACELexicon
-from .arco import ARCOLexicon
+from .arco import ARCO_ERA5Lexicon
 from .cams import CAMSGlobalLexicon
 from .cbottle import CBottleLexicon
-from .cds import CDSLexicon
+from .cds import CDS_ERA5Lexicon
 from .cfs import CFSFluxLexicon, CFSLexicon
 from .cmip6 import CMIP6Lexicon
+from .cosmo import CosmoLexicon
+from .dynamical import DynamicalLexicon
 from .earthmover import (
     EarthMoverERA5Lexicon,
     EarthMoverIFSInitialConditionLexicon,
@@ -36,9 +40,10 @@ from .goes_glm import GOESGLMLexicon
 from .himawari_ahi import HimawariAHILexicon
 from .hrrr import HRRRFXLexicon, HRRRLexicon
 from .ibtracs import IBTrACSLexicon
+from .iem import IEM_ASOSLexicon
 from .isd import ISDLexicon
 from .jpss import JPSSATMSLexicon, JPSSCrISLexicon, JPSSLexicon
-from .meteosat import MeteosatFCILexicon
+from .meteosat import MeteosatFCILexicon, MeteosatLILexicon
 from .metop import (
     MetOpAMSUALexicon,
     MetOpAVHRRLexicon,
@@ -48,7 +53,7 @@ from .metop import (
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
-from .nnja import NNJAObsConvLexicon
+from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon
 from .opera import OPERALexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,
@@ -57,5 +62,24 @@ from .planetary_computer import (
     PlanetaryComputerOISSTLexicon,
     PlanetaryComputerSentinel3AODLexicon,
 )
+from .samudrace import SamudrACELexicon
 from .ufs import GSIConventionalLexicon, GSISatelliteLexicon
 from .wb2 import WB2ClimatetologyLexicon, WB2Lexicon
+
+
+def __getattr__(name: str) -> type[object]:
+    """Return deprecated lexicon aliases."""
+    aliases = {
+        "ARCOLexicon": ARCO_ERA5Lexicon,
+        "CDSLexicon": CDS_ERA5Lexicon,
+    }
+    if name in aliases:
+        renamed = aliases[name].__name__
+        warnings.warn(
+            f"{name} has been renamed to {renamed} and will be removed in a future "
+            "release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return aliases[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

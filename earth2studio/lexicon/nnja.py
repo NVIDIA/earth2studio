@@ -175,3 +175,56 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
               standard units.
         """
         return get_ncep_conventional_item(val, route_prefix=True)
+
+
+class NNJAObsSatLexicon(metaclass=LexiconType):
+    """NNJA aggregate satellite observation lexicon.
+
+    ``atms`` selects encoded ``TMBR`` scene brightness temperature, while
+    ``atms_antenna_temperature`` selects encoded ``TMANT`` antenna temperature.
+    The legacy sounder names select their encoded ``TMBR`` fields unchanged.
+
+    The hyperspectral IR sounder names select every published channel of the
+    sensor, returned as brightness temperature in Kelvin: ``airs`` is encoded
+    as ``TMBR`` directly, while ``iasi`` (scaled radiance ``SCRA``) and
+    ``cris`` (float radiance ``SRAD``) are converted via Planck inversion
+    during decode.
+
+    Note
+    ----
+    Archive documentation:
+    https://registry.opendata.aws/noaa-reanalyses-pds/
+    """
+
+    VOCAB: dict[str, str] = {
+        "atms": "atms::TMBR",
+        "atms_antenna_temperature": "atms::TMANT",
+        "mhs": "mhs::TMBR",
+        "amsua": "amsua::TMBR",
+        "amsub": "amsub::TMBR",
+        "airs": "airs::TMBR",
+        "iasi": "iasi::SCRA",
+        "cris": "cris::SRAD",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]:
+        """Get an aggregate sensor/field route and identity modifier.
+
+        Parameters
+        ----------
+        val : str
+            Earth2Studio variable id.
+
+        Returns
+        -------
+        tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]
+            Aggregate sensor/field route and an identity modifier. Encoded
+            microwave temperatures are already in kelvin.
+        """
+        source_key = cls.VOCAB[val]
+
+        def modifier(frame: pd.DataFrame) -> pd.DataFrame:
+            return frame
+
+        return source_key, modifier

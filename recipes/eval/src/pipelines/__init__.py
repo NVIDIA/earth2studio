@@ -21,16 +21,21 @@ from __future__ import annotations
 import hydra
 from omegaconf import DictConfig
 
-from .base import Pipeline, PredownloadStore
+from .assimilation import AssimilationForecastPipeline, AssimilationPipeline
+from .base import Pipeline, PredownloadFrameStore, PredownloadStore
+from .diagnostic import DiagnosticPipeline
 from .dlesym import DLESyMPipeline
-from .forecast import DiagnosticPipeline, ForecastPipeline
+from .forecast import ForecastPipeline
 from .stormscope import StormScopePipeline
 
 __all__ = [
+    "AssimilationForecastPipeline",
+    "AssimilationPipeline",
     "DLESyMPipeline",
     "DiagnosticPipeline",
     "ForecastPipeline",
     "Pipeline",
+    "PredownloadFrameStore",
     "PredownloadStore",
     "StormScopePipeline",
     "build_pipeline",

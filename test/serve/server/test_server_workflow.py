@@ -1534,8 +1534,7 @@ class TestWorkflowRegistry:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a simple workflow file
             workflow_file = Path(tmpdir) / "test_workflow_module.py"
-            workflow_file.write_text(
-                """
+            workflow_file.write_text("""
 from earth2studio.serve.server.workflow import Workflow, WorkflowParameters, WorkflowRegistry
 
 class SimpleWorkflow(Workflow):
@@ -1552,8 +1551,7 @@ class SimpleWorkflow(Workflow):
         return {"result": "success"}
 
 WorkflowRegistry.instance().register(SimpleWorkflow)
-"""
-            )
+""")
 
             successful, failed = self.registry.discover_and_register_from_directories(
                 [tmpdir], include_builtin=False

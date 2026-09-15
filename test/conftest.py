@@ -53,6 +53,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/data/test_cds.py": ["data"],
     "test/data/test_cams.py": ["data"],
     "test/data/test_cmip6.py": ["data"],
+    "test/data/test_dynamical.py": ["data"],
     "test/data/test_gdas.py": ["data"],
     "test/data/test_planetary_computer.py": ["data"],
     "test/data/test_hrrr.py": ["data"],
@@ -71,12 +72,14 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/dx/test_corrdiff.py": ["corrdiff"],
     "test/models/dx/test_corrdiff_cmip6.py": ["corrdiff"],
     "test/models/dx/test_corrdiff_taiwan.py": ["corrdiff"],
+    "test/models/dx/test_corrdiff_cosmo_era5.py": ["cosmo"],
     "test/models/dx/test_dlesym_v0_isccp_era5_precip.py": ["dlesym"],
     "test/models/dx/test_orbit2_precip.py": ["orbit"],
     "test/models/dx/test_precip_afno.py": ["precip-afno"],
     "test/models/dx/test_precip_afno_v2.py": ["precip-afno-v2"],
     "test/models/dx/test_solarradiation_afno.py": ["solarradiation-afno"],
     "test/models/dx/test_tc_tracking.py": ["cyclone"],
+    "test/models/dx/test_stormscope_dx_nsrdb.py": ["stormscope"],
     "test/models/dx/test_wind_gust.py": ["windgust-afno"],
     # Model px tests
     "test/models/px/test_ace2.py": ["ace2"],
@@ -85,6 +88,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_aifs2.py": ["aifs2"],
     "test/models/px/test_aifs2ens.py": ["aifs2ens"],
     "test/models/px/test_atlas.py": ["atlas"],
+    "test/models/px/test_atlas_crps.py": ["atlas"],
     "test/models/px/test_aurora.py": ["aurora"],
     "test/models/px/test_cbottle_video.py": ["cbottle"],
     "test/models/px/test_dlesym.py": ["dlesym"],
@@ -94,13 +98,16 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_fcn3.py": ["fcn3"],
     "test/models/px/test_fengwu.py": ["fengwu"],
     "test/models/px/test_fuxi.py": ["fuxi"],
+    "test/models/px/test_fuxi_s2s.py": ["fuxi"],
     "test/models/px/test_gencast_mini.py": ["gencast"],
     "test/models/px/test_graphcast.py": ["graphcast"],
     "test/models/px/test_interpmodafno.py": ["interp-modafno"],
     "test/models/px/test_pangu.py": ["pangu"],
     "test/models/px/test_sfno.py": ["sfno"],
     "test/models/px/test_stormcast.py": ["stormcast"],
+    "test/models/px/test_stormcastconus.py": ["stormcast-conus"],
     "test/models/px/test_stormscope.py": ["stormscope"],
+    "test/models/px/test_stormscope_meteosat.py": ["stormscope"],
     "test/models/px/test_dxwrapper.py": [
         "fcn3",
         "corrdiff",
@@ -112,6 +119,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/da/test_da_healda_v2.py": ["da-healda"],
     "test/models/da/test_da_interp.py": ["da-interp"],
     "test/models/da/test_da_sda_stormcast.py": ["da-stormcast"],
+    "test/models/da/test_da_sda_corrdiff_cosmo_era5.py": ["da-cosmo"],
     # Serve tests
     "test/serve/client/test_serve_client.py": ["serve"],
     "test/serve/client/test_serve_e2client.py": ["serve"],
@@ -136,6 +144,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/perturbation/test_gaussian.py": ["perturbation"],
     # Utils tests
     "test/utils/test_interp.py": ["utils"],
+    "test/utils/test_obs.py": ["utils"],
 }
 
 

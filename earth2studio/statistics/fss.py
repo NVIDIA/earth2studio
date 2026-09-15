@@ -184,7 +184,7 @@ class fss:
 
         # squeeze batch dimensions
         x_shape = x.shape
-        x = x.view(np.prod(x_shape[:-2]), 1, *x_shape[-2:])
+        x = x.view(int(np.prod(x_shape[:-2])), 1, *x_shape[-2:])
 
         # mask input points that exceed each threshold
         binary_prob = (x >= thresholds[None, :, None, None]).to(dtype=x.dtype)
@@ -250,8 +250,8 @@ class fss:
         self._validate_coords(x_coords, y_coords)
 
         if self.spatial_dimensions is not None:
-            (x, x_coords) = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
-            (y, y_coords) = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
+            x, x_coords = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
+            y, y_coords = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
 
         thresholds = torch.as_tensor(self.thresholds).to(dtype=x.dtype, device=x.device)
         out_coords = self.output_coords(x_coords)

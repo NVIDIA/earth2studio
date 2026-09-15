@@ -183,14 +183,14 @@ def test_dxwrapper_call(device, model_type, times):
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
 
-    (x, coords) = fetch_data(
+    x, coords = fetch_data(
         data,
         times,
         variable=wrapped_model.input_coords()["variable"],
         device=device,
     )
-    (x, input_coords) = map_coords(x, coords, wrapped_model.input_coords())
-    (x, coords) = wrapped_model(x, input_coords)
+    x, input_coords = map_coords(x, coords, wrapped_model.input_coords())
+    x, coords = wrapped_model(x, input_coords)
 
     coord_shape = tuple(coord.shape[0] for coord in coords.values())
     expected_shape = tuple(
@@ -255,13 +255,13 @@ def test_dxwrapper_iter(device, times, number_of_samples):
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
 
-    (x, coords) = fetch_data(
+    x, coords = fetch_data(
         data,
         times,
         variable=px_model.input_coords()["variable"],
         device=device,
     )
-    (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    x, coords = map_coords(x, coords, wrapped_model.input_coords())
     # Get generator
     p_iter = wrapped_model.create_iterator(x, coords)
     for i, (out, out_coords) in enumerate(p_iter):
@@ -324,13 +324,13 @@ def test_dxwrapper_run(device, times, number_of_samples):
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
     data = Random(dc)
 
-    (x, coords) = fetch_data(
+    x, coords = fetch_data(
         data,
         times,
         variable=px_model.input_coords()["variable"],
         device=device,
     )
-    (x, coords) = map_coords(x, coords, wrapped_model.input_coords())
+    x, coords = map_coords(x, coords, wrapped_model.input_coords())
     io = XarrayBackend()
     deterministic(times, 2, wrapped_model, data, io, device=device)
 

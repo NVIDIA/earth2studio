@@ -50,21 +50,20 @@ class batch_func:
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    class Model():
 
-        class Model():
+        input_coords = OrderedDict([("batch", np.empty(0)), ...])
+        output_coords = OrderedDict([("batch", np.empty(0)), ...])
 
-            input_coords = OrderedDict([("batch", np.empty(0)), ...])
-            output_coords = OrderedDict([("batch", np.empty(0)), ...])
-
-            @batch_func()
-            def __call__(
-                self,
-                x: torch.Tensor,
-                coords: CoordSystem,
-            ) -> tuple[torch.Tensor, CoordSystem]:
-                ...
+        @batch_func()
+        def __call__(
+            self,
+            x: torch.Tensor,
+            coords: CoordSystem,
+        ) -> tuple[torch.Tensor, CoordSystem]:
+            ...
+    ```
     """
 
     def __call__(self, func: F) -> Callable:

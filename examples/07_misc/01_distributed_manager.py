@@ -25,7 +25,7 @@ Many inference workflows are embarrassingly parallel and can be easily sharded a
 multiple devices.
 This example demonstrates how one can use the PhysicsNeMo distributed manager to distribute
 inference across mutliple GPUs.
-The `distributed manager <https://github.com/NVIDIA/physicsnemo/blob/main/physicsnemo/distributed/manager.py>`_
+The [distributed manager](https://github.com/NVIDIA/physicsnemo/blob/main/physicsnemo/distributed/manager.py)
 is a utility that provides a useful set of properties that pertain to a parallel
 environment.
 
@@ -36,6 +36,7 @@ In this example you will learn:
 - Limitations of parallel inference in Earth2Studio
 - Post-processing strategies of parallel job outputs
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -52,17 +53,16 @@ In this example you will learn:
 #
 # For example, this script could be ran using:
 #
-# .. code-block:: bash
+# ```bash
+# # OpenMPI
+# mpirun -np 2 python 08_distributed_manager.py
+# # Torch run
+# torchrun --standalone --nnodes=1 --nproc-per-node=2 08_distributed_manager.py
+# ```
 #
-#   # OpenMPI
-#   mpirun -np 2 python 08_distributed_manager.py
-#   # Torch run
-#   torchrun --standalone --nnodes=1 --nproc-per-node=2 08_distributed_manager.py
-#
-# .. warning::
-#
-#   When running in parallel, make sure the .env file in the repository examples
-#   folder is *not* present. The .env file is intended for the documentation build only.
+# !!! warning
+#     When running in parallel, make sure the .env file in the repository examples
+#     folder is *not* present. The .env file is intended for the documentation build only.
 
 # %%
 import os
@@ -110,9 +110,9 @@ if dist.rank != 0:
 # When loading models that are built into Earth2Studio, the model's checkpoint files
 # will be downloaded into the machines cache. If each inference process has access to
 # the same cache location, then only one should download the checkpoint triggered by
-# :py:func:`load_model`.
+# `load_model`.
 #
-# Here :py:class:`earth2studio.models.px.DLWP` checkpoint files are first downloaded by
+# Here [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP] checkpoint files are first downloaded by
 # process 0 and then loaded by other processes.
 
 # %%
@@ -167,14 +167,13 @@ torch.distributed.barrier()
 # Post Processing
 # ---------------
 # Finally, we can post process the results. Xarray provides a useful function for
-# opening multiple files as a single dataset, :py:func:`xarray.open_mfdataset`. This
+# opening multiple files as a single dataset, `xarray.open_mfdataset`. This
 # allows outputs from all processes to get treated as a single data array.
 #
-# .. warning::
-#
-#   In this script process 0 is used to post process so the example is in one file.
-#   It is best practice to perform post processing in a separate job / script entirely
-#   to better utilize compute resources.
+# !!! warning
+#     In this script process 0 is used to post process so the example is in one file.
+#     It is best practice to perform post processing in a separate job / script entirely
+#     to better utilize compute resources.
 
 if dist.rank == 0:
     import matplotlib.pyplot as plt

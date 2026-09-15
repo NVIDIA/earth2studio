@@ -261,8 +261,8 @@ file that should not be exported.
 
 For public models:
 
-- Add to `docs/modules/models_dx.rst` alphabetically so API docs include the generated page.
-- Add to `docs/userguide/about/install.md` if a model extra exists. Include model notes plus both `pip install earth2studio[model-name]` and `uv add earth2studio --extra model-name` instructions.
+- Add to `docs/modules/models_dx.md` alphabetically so API docs include the generated page.
+- Add an entry to `docs/userguide/about/install_options.yml` if a model extra exists. Include model notes, source-specific preinstall commands, and `api_refs` for any model classes that should show a View Install Notes button in the generated API docs.
 - Update `CHANGELOG.md` under `### Added`.
 
 Format and lint:

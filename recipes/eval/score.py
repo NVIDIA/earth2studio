@@ -35,6 +35,22 @@ Prerequisites
 -------------
 1. ``predownload.py`` with ``predownload.verification.enabled=true``
 2. ``main.py`` (inference must have completed)
+
+Online runs
+-----------
+With ``scoring.mode=online`` there is no ``forecast.zarr`` to re-read —
+``main.py`` accumulated sufficient statistics as it ran.  This script then
+only re-derives ``scores.zarr`` from ``stats.zarr``, which is single-process
+and cheap; use it to pick up new derived metrics without re-running
+inference.
+
+To score an online run the offline way as a cross-check — possible whenever
+the run kept its raw fields (``output.retain=all``) — override the mode and
+give the result its own store::
+
+    torchrun --nproc_per_node=$NGPU --standalone score.py \\
+        campaign=fcn3_2024_monthly scoring.mode=offline \\
+        scoring.output.store_name=scores_offline.zarr
 """
 
 import hydra
@@ -44,6 +60,7 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging, run_on_rank0_first
+from src.online import finalize_stats, online_enabled
 from src.output import OutputManager
 from src.scoring import (
     add_score_arrays,
@@ -74,6 +91,19 @@ def main(cfg: DictConfig) -> None:
     configure_logging()
     dist = DistributedManager()
     device = dist.device
+
+    # --- Online mode: nothing to re-read -----------------------------------
+    # An online run already reduced its forecasts to sufficient statistics
+    # during inference, so "scoring" is just the (single-process, cheap)
+    # finalize of stats.zarr -> scores.zarr.  Re-running it is how you pick
+    # up newly-derived metrics without re-running inference.
+    if online_enabled(cfg):
+        if dist.rank == 0:
+            finalize_stats(cfg)
+        if dist.distributed:
+            torch.distributed.barrier()
+        logger.success("Scoring finished (online mode: finalized stats.zarr).")
+        return
 
     # --- Build and distribute work -----------------------------------------
     all_items = build_work_items(cfg)

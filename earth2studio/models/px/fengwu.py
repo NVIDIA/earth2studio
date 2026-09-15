@@ -129,6 +129,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     - https://arxiv.org/abs/2304.02948
     - https://github.com/OpenEarthLab/FengWu
+    - https://huggingface.co/NickGeneva/earth_ai
 
     Note
     ----
@@ -146,7 +147,8 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:mrf product:wind product:temp product:atmos year:2023 gpu:40gb
+    region:global class:medium-range product:wind product:temp product:atmos year:2023 gpu:40gb
+    backend:onnx
     """
 
     def __init__(
@@ -302,11 +304,14 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return out
 
         x = (x - self.center) / self.scale  # Normalize
-        x = x.view(x.shape[0], -1, 721, 1440)  # Concat time-steps
+        # reshape, not view: x is the caller's tensor and may be non-contiguous
+        x = x.reshape(x.shape[0], -1, 721, 1440)  # Concat time-steps
         # Forward pass, fengwu onnx supports batched
         bind_input("input", x)
         output = bind_output("output", like=x)
+        binding.synchronize_inputs()
         ort_session.run_with_iobinding(binding)
+        binding.synchronize_outputs()
 
         # ONNX model outputs two time-steps, take the first
         output_tensor = output[:].contiguous()

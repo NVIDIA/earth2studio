@@ -32,6 +32,7 @@ In this example you will learn:
 - Running a simple built in workflow
 - Post-processing results
 """
+
 # /// script
 # dependencies = [
 #   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
@@ -44,7 +45,7 @@ In this example you will learn:
 # ------
 # All workflows inside Earth2Studio require constructed components to be
 # handed to them. In this example, let's take a look at the most basic:
-# :py:meth:`earth2studio.run.deterministic`.
+# [`earth2studio.run.deterministic`][earth2studio.run.deterministic].
 
 # %%
 # .. literalinclude:: ../../earth2studio/run.py
@@ -55,11 +56,11 @@ In this example you will learn:
 # %%
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet Model :py:class:`earth2studio.models.px.FCN`.
-# - Datasource: Pull data from the GFS data api :py:class:`earth2studio.data.GFS`.
-# - IO Backend: Let's save the outputs into a Zarr store :py:class:`earth2studio.io.ZarrBackend`.
+# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Let's save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import os
 
 os.makedirs("outputs", exist_ok=True)
@@ -70,6 +71,7 @@ load_dotenv()  # TODO: make common example prep function
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
+from earth2studio.utils.time import to_time_array
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -82,6 +84,21 @@ data = GFS()
 io = ZarrBackend()
 
 # %%
+# Fetch Data
+# ----------
+# You can easily fetch raw Xarray data from an initial condition data source with
+# a simple call. By default, this caches the data locally on your machine, so you
+# won't have to re-download it if you access it again or use it in an inference
+# pipeline.
+
+# %% tags=["e2sg-profile:setup"]
+sample = data(
+    to_time_array(["2023-12-31T18:00:00", "2024-01-01"]),
+    model.input_coords()["variable"],
+)
+print(sample)
+
+# %%
 # Execute the Workflow
 # --------------------
 # With all components initialized, running the workflow is a single line of Python code.
@@ -92,7 +109,7 @@ io = ZarrBackend()
 # For the forecast we will predict for two days (these will get executed as a batch) for
 # 20 forecast steps which is 5 days.
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 import earth2studio.run as run
 
 nsteps = 20
@@ -109,7 +126,7 @@ print(io.root.tree())
 #
 # Notice that the Zarr IO function has additional APIs to interact with the stored data.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 

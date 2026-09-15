@@ -21,6 +21,7 @@ schema_version: 1
 harbor:
   custom_dockerfile_mode: preserve
   base_image_mode: disabled
+  network_policy: disabled
   n_attempts: 2
   pass_threshold: 0.60
   stop_on_pass: false

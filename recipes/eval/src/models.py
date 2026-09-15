@@ -28,29 +28,37 @@ from earth2studio.models.px import PrognosticModel
 from .distributed import run_on_rank0_first
 
 
-def load_prognostic(cfg: DictConfig) -> PrognosticModel:
+def load_prognostic(
+    cfg: DictConfig,
+    node: DictConfig | None = None,
+) -> PrognosticModel:
     """Load a prognostic model from the Hydra config.
 
-    The config's ``model`` section must contain an ``architecture`` key whose
+    The model config node must contain an ``architecture`` key whose
     value is the fully-qualified class name of a prognostic model (e.g.
     ``earth2studio.models.px.DLWP``).  The class is expected to expose the
     standard ``load_default_package`` / ``load_model`` classmethods from the
     ``AutoModelMixin`` protocol.
 
-    Any extra keyword arguments under ``model.load_args`` are forwarded to
+    Any extra keyword arguments under ``load_args`` are forwarded to
     ``load_model``.
 
     Parameters
     ----------
     cfg : DictConfig
         Hydra config with a ``model`` section.
+    node : DictConfig | None
+        Model config node to load from.  Defaults to ``cfg.model``;
+        pipelines whose model config nests the prognostic (e.g.
+        ``cfg.model.forecast`` for DA-initialized forecasts) pass the
+        nested node explicitly.
 
     Returns
     -------
     PrognosticModel
         Loaded (but not yet device-placed) prognostic model.
     """
-    model_cfg = cfg.model
+    model_cfg = node if node is not None else cfg.model
     cls = hydra.utils.get_class(model_cfg.architecture)
 
     if model_cfg.get("package_path"):

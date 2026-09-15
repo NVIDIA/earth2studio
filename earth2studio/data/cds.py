@@ -18,6 +18,7 @@ import hashlib
 import os
 import pathlib
 import shutil
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -30,7 +31,7 @@ from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
-from earth2studio.lexicon import CDSLexicon
+from earth2studio.lexicon import CDS_ERA5Lexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -48,8 +49,8 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 
 @dataclass
-class CDSRequest:
-    """CDS Request data class"""
+class CDS_ERA5Request:
+    """CDS_ERA5 Request data class"""
 
     dataset: str
     time: datetime
@@ -61,10 +62,10 @@ class CDSRequest:
 
 
 @check_optional_dependencies()
-class CDS:
-    """The climate data source (CDS) serving ERA5 re-analysis data. This data source
-    requires users to have a CDS API access key which can be obtained for free on the
-    CDS webpage.
+class CDS_ERA5:
+    """ERA5 reanalysis data served from the Climate Data Store (CDS). This data source
+    requires users to have a CDS API access key which can be obtained for free on the CDS
+    webpage.
 
     Parameters
     ----------
@@ -87,7 +88,7 @@ class CDS:
 
     Badges
     ------
-    region:global dataclass:reanalysis product:wind product:precip product:temp product:atmos
+    region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:copernicus
     """
 
     MAX_BYTE_SIZE = 20000000
@@ -137,12 +138,12 @@ class CDS:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in CDS lexicon.
+            return. Must be in CDS_ERA5Lexicon.
 
         Returns
         -------
         xr.DataArray
-            ERA5 weather data array from CDS
+            ERA5 weather data array from CDS_ERA5
         """
         time, variable = prep_data_inputs(time, variable)
 
@@ -177,7 +178,7 @@ class CDS:
         time : datetime
             Date time to fetch
         variables : list[str]
-            list of atmospheric variables to fetch. Must be supported in CDS lexicon
+            list of atmospheric variables to fetch. Must be supported in CDS_ERA5Lexicon
 
         Returns
         -------
@@ -190,13 +191,15 @@ class CDS:
         requests = self._build_requests(time, variables)
         # pbar = tqdm(
         #     total=len(requests),
-        #     desc=f"Fetching CDS for {time}",
+        #     desc=f"Fetching CDS_ERA5 for {time}",
         #     disable=(not self._verbose),
         # )
 
         # Fetch process for getting data off CDS
-        def _fetch_process(request: CDSRequest, rank: int, return_dict: dict) -> None:
-            logger.info(
+        def _fetch_process(
+            request: CDS_ERA5Request, rank: int, return_dict: dict
+        ) -> None:
+            logger.debug(
                 f"Fetching CDS grib file for variable: {request.variable} at {request.time} with {len(request.levels)} levels"
             )
             grib_file = self._download_cds_grib_cached(
@@ -248,7 +251,7 @@ class CDS:
         return da
 
     def _validate_time(self, times: list[datetime]) -> None:
-        """Verify if date time is valid for CDS
+        """Verify if date time is valid for CDS_ERA5.
 
         Parameters
         ----------
@@ -258,27 +261,29 @@ class CDS:
         for time in times:
             if not (time - datetime(1900, 1, 1)).total_seconds() % 3600 == 0:
                 raise ValueError(
-                    f"Requested date time {time} needs to be 1 hour interval for CDS"
+                    f"Requested date time {time} needs to be 1 hour interval for CDS_ERA5"
                 )
 
             if time < datetime(year=1940, month=1, day=1):
                 raise ValueError(
-                    f"Requested date time {time} needs to be after January 1st, 1940 for CDS"
+                    f"Requested date time {time} needs to be after January 1st, 1940 for CDS_ERA5"
                 )
 
             # if not self.available(time):
-            #     raise ValueError(f"Requested date time {time} not available in CDS")
+            #     raise ValueError(f"Requested date time {time} not available in CDS_ERA5")
 
-    def _build_requests(self, time: datetime, variables: list[str]) -> list[CDSRequest]:
+    def _build_requests(
+        self, time: datetime, variables: list[str]
+    ) -> list[CDS_ERA5Request]:
         """Builds list of CDS request objects. Compiles different pressure levels for
         a given variable into a single request"""
-        requests: dict[str, CDSRequest] = {}
+        requests: dict[str, CDS_ERA5Request] = {}
         for i, variable in enumerate(variables):
             # Convert from Nvidia variable ID to CDS id and modifier
             try:
-                cds_name, modifier = CDSLexicon[variable]
+                cds_name, modifier = CDS_ERA5Lexicon[variable]  # type: ignore[misc]
             except KeyError as e:
-                logger.error(f"variable id {variable} not found in CDS lexicon")
+                logger.error(f"variable id {variable} not found in CDS_ERA5Lexicon")
                 raise e
 
             dataset_name, cds_variable, level = cds_name.split("::")
@@ -289,7 +294,7 @@ class CDS:
                 requests[request_id].indices.append(i)
                 requests[request_id].ids.append(variable)
             else:
-                requests[request_id] = CDSRequest(
+                requests[request_id] = CDS_ERA5Request(
                     dataset=dataset_name,
                     time=time,
                     variable=cds_variable,
@@ -401,7 +406,19 @@ class CDS:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "cds")
+        cache_location = os.path.join(datasource_cache_root(), "cds_era5")
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_cds")
+            cache_location = os.path.join(cache_location, "tmp_cds_era5")
         return cache_location
+
+
+class CDS(CDS_ERA5):
+    """Deprecated alias for :class:`CDS_ERA5`."""
+
+    def __init__(self, cache: bool = True, verbose: bool = True) -> None:
+        warnings.warn(
+            "CDS has been renamed to CDS_ERA5 and will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(cache=cache, verbose=verbose)

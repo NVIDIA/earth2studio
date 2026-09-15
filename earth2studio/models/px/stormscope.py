@@ -1043,6 +1043,21 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             conditioning_norm = None
 
+        # valid_mask/conditioning_valid_mask only zero-fill gridpoints they mark
+        # invalid; a non-finite value at a gridpoint marked *valid* (e.g. a GOES
+        # fill value that lands inside the static valid_mask) passes straight
+        # through. Fail loudly rather than feeding it into the diffusion sampler.
+        # Done here rather than on the assembled condition so the guard reduces
+        # the smaller pre-assembly tensors, costs a single device sync for both,
+        # and fails before build_condition does its work.
+        finite = torch.isfinite(x_norm).all()
+        if conditioning_norm is not None:
+            finite = finite & torch.isfinite(conditioning_norm).all()
+        if not bool(finite):
+            self._raise_nonfinite_input(
+                x_norm, coords, conditioning_norm, conditioning_coords
+            )
+
         # Combined conditioning to diffusion model: state, conditioning variables, extras (lat/lon, cos zenith angle)
         condition = self.build_condition(
             x=x_norm,
@@ -1050,6 +1065,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
         )
+
         latents = torch.randn(
             b * t, *x.shape[3:], device=x.device, dtype=x.dtype
         )  # shape [B*T, C, H, W]
@@ -1073,6 +1089,46 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out = torch.where(self.valid_mask, out, torch.nan)
         out = self._denormalize_state(out)
         return out
+
+    def _raise_nonfinite_input(
+        self,
+        x_norm: torch.Tensor,
+        coords: CoordSystem,
+        conditioning_norm: torch.Tensor | None,
+        conditioning_coords: CoordSystem | None,
+    ) -> None:
+        """Raise a ValueError naming the variables carrying non-finite values.
+
+        Only called once the cheap guard in :meth:`_forward` has found a
+        non-finite value, so the extra reductions here are off the happy path.
+        """
+        details = []
+        for name, tensor, tensor_coords in (
+            ("input state", x_norm, coords),
+            ("conditioning", conditioning_norm, conditioning_coords),
+        ):
+            if tensor is None:
+                continue
+            bad = ~torch.isfinite(tensor)
+            count = int(bad.sum())
+            if count == 0:
+                continue
+            # Tensors are [B, T, L, C, H, W]; reduce everything but the channel
+            channels = bad.any(dim=(0, 1, 2, 4, 5)).nonzero(as_tuple=True)[0]
+            labels = channels.tolist()
+            if tensor_coords is not None and "variable" in tensor_coords:
+                variables = np.asarray(tensor_coords["variable"])
+                if len(variables) == tensor.shape[3]:
+                    labels = variables[channels.cpu().numpy()].tolist()
+            details.append(f"{count} value(s) in {name} variable(s) {labels}")
+
+        raise ValueError(
+            f"Non-finite values found before diffusion sampling "
+            f"({'; '.join(details)}) not sanitized by valid_mask/"
+            "conditioning_valid_mask. This likely indicates missing or "
+            "fill-valued data (e.g. from the GOES source) at gridpoints marked "
+            "valid."
+        )
 
     def _normalize_state(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize state channels: log1p for GLM channels, affine otherwise."""
@@ -1230,7 +1286,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             or (coords["y"] != self.y).any()
             or (coords["x"] != self.x).any()
         ):
-
             if interpolator is None:
                 raise ValueError(
                     f"Using {type_label} data on a non-native grid requires interpolation, call build_{type_label}_interpolator first"
@@ -1431,7 +1486,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x, coords = self.prep_input(x, coords)
         ic_coords = coords.copy()
         ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
-        yield torch.where(~self.valid_mask, torch.nan, x), ic_coords
+        ic_x = x[:, :, -1:, ...]
+        yield torch.where(~self.valid_mask, torch.nan, ic_x), ic_coords
 
         while True:
             x, coords = self.front_hook(x, coords)
@@ -1481,6 +1537,12 @@ class StormScopeGOES(StormScopeBase):
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single
     input timestep and predict one output timestep.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/stormscope-goes-mrms
 
     Parameters
     ----------
@@ -1535,7 +1597,8 @@ class StormScopeGOES(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:sat year:2026 gpu:80gb
+    region:na class:nowcasting product:sat year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     _REGISTRY_KEY = "goes"
@@ -1727,6 +1790,21 @@ class StormScopeGOES(StormScopeBase):
         except FileNotFoundError:
             pass
 
+        try:
+            import natten
+        except (ImportError, OSError) as exc:
+            raise ImportError(
+                "StormScope requires NATTEN for neighborhood attention. Install "
+                "with `pip install earth2studio[stormscope]` or "
+                "`uv add earth2studio --extra stormscope`."
+            ) from exc
+        if getattr(natten, "HAS_LIBNATTEN", True) is False:
+            raise ImportError(
+                "StormScope requires NATTEN with libnatten enabled. Reinstall "
+                "NATTEN with a wheel or source build matching the active PyTorch "
+                "and CUDA environment."
+            )
+
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
         model_spec = cls._load_checkpoints(package, pkg)
@@ -1810,6 +1888,12 @@ class StormScopeMRMS(StormScopeBase):
     predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
     method. Otherwise, the user must provide a conditioning data source for the model
     to use during inference.
+
+    Note
+    ----
+    For more information see the following references:
+
+    - https://huggingface.co/nvidia/stormscope-goes-mrms
 
     Parameters
     ----------
@@ -1907,7 +1991,8 @@ class StormScopeMRMS(StormScopeBase):
 
     Badges
     ------
-    region:na class:nwc product:radar year:2026 gpu:80gb
+    region:na class:nowcasting product:radar year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
     """
 
     _REGISTRY_KEY = "mrms"
@@ -2042,7 +2127,8 @@ class StormScopeMRMS(StormScopeBase):
         """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
         grid) onto the model grid. Points outside the GLM grid are filled with 0.
         Returns physical counts (apply no normalization here; the model applies
-        log1p internally). Requires :meth:`build_glm_interpolator` first."""
+        log1p internally). Requires :meth:`build_glm_interpolator` first.
+        """
         if self.glm_interp is None:
             raise ValueError(
                 "GLM interpolator not built; call build_glm_interpolator first."
@@ -2322,6 +2408,21 @@ class StormScopeMRMS(StormScopeBase):
             package.resolve("config.json")  # HF tracking download statistics
         except FileNotFoundError:
             pass
+
+        try:
+            import natten
+        except (ImportError, OSError) as exc:
+            raise ImportError(
+                "StormScope requires NATTEN for neighborhood attention. Install "
+                "with `pip install earth2studio[stormscope]` or "
+                "`uv add earth2studio --extra stormscope`."
+            ) from exc
+        if getattr(natten, "HAS_LIBNATTEN", True) is False:
+            raise ImportError(
+                "StormScope requires NATTEN with libnatten enabled. Reinstall "
+                "NATTEN with a wheel or source build matching the active PyTorch "
+                "and CUDA environment."
+            )
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)

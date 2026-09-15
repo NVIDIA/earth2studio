@@ -17,4 +17,5 @@
 from .healda import HealDA
 from .healda_v2 import HealDAv2
 from .interp import InterpEquirectangular
+from .sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from .sda_stormcast import StormCastSDA

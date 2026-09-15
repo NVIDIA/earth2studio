@@ -99,7 +99,8 @@ class CheckpointEntry:
 
 
 class CheckpointState(Generic[T]):
-    """Bound checkpoint state proxy returned by :func:`bind_checkpoint_state`.
+    """Bound checkpoint state proxy returned by
+    [`bind_checkpoint_state`][earth2studio.utils.checkpoint.bind_checkpoint_state].
 
     The proxy forwards normal attribute access to the wrapped dataclass while
     exposing checkpoint metadata through ``checkpoint_*`` properties.

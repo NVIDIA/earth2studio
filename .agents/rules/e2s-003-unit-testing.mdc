@@ -227,7 +227,7 @@ def test_data_source(time, variable):
 
 When adding tests for a new feature:
 
-1. **Copy similar existing tests** - For a new data source, copy tests from GFS or ARCO
+1. **Copy similar existing tests** - For a new data source, copy tests from GFS or ARCO_ERA5
 2. **Modify for your feature** - Adapt the test structure to your specific needs
 3. **Ensure coverage** - Aim for 90%+ coverage of your new code
 4. **Use appropriate markers** - Mark slow/network tests appropriately

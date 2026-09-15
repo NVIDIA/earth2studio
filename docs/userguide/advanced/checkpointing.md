@@ -13,13 +13,12 @@ configured checkpoint level. Exactly what gets logged is user-configurable
 through the checkpoint options and through the checkpoint support implemented
 by each component.
 
-```{warning}
-Checkpointing support is opt-in for every component. Not all models,
-perturbations, or custom components support checkpointed restarts. Always verify
-that the model you plan to use has checkpoint support before relying on it
-for restartable inference. If checkpointing is missing for a model you need, open
-a [feature request](https://github.com/NVIDIA/earth2studio/issues).
-```
+!!! warning
+    Checkpointing support is opt-in for every component. Not all models,
+    perturbations, or custom components support checkpointed restarts. Always verify
+    that the model you plan to use has checkpoint support before relying on it
+    for restartable inference. If checkpointing is missing for a model you need, open
+    a [feature request](https://github.com/NVIDIA/earth2studio/issues).
 
 ## Basic Use
 

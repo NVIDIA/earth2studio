@@ -15,23 +15,26 @@
 # limitations under the License.
 
 import asyncio
-import functools
 import hashlib
 import os
 import pathlib
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
-import s3fs
 import xarray as xr
 from loguru import logger
-from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
+    async_retry,
     datasource_cache_root,
+    gather_with_concurrency,
+    obstore_fetch_to_cache,
+    obstore_list_prefix,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon import GOESLexicon
@@ -81,10 +84,28 @@ class GOES:
         - Full Disk (F): Entire Earth view
         - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
 
+    Missing data:
+
+    Some pixels are ``_FillValue`` in NOAA's source file (e.g. calibration
+    gaps or other instrument issues) and decode to NaN. This data source will
+    warn with the affected pixel count whenever a pixel on the Earth disk is
+    NaN, except within a narrow band at the limb: at the very edge of the
+    visible disk, our idealized center-ray geometry says "Earth" while NOAA's
+    radiance retrieval sometimes says "can't produce a value", a definitional
+    disagreement confined to a measured 3-pixel rind with nothing genuinely
+    missing inside it. NaNs in that rind are logged at debug level instead.
+    Pixels off the disk are always fill-valued and are excluded entirely.
+
     Badges
     ------
-    region:na dataclass:observation product:sat
+    region:na dataclass:observation product:sat provider:noaa
     """
+
+    # Empirically measured width of the geometric-vs-retrieval limb disagreement
+    # (see class docstring "Missing data" note): 100% of recurring false-positive
+    # NaNs across full-disk and CONUS sectors fall within this many pixels of an
+    # off-disk pixel, with zero found any deeper.
+    LIMB_BAND_WIDTH = 3
 
     SCAN_TIME_FREQUENCY = {
         "F": 600,
@@ -194,28 +215,56 @@ class GOES:
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        retries: int = 3,
     ):
         self._satellite = satellite.lower()
         self._scan_mode = scan_mode.upper()
         self._max_workers = max_workers
+        self._retries = retries
         self._cache = cache
         self._verbose = verbose
         self._async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
+        # Memoized S3 hour-directory listings keyed by prefix; requesting many
+        # timestamps within the same hour then costs a single LIST request
+        self._hour_listing_cache: dict[str, list[str]] = {}
 
         # Stash the grid coords so they can be added to data arrays
         self._lat, self._lon = GOES.grid(satellite=satellite, scan_mode=scan_mode)
+        # Pixels off the Earth disk have undefined lat/lon (NaN); used to
+        # distinguish expected off-disk NaNs from genuine data quality issues
+        self._on_disk_mask = ~np.isnan(self._lat)
+        self._on_disk_count = int(np.count_nonzero(self._on_disk_mask))
+        # On-disk pixels within LIMB_BAND_WIDTH of the off-disk boundary: where
+        # our center-ray geometry and NOAA's retrieval can disagree about
+        # visibility (see class docstring). Static per (satellite, scan_mode),
+        # so computed once here rather than per fetch.
+        self._limb_band_mask = self._on_disk_mask & self._dilate(
+            ~self._on_disk_mask, self.LIMB_BAND_WIDTH
+        )
 
         # Validate satellite and scan mode
         self._validate_satellite_scan_mode(self._satellite, self._scan_mode)
 
-        # Filesystem is lazily initialized on first call
-        self.fs: s3fs.S3FileSystem | None = None
+        # Object store is lazily initialized on first call
+        self.store: AsyncListableStore | None = None
+
+    @property
+    def _bucket(self) -> str:
+        """Anonymous S3 bucket for the configured satellite."""
+        return f"noaa-{self._satellite}"
 
     async def _async_init(self) -> None:
-        """Async initialization of S3 filesystem"""
-        self.fs = s3fs.S3FileSystem(
-            anon=True, client_kwargs={}, asynchronous=True, skip_instance_cache=True
+        """Async initialization of the object store
+
+        Note
+        ----
+        Unlike async fsspec filesystems, obstore stores are event-loop
+        independent and could be built in ``__init__``; kept as a lazy async
+        method to preserve the initialization seam.
+        """
+        self.store = obstore_store_from_url(
+            f"s3://{self._bucket}", max_pool_connections=self._max_workers
         )
 
     def __call__(
@@ -267,7 +316,7 @@ class GOES:
         xr.DataArray
             GOES data array
         """
-        if self.fs is None:
+        if self.store is None:
             await self._async_init()
 
         time, variable = prep_data_inputs(time, variable)
@@ -276,10 +325,6 @@ class GOES:
 
         # Create cache dir if doesn't exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
-
-        # https://filesystem-spec.readthedocs.io/en/latest/async.html#using-from-async
-        fs = self.fs  # guaranteed non-None after _async_init
-        session = await fs.set_session(refresh=True)  # type: ignore[union-attr]
 
         # Create DataArray with appropriate dimensions
         if self._scan_mode == "F":
@@ -299,19 +344,31 @@ class GOES:
             },
         )
 
+        # Prefetch the hour-directory listings once per unique hour so the
+        # per-timestamp download tasks below hit the memoized cache instead of
+        # each issuing an identical LIST request
+        unique_hours = {self._hour_prefix(t): t for t in time}
+        await asyncio.gather(
+            *(
+                self._list_hour_files(t)
+                for prefix, t in unique_hours.items()
+                if prefix not in self._hour_listing_cache
+            )
+        )
+
         # Create download tasks
         async_tasks = [(i, t, variable) for i, t in enumerate(time)]
-        func_map = map(
-            functools.partial(self.fetch_wrapper, xr_array=xr_array), async_tasks
-        )
+        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
-        await tqdm.gather(
-            *func_map, desc="Fetching GOES data", disable=(not self._verbose)
+        # No gather-level task_timeout here: fetch_wrapper's async_retry
+        # already bounds each attempt at 120s, and an outer timeout of the
+        # same magnitude would cancel the retry loop on the first slow attempt
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._max_workers,
+            desc="Fetching GOES data",
+            verbose=(not self._verbose),
         )
-
-        # Close aiohttp client if s3fs
-        if session:
-            await session.close()
 
         # Add the grid coords to the data array
         xr_array = xr_array.assign_coords(
@@ -325,9 +382,14 @@ class GOES:
         xr_array: xr.DataArray,
     ) -> None:
         """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(
-            time=e[1],
-            variable=e[2],
+        out = await async_retry(
+            self.fetch_array,
+            e[1],
+            e[2],
+            retries=self._retries,
+            backoff=1.0,
+            task_timeout=120.0,
+            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
         )
         xr_array[e[0]] = out
 
@@ -349,6 +411,12 @@ class GOES:
         -------
         np.ndarray
             GOES data array
+
+        Note
+        ----
+        On-disk pixels that are fill-valued in the source file decode to NaN
+        and trigger a logged warning; see the "Missing data" note on the
+        :class:`GOES` class docstring for how to interpret it.
         """
 
         # Get the S3 path for the GOES data file
@@ -377,28 +445,79 @@ class GOES:
             else:
                 x[i] = da[goes_name].values
 
+            # Off-disk pixels are always fill-valued, so only NaNs inside the
+            # static on-disk mask indicate a real problem. Note the file's own
+            # per-band DQF variable is not a usable stand-in here: inside a
+            # missing scan wedge NOAA leaves DQF at _FillValue rather than
+            # writing a quality flag code, so treating "finite DQF" as
+            # "navigated" would exclude the very pixels worth warning about
+            # (and costs an extra variable decode per band).
+            nan_on_disk = np.isnan(x[i]) & self._on_disk_mask
+            # At the very edge of the visible disk, our idealized center-ray
+            # geometry says "Earth" while NOAA's radiance retrieval says
+            # "can't produce a value" -- a definitional disagreement confined
+            # to a measured 3-pixel rind, with nothing genuinely missing
+            # inside it. Report that population separately, at debug level.
+            nan_limb = nan_on_disk & self._limb_band_mask
+            nan_interior = nan_on_disk & ~self._limb_band_mask
+
+            interior_count = int(np.count_nonzero(nan_interior))
+            if interior_count > 0:
+                interior_frac = interior_count / self._on_disk_count
+                logger.warning(
+                    f"GOES variable {v} ({goes_name}) at {time.isoformat()} has "
+                    f"{interior_count} missing pixel(s) ({interior_frac:.4%} of "
+                    f"the on-disk array). Source file likely has quality "
+                    f"issues at this timestamp, filling with NaNs."
+                )
+
+            limb_count = int(np.count_nonzero(nan_limb))
+            if limb_count > 0:
+                limb_frac = limb_count / self._on_disk_count
+                logger.debug(
+                    f"GOES variable {v} ({goes_name}) at {time.isoformat()} has "
+                    f"{limb_count} missing pixel(s) ({limb_frac:.4%} of the "
+                    f"on-disk array) within {self.LIMB_BAND_WIDTH}px of the disk "
+                    f"edge; expected limb/geometry noise, not a data quality issue."
+                )
+
         return x
 
-    async def _get_s3_path(self, time: datetime) -> str:
-        """Get the S3 path for the GOES data file"""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
-
-        # Get needed date components
-        year = time.year
-        day_of_year = time.timetuple().tm_yday
-        hour = time.hour
-
+    def _hour_prefix(self, time: datetime) -> str:
+        """Bucket-relative S3 prefix of the hour directory containing `time`"""
         base_url = self.BASE_URL.format(
             satellite=self._satellite,
             scan_mode=self._scan_mode[0:1],
-            year=year,
-            day_of_year=day_of_year,
-            hour=hour,
+            year=time.year,
+            day_of_year=time.timetuple().tm_yday,
+            hour=time.hour,
         )
+        # obstore keys are bucket-relative; strip the "s3://{bucket}/" prefix
+        return base_url.split(f"{self._bucket}/", 1)[1]
 
-        # List files in the directory to find the most recent one
-        files = await self.fs._ls(base_url)
+    async def _list_hour_files(self, time: datetime) -> list[str]:
+        """List the S3 hour directory containing `time`, memoizing complete
+        (past) hours per prefix; the still-filling current hour is always
+        re-listed. Bucket-prefixed paths are rebuilt to match the historical
+        cache-key scheme.
+        """
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
+        hour_start = time.replace(minute=0, second=0, microsecond=0)
+        complete = hour_start + timedelta(hours=1) <= datetime.now(
+            timezone.utc
+        ).replace(tzinfo=None)
+        paths = await obstore_list_prefix(
+            self.store,
+            self._hour_prefix(time),
+            cache=self._hour_listing_cache,
+            cacheable=complete,
+        )
+        return [f"{self._bucket}/{p}" for p in paths]
+
+    async def _get_s3_path(self, time: datetime) -> str:
+        """Get the S3 path for the GOES data file"""
+        files = await self._list_hour_files(time)
 
         # Filter for files matching the product and scan mode (M1, and M2 will be in the same directory for example)
         pattern = f"OR_ABI-L2-MCMIP{self._scan_mode}"
@@ -454,22 +573,16 @@ class GOES:
 
     async def _fetch_remote_file(self, path: str) -> str:
         """Fetches remote file into cache"""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
+        if self.store is None:
+            raise ValueError("Object store is not initialized")
 
-        sha = hashlib.sha256(path.encode())
-        filename = sha.hexdigest()
-        cache_path = os.path.join(self.cache, filename)
-
-        if not pathlib.Path(cache_path).is_file():
-            if self.fs.async_impl:
-                data = await self.fs._cat_file(path)
-            else:
-                data = await asyncio.to_thread(self.fs.read_block, path)
-            with open(cache_path, "wb") as file:
-                await asyncio.to_thread(file.write, data)
-
-        return cache_path
+        # Hash the bucket-prefixed path (unchanged scheme) so warm caches
+        # populated before the obstore migration remain valid
+        cache_key = hashlib.sha256(path.encode()).hexdigest()
+        key = path.removeprefix(self._bucket + "/")
+        return await obstore_fetch_to_cache(
+            self.store, key, self.cache, cache_key=cache_key
+        )
 
     @property
     def cache(self) -> str:
@@ -483,6 +596,28 @@ class GOES:
                 cache_location, f"tmp_goes_{self._tmp_cache_hash}"
             )
         return cache_location
+
+    @staticmethod
+    def _dilate(mask: np.ndarray, radius: int) -> np.ndarray:
+        """Grow a boolean mask outward by `radius` pixels (Chebyshev distance).
+
+        Dependency-free 8-connected dilation via `radius` rounds of shifted
+        ORs; the array edge is treated as unknown rather than True/False, so
+        it never spuriously grows the mask past the data it actually has.
+        """
+        out = mask.copy()
+        for _ in range(radius):
+            grown = out.copy()
+            grown[:-1, :] |= out[1:, :]
+            grown[1:, :] |= out[:-1, :]
+            grown[:, :-1] |= out[:, 1:]
+            grown[:, 1:] |= out[:, :-1]
+            grown[:-1, :-1] |= out[1:, 1:]
+            grown[1:, 1:] |= out[:-1, :-1]
+            grown[:-1, 1:] |= out[1:, :-1]
+            grown[1:, :-1] |= out[:-1, 1:]
+            out = grown
+        return out
 
     @staticmethod
     def _validate_satellite_scan_mode(satellite: str, scan_mode: str) -> None:
@@ -542,7 +677,8 @@ class GOES:
         cls._validate_satellite_scan_mode(satellite, scan_mode)
 
         # Check if data exists in S3
-        fs = s3fs.S3FileSystem(anon=True)
+        bucket = f"noaa-{satellite}"
+        store = obstore_store_from_url(f"s3://{bucket}")
 
         # Get needed date components
         year = time.year
@@ -557,12 +693,12 @@ class GOES:
             day_of_year=day_of_year,
             hour=hour,
         )
+        prefix = base_url.split(f"{bucket}/", 1)[1]
 
         # List files in the directory
-        try:
-            files = fs.ls(base_url)
-        except FileNotFoundError:
-            return False
+        files = [
+            entry["path"] for chunk in store.list(prefix=prefix) for entry in chunk
+        ]
 
         # Filter for files matching the product and scan mode
         pattern = f"OR_ABI-L2-MCMIP{scan_mode}"

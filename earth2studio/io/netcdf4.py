@@ -221,6 +221,8 @@ class NetCDF4Backend:
             if di is not None:
                 self.root[name][:] = di
 
+        self.root.sync()
+
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
@@ -283,6 +285,8 @@ class NetCDF4Backend:
                     ]
                 )
             ] = xi.to("cpu").numpy()
+
+        self.root.sync()
 
     def read(
         self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"

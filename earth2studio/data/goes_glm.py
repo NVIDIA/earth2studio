@@ -28,16 +28,18 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
 import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils import (
+    AsyncListableStore,
     _sync_async,
     async_retry,
     datasource_cache_root,
     gather_with_concurrency,
-    managed_session,
+    obstore_list_prefix,
+    obstore_read_range,
+    obstore_store_from_url,
     prep_data_inputs,
 )
 from earth2studio.lexicon import GOESGLMLexicon
@@ -84,9 +86,53 @@ _SLOT_HISTORY: dict[str, tuple[tuple[str, datetime, datetime], ...]] = {
 _GLM_MIN_DATE = datetime(2018, 2, 13)
 
 # Each LCFA file covers a ~20 s scan; widen the lower file-start bound by
-# this much so events at the leading edge of a tight tolerance window are
-# not silently dropped.
+# this much so detections at the leading edge of a tight tolerance window
+# are not silently dropped.
 _GLM_FILE_DURATION = timedelta(seconds=20)
+
+# The three tiers of the GLM detection hierarchy stored in every LCFA file,
+# mapped onto the native NetCDF variable / dimension names that carry each
+# record's position, measurements and timestamp. Flashes have no single time
+# variable, so the offset of their first constituent event is used. Only
+# groups and flashes carry ``area``: an event is a single pixel, so LCFA
+# stores no event-level footprint area.
+_LEVEL_FIELDS: dict[str, dict[str, str]] = {
+    "event": {
+        "dim": "number_of_events",
+        "lat": "event_lat",
+        "lon": "event_lon",
+        "energy": "event_energy",
+        "time": "event_time_offset",
+    },
+    "group": {
+        "dim": "number_of_groups",
+        "lat": "group_lat",
+        "lon": "group_lon",
+        "energy": "group_energy",
+        "area": "group_area",
+        "time": "group_time_offset",
+    },
+    "flash": {
+        "dim": "number_of_flashes",
+        "lat": "flash_lat",
+        "lon": "flash_lon",
+        "energy": "flash_energy",
+        "area": "flash_area",
+        "time": "flash_time_offset_of_first_event",
+    },
+}
+
+# Per-record measurement fields of ``_LEVEL_FIELDS``, as opposed to the
+# position, time and dimension entries. A level only carries the subset it
+# declares, so these are read (and named in the parsed frame) per level.
+_MEASUREMENT_FIELDS = ("energy", "area")
+
+# Declared measurements a file is still allowed to omit. Every LCFA level
+# stores ``energy``, so a nonempty level lacking it is a malformed file
+# rather than one serving a narrower set of variables. Footprint area is
+# not part of the detection itself, so a file without it still serves its
+# energy and counts.
+_OPTIONAL_MEASUREMENT_FIELDS = ("area",)
 
 
 @dataclass(frozen=True)
@@ -101,19 +147,35 @@ class _GOESGLMFile:
 @check_optional_dependencies()
 class GOESGLM:
     """NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning
-    Cluster-Filter Algorithm (LCFA) event data source.
+    Cluster-Filter Algorithm (LCFA) point lightning data source.
 
-    Returns per-event lightning observations from the GLM instrument on
-    GOES-16/17/18/19, served as point observations in a pandas
-    DataFrame. Each row corresponds to a single optical event detected
-    by GLM with a sub-second timestamp, latitude/longitude, and the
-    requested measurement (``flashe`` for optical energy in Joules,
-    ``flashc`` for a constant 1.0 per detected event suitable for
-    density aggregation).
+    Returns per-detection lightning observations from the GLM instrument
+    on GOES-16/17/18/19, served as point observations in a pandas
+    DataFrame. Each row corresponds to a single detection with a
+    sub-second timestamp, latitude/longitude and the requested
+    measurement.
+
+    All three tiers of the GLM detection hierarchy are exposed, and may
+    be mixed freely in one request since they are read from the same
+    files:
+
+    - **events** (``lightning_event_*``) — individual illuminated pixels
+      in a single 2 ms frame
+    - **groups** (``lightning_group_*``) — spatially adjacent events
+      within one frame
+    - **flashes** (``lightning_flash_*``) — groups clustered in space and
+      time; timestamped by their first constituent event
+
+    Each level offers ``*_energy`` (optical energy, Joules) and
+    ``*_count`` (a constant 1.0 per record, suitable for density
+    aggregation). Groups and flashes additionally offer ``*_area``, the
+    native footprint area of the detection in m2, for aggregating
+    detections as an extent density rather than as centroid counts.
+    Events are single pixels and have no area field in LCFA.
 
     Files in the public NOAA AWS bucket are NetCDFs produced at roughly
     20 second cadence covering the GOES full-disk field of view. A
-    spatial bounding box can be supplied to restrict events at parse
+    spatial bounding box can be supplied to restrict detections at parse
     time and reduce memory usage for large windows.
 
     Parameters
@@ -131,7 +193,7 @@ class GOESGLM:
         For example, CONUS in the ``[-180, 180)`` convention is
         ``(24.5, -125.0, 49.5, -66.0)``.
     time_tolerance : TimeTolerance, optional
-        Time tolerance window for selecting events around each
+        Time tolerance window for selecting detections around each
         requested timestamp. Accepts a single value (symmetric ±
         window) or a tuple ``(lower, upper)`` for asymmetric windows,
         by default ``np.timedelta64(2, "m")``.
@@ -152,43 +214,53 @@ class GOESGLM:
     -------
     GLM produces hundreds of files per hour. Large time windows can
     download tens to hundreds of gigabytes of NetCDFs. Use
-    ``lat_lon_bbox`` to discard out-of-region events on parse and
+    ``lat_lon_bbox`` to discard out-of-region detections on parse and
     keep ``time_tolerance`` bounded.
 
     Note
     ----
     Output longitudes are normalised to ``[0, 360)`` (Earth2Studio
-    convention). Each event's timestamp is computed from the file's
-    ``event_time_offset`` variable so per-event precision (~ms) is
+    convention). Each record's timestamp is computed from the file's
+    per-level time offset variable so sub-second precision (~ms) is
     preserved.
+
+    Note
+    ----
+    The pre-0.19 variable ids ``flashe`` and ``flashc`` are deprecated
+    aliases of ``lightning_event_energy`` and ``lightning_event_count``.
+    They still select the correct measurement and are echoed back in the
+    output ``variable`` column, but emit a ``FutureWarning`` and will be
+    removed in a future release.
 
     Note
     ----
     Additional information on the data repository:
 
-    - https://www.goes-r.gov/products/baseline-LCFA.html
+    - https://www.goes-r.gov/products/baseline-lightning-detection.html
     - https://registry.opendata.aws/noaa-goes/
-    - https://www.ncei.noaa.gov/products/satellite/goes-glm
+    - https://www.ncei.noaa.gov/products/goes-terrestrial-weather-abi-glm
 
     Example
     -------
-    .. highlight:: python
-    .. code-block:: python
+    ```python
+    from datetime import datetime
+    import numpy as np
+    from earth2studio.data import GOESGLM
 
-        from datetime import datetime
-        import numpy as np
-        from earth2studio.data import GOESGLM
+    ds = GOESGLM(
+        satellite="east",
+        lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
+        time_tolerance=np.timedelta64(5, "m"),
+    )
+    df = ds(
+        datetime(2024, 6, 1, 18, 0),
+        ["lightning_event_energy", "lightning_event_count"],
+    )
 
-        ds = GOESGLM(
-            satellite="east",
-            lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
-            time_tolerance=np.timedelta64(5, "m"),
-        )
-        df = ds(datetime(2024, 6, 1, 18, 0), ["flashe", "flashc"])
-
+    ```
     Badges
     ------
-    region:na region:sa dataclass:observation product:sat
+    region:na region:sa dataclass:observation product:sat provider:noaa
     """
 
     SOURCE_ID = "earth2studio.data.goes_glm"
@@ -243,21 +315,23 @@ class GOESGLM:
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
 
-        self.fs: s3fs.S3FileSystem | None = None
+        # One obstore store per satellite bucket, built lazily. Unlike async
+        # fsspec filesystems, obstore stores are event-loop independent, so
+        # they can safely be reused across repeated fetch calls (e.g. one per
+        # 5-min bin from ``GOESGLMGrid``).
+        self.stores: dict[str, AsyncListableStore] = {}
+        # Per-bucket memoized S3 hour-directory listings (bucket -> prefix ->
+        # keys). Only complete (past) hours are cached so a long-lived
+        # instance polling near-real-time data still sees newly arriving files.
+        self._hour_listing_cache: dict[str, dict[str, list[str]]] = {}
 
-    async def _async_init(self) -> None:
-        """Async initialization of the anonymous S3 filesystem.
-
-        Note
-        ----
-        Async fsspec expects initialization inside the execution loop.
-        """
-        self.fs = s3fs.S3FileSystem(
-            anon=True,
-            client_kwargs={},
-            asynchronous=True,
-            skip_instance_cache=True,
-        )
+    def _store_for_bucket(self, bucket: str) -> AsyncListableStore:
+        """Return (building if needed) the obstore store for an S3 bucket"""
+        if bucket not in self.stores:
+            self.stores[bucket] = obstore_store_from_url(
+                f"s3://{bucket}", max_pool_connections=self._async_workers
+            )
+        return self.stores[bucket]
 
     def __call__(
         self,
@@ -265,17 +339,18 @@ class GOESGLM:
         variable: str | list[str] | VariableArray,
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
-        """Fetch GLM lightning events for a set of timestamps.
+        """Fetch GLM lightning detections for a set of timestamps.
 
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Timestamps to return events for (UTC). Timezone-aware
+            Timestamps to return detections for (UTC). Timezone-aware
             datetimes are converted to UTC automatically.
         variable : str | list[str] | VariableArray
             Variable ids defined in
-            :py:class:`earth2studio.lexicon.GOESGLMLexicon`
-            (``"flashe"`` and/or ``"flashc"``).
+            :py:class:`earth2studio.lexicon.GOESGLMLexicon`, e.g.
+            ``"lightning_event_energy"`` or ``"lightning_flash_count"``.
+            Event-, group- and flash-level ids may be mixed.
         fields : str | list[str] | pa.Schema | None, optional
             Output column subset. ``None`` (default) returns all
             schema fields.
@@ -283,7 +358,7 @@ class GOESGLM:
         Returns
         -------
         pd.DataFrame
-            Event-level lightning observations with columns matching
+            Long-format lightning observations with columns matching
             the resolved schema.
         """
         try:
@@ -301,12 +376,12 @@ class GOESGLM:
         variable: str | list[str] | VariableArray,
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
-        """Async function to fetch GLM events.
+        """Async function to fetch GLM detections.
 
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Timestamps to return events for (UTC).
+            Timestamps to return detections for (UTC).
         variable : str | list[str] | VariableArray
             Variable ids defined in :py:class:`GOESGLMLexicon`.
         fields : str | list[str] | pa.Schema | None, optional
@@ -316,19 +391,16 @@ class GOESGLM:
         Returns
         -------
         pd.DataFrame
-            Event-level lightning observations.
+            Long-format lightning observations.
         """
-        # Always build a fresh asynchronous filesystem for this fetch. The
-        # instance is created with ``skip_instance_cache=True`` and its aiohttp
-        # session is closed by ``managed_session`` below; reusing it across
-        # repeated calls (e.g. one per 5-min bin from ``GOESGLMGrid``) would
-        # hand later calls a torn-down aiobotocore client.
-        await self._async_init()
-
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        for v in variable_list:
-            if v not in GOESGLMLexicon.VOCAB:
+        # Deprecated ids resolve to their canonical replacement (with a
+        # FutureWarning); the requested id is still echoed back in the output
+        # so existing pipelines keep matching on the name they asked for
+        canonical = {v: GOESGLMLexicon.resolve_alias(v) for v in variable_list}
+        for v, cv in canonical.items():
+            if cv not in GOESGLMLexicon.VOCAB:
                 raise KeyError(
                     f"Variable id {v!r} not found in GOESGLMLexicon. "
                     f"Available: {list(GOESGLMLexicon.VOCAB)}"
@@ -337,46 +409,47 @@ class GOESGLM:
         schema = self.resolve_fields(fields)
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Listing and fetching share a single managed session so prefix
-        # discovery does not leak an unclosed s3fs session and both use the
-        # same refreshed client.
-        async with managed_session(self.fs):
-            files = await self._discover_files(time_list)
-            unique_uris = sorted({f.s3_uri for f in files})
-            logger.info(
-                f"[{self.SOURCE_ID}] discovered {len(unique_uris)} unique GLM "
-                f"files across {len(time_list)} requested times"
-            )
+        files = await self._discover_files(time_list)
+        unique_uris = sorted({f.s3_uri for f in files})
+        logger.info(
+            f"[{self.SOURCE_ID}] discovered {len(unique_uris)} unique GLM "
+            f"files across {len(time_list)} requested times"
+        )
 
-            coros = [
-                async_retry(
-                    self._fetch_remote_file,
-                    uri,
-                    retries=self._retries,
-                    backoff=1.0,
-                    task_timeout=120.0,
-                    exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-                )
-                for uri in unique_uris
-            ]
-            await gather_with_concurrency(
-                coros,
-                max_workers=self._async_workers,
-                desc="Fetching GLM L2 LCFA files",
-                verbose=(not self._verbose),
+        coros = [
+            async_retry(
+                self._fetch_remote_file,
+                uri,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=120.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+            for uri in unique_uris
+        ]
+        await gather_with_concurrency(
+            coros,
+            max_workers=self._async_workers,
+            desc="Fetching GLM L2 LCFA files",
+            verbose=(not self._verbose),
+        )
 
-        return self._compile_dataframe(files, time_list, variable_list, schema)
+        return self._compile_dataframe(
+            files, time_list, variable_list, canonical, schema
+        )
 
     async def _discover_files(self, time_list: list[datetime]) -> list[_GOESGLMFile]:
         """List GLM L2 LCFA keys whose file-start times fall in any
         requested ``[t-tol, t+tol]`` window.
 
-        Hourly S3 prefixes are listed once each (deduplicated) and the
-        per-file start timestamps are parsed from the LCFA filename
-        convention.
+        Hourly S3 prefixes are listed once each (deduplicated within the
+        call) and the per-file start timestamps are parsed from the LCFA
+        filename convention. Listings of complete (past) hours are memoized
+        on the instance, so repeated fetches over the same hour (e.g. one
+        per 5-min bin from ``GOESGLMGrid``) issue a single LIST request; the
+        still-filling current hour is always re-listed.
         """
-        prefix_jobs: dict[tuple[str, str], None] = {}
+        prefix_jobs: dict[tuple[str, str], datetime] = {}
         windows: list[tuple[datetime, datetime, str]] = []
         for t in time_list:
             tmin = t + self._tolerance_lower
@@ -385,20 +458,25 @@ class GOESGLM:
             windows.append((tmin, tmax, sat))
             hr = (tmin - _GLM_FILE_DURATION).replace(minute=0, second=0, microsecond=0)
             while hr <= tmax:
-                prefix_jobs[(sat, self._hour_prefix(sat, hr))] = None
+                prefix_jobs.setdefault((sat, self._hour_prefix(sat, hr)), hr)
                 hr += timedelta(hours=1)
 
-        async def _list_one(sat: str, prefix: str) -> list[tuple[str, str]]:
-            try:
-                keys = await self.fs._ls(  # type: ignore[union-attr]
-                    f"{_BUCKETS[sat]}/{prefix}", detail=False
-                )
-            except FileNotFoundError:
-                return []
-            return [(sat, k) for k in keys if k.endswith(".nc")]
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        async def _list_one(
+            sat: str, prefix: str, hr: datetime
+        ) -> list[tuple[str, str]]:
+            bucket = _BUCKETS[sat]
+            paths = await obstore_list_prefix(
+                self._store_for_bucket(bucket),
+                prefix,
+                cache=self._hour_listing_cache.setdefault(bucket, {}),
+                cacheable=hr + timedelta(hours=1) <= now,
+            )
+            return [(sat, f"{bucket}/{p}") for p in paths if p.endswith(".nc")]
 
         listings = await gather_with_concurrency(
-            [_list_one(sat, prefix) for (sat, prefix) in prefix_jobs],
+            [_list_one(sat, prefix, hr) for (sat, prefix), hr in prefix_jobs.items()],
             max_workers=self._async_workers,
             desc="Listing GLM L2 LCFA prefixes",
             verbose=(not self._verbose),
@@ -439,13 +517,16 @@ class GOESGLM:
 
     async def _fetch_remote_file(self, uri: str) -> None:
         """Download one GLM NetCDF file into the cache directory."""
-        if self.fs is None:
-            raise ValueError("File system is not initialized")
         cache_path = self._cache_path(uri)
         if pathlib.Path(cache_path).is_file():
             return
+        bucket, key = uri.removeprefix("s3://").split("/", 1)
+        store = self._store_for_bucket(bucket)
         try:
-            data = await self.fs._cat_file(uri)
+            data = await obstore_read_range(store, key)
+        # obstore_read_range translates obstore's NotFoundError into
+        # FileNotFoundError; catch it here (before async_retry's OSError
+        # retry loop sees it) so a missing file warns and skips
         except FileNotFoundError:
             logger.warning(f"GLM file {uri} not found, skipping")
             return
@@ -457,23 +538,46 @@ class GOESGLM:
         files: list[_GOESGLMFile],
         time_list: list[datetime],
         variable_list: list[str],
+        canonical: dict[str, str],
         schema: pa.Schema,
     ) -> pd.DataFrame:
         """Parse each cached file once, filter per requested time, and
         emit one long-format DataFrame across all variables and times.
+
+        ``canonical`` maps each requested variable id onto its canonical
+        name, so deprecated aliases select the right measurement while the
+        output still reports the id the caller asked for.
         """
-        events_by_file: dict[str, pd.DataFrame] = {}
+        # Requested variable -> (hierarchy level, native field). Only the
+        # levels actually asked for are read off disk.
+        keys = {
+            v: GOESGLMLexicon.VOCAB[canonical[v]].split("::", 1) for v in variable_list
+        }
+        levels = {level for level, _ in keys.values()}
+        # Native NetCDF field name -> the column ``_parse_glm_file`` stores it
+        # under, per level, so each variable's observation is read from the
+        # column holding the measurement it actually selects.
+        measurement_columns = {
+            level: {
+                _LEVEL_FIELDS[level][name]: name
+                for name in _MEASUREMENT_FIELDS
+                if name in _LEVEL_FIELDS[level]
+            }
+            for level in levels
+        }
+
+        # (satellite, {level: records}) per successfully parsed file
+        parsed: list[tuple[str, dict[str, pd.DataFrame]]] = []
         for f in files:
             local = self._cache_path(f.s3_uri)
             if not pathlib.Path(local).is_file():
                 continue
-            events = self._parse_glm_file(local, self._lat_lon_bbox)
-            if events is None or events.empty:
+            records = self._parse_glm_file(local, self._lat_lon_bbox, levels)
+            if not records:
                 continue
-            events["satellite"] = f.satellite
-            events_by_file[f.s3_uri] = events
+            parsed.append((f.satellite, records))
 
-        if not events_by_file:
+        if not parsed:
             return self._empty_result(schema)
 
         frames: list[pd.DataFrame] = []
@@ -481,19 +585,34 @@ class GOESGLM:
             tmin = pd.Timestamp(t + self._tolerance_lower)
             tmax = pd.Timestamp(t + self._tolerance_upper)
             sat = self._satellite_for_time(t)
-            for events in events_by_file.values():
-                if events["satellite"].iloc[0] != sat:
+            for file_sat, records in parsed:
+                if file_sat != sat:
                     continue
-                mask = (events["time"] >= tmin) & (events["time"] <= tmax)
-                if not mask.any():
-                    continue
-                window = events.loc[mask]
                 for v in variable_list:
-                    sub = window[["time", "lat", "lon", "satellite"]].copy()
-                    if v == "flashe":
-                        sub["observation"] = window["event_energy"].astype(np.float32)
-                    else:  # flashc
+                    level, field = keys[v]
+                    level_records = records.get(level)
+                    if level_records is None:
+                        continue
+                    column = (
+                        None if field == "_count" else measurement_columns[level][field]
+                    )
+                    # An optional measurement the file does not carry is
+                    # skipped, the same way a level absent from the file
+                    # is; a missing required one never reaches here
+                    if column is not None and column not in level_records.columns:
+                        continue
+                    mask = (level_records["time"] >= tmin) & (
+                        level_records["time"] <= tmax
+                    )
+                    if not mask.any():
+                        continue
+                    window = level_records.loc[mask]
+                    sub = window[["time", "lat", "lon"]].copy()
+                    sub["satellite"] = file_sat
+                    if column is None:
                         sub["observation"] = np.float32(1.0)
+                    else:
+                        sub["observation"] = window[column].astype(np.float32)
                     sub["variable"] = v
                     frames.append(sub)
 
@@ -649,56 +768,116 @@ class GOESGLM:
         cls,
         path: str,
         lat_lon_bbox: tuple[float, float, float, float] | None,
-    ) -> pd.DataFrame | None:
-        """Parse a GLM L2 LCFA NetCDF file into a flat events DataFrame.
+        levels: Iterable[str] = ("event",),
+    ) -> dict[str, pd.DataFrame]:
+        """Parse a GLM L2 LCFA NetCDF file into flat per-level DataFrames.
 
-        Returns ``None`` if the file has no events or all events fall
-        outside ``lat_lon_bbox``.
+        Parameters
+        ----------
+        path : str
+            Local path of the LCFA NetCDF file.
+        lat_lon_bbox : tuple[float, float, float, float] | None
+            Parse-time bounding box in the native ``[-180, 180)``
+            convention, or ``None`` for the full disk.
+        levels : Iterable[str], optional
+            Which tiers of the detection hierarchy to read; any of
+            ``"event"``, ``"group"``, ``"flash"``. By default only
+            ``"event"``.
+
+        Returns
+        -------
+        dict[str, pd.DataFrame]
+            One frame of ``(time, lat, lon)`` plus the measurement columns
+            the level declares per requested level: ``energy`` for every
+            level and ``area`` for groups and flashes. Levels with no
+            records, or none inside ``lat_lon_bbox``, are omitted, so the
+            mapping is empty for a file with nothing of interest in it.
+            The ``area`` column is dropped for a level whose file lacks
+            the variable.
+
+        Raises
+        ------
+        ValueError
+            If a level with records is missing its ``energy`` variable,
+            which every LCFA level carries.
         """
+        out: dict[str, pd.DataFrame] = {}
         with netCDF4.Dataset(path) as ds:
-            if "event_lat" not in ds.variables:
-                return None
-            if ds.dimensions["number_of_events"].size == 0:
-                return None
+            # A small number of NOAA LCFA objects are valid, zero-record
+            # NetCDF files with no global attributes at all. Their epoch is
+            # immaterial: no timestamp can be constructed from an empty
+            # level. Resolve time_coverage_start lazily so those files are
+            # skipped without weakening the requirement for files that carry
+            # actual detections.
+            epoch: datetime | None = None
+            for level in levels:
+                fields = _LEVEL_FIELDS[level]
+                if fields["lat"] not in ds.variables:
+                    continue
+                if ds.dimensions[fields["dim"]].size == 0:
+                    continue
+                if epoch is None:
+                    epoch = (
+                        pd.Timestamp(ds.time_coverage_start)
+                        .to_pydatetime()
+                        .replace(tzinfo=None)
+                    )
 
-            lat = np.asarray(ds.variables["event_lat"][:], dtype=np.float32)
-            lon = np.asarray(ds.variables["event_lon"][:], dtype=np.float32)
-            energy = np.asarray(ds.variables["event_energy"][:], dtype=np.float32)
-            offset = np.asarray(ds.variables["event_time_offset"][:], dtype=np.float64)
-            epoch = (
-                pd.Timestamp(ds.time_coverage_start)
-                .to_pydatetime()
-                .replace(tzinfo=None)
-            )
+                lat = np.asarray(ds.variables[fields["lat"]][:], dtype=np.float32)
+                lon = np.asarray(ds.variables[fields["lon"]][:], dtype=np.float32)
+                offset = np.asarray(ds.variables[fields["time"]][:], dtype=np.float64)
+                # A level only carries the measurements it declares. Of
+                # those, only the optional ones may be missing from the
+                # file: dropping a required measurement would silently
+                # serve a subset of what the caller asked for, so a
+                # nonempty level without it is reported as malformed
+                measurements: dict[str, np.ndarray] = {}
+                for name in _MEASUREMENT_FIELDS:
+                    if name not in fields:
+                        continue
+                    variable = fields[name]
+                    if variable not in ds.variables:
+                        if name in _OPTIONAL_MEASUREMENT_FIELDS:
+                            continue
+                        raise ValueError(
+                            f"GLM file {path} has {level} records but no "
+                            f"{variable} variable"
+                        )
+                    measurements[name] = np.asarray(
+                        ds.variables[variable][:], dtype=np.float32
+                    )
 
-        times = np.asarray(
-            [np.datetime64(epoch + timedelta(seconds=float(s)), "us") for s in offset],
-            dtype="datetime64[us]",
-        )
+                if lat_lon_bbox is not None:
+                    lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
+                    mask = (
+                        (lat >= lat_min)
+                        & (lat <= lat_max)
+                        & (lon >= lon_min)
+                        & (lon <= lon_max)
+                    )
+                    if not mask.any():
+                        continue
+                    lat = lat[mask]
+                    lon = lon[mask]
+                    offset = offset[mask]
+                    measurements = {k: v[mask] for k, v in measurements.items()}
 
-        if lat_lon_bbox is not None:
-            lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
-            mask = (
-                (lat >= lat_min)
-                & (lat <= lat_max)
-                & (lon >= lon_min)
-                & (lon <= lon_max)
-            )
-            if not mask.any():
-                return None
-            lat = lat[mask]
-            lon = lon[mask]
-            energy = energy[mask]
-            times = times[mask]
-
-        return pd.DataFrame(
-            {
-                "time": pd.to_datetime(times),
-                "lat": lat,
-                "lon": lon,
-                "event_energy": energy,
-            }
-        )
+                times = np.asarray(
+                    [
+                        np.datetime64(epoch + timedelta(seconds=float(s)), "us")
+                        for s in offset
+                    ],
+                    dtype="datetime64[us]",
+                )
+                out[level] = pd.DataFrame(
+                    {
+                        "time": pd.to_datetime(times),
+                        "lat": lat,
+                        "lon": lon,
+                        **measurements,
+                    }
+                )
+        return out
 
 
 def _normalize_lat_lon_bbox(
@@ -774,7 +953,7 @@ class GOESGLMGrid:
 
     Badges
     ------
-    region:na dataclass:observation product:sat
+    region:na dataclass:observation product:sat provider:noaa
     """
 
     # Accumulation window (minutes), bin-start labeled. Fixed to match training.
@@ -786,7 +965,10 @@ class GOESGLMGrid:
     # CONUS parse-time bounding box (lat_min, lon_min, lat_max, lon_max).
     _CONUS_BBOX = (24.5, -125.0, 49.5, -66.0)
     # E2S variable -> underlying GOESGLM event variable.
-    _VARIABLE_MAP = {"glm_density": "flashc", "glm_energy_density": "flashe"}
+    _VARIABLE_MAP = {
+        "glm_density": "lightning_event_count",
+        "glm_energy_density": "lightning_event_energy",
+    }
 
     def __init__(
         self,

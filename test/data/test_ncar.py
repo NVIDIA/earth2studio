@@ -14,14 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import pathlib
 import shutil
 from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
+import obstore as obs
 import pytest
+import xarray as xr
+from obstore.store import MemoryStore
 
 from earth2studio.data import NCAR_ERA5
+from earth2studio.data.ncar import _read_object_store_dataset
 
 
 @pytest.mark.slow
@@ -212,3 +218,172 @@ def test_ncar_create_tasks_accumulated_mult():
     for task in tasks.values():
         all_vars.update(task.ncar_level_indices.values())
     assert all_vars == set(variables)
+
+
+# ----------------------------------------------------------------------
+# Mock end-to-end (no network, exercises __call__ path)
+# ----------------------------------------------------------------------
+
+
+def _fake_read_dataset(captured: list):
+    """Build a fake `_read_object_store_dataset` that returns random fields
+    shaped like the real reader output."""
+
+    def _fake_read(store, nc_key, data_variable, time_idx, level_idx, ncar_meta):
+        captured.append((nc_key, data_variable, tuple(time_idx), tuple(level_idx)))
+        data = np.random.rand(len(time_idx), len(level_idx), 721, 1440).astype(
+            np.float32
+        )
+        return xr.DataArray(
+            data,
+            dims=["time", "level", "latitude", "longitude"],
+            coords={
+                "time": np.array(
+                    [np.datetime64("2000-01-01")] * len(time_idx),
+                    dtype="datetime64[ns]",
+                ),
+                "level": list(level_idx),
+                "latitude": NCAR_ERA5.NCAR_EAR5_LAT,
+                "longitude": NCAR_ERA5.NCAR_EAR5_LON,
+            },
+        )
+
+    return _fake_read
+
+
+@pytest.mark.timeout(30)
+def test_ncar_call_mock_pl(tmp_path, monkeypatch):
+    """Exercise the full __call__ path for pressure level variables using a
+    mocked object store read."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    captured: list = []
+    times = [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 12)]
+    ds = NCAR_ERA5(cache=True, verbose=False)
+    with (
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
+        patch(
+            "earth2studio.data.ncar._read_object_store_dataset",
+            side_effect=_fake_read_dataset(captured),
+        ),
+    ):
+        # Bypass real store by stubbing it to a truthy sentinel.
+        ds.store = object()
+        data = ds(times, ["t500", "t850"])
+
+    assert data.shape == (2, 2, 721, 1440)
+    assert not np.isnan(data.values).any()
+    assert list(data.coords["variable"].values) == ["t500", "t850"]
+    assert np.array_equal(data.coords["lat"].values, NCAR_ERA5.NCAR_EAR5_LAT)
+    assert np.array_equal(data.coords["lon"].values, NCAR_ERA5.NCAR_EAR5_LON)
+    # Both times and levels share a single daily file -> single read with the
+    # bucket-relative (no s3:// prefix) key
+    assert len(captured) == 1
+    nc_key, data_variable, time_idx, level_idx = captured[0]
+    assert nc_key.startswith("e5.oper.an.pl/202401/")
+    assert data_variable == "T"
+    assert time_idx == (0, 12)
+    assert len(level_idx) == 2
+
+
+@pytest.mark.timeout(30)
+def test_ncar_call_mock_sfc_accum(tmp_path, monkeypatch):
+    """Exercise the full __call__ path mixing surface and accumulated
+    variables using a mocked object store read."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    captured: list = []
+    ds = NCAR_ERA5(cache=True, verbose=False)
+    with (
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
+        patch(
+            "earth2studio.data.ncar._read_object_store_dataset",
+            side_effect=_fake_read_dataset(captured),
+        ),
+    ):
+        ds.store = object()
+        data = ds(datetime(2024, 1, 1, 6), ["t2m", "lsp"])
+
+    assert data.shape == (1, 2, 721, 1440)
+    assert not np.isnan(data.values).any()
+    assert list(data.coords["variable"].values) == ["t2m", "lsp"]
+    # One monthly surface file + one bi-monthly accumulation file
+    assert len(captured) == 2
+    keys = sorted(k for k, *_ in captured)
+    assert keys[0].startswith("e5.oper.an.sfc/202401/")
+    assert keys[1].startswith("e5.oper.fc.sfc.accumu/202312/")
+
+
+# ----------------------------------------------------------------------
+# Object store NetCDF reader (offline, in-memory store)
+# ----------------------------------------------------------------------
+
+
+def _put_netcdf(store, key: str, ds: xr.Dataset) -> None:
+    buffer = io.BytesIO()
+    ds.to_netcdf(buffer, engine="h5netcdf")
+    obs.put(store, key, buffer.getvalue())
+
+
+def _make_dataset(variable: str, with_level: bool) -> xr.Dataset:
+    dims = ["time", "latitude", "longitude"]
+    shape = [4, 5, 6]
+    coords = {
+        "time": np.array(
+            [np.datetime64("2024-01-01T00") + np.timedelta64(i, "h") for i in range(4)]
+        ),
+        "latitude": np.linspace(90, -90, 5),
+        "longitude": np.linspace(0, 359, 6),
+    }
+    if with_level:
+        dims.insert(1, "level")
+        shape.insert(1, 3)
+        coords["level"] = np.array([1000.0, 850.0, 500.0])
+    data = np.random.rand(*shape).astype(np.float32)
+    return xr.Dataset({variable: (dims, data)}, coords=coords)
+
+
+@pytest.mark.timeout(30)
+def test_ncar_read_object_store_dataset_pl():
+    store = MemoryStore()
+    key = (
+        "e5.oper.an.pl/202401/e5.oper.an.pl.128_130_t.ll025sc.2024010100_2024010123.nc"
+    )
+    _put_netcdf(store, key, _make_dataset("T", with_level=True))
+
+    da = _read_object_store_dataset(store, key, "T", [1, 3], [0, 2], {})
+    assert da.shape == (2, 2, 5, 6)
+    assert list(da.dims) == ["time", "level", "latitude", "longitude"]
+
+
+@pytest.mark.timeout(30)
+def test_ncar_read_object_store_dataset_sfc_var_prefix():
+    # Surface files sometimes have VAR_ prepended to the data variable
+    store = MemoryStore()
+    key = "e5.oper.an.sfc/202401/e5.oper.an.sfc.128_167_2t.ll025sc.2024010100_2024013123.nc"
+    _put_netcdf(store, key, _make_dataset("VAR_2T", with_level=False))
+
+    da = _read_object_store_dataset(store, key, "2T", [0, 2], [0], {})
+    # Level dim of size 1 is inserted for surface products
+    assert da.shape == (2, 1, 5, 6)
+
+
+@pytest.mark.timeout(30)
+def test_ncar_read_object_store_dataset_errors():
+    store = MemoryStore()
+    key = "e5.oper.an.sfc/202401/e5.oper.an.sfc.128_167_2t.ll025sc.2024010100_2024013123.nc"
+    _put_netcdf(store, key, _make_dataset("VAR_2T", with_level=False))
+
+    # Missing data variable in the file
+    with pytest.raises(ValueError):
+        _read_object_store_dataset(store, key, "SD", [0], [0], {})
+
+    # Unknown product type
+    bad_key = "e5.unknown/202401/file.nc"
+    _put_netcdf(store, bad_key, _make_dataset("VAR_2T", with_level=False))
+    with pytest.raises(ValueError):
+        _read_object_store_dataset(store, bad_key, "2T", [0], [0], {})
+
+    # Missing object
+    with pytest.raises(FileNotFoundError):
+        _read_object_store_dataset(store, "e5.oper.an.sfc/nope.nc", "2T", [0], [0], {})
