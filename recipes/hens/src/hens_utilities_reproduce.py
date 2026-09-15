@@ -84,7 +84,9 @@ def calculate_torch_seed(s: str) -> int:
     return torch_seed
 
 
-def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) -> str:
+def create_base_seed_string(
+    pkg: str, ic: np.datetime64, base_random_seed: str | int
+) -> str:
     """Concatenates information of model package name, initial condition time and and
     base_random seed into one base seed string.
 
@@ -94,8 +96,8 @@ def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) 
         Model package name
     ic : np.datetime64
         Initial condition time
-    base_random_seed : str
-        Base seed string
+    base_random_seed : str | int
+        Base random seed
 
     Returns
     -------
