@@ -11,6 +11,7 @@ output: generated/io
 -->
 
 {% autosummary %}
+earth2studio.io.ArraylakeBackend
 earth2studio.io.AsyncZarrBackend
 earth2studio.io.IceChunkBackend
 earth2studio.io.KVBackend

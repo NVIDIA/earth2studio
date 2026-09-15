@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `ArraylakeBackend`, an IO backend that writes inference output to an
+  [Arraylake](https://docs.earthmover.io/) repository, Earthmover's hosted
+  Icechunk service. `IceChunkBackend` now also accepts an already opened
+  `icechunk.Repository` as its `storage` argument.
 - Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
 - Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
   (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).

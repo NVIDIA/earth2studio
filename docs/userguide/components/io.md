@@ -156,8 +156,9 @@ writes:
 ```python
 from earth2studio.io import IceChunkBackend
 
-# `storage` may be omitted (in-memory repository), a local filesystem path,
-# or an `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`)
+# `storage` may be omitted (in-memory repository), a local filesystem path, an
+# `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`), or an already
+# opened `icechunk.Repository`
 io = IceChunkBackend("/path/to/repo")
 
 io.add_array(total_coords, array_name)
@@ -180,6 +181,36 @@ earth2studio[data]`.
     on to the next step while the previous step's write is still in flight.
     `read`, `__getitem__` and `commit` all flush pending writes first. Pass
     `blocking=True` to write synchronously instead.
+
+### Hosted Icechunk with the Arraylake Backend
+
+[Arraylake](https://docs.earthmover.io/) is Earthmover's hosted Icechunk
+service. An Arraylake repository is an ordinary Icechunk repository in cloud
+object storage, with Arraylake providing the catalog and vending the bucket
+credentials — so it cannot be reached through an `icechunk.Storage` you build
+yourself. `earth2studio.io.ArraylakeBackend` resolves the repository through an
+`arraylake.Client` and otherwise behaves exactly like `IceChunkBackend`,
+`commit` included:
+
+```python
+from earth2studio.io import ArraylakeBackend
+
+# Repositories are named "org/repo" and created if they do not exist
+io = ArraylakeBackend("my-org/forecasts", branch="main")
+
+io.add_array(total_coords, array_name)
+io.write(x, coords, array_name)
+io.commit("forecast run 2024-01-01T00Z")
+```
+
+Authentication resolves in order: an explicit `token`, then the
+`EARTHMOVER_API_KEY` environment variable (the same variable used by the
+Earthmover data sources such as `earth2studio.data.EarthMoverERA5`), then a
+bare `arraylake.Client()`, which picks up `ARRAYLAKE_TOKEN` or a cached
+`al auth login` session. Pass `create=False` to fail rather than create a
+repository that does not exist, and `repo_kwargs` to forward options such as
+`bucket_config_nickname` to the Arraylake client. This requires the `arraylake`
+optional dependency, install with `pip install earth2studio[data]`.
 
 ### Sharding Icechunk output with the Async Zarr Backend
 
