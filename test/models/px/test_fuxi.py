@@ -28,6 +28,7 @@ except ImportError:
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXi
 from earth2studio.utils import handshake_dim
 
@@ -254,6 +255,28 @@ class TestFuXiMock:
 
         with pytest.raises((KeyError, ValueError)):
             p(x, coords)
+
+    def test_fuxi_conformance(self, fuxi_test_package):
+        """Check the mock FuXi model against the Earth2Studio model contract.
+
+        .to("cpu") is required: __init__ builds the ORT session from a
+        default self.device with index=None, which this onnxruntime build's
+        IOBinding rejects; .to() normalizes it to a valid indexed device
+        (see FuXi.to() in earth2studio/models/px/fuxi.py). Every other test
+        in this file calls .to(device) for the same reason.
+
+        This is a genuine, verified violation (not a mock artifact): fails
+        P15 (both create_iterator() and __call__ mutate the input tensor in
+        place) and P16 (yield 0 changes after later steps are produced, so
+        the yields alias one buffer). Tracked in
+        test/models/test_model_conformance.py pending a wrapper fix.
+        """
+        p = FuXi.load_model(fuxi_test_package).to("cpu")
+        with pytest.raises(ContractException) as exc_info:
+            check_prognostic_contract(p)
+        message = str(exc_info.value)
+        assert "P15" in message
+        assert "P16" in message
 
 
 @pytest.mark.package

@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffTaiwan
 from earth2studio.utils import handshake_dim
 
@@ -179,6 +180,48 @@ def test_corrdiff_exceptions(x, device):
     )
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
+
+
+def test_corrdiff_taiwan_conformance():
+    """Model contract conformance (dev/spec/MODEL_CONTRACT_SPEC.md).
+
+    Reuses the same mock construction as ``test_corrdiff`` (no ``seed=``
+    override, matching the constructor default). CorrDiffTaiwan draws its
+    diffusion-sampler latents from a seed that defaults to a fresh
+    ``np.random.randint`` draw per call when unset, but the class declares no
+    ``stochastic`` attribute and implements no ``set_rng``: it defaults to the
+    contract's ``stochastic=False`` reading. Two calls on the same input then
+    draw independent sampler noise and disagree -- even with the deterministic
+    passthrough ``PhooCorrDiff.forward`` -- which genuinely violates ``D9``.
+    This is a wrapper defect (no ``stochastic``/``set_rng`` declaration to make
+    diffusion sampling reproducible), not a test issue, and is tracked for a
+    follow-up fix rather than papered over here.
+    """
+    model = PhooCorrDiff()
+    in_center = torch.zeros(12, 1, 1)
+    in_scale = torch.ones(12, 1, 1)
+    out_center = torch.zeros(4, 1, 1)
+    out_scale = torch.ones(4, 1, 1)
+    lat = torch.as_tensor(np.linspace(19.5, 27, 450, endpoint=True))
+    lon = torch.as_tensor(np.linspace(117, 125, 450, endpoint=False))
+    out_lon, out_lat = torch.meshgrid(lon, lat)
+    dx = CorrDiffTaiwan(
+        model,
+        model,
+        in_center,
+        in_scale,
+        out_center,
+        out_scale,
+        out_lat,
+        out_lon,
+    )
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(dx)
+    assert (
+        "D9: model declares stochastic=False but two calls on one input "
+        "disagree; declare stochastic=True and implement set_rng()"
+        in str(exc_info.value)
+    )
 
 
 @pytest.mark.package

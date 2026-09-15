@@ -23,6 +23,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FengWu
 from earth2studio.utils import handshake_dim
 
@@ -207,6 +208,20 @@ class TestFengWuMock:
 
         with pytest.raises((KeyError, ValueError, RuntimeError)):
             p(x, coords)
+
+    def test_fengwu_conformance(self, fengwu_test_package):
+        """Check the mock FengWu model against the Earth2Studio model contract.
+
+        .to("cpu") is required: __init__ builds the ORT session from a
+        default self.device with index=None, which this onnxruntime build's
+        IOBinding rejects; .to() normalizes it to a valid indexed device
+        (see FengWu.to() in earth2studio/models/px/fengwu.py). Every other
+        test in this file calls .to(device) for the same reason.
+        """
+        p = FengWu.load_model(fengwu_test_package).to("cpu")
+        assert check_prognostic_contract(p) == [
+            "P14: model does not declare itself stochastic"
+        ]
 
 
 @pytest.mark.package

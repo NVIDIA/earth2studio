@@ -29,6 +29,7 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CBottleTCGuidance
 from earth2studio.utils import handshake_dim
 
@@ -324,6 +325,14 @@ class TestCBottleTCMock:
         invalid_times = [datetime(2022, 12, 16, 12)]
         with pytest.raises(ValueError):
             dx._validate_sst_time(invalid_times)
+
+    def test_cbottletcguidance_conformance(
+        self, mock_core_model, mock_classifier_model, mock_sst_ds
+    ):
+        # NOTE: not runnable in this sandbox (missing 'cbottle' extra); verify in CI.
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds)
+        dx.sampler_steps = 2  # Speed up sampler
+        assert check_diagnostic_contract(dx) == []
 
 
 @pytest.mark.package

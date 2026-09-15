@@ -25,6 +25,7 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CBottleSR
 from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
 from earth2studio.utils import handshake_dim
@@ -236,6 +237,17 @@ class TestCBottleSRMock:
 
         with pytest.raises(ValueError):
             dx(x, wrong_coords)
+
+    def test_cbottle_sr_conformance(self, mock_cbottle_core_model):
+        """Check the mock model against the Earth2Studio model contract."""
+        dx = CBottleSR(
+            mock_cbottle_core_model,
+            lat_lon=True,
+            output_resolution=(721, 1440),
+            sampler_steps=1,  # Reduced for testing speed
+            sigma_max=800,  # Reduced for testing
+        )
+        assert check_diagnostic_contract(dx) == []
 
 
 @pytest.mark.package

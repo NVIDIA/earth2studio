@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, Random_FX, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.datareplay import DataReplay
 
 LAT = np.linspace(90, -90, 8)
@@ -88,6 +89,24 @@ def test_datareplay_iter(source_type):
     _, second_coords = next(iterator)
     np.testing.assert_array_equal(second_coords["lead_time"], np.array([2 * STEP]))
     assert hook_calls == {"front": 2, "rear": 2}
+
+
+@pytest.mark.parametrize("source_type", [Random, Random_FX])
+def test_datareplay_conformance(source_type):
+    source = source_type(DOMAIN)
+    replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
+    # KNOWN CONTRACT GAP (deferred, do not weaken this check to hide it):
+    # DataReplay declares stochastic=False but, because it replays from a data
+    # source that draws fresh random values on every fetch instead of caching a
+    # rollout, two rollouts from one input disagree. check_prognostic_contract()
+    # raises with:
+    #   P13: model declares stochastic=False but two rollouts from one input
+    #   disagree; declare stochastic=True and implement set_rng()
+    # See dev/spec/MODEL_CONTRACT_SPEC.md. Fixing this is out of scope for this
+    # change and tracked separately; re-enable the assertion below once fixed.
+    with pytest.raises(ContractException) as excinfo:
+        check_prognostic_contract(replay)
+    assert "P13" in str(excinfo.value)
 
 
 def test_datareplay_input_coords_copy():

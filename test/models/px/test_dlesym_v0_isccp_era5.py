@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5, DLESyMv0_ISCCP_ERA5LatLon
 from earth2studio.utils import handshake_coords
 
@@ -495,6 +496,41 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
         )
         assert "rlut" in list(coords["variable"])
         assert np.all(coords["lead_time"] == _ATMOS_OUTPUT_TIMES + coupler_step * i)
+
+
+def test_dlesym_v0_isccp_era5_conformance():
+    """Check the mock HEALPix DLESyMv0_ISCCP_ERA5 model against the contract.
+
+    This is a genuine, verified violation (not a mock artifact), inherited
+    from the shared DLESyM rollout logic (see test_dlesym.py): fails P7 (the
+    0th yield's lead_time is wrong) and P13 (two rollouts from one input
+    disagree despite declaring stochastic=False). Tracked in
+    test/models/test_model_conformance.py pending a wrapper fix.
+    """
+    model = _build_model("cpu", nside=8, use_ttr=True)
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    message = str(exc_info.value)
+    assert "P7" in message
+    assert "P13" in message
+
+
+def test_dlesym_v0_isccp_era5_latlon_conformance():
+    """Check the mock lat/lon DLESyMv0_ISCCP_ERA5LatLon model against the contract.
+
+    Not independently executable here: earth2grid's CPU regridder segfaults
+    in this sandbox regardless of device (see test_dlesym.py's identical
+    note). DLESyMv0_ISCCP_ERA5LatLon shares the same rollout logic confirmed
+    non-conformant above.
+    """
+    pytest.skip(
+        "earth2grid's CPU regridder segfaults in this sandbox; "
+        "DLESyMv0_ISCCP_ERA5LatLon shares DLESyMv0_ISCCP_ERA5's rollout "
+        "logic, which is confirmed non-conformant by "
+        "test_dlesym_v0_isccp_era5_conformance (P7/P13)"
+    )
+    model = _build_latlon_model("cpu", nside=8, use_ttr=True)
+    assert check_prognostic_contract(model) == []
 
 
 @pytest.mark.package

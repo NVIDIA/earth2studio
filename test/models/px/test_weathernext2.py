@@ -29,6 +29,7 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.weathernext2_cyclones_mini import (
     OUTPUT_VARIABLES,
     WeatherNext2CyclonesMini,
@@ -132,6 +133,39 @@ def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
     mock_weathernext2_model(x, coords)
     mock_weathernext2_model(x, coords)
     assert len(rngs) == 2 and not np.array_equal(*rngs)
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch.object(
+    WeatherNext2CyclonesMini,
+    "_chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_weathernext2_conformance(mock_weathernext2_model):
+    """Check the mock WeatherNext2CyclonesMini model against the model contract.
+
+    Not fully conformant, expected:
+    - P10: dev/spec/MODEL_CONTRACT_SPEC.md's "Hooks" section documents
+      weathernext2_cyclones_mini (along with gencast_mini, graphcast_small,
+      graphcast_operational) as a known deviation that applies rear_hook but
+      never front_hook, so a front hook set on it is silently discarded.
+    WeatherNext2CyclonesMini also does not currently declare `stochastic` or
+    implement `set_rng()` (Migration table: its randomness is already an
+    isolated functional JAX PRNG key, per test_weathernext2_rng_advances above,
+    so only the declaration and set_rng() entry point are missing); until that
+    lands the contract checker treats it as non-stochastic.
+
+    The exact P10 message is asserted by rule prefix only, not full text: this
+    dependency group (weathernext, requiring jax[cuda13]) cannot be installed in
+    every CI/dev environment (e.g. no CUDA/non-Linux), so the precise wording was
+    confirmed against dev/spec/MODEL_CONTRACT_SPEC.md rather than a local run
+    everywhere this test executes.
+    """
+    model = mock_weathernext2_model
+    with pytest.raises(ContractException) as excinfo:
+        check_prognostic_contract(model)
+    violations = excinfo.value.violations
+    assert violations and all(v.startswith("P10") for v in violations), violations
 
 
 def test_weathernext2_target_order(mock_weathernext2_model):

@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import UCast
 from earth2studio.models.px.ucast import VARIABLES
 from earth2studio.utils import handshake_dim
@@ -241,6 +242,16 @@ def test_ucast_exceptions(ucast_model: UCast, coords_update: dict) -> None:
 
     with pytest.raises((KeyError, ValueError)):
         ucast_model(x, coords)
+
+
+def test_ucast_conformance(ucast_model: UCast) -> None:
+    # ucast_model is built with stochastic=False (dropout disabled at
+    # inference), so P14 is skipped rather than passed: the RNG-isolation
+    # rule has nothing to check for a model that does not declare itself
+    # stochastic.
+    assert check_prognostic_contract(ucast_model) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

@@ -39,6 +39,7 @@ except ImportError as e:
     pytest.skip(f"AIFS2ENS dependencies not installed: {e}", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFS2ENS
 from earth2studio.utils import handshake_dim
 
@@ -856,6 +857,47 @@ def test_aifs2ens_exceptions(dc, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_aifs2ens_conformance():
+    """Check the mock AIFS2ENS model against the Earth2Studio model contract.
+
+    AIFS2ENS does not currently declare `stochastic` or implement `set_rng()`
+    (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it seeds the global
+    RNG via a bare `torch.manual_seed(self.seed + step)` and needs the seeding
+    forked into `torch.random.fork_rng()`). Until that declaration lands, the
+    contract checker treats it as a non-stochastic model, so this test only
+    exercises the structural/coordinate rules against the deterministic mock.
+
+    Note: `flash-attn` (required by the `aifs2ens` extra) cannot be built without
+    CUDA, so this assertion could not be executed against real dependencies in
+    every environment; it is expected to hold based on static review of
+    AIFS2ENS's hook wiring and the deterministic Phoo forward pass above.
+    """
+    device = "cpu"
+    model = PhooAIFS2ENSModel()
+
+    latitudes = torch.randn(1, 1, 542080, 1, device=device)
+    longitudes = torch.randn(1, 1, 542080, 1, device=device)
+
+    interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=542_080, n_cols=1_038_240, device=device
+    )
+    inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=1_038_240, n_cols=542_080, device=device
+    )
+    invariants = torch.zeros(5, 721, 1440, device=device)
+
+    p = AIFS2ENS(
+        model=model,
+        latitudes=latitudes,
+        longitudes=longitudes,
+        interpolation_matrix=interpolation_matrix,
+        inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
+    ).to(device)
+
+    assert check_prognostic_contract(p) == []
 
 
 @pytest.fixture(scope="function")

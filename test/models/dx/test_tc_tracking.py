@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
@@ -408,6 +409,11 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
     assert y.device == torch.device(device)
 
 
+def test_tc_tracker_wu_duan_conformance():
+    model = TCTrackerWuDuan()
+    assert check_diagnostic_contract(model) == []
+
+
 @pytest.mark.parametrize("num_timesteps", [1, 2])
 @pytest.mark.parametrize("tc_included", [True, False])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -588,3 +594,8 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
             y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
         )  # z
     assert y.device == torch.device(device)
+
+
+def test_tc_tracker_vitart_conformance():
+    model = TCTrackerVitart()
+    assert check_diagnostic_contract(model) == []

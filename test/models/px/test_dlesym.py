@@ -20,6 +20,7 @@ import pytest
 import torch
 
 import earth2studio.models.px.dlesym as dlesym_src
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import DLESyM, DLESyMLatLon
 from earth2studio.utils import handshake_coords
 
@@ -298,6 +299,43 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         assert np.all(
             coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES + coupler_step * i
         )
+
+
+def test_dlesym_conformance():
+    """Check the mock HEALPix DLESyM model against the Earth2Studio model contract.
+
+    This is a genuine, verified violation (not a mock artifact): DLESyM fails
+    P16 (create_iterator()'s yields alias one buffer), P7 (the 0th yield's
+    lead_time is wrong), and P13 (two rollouts from one input disagree despite
+    declaring stochastic=False). Tracked in
+    test/models/test_model_conformance.py pending a wrapper fix.
+    """
+    model = build_dlesym_model("cpu", nside=8, type="hpx")
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    message = str(exc_info.value)
+    assert "P16" in message
+    assert "P7" in message
+    assert "P13" in message
+
+
+def test_dlesym_latlon_conformance():
+    """Check the mock lat/lon DLESyM model against the Earth2Studio model contract.
+
+    Not independently executable here: earth2grid's CPU regridder
+    (get_bilinear_regridder_to -> get_interp_weights) segfaults on this
+    sandbox regardless of the requested device, unrelated to DLESyM's own
+    logic. DLESyMLatLon shares create_iterator()/rollout code with DLESyM
+    (see test_dlesym_conformance above), which is independently confirmed to
+    violate P16/P7/P13, so the same violations are expected here.
+    """
+    pytest.skip(
+        "earth2grid's CPU regridder segfaults in this sandbox; "
+        "DLESyMLatLon shares DLESyM's rollout logic, which is confirmed "
+        "non-conformant by test_dlesym_conformance (P16/P7/P13)"
+    )
+    model = build_dlesym_model("cpu", nside=8, type="ll")
+    assert check_prognostic_contract(model) == []
 
 
 @pytest.mark.package

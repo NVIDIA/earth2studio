@@ -29,6 +29,7 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CBottleInfill
 from earth2studio.utils import handshake_dim
 
@@ -277,6 +278,13 @@ class TestCBottleMock:
 
         assert torch.allclose(out0, out1)
         assert torch.allclose(out0, out2)
+
+    def test_cbottleinfill_conformance(self, mock_core_model, mock_sst_ds):
+        # NOTE: not runnable in this sandbox (missing 'cbottle' extra); verify in CI.
+        input_variables = np.array(["u10m", "v10m"])
+        dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables)
+        dx.sampler_steps = 2  # Speed up sampler
+        assert check_diagnostic_contract(dx) == []
 
 
 @pytest.mark.package

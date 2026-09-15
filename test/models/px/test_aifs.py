@@ -40,6 +40,7 @@ except ImportError:
     pytest.skip("anemoi-models not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFS
 from earth2studio.utils import handshake_dim
 
@@ -813,6 +814,39 @@ def test_aifs_exceptions(dc, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_aifs_conformance():
+    device = "cpu"
+    model = PhooAIFSModel()
+
+    latitudes = torch.randn(1, 1, 542080, 1, device=device)
+    longitudes = torch.randn(1, 1, 542080, 1, device=device)
+
+    interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=542_080, n_cols=1_038_240, device=device
+    ).to(torch.float64)
+
+    inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=1_038_240, n_cols=542_080, device=device
+    ).to(torch.float64)
+
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
+    p = AIFS(
+        model=model,
+        latitudes=latitudes,
+        longitudes=longitudes,
+        interpolation_matrix=interpolation_matrix,
+        inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
+    )
+    # AIFS is deterministic (stochastic=False via PrognosticMixin's default), so
+    # P14 is reported as an informational skip rather than evaluated; that is
+    # expected and not a contract violation.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.fixture(scope="function")

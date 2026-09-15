@@ -27,6 +27,7 @@ except ImportError:
     pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Aurora
 from earth2studio.utils import handshake_dim
 
@@ -183,6 +184,20 @@ def test_aurora_exceptions(dc, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_aurora_conformance():
+    model = PhooAuroraModel()
+    z = torch.ones(720, 1440)
+    slt = torch.ones(720, 1440)
+    lsm = torch.ones(720, 1440)
+    p = Aurora(model, z, slt, lsm)
+    # Aurora is deterministic (stochastic=False via PrognosticMixin's default), so
+    # P14 is reported as an informational skip rather than evaluated; that is
+    # expected and not a contract violation.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.fixture(scope="function")

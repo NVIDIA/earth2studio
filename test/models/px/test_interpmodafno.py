@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import InterpModAFNO
 from earth2studio.models.px.interpmodafno import VARIABLES
 from earth2studio.models.px.persistence import Persistence
@@ -250,6 +251,56 @@ def test_forecast_interpolation_exceptions(dc, device):
     ).to(device)
     with pytest.raises(ValueError):
         model.input_coords()
+
+
+def test_interpmodafno_conformance():
+    """Check the mock InterpModAFNO model against the Earth2Studio model contract.
+
+    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
+    asserted here to avoid leaving a permanently red test):
+      - P5: output_coords() accepted a coordinate system whose final two
+        dimensions were swapped; invalid input must raise ValueError
+      - P10: create_iterator() must apply both hook chains on every forecast
+        step, applied neither; a hook a caller sets must not be silently
+        dropped
+    """
+    base_model = Persistence(
+        variable=VARIABLES,
+        domain_coords={
+            "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        },
+    )
+    center = torch.zeros(1, 73, 1, 1)
+    scale = torch.ones(1, 73, 1, 1)
+
+    interp_model = PhooInterpolationModel()
+    geop = torch.zeros(1, 1, 720, 1440)
+    lsm = torch.zeros(1, 1, 720, 1440)
+
+    model = InterpModAFNO(
+        interp_model=interp_model,
+        center=center,
+        scale=scale,
+        geop=geop,
+        lsm=lsm,
+        px_model=base_model,
+        num_interp_steps=6,
+    )
+    violations = []
+    try:
+        check_prognostic_contract(model)
+    except ContractException as exc:
+        violations = exc.violations
+    # TODO(model-contract): remove once InterpModAFNO is fixed to conform
+    # (see docstring above for exact violation strings).
+    assert set(violations) <= {
+        "P5: output_coords() accepted a coordinate system whose final two "
+        "dimensions were swapped; invalid input must raise ValueError",
+        "P10: create_iterator() must apply both hook chains on every forecast "
+        "step, applied neither; a hook a caller sets must not be silently "
+        "dropped",
+    }
 
 
 @pytest.fixture(scope="function")

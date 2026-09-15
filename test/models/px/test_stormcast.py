@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import HRRR, Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import StormCast
 from earth2studio.utils import handshake_dim
 
@@ -281,6 +282,69 @@ def test_stormcast_exceptions(dc, device):
     with pytest.raises(ValueError):
         # Using the generator with no built-in conditioning should fail
         next(p_iter)
+
+
+def test_stormcast_conformance():
+    # Small domain, mirroring test_stormcast_iter, to keep the diffusion
+    # sampler rollout cheap.
+    regression = PhooStormCastRegressionModel()
+    diffusion = PhooStormCastDiffusionModel()
+
+    X_START, X_END = 32, 64
+    Y_START, Y_END = 32, 128
+    nvar, nvar_cond = 3, 5
+    dc = OrderedDict(
+        [
+            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+        ]
+    )
+    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+
+    r_condition = Random(
+        OrderedDict(
+            [
+                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                ("lon", np.linspace(0, 360, num=360)),
+            ]
+        )
+    )
+
+    variables = np.array(["u%02d" % i for i in range(nvar)])
+    means = torch.zeros(1, nvar, 1, 1)
+    stds = torch.ones(1, nvar, 1, 1)
+    invariants = torch.randn(1, 2, lat.shape[0], lat.shape[1])
+    conditioning_means = torch.randn(1, nvar_cond, 1, 1)
+    conditioning_stds = torch.randn(1, nvar_cond, 1, 1)
+    conditioning_variables = np.array(["u%02d" % i for i in range(nvar_cond)])
+    p = StormCast(
+        regression,
+        diffusion,
+        means,
+        stds,
+        invariants,
+        hrrr_lat_lim=(Y_START, Y_END),
+        hrrr_lon_lim=(X_START, X_END),
+        variables=variables,
+        conditioning_means=conditioning_means,
+        conditioning_stds=conditioning_stds,
+        conditioning_variables=conditioning_variables,
+        conditioning_data_source=r_condition,
+        sampler_steps=2,
+    )
+
+    # StormCast draws its diffusion latents from the global RNG
+    # (`torch.randn_like`) without declaring itself stochastic or
+    # implementing set_rng, so this is a real P13 violation rather than a
+    # checker skip. Tracked as a follow-up to declare `stochastic = True`
+    # and add a seeded `set_rng`; asserting on the exception here documents
+    # the known-bad state without leaving a permanently red test.
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(p)
+    assert exc_info.value.violations == [
+        "P13: model declares stochastic=False but two rollouts from one "
+        "input disagree; declare stochastic=True and implement set_rng()"
+    ]
 
 
 @pytest.fixture(scope="function")

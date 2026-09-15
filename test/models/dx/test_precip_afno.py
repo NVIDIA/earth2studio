@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.utils import handshake_dim
 
@@ -63,6 +64,16 @@ def test_afno_precip(x, device):
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
+
+
+def test_precipitationafno_conformance():
+    model = PhooAFNOPrecip()
+    center = torch.zeros(20, 1, 1)
+    scale = torch.ones(20, 1, 1)
+    dx = PrecipitationAFNO(model, center, scale)
+    assert check_diagnostic_contract(dx) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

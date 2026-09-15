@@ -30,6 +30,7 @@ except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import CBottleVideo
 from earth2studio.utils import handshake_dim
 
@@ -226,6 +227,28 @@ class TestCBottleVideoMock:
 
         with pytest.raises((KeyError, ValueError)):
             px(x, coords)
+
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_cbottle_video_conformance(self, device, mock_core_model, mock_sst_ds):
+        """Check the mock CBottleVideo model against the Earth2Studio model contract.
+
+        CBottleVideo does not currently declare `stochastic` or implement
+        `set_rng()` (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it
+        already passes a seed straight to the core model's sample() call, so only
+        the declaration and set_rng() entry point are missing). Until that lands,
+        the contract checker treats it as a non-stochastic model.
+
+        Note: `cbottle`/`earth2grid` (required by the `cbottle` extra) could not
+        be installed in every environment (git-sourced, and `earth2grid` compiles
+        a C++ extension against a local toolchain that failed here for other
+        extras), so this assertion could not be executed against real
+        dependencies everywhere; it is expected to hold based on static review of
+        CBottleVideo's hook wiring and the real (but tiny/deterministic-enough)
+        mock core model above.
+        """
+        px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
+        px.sampler_steps = 2  # Speed up sampler
+        assert check_prognostic_contract(px, nsteps=1) == []
 
 
 @pytest.mark.package

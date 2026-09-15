@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Persistence
 from earth2studio.utils.checkpoint import Checkpoint
 
@@ -200,3 +201,19 @@ def test_persistence_coords(dc, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_persistence_conformance():
+    variable = ["t2m", "tcwv"]
+    dc = OrderedDict(
+        {
+            "lat": np.linspace(-90, 90, 360),
+            "lon": np.linspace(0, 360, 720, endpoint=False),
+        }
+    )
+    p = Persistence(variable, dc, history=2)
+    # P14 is skipped rather than passed: the model does not declare itself
+    # stochastic, so the RNG-isolation rule has nothing to check.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]

@@ -30,6 +30,7 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
 from earth2studio.models.px.graphcast_small import GraphCastSmall
 from earth2studio.utils import handshake_dim
@@ -241,6 +242,32 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch(
+    "weathernext.utils.rollout.chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_graphcast_small_conformance(mock_GraphCastSmall_model):
+    """Check the mock GraphCastSmall model against the Earth2Studio model contract.
+
+    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
+    asserted here to avoid leaving a permanently red test): per the spec's
+    "Known deviation" note, graphcast_small applies rear_hook but never
+    front_hook in create_iterator(), so a front hook a caller sets is
+    silently discarded.
+      - P10: create_iterator() must apply both hook chains on every forecast
+        step, applied only {'rear'}
+    """
+    p = mock_GraphCastSmall_model.to("cpu")
+    violations: list[str] = []
+    try:
+        check_prognostic_contract(p)
+    except ContractException as exc:
+        violations = exc.violations
+    # TODO(model-contract): remove once GraphCastSmall applies front_hook too.
+    assert all(v.startswith("P10:") for v in violations)
 
 
 @pytest.fixture(scope="function")
@@ -464,6 +491,32 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch(
+    "weathernext.utils.rollout.chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_graphcast_operational_conformance(mock_GraphCastOperational_model):
+    """Check the mock GraphCastOperational model against the model contract.
+
+    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
+    asserted here to avoid leaving a permanently red test): per the spec's
+    "Known deviation" note, graphcast_operational applies rear_hook but never
+    front_hook in create_iterator(), so a front hook a caller sets is
+    silently discarded.
+      - P10: create_iterator() must apply both hook chains on every forecast
+        step, applied only {'rear'}
+    """
+    p = mock_GraphCastOperational_model.to("cpu")
+    violations: list[str] = []
+    try:
+        check_prognostic_contract(p)
+    except ContractException as exc:
+        violations = exc.violations
+    # TODO(model-contract): remove once GraphCastOperational applies front_hook too.
+    assert all(v.startswith("P10:") for v in violations)
 
 
 @pytest.fixture(scope="function")

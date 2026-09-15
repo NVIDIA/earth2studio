@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
@@ -567,6 +568,75 @@ def test_stormscope_mrms(device):
     # Test forward pass
     out, out_coords = model(x, coords)
     assert out.shape == torch.Size([1, 1, 1, h, w])
+
+
+def test_stormscope_goes_conformance():
+    model = create_spoof_model()
+
+    # StormScope draws its diffusion latents from the global RNG
+    # (`torch.randn`) without declaring itself stochastic or implementing
+    # set_rng, so this is a real P13 violation rather than a checker skip.
+    # Tracked as a follow-up to declare `stochastic = True` and add a
+    # seeded `set_rng`; asserting on the exception here documents the
+    # known-bad state without leaving a permanently red test.
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P13: model declares stochastic=False but two rollouts from one "
+        "input disagree; declare stochastic=True and implement set_rng()"
+    ]
+
+
+def test_stormscope_mrms_conformance():
+    nvar_cond = 8
+    h, w = 32, 64
+    y = np.arange(h)
+    x_ = np.arange(w)
+    lat = torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w)
+    lon = torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1)
+
+    diffusion = PhooStormScopeDiffusionModel(nvar=1)
+    # sigma_min=0.001 rather than 0.0: a zero sigma_min puts a real 0 into the
+    # EDM noise schedule, making the Euler update divide by t_hat == 0 and
+    # producing NaNs once the iterator steps more than once (see
+    # create_spoof_model's docstring note above).
+    model_spec = [{"model": diffusion, "sigma_min": 0.001, "sigma_max": 88.0}]
+
+    means = torch.zeros(1, 1, 1, 1)
+    stds = torch.ones(1, 1, 1, 1)
+    variables = np.array(["refc"])
+
+    conditioning_means = torch.zeros(1, nvar_cond, 1, 1)
+    conditioning_stds = torch.ones(1, nvar_cond, 1, 1)
+    conditioning_variables = np.array([f"abi{i:02d}c" for i in range(1, nvar_cond + 1)])
+
+    dc_cond = OrderedDict([("y", y), ("x", x_)])
+    conditioning_data_source = Random(dc_cond)
+
+    model = StormScopeMRMS(
+        model_spec=model_spec,
+        means=means,
+        stds=stds,
+        latitudes=lat,
+        longitudes=lon,
+        variables=variables,
+        conditioning_means=conditioning_means,
+        conditioning_stds=conditioning_stds,
+        conditioning_variables=conditioning_variables,
+        conditioning_data_source=conditioning_data_source,
+        sampler_args={"num_steps": 2},
+        y_coords=y,
+        x_coords=x_,
+        amp=False,
+    )
+
+    # Same real P13 violation as StormScopeGOES; see comment above.
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P13: model declares stochastic=False but two rollouts from one "
+        "input disagree; declare stochastic=True and implement set_rng()"
+    ]
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

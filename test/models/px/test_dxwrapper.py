@@ -22,6 +22,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.io import XarrayBackend
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
@@ -67,12 +68,20 @@ class PhooFCN3ModelWrapper(torch.nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model
+        self._generator = None
 
     def forward(self, x, t, normalized_data: bool = False, replace_state: bool = False):
-        return x
+        # Deterministic (identity) unless set_rng() has seeded a local generator,
+        # mirroring the real core model's noise-conditioned forward so that FCN3's
+        # declared stochastic=True is exercisable by the conformance rollout rules.
+        if self._generator is None:
+            return x
+        noise = torch.randn(x.shape, generator=self._generator).to(x.device)
+        return x + noise
 
     def set_rng(self, reset: bool = True, seed: int = 333):
-        return
+        if reset or self._generator is None:
+            self._generator = torch.Generator().manual_seed(seed)
 
 
 class PhooAFNOPrecipV2(torch.nn.Module):
@@ -333,6 +342,75 @@ def test_dxwrapper_run(device, times, number_of_samples):
     x, coords = map_coords(x, coords, wrapped_model.input_coords())
     io = XarrayBackend()
     deterministic(times, 2, wrapped_model, data, io, device=device)
+
+
+def test_fcn3_conformance():
+    """Check the mock FCN3 model against the Earth2Studio model contract.
+
+    FCN3 declares stochastic=True and delegates set_rng to its core model. The
+    Phoo core model seeds a local torch.Generator and adds noise from it once
+    seeded, so P13 (reproducibility) and P14 (RNG isolation) are exercisable.
+    """
+    fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
+    px_model = FCN3(fcn3_model)
+    assert check_prognostic_contract(px_model) == []
+
+
+def test_persistence_conformance():
+    """Check the Persistence prognostic model against the model contract."""
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=["t2m", "u10m"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
+    )
+    assert check_prognostic_contract(px_model) == []
+
+
+def test_diagnosticwrapper_conformance():
+    """Check DiagnosticWrapper wrapping a mock CorrDiff dx model and a
+    Persistence px model against the Earth2Studio model contract.
+
+    Both underlying mocks are deterministic (PhooCorrDiff has no randomness,
+    Persistence is the identity operator), matching the wrapper's declared
+    stochastic=False default.
+    """
+    model = PhooCorrDiff()
+    in_center = torch.zeros(12, 1, 1)
+    in_scale = torch.ones(12, 1, 1)
+    out_center = torch.zeros(4, 1, 1)
+    out_scale = torch.ones(4, 1, 1)
+    lat = torch.as_tensor(np.linspace(19.5, 27, 450, endpoint=True))
+    lon = torch.as_tensor(np.linspace(117, 125, 450, endpoint=False))
+    out_lon, out_lat = torch.meshgrid(lon, lat)
+    corrdiff_model = CorrDiffTaiwan(
+        model,
+        model,
+        in_center,
+        in_scale,
+        out_center,
+        out_scale,
+        out_lat,
+        out_lon,
+        number_of_samples=1,
+    )
+
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=corrdiff_model.input_coords()["variable"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
+    )
+
+    wrapped_model = DiagnosticWrapper(
+        px_model=px_model,
+        dx_model=corrdiff_model,
+    )
+    assert check_prognostic_contract(wrapped_model) == []
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
