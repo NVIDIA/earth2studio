@@ -517,6 +517,7 @@ nav:
     - Diagnostic Models: userguide/components/diagnostic.md
     - Data Assimilation Models: userguide/components/data_assimilation.md
     - Data Sources: userguide/components/datasources.md
+    - Earthmover Marketplace: userguide/components/earthmover_marketplace.md
     - Perturbations: userguide/components/perturbation.md
     - IO Backends: userguide/components/io.md
     - Statistics: userguide/components/statistics.md
