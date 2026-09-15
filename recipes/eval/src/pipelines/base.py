@@ -577,6 +577,8 @@ class Pipeline(ABC):
         torch.manual_seed(item.seed)
         for component in self.explicit_rng_components():
             if hasattr(component, "set_rng"):
+                # TODO: drop the signature check once earth2studio 1.0.0-rc
+                # standardizes the model ``set_rng`` signature.
                 params = inspect.signature(component.set_rng).parameters
                 if "reset" in params:
                     component.set_rng(seed=item.seed, reset=True)
