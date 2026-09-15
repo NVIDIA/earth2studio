@@ -97,6 +97,12 @@ def _iso_duration(value: np.timedelta64) -> str:
 
 @dataclass(frozen=True)
 class _Window:
+    """Parsed runtime window using NumPy offsets for temporal arithmetic.
+
+    Public declarations remain compact strings, while exported metadata uses strings
+    that can be serialized safely through Xarray-backed storage formats.
+    """
+
     method: str
     start: np.timedelta64
     end: np.timedelta64
