@@ -99,8 +99,7 @@ require_predownload: false   # IC is BYO and verification is the shared store
 # come from a per-variable composite read on the fly (bring-your-own
 # ``ic_source``, so no data.zarr): ARCO for everything but the r levels, the
 # public NCAR ERA5 mirror (AWS Open Data) for r.  Verification stays on the
-# shared ARCO-derived store (the r levels are not scored).  Run inference on
-# one rank: the NCAR reader is not safe for concurrent first reads.
+# shared ARCO-derived store (the r levels are not scored).
 ic_source:
     _target_: src.data.CompositeSource
     sources:
