@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `earth2studio.data.stac` for lazy, cloud-native access to STAC
+  catalogs: `stac.search()` queries a catalog and returns the matching
+  assets as one lazy, dask-backed `(time, variable, y, x)` `DataArray` in
+  its native grid with the STAC items on `.items`; `stac.open()` opens a
+  single item asset; `stac.collections()` browses a catalog. Hrefs are
+  signed for Planetary Computer and read anonymously over HTTPS for Earth
+  Search; `raster:bands` scale/offset and nodata are applied.
 - Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
 - Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
   (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
@@ -79,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
 
 ## [0.18.0] - 2026-08-31
 
