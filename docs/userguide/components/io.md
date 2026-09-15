@@ -172,8 +172,8 @@ io.commit("forecast run 2024-01-01T00Z")
 
 Pass `branch` to write to a named branch other than `"main"`; it is created
 automatically (from the tip of `"main"`) if it does not already exist. This
-requires the `icechunk` optional dependency, install with `pip install
-earth2studio[data]`.
+requires Python 3.12 or newer and the `icechunk` optional dependency, install
+with `pip install earth2studio[data]`.
 
 !!! note
     `write` is non-blocking by default: it submits the store write to a
@@ -208,8 +208,9 @@ Authentication resolves in order: an explicit `token`, then the
 Earthmover data sources such as `earth2studio.data.EarthMoverERA5`), then a
 bare `arraylake.Client()`, which picks up `ARRAYLAKE_TOKEN` or a cached
 `al auth login` session. Pass `repo_kwargs` to forward options such as
-`bucket_config_nickname` to the Arraylake client. This requires the `arraylake`
-optional dependency, install with `pip install earth2studio[data]`.
+`bucket_config_nickname` to the Arraylake client. This requires Python 3.12 or
+newer and the `arraylake` optional dependency, install with `pip install
+earth2studio[data]`.
 
 ### Sharding Icechunk output with the Async Zarr Backend
 

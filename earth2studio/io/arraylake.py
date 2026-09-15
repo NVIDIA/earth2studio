@@ -85,6 +85,11 @@ class ArraylakeBackend(IceChunkBackend):
 
     Note
     ----
+    Requires Python 3.12 or newer, the minimum the `arraylake` optional
+    dependency supports.
+
+    Note
+    ----
     For more information about Arraylake's Icechunk repositories see:
     https://docs.earthmover.io/guide/icechunk
     """
