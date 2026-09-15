@@ -60,17 +60,21 @@ class IceChunkBackend(ZarrBackend):
 
     Parameters
     ----------
-    storage : icechunk.Storage | str, optional
+    storage : icechunk.Storage | icechunk.Repository | str, optional
         Icechunk storage backend to open/create the repository with. If a string is
         provided, it is treated as a path for
-        `icechunk.local_filesystem_storage`. If None, an in-memory Icechunk
+        `icechunk.local_filesystem_storage`. An already opened
+        `icechunk.Repository` may also be passed directly, which is useful for
+        repositories obtained elsewhere, such as from a hosted service like
+        Arraylake (see :class:`earth2studio.io.ArraylakeBackend`) or one opened
+        with a custom `icechunk.RepositoryConfig`. If None, an in-memory Icechunk
         repository is created, by default None
     branch : str, optional
         Branch to open a writable session on. Created (from the tip of "main") if it
         does not already exist, by default "main"
     repo_kwargs : dict[str, Any], optional
-        Key word arguments passed to `icechunk.Repository.open_or_create`,
-        by default {}
+        Key word arguments passed to `icechunk.Repository.open_or_create`. Ignored
+        when ``storage`` is an already opened `icechunk.Repository`, by default {}
     chunks : dict[str, int], optional
         An ordered dict of chunks to use with the data passed through data/coords, by
         default {}
@@ -101,7 +105,7 @@ class IceChunkBackend(ZarrBackend):
 
     def __init__(
         self,
-        storage: "icechunk.Storage | str | None" = None,
+        storage: "icechunk.Storage | icechunk.Repository | str | None" = None,
         branch: str = "main",
         repo_kwargs: dict[str, Any] = {},
         chunks: dict[str, int] = {  # to avoid writing in the same chunk by default
@@ -116,12 +120,14 @@ class IceChunkBackend(ZarrBackend):
         pool_size: int = 8,
     ) -> None:
 
-        if storage is None:
-            storage = icechunk.in_memory_storage()
-        elif isinstance(storage, str):
-            storage = icechunk.local_filesystem_storage(storage)
-
-        self.repo = icechunk.Repository.open_or_create(storage, **repo_kwargs)
+        if isinstance(storage, icechunk.Repository):
+            self.repo = storage
+        else:
+            if storage is None:
+                storage = icechunk.in_memory_storage()
+            elif isinstance(storage, str):
+                storage = icechunk.local_filesystem_storage(storage)
+            self.repo = icechunk.Repository.open_or_create(storage, **repo_kwargs)
         if branch not in self.repo.list_branches():
             self.repo.create_branch(branch, self.repo.lookup_branch("main"))
         self.branch = branch
@@ -198,8 +204,9 @@ class IceChunkBackend(ZarrBackend):
                 self._executor.shutdown(wait=True)
             if self.session.has_uncommitted_changes and len(self.root) > 0:
                 logger.warning(
-                    "IceChunkBackend deleted with uncommitted changes; these writes "
+                    "{} deleted with uncommitted changes; these writes "
                     "were not persisted to branch '{}'. Call commit() to persist.",
+                    type(self).__name__,
                     self.branch,
                 )
         except Exception:  # noqa: S110 interpreter may be shutting down

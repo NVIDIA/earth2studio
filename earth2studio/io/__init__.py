@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .arraylake import ArraylakeBackend
 from .async_zarr import AsyncZarrBackend
 from .base import IOBackend
 from .icechunk import IceChunkBackend
