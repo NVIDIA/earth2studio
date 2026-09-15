@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Aurora 1.5 Ensemble, SFNO, Pangu, FengWu, FuXi, DLWP, and FCN to the
   docs scorecard
 - Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
+- Added `DailyMean`, a UTC daily-mean adapter for hourly gridded data sources,
+  and `FuXiS2SERA5`, which prepares 0.25-degree ERA5 fields on the FuXi-S2S
+  1.5-degree grid.
 - Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
   (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
 - Added HRRR land-sea mask and surface geopotential variables.
