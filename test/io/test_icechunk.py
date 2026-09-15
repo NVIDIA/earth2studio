@@ -121,6 +121,40 @@ def test_icechunk_local_filesystem_and_branch() -> None:
         assert torch.allclose(x, xx)
 
 
+def test_icechunk_existing_repository() -> None:
+    """An already opened Repository can be handed to the backend directly.
+
+    This is the seam ArraylakeBackend uses, since a hosted repository can only be
+    obtained from its service client, never built from an icechunk.Storage.
+    """
+
+    total_coords = OrderedDict(
+        {
+            "time": np.asarray([np.datetime64("2021-01-01")]),
+            "variable": np.asarray(["t2m"]),
+            "lat": np.linspace(-90, 90, 8),
+            "lon": np.linspace(0, 360, 16, endpoint=False),
+        }
+    )
+    array_name = "fields"
+    shape = tuple(len(dim) for dim in total_coords.values())
+
+    repo = icechunk.Repository.open_or_create(icechunk.in_memory_storage())
+    io = IceChunkBackend(repo, branch="experiment")
+    assert io.repo is repo
+    assert "experiment" in repo.list_branches()
+
+    io.add_array(total_coords, array_name)
+    x = torch.randn(shape, dtype=torch.float32)
+    io.write(x, total_coords, array_name)
+    io.commit("write fields")
+
+    # The same repository object, opened again, sees the committed data
+    io2 = IceChunkBackend(repo, branch="experiment")
+    xx, _ = io2.read(total_coords, array_name)
+    assert torch.allclose(x, xx)
+
+
 def test_icechunk_empty_commit() -> None:
 
     io = IceChunkBackend()
