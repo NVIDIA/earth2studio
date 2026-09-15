@@ -74,77 +74,18 @@ def patch_arraylake(monkeypatch):
     return created
 
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize("variable", [["t2m"], ["t2m", "tcwv"]])
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_arraylake_field(
-    time: list[np.datetime64],
-    variable: list[str],
-    device: str,
-    patch_arraylake: list[FakeClient],
-) -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    chunks = OrderedDict({"time": 1, "variable": 1, "lat": 180, "lon": 180})
-
-    io = ArraylakeBackend("test-org/test-repo", chunks=chunks)
-    assert io.repo_name == "test-org/test-repo"
-    assert isinstance(io.repo, icechunk.Repository)
-    assert isinstance(io.root, zarr.Group)
-
-    array_name = "fields"
-    io.add_array(total_coords, array_name)
-
-    for dim in total_coords:
-        assert dim in io
-        assert dim in io.coords
-        assert io[dim].shape == total_coords[dim].shape
-
-    assert array_name in io
-
-    shape = tuple(len(dim) for dim in total_coords.values())
-    assert io[array_name].shape == shape
-
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    io.write(x, total_coords, array_name)
-    assert np.allclose(io[array_name][:], x.to("cpu").numpy())
-
-    xx, _ = io.read(total_coords, array_name, device=device)
-    assert torch.allclose(x, xx)
-
-    # Commit and confirm the write survives a fresh readonly session
-    snapshot_id = io.commit("write fields")
-    assert isinstance(snapshot_id, str)
-
-    readonly = io.repo.readonly_session(io.branch)
-    root = zarr.open_group(readonly.store, mode="r")
-    assert np.allclose(root[array_name][:], x.to("cpu").numpy())
-
-
 def test_arraylake_repo_resolution(patch_arraylake: list[FakeClient]) -> None:
+    """The repo name is resolved through the client, with repo_kwargs passed on."""
 
     client = FakeClient()
 
-    # The repo is resolved through get_or_create_repo, with repo_kwargs passed on
     io = ArraylakeBackend(
         "test-org/new-repo",
         client=client,
         repo_kwargs={"bucket_config_nickname": "default"},
     )
+    assert io.repo_name == "test-org/new-repo"
+    assert io.repo is client._repos["test-org/new-repo"]
     assert client.calls == [
         (
             "get_or_create_repo",
@@ -152,16 +93,22 @@ def test_arraylake_repo_resolution(patch_arraylake: list[FakeClient]) -> None:
             {"bucket_config_nickname": "default"},
         )
     ]
-    assert isinstance(io.repo, icechunk.Repository)
+    # An injected client is used as is, so no client is built from the environment
+    assert patch_arraylake == []
 
     # No repo_kwargs means none are invented
     client.calls.clear()
-    io2 = ArraylakeBackend("test-org/new-repo", client=client)
+    ArraylakeBackend("test-org/new-repo", client=client)
     assert client.calls == [("get_or_create_repo", "test-org/new-repo", {})]
-    assert io2.repo is io.repo
 
 
-def test_arraylake_branch(patch_arraylake: list[FakeClient]) -> None:
+def test_arraylake_forwards_backend_options(patch_arraylake: list[FakeClient]) -> None:
+    """Backend options reach IceChunkBackend, and writes land on the vended repo.
+
+    Everything below construction is inherited and covered by test_icechunk.py; what
+    is specific here is that __init__ forwards each option to super() correctly and
+    that the parent machinery drives a client-vended repository end to end.
+    """
 
     total_coords = OrderedDict(
         {
@@ -171,42 +118,30 @@ def test_arraylake_branch(patch_arraylake: list[FakeClient]) -> None:
             "lon": np.linspace(0, 360, 16, endpoint=False),
         }
     )
-    array_name = "fields"
     shape = tuple(len(dim) for dim in total_coords.values())
-    client = FakeClient()
 
-    io = ArraylakeBackend("test-org/test-repo", branch="experiment", client=client)
+    io = ArraylakeBackend(
+        "test-org/test-repo",
+        branch="experiment",
+        client=FakeClient(),
+        chunks={"time": 1, "variable": 1, "lat": 4, "lon": 16},
+        blocking=True,
+    )
     assert io.branch == "experiment"
     assert "experiment" in io.repo.list_branches()
+    assert io._blocking is True
+    assert io._executor is None
 
-    io.add_array(total_coords, array_name)
+    io.add_array(total_coords, "fields")
+    assert io["fields"].chunks == (1, 1, 4, 16)
+
     x = torch.randn(shape, dtype=torch.float32)
-    io.write(x, total_coords, array_name)
+    io.write(x, total_coords, "fields")
     io.commit("write fields")
 
-    # Reopening the same repo on the same branch sees the committed data
-    io2 = ArraylakeBackend("test-org/test-repo", branch="experiment", client=client)
-    assert array_name in io2
-    xx, _ = io2.read(total_coords, array_name)
-    assert torch.allclose(x, xx)
-
-    # The untouched main branch does not
-    io3 = ArraylakeBackend("test-org/test-repo", client=client)
-    assert array_name not in io3
-
-
-def test_arraylake_injected_client_skips_auth(
-    monkeypatch, patch_arraylake: list[FakeClient]
-) -> None:
-
-    def _boom(*args: object, **kwargs: object) -> None:
-        raise AssertionError("_make_client should not be called with client=")
-
-    monkeypatch.setattr(ArraylakeBackend, "_make_client", staticmethod(_boom))
-
-    client = FakeClient()
-    io = ArraylakeBackend("test-org/test-repo", client=client)
-    assert io.repo is client._repos["test-org/test-repo"]
+    readonly = io.repo.readonly_session("experiment")
+    root = zarr.open_group(readonly.store, mode="r")
+    assert np.allclose(root["fields"][:], x.numpy())
 
 
 def test_arraylake_token_precedence(
