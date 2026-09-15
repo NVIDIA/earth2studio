@@ -165,6 +165,27 @@ def _swap_last_dims(coords: CoordSystem) -> CoordSystem:
     return OrderedDict((key, coords[key]) for key in keys)
 
 
+# Coordinate keys whose values are checked against output_coords()'s declaration.
+# Grid dimensions (lat/lon, hpx, face/height/width, ...) are intentionally excluded
+# pending the grid/coords redesign, which will change how those are represented.
+_DECLARED_VALUE_KEYS = ("batch", "time", "variable")
+
+
+def _mismatched_coord_keys(
+    expected: CoordSystem,
+    actual: CoordSystem,
+    keys: tuple[str, ...] = _DECLARED_VALUE_KEYS,
+) -> list[str]:
+    """Keys present in both coordinate systems whose values differ."""
+    return [
+        key
+        for key in keys
+        if key in expected
+        and key in actual
+        and not np.array_equal(actual[key], expected[key])
+    ]
+
+
 def _check_coord_declaration(
     report: _Report,
     model: Any,
@@ -245,7 +266,6 @@ def _check_coord_declaration(
 
 def check_prognostic_contract(
     model: PrognosticModel,
-    *,
     rollout: bool = True,
     nsteps: int = 2,
     device: Any = "cpu",
@@ -508,6 +528,14 @@ def _check_rollout(
             "the 1st yield must land on the lead_time declared by output_coords(); "
             f"expected {output_coords['lead_time']}, got "
             f"{first_coords.get('lead_time')}",
+        )
+        mismatched = _mismatched_coord_keys(output_coords, first_coords)
+        report.require(
+            "P8",
+            not mismatched,
+            f"the 1st yield's {mismatched} coordinate value(s) do not match "
+            "output_coords(); a caller reading the declared coordinates gets "
+            "mislabeled data",
         )
     else:
         report.skip("P8", "iterator exhausted before the first forecast step")
@@ -852,6 +880,15 @@ def _check_hook_scope(
         calls.append("rear")
         return x, hook_coords
 
+    # Snapshot whatever was on the slots before the probes so a caller's own
+    # hooks — pre-existing on the instance passed in — are restored rather than
+    # wiped by clear_hooks(), which removes every hook, not just these probes.
+    original_hooks = {
+        name: vars(hooks)[name]
+        for name in ("front_hook", "rear_hook")
+        if name in vars(hooks)
+    }
+
     hooks.add_front_hook(front)
     hooks.add_rear_hook(rear)
     try:
@@ -864,6 +901,8 @@ def _check_hook_scope(
         call_calls = set(calls)
     finally:
         hooks.clear_hooks()
+        for name, value in original_hooks.items():
+            setattr(hooks, name, value)
 
     report.require(
         "P10",
@@ -883,7 +922,6 @@ def _check_hook_scope(
 
 def check_diagnostic_contract(
     model: DiagnosticModel,
-    *,
     forward: bool = True,
     device: Any = "cpu",
 ) -> list[str]:
@@ -951,6 +989,14 @@ def check_diagnostic_contract(
             list(out_coords) == list(output_coords),
             "__call__ must return the dimensions declared by output_coords(); "
             f"expected {list(output_coords)}, got {list(out_coords)}",
+        )
+        mismatched = _mismatched_coord_keys(output_coords, out_coords)
+        report.require(
+            "D5",
+            not mismatched,
+            f"__call__'s {mismatched} coordinate value(s) do not match "
+            "output_coords(); a caller reading the declared coordinates gets "
+            "mislabeled data",
         )
         out_shape = _expected_shape(out_coords)
         if out_shape is not None:

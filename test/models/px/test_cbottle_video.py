@@ -248,7 +248,9 @@ class TestCBottleVideoMock:
         """
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
         px.sampler_steps = 2  # Speed up sampler
-        assert check_prognostic_contract(px, nsteps=1) == []
+        assert check_prognostic_contract(px, nsteps=1) == [
+            "P14: model does not declare itself stochastic"
+        ]
 
 
 @pytest.mark.package

@@ -336,7 +336,9 @@ def test_aifsens_conformance():
         invariants=invariants,
     ).to(device)
 
-    assert check_prognostic_contract(p) == []
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.fixture(scope="function")

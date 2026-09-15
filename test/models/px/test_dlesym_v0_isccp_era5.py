@@ -111,12 +111,17 @@ def _build_latlon_model(
     lat/lon regridders target the fixed 721x1440 grid.
     """
     n_vars = len(_ATMOS_VARIABLES) + len(_OCEAN_VARIABLES)
-    hpx_lat = np.random.randn(12, nside, nside)
-    hpx_lon = np.random.randn(12, nside, nside)
+    # A local generator, not the global np.random state: drawing from the global
+    # generator made whether the conformance checker's probes observed a value
+    # change depend on whatever earlier test in the suite last touched np.random,
+    # i.e. test order.
+    rng = np.random.default_rng(0)
+    hpx_lat = rng.standard_normal((12, nside, nside))
+    hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, n_vars, 1, 1, 1))
     scale = np.ones((1, 1, 1, n_vars, 1, 1, 1))
-    atmos_constants = np.random.randn(12, 2, nside, nside)
-    ocean_constants = np.random.randn(12, 2, nside, nside)
+    atmos_constants = rng.standard_normal((12, 2, nside, nside))
+    ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
     clim = _build_climatology(nside, n_doy=8) if use_ttr else {}
 
@@ -146,12 +151,14 @@ def _build_latlon_model(
 def _build_model(device, nside: int = 16, use_ttr: bool = True) -> DLESyMv0_ISCCP_ERA5:
     """Build DLESyMv0_ISCCP_ERA5 with mock components. Uses nside=16 for fast tests."""
     n_vars = len(_ATMOS_VARIABLES) + len(_OCEAN_VARIABLES)
-    hpx_lat = np.random.randn(12, nside, nside)
-    hpx_lon = np.random.randn(12, nside, nside)
+    # A local generator, not the global np.random state: see _build_latlon_model.
+    rng = np.random.default_rng(0)
+    hpx_lat = rng.standard_normal((12, nside, nside))
+    hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, n_vars, 1, 1, 1))
     scale = np.ones((1, 1, 1, n_vars, 1, 1, 1))
-    atmos_constants = np.random.randn(12, 2, nside, nside)
-    ocean_constants = np.random.randn(12, 2, nside, nside)
+    atmos_constants = rng.standard_normal((12, 2, nside, nside))
+    ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
     clim = _build_climatology(nside) if use_ttr else {}
 

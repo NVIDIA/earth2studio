@@ -153,9 +153,14 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "test/models/px/test_aurora1p5.py::test_aurora1p5_conformance"
     ),
     "Aurora1p5Ensemble": (
-        "fails P14 (bare torch.manual_seed in set_rng, no fork_rng — the "
-        "spec's documented known deviation) and P16 (same aliased-yield bug "
-        "as Aurora1p5) — "
+        "fails P12 (set_rng(seed) does not accept reset=True, so a generic "
+        "caller following the documented set_rng(seed, reset=True) interface "
+        "raises TypeError), P14 (bare torch.manual_seed in set_rng, no "
+        "fork_rng — the spec's documented known deviation), and P16 (same "
+        "aliased-yield bug as Aurora1p5); create_iterator() also re-applies "
+        "the constructor seed on every call, silently overriding a seed a "
+        "caller already set via set_rng() (see MODEL_CONTRACT_SPEC.md's "
+        "'Seeding is the only entry point') — "
         "test/models/px/test_aurora1p5.py::test_aurora1p5ensemble_conformance"
     ),
     "DataReplay": (

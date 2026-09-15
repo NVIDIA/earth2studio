@@ -330,9 +330,13 @@ class TestCBottleTCMock:
         self, mock_core_model, mock_classifier_model, mock_sst_ds
     ):
         # NOTE: not runnable in this sandbox (missing 'cbottle' extra); verify in CI.
+        # CBottleTCGuidance does not currently declare `stochastic` or implement
+        # `set_rng()`, so D10 is reported as an informational skip.
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds)
         dx.sampler_steps = 2  # Speed up sampler
-        assert check_diagnostic_contract(dx) == []
+        assert check_diagnostic_contract(dx) == [
+            "D10: model does not declare itself stochastic"
+        ]
 
 
 @pytest.mark.package

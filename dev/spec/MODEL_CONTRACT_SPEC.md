@@ -171,8 +171,8 @@ not offer it.
 Note that the `batch_func` decorator does *not* protect the input tensor:
 `_compress_batch` reshapes with `unsqueeze` and `flatten`, both of which return
 views, so a write inside a decorated method reaches the caller. It does shield the
-coordinate system, which it rebuilds. `P15`'s tensor half is therefore the load
-bearing one.
+coordinate system, which it rebuilds. `P15`'s tensor half is therefore the
+important one. Note that `batch_func` will be updated in the xarray/cupy migration.
 
 ## Stochasticity
 
@@ -294,7 +294,9 @@ seeds a local `torch.Generator` and conforms; `fcn3` delegates to its core model
 conformance depends on what that model does internally; and `aurora1p5` is a bare
 `torch.manual_seed(seed)` and fails `P14`. That is the same wrapper whose
 constructor seed already conflicts with `set_rng` below, so both of its seeding
-defects are fixed by the same rewrite.
+defects are fixed by the same rewrite. Tracked as an exemption in
+`test/models/test_model_conformance.py` (`Aurora1p5Ensemble`) pending a wrapper fix
+in a follow-up PR — this spec change does not alter the wrapper itself.
 
 The rule is scoped to models that implement `set_rng`, and to the state *after* it is
 called. An unseeded model drawing from the global generator merely *advances* it,
@@ -310,7 +312,8 @@ instance and `create_iterator()` re-applies `self.set_rng(self.seed)` on every c
 so a caller that does `model.set_rng(42)` and then iterates silently gets
 `self.seed` instead. Two mechanisms for one piece of state is the bug; `set_rng` is
 the one that survives, because a caller reseeding per ensemble member cannot reach a
-constructor argument.
+constructor argument. Tracked as a known exemption (see above) pending a wrapper fix
+in a follow-up PR.
 
 `seed` on `load_model` is not a hypothetical: `corrdiff`, `cbottle_sr`, and
 `stormscope_dx_nsrdb` already accept it there and thread it to the constructor. Any

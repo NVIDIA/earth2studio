@@ -70,12 +70,17 @@ def build_dlesym_model(device, nside=64, type="hpx"):
     model : DLESyM or DLESyMLatLon
         The DLESyM model.
     """
-    hpx_lat = np.random.randn(12, nside, nside)
-    hpx_lon = np.random.randn(12, nside, nside)
+    # A local generator, not the global np.random state: this helper is shared by
+    # the conformance test, and drawing from the global generator made whether the
+    # checker's P16 aliasing probe actually observed a value change depend on
+    # whatever earlier test in the suite last touched np.random, i.e. test order.
+    rng = np.random.default_rng(0)
+    hpx_lat = rng.standard_normal((12, nside, nside))
+    hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, 9, 1, 1, 1))  # 9 variables total
     scale = np.ones((1, 1, 1, 9, 1, 1, 1))
-    atmos_constants = np.random.randn(12, 2, nside, nside)
-    ocean_constants = np.random.randn(12, 2, nside, nside)
+    atmos_constants = rng.standard_normal((12, 2, nside, nside))
+    ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
     atmos_input_times = dlesym_src._ATMOS_INPUT_TIMES
     ocean_input_times = dlesym_src._OCEAN_INPUT_TIMES

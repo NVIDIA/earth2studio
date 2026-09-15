@@ -281,10 +281,14 @@ class TestCBottleMock:
 
     def test_cbottleinfill_conformance(self, mock_core_model, mock_sst_ds):
         # NOTE: not runnable in this sandbox (missing 'cbottle' extra); verify in CI.
+        # CBottleInfill does not currently declare `stochastic` or implement
+        # `set_rng()`, so D10 is reported as an informational skip.
         input_variables = np.array(["u10m", "v10m"])
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables)
         dx.sampler_steps = 2  # Speed up sampler
-        assert check_diagnostic_contract(dx) == []
+        assert check_diagnostic_contract(dx) == [
+            "D10: model does not declare itself stochastic"
+        ]
 
 
 @pytest.mark.package

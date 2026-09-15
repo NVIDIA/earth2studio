@@ -357,7 +357,11 @@ def test_fcn3_conformance():
 
 
 def test_persistence_conformance():
-    """Check the Persistence prognostic model against the model contract."""
+    """Check the Persistence prognostic model against the model contract.
+
+    Persistence does not declare `stochastic`, so P14 is reported as an
+    informational skip rather than a violation.
+    """
     lat = np.linspace(-90, 90, 721)
     lon = np.linspace(0, 360, 1440, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
@@ -366,7 +370,9 @@ def test_persistence_conformance():
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     )
-    assert check_prognostic_contract(px_model) == []
+    assert check_prognostic_contract(px_model) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 def test_diagnosticwrapper_conformance():
@@ -375,7 +381,7 @@ def test_diagnosticwrapper_conformance():
 
     Both underlying mocks are deterministic (PhooCorrDiff has no randomness,
     Persistence is the identity operator), matching the wrapper's declared
-    stochastic=False default.
+    stochastic=False default; P14 is reported as an informational skip.
     """
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
@@ -410,7 +416,9 @@ def test_diagnosticwrapper_conformance():
         px_model=px_model,
         dx_model=corrdiff_model,
     )
-    assert check_prognostic_contract(wrapped_model) == []
+    assert check_prognostic_contract(wrapped_model) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

@@ -410,8 +410,12 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
 
 
 def test_tc_tracker_wu_duan_conformance():
+    """TCTrackerWuDuan does not declare `stochastic`, so D10 is reported as an
+    informational skip rather than a violation."""
     model = TCTrackerWuDuan()
-    assert check_diagnostic_contract(model) == []
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.parametrize("num_timesteps", [1, 2])
@@ -597,5 +601,9 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
 
 
 def test_tc_tracker_vitart_conformance():
+    """TCTrackerVitart does not declare `stochastic`, so D10 is reported as an
+    informational skip rather than a violation."""
     model = TCTrackerVitart()
-    assert check_diagnostic_contract(model) == []
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
