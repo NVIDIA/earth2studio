@@ -149,6 +149,12 @@ def _sign_public_s3(href: str, properties: Mapping[str, Any]) -> str:
     parsed = urlparse(href)
     if parsed.scheme != "s3":
         return href
+    if properties.get("storage:requester_pays"):
+        # Requester-pays buckets need signed requests; route through GDAL's
+        # /vsis3/ so its AWS credential chain signs them (fails clearly
+        # without credentials instead of an anonymous 403)
+        os.environ.setdefault("AWS_REQUEST_PAYER", "requester")
+        return f"/vsis3/{parsed.netloc}{parsed.path}"
     region = properties.get("storage:region", _S3_DEFAULT_REGION)
     return f"https://{parsed.netloc}.s3.{region}.amazonaws.com{parsed.path}"
 
@@ -288,6 +294,12 @@ def open(  # noqa: A001
     the COG tiles covering that window. The array keeps the asset's native
     grid and CRS (``da.rio.crs``, ``da.rio.transform()``).
 
+    Planetary Computer hrefs are signed with a SAS token that is valid for
+    roughly an hour and is embedded in the lazy array's URL, so compute
+    within that window (or call ``open`` again for a fresh token).
+    Earth Search requester-pays buckets are read through GDAL's ``/vsis3/``
+    with ``AWS_REQUEST_PAYER=requester`` and need AWS credentials.
+
     Parameters
     ----------
     item : pystac.Item
@@ -343,17 +355,25 @@ def open(  # noqa: A001
     if properties.get("earthsearch:boa_offset_applied"):
         offset = None
 
+    # The raster extension allows string nodata ("nan"); a str compared to a
+    # uint16 array would silently mask nothing
+    if nodata is not None:
+        nodata = float(nodata)
     if mask_nodata or rescale:
         da = da.astype("float32")
     if mask_nodata and nodata is not None:
-        nodata = float(nodata)
         valid = da.notnull() if np.isnan(nodata) else da != nodata
         da = da.where(valid)
-        da.rio.write_nodata(np.nan, inplace=True)
     if rescale and (scale is not None or offset is not None):
-        da = da * np.float32(scale if scale is not None else 1.0) + np.float32(
-            offset if offset is not None else 0.0
-        )
+        factor = np.float32(scale if scale is not None else 1.0)
+        shift = np.float32(offset if offset is not None else 0.0)
+        da = da * factor + shift
+        if not mask_nodata and nodata is not None and not np.isnan(nodata):
+            # Keep the declared nodata consistent with the rescaled values
+            nodata = float(nodata * factor + shift)
+    # Arithmetic drops attrs, so (re)declare nodata last
+    if nodata is not None:
+        da.rio.write_nodata(np.nan if mask_nodata else nodata, inplace=True)
 
     da.attrs.update(
         stac_collection=item.collection_id,
@@ -376,6 +396,19 @@ def _same_grid(a: xr.DataArray, b: xr.DataArray) -> bool:
         a.rio.crs == b.rio.crs
         and a.rio.transform() == b.rio.transform()
         and a.shape[-2:] == b.shape[-2:]
+    )
+
+
+def _match_grid(da: xr.DataArray, reference: xr.DataArray) -> xr.DataArray:
+    """Resample a ``(time=1, variable, y, x)`` array onto ``reference``'s grid.
+
+    ``rio.reproject_match`` is eager and handles at most 3D, so this reads
+    ``da`` (already clipped to the window) and returns a numpy-backed array
+    aligned to ``reference``'s coordinates.
+    """
+    resampled = da.isel(time=0).rio.reproject_match(reference.isel(time=0))
+    return resampled.expand_dims(time=da["time"]).assign_coords(
+        x=reference["x"], y=reference["y"]
     )
 
 
@@ -427,8 +460,11 @@ def search(
     Runs the STAC query, opens the requested assets of every matching item
     (see :func:`open`), clips them to ``bbox`` and stacks them into
     Earth2Studio's ``(time, variable, y, x)`` layout in the first item's
-    grid. Nothing beyond file headers is read until values are computed. The
-    matching :class:`pystac.Item` objects are available as ``result.items``.
+    grid. Nothing beyond file headers is read until values are computed, with
+    one exception: assets or items on a different grid than the first (other
+    resolution, scene or UTM zone) are resampled onto it while ``search`` runs,
+    which reads their clipped window eagerly. The matching
+    :class:`pystac.Item` objects are available as ``result.items``.
 
     Parameters
     ----------
@@ -509,32 +545,40 @@ def search(
     per_item: list[xr.DataArray] = []
     reference: xr.DataArray | None = None
     for item in items:
-        layers = []
+        layers: list[xr.DataArray] = []
         for key in asset_keys:
             da = open(
-                item, key, chunks=chunks, rescale=rescale, mask_nodata=mask_nodata
+                item,
+                key,
+                provider=provider,
+                chunks=chunks,
+                rescale=rescale,
+                mask_nodata=mask_nodata,
             )
             if "time" not in da.dims:
-                da = da.expand_dims(time=[np.datetime64("NaT")])
+                da = da.expand_dims(time=[np.datetime64("NaT", "ns")])
             if bbox is not None:
                 da = da.rio.clip_box(*bbox, crs="EPSG:4326")
+            if "band" in da.dims:
+                # Multi-band asset (e.g. an RGB "visual" COG): one variable per band
+                labels = [f"{key}_{b}" for b in da["band"].values]
+                da = da.rename(band="variable").assign_coords(variable=labels)
+            else:
+                da = da.expand_dims(variable=[key])
+            da = da.transpose("time", "variable", "y", "x")
+            if layers and not _same_grid(da, layers[0]):
+                # Assets at different resolutions (Sentinel-2 10 m vs 20 m):
+                # resample onto the first asset's grid instead of letting concat
+                # outer-join the coordinates into a NaN-riddled union grid
+                da = _match_grid(da, layers[0])
             layers.append(da)
         # "override" keeps the first layer's attrs (incl. spatial_ref) rather
         # than dropping the CRS because per-asset attrs differ
         stacked = xr.concat(layers, dim="variable", combine_attrs="override")
-        stacked = stacked.assign_coords(variable=asset_keys).transpose(
-            "time", "variable", "y", "x"
-        )
         if reference is None:
             reference = stacked
         elif not _same_grid(stacked, reference):
-            # Different scene/UTM zone: resample the (clipped) window onto
-            # the first item's grid; this materialises only that window.
-            # reproject_match handles <=3D, so drop the length-1 time dim.
-            resampled = stacked.isel(time=0).rio.reproject_match(reference.isel(time=0))
-            stacked = resampled.expand_dims(time=stacked.time).assign_coords(
-                x=reference.x, y=reference.y
-            )
+            stacked = _match_grid(stacked, reference)
         per_item.append(stacked)
 
     out = xr.concat(per_item, dim="time", combine_attrs="override")
@@ -574,16 +618,36 @@ def _as_utc(value: datetime) -> datetime:
 
 
 def _parse_time_range(
-    time_range: str | Sequence[datetime],
-) -> tuple[datetime, datetime]:
+    time_range: str | datetime | Sequence[datetime | None],
+) -> tuple[datetime | None, datetime | None]:
+    """Parse the ``time_range`` forms :func:`search` accepts into UTC bounds.
+
+    Open ends (``".."`` or empty) become None; a date-only end bound is
+    extended to the end of that day so ``"2024-01-01/2024-12-31"`` includes
+    the 31st.
+    """
+    if isinstance(time_range, datetime):
+        bound = _as_utc(time_range)
+        return bound, bound
+
+    def parse(text: str, *, end: bool) -> datetime | None:
+        if text in ("", ".."):
+            return None
+        value = _as_utc(datetime.fromisoformat(text))
+        if end and "T" not in text and " " not in text:
+            value = value + timedelta(days=1) - timedelta(microseconds=1)
+        return value
+
     if isinstance(time_range, str):
-        start_text, _, end_text = time_range.partition("/")
-        return (
-            _as_utc(datetime.fromisoformat(start_text)),
-            _as_utc(datetime.fromisoformat(end_text)),
-        )
+        start_text, sep, end_text = time_range.partition("/")
+        if not sep:
+            end_text = start_text
+        return parse(start_text, end=False), parse(end_text, end=True)
     start, end = time_range
-    return _as_utc(start), _as_utc(end)
+    return (
+        _as_utc(start) if start is not None else None,
+        _as_utc(end) if end is not None else None,
+    )
 
 
 @check_optional_dependencies()
@@ -661,9 +725,9 @@ def collections(
         start, end = intervals[0]
         if query_range is not None:
             q_start, q_end = query_range
-            if start is not None and _as_utc(start) > q_end:
+            if q_end is not None and start is not None and _as_utc(start) > q_end:
                 continue
-            if end is not None and _as_utc(end) < q_start:
+            if q_start is not None and end is not None and _as_utc(end) < q_start:
                 continue
 
         asset_keys: tuple[str, ...] = ()
