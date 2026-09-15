@@ -483,15 +483,15 @@ class NNJAObsSatwnd(NNJAObsConv):
     1979 to present) rather than the AMVs merged into PrepBUFR. The dump keeps
     every producer stream (GOES legacy and GOES-R, Meteosat, Himawari, MODIS,
     AVHRR, VIIRS, LEO-GEO) with its own quality indicators, which PrepBUFR
-    drops, and it is what GSI's ``read_satwnd`` and the HealDA NNJA training
-    archive consume.
+    drops, and is what GSI's ``read_satwnd`` consumes.
 
     ``u``/``v`` rows are decomposed from ``WDIR``/``WSPD``. The shared columns
     follow :class:`NNJAObsConv` semantics: ``type`` is the GSI report type
     (240-260) derived from ``(subset, SAID, SWCM)`` exactly as GSI's
     ``sattabin`` table does, ``pres`` is the final height assignment (Pa),
-    ``elev`` is the US Standard Atmosphere height of that pressure (a
-    coordinate, not an observation), ``quality`` is the ``SDMEDIT`` wind
+    ``elev`` is null (an AMV carries only a pressure height assignment;
+    consumers needing a geometric height derive one, e.g. from a standard
+    atmosphere), ``quality`` is the ``SDMEDIT`` wind
     quality mark where the producer encodes one, ``station`` is GSI's
     computation-method tag plus SAID, and ``class`` is ``"SATWND"``. Extra
     columns carry ``satellite_id``, ``subset``, ``wind_method`` (SWCM),

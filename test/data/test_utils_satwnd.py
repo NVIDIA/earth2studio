@@ -170,17 +170,6 @@ def test_bufr_local_subcategory_by_edition():
     assert utils_satwnd.bufr_local_subcategory(bytes(ed4)) == 67
 
 
-def test_pressure_to_height_m_inverts_standard_atmosphere():
-    pressure_pa = np.array([101_325.0, 22_632.06, 5_474.89, 868.02, 50_000.0])
-    height = utils_satwnd.pressure_to_height_m(pressure_pa)
-    assert height[:4] == pytest.approx([0.0, 11_000.0, 20_000.0, 32_000.0], abs=1.0)
-    assert 5_400.0 < height[4] < 5_700.0
-    # Above-standard surface pressure floors at 0, garbage is NaN.
-    out = utils_satwnd.pressure_to_height_m(np.array([110_000.0, np.nan, -5.0, 0.01]))
-    assert out[0] == 0.0
-    assert np.isnan(out[1:]).all()
-
-
 def test_legacy_nesdis_subset_rows():
     descriptors, values = _legacy_nesdis()
     rows = utils_satwnd._extract_satwnd_subset(
@@ -198,7 +187,7 @@ def test_legacy_nesdis_subset_rows():
     assert u["class"] == "SATWND" and u["station"] == "IR257"
     assert u["quality"] == 2 and u["height_method"] == 4
     assert u["pres"] == pytest.approx(32500.0)
-    assert 8_000.0 < u["elev"] < 9_500.0
+    assert u["elev"] is None
     assert u["satellite_id"] == 257 and u["subset"] == "NC005010"
     assert u["wind_method"] == 1 and u["satellite_za"] == pytest.approx(45.43)
     # NESDIS legacy: GNAP 1 = qifn, 3 = qify, 4 = ee.

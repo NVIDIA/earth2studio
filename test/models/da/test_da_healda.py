@@ -27,6 +27,7 @@ from earth2studio.models.da.healda import (
     E2S_CHANNELS,
     HealDA,
 )
+from earth2studio.models.da.utils import pressure_to_height_m
 
 try:
     import cupy as cp
@@ -331,6 +332,27 @@ def test_healda_generator():
 def test_healda_init_coords():
     model = _build_model()
     assert model.init_coords() is None
+
+
+def test_healda_prep_conv_fills_missing_height_from_pressure():
+    model = _build_model()
+    df = pd.DataFrame(
+        {
+            "time": np.array(["2024-01-01T00:00"] * 2, dtype="datetime64[ns]"),
+            "lat": np.array([10.0, 20.0], dtype=np.float32),
+            "lon": np.array([100.0, 200.0], dtype=np.float32),
+            "observation": np.array([5.0, 280.0], dtype=np.float32),
+            "variable": ["u", "t"],
+            "type": np.array([245, 120], dtype=np.uint16),
+            "elev": np.array([np.nan, 1500.0], dtype=np.float32),
+            "pres": np.array([50_000.0, 85_000.0], dtype=np.float32),
+        }
+    )
+    out = model.prep_conv(df)
+    assert out["height"].iloc[0] == pytest.approx(
+        pressure_to_height_m(np.array([50_000.0]))[0]
+    )
+    assert out["height"].iloc[1] == pytest.approx(1500.0)
 
 
 def test_healda_input_coords():
