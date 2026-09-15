@@ -92,6 +92,12 @@ ACCUMULATED_FLUX_VARIABLES = (
 )
 
 
+# CESM TAUX/TAUY are the stress exerted by the surface on the atmosphere (they
+# oppose the near-surface wind); ECMWF iews/inss are the stress exerted by the
+# atmosphere on the surface, so the sign is flipped.
+SIGN_FLIPPED_VARIABLES = ("iews", "inss")
+
+
 class CAMulatorLexicon(metaclass=LexiconType):
     """CAMulator Lexicon
 
@@ -100,8 +106,9 @@ class CAMulatorLexicon(metaclass=LexiconType):
     convention with ``k`` the CAMulator hybrid sigma-pressure level index
     (0 = top of model, 31 = lowest layer); these are distinct from the ACE
     model-level names. Values are ``NAME`` for 2D fields and ``NAME::k`` for level
-    ``k`` of a 3D field. The modifier converts source units to Earth2Studio units
-    (CO2 mol mol-1 -> ppm; 6 h accumulated fluxes J m-2 -> mean W m-2).
+    ``k`` of a 3D field. The modifier converts source units and conventions to
+    Earth2Studio's (CO2 mol mol-1 -> ppm; 6 h accumulated fluxes J m-2 -> mean
+    W m-2; surface stress from stress-on-atmosphere to stress-on-surface sign).
 
     Note
     ----
@@ -143,6 +150,11 @@ class CAMulatorLexicon(metaclass=LexiconType):
 
             def mod(x: np.ndarray) -> np.ndarray:
                 return x * 1.0e6
+
+        elif val in SIGN_FLIPPED_VARIABLES:
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                return -x
 
         elif val in ACCUMULATED_FLUX_VARIABLES:
 

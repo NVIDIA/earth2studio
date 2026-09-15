@@ -37,7 +37,9 @@ CO2_MOL_MOL = 3.7e-4
 _TEST_TIME = datetime(year=2001, month=1, day=1, hour=0)
 
 
-def _write_forcing_file(path: pathlib.Path, times: list) -> str:
+def _write_forcing_file(
+    path: pathlib.Path, times: list, lat: np.ndarray = FILE_LAT
+) -> str:
     """Write a small CAMulator-like forcing file with a no-leap time axis.
 
     SOLIN encodes the time index, SST the file latitude, ICEFRAC is constant
@@ -47,21 +49,22 @@ def _write_forcing_file(path: pathlib.Path, times: list) -> str:
     solin = np.broadcast_to(
         np.arange(nt, dtype=np.float32)[:, None, None], (nt, N_LAT, N_LON)
     )
-    sst = np.broadcast_to(FILE_LAT[None, :, None], (nt, N_LAT, N_LON))
+    sst = np.broadcast_to(lat[None, :, None], (nt, len(lat), N_LON))
+    solin = np.broadcast_to(solin[:, :1, :], (nt, len(lat), N_LON))
     ds = xr.Dataset(
         {
             "SOLIN": (["time", "latitude", "longitude"], solin.copy()),
             "SST": (["time", "latitude", "longitude"], sst.copy()),
             "ICEFRAC": (
                 ["time", "latitude", "longitude"],
-                np.full((nt, N_LAT, N_LON), 0.5, dtype=np.float32),
+                np.full((nt, len(lat), N_LON), 0.5, dtype=np.float32),
             ),
             "co2vmr_3d": (
                 ["time", "latitude", "longitude"],
-                np.full((nt, N_LAT, N_LON), CO2_MOL_MOL, dtype=np.float32),
+                np.full((nt, len(lat), N_LON), CO2_MOL_MOL, dtype=np.float32),
             ),
         },
-        coords={"time": times, "latitude": FILE_LAT, "longitude": FILE_LON},
+        coords={"time": times, "latitude": lat, "longitude": FILE_LON},
     )
     ds.to_netcdf(path)
     return str(path)
@@ -231,6 +234,24 @@ def test_camulator_forcing_exceptions(cyclic_file, transient_file):
     ds = CAMulatorForcing(mode="transient", forcing_file=transient_file, verbose=False)
     with pytest.raises(ValueError):
         ds(datetime(1990, 1, 1, 0), "sst")
+
+
+@pytest.mark.timeout(60)
+def test_camulator_forcing_grid_validation(tmp_path):
+    # North-to-south file: silently flipping it would misplace every row
+    path = _write_forcing_file(
+        tmp_path / "flipped.nc", _noleap_times(2000)[:2], lat=FILE_LAT[::-1].copy()
+    )
+    with pytest.raises(ValueError):
+        CAMulatorForcing(forcing_file=path, verbose=False)(_TEST_TIME, "sst")
+    # Wrong latitude grid
+    path = _write_forcing_file(
+        tmp_path / "coarse.nc",
+        _noleap_times(2000)[:2],
+        lat=np.linspace(-90, 90, 96, dtype=np.float32),
+    )
+    with pytest.raises(ValueError):
+        CAMulatorForcing(forcing_file=path, verbose=False)(_TEST_TIME, "sst")
 
 
 @pytest.mark.timeout(10)

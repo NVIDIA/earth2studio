@@ -35,6 +35,8 @@ CAMULATOR_HF_REVISION = "4da83abd466aae4f7f39473c7f4bef83dd5a2ea0"
 CAMULATOR_GRID_LAT = np.linspace(90.0, -90.0, 192)
 CAMULATOR_GRID_LON = np.linspace(0.0, 358.75, 288)
 
+FORCING_CESM_VARIABLES = ("SOLIN", "SST", "ICEFRAC", "co2vmr_3d")
+
 _FORCING_FILES = {
     "cyclic": "forcing_data/b.e21.CREDIT_climate_cyclic_1yr_f32coords.nc",
     "transient": "forcing_data/b.e21.CREDIT_climate_branch_1980_2014.nc",
@@ -240,6 +242,7 @@ class CAMulatorForcing:
         self._ds = xr.open_dataset(
             path, decode_times=xr.coders.CFDatetimeCoder(use_cftime=True)
         )
+        self._validate_grid(self._ds)
 
         times = self._ds["time"].values
         for i, t in enumerate(times):
@@ -248,6 +251,39 @@ class CAMulatorForcing:
             else:
                 self._time_index[(t.year, t.month, t.day, t.hour)] = i
         return self._ds
+
+    @staticmethod
+    def _validate_grid(ds: xr.Dataset) -> None:
+        """Check that the forcing variables are on the CAMulator grid with
+        dimensions ``(time, latitude, longitude)`` and south-to-north latitude.
+
+        Raises
+        ------
+        ValueError
+            If the dimensions, orientation or grid do not match
+        """
+        for var in FORCING_CESM_VARIABLES:
+            if var in ds and ds[var].dims != ("time", "latitude", "longitude"):
+                raise ValueError(
+                    f"CAMulator forcing variable {var} must have dimensions "
+                    f"(time, latitude, longitude); got {ds[var].dims}"
+                )
+        lat = np.asarray(ds["latitude"].values, dtype=np.float64)
+        lon = np.asarray(ds["longitude"].values, dtype=np.float64)
+        if lat.shape != CAMULATOR_GRID_LAT.shape or not np.allclose(
+            lat, CAMULATOR_GRID_LAT[::-1], atol=1e-3
+        ):
+            raise ValueError(
+                "CAMulator forcing latitude must be the 192-point 1 degree grid "
+                "ordered south to north (-90 .. 90)"
+            )
+        if lon.shape != CAMULATOR_GRID_LON.shape or not np.allclose(
+            lon, CAMULATOR_GRID_LON, atol=1e-3
+        ):
+            raise ValueError(
+                "CAMulator forcing longitude must be the 288-point 1.25 degree grid "
+                "(0 .. 358.75)"
+            )
 
     def _close(self) -> None:
         if self._ds is not None:

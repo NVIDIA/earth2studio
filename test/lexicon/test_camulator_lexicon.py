@@ -22,6 +22,7 @@ from earth2studio.lexicon.camulator import (
     ACCUMULATED_FLUX_VARIABLES,
     CAMULATOR_LEVELS,
     CAMULATOR_STEP_SECONDS,
+    SIGN_FLIPPED_VARIABLES,
 )
 from earth2studio.models.px.camulator import (
     FORCING_VARIABLES,
@@ -101,6 +102,12 @@ def test_camulator_lexicon_modifiers():
         _, modifier = CAMulatorLexicon[v]
         np.testing.assert_allclose(modifier(data), data / CAMULATOR_STEP_SECONDS)
     assert CAMULATOR_STEP_SECONDS == 6 * 3600
+
+    # Surface stress: CESM stress on the atmosphere -> ECMWF stress on the surface
+    assert set(SIGN_FLIPPED_VARIABLES) == {"iews", "inss"}
+    for v in SIGN_FLIPPED_VARIABLES:
+        _, modifier = CAMulatorLexicon[v]
+        np.testing.assert_array_equal(modifier(data), -data)
 
     # Everything else is an identity
     for v in ["sp", "t2m", "tp06", "e06", "mtuwswrf", "mtuwlwrf", "sst", "sic"]:
