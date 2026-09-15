@@ -625,7 +625,9 @@ def _extract_gpsro_subset(
             "station_elev": None,
             # QFRO is a GPSRO flag table stored in ``quality`` for a uniform
             # column; it is not a PrepBUFR quality mark.
-            "quality": np.uint16(int(quality_flag)) if quality_flag is not None else None,
+            "quality": (
+                np.uint16(int(quality_flag)) if quality_flag is not None else None
+            ),
             "pressure_quality": None,
             "observation": None,
             "variable": variable,
