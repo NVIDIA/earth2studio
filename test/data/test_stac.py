@@ -350,19 +350,20 @@ def _write_tif(path, values, *, origin=(500000, 4200000), res=30, crs="EPSG:3261
     rasterio = pytest.importorskip("rasterio")
     from rasterio.transform import from_origin
 
+    bands = values if values.ndim == 3 else values[None]
     with rasterio.open(
         path,
         "w",
         driver="GTiff",
-        width=values.shape[1],
-        height=values.shape[0],
-        count=1,
+        width=bands.shape[2],
+        height=bands.shape[1],
+        count=bands.shape[0],
         dtype=str(values.dtype),
         nodata=0,
         crs=crs,
         transform=from_origin(origin[0], origin[1], res, res),
     ) as dst:
-        dst.write(values, 1)
+        dst.write(bands)
     return str(path)
 
 
@@ -535,6 +536,125 @@ def test_collections_time_range_naive_and_aware(fake_client, time_range) -> None
 
 
 # ---------------------------------------------------------------------------
+# Review regressions
+# ---------------------------------------------------------------------------
+
+
+def test_search_multiband_asset_becomes_variables(tmp_path, fake_client) -> None:
+    rgb = np.stack([np.full((2, 2), v, dtype=np.uint8) for v in (10, 20, 30)])
+    item = _FakeItem(
+        "tci",
+        {"visual": _FakeAsset(_write_tif(tmp_path / "visual.tif", rgb))},
+        when=datetime(2025, 6, 2, tzinfo=timezone.utc),
+    )
+    fake_client._items["landsat-c2-l2"] = [item]
+    da = stac.search("landsat-c2-l2", rescale=False, mask_nodata=False)
+    assert da.dims == ("time", "variable", "y", "x")
+    assert list(da.coords["variable"].values) == ["visual_1", "visual_2", "visual_3"]
+    assert float(da.sel(variable="visual_3").max()) == 30
+
+
+def test_search_item_without_datetime(tmp_path, fake_client) -> None:
+    a = np.ones((2, 2), dtype=np.uint16)
+    item = _scene(tmp_path, "dem", None, a, a)
+    fake_client._items["landsat-c2-l2"] = [item]
+    da = stac.search("landsat-c2-l2", "red", rescale=False)
+    assert da.shape == (1, 1, 2, 2)
+    assert np.isnat(da.time.values[0])
+
+
+def test_search_forwards_provider_signer(tmp_path, fake_client) -> None:
+    a = np.ones((2, 2), dtype=np.uint16)
+    item = _scene(tmp_path, "p", datetime(2025, 1, 1, tzinfo=timezone.utc), a, a)
+    fake_client._items["landsat-c2-l2"] = [item]
+    seen = []
+
+    def sign(href, props):
+        seen.append(href)
+        return href
+
+    prov = stac.StacProvider("custom", "https://my-api/v1", sign)
+    stac.search("landsat-c2-l2", "red", provider=prov, rescale=False)
+    assert seen == [item.assets["red"].href]
+    assert fake_client.opened_url == "https://my-api/v1"
+
+
+def test_search_resamples_assets_at_different_resolution(tmp_path, fake_client) -> None:
+    fine = np.full((4, 4), 7, dtype=np.uint16)
+    coarse = np.full((2, 2), 9, dtype=np.uint16)
+    item = _FakeItem(
+        "mixed",
+        {
+            "red": _FakeAsset(_write_tif(tmp_path / "red.tif", fine, res=30)),
+            "swir16": _FakeAsset(_write_tif(tmp_path / "swir.tif", coarse, res=60)),
+        },
+        when=datetime(2025, 1, 1, tzinfo=timezone.utc),
+    )
+    fake_client._items["landsat-c2-l2"] = [item]
+    da = stac.search("landsat-c2-l2", ["red", "swir16"], rescale=False)
+    # On the first asset's 4x4 grid, no NaN holes from coordinate outer-join
+    assert da.shape == (1, 2, 4, 4)
+    assert not np.isnan(da.values).any()
+    assert float(da.sel(variable="swir16").min()) == 9
+
+
+def test_sign_public_s3_requester_pays(monkeypatch) -> None:
+    monkeypatch.delenv("AWS_REQUEST_PAYER", raising=False)
+    href = "s3://usgs-landsat/collection02/x.tif"
+    assert stac._sign_public_s3(href, {"storage:requester_pays": True}) == (
+        "/vsis3/usgs-landsat/collection02/x.tif"
+    )
+    import os
+
+    assert os.environ["AWS_REQUEST_PAYER"] == "requester"
+
+
+def test_open_rescaled_nodata_stays_consistent(cog) -> None:
+    path, _ = cog
+    bands = [{"nodata": 0, "scale": 2.75e-05, "offset": -0.2}]
+    da = stac.open(_landsat_item(path, bands), "red", mask_nodata=False).isel(time=0)
+    # Fill pixels now hold -0.2, and the declared nodata says so
+    np.testing.assert_allclose(da.values[0, 0], -0.2, rtol=1e-6)
+    np.testing.assert_allclose(da.rio.nodata, -0.2, rtol=1e-6)
+
+
+def test_parse_time_range_forms() -> None:
+    utc = timezone.utc
+    day_end = datetime(2020, 1, 1, 23, 59, 59, 999999, tzinfo=utc)
+    assert stac._parse_time_range("2020-01-01/..") == (
+        datetime(2020, 1, 1, tzinfo=utc),
+        None,
+    )
+    assert stac._parse_time_range("../2020-01-01") == (None, day_end)
+    assert stac._parse_time_range("2020-01-01") == (
+        datetime(2020, 1, 1, tzinfo=utc),
+        day_end,
+    )
+    assert stac._parse_time_range("2020-01-01T06:00/2020-01-02T06:00") == (
+        datetime(2020, 1, 1, 6, tzinfo=utc),
+        datetime(2020, 1, 2, 6, tzinfo=utc),
+    )
+    assert stac._parse_time_range(datetime(2020, 1, 1)) == (
+        datetime(2020, 1, 1, tzinfo=utc),
+        datetime(2020, 1, 1, tzinfo=utc),
+    )
+
+
+def test_collections_open_ended_time_range(fake_client) -> None:
+    ids = {
+        i.collection_id
+        for i in stac.collections(time_range="2023-01-01/..", sample_assets=False)
+    }
+    assert ids == {"landsat-c2-l2", "cop-dem-glo-30"}
+    # Single day inside NAIP's extent keeps NAIP
+    ids = {
+        i.collection_id
+        for i in stac.collections(time_range="2022-12-31", sample_assets=False)
+    }
+    assert "naip" in ids
+
+
+# ---------------------------------------------------------------------------
 # Live
 # ---------------------------------------------------------------------------
 
@@ -543,35 +663,40 @@ def test_collections_time_range_naive_and_aware(fake_client, time_range) -> None
 @pytest.mark.xfail()
 @pytest.mark.timeout(120)
 def test_live_planetary_computer_landsat_window() -> None:
-    items = stac.search(
+    da = stac.search(
         "landsat-c2-l2",
-        bbox=[-122.6, 37.6, -122.2, 37.9],
+        ["red", "nir08"],
+        bbox=[-122.55, 37.70, -122.35, 37.85],
         time_range="2024-10-27/2024-12-31",
         query={"eo:cloud_cover": {"lt": 5}},
-        max_items=1,
+        max_items=2,
     )
-    assert items
-    red = stac.open(items[0], "red")
-    assert red.chunks is not None
-    window = red.isel(time=0, y=slice(3000, 3256), x=slice(3000, 3256)).compute()
-    valid = window.values[np.isfinite(window.values)]
+    assert len(da.items) >= 1 and da.chunks is not None
+    assert da.dims == ("time", "variable", "y", "x")
+    assert da.rio.crs.to_epsg() == 32610
+    red = da.sel(variable="red").isel(time=0).compute()
+    valid = red.values[np.isfinite(red.values)]
     assert valid.size > 0 and valid.min() >= -0.2 and valid.max() <= 1.6
+    # Single-asset path on a real item, raw dtype preserved
+    qa = stac.open(da.items[0], "qa_pixel", rescale=False, mask_nodata=False)
+    assert qa.dtype == np.uint16 and qa.chunks is not None
 
 
 @pytest.mark.slow
 @pytest.mark.xfail()
 @pytest.mark.timeout(120)
 def test_live_earth_search_sentinel2_window() -> None:
-    items = stac.search(
+    da = stac.search(
         "sentinel-2-l2a",
+        "red",
         provider="earth-search",
+        bbox=[-122.55, 37.70, -122.35, 37.85],
         query={"grid:code": {"eq": "MGRS-10SEG"}},
         time_range="2025-06-01/2025-06-04",
         sortby=[{"field": "properties.s2:nodata_pixel_percentage", "direction": "asc"}],
         max_items=1,
     )
-    red = stac.open(items[0], "red")
-    assert red.rio.crs.to_epsg() == 32610
-    window = red.isel(time=0, y=slice(5000, 5512), x=slice(5000, 5512)).compute()
-    valid = window.values[np.isfinite(window.values)]
+    assert da.rio.crs.to_epsg() == 32610 and len(da.items) == 1
+    red = da.isel(time=0, variable=0).compute()
+    valid = red.values[np.isfinite(red.values)]
     assert valid.size > 0 and valid.min() >= 0.0 and np.nanmedian(valid) < 0.5
