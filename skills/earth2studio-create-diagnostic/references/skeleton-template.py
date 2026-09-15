@@ -34,6 +34,7 @@ Canonical method order:
 """
 
 from collections import OrderedDict
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -43,6 +44,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -59,6 +61,14 @@ except ImportError:
 
 INPUT_VARIABLES = ["u10m", "v10m", "t2m", "msl"]
 OUTPUT_VARIABLES = ["tp"]
+
+
+# Only stateful or stochastic diagnostics need this pattern. Remove it for a
+# deterministic stateless diagnostic.
+@dataclass
+class _DiagnosticCheckpointState:
+    rng_state: torch.Tensor | None = None
+    sample_count: int = 0
 
 
 class SimpleDiagnostic(torch.nn.Module):
@@ -124,6 +134,9 @@ class AutoModelDiagnostic(torch.nn.Module, AutoModelMixin):
         self.core_model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
+        # For a stateful diagnostic, bind _DiagnosticCheckpointState here and
+        # restore its RNG/sampler state before the first call.
+        # self.checkpoint = bind_checkpoint_state(_DiagnosticCheckpointState())
 
     def input_coords(self) -> CoordSystem:
         return OrderedDict(
@@ -221,6 +234,9 @@ class GenerativeDiagnostic(torch.nn.Module, AutoModelMixin):
         self.output_variables = output_variables
         self.number_of_samples = number_of_samples
         self.seed = seed
+        # A stochastic diagnostic with mutable sampler state should bind a
+        # checkpoint dataclass here. Stateless seeded sampling does not need it.
+        # self.checkpoint = bind_checkpoint_state(_DiagnosticCheckpointState())
         self.register_buffer("in_center", in_center)
         self.register_buffer("in_scale", in_scale)
         self.register_buffer("out_center", out_center)
