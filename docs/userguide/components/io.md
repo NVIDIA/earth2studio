@@ -207,8 +207,7 @@ Authentication resolves in order: an explicit `token`, then the
 `EARTHMOVER_API_KEY` environment variable (the same variable used by the
 Earthmover data sources such as `earth2studio.data.EarthMoverERA5`), then a
 bare `arraylake.Client()`, which picks up `ARRAYLAKE_TOKEN` or a cached
-`al auth login` session. Pass `create=False` to fail rather than create a
-repository that does not exist, and `repo_kwargs` to forward options such as
+`al auth login` session. Pass `repo_kwargs` to forward options such as
 `bucket_config_nickname` to the Arraylake client. This requires the `arraylake`
 optional dependency, install with `pip install earth2studio[data]`.
 

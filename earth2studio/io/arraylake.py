@@ -64,13 +64,8 @@ class ArraylakeBackend(IceChunkBackend):
         environment variable and then to an unauthenticated `arraylake.Client()`,
         which picks up ``ARRAYLAKE_TOKEN`` or a cached ``al auth login`` session,
         by default None
-    create : bool, optional
-        If True, use `arraylake.Client.get_or_create_repo` so a missing repository is
-        created. If False, use `arraylake.Client.get_repo`, which fails if the
-        repository does not exist, by default True
     repo_kwargs : dict[str, Any], optional
-        Key word arguments passed to `arraylake.Client.get_or_create_repo` (or
-        `arraylake.Client.get_repo` when ``create`` is False), such as
+        Key word arguments passed to `arraylake.Client.get_or_create_repo`, such as
         `bucket_config_nickname` or `config`, by default {}
     chunks : dict[str, int], optional
         An ordered dict of chunks to use with the data passed through data/coords, by
@@ -100,7 +95,6 @@ class ArraylakeBackend(IceChunkBackend):
         branch: str = "main",
         client: "arraylake.Client | None" = None,
         token: str | None = None,
-        create: bool = True,
         repo_kwargs: dict[str, Any] = {},
         chunks: dict[str, int] = {  # to avoid writing in the same chunk by default
             "ensemble": 1,  # dimensions not present in data are ignored
@@ -118,10 +112,7 @@ class ArraylakeBackend(IceChunkBackend):
         if client is None:
             client = self._make_client(token)
 
-        if create:
-            repository = client.get_or_create_repo(repo, **repo_kwargs)
-        else:
-            repository = client.get_repo(repo, **repo_kwargs)
+        repository = client.get_or_create_repo(repo, **repo_kwargs)
 
         # Arraylake hands back a genuine icechunk.Repository, so the Icechunk backend
         # can take it over as is; repo_kwargs is consumed here, not forwarded.

@@ -52,12 +52,6 @@ class FakeClient:
         self.calls.append(("get_or_create_repo", name, dict(kwargs)))
         return self._repo(name)
 
-    def get_repo(self, name: str, **kwargs: object) -> icechunk.Repository:
-        self.calls.append(("get_repo", name, dict(kwargs)))
-        if name not in self._repos:
-            raise ValueError(f"repo {name} does not exist")
-        return self._repo(name)
-
 
 @pytest.fixture
 def patch_arraylake(monkeypatch):
@@ -141,11 +135,11 @@ def test_arraylake_field(
     assert np.allclose(root[array_name][:], x.to("cpu").numpy())
 
 
-def test_arraylake_create_flag(patch_arraylake: list[FakeClient]) -> None:
+def test_arraylake_repo_resolution(patch_arraylake: list[FakeClient]) -> None:
 
     client = FakeClient()
 
-    # create=True resolves through get_or_create_repo and passes repo_kwargs on
+    # The repo is resolved through get_or_create_repo, with repo_kwargs passed on
     io = ArraylakeBackend(
         "test-org/new-repo",
         client=client,
@@ -160,14 +154,11 @@ def test_arraylake_create_flag(patch_arraylake: list[FakeClient]) -> None:
     ]
     assert isinstance(io.repo, icechunk.Repository)
 
-    # create=False resolves through get_repo, which fails on a missing repo
+    # No repo_kwargs means none are invented
     client.calls.clear()
-    io2 = ArraylakeBackend("test-org/new-repo", client=client, create=False)
-    assert client.calls == [("get_repo", "test-org/new-repo", {})]
-    assert isinstance(io2.repo, icechunk.Repository)
-
-    with pytest.raises(ValueError):
-        ArraylakeBackend("test-org/missing", client=client, create=False)
+    io2 = ArraylakeBackend("test-org/new-repo", client=client)
+    assert client.calls == [("get_or_create_repo", "test-org/new-repo", {})]
+    assert io2.repo is io.repo
 
 
 def test_arraylake_branch(patch_arraylake: list[FakeClient]) -> None:
