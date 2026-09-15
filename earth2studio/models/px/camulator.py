@@ -410,7 +410,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             package.resolve(checkpoint),
             map_location="cpu",
             mmap=True,
-            weights_only=False,
+            weights_only=True,
         )
         state_dict = {
             k: v
@@ -589,6 +589,14 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             y[:, :, i] = mod(y[:, :, i].double()).float()
         return torch.flip(y, dims=(-2,)).unsqueeze(2)
 
+    def _hooks_are_default(self) -> bool:
+        """True when neither iterator hook has been replaced by the user."""
+        default = PrognosticMixin._default_hook
+        return (
+            getattr(self.front_hook, "__func__", None) is default
+            and getattr(self.rear_hook, "__func__", None) is default
+        )
+
     def _forward(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -638,25 +646,27 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ic[:, :, :, :_N_STATE] = x
         yield ic, ic_coords
 
-        # The normalized state is carried between steps, as in CREDIT, so that a
-        # rollout does not accumulate physical <-> normalized round-off. Hooks that
-        # modify the physical tensors re-enter through normalization.
+        # With the default (identity) hooks the normalized state is carried
+        # between steps, as in CREDIT, so a rollout does not accumulate physical
+        # <-> normalized round-off. With user hooks installed the state is always
+        # rebuilt from the (possibly in-place modified) physical tensors.
+        default_hooks = self._hooks_are_default()
         state_n = self._normalize_state(x)
         while True:
-            x_hook, coords = self.front_hook(x, coords)
-            if x_hook is not x:
-                state_n = self._normalize_state(x_hook.to(device))
+            x, coords = self.front_hook(x, coords)
+            if not default_hooks:
+                state_n = self._normalize_state(x.to(device))
             y_n = self._step(state_n, coords, device)
             out = self._denormalize_output(y_n)
             out_coords = self.output_coords(coords)
-            out_hook, out_coords = self.rear_hook(out, out_coords)
-            yield out_hook, out_coords.copy()
+            out, out_coords = self.rear_hook(out, out_coords)
+            yield out, out_coords.copy()
 
-            if out_hook is out:
+            x = out[:, :, :, :_N_STATE]
+            if default_hooks:
                 state_n = y_n[:, :, :_N_STATE]
             else:
-                state_n = self._normalize_state(out_hook[:, :, :, :_N_STATE].to(device))
-            x = out_hook[:, :, :, :_N_STATE]
+                state_n = self._normalize_state(x.to(device))
             coords = out_coords.copy()
             coords["variable"] = np.array(PROGNOSTIC_VARIABLES)
 

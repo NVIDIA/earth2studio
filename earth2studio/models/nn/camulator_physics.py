@@ -24,6 +24,7 @@ from collections.abc import Sequence
 
 import torch
 import torch.nn.functional as F
+from loguru import logger
 
 # Physical constants (credit/physics_constants.py)
 RAD_EARTH = 6371000.0  # m
@@ -244,7 +245,14 @@ def global_water_fix(
     p_sum = weighted_sum(precip_flux, area)
 
     residual = -twc_sum - e_sum - p_sum
-    ratio = (p_sum + residual) / p_sum
+    # CREDIT divides unconditionally; a prediction with no precipitation anywhere
+    # would turn the ratio non-finite, so such members are left unchanged.
+    zero = p_sum == 0
+    if bool(zero.any()):
+        logger.warning(
+            "CAMulator water fixer: zero global precipitation, leaving it unchanged"
+        )
+    ratio = torch.where(zero, torch.ones_like(p_sum), (p_sum + residual) / p_sum)
     return precip * ratio.view(-1, 1, 1)
 
 

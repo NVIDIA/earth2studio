@@ -294,6 +294,53 @@ def test_camulator_postprocess(device):
     )
 
 
+@pytest.mark.parametrize("device", ["cpu", CUDA])
+def test_camulator_hooks(device):
+    """Hooks that modify the state in place (returning the same tensor) must feed
+    the modified state into the next step."""
+    torch.cuda.empty_cache()
+    p = build_model(PhooCamulatorNet()).to(device)
+    x, coords = random_input(p, np.array([np.datetime64("2001-01-01T00:00")]), device)
+    x = x.unsqueeze(0)
+    coords.update({"batch": np.array([0])})
+    coords.move_to_end("batch", last=False)
+
+    def rear_hook(y, c):
+        # In place, returning the same object. Yielded tensors are inference
+        # tensors, so in-place updates must happen under inference mode.
+        with torch.inference_mode():
+            y[:, :, :, OUTPUT_VARIABLES.index("t2m")] += 1.0
+        return y, c
+
+    p.rear_hook = rear_hook
+    it = p.create_iterator(x, coords)
+    next(it)
+    y1, _ = next(it)
+    y2, _ = next(it)
+    t2m = OUTPUT_VARIABLES.index("t2m")
+    # Pass-through core: step 2 must see the hooked step-1 state (+1 K), then +1 K again
+    torch.testing.assert_close(y1[..., t2m, :, :], x[..., t2m, :, :] + 1.0)
+    torch.testing.assert_close(y2[..., t2m, :, :], x[..., t2m, :, :] + 2.0)
+
+
+def test_camulator_water_fix_zero_precip():
+    from earth2studio.models.nn.camulator_physics import global_water_fix
+
+    hyai, hybi = torch.linspace(0.0, 400.0, 33), torch.linspace(0.0, 1.0, 33) ** 2
+    area = torch.ones(4, 8)
+    sp = torch.full((2, 4, 8), 1.0e5)
+    q = torch.full((2, 32, 4, 8), 1.0e-3)
+    precip = torch.zeros(2, 4, 8)
+    precip[1] = 1.0e-3  # second member has precipitation, first has none
+    evapor = torch.full((2, 4, 8), -1.0e-3)
+    out = global_water_fix(
+        sp, q, sp, q * 1.01, precip, evapor, hyai, hybi, area, 21600.0
+    )
+    assert torch.isfinite(out).all()
+    torch.testing.assert_close(out[0], precip[0])  # unchanged, no NaN
+    assert not torch.equal(out[1], precip[1])  # fixer still acts on the other member
+
+
 @pytest.mark.parametrize("device", [CUDA])
 def test_camulator_net(device):
     """The vendored CrossFormer runs at the CAMulator grid with reduced widths."""
