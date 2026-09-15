@@ -29,6 +29,7 @@ except ImportError:
 from earth2studio.models.da.utils import (
     dfseries_to_torch,
     filter_time_range,
+    pressure_to_height_m,
     validate_observation_fields,
 )
 
@@ -207,3 +208,14 @@ class TestDfseriesToTorch:
         assert tensor.dtype == torch.float32
         assert tensor.device.type == device.split(":")[0] if ":" in device else device
         assert len(tensor) == len(series)
+
+
+def test_pressure_to_height_m_inverts_standard_atmosphere():
+    pressure_pa = np.array([101_325.0, 22_632.06, 5_474.89, 868.02, 50_000.0])
+    height = pressure_to_height_m(pressure_pa)
+    assert height[:4] == pytest.approx([0.0, 11_000.0, 20_000.0, 32_000.0], abs=1.0)
+    assert 5_400.0 < height[4] < 5_700.0
+    # Above-standard surface pressure floors at 0, garbage is NaN.
+    out = pressure_to_height_m(np.array([110_000.0, np.nan, -5.0, 0.01]))
+    assert out[0] == 0.0
+    assert np.isnan(out[1:]).all()
