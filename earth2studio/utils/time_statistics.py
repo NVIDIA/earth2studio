@@ -81,26 +81,12 @@ def _compact_duration(value: np.timedelta64, *, signed: bool = False) -> str:
     return "0h"
 
 
-def _iso_duration(value: np.timedelta64) -> str:
-    nanoseconds = _nanoseconds(value)
-    sign = "-" if nanoseconds < 0 else ""
-    magnitude = abs(nanoseconds)
-    for suffix, scale in (
-        ("H", 3_600_000_000_000),
-        ("M", 60_000_000_000),
-        ("S", 1_000_000_000),
-    ):
-        if magnitude and magnitude % scale == 0:
-            return f"{sign}PT{magnitude // scale}{suffix}"
-    return f"{sign}PT{magnitude / 1_000_000_000:g}S" if magnitude else "PT0S"
-
-
 @dataclass(frozen=True)
 class _Window:
-    """Parsed runtime window using NumPy offsets for temporal arithmetic.
+    """Parsed window using NumPy timedeltas as the duration representation.
 
-    Public declarations remain compact strings, while exported metadata uses strings
-    that can be serialized safely through Xarray-backed storage formats.
+    Public declarations remain compact strings, while metadata exposes these same
+    timedelta values without converting to another duration format.
     """
 
     method: str
@@ -279,15 +265,17 @@ def apply_time_statistic(
     return _TIME_STATISTICS[window.method](selected, dimension)
 
 
-def time_statistic_metadata(modifier: str) -> dict[str, str]:
-    """Return a serializable description of one statistic."""
+def time_statistic_metadata(
+    modifier: str,
+) -> dict[str, str | np.timedelta64]:
+    """Return the normalized metadata for one statistic."""
     window = _parse(modifier)
     return {
         "modifier": window.modifier,
         "method": window.method,
-        "window": _iso_duration(window.end - window.start),
-        "start_offset": _iso_duration(window.start),
-        "end_offset": _iso_duration(window.end),
+        "window": window.end - window.start,
+        "start_offset": window.start,
+        "end_offset": window.end,
         "closed": "left",
     }
 

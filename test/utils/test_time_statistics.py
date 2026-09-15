@@ -25,9 +25,9 @@ def test_time_statistic_declarations():
     assert e2s.time_statistic_metadata("mean:24h") == {
         "modifier": "mean:24h",
         "method": "mean",
-        "window": "PT24H",
-        "start_offset": "-PT24H",
-        "end_offset": "PT0S",
+        "window": np.timedelta64(24, "h"),
+        "start_offset": np.timedelta64(-24, "h"),
+        "end_offset": np.timedelta64(0, "h"),
         "closed": "left",
     }
     assert e2s.time_statistic_metadata("max:-12h:+12h")["modifier"] == ("max:-12h:+12h")

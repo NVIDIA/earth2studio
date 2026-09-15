@@ -113,9 +113,10 @@ GPU selection, or stream associative reductions without changing the public synt
 
 ## Metadata
 
-`time_statistic_metadata()` converts a modifier into serializable method, window,
-offset, and interval-closure fields. Generated results should additionally record
-CF-compatible time bounds and `cell_methods` when the data model supports them.
+`time_statistic_metadata()` normalizes a modifier into method, window, offset, and
+interval-closure fields. Durations remain `np.timedelta64`; conversion to a storage
+format belongs at the eventual serialization boundary. Generated results should
+additionally record CF-compatible time bounds and `cell_methods` when supported.
 
 ## Non-goals
 
