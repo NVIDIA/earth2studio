@@ -24,11 +24,10 @@ state = coord_array(
     ("batch", "lead_time", "variable", "lat", "lon"),
     coords={
         "lead_time": [np.timedelta64(0, "h")],
-        "variable": ["u10m", "v10m", "tp"],
+        "variable": ["u10m", "v10m", "tp:sum:6h"],
     },
     dynamic=("batch",),
     grid="fcn1",
-    statistics={"tp": "sum:6h"},
 )
 ```
 
@@ -90,19 +89,22 @@ select or perform regridding.
 
 ## Time Statistics
 
-Statistics modify variables without changing their names:
+Temporal statistics are part of the variable label:
 
 ```python
-statistics={
-    "u10m": "mean:24h",
-    "tp": "sum:6h",
-    "t2m": "max:-24h:0h",
-}
+variables = [
+    "u10m:mean:24h",
+    "tp:sum:6h",
+    "t2m:max:-24h:0h",
+]
 ```
 
-`coord_array` stores the expanded representation in
-`earth2studio_statistics`. `fetch_data` uses that metadata and the source cadence to
-plan source times or lead times, group compatible variables, and reduce them.
+This keeps the `variable` coordinate as a one-dimensional string array while making
+daily, weekly, or monthly versions of the same source variable distinct.
+`coord_array` validates the labels and mirrors their expanded representation in
+`earth2studio_statistics`. `fetch_data` strips the modifier before calling the source,
+groups compatible variables, applies each reduction, and restores the qualified
+labels on the returned array.
 
 ## Data Flow
 

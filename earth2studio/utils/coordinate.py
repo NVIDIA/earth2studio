@@ -32,7 +32,10 @@ from earth2studio.grids import (
     GridDefinition,
     resolve_grid,
 )
-from earth2studio.utils.time_statistics import time_statistic_metadata
+from earth2studio.utils.time_statistics import (
+    split_time_statistic,
+    time_statistic_metadata,
+)
 
 CoordinateSystem = tuple[xr.DataArray, ...]
 
@@ -138,7 +141,6 @@ def coord_array(
     dynamic: Sequence[Hashable] = (),
     sizes: Mapping[Hashable, int] | None = None,
     grid: str | GridDefinition | None = None,
-    statistics: Mapping[str, str] | None = None,
     dtype: DTypeLike = np.float32,
     name: Hashable | None = None,
     attrs: Mapping[Hashable, Any] | None = None,
@@ -186,6 +188,7 @@ def coord_array(
         resolved_sizes[dimension] = int(size)
 
     metadata = dict(attrs or {})
+    metadata.pop(E2S_STATISTICS, None)
     metadata.update(
         {
             E2S_KIND: "coordinate_array",
@@ -208,19 +211,19 @@ def coord_array(
         name=name,
         attrs=metadata,
     )
-    if statistics:
-        if "variable" not in array.coords:
-            raise ValueError("Statistics require a variable coordinate")
-        variables = set(np.asarray(array.coords["variable"]).astype(str))
-        missing = set(statistics) - variables
-        if missing:
-            raise ValueError(
-                f"Statistics reference unknown variables: {sorted(missing)}"
-            )
-        array.attrs[E2S_STATISTICS] = {
-            variable: time_statistic_metadata(modifier)
-            for variable, modifier in statistics.items()
-        }
+    if "variable" in array.coords:
+        statistics_metadata = {}
+        identities = set()
+        for variable in np.asarray(array.coords["variable"]).astype(str):
+            source, modifier = split_time_statistic(variable)
+            identity = (source, modifier)
+            if identity in identities:
+                raise ValueError(f"Duplicate variable quantity '{variable}'")
+            identities.add(identity)
+            if modifier is not None:
+                statistics_metadata[variable] = time_statistic_metadata(modifier)
+        if statistics_metadata:
+            array.attrs[E2S_STATISTICS] = statistics_metadata
     return array
 
 

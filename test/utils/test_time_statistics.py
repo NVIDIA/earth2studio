@@ -22,6 +22,8 @@ import earth2studio.utils.time_statistics as e2s
 
 
 def test_time_statistic_declarations():
+    assert e2s.split_time_statistic("t2m") == ("t2m", None)
+    assert e2s.split_time_statistic("t2m:mean:1day") == ("t2m", "mean:24h")
     assert e2s.time_statistic_metadata("mean:24h") == {
         "modifier": "mean:24h",
         "method": "mean",
@@ -63,6 +65,8 @@ def test_time_statistic_declarations():
         e2s._group_time_statistics(["u10m"], {"t2m": "mean:24h"})
     with pytest.raises(ValueError, match="Qualified variables"):
         e2s._group_time_statistics(["t2m:mean:1day"], "mean:1day")
+    with pytest.raises(ValueError, match="must not be empty"):
+        e2s.split_time_statistic(":mean:1day")
 
 
 def test_time_statistic_source_coordinates():

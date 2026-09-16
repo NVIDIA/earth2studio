@@ -290,14 +290,17 @@ def test_fetch_data_out_of_ns_range():
 def test_fetch_data_time_statistics(source):
     metadata = coord_array(
         ("time", "lead_time", "variable", "x"),
-        {"lead_time": [np.timedelta64(0, "h")], "variable": ["a", "b"], "x": [0, 1]},
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a:mean:24h", "a:max:12h", "b"],
+            "x": [0, 1],
+        },
         dynamic=("time",),
-        statistics={"a": "mean:24h"},
     )
     array = fetch_data(
         source,
         np.array([np.datetime64("2024-01-02")]),
-        np.array(["a", "b"]),
+        metadata.coords["variable"].values,
         metadata=metadata,
         delta_t=(
             None
@@ -305,7 +308,8 @@ def test_fetch_data_time_statistics(source):
             else np.timedelta64(6, "h")
         ),
     )
-    np.testing.assert_allclose(array.sel(variable="a"), -15)
+    np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
+    np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)
     np.testing.assert_allclose(array.sel(variable="b"), 0)
     if not hasattr(source, "time_step"):
         with pytest.raises(ValueError, match="delta_t"):

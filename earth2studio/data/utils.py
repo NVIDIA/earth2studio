@@ -58,7 +58,6 @@ from earth2studio.grids import E2S_CRS, E2S_GRID, E2S_GRID_ID, infer_grid
 from earth2studio.utils.coordinate import (
     E2S_STATISTICS,
     handshake_dataarray,
-    statistics_from_metadata,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.interp import LatLonInterpolation
@@ -69,10 +68,10 @@ from earth2studio.utils.time import (
     to_time_array,
 )
 from earth2studio.utils.time_statistics import (
-    _group_time_statistics,
     apply_time_statistic,
     source_lead_times,
     source_times,
+    split_time_statistic,
 )
 from earth2studio.utils.type import (
     CoordSystem,
@@ -144,9 +143,10 @@ def _fetch_statistic(
         required = source_lead_times(modifier, lead_time, delta_t)
         source_array = source(time, np.unique(required), variables)  # type: ignore[call-arg]
         arrays = []
-        for index, lead in enumerate(lead_time):
-            selected = source_array.sel(lead_time=required[index])
-            reduced = apply_time_statistic(selected, modifier, "lead_time")
+        for lead in lead_time:
+            reduced = apply_time_statistic(
+                source_array, modifier, lead, delta_t, "lead_time"
+            )
             arrays.append(reduced.expand_dims(lead_time=[lead], axis=1))
         return xr.concat(arrays, "lead_time")
 
@@ -157,11 +157,12 @@ def _fetch_statistic(
     )
     source_array = source(np.unique(required), variables)  # type: ignore[call-arg]
     by_time = []
-    for time_index, target_time in enumerate(time):
+    for target_time in time:
         by_lead = []
-        for lead_index, lead in enumerate(lead_time):
-            selected = source_array.sel(time=required[time_index, lead_index])
-            reduced = apply_time_statistic(selected, modifier, "time")
+        for lead in lead_time:
+            reduced = apply_time_statistic(
+                source_array, modifier, target_time + lead, delta_t, "time"
+            )
             by_lead.append(reduced.expand_dims(lead_time=[lead]))
         by_time.append(xr.concat(by_lead, "lead_time").expand_dims(time=[target_time]))
     return xr.concat(by_time, "time")
@@ -189,19 +190,41 @@ def _fetch_dataarray(
     delta_t: np.timedelta64 | None,
 ) -> xr.DataArray:
     variables = tuple(str(item) for item in variable)
-    groups = _group_time_statistics(variables, statistics_from_metadata(metadata))
-    statistic_variables = {item for group in groups.values() for item in group}
+    requests = tuple((label, *split_time_statistic(label)) for label in variables)
+    identities = [
+        (source_variable, modifier) for _, source_variable, modifier in requests
+    ]
+    if len(set(identities)) != len(identities):
+        raise ValueError("Requested variables contain duplicate quantities")
+
+    instantaneous = [
+        (label, source_variable)
+        for label, source_variable, modifier in requests
+        if modifier is None
+    ]
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for label, source_variable, modifier in requests:
+        if modifier is not None:
+            groups.setdefault(modifier, []).append((label, source_variable))
+
     arrays = []
-    instantaneous = tuple(item for item in variables if item not in statistic_variables)
     if instantaneous:
-        arrays.append(_fetch_instantaneous(source, time, lead_time, instantaneous))
+        labels, source_variables = zip(*instantaneous, strict=True)
+        arrays.append(
+            _fetch_instantaneous(
+                source, time, lead_time, source_variables
+            ).assign_coords(variable=np.asarray(labels))
+        )
     if groups and delta_t is None:
         delta_t = getattr(source, "time_step", None)
     if groups and delta_t is None:
         raise ValueError("delta_t is required for temporal statistics")
     for modifier, group in groups.items():
+        labels, source_variables = zip(*group, strict=True)
         arrays.append(
-            _fetch_statistic(source, time, lead_time, group, modifier, delta_t)  # type: ignore[arg-type]
+            _fetch_statistic(
+                source, time, lead_time, source_variables, modifier, delta_t  # type: ignore[arg-type]
+            ).assign_coords(variable=np.asarray(labels))
         )
     array = (
         arrays[0] if len(arrays) == 1 else xr.concat(arrays, "variable", join="exact")
@@ -241,7 +264,8 @@ def fetch_data(
     time : TimeArray
         Timestamps to return data for (UTC).
     variable : VariableArray
-        Strings or list of strings that refer to variables to return
+        Variable labels to return. Temporal statistics use qualified labels such as
+        ``"tp:sum:6h"``.
     lead_time : LeadTimeArray, optional
         Lead times to fetch for each provided time, by default
         np.array(np.timedelta64(0, "h"))

@@ -32,33 +32,19 @@ from earth2studio.grids import (
 from earth2studio.utils.coordinate import CoordinateSystem, coord_array
 from earth2studio.utils.type import CoordSystem
 
-_TIME_STATISTICS = {
-    "cp06": "sum:6h",
-    "ro06": "sum:6h",
-    "sf06": "sum:6h",
-    "ssrd06": "sum:6h",
-    "strd06": "sum:6h",
-    "tp06": "sum:6h",
-    "tp12": "sum:12h",
-    "sf1h": "sum:1h",
-    "ssrd1h": "sum:1h",
-    "tp1h": "sum:1h",
-    "ttr1h": "sum:1h",
-    "ttr-3h": "sum:3h",
-}
 _PUBLIC_VARIABLES = {
-    "cp06": "cp",
-    "ro06": "ro",
-    "sf06": "sf",
-    "ssrd06": "ssrd",
-    "strd06": "strd",
-    "tp06": "tp",
-    "tp12": "tp",
-    "sf1h": "sf",
-    "ssrd1h": "ssrd",
-    "tp1h": "tp",
-    "ttr1h": "ttr",
-    "ttr-3h": "ttr",
+    "cp06": "cp:sum:6h",
+    "ro06": "ro:sum:6h",
+    "sf06": "sf:sum:6h",
+    "ssrd06": "ssrd:sum:6h",
+    "strd06": "strd:sum:6h",
+    "tp06": "tp:sum:6h",
+    "tp12": "tp:sum:12h",
+    "sf1h": "sf:sum:1h",
+    "ssrd1h": "ssrd:sum:1h",
+    "tp1h": "tp:sum:1h",
+    "ttr1h": "ttr:sum:1h",
+    "ttr-3h": "ttr:sum:3h",
 }
 
 
@@ -143,12 +129,6 @@ def _signature(model: Any, coords: CoordSystem) -> xr.DataArray:
         if _numpy(values).size:
             break
         dynamic.append(dimension)
-    tensor_variables = np.asarray(coords.get("variable", ())).astype(str)
-    statistics = {
-        _PUBLIC_VARIABLES[variable]: _TIME_STATISTICS[variable]
-        for variable in tensor_variables
-        if variable in _TIME_STATISTICS
-    }
     variables = np.asarray(public.get("variable", ())).astype(str)
     if len(set(variables)) != len(variables):
         raise ValueError("A coordinate signature cannot repeat a public variable")
@@ -164,7 +144,6 @@ def _signature(model: Any, coords: CoordSystem) -> xr.DataArray:
         coordinates,
         dynamic=dynamic,
         grid=grid,
-        statistics=statistics,
     )
 
 

@@ -26,18 +26,25 @@ from earth2studio.utils.coordinate import handshake_dataarray, handshake_dataarr
 def test_coordinate_signature_and_handshake():
     signature = coord_array(
         ("batch", "lead_time", "variable", "x"),
-        {"lead_time": [np.timedelta64(0, "h")], "variable": ["a"], "x": [0, 1]},
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a:mean:24h"],
+            "x": [0, 1],
+        },
         dynamic=("batch",),
-        statistics={"a": "mean:24h"},
     )
     assert signature.shape == (0, 1, 1, 2) and signature.data.nbytes == 0
     assert signature.e2s.dynamic_dims == ("batch",)
-    assert signature.e2s.get_statistic("a") == "mean:24h"
+    assert signature.e2s.get_statistic("a:mean:24h") == "mean:24h"
 
     array = xr.DataArray(
         np.zeros((3, 1, 1, 2)),
         dims=("time", "lead_time", "variable", "x"),
-        coords={"lead_time": signature.lead_time, "variable": ["a"], "x": [0, 1]},
+        coords={
+            "lead_time": signature.lead_time,
+            "variable": ["a:mean:24h"],
+            "x": [0, 1],
+        },
         attrs=signature.attrs,
     )
     handshake_dataarray(array, signature)
@@ -51,6 +58,11 @@ def test_coordinate_signature_and_handshake():
         handshake_dataarray(array.assign_attrs(earth2studio_statistics={}), signature)
     with pytest.raises(ValueError, match="must lead"):
         coord_array(("x", "batch"), {"x": [0]}, dynamic=("batch",))
+    with pytest.raises(ValueError, match="Duplicate variable quantity"):
+        coord_array(
+            ("variable",),
+            {"variable": ["a:mean:24h", "a:mean:1day"]},
+        )
 
 
 def test_coordinate_grid_and_collection_handshake():

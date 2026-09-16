@@ -190,7 +190,7 @@ def _group_time_statistics(
 ) -> dict[str, tuple[str, ...]]:
     """Group variables by normalized temporal-statistic modifier."""
     labels = tuple(str(variable) for variable in variables)
-    parsed = tuple(_split_variable_statistic(label) for label in labels)
+    parsed = tuple(split_time_statistic(label) for label in labels)
     if statistics is None:
         declarations = parsed
     elif isinstance(statistics, str):
@@ -213,11 +213,23 @@ def _group_time_statistics(
     return {modifier: tuple(group) for modifier, group in groups.items()}
 
 
-def _split_variable_statistic(variable: str) -> tuple[str, str | None]:
+def split_time_statistic(variable: str) -> tuple[str, str | None]:
+    """Split a variable label into its source name and statistic modifier.
+
+    Parameters
+    ----------
+    variable : str
+        Plain or statistic-qualified variable label.
+
+    Returns
+    -------
+    tuple[str, str | None]
+        Source variable name and optional normalized modifier.
+    """
     name, separator, modifier = variable.partition(":")
     if not name:
         raise ValueError("Variable name must not be empty")
-    return (name, modifier) if separator else (name, None)
+    return (name, _parse(modifier).modifier) if separator else (name, None)
 
 
 def source_times(

@@ -215,5 +215,5 @@ def test_persistence_coordinate_signatures():
     for signature in (input_signature, output_signature):
         assert signature.data.nbytes == 0
         assert signature.e2s.get_grid().fingerprint() == grid.fingerprint()
-        assert signature.coords["variable"] == "tp"
-        assert signature.e2s.get_statistic("tp") == "sum:6h"
+        assert signature.coords["variable"] == "tp:sum:6h"
+        assert signature.e2s.get_statistic("tp:sum:6h") == "sum:6h"
