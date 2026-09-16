@@ -186,7 +186,9 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     This wrapper uses an hourly rollout by default: the underlying 6-hour
     auto-regressive step is queried at each integer lead time from t+1h to t+6h
-    before advancing the AR state.
+    before advancing the AR state. Set ``lead_time_stride_hours`` to change the
+    output cadence; ``lead_time_stride_hours=6`` skips the intermediate hourly
+    queries and only evaluates the model once per 6h AR cycle.
 
     Note
     ----
@@ -225,6 +227,10 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     static_vars : dict[str, torch.Tensor]
         Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
+    lead_time_stride_hours : int, optional
+        Output cadence in hours; must evenly divide the 6h AR step (1, 2, 3, 6).
+        By default 1, querying t+1h..t+6h per AR cycle. ``6`` makes a single
+        t+6h evaluation per cycle.
 
     Badges
     ------
@@ -236,8 +242,16 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
+        lead_time_stride_hours: int = 1,
     ) -> None:
         super().__init__()
+
+        if int(_AR_STEP_HOURS) % lead_time_stride_hours != 0:
+            raise ValueError(
+                f"lead_time_stride_hours={lead_time_stride_hours} must evenly "
+                f"divide the {int(_AR_STEP_HOURS):.0f}h AR step (e.g. 1, 2, 3, 6)."
+            )
+        self.lead_time_stride_hours = lead_time_stride_hours
 
         self.model = core_model
         self._static_var_keys = list(static_vars.keys())
@@ -261,7 +275,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
+                "lead_time": np.array([np.timedelta64(lead_time_stride_hours, "h")]),
                 "variable": np.array(OUTPUT_VARIABLES),
                 "lat": np.linspace(90, -90, 720, endpoint=False),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
@@ -508,7 +522,9 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system 1 hour in the future
         """
         output_coords = self.output_coords(coords)
-        x = self._forward_sub_steps(x, coords, lead_time_hours=[1])[0]
+        x = self._forward_sub_steps(
+            x, coords, lead_time_hours=[self.lead_time_stride_hours]
+        )[0]
         return x, output_coords
 
     @staticmethod
@@ -550,13 +566,16 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ar_prev_x = x[:, :, 1:].clone()  # state at current t (83 channels)
             current_t_lead = coords["lead_time"][-1]
 
-            # Compute t+1h … t+6h from the same AR input pair [t-6h, t]
+            # Compute t+stride, t+2*stride, ..., t+6h from the same AR input
+            # pair [t-6h, t]. stride=6 evaluates only the AR boundary.
+            stride = self.lead_time_stride_hours
+            lead_time_hours = list(range(stride, int(_AR_STEP_HOURS) + 1, stride))
             sub_preds = self._forward_sub_steps(
-                x, coords, lead_time_hours=list(range(1, int(_AR_STEP_HOURS) + 1))
+                x, coords, lead_time_hours=lead_time_hours
             )
 
             for sub_idx, sub_pred in enumerate(sub_preds):
-                h = sub_idx + 1
+                h = lead_time_hours[sub_idx]
                 sub_lead = current_t_lead + np.timedelta64(h, "h")
                 coords_out = coords.copy()
                 coords_out["lead_time"] = np.array([sub_lead])
@@ -642,6 +661,16 @@ class Aurora1p5Ensemble(Aurora1p5):
         If specified, sets the random seed via :meth:`set_rng` at the start of
         each :meth:`create_iterator` call for reproducible stochastic noise.
         By default None (non-reproducible).
+    lead_time_stride_hours : int, optional
+        See :class:`Aurora1p5`. By default 1.
+
+        Warning
+        -------
+        Output is not sample-wise invariant to this stride.
+        :meth:`create_iterator` sizes the backbone noise cache to
+        ``6 // lead_time_stride_hours``, as ``aurora.rollout.rollout`` does,
+        so a different stride consumes the RNG stream differently and the same
+        seed gives different — not matching — trajectories.
 
     Badges
     ------
@@ -654,8 +683,9 @@ class Aurora1p5Ensemble(Aurora1p5):
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
         seed: int | None = None,
+        lead_time_stride_hours: int = 1,
     ) -> None:
-        super().__init__(core_model, static_vars)
+        super().__init__(core_model, static_vars, lead_time_stride_hours)
         self.seed = seed
 
     def set_rng(self, seed: int | None) -> None:
@@ -713,4 +743,10 @@ class Aurora1p5Ensemble(Aurora1p5):
             the output data tensor and coordinate system dictionary.
         """
         self.set_rng(self.seed)
-        yield from self._default_generator(x, coords)
+        # Set once: the FIFO noise cache rolls across AR cycles, not per-cycle.
+        n_substeps = int(_AR_STEP_HOURS) // self.lead_time_stride_hours
+        self.model.set_noise_accumulation(n=n_substeps)
+        try:
+            yield from self._default_generator(x, coords)
+        finally:
+            self.model.set_noise_accumulation(n=0)
