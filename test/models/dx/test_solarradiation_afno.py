@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import SolarRadiationAFNO1H, SolarRadiationAFNO6H
 from earth2studio.utils import handshake_dim
 
@@ -228,6 +229,66 @@ def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
     del wrong_coords["lat"]
     with pytest.raises(ValueError):
         model(x, wrong_coords)
+
+
+def test_solarradiation_afno_1h_conformance(mock_model):
+    """Check the mock SolarRadiationAFNO1H model against the model contract.
+
+    The model does not declare itself stochastic, so D10 (RNG isolation) is
+    structurally inapplicable and reported as a skip rather than passed.
+    """
+    era5_mean = torch.zeros(24, 1, 1)
+    era5_std = torch.ones(24, 1, 1)
+    ssrd_mean = torch.zeros(1, 1, 1)
+    ssrd_std = torch.ones(1, 1, 1)
+    orography = torch.zeros(1, 1, 721, 1440)
+    landsea_mask = torch.zeros(1, 1, 721, 1440)
+    sincos_latlon = torch.zeros(1, 4, 721, 1440)
+
+    model = SolarRadiationAFNO1H(
+        core_model=mock_model,
+        freq="1h",
+        era5_mean=era5_mean,
+        era5_std=era5_std,
+        ssrd_mean=ssrd_mean,
+        ssrd_std=ssrd_std,
+        orography=orography,
+        landsea_mask=landsea_mask,
+        sincos_latlon=sincos_latlon,
+    )
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+def test_solarradiation_afno_6h_conformance(mock_model):
+    """Check the mock SolarRadiationAFNO6H model against the model contract.
+
+    The model does not declare itself stochastic, so D10 (RNG isolation) is
+    structurally inapplicable and reported as a skip rather than passed.
+    """
+    era5_mean = torch.zeros(24, 1, 1)
+    era5_std = torch.ones(24, 1, 1)
+    ssrd_mean = torch.zeros(1, 1, 1)
+    ssrd_std = torch.ones(1, 1, 1)
+    orography = torch.zeros(1, 1, 721, 1440)
+    landsea_mask = torch.zeros(1, 1, 721, 1440)
+    sincos_latlon = torch.zeros(1, 4, 721, 1440)
+
+    model = SolarRadiationAFNO6H(
+        core_model=mock_model,
+        freq="6h",
+        era5_mean=era5_mean,
+        era5_std=era5_std,
+        ssrd_mean=ssrd_mean,
+        ssrd_std=ssrd_std,
+        orography=orography,
+        landsea_mask=landsea_mask,
+        sincos_latlon=sincos_latlon,
+    )
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

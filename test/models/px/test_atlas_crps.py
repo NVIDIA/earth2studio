@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AtlasCRPS
 from earth2studio.utils import handshake_coords, handshake_dim
 
@@ -352,6 +353,27 @@ def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, de
 
     # Check ensemble coordinate is preserved
     assert np.array_equal(coords_next["ensemble"], coords["ensemble"])
+
+
+def test_atlas_crps_conformance(atlas_crps_test_components):
+    """Check the mock AtlasCRPS model against the Earth2Studio model contract.
+
+    AtlasCRPS does not currently declare `stochastic` or implement `set_rng()`
+    (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it has no seeding
+    mechanism today and needs one added, forked). Until that lands, the contract
+    checker treats it as a non-stochastic model, so this test only exercises the
+    structural/coordinate rules against the deterministic mock.
+
+    Note: `torch-harmonics` (required by the `atlas` extra) failed to build in
+    every environment (a broken local C++ toolchain, unrelated to this wrapper),
+    so this assertion could not be executed against real dependencies everywhere;
+    it is expected to hold based on static review of AtlasCRPS's hook wiring and
+    the deterministic Phoo forward pass above.
+    """
+    p = AtlasCRPS(**atlas_crps_test_components)
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 def test_atlas_crps_input_coords(atlas_crps_test_components):

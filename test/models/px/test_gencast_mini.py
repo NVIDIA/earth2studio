@@ -32,6 +32,7 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.gencast_mini import (
     ATMOS_VARIABLES,
     GENERATED_FORCING_VARS,
@@ -316,6 +317,34 @@ def test_gencast_mini_exceptions(dc, device, mock_GenCastMini_model):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+def test_gencast_mini_conformance(mock_GenCastMini_model):
+    """Check the mock GenCastMini model against the Earth2Studio model contract.
+
+    Not fully conformant, and fails the same four rules as its siblings
+    graphcast_small / graphcast_operational / weathernext2_cyclones_mini. Rule
+    prefixes only are asserted, not message text, so the pin survives rewording
+    of a violation message:
+    - P5: output_coords() accepts a coordinate system whose final two dimensions
+      are swapped instead of raising ValueError.
+    - P10: dev/spec/MODEL_CONTRACT_SPEC.md's "Hooks" section documents gencast_mini
+      as a known deviation that applies rear_hook but never front_hook, so a front
+      hook set on it is silently discarded.
+    - P13: the wrapper does not declare `stochastic` or implement `set_rng()`
+      (Migration table: its randomness is already an isolated functional JAX
+      PRNG key, so only the declaration and set_rng() entry point are missing),
+      so the checker takes stochastic=False at face value and two rollouts from
+      one input disagree.
+    - P16: the yields alias one buffer, so yield 1 changes once a later step is
+      produced.
+    """
+    p = mock_GenCastMini_model
+    with pytest.raises(ContractException) as excinfo:
+        check_prognostic_contract(p)
+    violations = excinfo.value.violations
+    assert {v.split(":")[0] for v in violations} == {"P5", "P10", "P13", "P16"}
 
 
 def test_gencast_mini_variables():

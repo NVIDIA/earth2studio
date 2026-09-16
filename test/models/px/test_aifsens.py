@@ -40,6 +40,7 @@ except ImportError:
     pytest.skip("anemoi-models not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES
 from earth2studio.utils import handshake_dim
@@ -299,6 +300,45 @@ def test_aifsens_exceptions(dc, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_aifsens_conformance():
+    """Check the mock AIFSENS model against the Earth2Studio model contract.
+
+    AIFSENS does not currently declare `stochastic` or implement `set_rng()`, so
+    it is checked as a deterministic model against the deterministic mock.
+
+    Note: `flash-attn` (required by the `aifsens` extra) cannot be built without
+    CUDA, so this assertion could not be executed against real dependencies in
+    every environment; it is expected to hold based on static review of AIFSENS's
+    hook wiring and the deterministic Phoo forward pass above.
+    """
+    device = "cpu"
+    model = PhooAIFSENSModel()
+
+    latitudes = torch.randn(1, 1, 542080, 1, device=device)
+    longitudes = torch.randn(1, 1, 542080, 1, device=device)
+
+    interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=542_080, n_cols=1_038_240, device=device
+    ).to(torch.float64)
+    inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=1_038_240, n_cols=542_080, device=device
+    ).to(torch.float64)
+    invariants = torch.randn(4, 721, 1440, device=device)
+
+    p = AIFSENS(
+        model=model,
+        latitudes=latitudes,
+        longitudes=longitudes,
+        interpolation_matrix=interpolation_matrix,
+        inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
+    ).to(device)
+
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.fixture(scope="function")

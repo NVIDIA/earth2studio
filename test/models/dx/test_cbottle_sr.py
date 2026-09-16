@@ -25,6 +25,10 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import CBottleSR
 from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
 from earth2studio.utils import handshake_dim
@@ -236,6 +240,29 @@ class TestCBottleSRMock:
 
         with pytest.raises(ValueError):
             dx(x, wrong_coords)
+
+    def test_cbottle_sr_conformance(self, mock_cbottle_core_model):
+        """Check the mock model against the Earth2Studio model contract.
+
+        CBottleSR does not currently declare `stochastic` or implement
+        `set_rng()` (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it
+        already seeds via a bare torch.manual_seed(self.seed + ...) call, so it
+        needs the seeding forked into torch.random.fork_rng()). Constructed
+        without a seed — the default, and what a caller who has not opted in
+        gets — its diffusion latents come from the unseeded global generator, so
+        two calls on one input disagree and D9 is violated. Pinned here until
+        the wrapper declares stochastic and implements set_rng().
+        """
+        dx = CBottleSR(
+            mock_cbottle_core_model,
+            lat_lon=True,
+            output_resolution=(721, 1440),
+            sampler_steps=1,  # Reduced for testing speed
+            sigma_max=800,  # Reduced for testing
+        )
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(dx)
+        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
 
 
 @pytest.mark.package

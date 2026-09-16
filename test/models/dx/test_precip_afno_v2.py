@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import PrecipitationAFNOv2
 from earth2studio.utils import handshake_dim
 
@@ -107,6 +108,18 @@ def test_afno_precip_v2_sza_latlon_order():
     # lon_grid varies over columns, lat_grid over rows (indexing="ij")
     np.testing.assert_array_equal(captured["lon"][0], coords["lon"])
     np.testing.assert_array_equal(captured["lat"][:, 0], coords["lat"])
+
+
+def test_precipitationafnov2_conformance():
+    model = PhooAFNOPrecipV2()
+    center = torch.zeros(20, 1, 1)
+    scale = torch.ones(20, 1, 1)
+    landsea_mask = torch.zeros(1, 1, 720, 1440)
+    orography = torch.zeros(1, 1, 720, 1440)
+    dx = PrecipitationAFNOv2(model, landsea_mask, orography, center, scale)
+    assert check_diagnostic_contract(dx) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

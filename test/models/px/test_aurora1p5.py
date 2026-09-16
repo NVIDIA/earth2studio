@@ -27,6 +27,7 @@ except ImportError:
     pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
 from earth2studio.utils import handshake_dim
@@ -67,7 +68,25 @@ class PhooAurora1p5Model(torch.nn.Module):
 
 
 class PhooAurora1p5EnsembleModel(PhooAurora1p5Model):
-    """Dummy ensemble model: same echo logic, adds reset_noise() stub."""
+    """Dummy ensemble model: echo logic plus RNG-draw noise, adds reset_noise().
+
+    The real ensemble checkpoint injects fresh Gaussian noise per forward pass, so
+    the mock must too: a deterministic forward can't demonstrate that different
+    seeds give different rollouts (P13), since torch.manual_seed has nothing to
+    perturb. Drawing from the global generator (no explicit generator=) ties the
+    noise to whatever set_rng() seeded, matching the real model's seeding path.
+    """
+
+    def forward(self, batch: Batch, lead_times: torch.Tensor) -> Batch:
+        out = super().forward(batch, lead_times)
+        surf = {k: v + torch.randn_like(v) for k, v in out.surf_vars.items()}
+        atmos = {k: v + torch.randn_like(v) for k, v in out.atmos_vars.items()}
+        return Batch(
+            surf_vars=surf,
+            static_vars=out.static_vars,
+            atmos_vars=atmos,
+            metadata=out.metadata,
+        )
 
     def reset_noise(self) -> None:
         pass
@@ -223,6 +242,26 @@ def test_aurora1p5_exceptions(dc, device):
         p(x, coords)
 
 
+def test_aurora1p5_conformance():
+    """Check the mock Aurora1p5 model against the Earth2Studio model contract.
+
+    Not fully conformant. P16 fails: successive yields from create_iterator()
+    alias a shared buffer, so an earlier yield's values change once a later step
+    is produced. This is a real violation (not a documented spec deviation); the
+    assertion below pins the exact message rather than asserting a clean pass, so
+    this test stays green while feeding the "fix wrappers" follow-up rather than
+    hiding the gap. Do not weaken this further without fixing the wrapper.
+    """
+    p = _make_model("cpu")
+    with pytest.raises(ContractException) as excinfo:
+        check_prognostic_contract(p)
+    assert excinfo.value.violations == [
+        "P16: yield 0 changed after later steps were produced, so the yields "
+        "alias one buffer; a caller holding a yield across steps — an async IO "
+        "write, a resume buffer — reads the wrong values"
+    ]
+
+
 @pytest.fixture(scope="function")
 def model() -> Aurora1p5:
     package = Aurora1p5.load_default_package()
@@ -292,6 +331,39 @@ def test_aurora1p5_ensemble_iter(n_members, device):
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
         if i > 11:
             break
+
+
+def test_aurora1p5_ensemble_conformance():
+    """Check the mock Aurora1p5Ensemble model against the Earth2Studio model contract.
+
+    Not fully conformant, expected:
+    - P14 (x2): Aurora1p5Ensemble.set_rng() is a bare torch.manual_seed(seed) with
+      no torch.random.fork_rng() wrapper, so both the seeding and stepping halves
+      of RNG isolation fail. This is the documented known deviation in
+      dev/spec/MODEL_CONTRACT_SPEC.md's "RNG isolation" section.
+    - P16: the same shared-buffer aliasing bug as the base Aurora1p5 class (see
+      test_aurora1p5_conformance).
+    The assertion pins the exact messages rather than a clean pass, so this test
+    stays green while feeding the "fix wrappers" follow-up.
+    """
+    p = _make_ensemble_model("cpu")
+    with pytest.raises(ContractException) as excinfo:
+        check_prognostic_contract(p)
+    assert excinfo.value.violations == [
+        "P14: set_rng() left the global RNG state perturbed, which silently "
+        "reseeds every other consumer in the process — a second model in a "
+        "cascade, a perturbation method, a dataloader. Seed a local "
+        "torch.Generator, or confine global seeding to a torch.random.fork_rng() "
+        "block",
+        "P16: yield 0 changed after later steps were produced, so the yields "
+        "alias one buffer; a caller holding a yield across steps — an async IO "
+        "write, a resume buffer — reads the wrong values",
+        "P14: stepping a seeded model left the global RNG state perturbed, which "
+        "silently reseeds every other consumer in the process — a second model "
+        "in a cascade, a perturbation method, a dataloader. Seed a local "
+        "torch.Generator, or confine global seeding to a torch.random.fork_rng() "
+        "block",
+    ]
 
 
 @pytest.fixture(scope="function")

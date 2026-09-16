@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import Identity
 
 
@@ -44,3 +45,11 @@ def test_diagnostic_identity(coords, device):
 
     assert torch.allclose(data, x)
     assert out_coords == coords
+
+
+def test_identity_conformance():
+    model = Identity()
+    assert check_diagnostic_contract(model) == [
+        "D4: model declares fewer than three dimensions",
+        "D10: model does not declare itself stochastic",
+    ]

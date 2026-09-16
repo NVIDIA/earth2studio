@@ -23,6 +23,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
 from earth2studio.utils import handshake_dim
 
@@ -630,6 +631,37 @@ def test_stormscope_meteosat_exceptions():
     )
     with pytest.raises(ValueError):
         model.output_coords(bad_grid_size)
+
+
+def test_stormscope_meteosat_conformance():
+    model = create_spoof_model()
+
+    # StormScopeMeteosatEU fails four real rules, not checker skips. Tracked
+    # as follow-ups; asserting on the exception here documents the
+    # known-bad state without leaving a permanently red test:
+    #   - P15: create_iterator() mutates the caller's input coordinate
+    #     system in place (its own docstring/dev note is a separate
+    #     concern from the P15 contract guarantee).
+    #   - P7: the 0th (initial-condition) yield does not reduce lead_time
+    #     to the final input lead_time -- it still carries both input
+    #     lead times ([0, 10]) instead of just [10].
+    #   - P10: create_iterator() applies neither hook on forecast
+    #     steps, so a caller's front_hook/rear_hook is silently dropped.
+    #   - P13: the diffusion sampler draws its latents from the global RNG
+    #     (`torch.randn`) without declaring `stochastic = True` or
+    #     implementing `set_rng`.
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P15: create_iterator() modified the input coordinate system in place",
+        "P7: the 0th yield is the initial condition, so its lead_time must be "
+        "the final input lead_time [10], got [ 0 10]",
+        "P10: create_iterator() must apply both hooks on every forecast "
+        "step, applied neither; a hook a caller sets must not be silently "
+        "dropped",
+        "P13: model declares stochastic=False but two rollouts from one "
+        "input disagree; declare stochastic=True and implement set_rng()",
+    ]
 
 
 @pytest.mark.package

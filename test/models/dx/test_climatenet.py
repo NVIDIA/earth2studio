@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import ClimateNet
 from earth2studio.utils import handshake_dim
 
@@ -108,6 +109,16 @@ def test_cnet_exceptions(device):
     )
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
+
+
+def test_climatenet_conformance():
+    model = PhooCNet()
+    center = torch.zeros(4, 1, 1)
+    scale = torch.ones(4, 1, 1)
+    dx = ClimateNet(model, center, scale)
+    assert check_diagnostic_contract(dx) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

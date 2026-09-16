@@ -182,6 +182,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __str__(self) -> str:
         return "fcn3"
 
+    stochastic = True
+
     def set_rng(self, seed: int = 333, reset: bool = True) -> None:
         """Set the underlying FCN3 model's RNG
 

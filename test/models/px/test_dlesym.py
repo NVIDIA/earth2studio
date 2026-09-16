@@ -20,6 +20,7 @@ import pytest
 import torch
 
 import earth2studio.models.px.dlesym as dlesym_src
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import DLESyM, DLESyMLatLon
 from earth2studio.utils import handshake_coords
 
@@ -69,12 +70,17 @@ def build_dlesym_model(device, nside=64, type="hpx"):
     model : DLESyM or DLESyMLatLon
         The DLESyM model.
     """
-    hpx_lat = np.random.randn(12, nside, nside)
-    hpx_lon = np.random.randn(12, nside, nside)
+    # A local generator, not the global np.random state: this helper is shared by
+    # the conformance test, and drawing from the global generator made whether the
+    # checker's P16 aliasing probe actually observed a value change depend on
+    # whatever earlier test in the suite last touched np.random, i.e. test order.
+    rng = np.random.default_rng(0)
+    hpx_lat = rng.standard_normal((12, nside, nside))
+    hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, 9, 1, 1, 1))  # 9 variables total
     scale = np.ones((1, 1, 1, 9, 1, 1, 1))
-    atmos_constants = np.random.randn(12, 2, nside, nside)
-    ocean_constants = np.random.randn(12, 2, nside, nside)
+    atmos_constants = rng.standard_normal((12, 2, nside, nside))
+    ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
     atmos_input_times = dlesym_src._ATMOS_INPUT_TIMES
     ocean_input_times = dlesym_src._OCEAN_INPUT_TIMES
@@ -298,6 +304,71 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         assert np.all(
             coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES + coupler_step * i
         )
+
+
+def test_dlesym_conformance():
+    """Check the mock HEALPix DLESyM model against the Earth2Studio model contract.
+
+    This is a genuine, verified violation (not a mock artifact), and P13/P16's
+    presence is now understood rather than just observed to vary — two
+    independent, confirmed bugs in DLESyM.prepare_output_data():
+
+    - P7 (always): the 0th yield's lead_time is wrong — it carries the
+      model's whole input history rather than just the analysis time.
+    - P13 (frequently, not always): prepare_output_data() allocates its
+      output tensor with `torch.empty` and only partially writes it — atmos
+      output covers every lead_time slot, but ocean output only covers
+      `ocean_output_lt_idx` (2 of this mock's 16 atmos_output_times), leaving
+      the rest of every ocean-variable column as uninitialized memory (~9.7%
+      of the tensor, confirmed by poisoning `torch.empty` and observing NaNs
+      in exactly that fraction). Two separate rollouts land on whatever
+      garbage the allocator hands back each time, which usually — but not
+      provably always — differs.
+    - P16 (frequently, not always): confirmed by direct inspection that a
+      yielded tensor's storage is genuinely mutated after being yielded and
+      cloned (not aliasing between consecutive yields — `yield 0` and
+      `yield 1` do not share storage — but `yield 1`'s own storage changes
+      between being produced and `yield 2` being produced). The likely site
+      is `_next_step_inputs`, which slices the just-yielded tensor
+      (`x[:, :, -len(self.full_input_times):, ...]`) and feeds that slice
+      back in as the next step's input; the exact downstream write has not
+      been pinned to one line.
+
+    P13 and P16 are independent failure modes (uninitialized memory vs. a
+    real aliasing bug) and have been observed in different combinations
+    across runs (this test, plus its DLESyMv0_ISCCP_ERA5 counterpart), so
+    still asserted as a bounded set rather than pinned exactly — this test
+    should not flake red/green over which combination shows up. Tracked in
+    test/models/test_model_conformance.py pending a wrapper fix to
+    prepare_output_data() (fill or explicitly mark the cells ocean doesn't
+    cover) and to whatever aliases into a yielded tensor's storage.
+    """
+    model = build_dlesym_model("cpu", nside=8, type="hpx")
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    codes = {v.split(":")[0] for v in exc_info.value.violations}
+    assert "P7" in codes
+    assert codes <= {"P7", "P13", "P16"}
+
+
+def test_dlesym_latlon_conformance():
+    """Check the mock lat/lon DLESyM model against the Earth2Studio model contract.
+
+    Not independently executable here: earth2grid's CPU regridder
+    (get_bilinear_regridder_to -> get_interp_weights) segfaults on this
+    sandbox regardless of the requested device, unrelated to DLESyM's own
+    logic. DLESyMLatLon shares create_iterator()/rollout code with DLESyM
+    (see test_dlesym_conformance above), which is independently confirmed to
+    violate P7 (always) and, depending on uncontrolled state, P13 and/or P16,
+    so the same violations are expected here.
+    """
+    pytest.skip(
+        "earth2grid's CPU regridder segfaults in this sandbox; "
+        "DLESyMLatLon shares DLESyM's rollout logic, which is confirmed "
+        "non-conformant by test_dlesym_conformance (P7, plus P13 and/or P16)"
+    )
+    model = build_dlesym_model("cpu", nside=8, type="ll")
+    assert check_prognostic_contract(model) == []
 
 
 @pytest.mark.package

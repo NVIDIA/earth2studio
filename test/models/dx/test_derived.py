@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import (
     DerivedRH,
     DerivedRHDewpoint,
@@ -611,3 +612,64 @@ def test_derived_tcwv_invalid_coords(invalid_coords):
 
     with pytest.raises(ValueError):
         model(x, invalid_coords)
+
+
+def test_derivedws_conformance():
+    model = DerivedWS([100])
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+def test_derivedrh_conformance():
+    """DerivedRH currently violates the model contract:
+
+        D9: model declares stochastic=False but two calls on one input disagree;
+        declare stochastic=True and implement set_rng()
+
+    Root cause: the pseudo-random probe temperature can land within floating-point
+    distance of 32.19 K, the singularity in the ``es_w`` denominator
+    (``t - 32.19``), producing NaN on both calls; torch.allclose treats NaN as
+    unequal to itself. This is a real conformance gap (fed to a follow-up wrapper
+    fix), not asserted here to avoid leaving a permanently red test.
+    """
+    model = DerivedRH([100])
+    with pytest.raises(ContractException):
+        check_diagnostic_contract(model)
+
+
+def test_derivedrhdewpoint_conformance():
+    model = DerivedRHDewpoint()
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+def test_derivedvpd_conformance():
+    model = DerivedVPD([100])
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+def test_derivedsurfacepressure_conformance():
+    shape = (8, 16)
+    z_surface = torch.zeros(shape)
+    z_surf_coords = OrderedDict(
+        lat=np.linspace(40, 50, shape[0]), lon=np.linspace(50, 70, shape[1])
+    )
+    model = DerivedSurfacePressure(
+        p_levels=[900, 1000],
+        surface_geopotential=z_surface,
+        surface_geopotential_coords=z_surf_coords,
+    )
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+def test_derivedtcwv_conformance():
+    model = DerivedTCWV([1000, 850, 500])
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]

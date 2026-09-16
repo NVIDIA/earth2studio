@@ -22,6 +22,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.ace2 import (
     ACE2ERA5,
     _cftime_to_npdatetime64,
@@ -238,6 +239,46 @@ def test_ACE2ERA5_iter(batch, device):
         np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
         if i > 2:
             break
+
+
+class _DeterministicPhooStepper(PhooStepper):
+    """PhooStepper variant with fixed (not torch.randn) predict_paired output.
+
+    The shared PhooStepper.predict_paired draws unseeded torch.randn noise,
+    which is fine for shape-only tests but makes the contract checker's P13
+    (reproducibility) probe spuriously fail — that's a mock artifact, not a
+    property of ACE2ERA5 itself.
+    """
+
+    def predict_paired(self, ic, forcing_batch):
+        batch, _, lat, lon = ic._data.data[self.prognostic_names[0]].shape
+        output = PhooOutput()
+        output.prediction = {
+            key: torch.ones(batch, 1, lat, lon, device=self.device_buffer.device)
+            for key in self.out_names
+        }
+        return output, None
+
+
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_ace2era5_conformance(device):
+    """Check the mock ACE2ERA5 model against the Earth2Studio model contract.
+
+    Checked on GPU like the rest of this file: fme builds its BatchData on
+    whatever `fme.get_device()` resolves to and rejects tensors that are not
+    already there, so on a machine with a GPU a CPU probe input fails inside the
+    stepper before any rule is reached.
+
+    This is a genuine, verified violation (not a mock artifact): fails P16
+    (create_iterator()'s yield 0 changes after later steps are produced, so
+    the yields alias one buffer). Tracked in
+    test/models/test_model_conformance.py pending a wrapper fix.
+    """
+    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    p = ACE2ERA5(_DeterministicPhooStepper(), forcing_source).to(device)
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(p, device=device)
+    assert "P16" in str(exc_info.value)
 
 
 @pytest.mark.package

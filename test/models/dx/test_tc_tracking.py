@@ -18,6 +18,10 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
@@ -408,6 +412,22 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
     assert y.device == torch.device(device)
 
 
+def test_tc_tracker_wu_duan_conformance():
+    """Check TCTrackerWuDuan against the Earth2Studio model contract.
+
+    Fails D9 by design rather than by accident: the tracker carries a
+    `path_buffer` across calls (that is what turns per-frame centers into
+    tracks, and why `reset_path_buffer()` exists), so a second call on the same
+    input appends another step and returns a larger tensor. The contract's
+    reproducibility rule has no notion of a stateful diagnostic yet; until it
+    does, the deviation is pinned here rather than left as a red test.
+    """
+    model = TCTrackerWuDuan()
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(model)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
+
+
 @pytest.mark.parametrize("num_timesteps", [1, 2])
 @pytest.mark.parametrize("tc_included", [True, False])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -588,3 +608,16 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
             y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
         )  # z
     assert y.device == torch.device(device)
+
+
+def test_tc_tracker_vitart_conformance():
+    """Check TCTrackerVitart against the Earth2Studio model contract.
+
+    Fails D9 for the same reason as TCTrackerWuDuan above: the shared
+    `path_buffer` accumulates across calls, so two calls on one input do not
+    return the same tensor.
+    """
+    model = TCTrackerVitart()
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(model)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}

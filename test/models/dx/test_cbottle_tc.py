@@ -29,6 +29,10 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import CBottleTCGuidance
 from earth2studio.utils import handshake_dim
 
@@ -324,6 +328,38 @@ class TestCBottleTCMock:
         invalid_times = [datetime(2022, 12, 16, 12)]
         with pytest.raises(ValueError):
             dx._validate_sst_time(invalid_times)
+
+    def test_cbottletcguidance_conformance(
+        self, mock_core_model, mock_classifier_model, mock_sst_ds
+    ):
+        """Check the mock CBottleTCGuidance model against the model contract.
+
+        Probed at a time inside the default AMIP mid-month SST range: with no
+        input SST fields the model rejects anything from 2022-12-16 on, and the
+        checker's default probe time (2024-01-01) is outside it.
+
+        CBottleTCGuidance does not currently declare `stochastic` or implement
+        `set_rng()`; constructed without a seed — the default — its diffusion
+        latents come from the unseeded global generator, so two calls on one
+        input disagree and D9 is violated. Pinned here until the wrapper
+        declares stochastic and implements set_rng().
+
+        Explicitly moved to and probed on cuda:0 rather than left on whatever
+        device the class-scoped fixtures happen to be on: earlier tests in this
+        class move the shared fixture modules onto cuda:0 via ``.to(device)``
+        without moving them back, so this test would otherwise inherit a CUDA
+        model against the checker's CPU-default probe tensor depending on test
+        execution order.
+        """
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
+            "cuda:0"
+        )
+        dx.sampler_steps = 2  # Speed up sampler
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(
+                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+            )
+        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
 
 
 @pytest.mark.package

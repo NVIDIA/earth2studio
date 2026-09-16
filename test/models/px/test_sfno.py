@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import SFNO
 from earth2studio.utils import handshake_dim
 
@@ -149,6 +150,16 @@ def test_sfno_exceptions(dc, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_sfno_conformance():
+    model = PhooSFNOModel()
+    p = SFNO(model)
+    # P14 is skipped rather than passed: the model does not declare itself
+    # stochastic, so the RNG-isolation rule has nothing to check.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.fixture(scope="function")

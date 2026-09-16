@@ -23,7 +23,10 @@ executable: do not leave skipped, placeholder, or NotImplementedError tests.
 Required standard tests:
 1. `test_<model>_call` for a mock or simple forward pass.
 2. `test_<model>_exceptions` for invalid coordinates.
-3. `test_<model>_package` with `@pytest.mark.package` for AutoModel and
+3. `test_<model>_conformance` for `check_diagnostic_contract()` against the mock
+   model, asserting `[]` (or the specific skipped rules, if any are
+   structurally inapplicable to this model).
+4. `test_<model>_package` with `@pytest.mark.package` for AutoModel and
    generative diagnostics.
 
 Generative diagnostics also need sample-count and deterministic-seed coverage.
@@ -37,6 +40,7 @@ import pytest
 import torch
 
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import ModelName  # TODO: replace with the real model
 from earth2studio.utils import handshake_dim
 
@@ -176,6 +180,22 @@ def test_model_exceptions(test_package, bad_coords_builder):
         model(x, bad_coords_builder(model, 1))
 
 
+def test_model_conformance(test_package):
+    """Check the mock model against the Earth2Studio model contract.
+
+    If the model declares `stochastic = True`, PhooModelName.forward() must
+    be non-deterministic too (e.g. `return x + torch.randn_like(x)`), or the
+    reproducibility rule (D9) fails: a fixed forward pass cannot show that
+    different seeds give different output.
+
+    If a rule is structurally inapplicable to this model (rare), assert it
+    appears in the skip list returned by check_diagnostic_contract instead of
+    omitting this test.
+    """
+    model = load_mock_model(test_package)
+    assert check_diagnostic_contract(model) == []
+
+
 @pytest.mark.package
 def test_model_package():
     """Real-weight package test for AutoModel and generative diagnostics.
@@ -214,15 +234,27 @@ def test_model_samples(test_package, number_of_samples):
 
 
 def test_model_deterministic_seed(test_package):
-    """Same seed should reproduce samples when the sampler supports seeding."""
+    """Seeding determines the output; different seeds give different output.
+
+    This is the D9 rule (see dev/spec/MODEL_CONTRACT_SPEC.md), also checked by
+    test_<model>_conformance below — keep this test anyway, since it pins the
+    public seeding API a caller actually uses.
+
+    set_rng(seed, reset=True) is the single seeding entry point for a model that
+    declares `stochastic = True`; do not seed by assigning a `.seed` attribute
+    directly, which bypasses set_rng and is not part of the contract.
+    """
     model_a = load_mock_model(test_package)
     model_b = load_mock_model(test_package)
-    model_a.seed = 42
-    model_b.seed = 42
+    model_a.set_rng(42)
+    model_b.set_rng(42)
 
     x = make_input(model_a, batch=1, device="cpu")
     coords = make_coords(model_a, batch=1)
     out_a, _ = model_a(x, coords)
     out_b, _ = model_b(x, coords)
-
     torch.testing.assert_close(out_a, out_b)
+
+    model_b.set_rng(43)
+    out_c, _ = model_b(x, coords)
+    assert not torch.allclose(out_a, out_c)

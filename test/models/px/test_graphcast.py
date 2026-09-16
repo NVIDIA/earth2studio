@@ -30,6 +30,7 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
 from earth2studio.models.px.graphcast_small import GraphCastSmall
 from earth2studio.utils import handshake_dim
@@ -241,6 +242,41 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch(
+    "weathernext.utils.rollout.chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_graphcast_small_conformance(mock_GraphCastSmall_model):
+    """Check the mock GraphCastSmall model against the Earth2Studio model contract.
+
+    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
+    asserted exactly here to avoid leaving a permanently red test). The rules it
+    is allowed to fail are the ones its siblings gencast_mini and
+    weathernext2_cyclones_mini are pinned to, which share this wrapper's
+    structure and mocked rollout:
+      - P5: output_coords() accepts a coordinate system whose final two
+        dimensions are swapped instead of raising ValueError
+      - P10: create_iterator() applies rear_hook but never front_hook, so a
+        front hook a caller sets is silently discarded (the spec's "Known
+        deviation" note)
+      - P13: declares stochastic=False, but two rollouts from one input do not
+        compare equal
+      - P16: the yields alias one buffer, so a yield changes once a later step
+        is produced
+    Asserted as a subset rather than an exact set: a new *kind* of violation
+    still fails this test, while fixing one of the four does not.
+    """
+    p = mock_GraphCastSmall_model.to("cpu")
+    violations: list[str] = []
+    try:
+        check_prognostic_contract(p)
+    except ContractException as exc:
+        violations = exc.violations
+    # TODO(model-contract): tighten to == [] once the GraphCastSmall wrapper is fixed.
+    assert {v.split(":")[0] for v in violations} <= {"P5", "P10", "P13", "P16"}
 
 
 @pytest.fixture(scope="function")
@@ -464,6 +500,41 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
+@mock.patch(
+    "weathernext.utils.rollout.chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_graphcast_operational_conformance(mock_GraphCastOperational_model):
+    """Check the mock GraphCastOperational model against the model contract.
+
+    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
+    asserted exactly here to avoid leaving a permanently red test). The rules it
+    is allowed to fail are the ones its siblings gencast_mini and
+    weathernext2_cyclones_mini are pinned to, which share this wrapper's
+    structure and mocked rollout:
+      - P5: output_coords() accepts a coordinate system whose final two
+        dimensions are swapped instead of raising ValueError
+      - P10: create_iterator() applies rear_hook but never front_hook, so a
+        front hook a caller sets is silently discarded (the spec's "Known
+        deviation" note)
+      - P13: declares stochastic=False, but two rollouts from one input do not
+        compare equal
+      - P16: the yields alias one buffer, so a yield changes once a later step
+        is produced
+    Asserted as a subset rather than an exact set: a new *kind* of violation
+    still fails this test, while fixing one of the four does not.
+    """
+    p = mock_GraphCastOperational_model.to("cpu")
+    violations: list[str] = []
+    try:
+        check_prognostic_contract(p)
+    except ContractException as exc:
+        violations = exc.violations
+    # TODO(model-contract): tighten to == [] once the GraphCastOperational wrapper is fixed.
+    assert {v.split(":")[0] for v in violations} <= {"P5", "P10", "P13", "P16"}
 
 
 @pytest.fixture(scope="function")
