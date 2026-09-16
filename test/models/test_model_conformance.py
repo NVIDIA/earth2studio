@@ -143,28 +143,36 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
     ),
     "DLESyM": (
         "fails P7 (the 0th yield's lead_time carries the whole input history "
-        "rather than the analysis time) and P13 (two rollouts from one input "
-        "disagree despite declaring stochastic=False) — "
+        "rather than the analysis time), always; and, from two independent, "
+        "confirmed bugs in prepare_output_data() — it allocates its output "
+        "tensor with torch.empty and only partially writes it (ocean output "
+        "covers 2 of this mock's 16 atmos_output_times lead-time slots per "
+        "variable, leaving the rest uninitialized), and separately a yielded "
+        "tensor's storage is genuinely mutated after being yielded (confirmed "
+        "by direct storage-identity inspection, not just value comparison; "
+        "likely site is _next_step_inputs feeding a slice of the previous "
+        "yield back in as the next step's input) — P13 and/or P16, whose "
+        "combination varies by run since it depends on allocator state — "
         "test/models/px/test_dlesym.py::test_dlesym_conformance"
     ),
     "DLESyMLatLon": (
         "shares DLESyM's create_iterator()/rollout logic, which is "
-        "confirmed non-conformant (P7/P13, see DLESyM above); not "
-        "independently executed here because earth2grid's CPU regridder "
-        "segfaults in this sandbox regardless of device — "
+        "confirmed non-conformant (P7, plus P13 and/or P16, see DLESyM "
+        "above); not independently executed here because earth2grid's CPU "
+        "regridder segfaults in this sandbox regardless of device — "
         "test/models/px/test_dlesym.py::test_dlesym_latlon_conformance"
     ),
     "DLESyMv0_ISCCP_ERA5": (
         "inherits DLESyM's rollout logic; fails P7 (0th yield lead_time is "
-        "wrong) and P13 (two rollouts from one input disagree despite "
-        "declaring stochastic=False) — "
+        "wrong), always; and, like DLESyM, P13 and/or P16 from the same two "
+        "confirmed prepare_output_data() bugs — "
         "test/models/px/test_dlesym_v0_isccp_era5.py::test_dlesym_v0_isccp_era5_conformance"
     ),
     "DLESyMv0_ISCCP_ERA5LatLon": (
         "shares DLESyMv0_ISCCP_ERA5's rollout logic, confirmed "
-        "non-conformant above (P7/P13); not independently executed here "
-        "because earth2grid's CPU regridder segfaults in this sandbox "
-        "regardless of device — "
+        "non-conformant above (P7, plus P13 and/or P16); not independently "
+        "executed here because earth2grid's CPU regridder segfaults in this "
+        "sandbox regardless of device — "
         "test/models/px/test_dlesym_v0_isccp_era5.py::test_dlesym_v0_isccp_era5_latlon_conformance"
     ),
     "Aurora1p5": (

@@ -201,23 +201,35 @@ def test_conformance_reports_shape_changing_output_as_violation():
     """A diagnostic whose output shape moves between calls is reported, not a crash.
 
     The TC trackers accumulate a path buffer across calls, so a second call on
-    one input returns a larger tensor. ``torch.allclose`` raises on
-    non-broadcastable shapes rather than returning False, which would surface as
-    a checker crash instead of the ``D9`` violation it is. ``D5`` comes along
-    because the grown tensor no longer matches its own declared coordinates.
+    one input returns a larger tensor — but each individual call's tensor and
+    declared coordinates agree with each other, exactly like the real trackers
+    (``output_coords()`` grows the ``value`` dimension to match). It is only
+    the *comparison across two calls* that disagrees. ``torch.allclose`` raises
+    on non-broadcastable shapes rather than returning False, which would
+    surface as a checker crash instead of the ``D9`` violation it is.
     """
 
-    class Accumulating(Identity):
+    class Accumulating(torch.nn.Module):
         def __init__(self) -> None:
             super().__init__()
             self.calls = 0
+
+        def input_coords(self) -> CoordSystem:
+            return OrderedDict({"batch": np.empty(0), "value": np.arange(1)})
+
+        @batch_coords()
+        def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+            output_coords = input_coords.copy()
+            output_coords["value"] = np.arange(max(self.calls, 1))
+            return output_coords
 
         @batch_func()
         def __call__(
             self, x: torch.Tensor, coords: CoordSystem
         ) -> tuple[torch.Tensor, CoordSystem]:
             self.calls += 1
-            return x.repeat_interleave(self.calls, dim=-1), self.output_coords(coords)
+            out = x.repeat_interleave(self.calls, dim=-1)
+            return out, self.output_coords(coords)
 
     assert "D9" in _diagnostic_violations(Accumulating())
 

@@ -509,17 +509,21 @@ def test_dlesym_v0_isccp_era5_conformance():
     """Check the mock HEALPix DLESyMv0_ISCCP_ERA5 model against the contract.
 
     This is a genuine, verified violation (not a mock artifact), inherited
-    from the shared DLESyM rollout logic (see test_dlesym.py): fails P7 (the
-    0th yield's lead_time is wrong) and P13 (two rollouts from one input
-    disagree despite declaring stochastic=False). Tracked in
-    test/models/test_model_conformance.py pending a wrapper fix.
+    from the shared DLESyM rollout logic — see
+    test_dlesym.py::test_dlesym_conformance for the full explanation and the
+    confirmed root causes: P7 is a structural, always-reproducible failure;
+    P13 and P16 trace to two independent, confirmed bugs in
+    DLESyM.prepare_output_data() (a `torch.empty`-allocated tensor left
+    partially uninitialized, and a separate aliasing bug that mutates a
+    yielded tensor's storage after the fact) whose combination varies by run.
+    Asserted as a bounded set rather than pinned exactly for that reason.
     """
     model = _build_model("cpu", nside=8, use_ttr=True)
     with pytest.raises(ContractException) as exc_info:
         check_prognostic_contract(model)
-    message = str(exc_info.value)
-    assert "P7" in message
-    assert "P13" in message
+    codes = {v.split(":")[0] for v in exc_info.value.violations}
+    assert "P7" in codes
+    assert codes <= {"P7", "P13", "P16"}
 
 
 def test_dlesym_v0_isccp_era5_latlon_conformance():
@@ -534,7 +538,7 @@ def test_dlesym_v0_isccp_era5_latlon_conformance():
         "earth2grid's CPU regridder segfaults in this sandbox; "
         "DLESyMv0_ISCCP_ERA5LatLon shares DLESyMv0_ISCCP_ERA5's rollout "
         "logic, which is confirmed non-conformant by "
-        "test_dlesym_v0_isccp_era5_conformance (P7/P13)"
+        "test_dlesym_v0_isccp_era5_conformance (P7, plus P13 and/or P16)"
     )
     model = _build_latlon_model("cpu", nside=8, use_ttr=True)
     assert check_prognostic_contract(model) == []

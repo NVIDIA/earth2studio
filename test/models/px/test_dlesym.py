@@ -309,16 +309,46 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 def test_dlesym_conformance():
     """Check the mock HEALPix DLESyM model against the Earth2Studio model contract.
 
-    This is a genuine, verified violation (not a mock artifact): DLESyM fails
-    P7 (the 0th yield's lead_time is wrong — it carries the model's whole input
-    history rather than just the analysis time) and P13 (two rollouts from one
-    input disagree despite declaring stochastic=False). Tracked in
-    test/models/test_model_conformance.py pending a wrapper fix.
+    This is a genuine, verified violation (not a mock artifact), and P13/P16's
+    presence is now understood rather than just observed to vary — two
+    independent, confirmed bugs in DLESyM.prepare_output_data():
+
+    - P7 (always): the 0th yield's lead_time is wrong — it carries the
+      model's whole input history rather than just the analysis time.
+    - P13 (frequently, not always): prepare_output_data() allocates its
+      output tensor with `torch.empty` and only partially writes it — atmos
+      output covers every lead_time slot, but ocean output only covers
+      `ocean_output_lt_idx` (2 of this mock's 16 atmos_output_times), leaving
+      the rest of every ocean-variable column as uninitialized memory (~9.7%
+      of the tensor, confirmed by poisoning `torch.empty` and observing NaNs
+      in exactly that fraction). Two separate rollouts land on whatever
+      garbage the allocator hands back each time, which usually — but not
+      provably always — differs.
+    - P16 (frequently, not always): confirmed by direct inspection that a
+      yielded tensor's storage is genuinely mutated after being yielded and
+      cloned (not aliasing between consecutive yields — `yield 0` and
+      `yield 1` do not share storage — but `yield 1`'s own storage changes
+      between being produced and `yield 2` being produced). The likely site
+      is `_next_step_inputs`, which slices the just-yielded tensor
+      (`x[:, :, -len(self.full_input_times):, ...]`) and feeds that slice
+      back in as the next step's input; the exact downstream write has not
+      been pinned to one line.
+
+    P13 and P16 are independent failure modes (uninitialized memory vs. a
+    real aliasing bug) and have been observed in different combinations
+    across runs (this test, plus its DLESyMv0_ISCCP_ERA5 counterpart), so
+    still asserted as a bounded set rather than pinned exactly — this test
+    should not flake red/green over which combination shows up. Tracked in
+    test/models/test_model_conformance.py pending a wrapper fix to
+    prepare_output_data() (fill or explicitly mark the cells ocean doesn't
+    cover) and to whatever aliases into a yielded tensor's storage.
     """
     model = build_dlesym_model("cpu", nside=8, type="hpx")
     with pytest.raises(ContractException) as exc_info:
         check_prognostic_contract(model)
-    assert {v.split(":")[0] for v in exc_info.value.violations} == {"P7", "P13"}
+    codes = {v.split(":")[0] for v in exc_info.value.violations}
+    assert "P7" in codes
+    assert codes <= {"P7", "P13", "P16"}
 
 
 def test_dlesym_latlon_conformance():
@@ -329,12 +359,13 @@ def test_dlesym_latlon_conformance():
     sandbox regardless of the requested device, unrelated to DLESyM's own
     logic. DLESyMLatLon shares create_iterator()/rollout code with DLESyM
     (see test_dlesym_conformance above), which is independently confirmed to
-    violate P7/P13, so the same violations are expected here.
+    violate P7 (always) and, depending on uncontrolled state, P13 and/or P16,
+    so the same violations are expected here.
     """
     pytest.skip(
         "earth2grid's CPU regridder segfaults in this sandbox; "
         "DLESyMLatLon shares DLESyM's rollout logic, which is confirmed "
-        "non-conformant by test_dlesym_conformance (P7/P13)"
+        "non-conformant by test_dlesym_conformance (P7, plus P13 and/or P16)"
     )
     model = build_dlesym_model("cpu", nside=8, type="ll")
     assert check_prognostic_contract(model) == []

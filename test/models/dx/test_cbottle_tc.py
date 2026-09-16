@@ -343,11 +343,22 @@ class TestCBottleTCMock:
         latents come from the unseeded global generator, so two calls on one
         input disagree and D9 is violated. Pinned here until the wrapper
         declares stochastic and implements set_rng().
+
+        Explicitly moved to and probed on cuda:0 rather than left on whatever
+        device the class-scoped fixtures happen to be on: earlier tests in this
+        class move the shared fixture modules onto cuda:0 via ``.to(device)``
+        without moving them back, so this test would otherwise inherit a CUDA
+        model against the checker's CPU-default probe tensor depending on test
+        execution order.
         """
-        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds)
+        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
+            "cuda:0"
+        )
         dx.sampler_steps = 2  # Speed up sampler
         with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(dx, time=np.datetime64("2022-01-01T00:00:00"))
+            check_diagnostic_contract(
+                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+            )
         assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
 
 
