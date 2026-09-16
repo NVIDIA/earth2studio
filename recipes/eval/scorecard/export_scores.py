@@ -578,6 +578,9 @@ def build_events(
             "region": region,
             "region_box": None if isinstance(event["region"], str) else event["region"],
             "initial_conditions": event_ic_count(ds, event),
+            # The event's own lead axis: a sibling events run may step
+            # differently from the main campaign, so the plot aligns on it.
+            "lead_hours": list(lead_h),
             "metrics": metrics,
         }
     return out
@@ -687,7 +690,13 @@ def export(
     for src_run, src_ds, src_events in (
         (run, ds, events),
         *(
-            [(events_run, xr.open_zarr(events_run / "scores.zarr"), None)]
+            [
+                (
+                    events_run,
+                    drop_unscored_times(xr.open_zarr(events_run / "scores.zarr")),
+                    None,
+                )
+            ]
             if events_run is not None
             else []
         ),

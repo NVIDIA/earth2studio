@@ -233,6 +233,9 @@ limitations under the License.
 const $=s=>document.querySelector(s);
 const Q=new URLSearchParams(location.search);
 const MODEL=Q.get("model")||"";
+// Anything that reaches innerHTML goes through esc(): labels and the domain
+// come from the page URL, event labels from the exports.
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LABEL=Q.get("label")||MODEL;
 // What the whole scored grid is called: "Global" for global models, the
 // model domain for limited-area ones (config/<model>.md, `domain:`).
@@ -338,8 +341,9 @@ function activeSplit(){
     const label=(ev&&ev.label)||meta.label||pretty(eSel.value);
     const note=ev?` Event: ${ev.start} to ${ev.end} UTC (${ev.window==="init"?"initial":"valid"} time), `
       +`region ${ev.region==="global"?DOMAIN:pretty(ev.region)}, ${ev.initial_conditions} initial conditions.`:"";
-    return {y:ev&&ev.metrics[k]?ev.metrics[k].values[v]:undefined,label,
-            ref:"All ICs, "+DOMAIN,note};
+    const y=ev&&ev.metrics[k]&&ev.metrics[k].values[v]
+      ?alignLeads(ev.lead_hours,ev.metrics[k].values[v]):undefined;
+    return {y,label,ref:"All ICs, "+DOMAIN,note};
   }
   if(rSel.value&&rSel.value!=="global"){
     const rd=RCACHE[rSel.value];
@@ -354,7 +358,7 @@ function legend(items){
   lg.hidden=false;
   lg.innerHTML=items.map(i=>{
     const cls=i.dash==="2 5"?" dot":(i.ref?" ref":"");
-    return `<span><span class="chip${cls}"></span>${i.label}</span>`;}).join("");
+    return `<span><span class="chip${cls}"></span>${esc(i.label)}</span>`;}).join("");
 }
 // Put a reference curve sampled at its own lead hours onto this model's
 // lead axis
@@ -517,7 +521,7 @@ function drawCurve(){
       if(isFin(q)){dots[si].setAttribute("cx",px(days[bi]));dots[si].setAttribute("cy",py(q));
         dots[si].setAttribute("opacity",1);}
       else dots[si].setAttribute("opacity",0);
-      const name=s.label?`<span class="k">${s.label}</span> `:"";
+      const name=s.label?`<span class="k">${esc(s.label)}</span> `:"";
       return `${name}<b>${fmt(q)}</b>`;});
     tip.innerHTML=`<span class="k">lead</span> ${D.lead_hours[bi]} h (${days[bi]} d)<br>`+
       rows.join("<br>")+` ${D.metrics[mSel.value].unit||D.units[varName()]||""}`;
@@ -1151,7 +1155,7 @@ def main() -> int:
     # numbers from a global (multi-day) run when one exists.
     global_docs = [d for d in docs.values() if d["lead_hours"][-1] >= 48]
     any_doc = (global_docs or list(docs.values()))[0]
-    years = sorted({t[:4] for d in docs.values() for t in d["initial_conditions"]})
+    years = sorted({t[:4] for t in any_doc["initial_conditions"]})
     (GENERATED / "index.md").write_text(
         INDEX_MD.format(
             n_ic=len(any_doc["initial_conditions"]),

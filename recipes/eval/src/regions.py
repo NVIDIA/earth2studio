@@ -276,6 +276,19 @@ def build_spatial_weights(
 # whole year.
 _EVENT_KEYS = frozenset({"label", "start", "end", "region", "window", "ics"})
 _EVENT_IC_KEYS = frozenset({"step_hours", "lookback_hours"})
+
+
+def _whole_hours(event: str, key: str, value: object) -> int:
+    """Return ``value`` as an int, rejecting anything that ``int()`` would
+    silently truncate (e.g. ``12.5`` -> 12)."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(
+            f"Event '{event}': ics.{key} must be a whole number of hours; "
+            f"got {value!r}."
+        )
+    return value
+
+
 # Which timestamp an event window filters: the valid time of each
 # (initial condition, lead) pair, or the initial time of whole forecasts.
 EVENT_WINDOWS = ("valid", "init")
@@ -406,7 +419,7 @@ def parse_events(value: Any) -> dict[str, dict[str, Any]] | None:
                 )
             if ics_spec.get("step_hours") is None:
                 raise ValueError(f"Event '{name}': ics.step_hours is required.")
-            step_hours = int(ics_spec["step_hours"])
+            step_hours = _whole_hours(name, "step_hours", ics_spec["step_hours"])
             if step_hours <= 0:
                 raise ValueError(
                     f"Event '{name}': ics.step_hours must be positive; "
@@ -423,7 +436,7 @@ def parse_events(value: Any) -> dict[str, dict[str, Any]] | None:
                         "lead time has valid times inside the window."
                     )
                 lookback = 0
-            lookback_hours = int(lookback)
+            lookback_hours = _whole_hours(name, "lookback_hours", lookback)
             if lookback_hours < 0:
                 raise ValueError(
                     f"Event '{name}': ics.lookback_hours must be >= 0; "
