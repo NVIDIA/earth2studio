@@ -188,7 +188,7 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
     "InterpModAFNO": (
         "fails P5 (invalid coordinate system with swapped final two "
         "dimensions is silently accepted instead of raising ValueError) and "
-        "P10 (create_iterator() applies neither hook chain) — "
+        "P10 (create_iterator() applies neither hook) — "
         "test/models/px/test_interpmodafno.py::test_interpmodafno_conformance"
     ),
     "SamudrACE": (

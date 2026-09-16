@@ -40,6 +40,47 @@ from earth2studio.utils.type import CoordSystem
 # global generator is observable even when it reseeds to the value already in place
 _PROBE_SEED = 0x5EED
 
+_RULES = {
+    "P1": "A prognostic model structurally satisfies the PrognosticModel protocol.",
+    "P2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
+    "P3": "Input lead_time is relative, strictly increasing, and ends at zero.",
+    "P4": "output_coords() treats its argument as read-only.",
+    "P5": "output_coords() raises ValueError for an invalid coordinate system.",
+    "P6": "Shifting input lead_time shifts output lead_time by the same offset.",
+    "P7": "create_iterator() yields the initial condition as its 0th step.",
+    "P8": "The 1st yield matches the coordinates declared by output_coords().",
+    "P9": "Every yielded tensor shape matches its coordinate system.",
+    "P10": "create_iterator() applies both hooks; __call__ applies neither.",
+    "P11": "The model declares a boolean 'stochastic' attribute.",
+    "P12": "A stochastic model implements set_rng(seed, reset=True).",
+    "P13": "Seeding determines a rollout, and different seeds give different rollouts.",
+    "P14": "After set_rng(), seeding and stepping leave global RNG state unperturbed.",
+    "P15": "Stepping the model does not modify its input tensor or coordinates.",
+    "P16": "A yielded tensor does not change once a later step is produced.",
+    "D1": "A diagnostic model structurally satisfies the DiagnosticModel protocol.",
+    "D2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
+    "D3": "output_coords() treats its argument as read-only.",
+    "D4": "output_coords() raises ValueError for an invalid coordinate system.",
+    "D5": "__call__ returns the coordinates declared by output_coords().",
+    "D6": "__call__ does not modify its input tensor or coordinates.",
+    "D7": "The model declares a boolean 'stochastic' attribute.",
+    "D8": "A stochastic model implements set_rng(seed, reset=True).",
+    "D9": "Seeding determines the output, and different seeds give different output.",
+    "D10": "After set_rng(), seeding and calling leave global RNG state unperturbed.",
+}
+
+
+def _validate_rule(rule: str) -> None:
+    """Raise if a rule identifier is not one declared in ``_RULES``.
+
+    A plain assertion would work here but is stripped under ``python -O``; this is
+    an internal-consistency guard against a typo'd rule ID (e.g. ``"P1O"``) shipping
+    silently as an unrecognized violation string, not a user input check, so it must
+    hold even under optimized execution.
+    """
+    if rule not in _RULES:
+        raise ValueError(f"{rule!r} is not a rule ID declared in _RULES")
+
 
 class ContractException(Exception):
     """Raised when a model violates the Earth2Studio model contract.
@@ -59,22 +100,37 @@ class ContractException(Exception):
 
 
 class _Report:
-    """Collects rule outcomes so every rule is evaluated before failing."""
+    """Collects rule outcomes so every rule is evaluated before failing.
+
+    Every identifier passed to :meth:`require` or :meth:`skip` is validated against
+    ``_RULES``, so a typo'd rule ID (e.g. ``"P1O"``) fails loudly instead of silently
+    shipping as an unrecognized violation string. ``evaluated`` accumulates every
+    rule this report has recorded an outcome for, which is what lets a completeness
+    test confirm every documented rule is reachable (see
+    ``test_all_rules_are_reachable`` in ``test/models/test_conformance.py``).
+    """
 
     def __init__(self, model: Any) -> None:
         self.model = model
         self.violations: list[str] = []
         self.skipped: list[str] = []
+        self.evaluated: set[str] = set()
 
     def require(self, rule: str, condition: bool, message: str) -> bool:
         """Record a rule outcome and report whether it held."""
+        _validate_rule(rule)
+        self.evaluated.add(rule)
         if not condition:
             self.violations.append(f"{rule}: {message}")
         return condition
 
-    def skip(self, rule: str, message: str) -> None:
-        """Record that a rule could not be evaluated."""
-        self.skipped.append(f"{rule}: {message}")
+    def skip(self, rule: str | tuple[str, ...], message: str) -> None:
+        """Record that one or more rules could not be evaluated."""
+        rules = (rule,) if isinstance(rule, str) else rule
+        for single_rule in rules:
+            _validate_rule(single_rule)
+            self.evaluated.add(single_rule)
+            self.skipped.append(f"{single_rule}: {message}")
 
     def raise_for_violations(self) -> None:
         """Raise if any rule failed."""
@@ -243,7 +299,11 @@ def _check_coord_declaration(
         try:
             model.output_coords(_swap_last_dims(concrete))
         except (ValueError, KeyError):
-            pass
+            # The conformant outcome. Still routed through require() (condition
+            # True, so the message is unused) rather than left as a silent
+            # `pass`, so this rule is recorded as evaluated even when the model
+            # gets it right.
+            report.require(invalid_rule, True, "unreachable")
         except Exception as error:  # noqa: BLE001 - reported as a violation
             report.require(
                 invalid_rule,
@@ -299,6 +359,23 @@ def check_prognostic_contract(
     ContractException
         If the model violates any evaluated rule
     """
+    report = _evaluate_prognostic(model, rollout=rollout, nsteps=nsteps, device=device)
+    report.raise_for_violations()
+    return report.skipped
+
+
+def _evaluate_prognostic(
+    model: PrognosticModel,
+    rollout: bool = True,
+    nsteps: int = 2,
+    device: Any = "cpu",
+) -> _Report:
+    """Run every prognostic rule and return the report without raising.
+
+    Split from :func:`check_prognostic_contract` so a test can inspect
+    ``report.evaluated`` (e.g. to confirm every documented rule is reachable)
+    without needing a model that fails nothing.
+    """
     report = _Report(model)
     report.require(
         "P1",
@@ -350,11 +427,9 @@ def check_prognostic_contract(
 
     # P14 belongs in the rollout set only when its seeding half found a set_rng to
     # check; otherwise _check_stochasticity has already skipped it with its own reason
-    rollout_rules = (
-        "P7-P10, P13-P16"
-        if stochastic and callable(getattr(model, "set_rng", None))
-        else "P7-P10, P13, P15, P16"
-    )
+    rollout_rules: tuple[str, ...] = ("P7", "P8", "P9", "P10", "P13", "P15", "P16")
+    if stochastic and callable(getattr(model, "set_rng", None)):
+        rollout_rules = (*rollout_rules, "P14")
 
     if not rollout:
         report.skip(rollout_rules, "rollout checks disabled")
@@ -369,8 +444,7 @@ def check_prognostic_contract(
             report, model, input_coords, output_coords, nsteps, device, stochastic
         )
 
-    report.raise_for_violations()
-    return report.skipped
+    return report
 
 
 def _check_rebasing(
@@ -881,16 +955,13 @@ def _check_hook_scope(
         return x, hook_coords
 
     # Snapshot whatever was on the slots before the probes so a caller's own
-    # hooks — pre-existing on the instance passed in — are restored rather than
-    # wiped by clear_hooks(), which removes every hook, not just these probes.
-    original_hooks = {
-        name: vars(hooks)[name]
-        for name in ("front_hook", "rear_hook")
-        if name in vars(hooks)
-    }
+    # hooks — pre-existing on the instance passed in — are restored afterward
+    # rather than left holding the probe.
+    original_front = hooks.front_hook
+    original_rear = hooks.rear_hook
 
-    hooks.add_front_hook(front)
-    hooks.add_rear_hook(rear)
+    hooks.front_hook = front
+    hooks.rear_hook = rear
     try:
         x = _sample_tensor(coords, device)
         next(islice(model.create_iterator(x, coords.copy()), 1, 2))
@@ -900,16 +971,15 @@ def _check_hook_scope(
         model(_sample_tensor(coords, device), coords.copy())
         call_calls = set(calls)
     finally:
-        hooks.clear_hooks()
-        for name, value in original_hooks.items():
-            setattr(hooks, name, value)
+        hooks.front_hook = original_front
+        hooks.rear_hook = original_rear
 
     report.require(
         "P10",
         iterator_calls == {"front", "rear"},
-        "create_iterator() must apply both hook chains on every forecast step, "
-        f"applied {iterator_calls or 'neither'}; a hook a caller sets must not be "
-        "silently dropped",
+        "create_iterator() must apply both hooks on every forecast step, applied "
+        f"{iterator_calls or 'neither'}; a hook a caller sets must not be silently "
+        "dropped",
     )
     report.require(
         "P10",
@@ -947,6 +1017,22 @@ def check_diagnostic_contract(
     ContractException
         If the model violates any evaluated rule
     """
+    report = _evaluate_diagnostic(model, forward=forward, device=device)
+    report.raise_for_violations()
+    return report.skipped
+
+
+def _evaluate_diagnostic(
+    model: DiagnosticModel,
+    forward: bool = True,
+    device: Any = "cpu",
+) -> _Report:
+    """Run every diagnostic rule and return the report without raising.
+
+    Split from :func:`check_diagnostic_contract` so a test can inspect
+    ``report.evaluated`` (e.g. to confirm every documented rule is reachable)
+    without needing a model that fails nothing.
+    """
     report = _Report(model)
     report.require(
         "D1",
@@ -967,11 +1053,9 @@ def check_diagnostic_contract(
     stochastic = _check_stochasticity(report, model, "D7", "D8", "D10", device)
 
     # As above: D10 joins the forward set only if its seeding half had a set_rng
-    forward_rules = (
-        "D5, D6, D9, D10"
-        if stochastic and callable(getattr(model, "set_rng", None))
-        else "D5, D6, D9"
-    )
+    forward_rules: tuple[str, ...] = ("D5", "D6", "D9")
+    if stochastic and callable(getattr(model, "set_rng", None)):
+        forward_rules = (*forward_rules, "D10")
 
     coords = _concretize(input_coords)
     if not forward:
@@ -1010,8 +1094,7 @@ def check_diagnostic_contract(
         _check_diagnostic_reproducibility(report, model, coords, device, stochastic)
         _check_call_rng_isolation(report, model, coords, device, stochastic)
 
-    report.raise_for_violations()
-    return report.skipped
+    return report
 
 
 def iter_contract_rules() -> Iterator[tuple[str, str]]:
@@ -1023,33 +1106,3 @@ def iter_contract_rules() -> Iterator[tuple[str, str]]:
         Pairs of rule identifier and one-line summary
     """
     yield from _RULES.items()
-
-
-_RULES = {
-    "P1": "A prognostic model structurally satisfies the PrognosticModel protocol.",
-    "P2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
-    "P3": "Input lead_time is relative, strictly increasing, and ends at zero.",
-    "P4": "output_coords() treats its argument as read-only.",
-    "P5": "output_coords() raises ValueError for an invalid coordinate system.",
-    "P6": "Shifting input lead_time shifts output lead_time by the same offset.",
-    "P7": "create_iterator() yields the initial condition as its 0th step.",
-    "P8": "The 1st yield matches the coordinates declared by output_coords().",
-    "P9": "Every yielded tensor shape matches its coordinate system.",
-    "P10": "create_iterator() applies both hook chains; __call__ applies neither.",
-    "P11": "The model declares a boolean 'stochastic' attribute.",
-    "P12": "A stochastic model implements set_rng(seed, reset=True).",
-    "P13": "Seeding determines a rollout, and different seeds give different rollouts.",
-    "P14": "After set_rng(), seeding and stepping leave global RNG state unperturbed.",
-    "P15": "Stepping the model does not modify its input tensor or coordinates.",
-    "P16": "A yielded tensor does not change once a later step is produced.",
-    "D1": "A diagnostic model structurally satisfies the DiagnosticModel protocol.",
-    "D2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
-    "D3": "output_coords() treats its argument as read-only.",
-    "D4": "output_coords() raises ValueError for an invalid coordinate system.",
-    "D5": "__call__ returns the coordinates declared by output_coords().",
-    "D6": "__call__ does not modify its input tensor or coordinates.",
-    "D7": "The model declares a boolean 'stochastic' attribute.",
-    "D8": "A stochastic model implements set_rng(seed, reset=True).",
-    "D9": "Seeding determines the output, and different seeds give different output.",
-    "D10": "After set_rng(), seeding and calling leave global RNG state unperturbed.",
-}

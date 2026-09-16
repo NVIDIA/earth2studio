@@ -45,7 +45,7 @@ anything.
 | `P7` | `create_iterator()` yields the initial condition as its 0th step |
 | `P8` | The 1st yield matches the coordinate system `output_coords()` declared |
 | `P9` | Every yielded tensor shape matches its coordinate system |
-| `P10` | `create_iterator()` applies both hook chains; `__call__` applies neither |
+| `P10` | `create_iterator()` applies both hooks; `__call__` applies neither |
 | `P11` | The model declares a boolean `stochastic` attribute |
 | `P12` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `P13` | Seeding determines a rollout, and different seeds give different rollouts |
@@ -100,7 +100,7 @@ consume its input before the 0th yield, and must not emit a partial step.
 immediately before and after the model advances. A hook takes and returns
 `(tensor, coords)`, so it may rewrite values, coordinates, or both.
 
-**Hooks belong to the iterator.** `create_iterator()` applies both chains on every
+**Hooks belong to the iterator.** `create_iterator()` applies both hooks on every
 forecast step; `__call__` applies neither. This is not a concession to the existing
 wrappers, though all thirty of them already behave this way — it is the scope the
 feature earns.
@@ -118,21 +118,43 @@ steps to produce a model-uncertainty ensemble is the load-bearing use case, and
 is implemented on twenty-seven wrappers and costs nothing to keep, so it stays.
 
 Giving two step paths different hook semantics is the ambiguity worth avoiding, so
-`P10` checks both directions: the iterator must apply both chains, and `__call__`
+`P10` checks both directions: the iterator must apply both hooks, and `__call__`
 must apply none.
 
-Hooks are composable. `add_front_hook()` and `add_rear_hook()` register into a
-`HookChain` applied in registration order; `clear_hooks()` restores the pass-through
-default. Assigning a bare callable to the slot remains supported and is promoted to
-the chain's first element, so registration never silently drops an assigned hook.
+`front_hook` and `rear_hook` are single callable slots, not a registration list.
+`clear_hooks()` restores the pass-through default. A caller with more than one
+transformation to apply composes them into one function and assigns that:
 
 ```python
-@model.add_rear_hook
 def clamp_precipitation(x, coords):
     index = np.where(coords["variable"] == "tp")[0]
     x[:, :, index] = x[:, :, index].clamp(min=0)
     return x, coords
+
+
+def bias_correct(x, coords):
+    ...
+    return x, coords
+
+
+def combined(x, coords):
+    x, coords = clamp_precipitation(x, coords)
+    return bias_correct(x, coords)
+
+
+model.rear_hook = combined
 ```
+
+A registration API (`add_rear_hook()` appending to a chain) was considered and
+dropped: the composition order that matters is decided at the assignment site
+either way, and a chain only moves that decision out of view, spread across every
+place that happened to register a hook, with no benefit over a plain function call.
+It would also invite a `Pipeline` or driver to auto-register its own hook onto a
+model a caller configured, silently interleaving with whatever the caller assigned
+— worse than the callable-slot alternative, not better, since hook order is exactly
+where silent interleaving is most likely to produce a wrong result. If a caller
+needs to compose hooks whose contents aren't known until runtime, they can still
+close over a list and iterate it inside one assigned function.
 
 **Known deviation.** `gencast_mini`, `graphcast_small`, `graphcast_operational`, and
 `weathernext2_cyclones_mini` apply `rear_hook` and never `front_hook`, so a front
@@ -227,7 +249,6 @@ the hook does not know whether the model has been seeded yet (it may run before 
 after the driver, depending on setup order), it seeds defensively:
 
 ```python
-@model.add_front_hook
 def perturb(values, coords):
     # reset=False: a no-op if the driver already seeded the model, so this call
     # cannot clobber the trajectory in progress. Only takes effect as a fallback
@@ -235,6 +256,9 @@ def perturb(values, coords):
     model.set_rng(fallback_seed, reset=False)
     noise = torch.randn(values.shape, generator=model.generator)
     return values + noise, coords
+
+
+model.front_hook = perturb
 ```
 
 Had the hook called `set_rng(fallback_seed, reset=True)` instead, every step would

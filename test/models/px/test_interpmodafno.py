@@ -260,7 +260,7 @@ def test_interpmodafno_conformance():
     asserted here to avoid leaving a permanently red test):
       - P5: output_coords() accepted a coordinate system whose final two
         dimensions were swapped; invalid input must raise ValueError
-      - P10: create_iterator() must apply both hook chains on every forecast
+      - P10: create_iterator() must apply both hooks on every forecast
         step, applied neither; a hook a caller sets must not be silently
         dropped
     """
@@ -297,7 +297,7 @@ def test_interpmodafno_conformance():
     assert set(violations) <= {
         "P5: output_coords() accepted a coordinate system whose final two "
         "dimensions were swapped; invalid input must raise ValueError",
-        "P10: create_iterator() must apply both hook chains on every forecast "
+        "P10: create_iterator() must apply both hooks on every forecast "
         "step, applied neither; a hook a caller sets must not be silently "
         "dropped",
     }

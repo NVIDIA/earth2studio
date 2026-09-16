@@ -257,7 +257,7 @@ def test_graphcast_small_conformance(mock_GraphCastSmall_model):
     "Known deviation" note, graphcast_small applies rear_hook but never
     front_hook in create_iterator(), so a front hook a caller sets is
     silently discarded.
-      - P10: create_iterator() must apply both hook chains on every forecast
+      - P10: create_iterator() must apply both hooks on every forecast
         step, applied only {'rear'}
     """
     p = mock_GraphCastSmall_model.to("cpu")
@@ -506,7 +506,7 @@ def test_graphcast_operational_conformance(mock_GraphCastOperational_model):
     "Known deviation" note, graphcast_operational applies rear_hook but never
     front_hook in create_iterator(), so a front hook a caller sets is
     silently discarded.
-      - P10: create_iterator() must apply both hook chains on every forecast
+      - P10: create_iterator() must apply both hooks on every forecast
         step, applied only {'rear'}
     """
     p = mock_GraphCastOperational_model.to("cpu")

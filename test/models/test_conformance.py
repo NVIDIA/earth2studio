@@ -24,6 +24,8 @@ import torch
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.conformance import (
     ContractException,
+    _evaluate_diagnostic,
+    _evaluate_prognostic,
     _expected_shape,
     check_diagnostic_contract,
     check_prognostic_contract,
@@ -31,7 +33,7 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
-from earth2studio.models.px.utils import HookChain, PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
 
@@ -234,7 +236,13 @@ def test_conformance_persistence(history):
     model = Persistence("t2m", DOMAIN, history=history)
     assert check_prognostic_contract(model, rollout=False) == [
         "P14: model does not declare itself stochastic",
-        "P7-P10, P13, P15, P16: rollout checks disabled",
+        "P7: rollout checks disabled",
+        "P8: rollout checks disabled",
+        "P9: rollout checks disabled",
+        "P10: rollout checks disabled",
+        "P13: rollout checks disabled",
+        "P15: rollout checks disabled",
+        "P16: rollout checks disabled",
     ]
     assert check_prognostic_contract(model) == [
         "P14: model does not declare itself stochastic"
@@ -321,7 +329,7 @@ def test_conformance_detects_shape_mismatch():
 
 
 def test_conformance_detects_dropped_hook():
-    """The real bug class: a generator that applies only one of the two chains.
+    """The real bug class: a generator that applies only one of the two hooks.
 
     Three in-repo wrappers apply ``rear_hook`` and never ``front_hook``, so a front
     hook a caller sets is silently discarded.
@@ -363,48 +371,38 @@ def _step_once(model: ToyPrognostic) -> None:
     next(iterator)
 
 
-def test_hook_chain_composition():
+def test_hook_assignment_and_composition():
+    """front_hook/rear_hook are single callable slots: a caller composes multiple
+    transformations into one function and assigns that, so ordering is visible at
+    the assignment site rather than spread across separate registration calls."""
     model = ToyPrognostic()
     order: list[str] = []
 
-    def record(name):
-        def hook(x, coords):
-            order.append(name)
-            return x, coords
+    def first(x, coords):
+        order.append("first")
+        return x, coords
 
-        return hook
+    def second(x, coords):
+        order.append("second")
+        return x, coords
 
-    model.add_front_hook(record("first"))
-    model.add_front_hook(record("second"))
-    assert isinstance(model.front_hook, HookChain)
-    assert len(model.front_hook) == 2
+    def combined(x, coords):
+        x, coords = first(x, coords)
+        return second(x, coords)
 
+    model.front_hook = combined
     _step_once(model)
     assert order == ["first", "second"]
 
+
+def test_clear_hooks_restores_default():
+    model = ToyPrognostic()
+    order: list[str] = []
+
+    model.rear_hook = lambda x, coords: (order.append("assigned"), (x, coords))[1]
     model.clear_hooks()
     _step_once(model)
-    assert order == ["first", "second"]
-
-
-def test_hook_chain_promotes_direct_assignment():
-    """Assigning a bare callable stays supported and survives later registration."""
-    model = ToyPrognostic()
-    order: list[str] = []
-
-    def assigned(x, coords):
-        order.append("assigned")
-        return x, coords
-
-    def registered(x, coords):
-        order.append("registered")
-        return x, coords
-
-    model.rear_hook = assigned
-    model.add_rear_hook(registered)
-
-    _step_once(model)
-    assert order == ["assigned", "registered"]
+    assert order == []
 
 
 class StochasticToy(ToyPrognostic):
@@ -564,3 +562,16 @@ def test_contract_rules_documented():
         f"D{i}" for i in range(1, 11)
     }
     assert all(summary.endswith(".") for summary in rules.values())
+
+
+def test_all_rules_are_reachable():
+    """Every rule documented in _RULES must be recorded (as a pass, a failure, or
+    a skip — any outcome counts, this only proves the code path exists) by at
+    least one of these checks, so the prose spec and the checker cannot silently
+    drift apart: a rule added to one without the other fails this test."""
+    evaluated = set(_evaluate_prognostic(StochasticToy()).evaluated)
+    for diagnostic in (Identity(), StochasticIdentity()):
+        evaluated |= _evaluate_diagnostic(diagnostic).evaluated
+
+    all_rules = {f"P{i}" for i in range(1, 17)} | {f"D{i}" for i in range(1, 11)}
+    assert evaluated == all_rules

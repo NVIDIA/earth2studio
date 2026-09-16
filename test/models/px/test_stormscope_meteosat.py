@@ -645,7 +645,7 @@ def test_stormscope_meteosat_conformance():
     #   - P7: the 0th (initial-condition) yield does not reduce lead_time
     #     to the final input lead_time -- it still carries both input
     #     lead times ([0, 10]) instead of just [10].
-    #   - P10: create_iterator() applies neither hook chain on forecast
+    #   - P10: create_iterator() applies neither hook on forecast
     #     steps, so a caller's front_hook/rear_hook is silently dropped.
     #   - P13: the diffusion sampler draws its latents from the global RNG
     #     (`torch.randn`) without declaring `stochastic = True` or
@@ -656,7 +656,7 @@ def test_stormscope_meteosat_conformance():
         "P15: create_iterator() modified the input coordinate system in place",
         "P7: the 0th yield is the initial condition, so its lead_time must be "
         "the final input lead_time [10], got [ 0 10]",
-        "P10: create_iterator() must apply both hook chains on every forecast "
+        "P10: create_iterator() must apply both hooks on every forecast "
         "step, applied neither; a hook a caller sets must not be silently "
         "dropped",
         "P13: model declares stochastic=False but two rollouts from one "

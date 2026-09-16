@@ -118,26 +118,22 @@ for step, (values, step_coords) in enumerate(model.create_iterator(x, coords.cop
 # entry — it is the initial condition, not a forecast.
 
 # %%
-# Compose Hooks
-# -------------
-# Hooks are the declared mutation points of a step, applied immediately before and
-# after the model advances. They compose into a chain applied in registration order.
+# Assign Hooks
+# ------------
+# ``front_hook``/``rear_hook`` are the declared mutation points of a step, applied
+# immediately before and after the model advances. Each is a single callable slot,
+# not a registration list: a caller with more than one transformation composes them
+# into one function and assigns that, so the order they run in is visible at the
+# assignment site.
 #
 # Hooks belong to the iterator. ``__call__`` is a single-step primitive whose caller
 # already holds the tensor and can transform it directly; what no caller can reach is
 # the state fed back *between* steps, which is exactly what ``front_hook`` mutates.
 
 # %%
-# .. literalinclude:: ../../earth2studio/models/px/utils.py
-#    :language: python
-#    :start-after: # sphinx - hook chain start
-#    :end-before: # sphinx - hook chain end
-
-# %%
 applied: list[np.ndarray] = []
 
 
-@model.add_front_hook
 def record(
     values: torch.Tensor, hook_coords: CoordSystem
 ) -> tuple[torch.Tensor, CoordSystem]:
@@ -146,13 +142,15 @@ def record(
     return values, hook_coords
 
 
-@model.add_rear_hook
 def offset(
     values: torch.Tensor, hook_coords: CoordSystem
 ) -> tuple[torch.Tensor, CoordSystem]:
     """Shift every predicted value, standing in for a bias correction."""
     return values + 1, hook_coords
 
+
+model.front_hook = record
+model.rear_hook = offset
 
 iterator = model.create_iterator(x, coords.copy())
 next(iterator)
