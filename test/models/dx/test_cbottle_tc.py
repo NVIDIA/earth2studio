@@ -29,7 +29,10 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
-from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import CBottleTCGuidance
 from earth2studio.utils import handshake_dim
 
@@ -329,14 +332,23 @@ class TestCBottleTCMock:
     def test_cbottletcguidance_conformance(
         self, mock_core_model, mock_classifier_model, mock_sst_ds
     ):
-        # NOTE: not runnable in this sandbox (missing 'cbottle' extra); verify in CI.
-        # CBottleTCGuidance does not currently declare `stochastic` or implement
-        # `set_rng()`, so D10 is reported as an informational skip.
+        """Check the mock CBottleTCGuidance model against the model contract.
+
+        Probed at a time inside the default AMIP mid-month SST range: with no
+        input SST fields the model rejects anything from 2022-12-16 on, and the
+        checker's default probe time (2024-01-01) is outside it.
+
+        CBottleTCGuidance does not currently declare `stochastic` or implement
+        `set_rng()`; constructed without a seed — the default — its diffusion
+        latents come from the unseeded global generator, so two calls on one
+        input disagree and D9 is violated. Pinned here until the wrapper
+        declares stochastic and implements set_rng().
+        """
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds)
         dx.sampler_steps = 2  # Speed up sampler
-        assert check_diagnostic_contract(dx) == [
-            "D10: model does not declare itself stochastic"
-        ]
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(dx, time=np.datetime64("2022-01-01T00:00:00"))
+        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
 
 
 @pytest.mark.package

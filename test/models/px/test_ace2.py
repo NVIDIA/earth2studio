@@ -260,8 +260,14 @@ class _DeterministicPhooStepper(PhooStepper):
         return output, None
 
 
-def test_ace2era5_conformance():
+@pytest.mark.parametrize("device", ["cuda:0"])
+def test_ace2era5_conformance(device):
     """Check the mock ACE2ERA5 model against the Earth2Studio model contract.
+
+    Checked on GPU like the rest of this file: fme builds its BatchData on
+    whatever `fme.get_device()` resolves to and rejects tensors that are not
+    already there, so on a machine with a GPU a CPU probe input fails inside the
+    stepper before any rule is reached.
 
     This is a genuine, verified violation (not a mock artifact): fails P16
     (create_iterator()'s yield 0 changes after later steps are produced, so
@@ -269,9 +275,9 @@ def test_ace2era5_conformance():
     test/models/test_model_conformance.py pending a wrapper fix.
     """
     forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(_DeterministicPhooStepper(), forcing_source)
+    p = ACE2ERA5(_DeterministicPhooStepper(), forcing_source).to(device)
     with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
+        check_prognostic_contract(p, device=device)
     assert "P16" in str(exc_info.value)
 
 

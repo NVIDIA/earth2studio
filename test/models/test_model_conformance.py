@@ -89,11 +89,8 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "Atlas",
     "AtlasCRPS",
     "Aurora",
-    "CBottleVideo",
     "DLWP",
-    "DiagnosticWrapper",
     "FCN",
-    "FCN3",
     "FengWu",
     "Pangu3",
     "Pangu6",
@@ -115,6 +112,29 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "produced, so the yields alias one buffer — "
         "test/models/px/test_ace2.py::test_ace2era5_conformance"
     ),
+    "CBottleVideo": (
+        "fails P13: declares stochastic=False but samples diffusion latents "
+        "per call, so two rollouts from one input disagree; declares neither "
+        "stochastic nor set_rng despite already passing a seed through to the "
+        "core model's sample() — "
+        "test/models/px/test_cbottle_video.py::TestCBottleVideoMock::test_cbottle_video_conformance"
+    ),
+    "DiagnosticWrapper": (
+        "fails P7 (the wrapped diagnostic's 'sample' dimension leaves the 0th "
+        "yield carrying dimensions the contract does not allow there), P10 "
+        "(create_iterator() applies neither hook) and P13 (inherits the "
+        "wrapped CorrDiffTaiwan's unseeded sampler while declaring "
+        "stochastic=False) — "
+        "test/models/px/test_dxwrapper.py::test_diagnosticwrapper_conformance"
+    ),
+    "FCN3": (
+        "fails P15 and P16 (_forward() squeezes the input to a view and writes "
+        "into it in place, so both call paths mutate the caller's tensor and "
+        "the tensor already yielded as step 0 changes under the caller) and "
+        "P14 (refreshing the core model's internal noise state draws from the "
+        "global generator, so stepping a seeded model perturbs global RNG "
+        "state) — test/models/px/test_fcn3.py::test_fcn3_conformance"
+    ),
     "FuXi": (
         "fails P15 (both create_iterator() and __call__ mutate the input "
         "tensor in place) and P16 (yield 0 changes after later steps are "
@@ -122,14 +142,14 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "test/models/px/test_fuxi.py::TestFuXiMock::test_fuxi_conformance"
     ),
     "DLESyM": (
-        "fails P16 (create_iterator() yields alias one buffer), P7 (0th "
-        "yield lead_time is wrong), and P13 (two rollouts from one input "
+        "fails P7 (the 0th yield's lead_time carries the whole input history "
+        "rather than the analysis time) and P13 (two rollouts from one input "
         "disagree despite declaring stochastic=False) — "
         "test/models/px/test_dlesym.py::test_dlesym_conformance"
     ),
     "DLESyMLatLon": (
         "shares DLESyM's create_iterator()/rollout logic, which is "
-        "confirmed non-conformant (P16/P7/P13, see DLESyM above); not "
+        "confirmed non-conformant (P7/P13, see DLESyM above); not "
         "independently executed here because earth2grid's CPU regridder "
         "segfaults in this sandbox regardless of device — "
         "test/models/px/test_dlesym.py::test_dlesym_latlon_conformance"
@@ -169,21 +189,23 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "disagree — test/models/px/test_datareplay.py::test_datareplay_conformance"
     ),
     "GenCastMini": (
-        "fails P10: create_iterator() applies rear_hook but never "
-        "front_hook, so a hook a caller sets is silently dropped (reasoned "
-        "from source, matches the GraphCast deviation; not executed in this "
-        "sandbox — no CUDA jax wheel) — "
-        "test/models/px/test_gencast_mini.py::test_gencastmini_conformance"
+        "fails P5 (output_coords() accepts a coordinate system with its final "
+        "two dimensions swapped instead of raising ValueError), P10 "
+        "(create_iterator() applies rear_hook but never front_hook, so a hook "
+        "a caller sets is silently dropped — the documented known deviation, "
+        "see dev/spec/MODEL_CONTRACT_SPEC.md), P13 (declares stochastic=False "
+        "but two rollouts from one input do not compare equal) and P16 (the "
+        "yields alias one buffer) — "
+        "test/models/px/test_gencast_mini.py::test_gencast_mini_conformance"
     ),
     "GraphCastOperational": (
-        "fails P10: create_iterator() applies rear_hook but never "
-        "front_hook — documented known deviation, see "
-        "dev/spec/MODEL_CONTRACT_SPEC.md — "
-        "test/models/px/test_graphcast.py::test_graphcastoperational_conformance"
+        "fails the same four rules as GenCastMini above (P5/P10/P13/P16); "
+        "this wrapper family shares its structure — "
+        "test/models/px/test_graphcast.py::test_graphcast_operational_conformance"
     ),
     "GraphCastSmall": (
-        "fails P10: same rear_hook-only gap as GraphCastOperational — "
-        "test/models/px/test_graphcast.py::test_graphcastsmall_conformance"
+        "fails the same four rules as GraphCastOperational — "
+        "test/models/px/test_graphcast.py::test_graphcast_small_conformance"
     ),
     "InterpModAFNO": (
         "fails P5 (invalid coordinate system with swapped final two "
@@ -224,17 +246,13 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "test/models/px/test_stormscope_meteosat.py::test_stormscopemeteosateu_conformance"
     ),
     "WeatherNext2CyclonesMini": (
-        "fails P10: same rear_hook-only gap as GraphCast/GenCastMini "
-        "(reasoned from source, not executed — no CUDA jax wheel in this "
-        "sandbox) — "
-        "test/models/px/test_weathernext2.py::test_weathernext2cyclonesmini_conformance"
+        "fails the same four rules as GraphCast/GenCastMini "
+        "(P5/P10/P13/P16) — "
+        "test/models/px/test_weathernext2.py::test_weathernext2_conformance"
     ),
 }
 
 _DIAGNOSTIC_CONFORMANT: set[str] = {
-    "CBottleInfill",
-    "CBottleSR",
-    "CBottleTCGuidance",
     "ClimateNet",
     "CorrDiff",
     "DLESyMv0_ISCCP_ERA5Precip",
@@ -249,12 +267,26 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",
     "SolarRadiationAFNO6H",
-    "TCTrackerVitart",
-    "TCTrackerWuDuan",
     "WindgustAFNO",
 }
 
 _DIAGNOSTIC_EXEMPT: dict[str, str] = {
+    "CBottleInfill": (
+        "fails D9: the sampler call takes no seed argument at all ('NO SEED "
+        "SUPPORT!' in cbottle_infill.py), so diffusion latents come from the "
+        "unseeded global RNG; declares neither stochastic nor set_rng — "
+        "test/models/dx/test_cbottle_infill.py::TestCBottleMock::test_cbottleinfill_conformance"
+    ),
+    "CBottleSR": (
+        "fails D9: with the default seed=None the diffusion latents come from "
+        "the unseeded global RNG; declares neither stochastic nor set_rng, and "
+        "its seeded path uses a bare torch.manual_seed that needs forking — "
+        "test/models/dx/test_cbottle_sr.py::TestCBottleSRMock::test_cbottle_sr_conformance"
+    ),
+    "CBottleTCGuidance": (
+        "fails D9: same unseeded-latent gap as CBottleInfill — "
+        "test/models/dx/test_cbottle_tc.py::TestCBottleTCMock::test_cbottletcguidance_conformance"
+    ),
     "CorrDiffCMIP6": (
         "fails D6: preprocess_input() transposes to a view and "
         "_apply_sai_cover() writes into that view in place, mutating the "
@@ -281,6 +313,18 @@ _DIAGNOSTIC_EXEMPT: dict[str, str] = {
         "fails D9: declares neither stochastic nor set_rng, but draws fresh "
         "unseeded torch.randn noise per call — "
         "test/models/dx/test_stormscope_dx_nsrdb.py::test_stormscope_dx_nsrdb_conformance"
+    ),
+    "TCTrackerVitart": (
+        "fails D9 by design: the tracker accumulates a path_buffer across "
+        "calls (that is what turns per-frame centers into tracks, hence "
+        "reset_path_buffer()), so a second call on one input returns a larger "
+        "tensor. The contract has no notion of a stateful diagnostic yet — "
+        "test/models/dx/test_tc_tracking.py::test_tc_tracker_vitart_conformance"
+    ),
+    "TCTrackerWuDuan": (
+        "fails D9 for the same reason as TCTrackerVitart: the shared "
+        "path_buffer accumulates across calls — "
+        "test/models/dx/test_tc_tracking.py::test_tc_tracker_wu_duan_conformance"
     ),
 }
 

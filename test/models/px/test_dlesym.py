@@ -310,18 +310,15 @@ def test_dlesym_conformance():
     """Check the mock HEALPix DLESyM model against the Earth2Studio model contract.
 
     This is a genuine, verified violation (not a mock artifact): DLESyM fails
-    P16 (create_iterator()'s yields alias one buffer), P7 (the 0th yield's
-    lead_time is wrong), and P13 (two rollouts from one input disagree despite
-    declaring stochastic=False). Tracked in
+    P7 (the 0th yield's lead_time is wrong — it carries the model's whole input
+    history rather than just the analysis time) and P13 (two rollouts from one
+    input disagree despite declaring stochastic=False). Tracked in
     test/models/test_model_conformance.py pending a wrapper fix.
     """
     model = build_dlesym_model("cpu", nside=8, type="hpx")
     with pytest.raises(ContractException) as exc_info:
         check_prognostic_contract(model)
-    message = str(exc_info.value)
-    assert "P16" in message
-    assert "P7" in message
-    assert "P13" in message
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {"P7", "P13"}
 
 
 def test_dlesym_latlon_conformance():
@@ -332,12 +329,12 @@ def test_dlesym_latlon_conformance():
     sandbox regardless of the requested device, unrelated to DLESyM's own
     logic. DLESyMLatLon shares create_iterator()/rollout code with DLESyM
     (see test_dlesym_conformance above), which is independently confirmed to
-    violate P16/P7/P13, so the same violations are expected here.
+    violate P7/P13, so the same violations are expected here.
     """
     pytest.skip(
         "earth2grid's CPU regridder segfaults in this sandbox; "
         "DLESyMLatLon shares DLESyM's rollout logic, which is confirmed "
-        "non-conformant by test_dlesym_conformance (P16/P7/P13)"
+        "non-conformant by test_dlesym_conformance (P7/P13)"
     )
     model = build_dlesym_model("cpu", nside=8, type="ll")
     assert check_prognostic_contract(model) == []

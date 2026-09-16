@@ -22,7 +22,10 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.io import XarrayBackend
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import (
+    ContractException,
+    check_prognostic_contract,
+)
 from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
@@ -350,10 +353,19 @@ def test_fcn3_conformance():
     FCN3 declares stochastic=True and delegates set_rng to its core model. The
     Phoo core model seeds a local torch.Generator and adds noise from it once
     seeded, so P13 (reproducibility) and P14 (RNG isolation) are exercisable.
+
+    Not conformant; same violations as
+    test/models/px/test_fcn3.py::test_fcn3_conformance, which documents each.
     """
     fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
     px_model = FCN3(fcn3_model)
-    assert check_prognostic_contract(px_model) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(px_model)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {
+        "P14",
+        "P15",
+        "P16",
+    }
 
 
 def test_persistence_conformance():
@@ -379,9 +391,16 @@ def test_diagnosticwrapper_conformance():
     """Check DiagnosticWrapper wrapping a mock CorrDiff dx model and a
     Persistence px model against the Earth2Studio model contract.
 
-    Both underlying mocks are deterministic (PhooCorrDiff has no randomness,
-    Persistence is the identity operator), matching the wrapper's declared
-    stochastic=False default; P14 is reported as an informational skip.
+    Not conformant. The wrapper inherits the deviations of what it wraps, so
+    each is pinned here rather than left as a red test:
+    - P7: CorrDiffTaiwan emits a 'sample' dimension, so the 0th yield does not
+      carry the input dimensions in the order the contract requires.
+    - P10: create_iterator() applies neither hook, so a hook a caller sets on
+      the wrapper is silently dropped.
+    - P13: CorrDiffTaiwan's sampler seeds from np.random.randint per call when
+      seed=None (the default here), so two rollouts from one input disagree
+      while the wrapper declares stochastic=False. See CorrDiffTaiwan's own
+      entry in test/models/test_model_conformance.py.
     """
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
@@ -416,9 +435,13 @@ def test_diagnosticwrapper_conformance():
         px_model=px_model,
         dx_model=corrdiff_model,
     )
-    assert check_prognostic_contract(wrapped_model) == [
-        "P14: model does not declare itself stochastic"
-    ]
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(wrapped_model)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {
+        "P7",
+        "P10",
+        "P13",
+    }
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

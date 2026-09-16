@@ -197,6 +197,31 @@ def test_conformance_detects_diagnostic_input_mutation():
     assert {v.split(":")[0] for v in error.value.violations} == {"D6"}
 
 
+def test_conformance_reports_shape_changing_output_as_violation():
+    """A diagnostic whose output shape moves between calls is reported, not a crash.
+
+    The TC trackers accumulate a path buffer across calls, so a second call on
+    one input returns a larger tensor. ``torch.allclose`` raises on
+    non-broadcastable shapes rather than returning False, which would surface as
+    a checker crash instead of the ``D9`` violation it is. ``D5`` comes along
+    because the grown tensor no longer matches its own declared coordinates.
+    """
+
+    class Accumulating(Identity):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        @batch_func()
+        def __call__(
+            self, x: torch.Tensor, coords: CoordSystem
+        ) -> tuple[torch.Tensor, CoordSystem]:
+            self.calls += 1
+            return x.repeat_interleave(self.calls, dim=-1), self.output_coords(coords)
+
+    assert "D9" in _diagnostic_violations(Accumulating())
+
+
 def test_conformance_detects_input_mutation():
     """The StormCast v1 bug: writing results into the caller's initial condition."""
 

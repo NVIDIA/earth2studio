@@ -29,7 +29,10 @@ try:
 except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
-from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import CBottleInfill
 from earth2studio.utils import handshake_dim
 
@@ -280,15 +283,24 @@ class TestCBottleMock:
         assert torch.allclose(out0, out2)
 
     def test_cbottleinfill_conformance(self, mock_core_model, mock_sst_ds):
-        # NOTE: not runnable in this sandbox (missing 'cbottle' extra); verify in CI.
-        # CBottleInfill does not currently declare `stochastic` or implement
-        # `set_rng()`, so D10 is reported as an informational skip.
+        """Check the mock CBottleInfill model against the model contract.
+
+        Probed at a time inside the default AMIP mid-month SST range: with no
+        input SST fields the model rejects anything from 2022-12-16 on, and the
+        checker's default probe time (2024-01-01) is outside it.
+
+        CBottleInfill does not currently declare `stochastic` or implement
+        `set_rng()` — the sampler call has no seed argument to pass one to at
+        all ("NO SEED SUPPORT!" in cbottle_infill.py) — so its diffusion latents
+        come from the unseeded global generator and two calls on one input
+        disagree, violating D9. Pinned here until the wrapper can be seeded.
+        """
         input_variables = np.array(["u10m", "v10m"])
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables)
         dx.sampler_steps = 2  # Speed up sampler
-        assert check_diagnostic_contract(dx) == [
-            "D10: model does not declare itself stochastic"
-        ]
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(dx, time=np.datetime64("2022-01-01T00:00:00"))
+        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
 
 
 @pytest.mark.package

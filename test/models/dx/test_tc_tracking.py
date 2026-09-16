@@ -18,7 +18,10 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
@@ -410,12 +413,19 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
 
 
 def test_tc_tracker_wu_duan_conformance():
-    """TCTrackerWuDuan does not declare `stochastic`, so D10 is reported as an
-    informational skip rather than a violation."""
+    """Check TCTrackerWuDuan against the Earth2Studio model contract.
+
+    Fails D9 by design rather than by accident: the tracker carries a
+    `path_buffer` across calls (that is what turns per-frame centers into
+    tracks, and why `reset_path_buffer()` exists), so a second call on the same
+    input appends another step and returns a larger tensor. The contract's
+    reproducibility rule has no notion of a stateful diagnostic yet; until it
+    does, the deviation is pinned here rather than left as a red test.
+    """
     model = TCTrackerWuDuan()
-    assert check_diagnostic_contract(model) == [
-        "D10: model does not declare itself stochastic"
-    ]
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(model)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
 
 
 @pytest.mark.parametrize("num_timesteps", [1, 2])
@@ -601,9 +611,13 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
 
 
 def test_tc_tracker_vitart_conformance():
-    """TCTrackerVitart does not declare `stochastic`, so D10 is reported as an
-    informational skip rather than a violation."""
+    """Check TCTrackerVitart against the Earth2Studio model contract.
+
+    Fails D9 for the same reason as TCTrackerWuDuan above: the shared
+    `path_buffer` accumulates across calls, so two calls on one input do not
+    return the same tensor.
+    """
     model = TCTrackerVitart()
-    assert check_diagnostic_contract(model) == [
-        "D10: model does not declare itself stochastic"
-    ]
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(model)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}

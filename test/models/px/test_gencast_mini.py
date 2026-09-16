@@ -323,27 +323,28 @@ def test_gencast_mini_exceptions(dc, device, mock_GenCastMini_model):
 def test_gencast_mini_conformance(mock_GenCastMini_model):
     """Check the mock GenCastMini model against the Earth2Studio model contract.
 
-    Not fully conformant, expected:
+    Not fully conformant, and fails the same four rules as its siblings
+    graphcast_small / graphcast_operational / weathernext2_cyclones_mini. Rule
+    prefixes only are asserted, not message text, so the pin survives rewording
+    of a violation message:
+    - P5: output_coords() accepts a coordinate system whose final two dimensions
+      are swapped instead of raising ValueError.
     - P10: dev/spec/MODEL_CONTRACT_SPEC.md's "Hooks" section documents gencast_mini
-      (along with graphcast_small, graphcast_operational, weathernext2_cyclones_mini)
       as a known deviation that applies rear_hook but never front_hook, so a front
       hook set on it is silently discarded.
-    GenCastMini also does not currently declare `stochastic` or implement
-    `set_rng()` (Migration table: its randomness is already an isolated functional
-    JAX PRNG key, so only the declaration and set_rng() entry point are missing);
-    until that lands the contract checker treats it as non-stochastic.
-
-    The exact P10 message is asserted by rule prefix only, not full text: this
-    dependency group (weathernext, requiring jax[cuda13]) cannot be installed in
-    every CI/dev environment (e.g. no CUDA/non-Linux), so the precise wording was
-    confirmed against dev/spec/MODEL_CONTRACT_SPEC.md rather than a local run
-    everywhere this test executes.
+    - P13: the wrapper does not declare `stochastic` or implement `set_rng()`
+      (Migration table: its randomness is already an isolated functional JAX
+      PRNG key, so only the declaration and set_rng() entry point are missing),
+      so the checker takes stochastic=False at face value and two rollouts from
+      one input disagree.
+    - P16: the yields alias one buffer, so yield 1 changes once a later step is
+      produced.
     """
     p = mock_GenCastMini_model
     with pytest.raises(ContractException) as excinfo:
         check_prognostic_contract(p)
     violations = excinfo.value.violations
-    assert violations and all(v.startswith("P10") for v in violations), violations
+    assert {v.split(":")[0] for v in violations} == {"P5", "P10", "P13", "P16"}
 
 
 def test_gencast_mini_variables():

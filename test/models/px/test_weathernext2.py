@@ -144,28 +144,27 @@ def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
 def test_weathernext2_conformance(mock_weathernext2_model):
     """Check the mock WeatherNext2CyclonesMini model against the model contract.
 
-    Not fully conformant, expected:
+    Not fully conformant. Rule prefixes only are asserted, not message text, so
+    the pin survives rewording of a violation message:
+    - P5: output_coords() accepts a coordinate system whose final two dimensions
+      are swapped instead of raising ValueError.
     - P10: dev/spec/MODEL_CONTRACT_SPEC.md's "Hooks" section documents
       weathernext2_cyclones_mini (along with gencast_mini, graphcast_small,
       graphcast_operational) as a known deviation that applies rear_hook but
       never front_hook, so a front hook set on it is silently discarded.
-    WeatherNext2CyclonesMini also does not currently declare `stochastic` or
-    implement `set_rng()` (Migration table: its randomness is already an
-    isolated functional JAX PRNG key, per test_weathernext2_rng_advances above,
-    so only the declaration and set_rng() entry point are missing); until that
-    lands the contract checker treats it as non-stochastic.
-
-    The exact P10 message is asserted by rule prefix only, not full text: this
-    dependency group (weathernext, requiring jax[cuda13]) cannot be installed in
-    every CI/dev environment (e.g. no CUDA/non-Linux), so the precise wording was
-    confirmed against dev/spec/MODEL_CONTRACT_SPEC.md rather than a local run
-    everywhere this test executes.
+    - P13: the wrapper does not declare `stochastic` or implement `set_rng()`
+      (Migration table: its randomness is already an isolated functional JAX
+      PRNG key, per test_weathernext2_rng_advances above, so only the
+      declaration and set_rng() entry point are missing), so the checker takes
+      stochastic=False at face value and two rollouts from one input disagree.
+    - P16: the yields alias one buffer, so yield 1 changes once a later step is
+      produced.
     """
     model = mock_weathernext2_model
     with pytest.raises(ContractException) as excinfo:
         check_prognostic_contract(model)
     violations = excinfo.value.violations
-    assert violations and all(v.startswith("P10") for v in violations), violations
+    assert {v.split(":")[0] for v in violations} == {"P5", "P10", "P13", "P16"}
 
 
 def test_weathernext2_target_order(mock_weathernext2_model):

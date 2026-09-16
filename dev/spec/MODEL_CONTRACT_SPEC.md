@@ -314,8 +314,9 @@ Pass `devices` explicitly: the default forks every visible CUDA device and warns
 residual cost is a state copy per step, negligible against a model forward.
 
 **Known deviation.** Of the three wrappers that implement `set_rng` today, `dlesym`
-seeds a local `torch.Generator` and conforms; `fcn3` delegates to its core model, so
-conformance depends on what that model does internally; and `aurora1p5` is a bare
+seeds a local `torch.Generator` and conforms; `fcn3` delegates to its core model and
+fails `P14`, because refreshing that model's internal noise state draws from the
+global generator; and `aurora1p5` is a bare
 `torch.manual_seed(seed)` and fails `P14`. That is the same wrapper whose
 constructor seed already conflicts with `set_rng` below, so both of its seeding
 defects are fixed by the same rewrite. Tracked as an exemption in

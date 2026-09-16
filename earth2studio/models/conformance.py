@@ -40,6 +40,11 @@ from earth2studio.utils.type import CoordSystem
 # global generator is observable even when it reseeds to the value already in place
 _PROBE_SEED = 0x5EED
 
+# Time stamped onto an open-ended 'time' dimension when a declaration leaves it
+# unsized. Models valid only over a restricted period take the time to probe with
+# through the ``time`` argument of the public check functions.
+_PROBE_TIME = np.datetime64("2024-01-01T00:00:00")
+
 _RULES = {
     "P1": "A prognostic model structurally satisfies the PrognosticModel protocol.",
     "P2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
@@ -168,7 +173,11 @@ def _expected_shape(coords: CoordSystem) -> tuple[int, ...] | None:
     return tuple(shape)
 
 
-def _concretize(coords: CoordSystem, batch_size: int = 1) -> CoordSystem:
+def _concretize(
+    coords: CoordSystem,
+    batch_size: int = 1,
+    time: np.datetime64 = _PROBE_TIME,
+) -> CoordSystem:
     """Replace the open-ended coordinates of a declaration with concrete values.
 
     Model declarations use zero-length arrays to mean "any size" on batch-like
@@ -181,6 +190,9 @@ def _concretize(coords: CoordSystem, batch_size: int = 1) -> CoordSystem:
         Declared coordinate system, typically from ``input_coords()``
     batch_size : int, optional
         Size to give open-ended dimensions, by default 1
+    time : np.datetime64, optional
+        Timestamp to fill an open-ended 'time' dimension with, by default
+        2024-01-01T00:00
 
     Returns
     -------
@@ -191,9 +203,7 @@ def _concretize(coords: CoordSystem, batch_size: int = 1) -> CoordSystem:
     for key, value in coords.items():
         if isinstance(value, np.ndarray) and value.size == 0:
             if key == "time":
-                concrete[key] = np.array(
-                    [np.datetime64("2024-01-01T00:00:00")] * batch_size
-                )
+                concrete[key] = np.array([time] * batch_size)
             else:
                 concrete[key] = np.arange(batch_size)
         else:
@@ -250,6 +260,7 @@ def _check_coord_declaration(
     coords_rule: str,
     readonly_rule: str,
     invalid_rule: str,
+    time: np.datetime64 = _PROBE_TIME,
 ) -> CoordSystem | None:
     """Evaluate the declaration rules shared by prognostic and diagnostic models.
 
@@ -273,7 +284,7 @@ def _check_coord_declaration(
         "the leading dimension of input_coords() must be 'batch'",
     )
 
-    concrete = _concretize(input_coords)
+    concrete = _concretize(input_coords, time=time)
     reference = OrderedDict((key, value.copy()) for key, value in concrete.items())
     try:
         output_coords = model.output_coords(concrete)
@@ -329,6 +340,7 @@ def check_prognostic_contract(
     rollout: bool = True,
     nsteps: int = 2,
     device: Any = "cpu",
+    time: np.datetime64 = _PROBE_TIME,
 ) -> list[str]:
     """Check a prognostic model against the Earth2Studio model contract.
 
@@ -348,6 +360,9 @@ def check_prognostic_contract(
         default 2
     device : Any, optional
         Device to run the rollout on, by default ``"cpu"``
+    time : np.datetime64, optional
+        Timestamp to probe the model at, by default 2024-01-01T00:00. Models valid
+        only over a restricted period need a time inside it.
 
     Returns
     -------
@@ -359,7 +374,9 @@ def check_prognostic_contract(
     ContractException
         If the model violates any evaluated rule
     """
-    report = _evaluate_prognostic(model, rollout=rollout, nsteps=nsteps, device=device)
+    report = _evaluate_prognostic(
+        model, rollout=rollout, nsteps=nsteps, device=device, time=time
+    )
     report.raise_for_violations()
     return report.skipped
 
@@ -369,6 +386,7 @@ def _evaluate_prognostic(
     rollout: bool = True,
     nsteps: int = 2,
     device: Any = "cpu",
+    time: np.datetime64 = _PROBE_TIME,
 ) -> _Report:
     """Run every prognostic rule and return the report without raising.
 
@@ -414,6 +432,7 @@ def _evaluate_prognostic(
         coords_rule="P2",
         readonly_rule="P4",
         invalid_rule="P5",
+        time=time,
     )
     if output_coords is not None:
         report.require(
@@ -421,7 +440,7 @@ def _evaluate_prognostic(
             next(iter(output_coords), None) == "batch",
             "the leading dimension of output_coords() must be 'batch'",
         )
-        _check_rebasing(report, model, input_coords, output_coords)
+        _check_rebasing(report, model, input_coords, output_coords, time=time)
 
     stochastic = _check_stochasticity(report, model, device=device)
 
@@ -433,7 +452,7 @@ def _evaluate_prognostic(
 
     if not rollout:
         report.skip(rollout_rules, "rollout checks disabled")
-    elif _expected_shape(_concretize(input_coords)) is None:
+    elif _expected_shape(_concretize(input_coords, time=time)) is None:
         report.skip(
             rollout_rules,
             "input_coords() does not imply a tensor shape, so no probe input can be "
@@ -441,7 +460,14 @@ def _evaluate_prognostic(
         )
     elif output_coords is not None:
         _check_rollout(
-            report, model, input_coords, output_coords, nsteps, device, stochastic
+            report,
+            model,
+            input_coords,
+            output_coords,
+            nsteps,
+            device,
+            stochastic,
+            time=time,
         )
 
     return report
@@ -452,6 +478,7 @@ def _check_rebasing(
     model: PrognosticModel,
     input_coords: CoordSystem,
     output_coords: CoordSystem,
+    time: np.datetime64 = _PROBE_TIME,
 ) -> None:
     """Evaluate the lead-time rebasing rule (``P6``)."""
     if "lead_time" not in input_coords or "lead_time" not in output_coords:
@@ -459,7 +486,7 @@ def _check_rebasing(
         return
 
     offset = np.timedelta64(24, "h")
-    shifted = _concretize(input_coords)
+    shifted = _concretize(input_coords, time=time)
     shifted["lead_time"] = shifted["lead_time"] + offset
     try:
         rebased = model.output_coords(shifted)
@@ -529,12 +556,13 @@ def _check_rollout(
     nsteps: int,
     device: Any,
     stochastic: bool,
+    time: np.datetime64 = _PROBE_TIME,
 ) -> None:
     """Evaluate the rules that require stepping the model.
 
     Covers ``P7``-``P10`` and ``P13``-``P16``.
     """
-    coords = _concretize(input_coords)
+    coords = _concretize(input_coords, time=time)
     x = _sample_tensor(coords, device)
     pristine_x = x.clone()
     pristine_coords = OrderedDict((key, value.copy()) for key, value in coords.items())
@@ -630,6 +658,18 @@ def _check_rollout(
     _check_hook_scope(report, model, coords, device)
     _check_reproducibility(report, model, coords, device, nsteps, stochastic)
     _check_step_rng_isolation(report, model, coords, device, stochastic)
+
+
+def _same_values(first: torch.Tensor, second: torch.Tensor) -> bool:
+    """Whether two probe outputs agree, tolerating a shape change between them.
+
+    A model whose output shape moves between calls — a stateful diagnostic
+    accumulating a buffer across calls, say — has already failed whichever
+    reproducibility rule is asking, but ``torch.allclose`` raises on
+    non-broadcastable shapes instead of returning False, which would surface as a
+    checker crash rather than as the violation it is.
+    """
+    return first.shape == second.shape and torch.allclose(first, second)
 
 
 def _rollout_values(
@@ -803,7 +843,7 @@ def _check_diagnostic_reproducibility(
     if not stochastic:
         report.require(
             "D9",
-            torch.allclose(run(), run()),
+            _same_values(run(), run()),
             "model declares stochastic=False but two calls on one input disagree; "
             "declare stochastic=True and implement set_rng()",
         )
@@ -819,13 +859,13 @@ def _check_diagnostic_reproducibility(
     set_rng(0)
     report.require(
         "D9",
-        torch.allclose(first, run()),
+        _same_values(first, run()),
         "reseeding with the same seed must reproduce the output exactly",
     )
     set_rng(1)
     report.require(
         "D9",
-        not torch.allclose(first, run()),
+        not _same_values(first, run()),
         "two seeds produced identical output, so set_rng() does not reach every "
         "source of randomness; ensemble members would be duplicates",
     )
@@ -845,7 +885,7 @@ def _check_reproducibility(
     if not stochastic:
         report.require(
             "P13",
-            torch.allclose(
+            _same_values(
                 _rollout_values(model, x, coords, nsteps),
                 _rollout_values(model, x, coords, nsteps),
             ),
@@ -865,7 +905,7 @@ def _check_reproducibility(
     repeated = _rollout_values(model, x, coords, nsteps)
     report.require(
         "P13",
-        torch.allclose(first, repeated),
+        _same_values(first, repeated),
         "reseeding with the same seed must reproduce a rollout exactly; a resumed "
         "run cannot otherwise match the run it resumes",
     )
@@ -874,7 +914,7 @@ def _check_reproducibility(
     reseeded = _rollout_values(model, x, coords, nsteps)
     report.require(
         "P13",
-        not torch.allclose(first, reseeded),
+        not _same_values(first, reseeded),
         "two seeds produced an identical rollout, so set_rng() does not reach every "
         "source of randomness; ensemble members would be duplicates",
     )
@@ -994,6 +1034,7 @@ def check_diagnostic_contract(
     model: DiagnosticModel,
     forward: bool = True,
     device: Any = "cpu",
+    time: np.datetime64 = _PROBE_TIME,
 ) -> list[str]:
     """Check a diagnostic model against the Earth2Studio model contract.
 
@@ -1006,6 +1047,9 @@ def check_diagnostic_contract(
         ``D9``, ``D10``), by default True
     device : Any, optional
         Device to run the forward pass on, by default ``"cpu"``
+    time : np.datetime64, optional
+        Timestamp to probe the model at, by default 2024-01-01T00:00. Models valid
+        only over a restricted period need a time inside it.
 
     Returns
     -------
@@ -1017,7 +1061,7 @@ def check_diagnostic_contract(
     ContractException
         If the model violates any evaluated rule
     """
-    report = _evaluate_diagnostic(model, forward=forward, device=device)
+    report = _evaluate_diagnostic(model, forward=forward, device=device, time=time)
     report.raise_for_violations()
     return report.skipped
 
@@ -1026,6 +1070,7 @@ def _evaluate_diagnostic(
     model: DiagnosticModel,
     forward: bool = True,
     device: Any = "cpu",
+    time: np.datetime64 = _PROBE_TIME,
 ) -> _Report:
     """Run every diagnostic rule and return the report without raising.
 
@@ -1048,6 +1093,7 @@ def _evaluate_diagnostic(
         coords_rule="D2",
         readonly_rule="D3",
         invalid_rule="D4",
+        time=time,
     )
 
     stochastic = _check_stochasticity(report, model, "D7", "D8", "D10", device)
@@ -1057,7 +1103,7 @@ def _evaluate_diagnostic(
     if stochastic and callable(getattr(model, "set_rng", None)):
         forward_rules = (*forward_rules, "D10")
 
-    coords = _concretize(input_coords)
+    coords = _concretize(input_coords, time=time)
     if not forward:
         report.skip(forward_rules, "forward check disabled")
     elif _expected_shape(coords) is None or output_coords is None:

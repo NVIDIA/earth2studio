@@ -30,7 +30,10 @@ except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import (
+    ContractException,
+    check_prognostic_contract,
+)
 from earth2studio.models.px import CBottleVideo
 from earth2studio.utils import handshake_dim
 
@@ -235,22 +238,17 @@ class TestCBottleVideoMock:
         CBottleVideo does not currently declare `stochastic` or implement
         `set_rng()` (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it
         already passes a seed straight to the core model's sample() call, so only
-        the declaration and set_rng() entry point are missing). Until that lands,
-        the contract checker treats it as a non-stochastic model.
-
-        Note: `cbottle`/`earth2grid` (required by the `cbottle` extra) could not
-        be installed in every environment (git-sourced, and `earth2grid` compiles
-        a C++ extension against a local toolchain that failed here for other
-        extras), so this assertion could not be executed against real
-        dependencies everywhere; it is expected to hold based on static review of
-        CBottleVideo's hook wiring and the real (but tiny/deterministic-enough)
-        mock core model above.
+        the declaration and set_rng() entry point are missing). Until that lands
+        the checker takes the undeclared stochasticity at face value: two
+        rollouts from one input disagree while the model declares
+        stochastic=False, which is P13. Pinned here until the wrapper declares
+        stochastic and implements set_rng().
         """
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
         px.sampler_steps = 2  # Speed up sampler
-        assert check_prognostic_contract(px, nsteps=1) == [
-            "P14: model does not declare itself stochastic"
-        ]
+        with pytest.raises(ContractException) as exc_info:
+            check_prognostic_contract(px, nsteps=1, device=device)
+        assert {v.split(":")[0] for v in exc_info.value.violations} == {"P13"}
 
 
 @pytest.mark.package
