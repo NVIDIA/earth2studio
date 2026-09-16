@@ -67,10 +67,17 @@ class PhooAurora1p5Model(torch.nn.Module):
 
 
 class PhooAurora1p5EnsembleModel(PhooAurora1p5Model):
-    """Dummy ensemble model: same echo logic, adds reset_noise() stub."""
+    """Dummy ensemble model: same echo logic, adds noise-cache stubs."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.noise_accumulation_calls: list[int] = []
 
     def reset_noise(self) -> None:
         pass
+
+    def set_noise_accumulation(self, n: int = 0) -> None:
+        self.noise_accumulation_calls.append(n)
 
 
 def _make_model(device: str = "cpu") -> Aurora1p5:
@@ -292,6 +299,34 @@ def test_aurora1p5_ensemble_iter(n_members, device):
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
         if i > 11:
             break
+
+
+@pytest.mark.parametrize("stride,expected_n", [(1, 6), (2, 3), (3, 2), (6, 1)])
+def test_aurora1p5_ensemble_noise_accumulation_cache_size(stride, expected_n):
+    """create_iterator sizes the noise cache to the sub-steps per AR cycle and
+    disables accumulation again once the iterator is closed."""
+    core = PhooAurora1p5EnsembleModel()
+    static_vars = {k: torch.ones(_H, _W) for k in _STATIC_KEYS}
+    p = Aurora1p5Ensemble(core, static_vars, lead_time_stride_hours=stride)
+
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    dc = p.input_coords()
+    del dc["batch"]
+    del dc["time"]
+    del dc["lead_time"]
+    del dc["variable"]
+    r = Random(dc)
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device="cpu")
+
+    p_iter = p.create_iterator(x, coords)
+    next(p_iter)  # initial condition; runs the pre-yield setup in create_iterator
+
+    assert core.noise_accumulation_calls == [expected_n]
+
+    p_iter.close()
+    assert core.noise_accumulation_calls == [expected_n, 0]
 
 
 @pytest.fixture(scope="function")
