@@ -96,18 +96,22 @@ reductions first, leaving chunk tuning to the source and execution environment.
 
 ## Refined Design
 
-The refined API keeps strings and mappings at the public boundary:
+The refined API keeps strings at the model-coordinate boundary. Qualified labels
+distinguish repeated source variables with different windows:
 
 ```python
-statistics = {"u10m": "mean:24h", "v10m": "mean:24h", "t2m": "max:24h"}
+variables = ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:1month"]
 ```
+
+A mapping remains a convenient request shorthand when each source variable appears
+at most once.
 
 It exposes direct primitives for the three required operations:
 
 ```python
 times = source_times(modifier, valid_time, delta_t)
 leads = source_lead_times(modifier, lead_time, delta_t)
-result = apply_time_statistic(block, modifier)
+result = apply_time_statistic(block, modifier, target, delta_t)
 ```
 
 Parsing and variable grouping are private implementation details. Parsed windows are

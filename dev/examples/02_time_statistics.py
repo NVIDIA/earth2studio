@@ -2,13 +2,13 @@
 Temporal Statistics
 ===================
 
-Use one compact string to plan source coordinates and reduce Xarray data.
+Use compact variable labels to plan source coordinates and reduce Xarray data.
 """
 
 # %%
-# Plan Analysis Times
-# -------------------
-# A modifier describes both the reduction and its valid-time window.
+# Declare Statistical Variables
+# -----------------------------
+# Variable labels remain strings and carry their temporal statistic.
 
 from collections.abc import Hashable
 
@@ -16,6 +16,15 @@ import numpy as np
 import xarray as xr
 
 import earth2studio.utils.time_statistics as e2s
+
+# Statistic-qualified labels distinguish multiple windows of one source quantity.
+variables = ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:1month"]
+print(variables)
+
+# %%
+# Plan Analysis Times
+# -------------------
+# A modifier describes both the reduction and its valid-time window.
 
 modifier = "mean:24h"
 valid_time = np.datetime64("2026-08-28T06:00")
@@ -34,6 +43,12 @@ wind = xr.DataArray(
     coords={"time": times, "variable": ["u10m", "v10m"]},
 )
 result = e2s.apply_time_statistic(wind, modifier, target=valid_time, delta_t=delta_t)
+result = result.assign_coords(
+    variable=[f"{variable}:{modifier}" for variable in result.variable.values]
+)
+result.attrs["earth2studio_statistics"] = {
+    variable: modifier for variable in result.variable.values
+}
 print(result)
 
 # %%

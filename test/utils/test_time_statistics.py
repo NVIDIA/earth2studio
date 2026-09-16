@@ -31,6 +31,10 @@ def test_time_statistic_declarations():
         "closed": "left",
     }
     assert e2s.time_statistic_metadata("max:-12h:+12h")["modifier"] == ("max:-12h:+12h")
+    assert e2s.time_statistic_metadata("sum:1week")["window"] == np.timedelta64(7, "D")
+    assert e2s.time_statistic_metadata("mean:1month")["window"] == np.timedelta64(
+        30, "D"
+    )
     assert e2s._group_time_statistics(
         ["u10m", "v10m", "t2m"],
         {"u10m": "mean:24h", "v10m": "mean:24h", "t2m": "max:24h"},
@@ -38,17 +42,27 @@ def test_time_statistic_declarations():
     assert e2s._group_time_statistics(["u10m", "t2m"], "sum:6h") == {
         "sum:6h": ("u10m", "t2m")
     }
+    assert e2s._group_time_statistics(
+        ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:1month"], None
+    ) == {
+        "mean:24h": ("t2m",),
+        "mean:168h": ("t2m",),
+        "mean:720h": ("t2m",),
+    }
 
     for modifier, message in (
         ("median:24h", "Unknown"),
         ("mean:0h", "positive"),
         ("mean:12h:-12h", "after"),
         ("mean", "must be"),
+        ("mean:1fortnight", "Unsupported"),
     ):
         with pytest.raises(ValueError, match=message):
             e2s.time_statistic_metadata(modifier)
     with pytest.raises(ValueError, match="unknown variables"):
         e2s._group_time_statistics(["u10m"], {"t2m": "mean:24h"})
+    with pytest.raises(ValueError, match="Qualified variables"):
+        e2s._group_time_statistics(["t2m:mean:1day"], "mean:1day")
 
 
 def test_time_statistic_source_coordinates():
@@ -69,6 +83,9 @@ def test_time_statistic_source_coordinates():
         np.array([valid_time, valid_time + np.timedelta64(6, "h")]),
         delta_t,
     ).shape == (2, 4)
+    assert e2s.source_times(
+        "mean:1month", valid_time, np.timedelta64(1, "D")
+    ).shape == (30,)
 
     for invalid_delta, message in (
         (np.timedelta64(0, "h"), "positive"),

@@ -33,8 +33,32 @@ StatisticDeclaration: TypeAlias = Mapping[str, str] | str | None
 Duration: TypeAlias = str | np.timedelta64
 TemporalTarget: TypeAlias = np.datetime64 | np.timedelta64
 
-_DURATION_PATTERN = re.compile(r"^([+-]?)(\d+)(ns|us|ms|min|m|s|h|d)$")
-_DURATION_UNITS = {"min": "m", "m": "m", "d": "D"}
+_DURATION_PATTERN = re.compile(r"^([+-]?)(\d+)([a-z]+)$")
+_DURATION_UNITS = {
+    "ns": (1, "ns"),
+    "nanosecond": (1, "ns"),
+    "us": (1, "us"),
+    "microsecond": (1, "us"),
+    "ms": (1, "ms"),
+    "millisecond": (1, "ms"),
+    "s": (1, "s"),
+    "sec": (1, "s"),
+    "second": (1, "s"),
+    "m": (1, "m"),
+    "min": (1, "m"),
+    "minute": (1, "m"),
+    "h": (1, "h"),
+    "hr": (1, "h"),
+    "hour": (1, "h"),
+    "d": (1, "D"),
+    "day": (1, "D"),
+    "w": (7, "D"),
+    "wk": (7, "D"),
+    "week": (7, "D"),
+    "mo": (30, "D"),
+    "mon": (30, "D"),
+    "month": (30, "D"),
+}
 _TIME_STATISTICS: dict[str, TimeReduction] = {}
 
 
@@ -46,9 +70,13 @@ def _duration(value: Duration, *, name: str) -> np.timedelta64:
         if match is None:
             raise ValueError(f"{name} must be an integer duration such as '6h'")
         sign, magnitude, unit = match.groups()
+        unit = unit if unit in _DURATION_UNITS else unit.removesuffix("s")
+        if unit not in _DURATION_UNITS:
+            raise ValueError(f"Unsupported {name} unit '{unit}'")
+        scale, numpy_unit = _DURATION_UNITS[unit]
         duration = np.timedelta64(
-            (-1 if sign == "-" else 1) * int(magnitude),
-            _DURATION_UNITS.get(unit, unit),
+            (-1 if sign == "-" else 1) * int(magnitude) * scale,
+            numpy_unit,
         )
     else:
         raise TypeError(f"{name} must be a string or numpy.timedelta64")
@@ -162,19 +190,34 @@ def _group_time_statistics(
 ) -> dict[str, tuple[str, ...]]:
     """Group variables by normalized temporal-statistic modifier."""
     labels = tuple(str(variable) for variable in variables)
+    parsed = tuple(_split_variable_statistic(label) for label in labels)
     if statistics is None:
-        return {}
-    if isinstance(statistics, str):
-        return {_parse(statistics).modifier: labels}
-    unknown = set(statistics) - set(labels)
-    if unknown:
-        raise ValueError(f"Statistics reference unknown variables: {sorted(unknown)}")
+        declarations = parsed
+    elif isinstance(statistics, str):
+        if any(modifier for _, modifier in parsed):
+            raise ValueError("Qualified variables cannot use a separate statistic")
+        declarations = tuple((label, statistics) for label in labels)
+    else:
+        if any(modifier for _, modifier in parsed):
+            raise ValueError("Qualified variables cannot use a statistics mapping")
+        unknown = set(statistics) - set(labels)
+        if unknown:
+            raise ValueError(
+                f"Statistics reference unknown variables: {sorted(unknown)}"
+            )
+        declarations = tuple((label, statistics.get(label)) for label in labels)
     groups: dict[str, list[str]] = {}
-    for variable in labels:
-        if variable in statistics:
-            modifier = _parse(statistics[variable]).modifier
-            groups.setdefault(modifier, []).append(variable)
+    for variable, modifier in declarations:
+        if modifier is not None:
+            groups.setdefault(_parse(modifier).modifier, []).append(variable)
     return {modifier: tuple(group) for modifier, group in groups.items()}
+
+
+def _split_variable_statistic(variable: str) -> tuple[str, str | None]:
+    name, separator, modifier = variable.partition(":")
+    if not name:
+        raise ValueError("Variable name must not be empty")
+    return (name, modifier) if separator else (name, None)
 
 
 def source_times(
