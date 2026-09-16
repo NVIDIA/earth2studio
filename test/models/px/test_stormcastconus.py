@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import HRRR, Random, Random_FX, fetch_data
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils import handshake_dim
@@ -334,6 +335,23 @@ def test_stormcastconus_exceptions(device):
 
     with pytest.raises(RuntimeError):
         next(p.create_iterator(x, coords))
+
+
+def test_stormcastconus_conformance():
+    p = _build_model()
+
+    # StormCastCONUS draws its diffusion latents from the global RNG
+    # (`torch.randn_like`) without declaring itself stochastic or
+    # implementing set_rng, so this is a real P13 violation rather than a
+    # checker skip. Tracked as a follow-up to declare `stochastic = True`
+    # and add a seeded `set_rng`; asserting on the exception here documents
+    # the known-bad state without leaving a permanently red test.
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(p)
+    assert exc_info.value.violations == [
+        "P13: model declares stochastic=False but two rollouts from one "
+        "input disagree; declare stochastic=True and implement set_rng()"
+    ]
 
 
 def test_stormcastconus_conditioning_init_time():

@@ -24,6 +24,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Pangu3, Pangu6, Pangu24
 from earth2studio.utils import handshake_dim
 
@@ -209,6 +210,32 @@ class TestPanguMock:
             p(x, coords)
 
         torch.cuda.empty_cache()
+
+    # P14 is skipped rather than passed: none of the Pangu variants declare
+    # themselves stochastic, so the RNG-isolation rule has nothing to check.
+    #
+    # .to("cpu") is required before checking: __init__ builds the ORT session
+    # from a default self.device with index=None, which this onnxruntime
+    # build's IOBinding rejects; .to() is what normalizes it to a valid
+    # indexed device (see Pangu24.to() in earth2studio/models/px/pangu.py).
+    # Every other test in this file calls .to(device) for the same reason.
+    def test_pangu3_conformance(self, onnx_test_package):
+        model = Pangu3.load_model(onnx_test_package).to("cpu")
+        assert check_prognostic_contract(model) == [
+            "P14: model does not declare itself stochastic"
+        ]
+
+    def test_pangu6_conformance(self, onnx_test_package):
+        model = Pangu6.load_model(onnx_test_package).to("cpu")
+        assert check_prognostic_contract(model) == [
+            "P14: model does not declare itself stochastic"
+        ]
+
+    def test_pangu24_conformance(self, onnx_test_package):
+        model = Pangu24.load_model(onnx_test_package).to("cpu")
+        assert check_prognostic_contract(model) == [
+            "P14: model does not declare itself stochastic"
+        ]
 
 
 @pytest.mark.package

@@ -25,7 +25,9 @@ Required standard tests. Do not rename or omit these:
 1. test_<model>_call - Single forward pass with mock model, parameterized over time and device where practical.
 2. test_<model>_iter - Iterator produces the initial condition and advances lead_time for ensemble sizes 1 and 2.
 3. test_<model>_exceptions - Invalid coordinates, variables, lead times, or dimension order raise errors.
-4. test_<model>_package - Integration test with real weights using @pytest.mark.package and the repo --package option.
+4. test_<model>_conformance - check_prognostic_contract() against the mock model, asserting [] (or the
+   specific skipped rules, if any are structurally inapplicable to this model).
+5. test_<model>_package - Integration test with real weights using @pytest.mark.package and the repo --package option.
 
 Use Random/fetch_data for mock call and iterator tests when possible. For package
 tests, arbitrary Gaussian random fields may be physically invalid for some real
@@ -50,6 +52,7 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import ModelName  # TODO: Import your model
 from earth2studio.utils import handshake_dim
 
@@ -307,6 +310,22 @@ class TestModelNameMock:
         )
         with pytest.raises((KeyError, ValueError)):
             model(x, coords)
+
+    def test_model_conformance(self, test_package):
+        """Check the mock model against the Earth2Studio model contract.
+
+        TODO: if PhooModelName.forward() is deterministic but the real model
+        declares `stochastic = True`, make the mock non-deterministic too
+        (e.g. `return x + torch.randn_like(x)`), or the reproducibility rule
+        (P13) fails: a fixed forward pass cannot show that different seeds
+        give different rollouts.
+
+        If a rule is structurally inapplicable to this model (rare), assert
+        it appears in the skip list returned by check_prognostic_contract
+        instead of omitting this test.
+        """
+        model = ModelName.load_model(test_package)
+        assert check_prognostic_contract(model) == []
 
 
 # =============================================================================

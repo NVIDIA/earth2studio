@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import WindgustAFNO
 from earth2studio.utils import handshake_dim
 
@@ -114,6 +115,24 @@ def test_afno_windgust_sza_latlon_order():
     # lon_grid varies over columns, lat_grid over rows (indexing="ij")
     np.testing.assert_array_equal(captured["lon"][0], coords["lon"])
     np.testing.assert_array_equal(captured["lat"][:, 0], coords["lat"])
+
+
+def test_windgust_afno_conformance():
+    """Check the mock model against the Earth2Studio model contract.
+
+    The model does not declare itself stochastic, so D10 (RNG isolation) is
+    structurally inapplicable and reported as a skip rather than passed.
+    """
+    model = PhooAFNOWindgust()
+    center = torch.zeros(17, 1, 1)
+    scale = torch.ones(17, 1, 1)
+    lsm = torch.ones(1, 1, 720, 1440)
+    orog = torch.ones(1, 1, 720, 1440)
+
+    dx = WindgustAFNO(model, lsm, orog, center, scale)
+    assert check_diagnostic_contract(dx) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

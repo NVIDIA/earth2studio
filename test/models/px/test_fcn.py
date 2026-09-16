@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FCN
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import Checkpoint
@@ -132,6 +133,19 @@ def test_fcn_iter(ensemble, device):
 
         if i > 5:
             break
+
+
+def test_fcn_conformance():
+    model = PhooFCNModel()
+    center = torch.zeros(26, 1, 1)
+    scale = torch.ones(26, 1, 1)
+    p = FCN(model, center, scale)
+    # FCN is deterministic (stochastic=False via PrognosticMixin's default), so P14
+    # is reported as an informational skip rather than evaluated; that is expected
+    # and not a contract violation.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):

@@ -30,6 +30,10 @@ except ImportError:
     pytest.skip("cbottle dependencies not installed", allow_module_level=True)
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import (
+    ContractException,
+    check_prognostic_contract,
+)
 from earth2studio.models.px import CBottleVideo
 from earth2studio.utils import handshake_dim
 
@@ -226,6 +230,25 @@ class TestCBottleVideoMock:
 
         with pytest.raises((KeyError, ValueError)):
             px(x, coords)
+
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_cbottle_video_conformance(self, device, mock_core_model, mock_sst_ds):
+        """Check the mock CBottleVideo model against the Earth2Studio model contract.
+
+        CBottleVideo does not currently declare `stochastic` or implement
+        `set_rng()` (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it
+        already passes a seed straight to the core model's sample() call, so only
+        the declaration and set_rng() entry point are missing). Until that lands
+        the checker takes the undeclared stochasticity at face value: two
+        rollouts from one input disagree while the model declares
+        stochastic=False, which is P13. Pinned here until the wrapper declares
+        stochastic and implements set_rng().
+        """
+        px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
+        px.sampler_steps = 2  # Speed up sampler
+        with pytest.raises(ContractException) as exc_info:
+            check_prognostic_contract(px, nsteps=1, device=device)
+        assert {v.split(":")[0] for v in exc_info.value.violations} == {"P13"}
 
 
 @pytest.mark.package

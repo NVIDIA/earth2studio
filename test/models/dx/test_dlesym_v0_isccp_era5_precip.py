@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
 from earth2studio.utils import handshake_coords
 
@@ -159,6 +160,18 @@ def test_dlesym_v0_isccp_era5_precip_log_epsilon_inverse(device):
     )
     out, _ = model(x, in_coords)
     assert torch.allclose(out, torch.zeros_like(out), atol=1e-6)
+
+
+def test_dlesym_v0_isccp_era5_precip_conformance():
+    """Check the mock model against the Earth2Studio model contract.
+
+    The model does not declare itself stochastic, so D10 (RNG isolation) is
+    structurally inapplicable and reported as a skip rather than passed.
+    """
+    model = _build_model("cpu")
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

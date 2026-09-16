@@ -988,6 +988,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"Lead time dimension length mismatch between model and coords: expected {len(self.atmos_output_times)}, got {len(coords['lead_time'])}"
             )
 
+    @property
+    def stochastic(self) -> bool:  # type: ignore[override]
+        """Whether conditional layer norm noise is sampled during a rollout."""
+        return bool(self.use_cln)
+
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed the generator used to sample conditional layer norm noise.
 

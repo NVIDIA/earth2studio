@@ -658,6 +658,8 @@ class Aurora1p5Ensemble(Aurora1p5):
         super().__init__(core_model, static_vars)
         self.seed = seed
 
+    stochastic = True
+
     def set_rng(self, seed: int | None) -> None:
         """Seed the global RNG and reset the model's internal noise cache.
 

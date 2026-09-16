@@ -158,9 +158,31 @@ decorate with `@check_optional_dependencies()`.
 | `test_<model>_call` | Single forward pass (parametrize device/time) |
 | `test_<model>_iter` | Iterator produces sequence |
 | `test_<model>_exceptions` | Invalid coords raise errors |
+| `test_<model>_conformance` | `check_prognostic_contract` against the mock model |
 | `test_<model>_package` | Real weights (`@pytest.mark.package`) |
 
 Create `PhooModelName` dummy matching interface for mock tests.
+
+`test_<model>_conformance` needs no new fixture — call
+`check_prognostic_contract` on the same mock-model instance the other tests
+build:
+
+```python
+from earth2studio.models.conformance import check_prognostic_contract
+
+
+def test_<model>_conformance():
+    model = ModelName(PhooModelName())  # or your existing mock-model fixture
+    assert check_prognostic_contract(model) == []
+```
+
+If the model declares `stochastic = True`, `PhooModelName.forward` must
+return a different result across calls (e.g. add `torch.randn_like`) or the
+check fails `P13` — a deterministic mock cannot demonstrate that seeding
+produces different rollouts. If any rule cannot be satisfied by construction
+(for example a fixed-resolution model where `P6` rebasing does not apply),
+call `check_prognostic_contract` and assert the specific rule appears in the
+skip list rather than omitting the test.
 
 **Run tests:**
 ```bash

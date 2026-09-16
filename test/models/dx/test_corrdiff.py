@@ -27,6 +27,7 @@ import torch
 import xarray as xr
 
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiff
 from earth2studio.utils import handshake_dim
 
@@ -714,6 +715,27 @@ class TestCorrDiffForward:
         assert len(output_coords["variable"]) == len(
             sample_model_params["output_variables"]
         )
+
+    def test_corrdiff_conformance(
+        self, mock_residual_model, mock_regression_model, sample_model_params
+    ):
+        """Check the mock model against the Earth2Studio model contract.
+
+        CorrDiff does not yet declare `stochastic` or implement `set_rng()` (see
+        the Migration table in dev/spec/MODEL_CONTRACT_SPEC.md — corrdiff uses a
+        local torch.Generator seeded via the constructor `seed` argument, so it
+        only needs the declaration and a `set_rng` wrapper). Until that lands,
+        `D10` is reported as an informational skip rather than a violation, so
+        this test pins the skip list instead of asserting `== []`.
+        """
+        model = CorrDiff(
+            residual_model=mock_residual_model,
+            regression_model=mock_regression_model,
+            **sample_model_params,
+        )
+        assert check_diagnostic_contract(model) == [
+            "D10: model does not declare itself stochastic"
+        ]
 
     def test_corrdiff_seed_reproducibility(
         self, mock_residual_model, mock_regression_model, sample_model_params

@@ -23,6 +23,7 @@ import pytest
 import torch
 
 import earth2studio.models.dx.stormscope_dx_nsrdb as stormscope_module
+from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import StormScopeDxNSRDB
 from earth2studio.utils import handshake_dim
 
@@ -334,6 +335,24 @@ def test_stormscope_dx_nsrdb_constructor_exceptions(kwargs, match):
 
     with pytest.raises(ValueError, match=match):
         StormScopeDxNSRDB(**constructor_args)
+
+
+def test_stormscope_dx_nsrdb_conformance():
+    """StormScopeDxNSRDB does not yet declare `stochastic`/`set_rng` (see the
+    Migration table in dev/spec/MODEL_CONTRACT_SPEC.md: it uses a Global
+    `torch.manual_seed` mechanism today and needs its RNG forked). Absent that
+    declaration, the checker treats it as deterministic, so its unseeded
+    per-call noise trips D9. This is a known, tracked gap fixed by a follow-up
+    wrapper change (fork the RNG + declare `stochastic`/`set_rng`), not
+    something to patch here.
+    """
+    model = create_model()
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(model)
+    assert exc_info.value.violations == [
+        "D9: model declares stochastic=False but two calls on one input "
+        "disagree; declare stochastic=True and implement set_rng()"
+    ]
 
 
 @pytest.mark.package

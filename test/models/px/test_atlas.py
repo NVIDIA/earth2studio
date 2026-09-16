@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Atlas
 from earth2studio.utils import handshake_coords, handshake_dim
 
@@ -430,6 +431,17 @@ def test_atlas_output_coords(atlas_test_components):
     # Check spatial dimensions match input
     assert len(output_coords["lat"]) == len(input_coords["lat"])
     assert len(output_coords["lon"]) == len(input_coords["lon"])
+
+
+def test_atlas_conformance(atlas_test_components):
+    """Check the mock Atlas model against the Earth2Studio model contract."""
+    p = Atlas(**atlas_test_components)
+    # Atlas is deterministic (stochastic=False via PrognosticMixin's default), so
+    # P14 is reported as an informational skip rather than evaluated; that is
+    # expected and not a contract violation.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package

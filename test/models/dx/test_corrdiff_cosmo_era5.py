@@ -39,6 +39,10 @@ import torch
 import xarray as xr
 
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import (
+    ContractException,
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
 
 
@@ -235,6 +239,40 @@ def test_corrdiff_cosmo_era5_call():
     sw = OUTPUT_VARIABLES.index("ASWDIR_S")
     assert out[0, 0, 0, sw].abs().max() > 1e-3
     assert out[0, 0, 1, sw].abs().max() < 1e-3
+
+
+def test_corrdiff_cosmo_era5_conformance():
+    """Model contract conformance (dev/spec/MODEL_CONTRACT_SPEC.md).
+
+    Exercises diffusion mode -- the mode whose randomness actually matters for
+    the contract's stochasticity rules (mean mode is a plain deterministic
+    regression). CorrDiffCosmoEra5 draws its diffusion-sampler noise from a
+    ``seed`` constructor argument, but declares no ``stochastic`` attribute and
+    implements no ``set_rng``: it defaults to the contract's ``stochastic=False``
+    reading. With the constructor's own default (``seed=None``, i.e. no
+    ``seed=`` override -- as a caller who does not opt into a fixed seed would
+    construct it), two calls on the same input draw independent noise and
+    disagree, which genuinely violates ``D9``. This is a wrapper defect (no
+    ``stochastic``/``set_rng`` declaration to make diffusion sampling
+    reproducible), not a test issue, and is tracked for a follow-up fix rather
+    than papered over here.
+    """
+    ov = OUTPUT_VARIABLES
+    dx = _build(
+        mode="diffusion",
+        regression_model=None,
+        diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
+        number_of_samples=1,
+        channel_transforms={},
+        constraints={},
+    )
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(dx)
+    assert (
+        "D9: model declares stochastic=False but two calls on one input "
+        "disagree; declare stochastic=True and implement set_rng()"
+        in str(exc_info.value)
+    )
 
 
 @pytest.mark.parametrize("number_of_samples", [1, 3])

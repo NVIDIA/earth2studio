@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLWP
 from earth2studio.utils import handshake_dim
 
@@ -236,6 +237,33 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
+
+
+def test_dlwp_conformance(dlwp_phoo_cs_transform):
+    model = PhooDLWPModel()
+    landsea_mask = torch.ones(6, 64, 64)
+    orography = torch.ones(6, 64, 64)
+    latgrid = torch.ones(6, 64, 64)
+    longrid = torch.ones(6, 64, 64)
+    center = torch.zeros(1, 7, 1, 1)
+    scale = torch.ones(1, 7, 1, 1)
+    p = DLWP(
+        model,
+        landsea_mask=landsea_mask,
+        orography=orography,
+        latgrid=latgrid,
+        longrid=longrid,
+        cubed_sphere_transform=dlwp_phoo_cs_transform,
+        cubed_sphere_inverse=dlwp_phoo_cs_transform.T,
+        center=center,
+        scale=scale,
+    )
+    # DLWP is deterministic (stochastic=False via PrognosticMixin's default), so
+    # P14 is reported as an informational skip rather than evaluated; that is
+    # expected and not a contract violation.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic"
+    ]
 
 
 @pytest.fixture(scope="function")
