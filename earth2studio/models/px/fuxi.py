@@ -26,14 +26,20 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import TimeArray
 
 try:
     import onnxruntime as ort
@@ -170,12 +176,12 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Load short model into memory
         self.ort = create_ort_session(ort_short, self.device)
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -191,19 +197,21 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = OrderedDict(
@@ -221,7 +229,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             handshake_dim(test_coords, key, i)
             if key != "batch" and key != "time":
@@ -320,11 +328,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         ort_session: InferenceSession,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
 
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         # Ref https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -401,20 +409,20 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs short prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future
         """
 
@@ -429,11 +437,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -470,12 +478,12 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = out
             coords["lead_time"] = (
                 coords["lead_time"]
-                + self._output_tensor_coords(self._input_tensor_coords())["lead_time"]
+                + tensor_output_coords(self, tensor_input_coords(self))["lead_time"]
             )
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -483,12 +491,12 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """

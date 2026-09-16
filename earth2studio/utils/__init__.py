@@ -14,16 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .coordinate import (
-    CoordinateSystem,
-    coord_array,
-    handshake_dataarray,
-    handshake_dataarrays,
-)
 from .coords import (
     convert_multidim_to_singledim,
+    coord_array,
     handshake_coords,
+    handshake_dataarray,
+    handshake_dataarrays,
     handshake_dim,
     handshake_size,
 )
 from .cupy import from_torch
+from .type import CoordSystem

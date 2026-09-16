@@ -16,9 +16,8 @@
 
 from typing import Protocol, runtime_checkable
 
+import numpy as np
 import torch
-
-from earth2studio.utils.type import CoordSystem
 
 
 # --8<-- [start:statistic-interface]
@@ -33,24 +32,25 @@ class Statistic(Protocol):
         """
         pass
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         pass
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply statistic to data `x`, with coordinates `coords` and reduce
         over dimensions `reduction_dimensions`.
 
@@ -58,7 +58,7 @@ class Statistic(Protocol):
         ----------
         x : torch.Tensor
             Input tensor intended to apply statistic to.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor.
             `reduction_dimensions` must be in coords.
         """
@@ -77,17 +77,18 @@ class Metric(Protocol):
     def reduction_dimensions(self) -> list[str]:
         pass
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         pass
@@ -95,10 +96,10 @@ class Metric(Protocol):
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dimensions`.
 
@@ -107,13 +108,13 @@ class Metric(Protocol):
         x : torch.Tensor
             Input tensor #1 intended to apply metric to. `x` is typically understood
             to be the forecast or prediction tensor.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
             Input tensor #2 intended to apply statistic to. `y` is typically the observation
             or validation tensor.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.
         """

@@ -40,8 +40,6 @@ from typing import Any
 import numpy as np
 import torch
 
-from earth2studio.utils.coords import CoordSystem
-
 # The shared verification grid: ERA5 0.25°, latitude 90 -> -90.
 ERA5_LAT = np.linspace(90.0, -90.0, 721)
 ERA5_LON = np.arange(0.0, 360.0, 0.25)
@@ -128,7 +126,7 @@ class ClimatologyForecast(torch.nn.Module):
         """Attach the (local) climatology ``DataSource`` to read from."""
         self._source = source
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Initial-condition coordinate system (single analysis frame)."""
         return OrderedDict(
             {
@@ -140,9 +138,11 @@ class ClimatologyForecast(torch.nn.Module):
             }
         )
 
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray] | None = None
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system: one step of ``dt`` past the input."""
-        out: CoordSystem = OrderedDict(
+        out: dict[str, np.ndarray] = OrderedDict(
             {
                 "batch": np.empty(0),
                 "lead_time": np.array([self._dt]),
@@ -158,8 +158,8 @@ class ClimatologyForecast(torch.nn.Module):
         return out
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Yield the analysis at lead 0, then climatology at each lead.
 
         The climatology field is re-indexed onto the model's own lat/lon
@@ -172,7 +172,7 @@ class ClimatologyForecast(torch.nn.Module):
                 "scorecard.utils.pipelines.ClimatologyPipeline, which "
                 "predownloads the climatology store and injects it."
             )
-        base: CoordSystem = OrderedDict(
+        base: dict[str, np.ndarray] = OrderedDict(
             (k, v.copy() if isinstance(v, np.ndarray) else v) for k, v in coords.items()
         )
         time0 = np.datetime64(np.asarray(coords["time"]).ravel()[0], "ns")

@@ -192,7 +192,6 @@ import torch
 from earth2studio.data import GFS
 from earth2studio.io import NetCDF4Backend
 from earth2studio.models.px import Pangu24
-from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
 package = Pangu24.load_default_package()
@@ -273,8 +272,8 @@ class SOI:
         self.reduction_dimensions = list(self.tahiti_coords)
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Computes the SOI given an input.
 
         coords must be a superset of both
@@ -299,12 +298,12 @@ class SOI:
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             coordinate system belonging to the input tensor.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Returns the SOI and appropriate coordinate system.
         """
         tahiti, _ = map_coords(x, coords, self.tahiti_coords)

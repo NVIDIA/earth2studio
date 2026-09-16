@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import torch
 
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class Brown:
@@ -46,21 +46,21 @@ class Brown:
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply perturbation method
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor intended to apply perturbation on
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor, must
             contain "lat" and "lon" coordinates in last two dims
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
+        tuple[torch.Tensor, dict[str, np.ndarray]]:
             Output tensor and respective coordinate system dictionary
         """
         shape = x.shape

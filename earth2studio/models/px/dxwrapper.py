@@ -24,10 +24,15 @@ from loguru import logger
 
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils.coords import handshake_coords, handshake_dim, map_coords
 from earth2studio.utils.interp import LatLonInterpolation
-from earth2studio.utils.type import CoordSystem
 
 
 def _convert_to_2d(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -37,7 +42,9 @@ def _convert_to_2d(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndarray, np.nda
         return (lat, lon)
 
 
-def _can_concat_directly(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool:
+def _can_concat_directly(
+    px_coords: dict[str, np.ndarray], dx_coords: dict[str, np.ndarray]
+) -> bool:
     try:
         for i, key in enumerate(dx_coords.keys()):
             handshake_dim(px_coords, key, i)
@@ -48,7 +55,9 @@ def _can_concat_directly(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool
         return False
 
 
-def _can_concat_with_subregion(px_coords: CoordSystem, dx_coords: CoordSystem) -> bool:
+def _can_concat_with_subregion(
+    px_coords: dict[str, np.ndarray], dx_coords: dict[str, np.ndarray]
+) -> bool:
     try:
         for i, key in enumerate(dx_coords.keys()):
             handshake_dim(px_coords, key, i)
@@ -75,19 +84,20 @@ def _can_concat_with_subregion(px_coords: CoordSystem, dx_coords: CoordSystem) -
 class PrepareInputCoordsDefault:
     """Prepares output coords from prognostic model for diagnostic models"""
 
-    def __call__(self, px_coords: CoordSystem, dx_coords: CoordSystem) -> CoordSystem:
+    def __call__(
+        self, px_coords: dict[str, np.ndarray], dx_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Prepare coordinates for diagnostic model input.
 
         Parameters
         ----------
-        px_coords : CoordSystem
+        px_coords : dict[str, np.ndarray]
             Output coordinates from the prognostic model
-        dx_coords : CoordSystem
+        dx_coords : dict[str, np.ndarray]
             Diagnostic model input coordinate system
 
         Returns
         -------
-        CoordSystem
             Prepared coordinate system for diagnostic model
         """
         # Handling np.empty (free coordinate system)
@@ -112,22 +122,25 @@ class PrepareInputTensorDefault:
 
     @torch.inference_mode()
     def __call__(
-        self, x: torch.Tensor, px_coords: CoordSystem, dx_coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self,
+        x: torch.Tensor,
+        px_coords: dict[str, np.ndarray],
+        dx_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepare tensor for diagnostic model input with interpolation.
 
         Parameters
         ----------
         x : torch.Tensor
             Output of prognostic model from a single step
-        px_coords : CoordSystem
+        px_coords : dict[str, np.ndarray]
             Output coordinates from the prognostic model
-        dx_coords : CoordSystem
+        dx_coords : dict[str, np.ndarray]
             Diagnostic model input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Prepared tensor and coordinate system for diagnostic model
         """
         if "lat" not in px_coords:
@@ -175,20 +188,19 @@ class PrepareOutputCoordsDefault:
     """Preparing output coordinates of the diagnostic wrapper"""
 
     def __call__(
-        self, px_coords: CoordSystem, dx_coords: list[CoordSystem]
-    ) -> CoordSystem:
+        self, px_coords: dict[str, np.ndarray], dx_coords: list[dict[str, np.ndarray]]
+    ) -> dict[str, np.ndarray]:
         """Returns the output coordinates of the diagnostic wrapper
 
         Parameters
         ----------
-        px_coords : CoordSystem
+        px_coords : dict[str, np.ndarray]
             Prognostic coords
-        dx_coords : list[CoordSystem]
+        dx_coords : list[dict[str, np.ndarray]]
             Diagnostic coords
 
         Returns
         -------
-        CoordSystem
             Expected output coords from model for a given time-step
         """
         dx_target = dx_coords[-1]
@@ -217,26 +229,26 @@ class PrepareOutputTensorDefault(torch.nn.Module):
     def forward(
         self,
         px_x: torch.Tensor,
-        px_coords: CoordSystem,
+        px_coords: dict[str, np.ndarray],
         dx_x: list[torch.Tensor],
-        dx_coords: list[CoordSystem],
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        dx_coords: list[dict[str, np.ndarray]],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepare outputs for diagnostic wrapper
 
         Parameters
         ----------
         px_x : torch.Tensor
             Output of prognostic model from a single step
-        px_coords : CoordSystem
+        px_coords : dict[str, np.ndarray]
             Output coordinates from the prognostic model
         dx_x: list[torch.Tensor]
             Output of diagnostic model
-        dx_coords : list[CoordSystem]
+        dx_coords : list[dict[str, np.ndarray]]
             Diagnostic model input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Outputs to be returned by the wrapper
         """
         dx_target = dx_coords[-1]
@@ -285,24 +297,27 @@ class PrepareDxInputCoords(Protocol):
     """Protocol for preparing diagnostic model input coordinates."""
 
     def __call__(
-        self, px_coords: CoordSystem, dx_coords: CoordSystem
-    ) -> CoordSystem: ...
+        self, px_coords: dict[str, np.ndarray], dx_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]: ...
 
 
 class PrepareDxInputTensor(Protocol):
     """Protocol for preparing diagnostic model input tensor."""
 
     def __call__(
-        self, x: torch.Tensor, px_coords: CoordSystem, dx_coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]: ...
+        self,
+        x: torch.Tensor,
+        px_coords: dict[str, np.ndarray],
+        dx_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]: ...
 
 
 class PrepareOutputCoords(Protocol):
     """Protocol for preparing output coordinates."""
 
     def __call__(
-        self, px_coords: CoordSystem, dx_coords: list[CoordSystem]
-    ) -> CoordSystem: ...
+        self, px_coords: dict[str, np.ndarray], dx_coords: list[dict[str, np.ndarray]]
+    ) -> dict[str, np.ndarray]: ...
 
 
 class PrepareOutputTensor(Protocol):
@@ -311,10 +326,10 @@ class PrepareOutputTensor(Protocol):
     def __call__(
         self,
         px_x: torch.Tensor,
-        px_coords: CoordSystem,
+        px_coords: dict[str, np.ndarray],
         dx_x: list[torch.Tensor],
-        dx_coords: list[CoordSystem],
-    ) -> tuple[torch.Tensor, CoordSystem]: ...
+        dx_coords: list[dict[str, np.ndarray]],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]: ...
 
 
 class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
@@ -436,12 +451,12 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 f"must match number of diagnostic models ({len(self.dx_model)})"
             )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         # Common dim we should always request
@@ -453,25 +468,27 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 "variable": np.empty(0),
             }
         )
-        for key, value in self.px_model._input_tensor_coords().items():
+        for key, value in tensor_input_coords(self.px_model).items():
             input_coords[key] = value
 
         return input_coords
 
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    @coordinate_output
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
-        px_coords = self.px_model._output_tensor_coords(input_coords)
+        px_coords = tensor_output_coords(self.px_model, input_coords)
         dx_coords = []
         for model, prepare_dx_input in zip(self.dx_model, self.prepare_dx_input_coords):
             # This is kinda annnoying at the moment, but I'm not sure of a better way yet
@@ -484,21 +501,21 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         ------
         x : torch.Tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
         """
         px_x, px_coords = self.px_model(x, coords)
         dx_x = []
@@ -514,8 +531,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return x, coords
 
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -523,12 +540,12 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
@@ -548,8 +565,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             yield x, coords
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -557,12 +574,12 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """

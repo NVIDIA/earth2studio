@@ -23,6 +23,8 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+
 try:
     from weathernext.utils import variables
     from weathernext.weathernext1_gen import denoiser
@@ -41,6 +43,7 @@ from earth2studio.models.px.gencast_mini import (
     GenCastMini,
 )
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 # GenCast-specific variable lists (matching graphcast module names)
 GENCAST_TARGET_SURFACE_VARS = (
@@ -216,22 +219,22 @@ def test_gencast_mini_call(time, device, mock_GenCastMini_model):
 
     p = mock_GenCastMini_model.to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     out, out_coords = p(x, coords)
     assert out.shape == torch.Size([len(time), 1, 84, 181, 360])
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -253,17 +256,17 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GenCastMini_model.to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
@@ -287,7 +290,7 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 84, 181, 360])
         assert (
-            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+            out_coords["variable"] == tensor_output_coords(p, coords)["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
@@ -309,11 +312,11 @@ def test_gencast_mini_exceptions(dc, device, mock_GenCastMini_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GenCastMini_model.to(device)
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
@@ -346,17 +349,17 @@ def test_gencast_mini_package(model, device):
     # Test the cached model package gencast mini
     p = model.to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Check iter
@@ -368,7 +371,7 @@ def test_gencast_mini_package(model, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 84, 181, 360])
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

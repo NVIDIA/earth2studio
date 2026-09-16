@@ -28,8 +28,13 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
+from earth2studio.utils.coords import (
+    cat_coords,
+    map_coords,
+    split_coords,
+)
 from earth2studio.utils.time import to_time_array
 
 from .s2s_utilities import (
@@ -62,7 +67,7 @@ class S2SEnsembleRunner:
         Data object for storing generated data.
     perturbation : Perturbation
         Method for perturbing initial conditions.
-    output_coords_dict : dict[str, CoordSystem]
+    output_coords_dict : dict[str, dict[str, np.ndarray]]
         Dictionary of coordinate systems of data that shall be stored.
     dx_model_dict : dict[str, DiagnosticModel], optional
         Dictionary of diagnostic models.
@@ -94,7 +99,7 @@ class S2SEnsembleRunner:
         data: DataSource,
         io_dict: dict[str, ZarrBackend],
         perturbation: Perturbation,
-        output_coords_dict: dict[str, CoordSystem],
+        output_coords_dict: dict[str, dict[str, np.ndarray]],
         dx_model_dict: dict[str, DiagnosticModel] = {},
         batch_size: int | None = None,
         device: torch.device | None = None,
@@ -159,7 +164,7 @@ class S2SEnsembleRunner:
         )
         logger.info(f"Inference device: {self.device}")
         self.prognostic = prognostic.to(self.device)
-        self.prognostic_ic = prognostic._input_tensor_coords()
+        self.prognostic_ic = tensor_input_coords(prognostic)
 
         self.dx_model_dict = dx_model_dict
         dx_ic_dict = {}
@@ -216,7 +221,7 @@ class S2SEnsembleRunner:
         # add lead time dimension
         total_coords["lead_time"] = np.asarray(
             [
-                self.prognostic._output_tensor_coords(self.prognostic_ic)["lead_time"]
+                tensor_output_coords(self.prognostic, self.prognostic_ic)["lead_time"]
                 * ii
                 for ii in range(self.nsteps + 1)
             ]
@@ -309,14 +314,14 @@ class S2SEnsembleRunner:
 
         return model, mini_batch_size, full_seed_string, torch_seed
 
-    def write(self, xx_sub: torch.Tensor, coords_sub: CoordSystem) -> None:
+    def write(self, xx_sub: torch.Tensor, coords_sub: dict[str, np.ndarray]) -> None:
         """Write data to IO backend. Supports async writing.
 
         Parameters
         ----------
         xx_sub : torch.Tensor
             data to write
-        coords_sub : CoordSystem
+        coords_sub : dict[str, np.ndarray]
             coordinates of data
 
         Returns

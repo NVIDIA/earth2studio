@@ -20,7 +20,6 @@ import torch.nn.functional as F
 from numpy.typing import ArrayLike
 
 from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 from .moments import mean
 from .utils import _spatial_dims_to_end
@@ -92,17 +91,18 @@ class fss:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         removed_dims = list(self._reduction_dimensions)
@@ -140,7 +140,9 @@ class fss:
 
         return window
 
-    def _validate_coords(self, x_coords: CoordSystem, y_coords: CoordSystem) -> None:
+    def _validate_coords(
+        self, x_coords: dict[str, np.ndarray], y_coords: dict[str, np.ndarray]
+    ) -> None:
         for forbidden_dim in ["threshold", "window_size"]:
             if (forbidden_dim in x_coords) or (forbidden_dim in y_coords):
                 raise ValueError(
@@ -206,8 +208,11 @@ class fss:
         return neighborhood_prob
 
     def _neighborhood_probability_coords(
-        self, coords: CoordSystem, out_coords: CoordSystem, window_size: int
-    ) -> CoordSystem:
+        self,
+        coords: dict[str, np.ndarray],
+        out_coords: dict[str, np.ndarray],
+        window_size: int,
+    ) -> dict[str, np.ndarray]:
         coords = coords.copy()
         spatial_dims = list(coords)[-2:]
         margin = _get_margin(window_size)
@@ -219,10 +224,10 @@ class fss:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -231,20 +236,20 @@ class fss:
         ----------
         x : torch.Tensor
             Input tensor, typically the forecast or prediction tensor.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
             `spatial_dimensions` if provided in constructor.
         y : torch.Tensor
             Input tensor #2 intended to be used as validation data..
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
             provided in constructor.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Returns root mean squared error tensor with appropriate reduced coordinates.
         """
         self._validate_coords(x_coords, y_coords)

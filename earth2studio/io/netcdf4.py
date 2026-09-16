@@ -26,7 +26,6 @@ from netCDF4 import Dataset, Variable
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
 
 units_map = {
     "h": "hours",
@@ -63,7 +62,7 @@ class NetCDF4Backend:
         # Set persist to false if diskless is false
         self.root = Dataset(file_name, **backend_kwargs)
 
-        self.coords: CoordSystem = OrderedDict({})
+        self.coords: dict[str, np.ndarray] = OrderedDict({})
         for dim in self.root.dimensions:
             if dim == "time":
                 nums = self.root[dim]
@@ -159,7 +158,7 @@ class NetCDF4Backend:
 
     def add_array(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
         data: torch.Tensor | list[torch.Tensor] = None,
     ) -> None:
@@ -167,7 +166,7 @@ class NetCDF4Backend:
 
         Parameters
         ----------
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Ordered dict of coordinate information.
         array_name : str
             Name to add to netcdf Dataset for the new array. Can optionally
@@ -226,7 +225,7 @@ class NetCDF4Backend:
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """
@@ -289,8 +288,11 @@ class NetCDF4Backend:
         self.root.sync()
 
     def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self,
+        coords: dict[str, np.ndarray],
+        array_name: str,
+        device: torch.device = "cpu",
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Read data from the current netcdf store using the passed array_name.
 

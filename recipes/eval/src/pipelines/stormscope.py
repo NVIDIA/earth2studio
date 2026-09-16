@@ -33,7 +33,7 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.utils.coords import CoordSystem, cat_coords
+from earth2studio.utils.coords import cat_coords
 
 from ..data import (
     CadenceRoundedSource,
@@ -151,8 +151,8 @@ class StormScopePipeline(Pipeline):
     nsteps: int
     _goes_ic_source: Any
     _mrms_ic_source: Any
-    _goes_ic_coords: CoordSystem
-    _mrms_ic_coords: CoordSystem
+    _goes_ic_coords: dict[str, np.ndarray]
+    _mrms_ic_coords: dict[str, np.ndarray]
 
     # ------------------------------------------------------------------
     # Setup
@@ -247,7 +247,7 @@ class StormScopePipeline(Pipeline):
         self,
         times: np.ndarray,
         ensemble_size: int,
-    ) -> CoordSystem:
+    ) -> dict[str, np.ndarray]:
         # Derive a step-size from each model's input→output stride.  Require
         # both models to agree so the combined zarr has a single lead_time
         # axis with consistent stride.
@@ -259,7 +259,7 @@ class StormScopePipeline(Pipeline):
                 f"got {goes_step} and {mrms_step}."
             )
 
-        total: CoordSystem = OrderedDict()
+        total: dict[str, np.ndarray] = OrderedDict()
         if ensemble_size > 1:
             total["ensemble"] = np.arange(ensemble_size)
         total["time"] = times
@@ -281,7 +281,7 @@ class StormScopePipeline(Pipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         # ``data_source`` is ignored — StormScope uses the two IC sources
         # cached during setup.
 
@@ -344,7 +344,7 @@ class StormScopePipeline(Pipeline):
         items: list[WorkItem],
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Run several ensemble members of one IC through a shared rollout.
 
         Members ride on the models' own ``batch`` dimension for the
@@ -512,7 +512,7 @@ class StormScopePipeline(Pipeline):
                 }
             )
 
-            spatial_ref: CoordSystem = OrderedDict(
+            spatial_ref: dict[str, np.ndarray] = OrderedDict(
                 [
                     ("y", _as_np(model.y)),
                     ("x", _as_np(model.x)),
@@ -580,7 +580,7 @@ class StormScopePipeline(Pipeline):
         unique_ic_times: list[np.datetime64],
         input_offsets: list[np.timedelta64],
         forecast_offsets: list[np.timedelta64],
-        spatial_ref: CoordSystem,
+        spatial_ref: dict[str, np.ndarray],
         max_dist_km: float | None,
     ) -> PredownloadStore | None:
         """Build a predownload store for a StormScope model's conditioning source.
@@ -708,7 +708,7 @@ class StormScopePipeline(Pipeline):
         model: Any,
         model_cfg: DictConfig,
         fetch_times: list[np.datetime64],
-        spatial_ref: CoordSystem,
+        spatial_ref: dict[str, np.ndarray],
     ) -> PredownloadStore | None:
         """Build the ``data_glm.zarr`` predownload store for a GLM-bearing model.
 
@@ -940,10 +940,10 @@ class StormScopePipeline(Pipeline):
     def _fetch_ic(
         self,
         source: DataSource,
-        ic_coords: CoordSystem,
+        ic_coords: dict[str, np.ndarray],
         item: WorkItem,
         device: torch.device,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch IC data for one of the two StormScope models.
 
         The returned ``(x, coords)`` has a ``batch`` dim prepended —
@@ -1070,8 +1070,8 @@ def _as_np(arr: Any) -> np.ndarray:
 
 
 def _repeat_batch(
-    x: torch.Tensor, coords: CoordSystem, k: int
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor, coords: dict[str, np.ndarray], k: int
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Repeat a size-1 ``batch`` axis out to *k*, for a member-batched rollout.
 
     Values in ``coords["batch"]`` are placeholder indices, not semantic
@@ -1088,8 +1088,8 @@ def _repeat_batch(
 
 
 def _rename_batch_to_ensemble(
-    x: torch.Tensor, coords: CoordSystem, member_ids: np.ndarray
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor, coords: dict[str, np.ndarray], member_ids: np.ndarray
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Rename the model-internal ``batch`` axis to ``ensemble`` for scoring/output.
 
     ``call_with_conditioning`` hard-requires a literal ``batch`` key

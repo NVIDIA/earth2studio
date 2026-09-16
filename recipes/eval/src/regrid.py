@@ -49,7 +49,6 @@ from loguru import logger
 from numpy.typing import ArrayLike
 
 from earth2studio.data import DataSource
-from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.interp import LatLonInterpolation, NearestNeighborInterpolator
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -75,7 +74,7 @@ class Regridder(ABC):
         ...
 
     @abstractmethod
-    def target_coords(self) -> CoordSystem:
+    def target_coords(self) -> dict[str, np.ndarray]:
         """Return the spatial coordinate system produced by this regridder.
 
         Only spatial dims are included (e.g. ``{"lat": ..., "lon": ...}``
@@ -114,23 +113,21 @@ class Regridder(ABC):
     def apply_with_coords(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply :meth:`apply` and return a tensor + updated coord system.
 
         Source spatial dims are replaced by the regridder's target dims
-        in the returned ``CoordSystem``; leading dims (batch, time,
+        in the returned ``dict[str, np.ndarray]``; leading dims (batch, time,
         lead_time, ensemble, variable) pass through unchanged.
         """
         spatial_dims = tuple([d for d in coords if d not in _STRUCTURAL_DIMS])
         y = self.apply(x, spatial_dims=spatial_dims)
 
-        out_coords: CoordSystem = OrderedDict()
-        for dim, vals in coords.items():
-            if dim not in spatial_dims:
-                out_coords[dim] = vals
-        for dim, vals in self.target_coords().items():
-            out_coords[dim] = vals
+        out_coords: dict[str, np.ndarray] = OrderedDict(
+            (dim, vals) for dim, vals in coords.items() if dim not in spatial_dims
+        )
+        out_coords.update(self.target_coords())
         return y, out_coords
 
     def apply_dataarray(self, da: xr.DataArray) -> xr.DataArray:
@@ -230,9 +227,9 @@ class NearestNeighborRegridder(Regridder):
         self._interp = self._interp.to(device)
         return self
 
-    def target_coords(self) -> CoordSystem:
+    def target_coords(self) -> dict[str, np.ndarray]:
         y_name, x_name = self._target_dim_names
-        coords: CoordSystem = OrderedDict()
+        coords: dict[str, np.ndarray] = OrderedDict()
         coords[y_name] = self._target_y
         coords[x_name] = self._target_x
         return coords
@@ -367,9 +364,9 @@ class BilinearRegridder(Regridder):
         self._interp = self._interp.to(device)
         return self
 
-    def target_coords(self) -> CoordSystem:
+    def target_coords(self) -> dict[str, np.ndarray]:
         y_name, x_name = self._target_dim_names
-        coords: CoordSystem = OrderedDict()
+        coords: dict[str, np.ndarray] = OrderedDict()
         coords[y_name] = self._target_y
         coords[x_name] = self._target_x
         return coords

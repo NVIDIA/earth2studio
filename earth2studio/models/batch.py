@@ -24,20 +24,26 @@ from typing import Any, TypeVar
 import numpy as np
 import torch
 
-from earth2studio.utils.type import CoordSystem
-
 FuncType = Callable[..., Any]
 F = TypeVar("F", bound=FuncType)
 
 
-def _input_coords(model: Any) -> CoordSystem:
-    method = getattr(model, "_input_tensor_coords", model.input_coords)
-    return method()
+def _input_coords(model: Any) -> dict[str, np.ndarray]:
+    method = model.input_coords
+    wrapped = getattr(method, "__wrapped__", None)
+    return method() if wrapped is None else wrapped(method.__self__)
 
 
-def _output_coords(model: Any, input_coords: CoordSystem) -> CoordSystem:
-    method = getattr(model, "_output_tensor_coords", model.output_coords)
-    return method(input_coords)
+def _output_coords(
+    model: Any, input_coords: dict[str, np.ndarray]
+) -> dict[str, np.ndarray]:
+    method = model.output_coords
+    wrapped = getattr(method, "__wrapped__", None)
+    return (
+        method(input_coords)
+        if wrapped is None
+        else wrapped(method.__self__, input_coords)
+    )
 
 
 class batch_func:
@@ -54,8 +60,8 @@ class batch_func:
     Note
     ----
     When decorating a method of a model, such as `__call__`, the method is required to
-    have a signature of `(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, CoordSystem]`.
-    All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
+    have a signature of `(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, dict[str, np.ndarray]]`.
+    All positional arguments must be a sequence of (x, dict[str, np.ndarray]) pairs. All kwargs are
     passed through to the wrapped function without modification.
 
     Example
@@ -70,8 +76,8 @@ class batch_func:
         def __call__(
             self,
             x: torch.Tensor,
-            coords: CoordSystem,
-        ) -> tuple[torch.Tensor, CoordSystem]:
+            coords: dict[str, np.ndarray],
+        ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
             ...
     ```
     """
@@ -82,8 +88,13 @@ class batch_func:
         return self._batch_wrap(func)
 
     def _compress_batch(
-        self, model: Any, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem, CoordSystem, torch.Size]:
+        self, model: Any, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[
+        torch.Tensor,
+        dict[str, np.ndarray],
+        dict[str, np.ndarray],
+        torch.Size,
+    ]:
         """Compresses dimensions into the models batch dimension
 
         Parameters
@@ -92,12 +103,12 @@ class batch_func:
             Any object, prognostic / diagnostic model that has a input_coords property
         x : torch.Tensor
             Input tensor to compress
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[ torch.Tensor, CoordSystem, CoordSystem, torch.Size, ]
+        tuple[ torch.Tensor, dict[str, np.ndarray], dict[str, np.ndarray], torch.Size, ]
             Returns batch compressed tensor, compressed coords, the coords of the batch
             dimensions and the shape of the batched dimensions. Later two are needed for
             decompression.
@@ -120,11 +131,11 @@ class batch_func:
             raise ValueError(
                 "Input tensor shape does not match the provided coordinates"
             )
-        flatten_coords: CoordSystem
-        batched_coords: CoordSystem
+        flatten_coords: dict[str, np.ndarray]
+        batched_coords: dict[str, np.ndarray]
         # If dims of input is one less than input coords, just prepend batch dim
         if len(x.shape) == len(input_coords) - 1:
-            flatten_coords = coords.copy()
+            flatten_coords = OrderedDict(coords)
             flatten_coords.update({"batch": np.array([0])})
             flatten_coords.move_to_end("batch", last=False)
             return x.unsqueeze(0), flatten_coords, OrderedDict({}), torch.Size([])
@@ -145,26 +156,26 @@ class batch_func:
     def _decompress_batch(
         self,
         out: torch.Tensor,
-        out_coords: CoordSystem,
-        batched_coords: CoordSystem,
+        out_coords: dict[str, np.ndarray],
+        batched_coords: dict[str, np.ndarray],
         batched_shape: torch.Size,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Decompresses the batch dimension of a tensor
 
         Parameters
         ----------
         out : torch.Tensor
             Batched tensor to decompress
-        out_coords : CoordSystem
+        out_coords : dict[str, np.ndarray]
             Compressed coordinates
-        batched_coords : CoordSystem
+        batched_coords : dict[str, np.ndarray]
             The coords of the batch dimensions
         batched_shape : torch.Size
             The shape of the batched dimensions
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Uncompressed tensor and coordinates
         """
 
@@ -182,15 +193,15 @@ class batch_func:
         @functools.wraps(func)
         def _wrapper(
             model: Any, *args: Any, **kwargs: Any
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            # Validate positional args are ONLY a sequence of (x, CoordSystem) pairs
+        ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
+            # Validate positional args are ONLY a sequence of (x, dict[str, np.ndarray]) pairs
             if len(args) == 0:
                 raise ValueError(
-                    "batch_func requires at least one positional (x, CoordSystem) pair"
+                    "batch_func requires at least one positional (x, dict[str, np.ndarray]) pair"
                 )
             if len(args) % 2 != 0:
                 raise ValueError(
-                    "Invalid positional arguments: expected (x, CoordSystem) pairs"
+                    "Invalid positional arguments: expected (x, dict[str, np.ndarray]) pairs"
                 )
 
             for i in range(0, len(args), 2):
@@ -198,10 +209,10 @@ class batch_func:
                 ci = args[i + 1]
                 if not isinstance(xi, torch.Tensor) or not isinstance(ci, OrderedDict):
                     raise ValueError(
-                        "Invalid positional arguments: only (torch.Tensor, CoordSystem) pairs are supported"
+                        "Invalid positional arguments: only (torch.Tensor, dict[str, np.ndarray]) pairs are supported"
                     )
 
-            # Support any number of paired (x, CoordSystem) positional args; kwargs won't be batched
+            # Support any number of paired (x, dict[str, np.ndarray]) positional args; kwargs won't be batched
             new_args: list[Any] = list(args)
             ref_shape = None
             ref_coords = None
@@ -222,7 +233,7 @@ class batch_func:
                 elif batched_shape != ref_shape:
                     # Guarantee that all batched_shape / batched_coords pairs match
                     raise ValueError(
-                        "Mismatched batched dimensions across input (x, CoordSystem) pairs"
+                        "Mismatched batched dimensions across input (x, dict[str, np.ndarray]) pairs"
                     )
 
             # Model forward
@@ -241,8 +252,8 @@ class batch_func:
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
-            model: Any, x: torch.Tensor, coords: CoordSystem
-        ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+            model: Any, x: torch.Tensor, coords: dict[str, np.ndarray]
+        ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
 
             x, flatten_coords, batched_coords, batched_shape = self._compress_batch(
                 model, x, coords
@@ -300,20 +311,20 @@ class batch_coords:
         return self._batch_wrap(func)
 
     def _compress_batch(
-        self, model: Any, coords: CoordSystem
-    ) -> tuple[CoordSystem, CoordSystem]:
+        self, model: Any, coords: dict[str, np.ndarray]
+    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
         """Compresses dimensions into the models batch dimension
 
         Parameters
         ----------
         model : Any
             Any object, prognostic / diagnostic model that has a input_coords property
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[ CoordSystem, CoordSystem ]
+        tuple[ dict[str, np.ndarray], dict[str, np.ndarray] ]
             Returns batch compressed coords and the coords of the batch
             dimensions.
 
@@ -328,11 +339,11 @@ class batch_coords:
                 "Model input coordinate systems not compatible with batch processing"
             )
 
-        flatten_coords: CoordSystem
-        batched_coords: CoordSystem
+        flatten_coords: dict[str, np.ndarray]
+        batched_coords: dict[str, np.ndarray]
         # If dims of input is one less than input coords, just prepend batch dim
         if len(coords) == len(input_coords) - 1:
-            flatten_coords = coords.copy()
+            flatten_coords = OrderedDict(coords)
             flatten_coords.update({"batch": np.array([0])})
             flatten_coords.move_to_end("batch", last=False)
             return flatten_coords, OrderedDict({})
@@ -350,21 +361,20 @@ class batch_coords:
 
     def _decompress_batch(
         self,
-        out_coords: CoordSystem,
-        batched_coords: CoordSystem,
-    ) -> CoordSystem:
+        out_coords: dict[str, np.ndarray],
+        batched_coords: dict[str, np.ndarray],
+    ) -> dict[str, np.ndarray]:
         """Decompresses the batch dimension of a tensor
 
         Parameters
         ----------
-        out_coords : CoordSystem
+        out_coords : dict[str, np.ndarray]
             Compressed coordinates
-        batched_coords : CoordSystem
+        batched_coords : dict[str, np.ndarray]
             The coords of the batch dimensions
 
         Returns
         -------
-        CoordSystem
             Uncompressed coordinates
         """
 
@@ -379,7 +389,9 @@ class batch_coords:
 
         # TODO: Better typing for model object
         @functools.wraps(func)
-        def _wrapper(model: Any, input_coords: CoordSystem) -> CoordSystem:
+        def _wrapper(
+            model: Any, input_coords: dict[str, np.ndarray]
+        ) -> dict[str, np.ndarray]:
 
             flatten_coords, batched_coords = self._compress_batch(model, input_coords)
 

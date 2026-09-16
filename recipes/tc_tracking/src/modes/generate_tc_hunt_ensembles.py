@@ -32,7 +32,8 @@ from earth2studio.data import fetch_data
 from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+from earth2studio.utils.coords import map_coords
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
 from src.data.tc_hunt_file_output import (
     initialise_netcdf_output,
@@ -174,7 +175,7 @@ def run_inference(
 
     cyclone_tracking = None
     if "cyclone_tracking" in cfg:
-        oco = model._output_tensor_coords(model._input_tensor_coords())
+        oco = tensor_output_coords(model, tensor_input_coords(model))
 
         heights, height_coords = (
             load_heights(cfg.cyclone_tracking.orography_path)
@@ -227,8 +228,8 @@ def run_inference(
             array = fetch_data(
                 data_source,
                 time=[np.datetime64(ic)],
-                lead_time=model._input_tensor_coords()["lead_time"],
-                variable=model._input_tensor_coords()["variable"],
+                lead_time=tensor_input_coords(model)["lead_time"],
+                variable=tensor_input_coords(model)["variable"],
                 device=dist.device,
             )
             x0, coords0 = array.e2s.to_torch()
@@ -248,7 +249,7 @@ def run_inference(
         if hasattr(model, "set_rng"):
             model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
-        iterator = model.create_iterator(xx, CoordSystem(coords))
+        iterator = model.create_iterator(xx, dict[str, np.ndarray](coords))
         stab = torch.ones(mini_batch_size)
 
         # roll out the model and record data as desired
@@ -261,7 +262,7 @@ def run_inference(
 
             if stability_check:
                 yy, coy = map_coords(
-                    xx, CoordSystem(coords), stability_check.input_coords
+                    xx, dict[str, np.ndarray](coords), stability_check.input_coords
                 )
                 stab, _ = stability_check(yy, coy)
                 if not stab.all():

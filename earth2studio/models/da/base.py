@@ -18,10 +18,11 @@ from __future__ import annotations
 from collections.abc import Generator
 from typing import Any, Protocol, runtime_checkable
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 
-from earth2studio.utils.type import CoordSystem, FrameSchema
+from earth2studio.utils.type import FrameSchema
 
 try:
     import cudf
@@ -111,7 +112,7 @@ class AssimilationModel(Protocol):
         """
         pass
 
-    def init_coords(self) -> tuple[FrameSchema | CoordSystem, ...] | None:
+    def init_coords(self) -> tuple[FrameSchema | dict[str, np.ndarray], ...] | None:
         """Initialization coordinate system required by the assimilation model.
 
         Specifies the coordinate system(s) for initial state data that must be provided
@@ -121,23 +122,23 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        tuple[FrameSchema | CoordSystem, ...] | None
+        tuple[FrameSchema | dict[str, np.ndarray], ...] | None
             Tuple of coordinate systems or frame schemas defining the structure of
             required initialization data. Returns ``None`` if the model does not require
             initialization data (e.g., stateless models).
         """
         pass
 
-    def input_coords(self) -> tuple[FrameSchema | CoordSystem, ...]:
+    def input_coords(self) -> tuple[FrameSchema | dict[str, np.ndarray], ...]:
         """Input coordinate system of assimilation model.
 
         For DataFrame inputs, this should return a PyArrow schema (or a wrapper
         containing schema and constraints). For tensor inputs, this should return
-        a CoordSystem.
+        a dict[str, np.ndarray].
 
         Returns
         -------
-        tuple[FrameSchema | CoordSystem, ...]
+        tuple[FrameSchema | dict[str, np.ndarray], ...]
             Tuple of coordinate systems or frame schemas, one for each input argument
             that __call__ or create_generator accepts
         """
@@ -145,18 +146,18 @@ class AssimilationModel(Protocol):
 
     def output_coords(
         self,
-        input_coords: tuple[FrameSchema | CoordSystem, ...],
+        input_coords: tuple[FrameSchema | dict[str, np.ndarray], ...],
         *args: Any,
         **kwargs: Any,
-    ) -> tuple[FrameSchema | CoordSystem, ...]:
+    ) -> tuple[FrameSchema | dict[str, np.ndarray], ...]:
         """Output coordinate system of the assimilation model given an input coordinate
         system.
 
         Parameters
         ----------
-        input_coords : tuple[FrameSchema | CoordSystem, ...]
+        input_coords : tuple[FrameSchema | dict[str, np.ndarray], ...]
             Input coordinate system tuple. FrameSchema (OrderedDict mapping field names
-            to numpy arrays) for DataFrame inputs, or CoordSystem (OrderedDict mapping
+            to numpy arrays) for DataFrame inputs, or dict[str, np.ndarray] (OrderedDict mapping
             dimension names to coordinate arrays) for tensor inputs
         *args
             Additional positional arguments
@@ -166,7 +167,7 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        tuple[FrameSchema | CoordSystem, ...]
+        tuple[FrameSchema | dict[str, np.ndarray], ...]
             Tuple of coordinate systems or frame schemas, one for each output argument
             that __call__ or create_generator returns
         """

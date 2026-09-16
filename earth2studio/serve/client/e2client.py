@@ -34,7 +34,11 @@ from earth2studio.data import (  # type: ignore[import-untyped]
     fetch_data,
 )
 from earth2studio.models.auto import AutoModelMixin  # type: ignore[import-untyped]
-from earth2studio.models.px.utils import PrognosticMixin  # type: ignore[import-untyped]
+from earth2studio.models.px.utils import (  # type: ignore[import-untyped]
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+)
 from earth2studio.serve.client import fsspec_utils
 from earth2studio.serve.client.client import Earth2StudioClient
 from earth2studio.serve.client.exceptions import Earth2StudioAPIError
@@ -43,7 +47,6 @@ from earth2studio.serve.client.models import (
     InferenceRequestResults,
     StorageType,
 )
-from earth2studio.utils.type import CoordSystem  # type: ignore[import-untyped]
 
 
 class RemoteEarth2Workflow:
@@ -272,8 +275,8 @@ class RemoteEarth2WorkflowResult:
 
 
 def _convert_time_to_lead_time(
-    x: torch.Tensor, coords: CoordSystem, start_time: np.datetime64
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor, coords: dict[str, np.ndarray], start_time: np.datetime64
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """
     Convert time coordinate to lead_time coordinate.
 
@@ -284,14 +287,14 @@ def _convert_time_to_lead_time(
     ----------
     x : torch.Tensor
         Input tensor.
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         Coordinate system containing time coordinates.
     start_time : np.datetime64
         Reference start time for lead time calculation.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, dict[str, np.ndarray]]
         Transformed tensor and updated coordinate system.
     """
     coords = coords.copy()
@@ -345,7 +348,8 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         self.variables = np.array(variables)
         self.device = device
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """
         Return empty input coordinate system.
 
@@ -354,7 +358,6 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        CoordSystem
             Empty ordered dictionary of coordinates.
         """
         return OrderedDict(
@@ -368,7 +371,10 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
             }
         )
 
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    @coordinate_output
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """
         Generate output coordinate system based on data source coordinates.
 
@@ -377,12 +383,11 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system (unused; kept for interface compatibility).
 
         Returns
         -------
-        CoordSystem
             Coordinate system with batch, time, lead_time, variable, lat, lon.
         """
         time_coord = self.data_source.da.coords["time"][:2].values
@@ -421,8 +426,8 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         return self
 
     def __call__(
-        self, x: torch.Tensor | None = None, coords: CoordSystem | None = None
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor | None = None, coords: dict[str, np.ndarray] | None = None
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Execute single time-step from the data source.
 
@@ -433,19 +438,19 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor, optional
             Input tensor (unused; kept for interface compatibility).
-        coords : CoordSystem, optional
+        coords : dict[str, np.ndarray], optional
             Input coordinate system (unused; kept for interface compatibility).
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system for the first time step.
         """
         return next(self.create_iterator(x, coords))
 
     def create_iterator(
-        self, x: torch.Tensor | None = None, coords: CoordSystem | None = None
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor | None = None, coords: dict[str, np.ndarray] | None = None
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """
         Create iterator over time steps from the data source.
 
@@ -456,12 +461,12 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor, optional
             Input tensor (unused; kept for interface compatibility).
-        coords : CoordSystem, optional
+        coords : dict[str, np.ndarray], optional
             Input coordinate system (unused; kept for interface compatibility).
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             (tensor, coordinate_system) for each time step in the data source.
         """
         times = self.data_source.da.coords["time"].values

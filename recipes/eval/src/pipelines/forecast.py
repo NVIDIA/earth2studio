@@ -33,8 +33,9 @@ from tqdm import tqdm
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
+from earth2studio.utils.coords import cat_coords, map_coords
 
 from ..distributed import get_rank
 from ..models import load_diagnostics, load_prognostic
@@ -45,10 +46,10 @@ from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 def _align_to_grid(
     x: torch.Tensor,
-    coords: CoordSystem,
-    target: CoordSystem,
+    coords: dict[str, np.ndarray],
+    target: dict[str, np.ndarray],
     method: str = "linear",
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Regrid a fetched tensor to the target's lat/lon if they don't match.
 
     No-op when the source's spatial coords already equal the model's
@@ -98,8 +99,8 @@ class ForecastPipeline(Pipeline):
     diagnostics: list[DiagnosticModel]
     perturbation: Perturbation | None
     nsteps: int
-    _prognostic_ic: CoordSystem
-    _dx_input_coords: dict[int, CoordSystem]
+    _prognostic_ic: dict[str, np.ndarray]
+    _dx_input_coords: dict[int, dict[str, np.ndarray]]
 
     @staticmethod
     def _model_node(cfg: DictConfig) -> DictConfig:
@@ -123,15 +124,15 @@ class ForecastPipeline(Pipeline):
         if cfg.get("ensemble_size", 1) > 1 and "perturbation" in cfg:
             self.perturbation = hydra.utils.instantiate(cfg.perturbation)
 
-        self._prognostic_ic = self.prognostic._input_tensor_coords()
-        self._spatial_ref = self.prognostic._output_tensor_coords(self._prognostic_ic)
+        self._prognostic_ic = tensor_input_coords(self.prognostic)
+        self._spatial_ref = tensor_output_coords(self.prognostic, self._prognostic_ic)
         self._dx_input_coords = {id(dx): dx.input_coords() for dx in self.diagnostics}
 
     def build_total_coords(
         self,
         times: np.ndarray,
         ensemble_size: int,
-    ) -> CoordSystem:
+    ) -> dict[str, np.ndarray]:
         return build_forecast_coords(
             self.prognostic,
             times,
@@ -163,8 +164,8 @@ class ForecastPipeline(Pipeline):
         # Inspect the prognostic (CPU — no weights copied to device) to infer
         # IC lead_times, variables, and step stride.
         model = load_prognostic(cfg, self._model_node(cfg))
-        ic_coords = model._input_tensor_coords()
-        spatial_ref = model._output_tensor_coords(ic_coords)
+        ic_coords = tensor_input_coords(model)
+        spatial_ref = tensor_output_coords(model, ic_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})
@@ -194,7 +195,7 @@ class ForecastPipeline(Pipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Assemble the prognostic's initial state for one work item.
 
         Default: fetch from the resolved ``DataSource``, align to the
@@ -226,7 +227,7 @@ class ForecastPipeline(Pipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         x, coords = self._fetch_initial_state(item, data_source, device)
 
         if self.perturbation is not None:
@@ -240,7 +241,7 @@ class ForecastPipeline(Pipeline):
         items: list[WorkItem],
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Roll several ensemble members of one IC forward together.
 
         Members ride on a leading ``ensemble`` axis, which prognostic
@@ -274,11 +275,11 @@ class ForecastPipeline(Pipeline):
         member_ids = np.array([item.ensemble_id for item in items])
 
         x = x0.unsqueeze(0).repeat(len(items), *([1] * x0.ndim))
-        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
+        coords = dict[str, np.ndarray]({"ensemble": member_ids} | dict(coords0))
 
         if self.perturbation is not None:
             for m, item in enumerate(items):
-                member_coords = CoordSystem(
+                member_coords = dict[str, np.ndarray](
                     {"ensemble": member_ids[m : m + 1]} | dict(coords0)
                 )
                 torch.manual_seed(item.seed)
@@ -300,10 +301,10 @@ class ForecastPipeline(Pipeline):
     def _rollout(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         item: WorkItem,
         label: str,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Drive the prognostic iterator, applying diagnostics at each step.
 
         Shared by :meth:`run_item` and :meth:`run_item_batched`; the only

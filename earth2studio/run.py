@@ -27,13 +27,14 @@ from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
     NullCheckpoint,
 )
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
@@ -46,7 +47,7 @@ def deterministic(
     prognostic: PrognosticModel,
     data: DataSource,
     io: IOBackend,
-    output_coords: CoordSystem = OrderedDict({}),
+    output_coords: dict[str, np.ndarray] = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
@@ -67,7 +68,7 @@ def deterministic(
         Data source
     io : IOBackend
         IO object
-    output_coords: CoordSystem, optional
+    output_coords: dict[str, np.ndarray], optional
         IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
@@ -91,23 +92,24 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    prognostic_ic = prognostic._input_tensor_coords()
+    prognostic_ic = tensor_input_coords(prognostic)
     time = to_time_array(time)
 
     # Set up IO backend
-    total_coords = prognostic._output_tensor_coords(prognostic_ic).copy()
-    for key, value in prognostic._output_tensor_coords(
-        prognostic_ic
+    total_coords = tensor_output_coords(prognostic, prognostic_ic).copy()
+    for key, value in tensor_output_coords(
+        prognostic, prognostic_ic
     ).items():  # Scrub batch dims
         if value.shape == (0,):
             del total_coords[key]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic._output_tensor_coords(prognostic_ic)["lead_time"] * i
+            tensor_output_coords(prognostic, prognostic_ic)["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
+    total_coords = OrderedDict(total_coords)
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
 
@@ -198,7 +200,7 @@ def diagnostic(
     diagnostic: DiagnosticModel,
     data: DataSource | ForecastSource,
     io: IOBackend,
-    output_coords: CoordSystem = OrderedDict({}),
+    output_coords: dict[str, np.ndarray] = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
@@ -221,7 +223,7 @@ def diagnostic(
         Data source
     io : IOBackend
         IO object
-    output_coords: CoordSystem, optional
+    output_coords: dict[str, np.ndarray], optional
         IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
@@ -246,13 +248,13 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
 
-    prognostic_ic = prognostic._input_tensor_coords()
+    prognostic_ic = tensor_input_coords(prognostic)
     diagnostic_ic = diagnostic.input_coords()
     time = to_time_array(time)
 
-    total_coords = prognostic._output_tensor_coords(prognostic_ic)
-    for key, value in prognostic._output_tensor_coords(
-        prognostic_ic
+    total_coords = tensor_output_coords(prognostic, prognostic_ic)
+    for key, value in tensor_output_coords(
+        prognostic, prognostic_ic
     ).items():  # Scrub batch dims
         if key in diagnostic.output_coords(diagnostic_ic):
             total_coords[key] = diagnostic.output_coords(diagnostic_ic)[key]
@@ -261,10 +263,11 @@ def diagnostic(
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic._output_tensor_coords(prognostic_ic)["lead_time"] * i
+            tensor_output_coords(prognostic, prognostic_ic)["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
+    total_coords = OrderedDict(total_coords)
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
 
@@ -352,7 +355,7 @@ def ensemble(
     io: IOBackend,
     perturbation: Perturbation,
     batch_size: int | None = None,
-    output_coords: CoordSystem = OrderedDict({}),
+    output_coords: dict[str, np.ndarray] = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
@@ -378,7 +381,7 @@ def ensemble(
     batch_size: int, optional
         Number of ensemble members to run in a single batch,
         by default None.
-    output_coords: CoordSystem, optional
+    output_coords: dict[str, np.ndarray], optional
         IO output coordinate system override, by default OrderedDict({})
     device : torch.device, optional
         Device to run inference on, by default None
@@ -403,7 +406,7 @@ def ensemble(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
 
-    prognostic_ic = prognostic._input_tensor_coords()
+    prognostic_ic = tensor_input_coords(prognostic)
     time = to_time_array(time)
     if hasattr(prognostic, "interp_method"):
         interp_to = prognostic_ic
@@ -424,16 +427,17 @@ def ensemble(
     x0, coords0 = initial.e2s.to_torch()
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    total_coords = prognostic._output_tensor_coords(prognostic_ic).copy()
+    total_coords = tensor_output_coords(prognostic, prognostic_ic).copy()
     if "batch" in total_coords:
         del total_coords["batch"]
     total_coords["time"] = time
     total_coords["lead_time"] = np.asarray(
         [
-            prognostic._output_tensor_coords(prognostic_ic)["lead_time"] * i
+            tensor_output_coords(prognostic, prognostic_ic)["lead_time"] * i
             for i in range(nsteps + 1)
         ]
     ).flatten()
+    total_coords = OrderedDict(total_coords)
     total_coords.move_to_end("lead_time", last=False)
     total_coords.move_to_end("time", last=False)
     total_coords = {"ensemble": np.arange(nensemble)} | total_coords

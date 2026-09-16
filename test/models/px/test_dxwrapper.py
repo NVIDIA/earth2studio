@@ -30,8 +30,9 @@ from earth2studio.models.dx import (
     SolarRadiationAFNO1H,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.run import deterministic
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import coord_array, map_coords
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
@@ -163,7 +164,7 @@ def test_dxwrapper_call(device, model_type, times):
             sincos_latlon=sincos_latlon,
         ).to(device)
 
-    px_out_coords = px_model._output_tensor_coords(px_model._input_tensor_coords())
+    px_out_coords = tensor_output_coords(px_model, tensor_input_coords(px_model))
     sp_model = DerivedSurfacePressure(
         p_levels=[50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000],
         surface_geopotential=torch.zeros(721, 1440),
@@ -180,22 +181,22 @@ def test_dxwrapper_call(device, model_type, times):
         device=device
     )
 
-    dc = {k: wrapped_model._input_tensor_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    dc = {k: tensor_input_coords(wrapped_model)[k] for k in ["lat", "lon"]}
+    data = Random(coord_array(tuple(dc), dc))
 
     x, coords = fetch_data(
         data,
         times,
-        variable=wrapped_model._input_tensor_coords()["variable"],
+        variable=tensor_input_coords(wrapped_model)["variable"],
         device=device,
     ).e2s.to_torch()
-    x, input_coords = map_coords(x, coords, wrapped_model._input_tensor_coords())
+    x, input_coords = map_coords(x, coords, tensor_input_coords(wrapped_model))
     x, coords = wrapped_model(x, input_coords)
 
     coord_shape = tuple(coord.shape[0] for coord in coords.values())
     expected_shape = tuple(
         coord.shape[0]
-        for coord in wrapped_model._output_tensor_coords(input_coords).values()
+        for coord in tensor_output_coords(wrapped_model, input_coords).values()
     )
     assert x.shape == coord_shape
     assert x.shape == expected_shape
@@ -243,7 +244,7 @@ def test_dxwrapper_iter(device, times, number_of_samples):
     lon = np.linspace(0, 360, 1440, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
-        variable=corrdiff_model._input_tensor_coords()["variable"],
+        variable=tensor_input_coords(corrdiff_model)["variable"],
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     ).to(device)
@@ -253,16 +254,16 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         dx_model=corrdiff_model,
     ).to(device=device)
 
-    dc = {k: wrapped_model._input_tensor_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    dc = {k: tensor_input_coords(wrapped_model)[k] for k in ["lat", "lon"]}
+    data = Random(coord_array(tuple(dc), dc))
 
     x, coords = fetch_data(
         data,
         times,
-        variable=px_model._input_tensor_coords()["variable"],
+        variable=tensor_input_coords(px_model)["variable"],
         device=device,
     ).e2s.to_torch()
-    x, coords = map_coords(x, coords, wrapped_model._input_tensor_coords())
+    x, coords = map_coords(x, coords, tensor_input_coords(wrapped_model))
     # Get generator
     p_iter = wrapped_model.create_iterator(x, coords)
     for i, (out, out_coords) in enumerate(p_iter):
@@ -270,7 +271,7 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         coord_shape = tuple(coord.shape[0] for coord in out_coords.values())
         expected_shape = tuple(
             coord.shape[0]
-            for coord in wrapped_model._output_tensor_coords(coords).values()
+            for coord in tensor_output_coords(wrapped_model, coords).values()
         )
         assert out.shape == coord_shape
         assert out.shape == expected_shape
@@ -313,7 +314,7 @@ def test_dxwrapper_run(device, times, number_of_samples):
     lon = np.linspace(0, 360, 1440, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
-        variable=corrdiff_model._input_tensor_coords()["variable"],
+        variable=tensor_input_coords(corrdiff_model)["variable"],
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     ).to(device)
@@ -323,16 +324,16 @@ def test_dxwrapper_run(device, times, number_of_samples):
         dx_model=corrdiff_model,
     ).to(device=device)
 
-    dc = {k: wrapped_model._input_tensor_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    dc = {k: tensor_input_coords(wrapped_model)[k] for k in ["lat", "lon"]}
+    data = Random(coord_array(tuple(dc), dc))
 
     x, coords = fetch_data(
         data,
         times,
-        variable=px_model._input_tensor_coords()["variable"],
+        variable=tensor_input_coords(px_model)["variable"],
         device=device,
     ).e2s.to_torch()
-    x, coords = map_coords(x, coords, wrapped_model._input_tensor_coords())
+    x, coords = map_coords(x, coords, tensor_input_coords(wrapped_model))
     io = XarrayBackend()
     deterministic(times, 2, wrapped_model, data, io, device=device)
 

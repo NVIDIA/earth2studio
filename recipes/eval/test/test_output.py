@@ -31,8 +31,6 @@ from src.output import (
     build_predownload_coords,
 )
 
-from earth2studio.utils.coords import CoordSystem
-
 
 def _make_dist_mock(*, rank: int = 0, world_size: int = 1, distributed: bool = False):
     class _FakeDist:
@@ -168,7 +166,7 @@ class TestOutputManager:
 
                     for step in range(3):
                         lead = np.array([total_coords["lead_time"][step]])
-                        write_coords: CoordSystem = OrderedDict(
+                        write_coords: dict[str, np.ndarray] = OrderedDict(
                             {
                                 "time": times,
                                 "lead_time": lead,

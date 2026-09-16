@@ -22,7 +22,6 @@ from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
 )
-from earth2studio.utils.coords import CoordSystem
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -372,7 +371,7 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
         x[t, 2] = 100 * msl  # msl
 
     # Set up mock coordinates dictionary
-    coords = CoordSystem(
+    coords = dict[str, np.ndarray](
         {
             "time": np.array([1]),
             "variable": ct.input_coords()["variable"],
@@ -553,7 +552,7 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
         x[t, 7] = z200
 
     # Set up mock coordinates dictionary
-    coords = CoordSystem(
+    coords = dict[str, np.ndarray](
         {
             "time": np.array(list(range(0, num_timesteps))),
             "variable": ct.input_coords()["variable"],

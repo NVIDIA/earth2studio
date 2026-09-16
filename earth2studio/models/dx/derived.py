@@ -24,7 +24,6 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
 )
-from earth2studio.utils.type import CoordSystem
 
 
 class DerivedWS(torch.nn.Module):
@@ -53,12 +52,11 @@ class DerivedWS(torch.nn.Module):
             self.in_variables.extend(input_level)
         self.out_variables = [f"ws{level}" for level in levels]
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -72,18 +70,19 @@ class DerivedWS(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -101,8 +100,8 @@ class DerivedWS(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
         # This function expects [u, v] pairs
@@ -148,12 +147,11 @@ class DerivedRH(torch.nn.Module):
         pressure_levels = [100 * float(level) for level in levels]
         self.pressure_levels = torch.tensor(pressure_levels)[:, None, None]
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -167,18 +165,19 @@ class DerivedRH(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -196,8 +195,8 @@ class DerivedRH(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 
@@ -241,12 +240,11 @@ class DerivedRHDewpoint(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -260,18 +258,19 @@ class DerivedRHDewpoint(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -289,8 +288,8 @@ class DerivedRHDewpoint(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 
@@ -352,12 +351,11 @@ class DerivedVPD(torch.nn.Module):
             self.in_variables.extend(input_level)
         self.out_variables = [f"vpd{level}" for level in levels]
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -371,18 +369,19 @@ class DerivedVPD(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -400,8 +399,8 @@ class DerivedVPD(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
         # This function expects [temp, rh] pairs
@@ -456,7 +455,7 @@ class DerivedSurfacePressure(torch.nn.Module):
         self,
         p_levels: list[int] | np.ndarray | torch.Tensor,
         surface_geopotential: torch.Tensor,
-        surface_geopotential_coords: CoordSystem,
+        surface_geopotential_coords: dict[str, np.ndarray],
         temperature_correction: bool = True,
         corr_adjustment: tuple[float, float] = (3.4257e-5, 1.5224),
     ) -> None:
@@ -487,12 +486,11 @@ class DerivedSurfacePressure(torch.nn.Module):
                 "The surface geopotential coordinates must match the size of the tensor."
             )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -506,18 +504,19 @@ class DerivedSurfacePressure(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -618,8 +617,8 @@ class DerivedSurfacePressure(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
         num_levels = len(self.log_p_levels)
@@ -691,12 +690,11 @@ class DerivedTCWV(torch.nn.Module):
         )
         self.register_buffer("plevels", plevels)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -710,18 +708,19 @@ class DerivedTCWV(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -739,8 +738,8 @@ class DerivedTCWV(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 

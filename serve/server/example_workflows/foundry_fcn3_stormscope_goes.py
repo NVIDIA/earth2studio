@@ -46,7 +46,7 @@ from earth2studio.serve.server import (
     WorkflowProgress,
     WorkflowRegistry,
 )
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import timearray_to_datetime, to_time_array
 
 GOES_MODEL_NAME = "6km_60min_natten_cos_zenith_input_eoe_v2"
@@ -220,7 +220,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
     def setup_io(
         self,
         io: IOBackend,
-        output_coords: CoordSystem,
+        output_coords: dict[str, np.ndarray],
         seeds_fcn3: Sequence[int],
         seeds_stormscope: Sequence[int],
     ) -> None:
@@ -287,7 +287,9 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
 
         return io
 
-    def get_fcn3_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
+    def get_fcn3_input(
+        self, time: datetime
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch FCN3 branch input from Planetary Computer ECMWF IFS."""
         x, coords = fetch_data(
             self.data_fcn3,
@@ -297,7 +299,9 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         )
         return x, coords
 
-    def get_stormscope_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
+    def get_stormscope_input(
+        self, time: datetime
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch GOES inputs for StormScope (GOES-16 vs GOES-19 by date) and preprocess."""
         coords_in = self.stormscope.input_coords()
         if time < datetime(2025, 4, 7):
@@ -327,7 +331,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         self,
         io: IOBackend,
         x: torch.Tensor,
-        coords_x: CoordSystem,
+        coords_x: dict[str, np.ndarray],
         seed_fcn3: int,
         start_time_stormscope: datetime,
         lead_times: np.ndarray,
@@ -393,7 +397,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         self,
         io: IOBackend,
         y: torch.Tensor,
-        coords_y: CoordSystem,
+        coords_y: dict[str, np.ndarray],
         seed_fcn3: int,
         seed_stormscope: int,
         lead_times: np.ndarray,
@@ -419,10 +423,10 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             logger.info(msg)
 
         def prep_output(
-            y_pred: torch.Tensor, coords_pred: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
+            y_pred: torch.Tensor, coords_pred: dict[str, np.ndarray]
+        ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
             y_out, coords_out = map_coords(
-                y_pred, coords_pred, CoordSystem({"variable": variables})
+                y_pred, coords_pred, dict[str, np.ndarray]({"variable": variables})
             )
             del coords_out["batch"]
             # Reuse batch dimension as ensemble dimension (squeeze/unsqueeze)

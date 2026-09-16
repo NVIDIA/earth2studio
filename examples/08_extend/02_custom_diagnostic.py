@@ -67,7 +67,6 @@ import torch
 
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class CustomDiagnostic(torch.nn.Module):
@@ -76,12 +75,11 @@ class CustomDiagnostic(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -94,17 +92,18 @@ class CustomDiagnostic(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         # Check input coordinates are valid
@@ -129,15 +128,15 @@ class CustomDiagnostic(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs diagnostic model
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
         """
         out_coords = self.output_coords(coords)

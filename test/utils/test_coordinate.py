@@ -20,7 +20,7 @@ import xarray as xr
 
 from earth2studio import coord_array
 from earth2studio.grids import CurvilinearGrid, HEALPixGrid
-from earth2studio.utils.coordinate import handshake_dataarray, handshake_dataarrays
+from earth2studio.utils.coords import handshake_dataarray, handshake_dataarrays
 
 
 def test_coordinate_signature_and_handshake():
@@ -28,21 +28,22 @@ def test_coordinate_signature_and_handshake():
         ("batch", "lead_time", "variable", "x"),
         {
             "lead_time": [np.timedelta64(0, "h")],
-            "variable": ["a:mean:24h"],
+            "variable": ["a"],
             "x": [0, 1],
         },
         dynamic=("batch",),
+        statistics={"a": "mean:24h"},
     )
     assert signature.shape == (0, 1, 1, 2) and signature.data.nbytes == 0
     assert signature.e2s.dynamic_dims == ("batch",)
-    assert signature.e2s.get_statistic("a:mean:24h") == "mean:24h"
+    assert signature.e2s.get_statistic("a") == "mean:24h"
 
     array = xr.DataArray(
         np.zeros((3, 1, 1, 2)),
         dims=("time", "lead_time", "variable", "x"),
         coords={
             "lead_time": signature.lead_time,
-            "variable": ["a:mean:24h"],
+            "variable": ["a"],
             "x": [0, 1],
         },
         attrs=signature.attrs,
@@ -62,6 +63,12 @@ def test_coordinate_signature_and_handshake():
         coord_array(
             ("variable",),
             {"variable": ["a:mean:24h", "a:mean:1day"]},
+        )
+    with pytest.raises(ValueError, match="unknown variables"):
+        coord_array(
+            ("variable",),
+            {"variable": ["a"]},
+            statistics={"b": "max:24h"},
         )
 
 

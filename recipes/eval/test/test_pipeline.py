@@ -31,8 +31,6 @@ from src.pipelines import (
 )
 from src.work import WorkItem
 
-from earth2studio.utils.coords import CoordSystem
-
 
 class _StubPipeline(Pipeline):
     """Minimal concrete pipeline for testing the ABC and registry."""
@@ -43,7 +41,7 @@ class _StubPipeline(Pipeline):
         )
 
     def build_total_coords(self, times, ensemble_size):
-        total: CoordSystem = OrderedDict()
+        total: dict[str, np.ndarray] = OrderedDict()
         if ensemble_size > 1:
             total["ensemble"] = np.arange(ensemble_size)
         total["time"] = times
@@ -54,7 +52,7 @@ class _StubPipeline(Pipeline):
 
     def run_item(self, item, data_source, device):
         x = torch.zeros(1, 1, 1, 4, 8)
-        coords: CoordSystem = OrderedDict(
+        coords: dict[str, np.ndarray] = OrderedDict(
             {
                 "time": np.array([item.time]),
                 "lead_time": np.array([np.timedelta64(0, "ns")]),

@@ -46,8 +46,6 @@ from omegaconf import DictConfig
 from src.pipelines.forecast import ForecastPipeline
 from src.regrid import Regridder
 
-from earth2studio.utils.type import CoordSystem
-
 
 def _axis(spec: DictConfig | dict) -> np.ndarray:
     """Build a 1D coordinate vector from a ``{start, stop, num}`` config block.
@@ -135,15 +133,14 @@ class SeparableNearestRegridder(Regridder):
         self._lon_idx = self._lon_idx.to(device)
         return self
 
-    def target_coords(self) -> CoordSystem:
+    def target_coords(self) -> dict[str, np.ndarray]:
         """Return the spatial coordinates of the target grid.
 
         Returns
         -------
-        CoordSystem
             Ordered dict with ``lat`` and ``lon`` arrays of the target grid.
         """
-        coords: CoordSystem = OrderedDict()
+        coords: dict[str, np.ndarray] = OrderedDict()
         coords["lat"] = self._target_lat
         coords["lon"] = self._target_lon
         return coords

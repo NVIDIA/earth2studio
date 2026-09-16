@@ -40,7 +40,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import FrameSchema, TimeTolerance
 
 try:
     import cupy as cp
@@ -272,7 +272,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     def device(self) -> torch.device:
         return self.device_buffer.device
 
-    def init_coords(self) -> tuple[CoordSystem]:
+    def init_coords(self) -> tuple[dict[str, np.ndarray]]:
         """Initialization coordinate system"""
         return (
             OrderedDict(
@@ -300,17 +300,18 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             ),
         )
 
-    def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
+    def output_coords(
+        self, input_coords: tuple[dict[str, np.ndarray]]
+    ) -> tuple[dict[str, np.ndarray]]:
         """Output coordinate system of the assimilation model
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
+        input_coords : tuple[dict[str, np.ndarray]]
             Coordinates of tensor used to initialize the forecast model.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -763,7 +764,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     def _to_output_dataarray(
         self,
         x_tensor: torch.Tensor,
-        output_coords: tuple[CoordSystem],
+        output_coords: tuple[dict[str, np.ndarray]],
     ) -> xr.DataArray:
         """Convert output tensor to xr.DataArray with HRRR grid coordinates.
 
@@ -771,7 +772,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         ----------
         x_tensor : torch.Tensor
             Output tensor from _forward
-        output_coords : tuple[CoordSystem]
+        output_coords : tuple[dict[str, np.ndarray]]
             Output coordinate system from output_coords()
 
         Returns

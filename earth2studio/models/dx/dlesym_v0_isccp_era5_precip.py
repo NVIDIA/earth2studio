@@ -29,7 +29,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from omegaconf import OmegaConf
@@ -52,7 +51,7 @@ _OLR_CLIM_VARS = ("olr_mean", "olr_std")
 
 def apply_ttr_to_olr(
     x: torch.Tensor,
-    coords: CoordSystem,
+    coords: dict[str, np.ndarray],
     ttr_idx: int,
     ttr_clim_mean: torch.Tensor,
     ttr_clim_std: torch.Tensor,
@@ -73,7 +72,7 @@ def apply_ttr_to_olr(
     x : torch.Tensor
         Input tensor with the TTR channel at axis ``-4``; shape
         ``(B, T, LT, V, F, H, W)``.
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         Coordinates carrying ``time`` (datetime64) and ``lead_time``
         (timedelta64) used to derive day-of-year per (T, LT) pair.
     ttr_idx : int
@@ -299,12 +298,11 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
                 "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
             )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary with 2 history timesteps and the
             full coupled-state variable list on the HEALPix grid. When
             ``use_ttr=True``, the radiation channel is advertised as
@@ -326,17 +324,18 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform.
 
         Returns
         -------
-        CoordSystem
             Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
         """
         target_input_coords = self.input_coords()
@@ -485,8 +484,8 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Run the precip diagnostic forward.
 
         Parameters
@@ -494,12 +493,12 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         x : torch.Tensor
             Input of shape ``(B, T, LT, V, F, H, W)`` with ``LT = input_time_dim``
             history timesteps and ``V = len(variables)`` channels on HEALPix.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor of shape ``(B, T, 1, 1, F, H, W)`` and the
             corresponding output coords with ``variable = [tp06]``.
         """

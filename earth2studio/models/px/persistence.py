@@ -23,10 +23,15 @@ import torch
 
 from earth2studio.grids import GridDefinition
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.checkpoint import bind_checkpoint_state
-from earth2studio.utils.type import CoordSystem
 
 
 @dataclass
@@ -45,7 +50,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ----------
     variable : Union[str, List[str]]
         The variable or list of variables predicted by the model.
-    domain_coords : CoordSystem
+    domain_coords : dict[str, np.ndarray]
         The coordinates representing the domain for this model to operate on.
     history : int, optional
         Specifies the number of previous time steps to include as input, by default set
@@ -63,7 +68,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     def __init__(
         self,
         variable: str | list[str],
-        domain_coords: CoordSystem,
+        domain_coords: dict[str, np.ndarray],
         history: int = 1,
         dt: np.timedelta64 = np.timedelta64(6, "h"),
         grid: str | GridDefinition | None = None,
@@ -103,28 +108,30 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     ) -> str:
         return "persistence"
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return self._input_coords.copy()
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -137,7 +144,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
@@ -150,8 +157,8 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return output_coords
 
     def _restore_checkpoint_state(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem, bool]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray], bool]:
         if (
             self.checkpoint.checkpoint_level == 2
             and self.checkpoint.checkpoint_state_loaded
@@ -168,7 +175,9 @@ class Persistence(torch.nn.Module, PrognosticMixin):
             return x, coords, True
         return x, coords, False
 
-    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
+    def _save_checkpoint_state(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> None:
         if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
             self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
             self.checkpoint.coord_keys = tuple(coords.keys())
@@ -184,11 +193,11 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         # Model is identity operator
         # Update coordinates
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         return x[:, -1:], output_coords
 
@@ -196,21 +205,21 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system, should have dimensions ``[time, lead_time, variable, *domain_dims]``
 
         Returns
         ------
         x : torch.Tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
         """
         x_out, coords_out = self._forward(x, coords)
         self._save_checkpoint_state(x_out, coords_out)
@@ -218,11 +227,11 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         x, coords, restored = self._restore_checkpoint_state(x, coords)
-        self._output_tensor_coords(coords.copy())
+        tensor_output_coords(self, coords.copy())
         if not restored:
             coords_out = coords.copy()
             coords_out["lead_time"] = coords["lead_time"][-1:]
@@ -248,8 +257,8 @@ class Persistence(torch.nn.Module, PrognosticMixin):
             yield x_out, coords_out
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -257,13 +266,13 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """

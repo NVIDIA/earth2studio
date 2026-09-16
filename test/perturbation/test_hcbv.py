@@ -30,7 +30,7 @@ from earth2studio.perturbation import (
     Gaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array
 
 
 # Fake PX model
@@ -43,11 +43,11 @@ def model():
             self.index = 0
             self._input_coords = None
 
-        def _input_tensor_coords(self):
+        def input_coords(self):
             return self._input_coords
 
         @batch_coords()
-        def _output_tensor_coords(self, input_coords: CoordSystem):
+        def output_coords(self, input_coords: dict[str, np.ndarray]):
             output_coords = input_coords.copy()
             output_coords["lead_time"] = np.array([np.timedelta64(1, "s")])
             return output_coords
@@ -114,7 +114,7 @@ def test_hem_centered_bred(
     model.index = 0
 
     # Initialize Data Source and input tensor
-    data_source = Random(dc)
+    data_source = Random(coord_array(tuple(dc), dc))
     x = torch.randn(batch, 1, 1, len(variable), 16, 16).to(device)
     coords = OrderedDict(
         [
@@ -157,7 +157,7 @@ def test_hem_centered_bred(
             ("lon", np.arange(20)),
         ]
     )
-    data_source = Random(dc_diff)
+    data_source = Random(coord_array(tuple(dc_diff), dc_diff))
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,

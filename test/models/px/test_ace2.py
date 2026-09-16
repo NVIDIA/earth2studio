@@ -27,7 +27,9 @@ from earth2studio.models.px.ace2 import (
     _cftime_to_npdatetime64,
     _npdatetime64_to_cftime,
 )
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 pytest.importorskip("fme")
 
@@ -159,19 +161,21 @@ def test_ACE2ERA5_call(device):
     # Use a single timestamp; forcing source will handle needed adjustments
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    forcing_source = Random(
+        coord_array(("lat", "lon"), {"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    )
     p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
     # Build a Random data source over the model grid
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -184,7 +188,7 @@ def test_ACE2ERA5_call(device):
     assert out.shape[1] == 1  # one lead time step
     assert out.shape[3] == len(p.lat)
     assert out.shape[4] == len(p.lon)
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -201,18 +205,20 @@ def test_ACE2ERA5_iter(batch, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    forcing_source = Random(
+        coord_array(("lat", "lon"), {"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
+    )
     p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to the front
@@ -231,7 +237,7 @@ def test_ACE2ERA5_iter(batch, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert (
-            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+            out_coords["variable"] == tensor_output_coords(p, coords)["variable"]
         ).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert (out_coords["time"] == time).all()
@@ -254,15 +260,15 @@ def test_ace2era5_package(device):
     p = model.to(device)
 
     # Build a Random data source over the model grid
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -275,7 +281,7 @@ def test_ace2era5_package(device):
     assert out.shape[1] == 1  # one lead time step
     assert out.shape[3] == len(p.lat)
     assert out.shape[4] == len(p.lon)
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

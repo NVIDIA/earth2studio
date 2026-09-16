@@ -52,7 +52,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
-from earth2studio.utils.coordinate import coord_array
+from earth2studio.utils.coords import coord_array
 
 
 class _AnalysisSequence:
@@ -241,7 +241,7 @@ def test_fetch_data(time, lead_time, device):
         pytest.importorskip("cupy")
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
-    r = Random(domain)
+    r = Random(coord_array(tuple(domain), domain))
 
     array = fetch_data(r, time, variable, lead_time, device=device)
 
@@ -260,7 +260,7 @@ def test_fetch_data_out_of_ns_range():
     nanosecond-precision range, which numpy wraps silently rather than raising.
     """
     domain = OrderedDict({"lat": np.random.randn(8), "lon": np.random.randn(16)})
-    random_source = Random(domain)
+    random_source = Random(coord_array(tuple(domain), domain))
     received: list[np.ndarray] = []
 
     class RecordingSource:
@@ -418,7 +418,7 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
-    ds = Random(domain)
+    ds = Random(coord_array(tuple(domain), domain))
 
     if backend == "netcdf":
         file_name = str(tmp_path) + "/temp.nc"

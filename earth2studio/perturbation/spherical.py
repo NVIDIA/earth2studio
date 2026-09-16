@@ -22,7 +22,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from torch_harmonics import InverseRealSHT
@@ -74,21 +73,21 @@ class SphericalGaussian:
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply perturbation method
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor intended to apply perturbation on
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor, must
             contain "lat" and "lon" coordinates
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
+        tuple[torch.Tensor, dict[str, np.ndarray]]:
             Output tensor and respective coordinate system dictionary
         """
         shape = x.shape

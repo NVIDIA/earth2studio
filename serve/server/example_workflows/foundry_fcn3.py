@@ -33,7 +33,7 @@ from earth2studio.serve.server import (
     WorkflowProgress,
     WorkflowRegistry,
 )
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
+from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import timearray_to_datetime, to_time_array
 
 _MAX_FORECAST_STEPS = 400
@@ -131,7 +131,7 @@ class FoundryFCN3Workflow(Earth2Workflow):
         return variables
 
     def setup_io(
-        self, io: IOBackend, output_coords: CoordSystem, seeds: Sequence[int]
+        self, io: IOBackend, output_coords: dict[str, np.ndarray], seeds: Sequence[int]
     ) -> None:
         """Define Zarr/NetCDF arrays, CRS metadata, and time encoding for ensemble outputs."""
         io.add_array(
@@ -189,7 +189,9 @@ class FoundryFCN3Workflow(Earth2Workflow):
 
         return io
 
-    def get_fcn3_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
+    def get_fcn3_input(
+        self, time: datetime
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch FCN3 input tensors and coordinates from Planetary Computer ECMWF IFS."""
         x, coords = fetch_data(
             self.data,
@@ -219,7 +221,7 @@ class FoundryFCN3Workflow(Earth2Workflow):
 
         x_ori, coords_ori = self.get_fcn3_input(start_time)
 
-        output_coords = CoordSystem(
+        output_coords = dict[str, np.ndarray](
             {
                 "ensemble": np.arange(len(seeds)),
                 # Combine 'time' and 'lead_time' into single dimension
@@ -254,7 +256,9 @@ class FoundryFCN3Workflow(Earth2Workflow):
 
                 # Select variables
                 x_out, coords_out = map_coords(
-                    x, coords, CoordSystem({"variable": output_coords["variable"]})
+                    x,
+                    coords,
+                    dict[str, np.ndarray]({"variable": output_coords["variable"]}),
                 )
                 # Roll longitudes (for raster visualization)
                 x_out = torch.roll(x_out, 720, dims=-1)

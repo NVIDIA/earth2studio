@@ -23,9 +23,14 @@ import torch
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.grids import GridDefinition
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class DataReplay(torch.nn.Module, PrognosticMixin):
@@ -40,7 +45,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         Source to replay.
     variable : str | list[str]
         Variables to fetch.
-    domain_coords : CoordSystem
+    domain_coords : dict[str, np.ndarray]
         Spatial coordinates expected from the source.
     step : np.timedelta64, optional
         Time between frames, by default np.timedelta64(6, "h")
@@ -56,7 +61,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         self,
         source: DataSource | ForecastSource,
         variable: str | list[str],
-        domain_coords: CoordSystem,
+        domain_coords: dict[str, np.ndarray],
         step: np.timedelta64 = np.timedelta64(6, "h"),
         grid: str | GridDefinition | None = None,
     ) -> None:
@@ -86,33 +91,35 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
             }
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
             Input coordinate system.
         """
         return OrderedDict(
             (key, np.asarray(value).copy()) for key, value in self._input_coords.items()
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system one step ahead.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Returns
         -------
-        CoordSystem
             Output coordinate system.
         """
-        target_coords = self._input_tensor_coords()
+        target_coords = tensor_input_coords(self)
         handshake_dim(input_coords, "lead_time", 2)
         for index, key in enumerate(target_coords):
             if key not in ("batch", "time", "lead_time"):
@@ -124,14 +131,14 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         return output_coords
 
     @staticmethod
-    def _require_time(coords: CoordSystem) -> None:
+    def _require_time(coords: dict[str, np.ndarray]) -> None:
         if "time" not in coords or len(coords["time"]) == 0:
             raise ValueError("DataReplay requires a non-empty time coordinate")
 
     @torch.inference_mode()
     def _fetch(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         batch_size: int,
         device: torch.device,
     ) -> torch.Tensor:
@@ -156,39 +163,39 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         )
 
     def _forward(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         self._require_time(coords)
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
         output = self._fetch(output_coords, x.shape[0], x.device)
         return output.to(x.dtype), output_coords
 
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Advance the source by one step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Source data and coordinates one step ahead.
         """
         return self._forward(x, coords)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         self._require_time(coords)
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         coords = coords.copy()
         coords["lead_time"] = coords["lead_time"][-1:]
@@ -202,20 +209,20 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
             yield x, coords
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Create an iterator over source frames.
 
         Parameters
         ----------
         x : torch.Tensor
             Initial condition tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Initial condition coordinates.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Initial condition followed by source frames.
         """
         yield from self._default_generator(x, coords)

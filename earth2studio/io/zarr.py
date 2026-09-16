@@ -26,7 +26,6 @@ from zarr.core.array import Array as ZarrArray
 from zarr.core.array import CompressorsLike
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
-from earth2studio.utils.type import CoordSystem
 
 
 class ZarrBackend:
@@ -77,7 +76,7 @@ class ZarrBackend:
 
     def _read_store_state(self, chunks: dict[str, int]) -> None:
         """Populate coords and chunks from any arrays already in the store."""
-        self.coords: CoordSystem = OrderedDict({})
+        self.coords: dict[str, np.ndarray] = OrderedDict({})
         self.chunks = chunks.copy()
         for array in self.root:
             # https://github.com/pydata/xarray/pull/9669
@@ -128,7 +127,7 @@ class ZarrBackend:
     # --8<-- [end:zarr-backend-read]
     def add_array(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
         data: torch.Tensor | list[torch.Tensor] = None,
         **kwargs: Any,
@@ -137,7 +136,7 @@ class ZarrBackend:
 
         Parameters
         ----------
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Ordered dict of coordinate information.
         array_name : str
             Name to add to zarr group for the new array.
@@ -225,7 +224,7 @@ class ZarrBackend:
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """
@@ -286,7 +285,7 @@ class ZarrBackend:
         """
         self.root[name][selection] = data
 
-    def _selection(self, adjusted_coords: CoordSystem) -> tuple:
+    def _selection(self, adjusted_coords: dict[str, np.ndarray]) -> tuple:
         """Build an index selection locating `adjusted_coords` in the store.
 
         Contiguous coordinate subsets (the common case, e.g. writing one forecast
@@ -303,8 +302,11 @@ class ZarrBackend:
         return np.ix_(*indices)
 
     def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self,
+        coords: dict[str, np.ndarray],
+        array_name: str,
+        device: torch.device = "cpu",
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Read data from the current zarr group using the passed array_name.
 

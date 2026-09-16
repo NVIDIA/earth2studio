@@ -28,7 +28,7 @@ from omegaconf import DictConfig
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
+from earth2studio.utils.coords import cat_coords, map_coords
 
 from ..models import load_diagnostics
 from ..output import build_diagnostic_coords
@@ -36,7 +36,9 @@ from ..work import WorkItem
 from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
-def _spatial_ref_from_output_coords(coords: CoordSystem) -> CoordSystem:
+def _spatial_ref_from_output_coords(
+    coords: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
     """Strip a generative model's own ``sample`` axis from a coords reference.
 
     ``src/output.py`` and ``src/online.py`` classify any dim outside
@@ -54,8 +56,8 @@ def _spatial_ref_from_output_coords(coords: CoordSystem) -> CoordSystem:
 
 
 def _rename_sample_axis(
-    x: torch.Tensor, coords: CoordSystem, member_ids: np.ndarray
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor, coords: dict[str, np.ndarray], member_ids: np.ndarray
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Rename a generative model's own ``sample`` axis to ``ensemble``.
 
     CorrDiff-style diagnostics emit their own ``sample`` dimension rather
@@ -87,8 +89,8 @@ def _rename_sample_axis(
 
 
 def _broadcast_ensemble(
-    x: torch.Tensor, coords: CoordSystem, member_ids: np.ndarray
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor, coords: dict[str, np.ndarray], member_ids: np.ndarray
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Insert a broadcast ``ensemble`` axis right before ``variable``.
 
     Used to align a deterministic diagnostic's (or the raw fetched input's)
@@ -109,7 +111,7 @@ def _broadcast_ensemble(
     shape = [-1] * x.ndim
     shape[axis] = len(member_ids)
     x = x.expand(*shape).contiguous()
-    new_coords: CoordSystem = OrderedDict()
+    new_coords: dict[str, np.ndarray] = OrderedDict()
     for i, k in enumerate(keys):
         if i == axis:
             new_coords["ensemble"] = np.asarray(member_ids)
@@ -130,7 +132,7 @@ class DiagnosticPipeline(Pipeline):
     supports_online_scoring = True
 
     diagnostics: list[DiagnosticModel]
-    _dx_input_coords: dict[int, CoordSystem]
+    _dx_input_coords: dict[int, dict[str, np.ndarray]]
     _all_input_vars: list[str]
     _zero_lead: np.ndarray
 
@@ -163,7 +165,7 @@ class DiagnosticPipeline(Pipeline):
         self,
         times: np.ndarray,
         ensemble_size: int,
-    ) -> CoordSystem:
+    ) -> dict[str, np.ndarray]:
         return build_diagnostic_coords(
             self.diagnostics,
             times,
@@ -221,9 +223,9 @@ class DiagnosticPipeline(Pipeline):
     def _run_diagnostics(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         member_ids: np.ndarray,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Run every diagnostic and accumulate outputs onto the raw input.
 
         A generative diagnostic's ``sample`` axis is renamed to
@@ -258,7 +260,7 @@ class DiagnosticPipeline(Pipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         self.seed_member(item)
 
         x, coords = fetch_data(
@@ -276,7 +278,7 @@ class DiagnosticPipeline(Pipeline):
         items: list[WorkItem],
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Run several ensemble members of one IC's diagnostics together.
 
         The input fetch is member-independent (no perturbation stage in

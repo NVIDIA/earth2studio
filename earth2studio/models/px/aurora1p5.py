@@ -25,13 +25,18 @@ import torch
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from aurora import AuroraV1p5 as Aurora1p5_model
@@ -274,31 +279,31 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return self._input_coords.copy()
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(
+    def output_coords(
         self,
-        input_coords: CoordSystem,
-    ) -> CoordSystem:
+        input_coords: dict[str, np.ndarray],
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = self._output_coords.copy()
@@ -307,7 +312,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -370,7 +375,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seconds = float((ts.astype("datetime64[s]") - epoch) / np.timedelta64(1, "s"))  # type: ignore[operator]
         return datetime.fromtimestamp(seconds, tz=timezone.utc)
 
-    def _prepare_input(self, x: torch.Tensor, coords: CoordSystem) -> Batch:
+    def _prepare_input(self, x: torch.Tensor, coords: dict[str, np.ndarray]) -> Batch:
         """Build an Aurora Batch from a (B, 1, 2, 83, H, W) tensor."""
         B = x.shape[0]
 
@@ -456,7 +461,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward_sub_steps(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         lead_time_hours: list[int],
     ) -> list[torch.Tensor]:
         """Run the model at each requested lead time from one AR input pair.
@@ -491,23 +496,23 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 1 hour in the future
         """
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
         x = self._forward_sub_steps(x, coords, lead_time_hours=[1])[0]
         return x, output_coords
 
@@ -521,12 +526,12 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         self.preds_idx = 0
         coords = coords.copy()
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         ic_coords = coords.copy()
         ic_coords["lead_time"] = np.array([coords["lead_time"][-1]])
@@ -580,8 +585,8 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     yield sub_pred, coords_out
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -589,12 +594,12 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model containing
             the output data tensor and coordinate system dictionary.
         """
@@ -694,8 +699,8 @@ class Aurora1p5Ensemble(Aurora1p5):
         return cls(model, static_vars)
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -703,12 +708,12 @@ class Aurora1p5Ensemble(Aurora1p5):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model containing
             the output data tensor and coordinate system dictionary.
         """

@@ -294,7 +294,6 @@ def resolve_time_groups(
 
     Returns
     -------
-    dict[str, np.ndarray]
         Group name to matching time values.
     """
     groups: dict[str, np.ndarray] = {}

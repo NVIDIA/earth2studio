@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import torch
 
 from earth2studio.statistics.moments import mean
@@ -22,7 +23,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo.metrics.general.crps import kcrps
@@ -94,17 +94,18 @@ class crps:
             else [self.ensemble_dimension] + self._reduction_dimensions
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -117,10 +118,10 @@ class crps:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -130,18 +131,18 @@ class crps:
         x : torch.Tensor
             Input tensor of ensemble forecast or prediction data. This is the tensor
             over which the CRPS/CDF is calculated with respect to.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
             Observation or validation tensor.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Returns CRPS tensor with appropriate reduced coordinates.
         """
         if not all([rd in x_coords for rd in self.reduction_dimensions]):

@@ -22,6 +22,8 @@ import pandas as pd
 import pytest
 import torch
 
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+
 try:
     from weathernext.utils import fiddle_config_io
     from weathernext.weathernext2 import fgn
@@ -34,6 +36,7 @@ from earth2studio.models.px.weathernext2_cyclones_mini import (
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
 )
+from earth2studio.utils.coords import coord_array
 
 TEST_TIME = np.array([np.datetime64("2025-01-01T00:00")])
 
@@ -58,10 +61,14 @@ def mock_weathernext2_model():
 
 
 def fetch_random_input(model, time=TEST_TIME, device="cpu"):
-    coords = model._input_tensor_coords()
+    coords = tensor_input_coords(model)
     spatial = OrderedDict((dim, coords[dim]) for dim in ("lat", "lon"))
     return fetch_data(
-        Random(spatial), time, coords["variable"], coords["lead_time"], device=device
+        Random(coord_array(tuple(spatial), spatial)),
+        time,
+        coords["variable"],
+        coords["lead_time"],
+        device=device,
     ).e2s.to_torch()
 
 
@@ -188,10 +195,10 @@ def test_weathernext2_call_updates_cyclone_tracks(mock_weathernext2_model):
 def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
     model = mock_weathernext2_model.to(device)
     x, coords = fetch_data(
-        Random(coords),
+        Random(coord_array(tuple(coords), coords)),
         TEST_TIME,
-        model._input_tensor_coords()["variable"],
-        model._input_tensor_coords()["lead_time"],
+        tensor_input_coords(model)["variable"],
+        tensor_input_coords(model)["lead_time"],
         device=device,
     ).e2s.to_torch()
     with pytest.raises((KeyError, ValueError)):
@@ -205,7 +212,7 @@ def test_weathernext2_package():
         WeatherNext2CyclonesMini.load_default_package(), jit_compile=False
     ).to("cuda:0")
     assert (
-        len(model._input_tensor_coords()["lat"]),
-        len(model._input_tensor_coords()["lon"]),
-        len(model._output_tensor_coords(model._input_tensor_coords())["variable"]),
+        len(tensor_input_coords(model)["lat"]),
+        len(tensor_input_coords(model)["lon"]),
+        len(tensor_output_coords(model, tensor_input_coords(model))["variable"]),
     ) == (181, 360, 84)

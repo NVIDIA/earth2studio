@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import torch
 
 from earth2studio.statistics.moments import mean
 from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class energy_score:
@@ -114,18 +114,19 @@ class energy_score:
             dims = dims + self._reduction_dimensions
         return dims
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to
         the given input coordinates.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -138,10 +139,10 @@ class energy_score:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply the Energy Score metric to ensemble forecast `x` and observation `y`.
 
@@ -149,18 +150,18 @@ class energy_score:
         ----------
         x : torch.Tensor
             Ensemble forecast tensor. Must contain the ensemble dimension.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Coordinate system describing the `x` tensor. Must contain
             `ensemble_dimension` and all `multivariate_dimensions`.
         y : torch.Tensor
             Observation tensor. Must not contain the ensemble dimension.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Coordinate system describing the `y` tensor. Must contain
             all `multivariate_dimensions`.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Energy Score tensor with appropriate reduced coordinates.
         """
         # Validate reduction dimensions exist in x_coords
@@ -220,7 +221,7 @@ class energy_score:
 def _energy_score_compute(
     ensemble: torch.Tensor,
     truth: torch.Tensor,
-    x_coords: CoordSystem,
+    x_coords: dict[str, np.ndarray],
     ensemble_dimension: str,
     multivariate_dimensions: list[str],
     fair: bool = False,
@@ -239,7 +240,7 @@ def _energy_score_compute(
         Ensemble forecast tensor with ensemble dimension.
     truth : torch.Tensor
         Observation tensor without ensemble dimension.
-    x_coords : CoordSystem
+    x_coords : dict[str, np.ndarray]
         Coordinate system for the ensemble tensor.
     ensemble_dimension : str
         Name of the ensemble dimension.

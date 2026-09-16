@@ -36,11 +36,10 @@ from earth2studio.grids import (
     infer_grid,
     resolve_grid,
 )
-from earth2studio.utils.coordinate import (
+from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     statistics_from_metadata,
 )
-from earth2studio.utils.type import CoordSystem
 
 _BATCH_METADATA_KEY = "_earth2studio_batch"
 
@@ -115,8 +114,8 @@ def _reshape(data: Any, shape: tuple[int, ...], contiguous: bool) -> Any:
     return result
 
 
-def _coord_system(array: xr.DataArray) -> CoordSystem:
-    coords: CoordSystem = OrderedDict()
+def _coord_system(array: xr.DataArray) -> dict[str, np.ndarray]:
+    coords: dict[str, np.ndarray] = OrderedDict()
     for dim, size in array.sizes.items():
         if dim in array.coords:
             coords[str(dim)] = np.asarray(array.coords[dim].to_numpy())
@@ -127,7 +126,7 @@ def _coord_system(array: xr.DataArray) -> CoordSystem:
 
 def from_torch(
     tensor: torch.Tensor,
-    coords: CoordSystem | xr.DataArray,
+    coords: dict[str, np.ndarray] | xr.DataArray,
     name: Hashable | None = None,
     attrs: Mapping[Any, Any] | None = None,
     requires_grad: bool = False,
@@ -141,7 +140,7 @@ def from_torch(
     ----------
     tensor : torch.Tensor
         Tensor containing the data.
-    coords : CoordSystem | xr.DataArray
+    coords : dict[str, np.ndarray] | xr.DataArray
         Ordered coordinate mapping or DataArray coordinate template.
     name : Hashable | None, optional
         DataArray name, by default None
@@ -286,7 +285,9 @@ class Earth2StudioAccessor:
             return _replace_data(self._array, self._array.data)
         return self._array.as_numpy()
 
-    def to_torch(self, requires_grad: bool = False) -> tuple[torch.Tensor, CoordSystem]:
+    def to_torch(
+        self, requires_grad: bool = False
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Convert to the legacy Torch tensor and coordinate representation.
 
         Parameters
@@ -296,7 +297,7 @@ class Earth2StudioAccessor:
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Tensor sharing memory with the DataArray data and its coordinates.
 
         Raises

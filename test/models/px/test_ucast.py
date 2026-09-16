@@ -24,7 +24,9 @@ import torch
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import UCast
 from earth2studio.models.px.ucast import VARIABLES
+from earth2studio.models.px.utils import tensor_input_coords
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class PhooUCastModel(torch.nn.Module):
@@ -90,15 +92,15 @@ def _input(
     time: np.ndarray,
     device: str = "cpu",
 ) -> tuple[torch.Tensor, OrderedDict]:
-    dc = ucast_model._input_tensor_coords()
+    dc = tensor_input_coords(ucast_model)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
 
-    ds = Random(dc)
-    lead_time = ucast_model._input_tensor_coords()["lead_time"]
-    variable = ucast_model._input_tensor_coords()["variable"]
+    ds = Random(coord_array(tuple(dc), dc))
+    lead_time = tensor_input_coords(ucast_model)["lead_time"]
+    variable = tensor_input_coords(ucast_model)["variable"]
     return fetch_data(ds, time, variable, lead_time, device=device).e2s.to_torch()
 
 

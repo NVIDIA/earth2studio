@@ -15,6 +15,7 @@
 # limitations under the License.
 from collections import OrderedDict
 from collections.abc import Hashable
+from functools import wraps
 from typing import Any
 
 import numpy as np
@@ -29,7 +30,7 @@ from earth2studio.grids import (
     ProjectedGrid,
     resolve_grid,
 )
-from earth2studio.utils.coordinate import CoordinateSystem, coord_array
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordSystem
 
 _PUBLIC_VARIABLES = {
@@ -64,7 +65,9 @@ def _same_grid(first: GridDefinition, second: GridDefinition) -> bool:
     )
 
 
-def _spatial_grid(model: Any, coords: CoordSystem) -> str | GridDefinition | None:
+def _spatial_grid(
+    model: Any, coords: dict[str, np.ndarray]
+) -> str | GridDefinition | None:
     explicit = getattr(model, "_grid", None)
     if explicit is not None:
         return explicit
@@ -106,7 +109,7 @@ def _spatial_grid(model: Any, coords: CoordSystem) -> str | GridDefinition | Non
     return None
 
 
-def _public_coords(coords: CoordSystem) -> CoordSystem:
+def _public_coords(coords: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     return OrderedDict(
         (
             "y" if key == "hrrr_y" else "x" if key == "hrrr_x" else key,
@@ -122,7 +125,7 @@ def _public_coords(coords: CoordSystem) -> CoordSystem:
     )
 
 
-def _signature(model: Any, coords: CoordSystem) -> xr.DataArray:
+def _signature(model: Any, coords: dict[str, np.ndarray]) -> xr.DataArray:
     public = _public_coords(coords)
     dynamic: list[str] = []
     for dimension, values in public.items():
@@ -147,7 +150,9 @@ def _signature(model: Any, coords: CoordSystem) -> xr.DataArray:
     )
 
 
-def _tensor_coords(reference: CoordSystem, array: xr.DataArray) -> CoordSystem:
+def _tensor_coords(
+    reference: dict[str, np.ndarray], array: xr.DataArray
+) -> dict[str, np.ndarray]:
     aliases = {"y": "hrrr_y", "x": "hrrr_x"} if "hrrr_y" in reference else {}
     return OrderedDict(
         (
@@ -170,29 +175,62 @@ def _tensor_coords(reference: CoordSystem, array: xr.DataArray) -> CoordSystem:
     )
 
 
-class PrognosticMixin:
-    """Provide DataArray coordinate declarations and tensor execution hooks."""
+def tensor_input_coords(model: Any) -> dict[str, np.ndarray]:
+    """Return the tensor coordinate mapping behind a public declaration."""
+    method = model.input_coords
+    wrapped = getattr(method, "__wrapped__", None)
+    return method() if wrapped is None else wrapped(method.__self__)
 
-    def input_coords(self) -> CoordinateSystem:
-        """Return ordered allocation-free input signatures."""
-        return (_signature(self, self._input_tensor_coords()),)
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Return ordered output signatures for one forecast step."""
+def tensor_output_coords(
+    model: Any, input_coords: dict[str, np.ndarray]
+) -> dict[str, np.ndarray]:
+    """Transform tensor coordinates using a public declaration."""
+    method = model.output_coords
+    wrapped = getattr(method, "__wrapped__", None)
+    return (
+        method(input_coords)
+        if wrapped is None
+        else wrapped(method.__self__, input_coords)
+    )
+
+
+def coordinate_input(function: Any) -> Any:
+    """Expose a tensor coordinate declaration as coordinate DataArrays."""
+
+    @wraps(function)
+    def wrapped(model: Any) -> CoordSystem:
+        return (_signature(model, function(model)),)
+
+    wrapped.__doc__ = "Return the model input coordinate system."
+    wrapped.__annotations__ = {"return": CoordSystem}
+    return wrapped
+
+
+def coordinate_output(function: Any) -> Any:
+    """Expose a tensor coordinate transform as coordinate DataArrays."""
+
+    @wraps(function)
+    def wrapped(model: Any, input_coords: CoordSystem) -> CoordSystem:
         if len(input_coords) != 1:
             raise ValueError(f"Expected 1 DataArray, received {len(input_coords)}")
-        coords = _tensor_coords(self._input_tensor_coords(), input_coords[0])
-        return (_signature(self, self._output_tensor_coords(coords)),)
+        tensor_coords = _tensor_coords(tensor_input_coords(model), input_coords[0])
+        return (_signature(model, function(model, tensor_coords)),)
 
-    def _input_tensor_coords(self) -> CoordSystem:
-        raise NotImplementedError
+    wrapped.__doc__ = "Return the model output coordinate system."
+    wrapped.__annotations__ = {
+        "input_coords": CoordSystem,
+        "return": CoordSystem,
+    }
+    return wrapped
 
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        raise NotImplementedError
+
+class PrognosticMixin:
+    """Add front and rear hooks to a prognostic iterator."""
 
     def _default_hook(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         return x, coords
 
     front_hook = _default_hook

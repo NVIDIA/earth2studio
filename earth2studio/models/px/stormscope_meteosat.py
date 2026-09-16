@@ -28,7 +28,13 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -38,7 +44,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -315,7 +320,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_times = input_times
         self.output_times = output_times
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -328,19 +334,21 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Output coordinate system with ``lead_time`` advanced by one step.
         """
 
@@ -355,7 +363,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
 
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
@@ -614,8 +622,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Run the prognostic model one step forward.
 
         Parameters
@@ -625,19 +633,19 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             containing ``L = len(self.input_times)`` consecutive raw MTG frames per
             ``(batch, time)`` entry, ordered oldest first along the ``lead_time``
             dimension.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.  ``coords["lead_time"]`` must equal
             ``self.input_times``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Predicted next frame as a denormalised tensor of shape
             ``(batch, time, 1, variable, y, x)`` and the corresponding output
             coordinate system.
         """
 
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         # x: (batch, time, n_input_times, C, H, W)
         B, T, L, C, H, W = x.shape
@@ -658,8 +666,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def create_generator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords: dict[str, np.ndarray],
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Create a generator for autoregressive rollout.
 
         The first ``next()`` call yields the initial condition unchanged.
@@ -670,13 +678,13 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
-            containing raw MTG frames; must conform to ``self._input_tensor_coords()``.
-        coords : CoordSystem
-            Input coordinate system; must conform to ``self._input_tensor_coords()``.
+            containing raw MTG frames; must conform to ``tensor_input_coords(self)``.
+        coords : dict[str, np.ndarray]
+            Input coordinate system; must conform to ``tensor_input_coords(self)``.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Predicted frame tensor of shape ``(batch, time, 1, variable, y, x)``
             (denormalised) and its output coordinate system.
         """
@@ -704,7 +712,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
                 yield (
                     self.denormalize(x[:, :, -1:]),
-                    self._output_tensor_coords(coords),
+                    tensor_output_coords(self, coords),
                 )
 
                 # roll time step
@@ -722,20 +730,20 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def create_iterator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords: dict[str, np.ndarray],
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Create an iterator for autoregressive rollout.
 
         Parameters
         ----------
         x : torch.Tensor
-            Input tensor; must conform to ``self._input_tensor_coords()``.
-        coords : CoordSystem
-            Input coordinate system; must conform to ``self._input_tensor_coords()``.
+            Input tensor; must conform to ``tensor_input_coords(self)``.
+        coords : dict[str, np.ndarray]
+            Input coordinate system; must conform to ``tensor_input_coords(self)``.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Predicted frame tensor and output coordinate system after each step.
         """
         yield from self.create_generator(x, coords)
@@ -744,10 +752,10 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def combine_1km_2km_inputs(
         cls,
         x_1km: torch.Tensor,
-        coords_1km: CoordSystem,
+        coords_1km: dict[str, np.ndarray],
         x_2km: torch.Tensor,
-        coords_2km: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords_2km: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Combine 1 km and 2 km resolution FCI channels onto the model 2 km grid.
 
         MTG FCI visible and NIR channels are natively provided at 1 km resolution
@@ -761,16 +769,16 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_1km : torch.Tensor
             Input tensor of 1 km resolution channels, shape ``(..., C_1km, 2*H, 2*W)``
             where ``H`` and ``W`` are the 2 km grid dimensions.
-        coords_1km : CoordSystem
+        coords_1km : dict[str, np.ndarray]
             Coordinate system for ``x_1km``.
         x_2km : torch.Tensor
             Input tensor of 2 km resolution channels, shape ``(..., C_2km, H, W)``.
-        coords_2km : CoordSystem
+        coords_2km : dict[str, np.ndarray]
             Coordinate system for ``x_2km``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Combined tensor and coordinate system on the common 2 km grid, with
             shape ``(..., C_1km+C_2km, H, W)`` and variables ordered as 1 km
             variables first followed by 2 km variables.

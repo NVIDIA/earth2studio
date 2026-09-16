@@ -49,8 +49,6 @@ from src.pipelines.stormscope import (
 )
 from src.work import WorkItem
 
-from earth2studio.utils.coords import CoordSystem
-
 # ---------------------------------------------------------------------------
 # Helper-function tests
 # ---------------------------------------------------------------------------
@@ -110,7 +108,7 @@ class _StubStormScope:
 
     # --- coords ------------------------------------------------------------
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         return OrderedDict(
             [
                 ("batch", np.empty(0)),
@@ -122,7 +120,9 @@ class _StubStormScope:
             ]
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         out_lt = np.array([_hours_td(60)]) + input_coords["lead_time"][-1]
         return OrderedDict(
             [
@@ -150,7 +150,7 @@ class _StubStormScope:
     # --- inference ---------------------------------------------------------
 
     def _forward_shape(
-        self, coords: CoordSystem, out_coords: CoordSystem
+        self, coords: dict[str, np.ndarray], out_coords: dict[str, np.ndarray]
     ) -> tuple[int, ...]:
         # (batch=1, time=1, lead=1, var=N, y=4, x=5) — matches StormScope's 6D layout.
         return (
@@ -163,8 +163,8 @@ class _StubStormScope:
         )
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         self.call_count += 1
         out_coords = self.output_coords(coords)
         return torch.zeros(self._forward_shape(coords, out_coords)), out_coords
@@ -172,10 +172,10 @@ class _StubStormScope:
     def next_input(
         self,
         pred: torch.Tensor,
-        pred_coords: CoordSystem,
+        pred_coords: dict[str, np.ndarray],
         x: torch.Tensor,
-        x_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         # Non-sliding (60-min model): pred becomes the next input directly.
         self.next_input_calls += 1
         return pred, pred_coords.copy()
@@ -204,10 +204,10 @@ class _StubStormScopeMRMS(_StubStormScope):
     def call_with_conditioning(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         conditioning: torch.Tensor,
-        conditioning_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        conditioning_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         self.cond_call_count += 1
         self.last_conditioning = conditioning
         return self.__call__(x, coords)

@@ -29,7 +29,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
 )
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
+from earth2studio.utils.type import TimeArray, VariableArray
 
 
 class ARCO_ERA5RxBase:
@@ -269,7 +269,7 @@ class CosineSolarZenith:  # pragma: no cover
         [lat, lon] in the last two dimensions.
     """
 
-    def __init__(self, domain_coords: CoordSystem):
+    def __init__(self, domain_coords: dict[str, np.ndarray]):
         handshake_dim(domain_coords, "lat", -2)  # TODO: Generalize to any location
         handshake_dim(domain_coords, "lon", -1)
         self.domain_coords = domain_coords

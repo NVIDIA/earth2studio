@@ -16,12 +16,12 @@
 
 from collections.abc import Callable
 
+import numpy as np
 import torch
 from loguru import logger
 
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
-from earth2studio.utils.type import CoordSystem
 
 
 class BredVector:
@@ -54,8 +54,8 @@ class BredVector:
     def __init__(
         self,
         model: Callable[
-            [torch.Tensor, CoordSystem],
-            tuple[torch.Tensor, CoordSystem],
+            [torch.Tensor, dict[str, np.ndarray]],
+            tuple[torch.Tensor, dict[str, np.ndarray]],
         ],
         noise_amplitude: float | torch.Tensor = 0.05,
         integration_steps: int = 20,
@@ -76,21 +76,21 @@ class BredVector:
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply perturbation method
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor intended to apply perturbation on
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor
 
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
+        tuple[torch.Tensor, dict[str, np.ndarray]]:
             Output tensor and respective coordinate system dictionary
         """
         if "lead_time" in coords and coords["lead_time"].shape[0] > 1:

@@ -33,14 +33,19 @@ import torch
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import onnxruntime as ort
@@ -157,31 +162,31 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.device = torch.ones(1).device  # Hack to get default device
         self.ort = None
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return self._input_coords.copy()
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(
+    def output_coords(
         self,
-        input_coords: CoordSystem,
-    ) -> CoordSystem:
+        input_coords: dict[str, np.ndarray],
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = self._output_coords.copy()
@@ -190,7 +195,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
@@ -251,18 +256,18 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         ort_session: InferenceSession,
         lead_time: np.ndarray | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
 
         if lead_time is not None:
             previous_lead_time = self._output_coords["lead_time"]
             self._output_coords["lead_time"] = lead_time
-            output_coords = self._output_tensor_coords(coords)
+            output_coords = tensor_output_coords(self, coords)
             self._output_coords["lead_time"] = previous_lead_time
         else:
-            output_coords = self._output_tensor_coords(coords)
+            output_coords = tensor_output_coords(self, coords)
 
         # Ref: https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -315,13 +320,13 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return batch_output, output_coords
 
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         raise NotImplementedError
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -329,13 +334,13 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
@@ -405,20 +410,20 @@ class Pangu24(PanguBase):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs 24 hour prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 24 hours in the future
         """
 
@@ -426,11 +431,11 @@ class Pangu24(PanguBase):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         yield x, coords
 
@@ -525,31 +530,31 @@ class Pangu6(PanguBase):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs 6 hour prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future
         """
         return self._forward(x, coords, self.ort)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         yield x, coords
 
@@ -663,31 +668,31 @@ class Pangu3(PanguBase):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs 3 hour prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 3 hours in the future
         """
         return self._forward(x, coords, self.ort)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         yield x, coords
 

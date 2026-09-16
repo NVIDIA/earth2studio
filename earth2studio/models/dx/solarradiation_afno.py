@@ -32,7 +32,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
@@ -124,12 +123,11 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("landsea_mask", landsea_mask)
         self.register_buffer("sincos_latlon", sincos_latlon)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -144,18 +142,19 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -272,12 +271,12 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         grid = np.meshgrid(lon, lat)
         return (grid[0].reshape(-1), grid[1].reshape(-1))
 
-    def compute_sza(self, output_coords: CoordSystem) -> torch.Tensor:
+    def compute_sza(self, output_coords: dict[str, np.ndarray]) -> torch.Tensor:
         """Compute solar zenith angle for given coordinates.
 
         Parameters
         ----------
-        output_coords : CoordSystem
+        output_coords : dict[str, np.ndarray]
             Output coordinate system
 
         Returns
@@ -297,8 +296,8 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         # Normalize input
         x = (x - self.era5_mean) / self.era5_std

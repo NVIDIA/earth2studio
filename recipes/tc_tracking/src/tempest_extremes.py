@@ -35,7 +35,6 @@ from rich.traceback import Traceback
 
 from earth2studio.io import KVBackend
 from earth2studio.utils.coords import (
-    CoordSystem,
     cat_coords,
     map_coords,
     split_coords,
@@ -478,7 +477,7 @@ class TempestExtremes:
 
         return ins, outs, node_files, track_files
 
-    def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
+    def record_state(self, xx: torch.Tensor, coords: dict[str, np.ndarray]) -> None:
         """Record state data to the internal store.
 
         Updates store with current time and ensemble information,
@@ -488,7 +487,7 @@ class TempestExtremes:
         ----------
         xx : torch.Tensor
             Input tensor data
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system for the input data
         """
         # update store mem and time
@@ -499,7 +498,7 @@ class TempestExtremes:
         # concatenate static data
         if self.static_vars is not None and self.static_coords is not None:
             self.static_vars = self.static_vars.to(xx.device)
-            static_coords = CoordSystem(self.static_coords)
+            static_coords = dict[str, np.ndarray](self.static_coords)
             if len(xx.shape) > len(self.static_vars.shape):
                 _static_vars, _static_coords = tile_coords(
                     self.static_vars, static_coords, coords
@@ -877,14 +876,14 @@ class AsyncTempestExtremes(TempestExtremes):
         self._has_failed = False  # Track if any previous task failed
         self._cleanup_done = False  # Track if cleanup has been performed
 
-    def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
+    def record_state(self, xx: torch.Tensor, coords: dict[str, np.ndarray]) -> None:
         """Record state data, checking for any previous task failures.
 
         Parameters
         ----------
         xx : torch.Tensor
             Input tensor data
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system for the input data
 
         Raises

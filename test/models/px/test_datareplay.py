@@ -22,10 +22,13 @@ import torch
 
 from earth2studio.data import Random, Random_FX, fetch_data
 from earth2studio.models.px.datareplay import DataReplay
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+from earth2studio.utils.coords import coord_array
 
 LAT = np.linspace(90, -90, 8)
 LON = np.linspace(0, 360, 16, endpoint=False)
 DOMAIN = OrderedDict(lat=LAT, lon=LON)
+COORDINATE_SYSTEM = coord_array(tuple(DOMAIN), DOMAIN)
 TIME = np.array([np.datetime64("2020-01-01T00:00:00")])
 VARIABLE = np.array(["t2m", "u10m", "z500"])
 STEP = np.timedelta64(6, "h")
@@ -42,7 +45,7 @@ def _initial_condition(source: Random | Random_FX):
 
 @pytest.mark.parametrize("source_type", [Random, Random_FX])
 def test_datareplay_call(source_type):
-    source = source_type(DOMAIN)
+    source = source_type(COORDINATE_SYSTEM)
     x, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
 
@@ -57,7 +60,7 @@ def test_datareplay_call(source_type):
 
 @pytest.mark.parametrize("source_type", [Random, Random_FX])
 def test_datareplay_iter(source_type):
-    source = source_type(DOMAIN)
+    source = source_type(COORDINATE_SYSTEM)
     x, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
     hook_calls = {"front": 0, "rear": 0}
@@ -91,29 +94,30 @@ def test_datareplay_iter(source_type):
 
 
 def test_datareplay_input_coords_copy():
-    replay = DataReplay(Random(DOMAIN), "t2m", DOMAIN)
-    coords = replay._input_tensor_coords()
+    replay = DataReplay(Random(COORDINATE_SYSTEM), "t2m", DOMAIN)
+    coords = tensor_input_coords(replay)
     coords["variable"][0] = "msl"
 
     assert str(replay) == "DataReplay()"
-    assert replay._input_tensor_coords()["variable"][0] == "t2m"
+    assert tensor_input_coords(replay)["variable"][0] == "t2m"
 
 
 def test_datareplay_output_coords_copy():
-    source = Random(DOMAIN)
+    source = Random(COORDINATE_SYSTEM)
     _, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN)
     original_lead_time = coords["lead_time"].copy()
 
-    output_coords = replay._output_tensor_coords(coords)
+    output_coords = tensor_output_coords(replay, coords)
 
     np.testing.assert_array_equal(coords["lead_time"], original_lead_time)
     assert output_coords is not coords
 
 
 def test_datareplay_grid_mismatch_raises():
-    source = Random(OrderedDict(lat=np.linspace(90, -90, 9), lon=LON))
-    x, coords = _initial_condition(Random(DOMAIN))
+    mismatch = OrderedDict(lat=np.linspace(90, -90, 9), lon=LON)
+    source = Random(coord_array(tuple(mismatch), mismatch))
+    x, coords = _initial_condition(Random(COORDINATE_SYSTEM))
     replay = DataReplay(source, VARIABLE, DOMAIN)
 
     with pytest.raises(ValueError, match="not the same"):
@@ -121,7 +125,7 @@ def test_datareplay_grid_mismatch_raises():
 
 
 def test_datareplay_nonfinite_raises(monkeypatch):
-    source = Random(DOMAIN)
+    source = Random(COORDINATE_SYSTEM)
     x, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN)
     monkeypatch.setattr(np.random, "randn", lambda *shape: np.full(shape, np.nan))
@@ -138,7 +142,7 @@ def test_datareplay_nonfinite_raises(monkeypatch):
     ],
 )
 def test_datareplay_invalid_coords(coords_update, match):
-    source = Random(DOMAIN)
+    source = Random(COORDINATE_SYSTEM)
     x, coords = _initial_condition(source)
     coords.update(coords_update)
     replay = DataReplay(source, VARIABLE, DOMAIN)
@@ -158,4 +162,4 @@ def test_datareplay_invalid_coords(coords_update, match):
 )
 def test_datareplay_invalid_step(step, error):
     with pytest.raises(error):
-        DataReplay(Random(DOMAIN), VARIABLE, DOMAIN, step=step)
+        DataReplay(Random(COORDINATE_SYSTEM), VARIABLE, DOMAIN, step=step)

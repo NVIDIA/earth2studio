@@ -27,13 +27,18 @@ from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import anemoi.models  # noqa: F401
@@ -284,11 +289,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )[0],
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -304,17 +309,19 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = OrderedDict(
@@ -334,7 +341,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -634,7 +641,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _prepare_input(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
     ) -> torch.Tensor:
         """Prepare input tensor and coordinates for the AIFS model."""
         handshake_size(coords, "time", 1)  # Prepare input limited to 1 time stamp
@@ -738,7 +745,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _update_input(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
     ) -> torch.Tensor:
         """Update time based inputs."""
 
@@ -789,8 +796,8 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _prepare_output(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepare input tensor and coordinates for the AIFS model."""
         # Remove generated forcings
         x = x[..., self.output_ids]
@@ -824,10 +831,10 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         step: int = 1,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self._output_tensor_coords(coords)
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
+        output_coords = tensor_output_coords(self, coords)
         with torch.autocast(device_type=str(x.device), dtype=torch.float16):
             y = self.model.predict_step(x, fcstep=step)
             out = torch.zeros(
@@ -849,29 +856,31 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future
         """
-        _ = self._output_tensor_coords(coords)  # NOTE: Quick fix for exception handling
+        _ = tensor_output_coords(self, coords)  # NOTE: Quick fix for exception handling
         x = self._prepare_input(x, coords)
         x, coords = self._forward(x, coords)
         x = self._prepare_output(x, coords)
         return x, coords
 
-    def _fill_input(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _fill_input(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> torch.Tensor:
         """Helper function of create a lat/lon tensor with the input prognostic and zero
         filled diagnostic variables.
         """
@@ -897,11 +906,11 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
         output_tensor, coords_out = self._fill_input(x, coords)
         coords_out["lead_time"] = coords["lead_time"][1:]
         yield output_tensor[:, :, 1:], coords_out
@@ -929,26 +938,26 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Update coordinates
             coords["lead_time"] = (
                 coords["lead_time"]
-                + self._output_tensor_coords(self._input_tensor_coords())["lead_time"]
+                + tensor_output_coords(self, tensor_input_coords(self))["lead_time"]
             )
             # Prepare input tensor
             x = self._update_input(y, coords)
             step += 1
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """

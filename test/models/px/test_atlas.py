@@ -23,7 +23,9 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Atlas
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class PhooAtlasModel(torch.nn.Module):
@@ -142,17 +144,17 @@ def test_atlas_call(time, device, batch_size, atlas_test_components):
     """Test Atlas __call__ method with different times and devices."""
     p = Atlas(**atlas_test_components).to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add batch dimension
@@ -170,12 +172,12 @@ def test_atlas_call(time, device, batch_size, atlas_test_components):
             batch_size,
             len(time),
             1,
-            len(p._output_tensor_coords(p._input_tensor_coords())["variable"]),
+            len(tensor_output_coords(p, tensor_input_coords(p))["variable"]),
             721,
             1440,
         ]
     )
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
 
@@ -198,17 +200,17 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
 
     p = Atlas(**atlas_test_components).to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
@@ -231,7 +233,7 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
         assert out.shape[0] == ensemble
         assert (
             out_coords["variable"]
-            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
+            == tensor_output_coords(p, tensor_input_coords(p))["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -263,11 +265,11 @@ def test_atlas_exceptions(dc, atlas_test_components, device):
     p = Atlas(**atlas_test_components).to(device)
 
     # Initialize Data Source with invalid coordinates
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError, RuntimeError)):
@@ -294,13 +296,13 @@ def test_atlas_prep_next_input(atlas_test_components, batch_size, device):
 
     # Input state at t-6h and t=0
     x = torch.randn(batch_size, 1, time_steps, n_vars, lat, lon, device=device)
-    coords = p._input_tensor_coords()
+    coords = tensor_input_coords(p)
     coords["batch"] = np.arange(batch_size)
     coords["time"] = np.array([np.datetime64("2020-01-01T00:00")])
 
     # Prediction at t+6h (output has shape [batch, 1, n_vars, lat, lon])
     x_pred = torch.randn(batch_size, 1, 1, n_vars, lat, lon, device=device)
-    coords_pred = p._output_tensor_coords(coords)
+    coords_pred = tensor_output_coords(p, coords)
     coords_pred["batch"] = coords["batch"]
     coords_pred["time"] = coords["time"]
 
@@ -345,7 +347,7 @@ def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
     x = torch.randn(
         ensemble_size, batch_size, 1, time_steps, n_vars, lat, lon, device=device
     )
-    coords = p._input_tensor_coords()
+    coords = tensor_input_coords(p)
     coords.update({"ensemble": np.arange(ensemble_size)})
     coords.move_to_end("ensemble", last=False)
     coords["batch"] = np.arange(batch_size)
@@ -355,7 +357,7 @@ def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
     x_pred = torch.randn(
         ensemble_size, batch_size, 1, 1, n_vars, lat, lon, device=device
     )
-    coords_pred = p._output_tensor_coords(coords)
+    coords_pred = tensor_output_coords(p, coords)
     coords_pred.update({"ensemble": coords["ensemble"]})
     coords_pred.move_to_end("ensemble", last=False)
     coords_pred["batch"] = coords["batch"]
@@ -378,7 +380,7 @@ def test_atlas_prep_next_input_with_ensemble(atlas_test_components, device):
 def test_atlas_input_coords(atlas_test_components):
     """Test that input_coords returns expected coordinate system."""
     p = Atlas(**atlas_test_components)
-    coords = p._input_tensor_coords()
+    coords = tensor_input_coords(p)
 
     # Check expected keys
     assert "batch" in coords
@@ -410,8 +412,8 @@ def test_atlas_input_coords(atlas_test_components):
 def test_atlas_output_coords(atlas_test_components):
     """Test that output_coords returns expected coordinate system."""
     p = Atlas(**atlas_test_components)
-    input_coords = p._input_tensor_coords()
-    output_coords = p._output_tensor_coords(input_coords)
+    input_coords = tensor_input_coords(p)
+    output_coords = tensor_output_coords(p, input_coords)
 
     # Check expected keys
     assert "batch" in output_coords
@@ -444,7 +446,7 @@ def test_atlas_package(device):
 
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
-    input_coords = model._input_tensor_coords()
+    input_coords = tensor_input_coords(model)
     lead_time = input_coords["lead_time"]
     variable = input_coords["variable"]
     lat = len(input_coords["lat"])
@@ -464,7 +466,7 @@ def test_atlas_package(device):
     input_coords["time"] = time
 
     output, output_coords = model(x, input_coords)
-    expected_coords = model._output_tensor_coords(input_coords)
+    expected_coords = tensor_output_coords(model, input_coords)
 
     assert output.shape == (
         batch_size,

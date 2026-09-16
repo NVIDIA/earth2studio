@@ -24,14 +24,19 @@ import torch
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo.models.afno import AFNO
@@ -116,12 +121,12 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("scale", scale)
         self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -134,18 +139,20 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -163,7 +170,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key != "batch":
                 handshake_dim(test_coords, key, i)
@@ -183,8 +190,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "fcn"
 
     def _restore_checkpoint_state(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem, bool]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray], bool]:
         if (
             self.checkpoint.checkpoint_level == 2
             and self.checkpoint.checkpoint_state_loaded
@@ -201,7 +208,9 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return x, coords, True
         return x, coords, False
 
-    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
+    def _save_checkpoint_state(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> None:
         if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
             self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
             self.checkpoint.coord_keys = tuple(coords.keys())
@@ -263,24 +272,24 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future
         """
         x, coords, _ = self._restore_checkpoint_state(x, coords)
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         x = self._forward(x)
         self._save_checkpoint_state(x, output_coords)
@@ -289,12 +298,12 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
         x, coords, restored = self._restore_checkpoint_state(x, coords)
 
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
         if not restored:
             self._save_checkpoint_state(x, coords)
@@ -305,7 +314,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            coords = self._output_tensor_coords(coords)
+            coords = tensor_output_coords(self, coords)
             x = self._forward(x)
 
             # Rear hook
@@ -315,8 +324,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield x, coords.copy()
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -324,13 +333,13 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """

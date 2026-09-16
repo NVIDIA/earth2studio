@@ -35,7 +35,6 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.interp import NearestNeighborInterpolator
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module  # type: ignore[import-untyped]
@@ -229,12 +228,11 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         self.num_steps = num_steps
         self.amp = amp
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system.
 
         Returns
         -------
-        CoordSystem
             GOES input coordinates.
         """
         return OrderedDict(
@@ -248,17 +246,18 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Native-grid GOES input coordinates.
 
         Returns
         -------
-        CoordSystem
             Sampled GHI output coordinates.
         """
         target = self.input_coords()
@@ -510,8 +509,8 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         return torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
 
     def _prepare_input(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         native_grid = (
             "y" in coords
             and "x" in coords
@@ -534,7 +533,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             output_coords["x"] = self.x
         return torch.where(self.input_valid_mask, x, 0.0), output_coords
 
-    def _target_datetimes(self, coords: CoordSystem) -> np.ndarray:
+    def _target_datetimes(self, coords: dict[str, np.ndarray]) -> np.ndarray:
         times = np.asarray(coords["time"]).astype(np.datetime64)
         return np.array(
             [
@@ -546,7 +545,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
 
     def _insolation(
-        self, coords: CoordSystem, batch_size: int, scale: float
+        self, coords: dict[str, np.ndarray], batch_size: int, scale: float
     ) -> torch.Tensor:
         import pandas as pd  # type: ignore[import-untyped]
 
@@ -565,7 +564,9 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     def _normalize_input(self, x: torch.Tensor) -> torch.Tensor:
         return (x - self.conditioning_means) / self.conditioning_stds
 
-    def _build_condition(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _build_condition(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> torch.Tensor:
         batch_size, time_size = x.shape[:2]
         parts = [
             self._sanitize(x).reshape(batch_size * time_size, *x.shape[2:]),
@@ -630,7 +631,9 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
                 )
         return next_state
 
-    def _forward_sample(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _forward_sample(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> torch.Tensor:
         if x.dim() != 5:
             raise ValueError("StormScopeDxNSRDB requires [batch, time, variable, y, x]")
         batch_size, time_size = x.shape[:2]
@@ -668,20 +671,20 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Generate GHI samples from GOES imagery.
 
         Parameters
         ----------
         x : torch.Tensor
             GOES tensor with shape ``[batch, time, variable, y, x]``.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             GOES coordinates.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             GHI samples and output coordinates.
         """
         x, coords = self._prepare_input(x, coords)

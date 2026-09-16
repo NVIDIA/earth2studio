@@ -25,6 +25,7 @@ import xarray as xr
 
 from earth2studio.data import Random, RandomDataFrame, fetch_data, fetch_dataframe
 from earth2studio.models.da.sda_stormcast import StormCastSDA
+from earth2studio.utils.coords import coord_array
 
 try:
     import cupy as cp
@@ -75,11 +76,14 @@ def _build_model(device="cpu"):
     diffusion = PhooSDADiffusionModel()
 
     r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
+        coord_array(
+            ("lat", "lon"),
+            OrderedDict(
+                [
+                    ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                    ("lon", np.linspace(0, 360, num=360)),
+                ]
+            ),
         )
     )
 
@@ -112,7 +116,7 @@ def _build_model(device="cpu"):
 
 def _build_input_da(model, time, device="cpu"):
     dc = OrderedDict([("hrrr_y", model.hrrr_y), ("hrrr_x", model.hrrr_x)])
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
     x = fetch_data(
         r,
         time,
@@ -502,11 +506,14 @@ def test_stormcast_sda_package(device, sda_model):
 
     # Set up Random conditioning source to avoid external data fetches
     r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
-            ]
+        coord_array(
+            ("lat", "lon"),
+            OrderedDict(
+                [
+                    ("lat", np.linspace(90, -90, num=721, endpoint=True)),
+                    ("lon", np.linspace(0, 360, num=1440)),
+                ]
+            ),
         )
     )
     model.conditioning_data_source = r_condition
@@ -515,7 +522,7 @@ def test_stormcast_sda_package(device, sda_model):
     # Build input from Random source matching model init_coords
     ic = model.init_coords()[0]
     dc = OrderedDict([("hrrr_y", ic["hrrr_y"]), ("hrrr_x", ic["hrrr_x"])])
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
     x = fetch_data(
         r,
         time,

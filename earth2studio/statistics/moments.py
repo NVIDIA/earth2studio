@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import torch
 
 from earth2studio.statistics.utils import _broadcast_weights
 from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class mean:
@@ -69,17 +69,18 @@ class mean:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -90,8 +91,8 @@ class mean:
         return output_coords
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply the mean operation over the tensor x.
 
@@ -102,7 +103,7 @@ class mean:
         ----------
         x: torch.Tensor
             Input data to compute sample mean.
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Coordinates referring to the input data, x.
         """
         if not all([rd in coords for rd in self._reduction_dimensions]):
@@ -111,7 +112,7 @@ class mean:
             )
 
         dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
-        output_coords = CoordSystem(
+        output_coords = dict[str, np.ndarray](
             {
                 key: coords[key]
                 for key in coords
@@ -190,17 +191,18 @@ class variance:
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["variance"])
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -215,8 +217,8 @@ class variance:
         return self._reduction_dimensions
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply the sample variance operation over the tensor x.
 
@@ -227,7 +229,7 @@ class variance:
         ----------
         x: torch.Tensor
             Input data to compute sample variance.
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Coordinates referring to the input data, x.
         """
         if not all([rd in coords for rd in self._reduction_dimensions]):
@@ -236,7 +238,7 @@ class variance:
             )
 
         dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
-        output_coords = CoordSystem(
+        output_coords = dict[str, np.ndarray](
             {
                 key: coords[key]
                 for key in coords
@@ -321,17 +323,18 @@ class std:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -342,8 +345,8 @@ class std:
         return output_coords
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply the sample standard deviation operation over the tensor x.
 
@@ -354,7 +357,7 @@ class std:
         ----------
         x: torch.Tensor
             Input data to compute sample standard deviation.
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Coordinates referring to the input data, x.
         """
         var, output_coords = self.var(x, coords)

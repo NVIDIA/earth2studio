@@ -40,7 +40,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import FrameSchema, TimeTolerance
 
 try:
     import cupy as cp
@@ -293,13 +293,13 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems ───────────────────────────────────────────────────
 
-    def init_coords(self) -> tuple[CoordSystem]:
+    def init_coords(self) -> tuple[dict[str, np.ndarray]]:
         """Initialization coordinate system: the ERA5 driving state (the same grid
         the downscaler conditions on).
 
         Returns
         -------
-        tuple[CoordSystem]
+        tuple[dict[str, np.ndarray]]
             Single-element tuple with the ERA5 initialization coordinate system.
         """
         return (self.model.input_coords(),)
@@ -325,20 +325,22 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             ),
         )
 
-    def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
+    def output_coords(
+        self, input_coords: tuple[dict[str, np.ndarray]]
+    ) -> tuple[dict[str, np.ndarray]]:
         """Output coordinate system, matching what :meth:`__call__` returns: dims
         ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the COSMO-REA
         analysis grid, given the ERA5 init coords.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
+        input_coords : tuple[dict[str, np.ndarray]]
             The ERA5 driving-state coordinate system (from :meth:`init_coords`),
             validated against the wrapped model's native input grid.
 
         Returns
         -------
-        tuple[CoordSystem]
+        tuple[dict[str, np.ndarray]]
             Single-element tuple whose coordinate system has dims
             ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the
             analysis grid.
@@ -562,7 +564,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             )
 
     def _to_output_dataarray(
-        self, out: torch.Tensor, times: np.ndarray, oc: CoordSystem
+        self, out: torch.Tensor, times: np.ndarray, oc: dict[str, np.ndarray]
     ) -> xr.DataArray:
         """[n_time, n_sample, C_out, H', W'] -> DataArray with 2D lat/lon coords."""
         # Same-device analysis per the AssimilationModel contract: CuPy on CUDA,

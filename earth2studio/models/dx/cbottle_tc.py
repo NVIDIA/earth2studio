@@ -35,7 +35,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import to_time_array
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import TimeArray
 
 try:
     import earth2grid
@@ -170,12 +170,11 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         if self.lat_lon:
@@ -201,18 +200,19 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -440,8 +440,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 
@@ -527,17 +527,17 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     def calculate_odds_ratio(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         guidance_scale: float = 128,
         compute_forward_divergences: bool = False,
-    ) -> tuple[float | torch.Tensor, torch.Tensor, CoordSystem]:
+    ) -> tuple[float | torch.Tensor, torch.Tensor, dict[str, np.ndarray]]:
         """Compute classifier-guided log-odds ratio for one guidance sample.
 
         Parameters
         ----------
         x : torch.Tensor
             Input guidance tensor with the same layout expected by :meth:`__call__`.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system associated with ``x``.
         guidance_scale : float, optional
             Guidance scale forwarded to cBottle odds-ratio evaluation. Defaults to 128.
@@ -547,7 +547,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        tuple[float | torch.Tensor, torch.Tensor, CoordSystem]
+        tuple[float | torch.Tensor, torch.Tensor, dict[str, np.ndarray]]
             log_odds_ratio, forward_latents, latent_coords
 
         Note

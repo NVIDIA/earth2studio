@@ -41,7 +41,6 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource
 from earth2studio.statistics.weights import lat_weight
-from earth2studio.utils.coords import CoordSystem
 
 from .distributed import get_rank
 from .output import OutputManager
@@ -107,13 +106,15 @@ class RegionalMetric:
         self.reduction_dimensions = first.reduction_dimensions
         self._inner_is_statistic = _is_statistic(first)
 
-    def _region_coords(self, inner: CoordSystem) -> CoordSystem:
-        coords: CoordSystem = OrderedDict()
+    def _region_coords(self, inner: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+        coords: dict[str, np.ndarray] = OrderedDict()
         coords["region"] = np.array(list(self._per_region))
         coords.update(inner)
         return coords
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Inner metric's output coords behind a leading ``region`` axis."""
         first = next(iter(self._per_region.values()))
         return self._region_coords(first.output_coords(input_coords))
@@ -121,13 +122,13 @@ class RegionalMetric:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor | None = None,
-        y_coords: CoordSystem | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray] | None = None,
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply every region's instance and stack the results."""
         values = []
-        inner_coords: CoordSystem = OrderedDict()
+        inner_coords: dict[str, np.ndarray] = OrderedDict()
         for metric in self._per_region.values():
             if self._inner_is_statistic:
                 value, inner_coords = metric(x, x_coords)
@@ -140,7 +141,7 @@ class RegionalMetric:
 def _embed_mask(
     mask: torch.Tensor,
     red_dims: list[str],
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
 ) -> torch.Tensor:
     """Reshape a spatial-shaped region mask onto a metric's reduction dims.
 
@@ -160,7 +161,7 @@ def _embed_mask(
 
 def instantiate_metrics(
     cfg: DictConfig,
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
 ) -> OrderedDict:
     """Create metric instances from the ``scoring.metrics`` config block.
 
@@ -178,7 +179,7 @@ def instantiate_metrics(
     cfg : DictConfig
         Full Hydra config (reads ``cfg.scoring.metrics``,
         ``cfg.scoring.lat_weights`` and ``cfg.scoring.regions``).
-    spatial_coords : CoordSystem
+    spatial_coords : dict[str, np.ndarray]
         Spatial coordinate arrays from the prediction store (used to
         compute latitude weights and region masks).
 
@@ -323,7 +324,7 @@ def open_verification_source(cfg: DictConfig) -> DataSource:
     return pipeline.verification_source(cfg)
 
 
-def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:
+def spatial_coords_from_dataset(ds: xr.Dataset) -> dict[str, np.ndarray]:
     """Extract spatial coordinate arrays from a prediction Dataset.
 
     Parameters
@@ -333,11 +334,10 @@ def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:
 
     Returns
     -------
-    CoordSystem
         Spatial coordinate arrays (e.g. ``{lat: [...], lon: [...]}``,
         or ``{x: [...], y: [...]}`` for non-lat/lon grids).
     """
-    coords: CoordSystem = OrderedDict()
+    coords: dict[str, np.ndarray] = OrderedDict()
     for dim in ds.dims:
         if dim not in _NON_SPATIAL:
             coords[dim] = ds.coords[dim].values
@@ -348,7 +348,7 @@ def build_input_coords_template(
     prediction_ds: xr.Dataset,
     lead_times: np.ndarray,
     variables: list[str],
-) -> CoordSystem:
+) -> dict[str, np.ndarray]:
     """Build a representative input coordinate system for metric introspection.
 
     Used to call ``metric.output_coords()`` in order to determine the
@@ -365,10 +365,9 @@ def build_input_coords_template(
 
     Returns
     -------
-    CoordSystem
         Template with ``(ensemble?, lead_time, variable, <spatial...>)``.
     """
-    template: CoordSystem = OrderedDict()
+    template: dict[str, np.ndarray] = OrderedDict()
     if "ensemble" in prediction_ds.dims:
         template["ensemble"] = prediction_ds.coords["ensemble"].values
     template["lead_time"] = lead_times
@@ -385,7 +384,7 @@ def load_prediction_chunk(
     lead_times: np.ndarray,
     variables: list[str],
     device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Load a chunk of prediction data for one IC time and lead-time range.
 
     Parameters
@@ -403,7 +402,7 @@ def load_prediction_chunk(
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, dict[str, np.ndarray]]
         Tensor and coords with dimensions
         ``(ensemble?, lead_time, variable, <spatial...>)``.
     """
@@ -423,7 +422,7 @@ def load_prediction_chunk(
     da = da.transpose(*dim_order)
     tensor = torch.from_numpy(da.values.copy()).to(device=device, dtype=torch.float32)
 
-    coords: CoordSystem = OrderedDict()
+    coords: dict[str, np.ndarray] = OrderedDict()
     for dim in dim_order:
         coords[dim] = np.array(da.coords[dim].values)
     return tensor, coords
@@ -434,9 +433,9 @@ def load_verification_chunk(
     time: np.datetime64,
     lead_times: np.ndarray,
     variables: list[str],
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
     device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Load verification data aligned to a prediction chunk.
 
     For each lead time, the valid time ``time + lead_time`` is computed and
@@ -454,14 +453,14 @@ def load_verification_chunk(
         Lead-time values for this chunk.
     variables : list[str]
         Variable names to load.
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays (for building the output CoordSystem).
+    spatial_coords : dict[str, np.ndarray]
+        Spatial coordinate arrays (for building the output dict[str, np.ndarray]).
     device : torch.device
         Target device for the returned tensor.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, dict[str, np.ndarray]]
         Tensor and coords with dimensions
         ``(lead_time, variable, <spatial...>)``.
     """
@@ -490,7 +489,7 @@ def load_verification_chunk(
     tensor = torch.from_numpy(da.values.copy()).to(device=device, dtype=torch.float32)
 
     # Relabel the time axis as lead_time for alignment with predictions.
-    coords: CoordSystem = OrderedDict()
+    coords: dict[str, np.ndarray] = OrderedDict()
     coords["lead_time"] = lead_times
     coords["variable"] = np.array(variables)
     for dim in spatial_dims:
@@ -536,7 +535,7 @@ def build_lead_time_chunks(
 
 def score_variable_names(
     metric_name: str,
-    metric_output_coords: CoordSystem,
+    metric_output_coords: dict[str, np.ndarray],
 ) -> list[str]:
     """Determine zarr array names for a metric's output.
 
@@ -548,7 +547,7 @@ def score_variable_names(
     ----------
     metric_name : str
         Config name of the metric (e.g. ``"rmse"``).
-    metric_output_coords : CoordSystem
+    metric_output_coords : dict[str, np.ndarray]
         Output coords from ``metric.output_coords()``.
 
     Returns
@@ -563,7 +562,7 @@ def score_variable_names(
 
 def all_score_variable_names(
     metrics: OrderedDict,
-    input_coords_template: CoordSystem,
+    input_coords_template: dict[str, np.ndarray],
 ) -> list[str]:
     """Collect all zarr array names across all configured metrics.
 
@@ -571,7 +570,7 @@ def all_score_variable_names(
     ----------
     metrics : OrderedDict[str, Metric]
         Metric instances keyed by name.
-    input_coords_template : CoordSystem
+    input_coords_template : dict[str, np.ndarray]
         Representative input coords for ``output_coords()`` calls.
 
     Returns
@@ -593,9 +592,9 @@ def all_score_variable_names(
 
 def build_superset_score_coords(
     metrics: OrderedDict,
-    input_coords_template: CoordSystem,
+    input_coords_template: dict[str, np.ndarray],
     times: np.ndarray,
-) -> CoordSystem:
+) -> dict[str, np.ndarray]:
     """Build the superset coordinate system for the score zarr store.
 
     Collects the *union* of all non-variable output dimensions across
@@ -606,14 +605,13 @@ def build_superset_score_coords(
     ----------
     metrics : OrderedDict[str, Metric]
         Metric instances keyed by name.
-    input_coords_template : CoordSystem
+    input_coords_template : dict[str, np.ndarray]
         Representative input coords for ``output_coords()`` calls.
     times : np.ndarray
         All initial-condition times that will appear in the store.
 
     Returns
     -------
-    CoordSystem
         ``(time, <union of surviving dims across all metrics>)``
     """
     all_dims: dict[str, np.ndarray] = {}
@@ -621,21 +619,20 @@ def build_superset_score_coords(
         out = metric.output_coords(input_coords_template)
         for dim, vals in out.items():
             if dim != "variable" and dim not in all_dims:
-                all_dims[dim] = vals
+                all_dims[dim] = vals  # noqa: PERF403
 
-    total: CoordSystem = OrderedDict()
-    total["time"] = times
-    for dim, vals in all_dims.items():
-        if dim != "time":
-            total[dim] = vals
+    total: dict[str, np.ndarray] = OrderedDict(
+        [("time", times)]
+        + [(dim, vals) for dim, vals in all_dims.items() if dim != "time"]
+    )
     return total
 
 
 def group_score_arrays_by_dims(
     metrics: OrderedDict,
-    input_coords_template: CoordSystem,
+    input_coords_template: dict[str, np.ndarray],
     times: np.ndarray,
-) -> list[tuple[CoordSystem, list[str]]]:
+) -> list[tuple[dict[str, np.ndarray], list[str]]]:
     """Group score arrays by their output dimension structure.
 
     Metrics that reduce different dimensions produce arrays with different
@@ -647,28 +644,31 @@ def group_score_arrays_by_dims(
     ----------
     metrics : OrderedDict[str, Metric]
         Metric instances keyed by name.
-    input_coords_template : CoordSystem
+    input_coords_template : dict[str, np.ndarray]
         Representative input coords for ``output_coords()`` calls.
     times : np.ndarray
         All initial-condition times for the ``time`` coordinate.
 
     Returns
     -------
-    list[tuple[CoordSystem, list[str]]]
+    list[tuple[dict[str, np.ndarray], list[str]]]
         Each entry is ``(group_coords, variable_names)`` where all
         variables in the group share the same dimension structure.
     """
-    groups: dict[tuple[str, ...], tuple[CoordSystem, list[str]]] = {}
+    groups: dict[tuple[str, ...], tuple[dict[str, np.ndarray], list[str]]] = {}
 
     for metric_name, metric in metrics.items():
         out = metric.output_coords(input_coords_template)
 
         # This metric's store coords: time + non-variable output dims.
-        metric_coords: CoordSystem = OrderedDict()
-        metric_coords["time"] = times
-        for dim, vals in out.items():
-            if dim not in ("variable", "time"):
-                metric_coords[dim] = vals
+        metric_coords: dict[str, np.ndarray] = OrderedDict(
+            [("time", times)]
+            + [
+                (dim, vals)
+                for dim, vals in out.items()
+                if dim not in ("variable", "time")
+            ]
+        )
 
         dim_key = tuple(metric_coords.keys())
         var_names = score_variable_names(metric_name, out)
@@ -683,7 +683,7 @@ def group_score_arrays_by_dims(
 
 def add_score_arrays(
     io: Any,
-    array_groups: list[tuple[CoordSystem, list[str]]],
+    array_groups: list[tuple[dict[str, np.ndarray], list[str]]],
 ) -> None:
     """Add score arrays to the zarr store, skipping any that already exist.
 
@@ -694,7 +694,7 @@ def add_score_arrays(
     ----------
     io : ZarrBackend
         The underlying I/O backend (from ``OutputManager.io``).
-    array_groups : list[tuple[CoordSystem, list[str]]]
+    array_groups : list[tuple[dict[str, np.ndarray], list[str]]]
         Groups from :func:`group_score_arrays_by_dims`.
     """
     for group_coords, group_vars in array_groups:
@@ -754,7 +754,7 @@ def run_scoring(
     variables: list[str],
     lead_times: np.ndarray,
     lead_time_chunks: list[np.ndarray],
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
     device: torch.device,
     cfg: DictConfig,
 ) -> None:
@@ -782,7 +782,7 @@ def run_scoring(
         Full array of lead-time values (for concatenating chunks).
     lead_time_chunks : list[np.ndarray]
         Partitioned lead-time arrays.
-    spatial_coords : CoordSystem
+    spatial_coords : dict[str, np.ndarray]
         Spatial coordinate arrays from the prediction store.
     device : torch.device
         Device for tensor computations.
@@ -825,7 +825,7 @@ def run_scoring(
 
     for time in tqdm(my_times, desc="Scoring", disable=rank != 0):
         # Accumulate chunk results per metric.
-        chunk_results: dict[str, list[tuple[torch.Tensor, CoordSystem]]] = {
+        chunk_results: dict[str, list[tuple[torch.Tensor, dict[str, np.ndarray]]]] = {
             name: [] for name in metrics
         }
 
@@ -862,7 +862,7 @@ def run_scoring(
             score, score_coords = _concat_chunks(chunks, lead_times)
 
             # Prefix variable names for the zarr store.
-            write_coords: CoordSystem = OrderedDict()
+            write_coords: dict[str, np.ndarray] = OrderedDict()
             write_coords["time"] = np.array([time])
 
             for dim, vals in score_coords.items():
@@ -891,7 +891,7 @@ def run_scoring(
 
 def _apply_valid_ranges(
     x: torch.Tensor,
-    coords: CoordSystem,
+    coords: dict[str, np.ndarray],
     valid_ranges: dict,
 ) -> torch.Tensor:
     """Clamp per-variable values in *x* to the configured physical range.
@@ -912,7 +912,7 @@ def _apply_valid_ranges(
     ----------
     x : torch.Tensor
         Tensor with a ``variable`` axis.
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         Matching coord system (used to locate the variable axis and
         map variable names to axis indices).
     valid_ranges : dict[str, dict[str, float | None]]
@@ -944,21 +944,21 @@ def _apply_valid_ranges(
 
 
 def _concat_chunks(
-    chunks: list[tuple[torch.Tensor, CoordSystem]],
+    chunks: list[tuple[torch.Tensor, dict[str, np.ndarray]]],
     full_lead_times: np.ndarray,
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Concatenate lead-time chunk results into a single score tensor.
 
     Parameters
     ----------
-    chunks : list[tuple[torch.Tensor, CoordSystem]]
+    chunks : list[tuple[torch.Tensor, dict[str, np.ndarray]]]
         Per-chunk ``(score, coords)`` pairs from a single metric.
     full_lead_times : np.ndarray
         Complete lead-time array for the full trajectory.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, dict[str, np.ndarray]]
         Concatenated score and coords.
     """
     if len(chunks) == 1:

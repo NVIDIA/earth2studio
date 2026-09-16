@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 
+import numpy as np
 import torch
 
 from earth2studio.utils import handshake_dim
@@ -23,7 +24,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 from .moments import mean
 from .utils import _spatial_dims_to_end
@@ -86,17 +86,18 @@ class log_spectral_distance:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         removed_dims = list(self._reduction_dimensions)
@@ -114,7 +115,9 @@ class log_spectral_distance:
 
         return output_coords
 
-    def _validate_coords(self, x_coords: CoordSystem, y_coords: CoordSystem) -> None:
+    def _validate_coords(
+        self, x_coords: dict[str, np.ndarray], y_coords: dict[str, np.ndarray]
+    ) -> None:
         x_coords = x_coords.copy()
         if self.ensemble_dimension is not None:
             if self.ensemble_dimension not in x_coords:
@@ -135,10 +138,10 @@ class log_spectral_distance:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -150,20 +153,20 @@ class log_spectral_distance:
         ----------
         x : torch.Tensor
             Input tensor, typically the forecast or prediction tensor.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
             `spatial_dimensions` if provided in constructor.
         y : torch.Tensor
             Input tensor #2 intended to be used as validation data.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
             provided in constructor.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Returns root mean squared error tensor with appropriate reduced coordinates.
         """
         self._validate_coords(x_coords, y_coords)

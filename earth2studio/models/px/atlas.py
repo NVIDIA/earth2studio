@@ -28,13 +28,18 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module
@@ -199,7 +204,8 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sinterpolant = sinterpolant
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system expected by Atlas.
 
         Notes
@@ -210,14 +216,13 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        CoordSystem
             Ordered dictionary with keys:
             - 'lead_time' : np.ndarray[np.timedelta64] of shape (2,)
             - 'variable' : np.ndarray[str] of shape (n_variables,)
             - 'lat' : np.ndarray[float] of shape (721,)
             - 'lon' : np.ndarray[float] of shape (1440,)
         """
-        coords = CoordSystem(
+        coords = dict[str, np.ndarray](
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
@@ -235,18 +240,20 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return coords
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system produced by a single Atlas step (t+6h).
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Coordinate system associated with the input to the forward pass.
 
         Returns
         -------
-        CoordSystem
             Ordered dictionary with keys:
             - 'time' : np.ndarray[np.datetime64] (copied from input if present)
             - 'lead_time' : np.timedelta64 set to +6h
@@ -254,7 +261,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             - 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
             - 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
         """
-        output_coords = CoordSystem(
+        output_coords = dict[str, np.ndarray](
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
@@ -275,7 +282,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -294,10 +301,10 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def prep_next_input(
         self,
         x_pred: torch.Tensor,
-        coords_pred: CoordSystem,
+        coords_pred: dict[str, np.ndarray],
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepare the next input for the Atlas model. Since the input requires two lead times
         but the model predicts one, we update a sliding window to make autoregressive predictions.
 
@@ -305,11 +312,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x_pred : torch.Tensor
             Predicted tensor from the previous step.
-        coords_pred : CoordSystem
+        coords_pred : dict[str, np.ndarray]
             Coordinates describing `x_pred`.
         x : torch.Tensor
             Input tensor from the previous step.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinates describing `x`.
         """
         x_next = x.clone()
@@ -325,7 +332,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         prev_latent: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass of the prognostic model, integrating a single 6h step.
@@ -335,7 +342,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
             Input tensor of shape (..., lead_time, variable, lat, lon) corresponding
             to the coordinate system. Lead times expected: [-6h, 0h].
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate dictionary describing `x`.
         prev_latent : torch.Tensor, optional
             Low-resolution latent from the previous forecast step. If provided, it will be
@@ -406,8 +413,8 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @torch.inference_mode()
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of the prognostic model, integrating a single 6h step.
 
         Parameters
@@ -415,12 +422,12 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
             Input tensor of shape (..., lead_time, variable, lat, lon) corresponding
             to the coordinate system. Lead times expected: [-6h, 0h].
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate dictionary describing `x`.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor advanced to t+6h and its coordinate system.
         """
 
@@ -429,7 +436,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             logger.info("Atlas input contains NaNs, replacing with 0.0")
             x = torch.nan_to_num(x, nan=0.0)
 
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
         out = torch.empty_like(x[:, :, :1])
 
         # Loop over init times
@@ -446,9 +453,9 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _call_with_latent(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         prev_latents: list[list[torch.Tensor | None]] | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem, list[list[torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray], list[list[torch.Tensor]]]:
         """Internal helper that handles cached latents during autoregressive rollout."""
 
         # Sanitize NaNs in input sst
@@ -456,7 +463,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             logger.info("Atlas input contains NaNs, replacing with 0.0")
             x = torch.nan_to_num(x, nan=0.0)
 
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
         out = torch.empty_like(x[:, :, :1])
         latents_out: list[list[torch.Tensor | None]] = [
             [None for _ in coords["time"]] for _ in coords["batch"]
@@ -476,32 +483,32 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out, output_coords, latents_out
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Create an iterator that yields the initial state then successive 6h steps.
 
         Parameters
         ----------
         x : torch.Tensor
             Initial data tensor on device representing the initial condition.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system for the initial data tensor.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator yielding successive model outputs and their coordinates.
         """
         yield from self._default_generator(x, coords)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         coords = coords.copy()
 
         # Validate coords
-        _ = self._output_tensor_coords(coords)
+        _ = tensor_output_coords(self, coords)
 
         # Sanitize NaNs in input sst
         if torch.isnan(x).any():

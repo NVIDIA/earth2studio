@@ -30,7 +30,13 @@ import xarray as xr
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -42,7 +48,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.obs import ObsGridMapping
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import TimeArray
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -323,7 +329,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -336,18 +343,20 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output coordinates.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -362,7 +371,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
 
         handshake_dim(input_coords, "hrrr_x", 5)
         handshake_dim(input_coords, "hrrr_y", 4)
@@ -576,16 +585,16 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         obs: pd.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
         obs : pd.DataFrame, tuple[torch.Tensor, torch.Tensor], or None, optional
             Observations for SDA guidance. Either a dataframe with columns
@@ -595,7 +604,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system
 
         Raises
@@ -605,7 +614,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
         conditioning = self._get_conditioning(output_coords, x.shape[0], x.device)
         x = x.clone()  # prevent editing of argument
 
@@ -638,20 +647,22 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def create_generator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], pd.DataFrame | None, None]:
+        coords: dict[str, np.ndarray],
+    ) -> Generator[
+        tuple[torch.Tensor, dict[str, np.ndarray]], pd.DataFrame | None, None
+    ]:
         """Create a generator for autoregressive rollout.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system after each time step
 
         Receives
@@ -685,14 +696,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def create_iterator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        coords: dict[str, np.ndarray],
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Iterator wrapper around ``create_generator`` without observation input."""
         yield from self.create_generator(x, coords)
 
     def _get_conditioning(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         batch_size: int,
         device: torch.device,
     ) -> torch.Tensor:
@@ -700,7 +711,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system containing ``time`` and ``lead_time``.
         batch_size : int
             Number of ensemble members; conditioning is replicated accordingly.
@@ -772,6 +783,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Add a batch dim
         conditioning = conditioning.repeat(batch_size, 1, 1, 1, 1, 1)
+        conditioning_coords = OrderedDict(conditioning_coords)
         conditioning_coords.update({"batch": np.empty(0)})
         conditioning_coords.move_to_end("batch", last=False)
 

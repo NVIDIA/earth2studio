@@ -27,13 +27,18 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import earth2grid
@@ -296,8 +301,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ocean_coupling_times = self.atmos_output_times
 
         # Setup the lead time indices for [atmos, ocean] [input, coupled input, output]
-        in_coords = self._input_tensor_coords()
-        out_coords = self._output_tensor_coords(in_coords)
+        in_coords = tensor_input_coords(self)
+        out_coords = tensor_output_coords(self, in_coords)
         self.atmos_input_lt_idx = [
             list(in_coords["lead_time"]).index(t) for t in self.atmos_input_times
         ]
@@ -329,7 +334,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # always carries the canonical `atmos_variables + ocean_variables`
         # layout (diagnostics are dropped before being fed back in -- see
         # `_next_step_inputs`). This must NOT be sourced from
-        # `self._input_tensor_coords()`: for `DLESyMLatLon`, that method reports a
+        # `tensor_input_coords(self)`: for `DLESyMLatLon`, that method reports a
         # different, lat/lon-native variable set (e.g. `u10m`/`v10m`
         # instead of `ws10m`) that only exists before
         # `_prepare_derived_variables` converts it to the canonical set --
@@ -408,12 +413,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -428,18 +433,20 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -465,7 +472,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
 
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -656,7 +663,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def prepare_input_data(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
         """Prepare input data for the atmos and ocean models.
         From the data in `x`, we will build a list of tensors for each model.
@@ -672,7 +679,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input data
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates
 
         Returns
@@ -734,7 +741,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         atmos_outputs: torch.Tensor,
         ocean_outputs: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
     ) -> torch.Tensor:
         """Prepare output data for the atmos and ocean models.
         From the data in `atmos_outputs` and `ocean_outputs`, we will build a tensor of shape (batch, time, lead_time, variable, face, height, width).
@@ -747,7 +754,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Atmos outputs
         ocean_outputs : torch.Tensor
             Ocean outputs
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates
 
         Returns
@@ -826,7 +833,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return sol
 
     def _make_atmos_coupling(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> torch.Tensor:
         """Make atmos coupling tensor from input data
         Assumes `x` is a tensor of shape (batch, lead_time, variable, face, height, width).
@@ -836,7 +843,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input data
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates
 
         Returns
@@ -852,7 +859,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return atmos_coupling
 
     def _make_ocean_coupling(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> torch.Tensor:
         """Make ocean coupling tensor from atmos outputs
         Assumes `x` is a tensor of shape (batch, face, lead_time, variable, height, width).
@@ -862,7 +869,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input data
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates
 
         Returns
@@ -894,8 +901,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x * self.scale + self.center
 
     def retrieve_valid_ocean_outputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Retrieve the valid ocean model outputs from an output data tensor.
         Because we use a dense grid of output times for the coupled model, some of the output times
         for the ocean model may not be valid because it takes a coarser time-step.
@@ -905,14 +912,13 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Output data tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates
 
         Returns
         -------
         torch.Tensor
             Ocean outputs
-        CoordSystem
             Output coordinates
         """
 
@@ -935,8 +941,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return ocean_outputs, out_coords
 
     def retrieve_valid_atmos_outputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Retrieve the valid atmospheric model outputs from an output data tensor.
         This function will retrieve the valid outputs and return them in a tensor of shape (batch, time, lead_time, variable, face, height, width).
 
@@ -944,14 +950,13 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Output data tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinates
 
         Returns
         -------
         torch.Tensor
             Atmos outputs
-        CoordSystem
             Output coordinates
         """
 
@@ -968,12 +973,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return atmos_outputs, out_coords
 
-    def _validate_output_coords(self, coords: CoordSystem) -> None:
+    def _validate_output_coords(self, coords: dict[str, np.ndarray]) -> None:
         """Validate the coordinates passed to the output subselection methods
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Output coordinates to be validated
 
         Raises
@@ -1056,7 +1061,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
     ) -> torch.Tensor:
 
         x = self._normalize_input(x)
@@ -1097,8 +1102,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output_data
 
     def _next_step_inputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Get the inputs for the next step of the prognostic model,
         to be used with the model iterator.
 
@@ -1106,12 +1111,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
         """
 
         next_coords = coords.copy()
@@ -1135,31 +1140,31 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs coupled DLESyM model forward 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system for the prediction
         """
 
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         return self._forward(x, coords), output_coords
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         coords = coords.copy()
 
@@ -1170,7 +1175,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             x = self._forward(x, coords)
-            coords = self._output_tensor_coords(coords)
+            coords = tensor_output_coords(self, coords)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)
@@ -1180,8 +1185,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self._next_step_inputs(x, coords)
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -1189,13 +1194,13 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
@@ -1360,15 +1365,15 @@ class DLESyMLatLon(DLESyM):
             torch.float32
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
-        coords = super()._input_tensor_coords()
+        coords = tensor_input_coords(super())
         coords = self.coords_to_ll(coords)
 
         # Modify to use the base variables instead of the derived variables
@@ -1379,21 +1384,23 @@ class DLESyMLatLon(DLESyM):
         coords["variable"] = np.array(input_variables)
         return coords
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        CoordSystem
             Output coordinate system
         """
-        coords = super()._output_tensor_coords(input_coords)
+        coords = tensor_output_coords(super(), input_coords)
         coords = self.coords_to_ll(coords)
         return coords
 
@@ -1438,7 +1445,7 @@ class DLESyMLatLon(DLESyM):
         x = self.regrid_to_ll(x).reshape(*leading_dims, len(self.lat), len(self.lon))
         return x
 
-    def coords_to_hpx(self, coords: CoordSystem) -> CoordSystem:
+    def coords_to_hpx(self, coords: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """Convenience method to pop out lat/lon dimensions from coords and replace with HEALPix"""
         hpx_coords = coords.copy()
         hpx_coords.pop("lat")
@@ -1450,17 +1457,19 @@ class DLESyMLatLon(DLESyM):
                 "width": np.arange(self.nside),
             }
         )
+        hpx_coords = OrderedDict(hpx_coords)
         for dim in ["face", "height", "width"]:
             hpx_coords.move_to_end(dim)
         return hpx_coords
 
-    def coords_to_ll(self, coords: CoordSystem) -> CoordSystem:
+    def coords_to_ll(self, coords: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """Convenience method to pop out HEALPix dimensions from coords and replace with lat/lon"""
         ll_coords = coords.copy()
         ll_coords.pop("face")
         ll_coords.pop("height")
         ll_coords.pop("width")
         ll_coords.update({"lat": self.lat, "lon": self.lon})
+        ll_coords = OrderedDict(ll_coords)
         for dim in ["lat", "lon"]:
             ll_coords.move_to_end(dim)
         return ll_coords
@@ -1503,9 +1512,9 @@ class DLESyMLatLon(DLESyM):
     def compute_ttr_3h(
         self,
         raw_ttr: torch.Tensor,
-        raw_coords: CoordSystem,
+        raw_coords: dict[str, np.ndarray],
         target_lead_time: np.ndarray | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Reduce raw hourly `ttr` samples into the `ttr-3h` accumulated
         input variable at each of `target_lead_time`.
 
@@ -1525,7 +1534,7 @@ class DLESyMLatLon(DLESyM):
         raw_ttr : torch.Tensor
             Raw `ttr` tensor, with a `lead_time` axis covering at least
             `ttr_3h_query_times(target_lead_time)`
-        raw_coords : CoordSystem
+        raw_coords : dict[str, np.ndarray]
             Coordinates for `raw_ttr`
         target_lead_time : np.ndarray, optional
             Lead times to compute `ttr-3h` at, by default
@@ -1533,7 +1542,7 @@ class DLESyMLatLon(DLESyM):
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             `ttr-3h` tensor and coordinates, with `lead_time` set to
             `target_lead_time`
         """
@@ -1562,7 +1571,7 @@ class DLESyMLatLon(DLESyM):
         return ttr_3h, out_coords
 
     def _nan_interpolate_sst(
-        self, sst: torch.Tensor, coords: CoordSystem
+        self, sst: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> torch.Tensor:
         """Custom interpolation to fill NaNs over landmasses in SST data."""
 
@@ -1590,8 +1599,8 @@ class DLESyMLatLon(DLESyM):
         return torch.from_numpy(da_triple_interp.values).to(sst.device)
 
     def _prepare_derived_variables(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepare derived variables for the DLESyM model.
 
         This method handles the preparation of derived variables from the input tensor
@@ -1602,12 +1611,12 @@ class DLESyMLatLon(DLESyM):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system for the derived variables
         """
 
@@ -1642,23 +1651,23 @@ class DLESyMLatLon(DLESyM):
 
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs coupled DLESyM model forward 1 step, regridding to/from HEALPix grid
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system for the prediction
         """
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         x, coords = self._prepare_derived_variables(x, coords)
 
@@ -1669,8 +1678,8 @@ class DLESyMLatLon(DLESyM):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         coords = coords.copy()
 
@@ -1692,7 +1701,7 @@ class DLESyMLatLon(DLESyM):
             # but will return the ouptut variables with the derived variables
             base_coords = coords.copy()
             base_coords["variable"] = base_vars
-            coords = self._output_tensor_coords(base_coords)
+            coords = tensor_output_coords(self, base_coords)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)

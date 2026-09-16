@@ -26,11 +26,15 @@ from earth2studio.models.auto import Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
+from earth2studio.models.px.utils import (
+    coordinate_input,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from omegaconf import OmegaConf
@@ -51,7 +55,7 @@ _OLR_CLIM_VARS = ("olr_mean", "olr_std")
 
 def apply_ttr_to_olr(
     x: torch.Tensor,
-    coords: CoordSystem,
+    coords: dict[str, np.ndarray],
     ttr_idx: int,
     ttr_clim_mean: torch.Tensor,
     ttr_clim_std: torch.Tensor,
@@ -72,7 +76,7 @@ def apply_ttr_to_olr(
     x : torch.Tensor
         Input tensor with the TTR channel at axis ``-4``; shape
         ``(B, T, LT, V, F, H, W)``.
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         Coordinates carrying ``time`` (datetime64) and ``lead_time``
         (timedelta64) used to derive day-of-year per (T, LT) pair.
     ttr_idx : int
@@ -246,7 +250,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             )
 
         # Set before super().__init__() because the parent __init__ calls
-        # self._input_tensor_coords(), which (via Python dispatch) hits this subclass's
+        # tensor_input_coords(self), which (via Python dispatch) hits this subclass's
         # override and reads self.use_ttr.
         self.use_ttr = use_ttr
         super().__init__(*args, **kwargs)
@@ -283,9 +287,10 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
                 "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
             )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model."""
-        coords = super()._input_tensor_coords()
+        coords = tensor_input_coords(super())
         if self.use_ttr:
             variables = list(coords["variable"])
             variables[variables.index("rlut")] = "ttr"
@@ -431,7 +436,9 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             olr_clim_std=olr_clim_std,
         )
 
-    def _apply_ttr_to_olr(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _apply_ttr_to_olr(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> torch.Tensor:
         """Replace the TTR channel in ``x`` with ISCCP-distributed OLR.
 
         Delegates to :func:`apply_ttr_to_olr` after locating the TTR channel
@@ -456,25 +463,25 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs upstream DLESyM forward 1 coupled step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor of shape ``(B, T, LT, V, F, H, W)``.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system (with ``ttr`` in ``variable`` when
             ``use_ttr=True``).
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and output coordinates (in model variable space:
             ``rlut`` rather than ``ttr``).
         """
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         if self.use_ttr:
             x = self._apply_ttr_to_olr(x, coords)
@@ -488,13 +495,13 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         coords = coords.copy()
         # Saved for output_coords validation after each forward step: the
         # parent's output_coords validates `coords["variable"]` against
-        # `self._input_tensor_coords()` (which advertises ``ttr`` in user-space).
+        # `tensor_input_coords(self)` (which advertises ``ttr`` in user-space).
         base_vars = coords["variable"]
 
         if self.use_ttr:
@@ -515,7 +522,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             # validation; restore it from base_vars.
             base_coords = coords.copy()
             base_coords["variable"] = base_vars
-            coords = self._output_tensor_coords(base_coords)
+            coords = tensor_output_coords(self, base_coords)
 
             x, coords = self.rear_hook(x, coords)
 
@@ -524,20 +531,20 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             x, coords = self._next_step_inputs(x, coords)
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Create a time-integration iterator (yields initial condition first).
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             ``(x, coords)`` at each step. The first yield is the initial
             condition in model variable space (``rlut``, post-transform).
         """
@@ -609,7 +616,9 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     provider:nvidia backend:pytorch
     """
 
-    def _ttr_to_olr_hpx(self, x: torch.Tensor, coords_hpx: CoordSystem) -> torch.Tensor:
+    def _ttr_to_olr_hpx(
+        self, x: torch.Tensor, coords_hpx: dict[str, np.ndarray]
+    ) -> torch.Tensor:
         """Apply the TTR -> OLR transform on a HEALPix tensor.
 
         The radiation channel has already been renamed ``ttr`` -> ``rlut`` in
@@ -631,8 +640,8 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs upstream DLESyM forward 1 coupled step, regridding to/from HEALPix.
 
         Parameters
@@ -640,17 +649,17 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
         x : torch.Tensor
             Input tensor on the lat/lon grid, with ``ttr`` in ``variable`` when
             ``use_ttr=True``.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system (lat/lon).
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinates on the lat/lon grid (in model variable
             space: ``rlut`` rather than ``ttr``).
         """
         # Validate + build output coords against the user-space (``ttr``) input.
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = tensor_output_coords(self, coords)
 
         coords = coords.copy()
         if self.use_ttr:
@@ -675,8 +684,8 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         coords = coords.copy()
         # Preserve the user-space variable list (``ttr``) for output_coords
@@ -713,7 +722,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
             # validation; restore it from base_vars.
             base_coords = coords.copy()
             base_coords["variable"] = base_vars
-            coords = self._output_tensor_coords(base_coords)
+            coords = tensor_output_coords(self, base_coords)
 
             # Rear hook
             x, coords = self.rear_hook(x, coords)

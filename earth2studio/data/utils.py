@@ -55,7 +55,7 @@ from earth2studio.data.base import (
     ForecastSource,
 )
 from earth2studio.grids import E2S_CRS, E2S_GRID, E2S_GRID_ID, infer_grid
-from earth2studio.utils.coordinate import (
+from earth2studio.utils.coords import (
     E2S_STATISTICS,
     handshake_dataarray,
 )
@@ -74,7 +74,6 @@ from earth2studio.utils.time_statistics import (
     split_time_statistic,
 )
 from earth2studio.utils.type import (
-    CoordSystem,
     FieldArray,
     LeadTimeArray,
     TimeArray,
@@ -249,7 +248,7 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device = "cpu",
-    interp_to: CoordSystem | None = None,
+    interp_to: dict[str, np.ndarray] | None = None,
     interp_method: str = "nearest",
     *,
     metadata: xr.DataArray | None = None,
@@ -271,7 +270,7 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device, optional
         Torch device to load data tensor to, by default "cpu"
-    interp_to : CoordSystem, optional
+    interp_to : dict[str, np.ndarray], optional
         Target latitude and longitude coordinates.
     interp_method : str, optional
         Xarray interpolation method, by default "nearest".
@@ -363,9 +362,9 @@ def fetch_dataframe(
 def prep_data_array(
     da: xr.DataArray,
     device: torch.device = "cpu",
-    interp_to: CoordSystem | None = None,
+    interp_to: dict[str, np.ndarray] | None = None,
     interp_method: str = "nearest",
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Prepares a data array from a data source for inference workflows by converting
     the data array to a torch tensor and the coordinate system to an OrderedDict.
 
@@ -378,19 +377,19 @@ def prep_data_array(
         Input data array
     device : torch.device, optional
         Torch devive to load data tensor to, by default "cpu"
-    interp_to : CoordSystem, optional
+    interp_to : dict[str, np.ndarray], optional
         If provided, the fetched data will be interpolated to the coordinates
-        specified by lat/lon arrays in this CoordSystem
+        specified by lat/lon arrays in this dict[str, np.ndarray]
     interp_method : str
         Interpolation method to use with xarray (by default 'nearest')
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
+    tuple[torch.Tensor, dict[str, np.ndarray]]
         Tuple containing output tensor and coordinate OrderedDict
     """
 
-    # Initialize the output CoordSystem
+    # Initialize the output dict[str, np.ndarray]
     out_coords = OrderedDict()
     for dim in da.coords.dims:
         if dim in da.coords:

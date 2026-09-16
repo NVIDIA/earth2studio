@@ -31,9 +31,14 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
-from earth2studio.utils.type import CoordSystem
 
 LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 
@@ -713,17 +718,18 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model."""
         return self._input_coords.copy()
 
-    def _check_input_coords(self, input_coords: CoordSystem) -> None:
+    def _check_input_coords(self, input_coords: dict[str, np.ndarray]) -> None:
         """Validate input coordinates against the public U-CAST coordinate system."""
         test_coords = input_coords.copy()
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][-1]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         input_variables = np.asarray(input_coords.get("variable", []))
         if not self.preload_static_fields and input_variables.shape[0] == len(
             VARIABLES
@@ -735,8 +741,11 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if key not in ["batch", "time"]:
                 handshake_coords(test_coords, target_input_coords, key)
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model."""
         self._check_input_coords(input_coords)
         output_coords = self._output_coords.copy()
@@ -858,7 +867,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         static_condition: torch.Tensor,
         x_norm: torch.Tensor | None = None,
         sst_mask: torch.Tensor | None = None,
@@ -949,10 +958,10 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs the 12-hour U-CAST prognostic model one step."""
-        out_coords = self._output_tensor_coords(coords)
+        out_coords = tensor_output_coords(self, coords)
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
         handshake_size(coords, "lead_time", history_size)
         handshake_size(coords, "variable", n_variables)
@@ -980,10 +989,10 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         coords = coords.copy()
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
         handshake_size(coords, "lead_time", history_size)
         handshake_size(coords, "variable", n_variables)
@@ -1022,7 +1031,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 static_condition=static_condition,
                 return_state=True,
             )
-            out_coords = self._output_tensor_coords(coords)
+            out_coords = tensor_output_coords(self, coords)
             out, out_coords = self.rear_hook(out, out_coords)
 
             x = torch.cat([x[:, :, 1:], out], dim=2)
@@ -1033,7 +1042,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield out, out_coords.copy()
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates an iterator for autoregressive U-CAST inference."""
         yield from self._default_generator(x, coords)

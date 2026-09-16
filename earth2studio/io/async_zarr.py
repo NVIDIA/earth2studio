@@ -37,8 +37,6 @@ from loguru import logger
 from zarr import AsyncGroup
 from zarr.core.array import CompressorsLike
 
-from earth2studio.utils.type import CoordSystem
-
 if TYPE_CHECKING:
     import obstore.store
 
@@ -247,7 +245,7 @@ class AsyncZarrBackend:
         Path location to place zarr store. Required unless `store` is provided,
         in which case it is ignored (the store then defines the output location)
         and may be None.
-    parallel_coords : CoordSystem
+    parallel_coords : dict[str, np.ndarray]
         Coordinates that enable parallel writes during inference. These coordinates
         specify which dimensions will be written in parallel via async operations,
         typically representing dimensions that are iteratively generated (such as time
@@ -398,7 +396,7 @@ class AsyncZarrBackend:
     def __init__(
         self,
         file_name: str | None,
-        parallel_coords: CoordSystem,
+        parallel_coords: dict[str, np.ndarray],
         fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None = None,
         blocking: bool = True,
         pool_size: int = 8,
@@ -681,7 +679,7 @@ class AsyncZarrBackend:
 
     async def _initialize_arrays(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_names: list[str],
         dtypes: list[np.dtype],
     ) -> None:
@@ -689,7 +687,7 @@ class AsyncZarrBackend:
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system of arrays
         array_names : list[str]
             Array names
@@ -777,7 +775,7 @@ class AsyncZarrBackend:
     def _compute_shards(
         self,
         name: str,
-        array_coords: CoordSystem,
+        array_coords: dict[str, np.ndarray],
         chunked: dict[str, int],
         dtype: np.dtype,
     ) -> tuple[int, ...] | None:
@@ -787,7 +785,7 @@ class AsyncZarrBackend:
         ----------
         name : str
             Array name, used for error messages
-        array_coords : CoordSystem
+        array_coords : dict[str, np.ndarray]
             Complete coordinate system of the array
         chunked : dict[str, int]
             Chunk size of each coordinate of the array
@@ -864,17 +862,18 @@ class AsyncZarrBackend:
         )
         return shard_shape
 
-    def _scrub_coordinates(self, coords: CoordSystem) -> CoordSystem:
+    def _scrub_coordinates(
+        self, coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """And cleaning / adjustment operations on coordinates, modifies in place
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        CoordSystem
             Scrubbed coordinate system
         """
         for key, value in coords.items():
@@ -895,9 +894,9 @@ class AsyncZarrBackend:
     async def prepare_inputs(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
-    ) -> tuple[dict[str, torch.Tensor], CoordSystem]:
+    ) -> tuple[dict[str, torch.Tensor], dict[str, np.ndarray]]:
         """Prepares input coordinates and tensors for writting
 
         This function is a blocking function that will run any needed input checks as
@@ -909,14 +908,14 @@ class AsyncZarrBackend:
         ----------
         x : torch.Tensor | list[torch.Tensor]
             Input tensors to write
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Tensor coordinate system
         array_name : str | list[str]
             Array name(s) to write
 
         Returns
         -------
-        tuple[dict[str, torch.Tensor], CoordSystem]
+        tuple[dict[str, torch.Tensor], dict[str, np.ndarray]]
             Prepared tensor list, coordinate system and array names for writting
         """
         coords = coords.copy()
@@ -1371,7 +1370,7 @@ class AsyncZarrBackend:
         return self.root.store
 
     @property
-    def coords(self) -> CoordSystem:
+    def coords(self) -> dict[str, np.ndarray]:
         """Coordinate arrays of the store, read back from it.
 
         `ZarrBackend` accumulates this as arrays are added; here the store is the
@@ -1380,7 +1379,7 @@ class AsyncZarrBackend:
         """
         return fsspec.asyn.sync(self.loop, self._read_coords)
 
-    async def _read_coords(self) -> CoordSystem:
+    async def _read_coords(self) -> dict[str, np.ndarray]:
         arrays = {name: array async for name, array in self.root.arrays()}
         dims_of = {
             name: list(array.metadata.dimension_names or [])
@@ -1400,7 +1399,7 @@ class AsyncZarrBackend:
             if dims == [name] and name not in dim_order:
                 dim_order.append(name)
 
-        coords: CoordSystem = OrderedDict()
+        coords: dict[str, np.ndarray] = OrderedDict()
         for dim in dim_order:
             if dim in arrays:
                 coords[dim] = await arrays[dim].getitem(slice(None))
@@ -1408,7 +1407,7 @@ class AsyncZarrBackend:
 
     def add_array(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
         dtype: Any = np.float32,
         **kwargs: Any,
@@ -1423,7 +1422,7 @@ class AsyncZarrBackend:
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system of the array(s).
         array_name : str | list[str]
             Name(s) of the array(s) to create.
@@ -1449,7 +1448,7 @@ class AsyncZarrBackend:
         fsspec.asyn.sync(self.loop, self._add_array, coords, names, dtypes)
 
     async def _add_array(
-        self, coords: CoordSystem, names: list[str], dtypes: list[np.dtype]
+        self, coords: dict[str, np.ndarray], names: list[str], dtypes: list[np.dtype]
     ) -> None:
         # An existing coordinate array must match the values passed, otherwise data
         # arrays sized from these coords disagree with the stored coordinate and the
@@ -1469,7 +1468,7 @@ class AsyncZarrBackend:
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """Write data
@@ -1517,7 +1516,7 @@ class AsyncZarrBackend:
     async def async_write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """Async write data
@@ -1544,7 +1543,7 @@ class AsyncZarrBackend:
     async def _write(
         self,
         x: dict[str, torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         zs: AsyncGroup,
         fs: fsspec.AbstractFileSystem | None,
     ) -> None:
@@ -1554,7 +1553,7 @@ class AsyncZarrBackend:
         ----------
         x : dict[str, torch.Tensor]
             Dictionary of tensor(s) to be written to zarr arrays.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinates of the passed data.
         zs : zarr.AsyncGroup
             Zarr store to use

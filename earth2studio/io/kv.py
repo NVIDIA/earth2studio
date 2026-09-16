@@ -24,7 +24,6 @@ import xarray
 from loguru import logger
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
-from earth2studio.utils.type import CoordSystem
 
 
 class KVBackend:
@@ -40,7 +39,7 @@ class KVBackend:
 
         self.device = device
         self.root: dict[str, torch.Tensor] = {}
-        self.coords: CoordSystem = OrderedDict({})
+        self.coords: dict[str, np.ndarray] = OrderedDict({})
         self.dims: dict[str, list[str]] = {}
 
     def __contains__(self, item: str) -> bool:
@@ -75,7 +74,7 @@ class KVBackend:
 
     def add_array(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
         data: torch.Tensor | list[torch.Tensor] = None,
     ) -> None:
@@ -83,7 +82,7 @@ class KVBackend:
 
         Parameters
         ----------
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Ordered dict of coordinate information.
         array_name : str
             Name to add to kv store for the new array. Can optionally
@@ -140,7 +139,7 @@ class KVBackend:
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """
@@ -227,8 +226,11 @@ class KVBackend:
         )
 
     def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self,
+        coords: dict[str, np.ndarray],
+        array_name: str,
+        device: torch.device = "cpu",
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Read data from the current KV store using the passed array_name.
 

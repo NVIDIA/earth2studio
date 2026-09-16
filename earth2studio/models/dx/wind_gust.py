@@ -31,7 +31,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module
@@ -111,12 +110,11 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             (orography),
         )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -131,18 +129,19 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -211,8 +210,8 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
         out = torch.zeros_like(x[..., :1, :, :])

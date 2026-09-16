@@ -19,9 +19,10 @@ from collections import OrderedDict
 from datetime import timedelta
 
 import numpy as np
+import xarray as xr
 
 FrameSchema = OrderedDict[str, np.ndarray]
-CoordSystem = OrderedDict[str, np.ndarray]
+CoordSystem = tuple[xr.DataArray, ...]
 
 # Specific dimension custom types
 VariableArray = np.ndarray[str]

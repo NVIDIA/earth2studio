@@ -50,7 +50,6 @@ from src.work import WorkItem
 
 from earth2studio.data import Random
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
@@ -355,7 +354,7 @@ class TestConversionHelpers:
 
     def test_insert_zero_lead_time(self):
         x = torch.zeros(1, 2, 4, 8)
-        coords: CoordSystem = OrderedDict(
+        coords: dict[str, np.ndarray] = OrderedDict(
             {
                 "time": np.array([np.datetime64("2024-01-01")]),
                 "variable": np.array(DA_VARIABLES),

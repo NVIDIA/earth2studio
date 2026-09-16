@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -24,34 +24,7 @@ import pyarrow as pa
 import xarray as xr
 
 from earth2studio.data.utils import prep_data_inputs, prep_forecast_inputs
-from earth2studio.grids import E2S_GRID_ID, GridDefinition, resolve_grid
 from earth2studio.utils.type import FieldArray, LeadTimeArray, TimeArray, VariableArray
-
-Domain: TypeAlias = Mapping[str, np.ndarray] | xr.DataArray | GridDefinition | str
-
-
-def _domain(domain: Domain) -> tuple[tuple[str, ...], xr.Coordinates, dict[str, Any]]:
-    if isinstance(domain, str):
-        definition = resolve_grid(domain)
-        return definition.dims, definition.coords(), {E2S_GRID_ID: domain}
-    if isinstance(domain, GridDefinition):
-        return domain.dims, domain.coords(), domain.attrs
-    if isinstance(domain, xr.DataArray):
-        dimensions = tuple(
-            name
-            for name in domain.dims
-            if name not in {"batch", "time", "lead_time", "variable"}
-        )
-        coordinates = xr.Coordinates(
-            {
-                name: coordinate
-                for name, coordinate in domain.coords.items()
-                if set(coordinate.dims).issubset(dimensions)
-            }
-        )
-        return dimensions, coordinates, dict(domain.attrs)
-    coordinates = xr.Coordinates(domain)
-    return tuple(domain), coordinates, {}
 
 
 class Random:
@@ -59,15 +32,17 @@ class Random:
 
     Parameters
     ----------
-    domain_coords : Domain
-        Spatial coordinates, coordinate signature, or registered grid.
+    coordinate_system : xr.DataArray
+        Allocation-free Earth2Studio coordinate signature.
     """
 
     def __init__(
         self,
-        domain_coords: Domain,
+        coordinate_system: xr.DataArray,
     ):
-        self.domain_dims, self.domain_coords, self.attrs = _domain(domain_coords)
+        if not isinstance(coordinate_system, xr.DataArray):
+            raise TypeError("coordinate_system must be an xarray DataArray")
+        self.coordinate_system = coordinate_system
 
     def __call__(
         self,
@@ -94,16 +69,16 @@ class Random:
         shape = [
             len(time),
             len(variable),
-            *(self.domain_coords.sizes[name] for name in self.domain_dims),
+            *self.coordinate_system.shape,
         ]
         coords = {"time": time, "variable": variable}
 
-        coords.update(self.domain_coords)
+        coords.update(self.coordinate_system.coords)
         da = xr.DataArray(
             data=np.random.randn(*shape).astype(np.float32),
-            dims=("time", "variable", *self.domain_dims),
+            dims=("time", "variable", *self.coordinate_system.dims),
             coords=coords,
-            attrs=self.attrs,
+            attrs=self.coordinate_system.attrs,
         )
 
         return da
@@ -114,15 +89,17 @@ class Random_FX:
 
     Parameters
     ----------
-    domain_coords : Domain
-        Spatial coordinates, coordinate signature, or registered grid.
+    coordinate_system : xr.DataArray
+        Allocation-free Earth2Studio coordinate signature.
     """
 
     def __init__(
         self,
-        domain_coords: Domain,
+        coordinate_system: xr.DataArray,
     ):
-        self.domain_dims, self.domain_coords, self.attrs = _domain(domain_coords)
+        if not isinstance(coordinate_system, xr.DataArray):
+            raise TypeError("coordinate_system must be an xarray DataArray")
+        self.coordinate_system = coordinate_system
 
     def __call__(  # type: ignore[override]
         self,
@@ -151,15 +128,15 @@ class Random_FX:
             len(time),
             len(lead_time),
             len(variable),
-            *(self.domain_coords.sizes[name] for name in self.domain_dims),
+            *self.coordinate_system.shape,
         ]
         coords = {"time": time, "lead_time": lead_time, "variable": variable}
-        coords.update(self.domain_coords)
+        coords.update(self.coordinate_system.coords)
         da = xr.DataArray(
             data=np.random.randn(*shape).astype(np.float32),
-            dims=("time", "lead_time", "variable", *self.domain_dims),
+            dims=("time", "lead_time", "variable", *self.coordinate_system.dims),
             coords=coords,
-            attrs=self.attrs,
+            attrs=self.coordinate_system.attrs,
         )
         return da
 

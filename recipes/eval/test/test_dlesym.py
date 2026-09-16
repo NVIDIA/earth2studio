@@ -40,8 +40,6 @@ from src.pipelines import DLESyMPipeline
 from src.pipelines.dlesym import _unique_forecast_valid_times
 from src.work import WorkItem
 
-from earth2studio.utils.coords import CoordSystem
-
 # ---------------------------------------------------------------------------
 # _unique_forecast_valid_times
 # ---------------------------------------------------------------------------
@@ -130,7 +128,7 @@ class _StubDLESyM:
     def __init__(self) -> None:
         self._all_vars = self.atmos_variables + self.ocean_variables
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         return OrderedDict(
             [
                 ("batch", np.empty(0)),
@@ -142,7 +140,9 @@ class _StubDLESyM:
             ]
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         # Shift lead_time by the last input lead_time, exactly like DLESyM does.
         anchor = input_coords["lead_time"][-1]
         return OrderedDict(
@@ -157,8 +157,8 @@ class _StubDLESyM:
         )
 
     def retrieve_valid_ocean_outputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         valid_lt = np.array(
             [lt for lt in coords["lead_time"] if lt % self._ocean_lead[0] == 0]
         )
@@ -168,7 +168,7 @@ class _StubDLESyM:
         # The tensor value isn't inspected by the pipeline — just return something.
         return x[..., :1, :, :], out_coords
 
-    def create_iterator(self, x: torch.Tensor, coords: CoordSystem):
+    def create_iterator(self, x: torch.Tensor, coords: dict[str, np.ndarray]):
         """Yields IC first, then ``inf`` forward steps.
 
         Output tensor dimensionality mirrors the caller-provided ``x``:

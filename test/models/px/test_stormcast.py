@@ -23,7 +23,9 @@ import torch
 
 from earth2studio.data import HRRR, Random, fetch_data
 from earth2studio.models.px import StormCast
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 # Spoof models with same call signature
@@ -80,13 +82,16 @@ def test_stormcast_call(time, device):
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
     r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
+        coord_array(
+            ("lat", "lon"),
+            OrderedDict(
+                [
+                    ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                    ("lon", np.linspace(0, 360, num=360)),
+                ]
+            ),
         )
     )
 
@@ -115,8 +120,8 @@ def test_stormcast_call(time, device):
     ).to(device)
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -125,7 +130,7 @@ def test_stormcast_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, nvar, lat.shape[0], lat.shape[1]])
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "hrrr_x", 4)
     handshake_dim(out_coords, "hrrr_y", 3)
@@ -159,13 +164,16 @@ def test_stormcast_iter(ensemble, device):
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
     r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
+        coord_array(
+            ("lat", "lon"),
+            OrderedDict(
+                [
+                    ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                    ("lon", np.linspace(0, 360, num=360)),
+                ]
+            ),
         )
     )
 
@@ -194,8 +202,8 @@ def test_stormcast_iter(ensemble, device):
     ).to(device)
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
@@ -217,7 +225,7 @@ def test_stormcast_iter(ensemble, device):
         )
         assert (
             out_coords["variable"]
-            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
+            == tensor_output_coords(p, tensor_input_coords(p))["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
@@ -255,7 +263,7 @@ def test_stormcast_exceptions(dc, device):
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
     means = torch.zeros(1, 99, 1, 1)
     stds = torch.ones(1, 99, 1, 1)
     invariants = torch.randn(1, 2, 512, 640)
@@ -268,8 +276,8 @@ def test_stormcast_exceptions(dc, device):
     ).to(device)
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises(RuntimeError):
@@ -311,7 +319,7 @@ def test_stormcast_package(cond_dims, device, model):
             ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # returns dimensions in a different order
     class _RandomWithSpecifiedOrder(Random):
@@ -335,8 +343,8 @@ def test_stormcast_package(cond_dims, device, model):
     p.sampler_steps = 2
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -345,7 +353,7 @@ def test_stormcast_package(cond_dims, device, model):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 99, 512, 640])
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "hrrr_x", 4)
     handshake_dim(out_coords, "hrrr_y", 3)

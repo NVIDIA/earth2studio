@@ -17,9 +17,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+import numpy as np
 import torch
-
-from earth2studio.utils.type import CoordSystem
 
 
 # --8<-- [start:diagnostic-model-interface]
@@ -30,46 +29,46 @@ class DiagnosticModel(Protocol):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor intended to apply diagnostic function on
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
+        tuple[torch.Tensor, dict[str, np.ndarray]]:
             Output tensor and respective coordinate system dictionary
         """
         pass
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         pass
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the diagnostic model given an input coordinate
         system.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
 
         Raises

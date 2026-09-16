@@ -34,7 +34,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, LeadTimeArray
+from earth2studio.utils.type import LeadTimeArray
 
 try:
     from physicsnemo.diffusion.generate.legacy_generate import (
@@ -338,7 +338,7 @@ class CorrDiffCMIP6(CorrDiff):
             if v in self._NONNEGATIVE_VARS
         ]
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -358,17 +358,18 @@ class CorrDiffCMIP6(CorrDiff):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         target_input_coords = self.input_coords()
@@ -586,8 +587,8 @@ class CorrDiffCMIP6(CorrDiff):
 
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
 
         output_coords = self.output_coords(coords)

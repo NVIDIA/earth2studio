@@ -79,7 +79,6 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
 from earth2studio.perturbation import Perturbation, SphericalGaussian
 from earth2studio.run import ensemble
-from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -109,8 +108,8 @@ class ApplyToVariable:
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         # Apply perturbation
         xp, _ = self.pm(x, coords)
         # Add perturbed slice back into original tensor

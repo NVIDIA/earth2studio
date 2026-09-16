@@ -23,11 +23,12 @@ from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
 from earth2studio.utils.coords import map_coords
 from earth2studio.utils.time import to_time_array
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import TimeArray
 
 
 class HemisphericCentredBredVector:
@@ -77,7 +78,7 @@ class HemisphericCentredBredVector:
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor(
-                [noise_amplitude] * len(self.model._input_tensor_coords()["variable"])
+                [noise_amplitude] * len(tensor_input_coords(self.model)["variable"])
             )[:, None, None]
         )
         self.integration_steps = integration_steps
@@ -92,13 +93,13 @@ class HemisphericCentredBredVector:
         """Creates and initializes the perturbation generator"""
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
-        input_coords = self.model._input_tensor_coords()
+        input_coords = tensor_input_coords(self.model)
 
         time = to_time_array(time)
         warmup_times = (
             time
             + np.arange(-self.integration_steps, 1)
-            * self.model._output_tensor_coords(input_coords)["lead_time"]
+            * tensor_output_coords(self.model, input_coords)["lead_time"]
         )
         array = fetch_data(
             source=self.data,
@@ -158,7 +159,7 @@ class HemisphericCentredBredVector:
     def set_clip_indices(self) -> None:
         """If humidity and tcwv in variable set, add to list of variables to clip"""
         self.clip_idcs = []
-        for ii, var in enumerate(self.model._input_tensor_coords()["variable"]):
+        for ii, var in enumerate(tensor_input_coords(self.model)["variable"]):
             if var[0] == "q" or var == "tcwv" or var[0] == "r" or var[:2] == "tp":
                 self.clip_idcs.append(ii)
         return
@@ -223,8 +224,8 @@ class HemisphericCentredBredVector:
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Apply perturbation method
 
         Parameters
@@ -232,14 +233,14 @@ class HemisphericCentredBredVector:
         x : torch.Tensor
             Input tensor intended to apply perturbation on, not used in this
             perturbation method
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor.
             Must contain coordinates (Any, "time", "lead_time", "variable", "lat",
             "lon"). Time and lead_time must have size 1.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
+        tuple[torch.Tensor, dict[str, np.ndarray]]:
             Output tensor and respective coordinate system dictionary
         """
         shape = x.shape

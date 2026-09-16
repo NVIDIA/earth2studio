@@ -27,13 +27,18 @@ from earth2studio.data.base import DataSource
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     # Optional dependency: FME
@@ -289,15 +294,15 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.lat = model_lat.copy()
         self.lon = atmos_hc.lon.cpu().numpy().copy()
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
-        return CoordSystem(
+        return dict[str, np.ndarray](
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
@@ -308,18 +313,20 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = OrderedDict(
@@ -339,7 +346,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][0]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -430,13 +437,13 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     def _valid_time_array(
-        self, coords: CoordSystem, offsets: np.ndarray, n_batch: int
+        self, coords: dict[str, np.ndarray], offsets: np.ndarray, n_batch: int
     ) -> xr.DataArray:
         """Build a cftime valid-time array for an fme data window.
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system providing base times and lead time
         offsets : np.ndarray
             Lead time offsets of the window relative to the input lead time
@@ -457,7 +464,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _fetch_forcing_window(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         variables: list[str],
         offsets: np.ndarray,
         n_batch: int,
@@ -468,7 +475,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system providing base times and lead time
         variables : list[str]
             Forcing variable names to fetch
@@ -526,7 +533,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return BatchData(data=data, time=time_da, horizontal_dims=["lat", "lon"])
 
     def _state_from_tensor(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> CoupledPrognosticState:
         """Pack an Earth2Studio state tensor into a CoupledPrognosticState.
 
@@ -535,7 +542,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : torch.Tensor
             Input tensor of shape [batch, time, 1, variable, lat, lon]
             holding the coupled prognostic variables
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
@@ -574,7 +581,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _run_cycle(
         self,
         state: CoupledPrognosticState,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         n_batch: int,
         device: torch.device,
         dtype: torch.dtype,
@@ -587,7 +594,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         state : CoupledPrognosticState
             Coupled initial condition at the cycle start
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system at the cycle start
         n_batch : int
             Size of the Earth2Studio batch dimension
@@ -679,7 +686,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def _initial_ocean_block(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> torch.Tensor:
         """Build the ocean output block held before the first cycle boundary.
 
@@ -690,7 +697,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor of shape [batch, time, 1, variable, lat, lon]
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
@@ -714,8 +721,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return block
 
     def _build_initial_output(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Construct an initial-condition output matching the output schema.
 
         Prognostic variables are copied from the initial condition and
@@ -726,12 +733,12 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor of shape [batch, time, 1, variable, lat, lon]
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Initial condition output tensor and coordinate system
         """
         ic_coords = coords.copy()
@@ -780,14 +787,14 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         b, t = batch_shape
         return x.reshape(b, t, 1, len(self._in_vars), *x.shape[-2:])
 
-    def _validate_input(self, x: torch.Tensor, coords: CoordSystem) -> None:
+    def _validate_input(self, x: torch.Tensor, coords: dict[str, np.ndarray]) -> None:
         """Validate an input tensor and coordinate system.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Raises
@@ -807,11 +814,11 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"{len(coords['lead_time'])}"
             )
         # Raises on coordinate handshake failure
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
 
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Not supported; SamudrACE is an iterator-only prognostic.
 
         The model's time-step is the coupled (ocean) step, which spans
@@ -826,12 +833,12 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Never returns
 
         Raises
@@ -849,20 +856,20 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Generator to perform time-integration of the coupled model.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensors and coordinate systems, one atmosphere step at a
             time, starting with the initial condition
         """
@@ -916,8 +923,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def create_iterator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        coords: dict[str, np.ndarray],
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of
         the prognostic model. Will return the initial condition first (0th
         step).
@@ -931,12 +938,12 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator of output tensors and coordinate systems
         """
         yield from self._default_generator(x, coords)

@@ -24,7 +24,9 @@ import torch
 from earth2studio.data import HRRR, Random, Random_FX, fetch_data
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 # Small subdomain aligned to the mock patch size (8, 8) so that crop_model
 # validation passes.  Must satisfy:
@@ -130,11 +132,14 @@ def _build_model(
     conditioning_variables = np.array(["c%02d" % i for i in range(NVAR_COND)])
 
     r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
+        coord_array(
+            ("lat", "lon"),
+            OrderedDict(
+                [
+                    ("lat", np.linspace(90, -90, num=181, endpoint=True)),
+                    ("lon", np.linspace(0, 360, num=360)),
+                ]
+            ),
         )
     )
 
@@ -217,10 +222,10 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
             ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
         ]
     )
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -230,7 +235,7 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
     assert out.shape == torch.Size([len(time), 1, NVAR, ny, nx])
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "hrrr_x", 4)
     handshake_dim(out_coords, "hrrr_y", 3)
@@ -253,10 +258,10 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
             ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
         ]
     )
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Prepend ensemble dimension
@@ -274,7 +279,7 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
         assert out.shape == torch.Size([ensemble, len(time), 1, NVAR, ny, nx])
         assert (
             out_coords["variable"]
-            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
+            == tensor_output_coords(p, tensor_input_coords(p))["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
@@ -319,9 +324,9 @@ def test_stormcastconus_exceptions(device):
             ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
         ]
     )
-    r = Random(dc)
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    r = Random(coord_array(tuple(dc), dc))
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(
         r,
         np.array([np.datetime64("2020-04-05T00:00")]),
@@ -405,11 +410,14 @@ def test_stormcastconus_package(cond_dims, device, model):
     lat_start, lat_end = p.hrrr_lat_lim
     lon_start, lon_end = p.hrrr_lon_lim
     r = Random(
-        OrderedDict(
-            [
-                ("hrrr_y", HRRR.HRRR_Y[lat_start:lat_end]),
-                ("hrrr_x", HRRR.HRRR_X[lon_start:lon_end]),
-            ]
+        coord_array(
+            ("hrrr_y", "hrrr_x"),
+            OrderedDict(
+                [
+                    ("hrrr_y", HRRR.HRRR_Y[lat_start:lat_end]),
+                    ("hrrr_x", HRRR.HRRR_X[lon_start:lon_end]),
+                ]
+            ),
         )
     )
 
@@ -428,16 +436,16 @@ def test_stormcastconus_package(cond_dims, device, model):
     )
     p.num_diffusion_steps = 2
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p._output_tensor_coords(coords)["variable"]), 1024, 1792]
+        [len(time), 1, len(tensor_output_coords(p, coords)["variable"]), 1024, 1792]
     )
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "hrrr_x", 4)
     handshake_dim(out_coords, "hrrr_y", 3)

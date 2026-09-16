@@ -221,8 +221,6 @@ class TestOutputManagerResume:
         total_coords = build_forecast_coords(prognostic, times, nsteps=2)
         from collections import OrderedDict
 
-        from earth2studio.utils.coords import CoordSystem
-
         with patch(_DIST_PATH, return_value=_make_dist_mock()):
             with patch(_RANK0_OUTPUT, side_effect=_passthrough):
                 with OutputManager(threaded_cfg) as mgr:
@@ -233,7 +231,7 @@ class TestOutputManagerResume:
                     n_lon = len(total_coords["lon"])
 
                     lead = np.array([total_coords["lead_time"][0]])
-                    write_coords: CoordSystem = OrderedDict(
+                    write_coords: dict[str, np.ndarray] = OrderedDict(
                         {
                             "time": times,
                             "lead_time": lead,

@@ -53,7 +53,6 @@ from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import fetch_dataframe
 from earth2studio.models.da.base import AssimilationModel
-from earth2studio.utils.coords import CoordSystem
 
 from .distributed import run_on_rank0_first
 from .output import _spatial_dims
@@ -413,7 +412,7 @@ def build_runner(
     )
 
 
-def analysis_spatial_ref(model: AssimilationModel) -> CoordSystem:
+def analysis_spatial_ref(model: AssimilationModel) -> dict[str, np.ndarray]:
     """Extract the spatial coord system of a DA model's analysis output.
 
     Takes the first entry of ``model.output_coords(model.input_coords())``
@@ -423,7 +422,7 @@ def analysis_spatial_ref(model: AssimilationModel) -> CoordSystem:
     """
     output_coords = model.output_coords(model.input_coords())
     analysis_coords = output_coords[0]
-    ref: CoordSystem = OrderedDict()
+    ref: dict[str, np.ndarray] = OrderedDict()
     for dim in _spatial_dims(analysis_coords):
         ref[dim] = np.asarray(analysis_coords[dim])
     return ref
@@ -432,7 +431,7 @@ def analysis_spatial_ref(model: AssimilationModel) -> CoordSystem:
 def analysis_to_tensor(
     output: tuple[pd.DataFrame | xr.DataArray, ...],
     device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Convert a DA model output tuple to ``(tensor, coords)``.
 
     Extracts the first ``xr.DataArray`` from *output* (models that also
@@ -457,7 +456,7 @@ def analysis_to_tensor(
         x = torch.from_numpy(np.ascontiguousarray(data))
     x = x.to(device=device, dtype=torch.float32)
 
-    coords: CoordSystem = OrderedDict(
+    coords: dict[str, np.ndarray] = OrderedDict(
         (str(dim), np.asarray(da.coords[dim].values)) for dim in da.dims
     )
     return x, coords
@@ -465,8 +464,8 @@ def analysis_to_tensor(
 
 def insert_zero_lead_time(
     x: torch.Tensor,
-    coords: CoordSystem,
-) -> tuple[torch.Tensor, CoordSystem]:
+    coords: dict[str, np.ndarray],
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Insert a singleton ``lead_time=[0ns]`` dim after ``time``.
 
     Analysis products have no forecast lead, but the output store schema
@@ -477,7 +476,7 @@ def insert_zero_lead_time(
     dims = list(coords.keys())
     time_axis = dims.index("time")
     x = x.unsqueeze(time_axis + 1)
-    new_coords: CoordSystem = OrderedDict()
+    new_coords: dict[str, np.ndarray] = OrderedDict()
     for dim in dims[: time_axis + 1]:
         new_coords[dim] = coords[dim]
     new_coords["lead_time"] = np.array([np.timedelta64(0, "ns")])

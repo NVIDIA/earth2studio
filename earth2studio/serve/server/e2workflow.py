@@ -21,6 +21,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from typing import Any, ClassVar, cast, get_type_hints
 
+import numpy as np
 import torch
 import zarr
 
@@ -44,7 +45,6 @@ from earth2studio.serve.server.workflow import (
     WorkflowParameters,
     WorkflowProgress,
 )
-from earth2studio.utils.type import CoordSystem
 
 
 @check_optional_dependencies()
@@ -279,7 +279,7 @@ class BackendProgress:
 
     def add_array(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
         **kwargs: dict[str, Any],
     ) -> None:
@@ -302,7 +302,7 @@ class BackendProgress:
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """Write results and log progress."""

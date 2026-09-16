@@ -25,8 +25,6 @@ import torch
 from src.metrics import ensemble_variance, mse
 from src.scoring import _is_statistic
 
-from earth2studio.utils.coords import CoordSystem
-
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
@@ -38,8 +36,8 @@ VARIABLES = np.array(["t2m", "z500"])
 ENSEMBLE = np.arange(4)
 
 
-def _make_coords(*, ensemble: bool = False) -> CoordSystem:
-    coords: CoordSystem = OrderedDict()
+def _make_coords(*, ensemble: bool = False) -> dict[str, np.ndarray]:
+    coords: dict[str, np.ndarray] = OrderedDict()
     if ensemble:
         coords["ensemble"] = ENSEMBLE
     coords["lead_time"] = LEAD_TIMES
@@ -49,7 +47,7 @@ def _make_coords(*, ensemble: bool = False) -> CoordSystem:
     return coords
 
 
-def _make_tensor(coords: CoordSystem) -> torch.Tensor:
+def _make_tensor(coords: dict[str, np.ndarray]) -> torch.Tensor:
     shape = [len(v) for v in coords.values()]
     return torch.randn(shape)
 
@@ -124,7 +122,7 @@ class TestMSE:
     def test_known_value(self):
         """Hand-computed MSE for a simple case."""
         # 1x1 spatial grid, 1 lead time, 1 variable
-        coords: CoordSystem = OrderedDict(
+        coords: dict[str, np.ndarray] = OrderedDict(
             lead_time=np.array([0], dtype="timedelta64[ns]"),
             variable=np.array(["t2m"]),
             lat=np.array([0.0]),
@@ -240,7 +238,7 @@ class TestEnsembleVariance:
 
     def test_known_variance(self):
         """Hand-computed variance for 2 members on a 1x1 grid."""
-        coords: CoordSystem = OrderedDict(
+        coords: dict[str, np.ndarray] = OrderedDict(
             ensemble=np.arange(2),
             lead_time=np.array([0], dtype="timedelta64[ns]"),
             variable=np.array(["t2m"]),

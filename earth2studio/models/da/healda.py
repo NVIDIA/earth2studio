@@ -35,7 +35,11 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
+from earth2studio.utils.type import (
+    FrameSchema,
+    TimeArray,
+    TimeTolerance,
+)
 
 try:
     import cupy as cp
@@ -282,22 +286,22 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def output_coords(
         self,
-        input_coords: tuple[CoordSystem, CoordSystem],
+        input_coords: tuple[dict[str, np.ndarray], dict[str, np.ndarray]],
         request_time: np.ndarray | None = None,
         **kwargs: Any,
-    ) -> tuple[CoordSystem]:
+    ) -> tuple[dict[str, np.ndarray]]:
         """Output coordinate system for the HealDA analysis.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
+        input_coords : tuple[dict[str, np.ndarray]]
             Input coordinate system
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
 
         Returns
         -------
-        tuple[CoordSystem]
+        tuple[dict[str, np.ndarray]]
             Coordinate system with time, variable, and lat/lon or npix dimensions
         """
         if request_time is None:
@@ -305,7 +309,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         if self._lat_lon:
             return (
-                CoordSystem(
+                dict[str, np.ndarray](
                     OrderedDict(
                         {
                             "time": request_time,
@@ -318,7 +322,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             )
 
         return (
-            CoordSystem(
+            dict[str, np.ndarray](
                 OrderedDict(
                     {
                         "time": request_time,
@@ -951,7 +955,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def build_output(
         self,
         prediction: torch.Tensor,
-        output_coords: CoordSystem,
+        output_coords: dict[str, np.ndarray],
     ) -> xr.DataArray:
         """Convert model output tensor to xarray DataArray.
 
@@ -959,7 +963,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ----------
         prediction : torch.Tensor
             Model output [batch, variable, 1, npix]
-        output_coords : CoordSystem
+        output_coords : dict[str, np.ndarray]
             Output coordinate system
 
         Returns
@@ -989,7 +993,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             coords=output_coords,
         )
 
-    def _empty_output(self, output_coords: CoordSystem) -> xr.DataArray:
+    def _empty_output(self, output_coords: dict[str, np.ndarray]) -> xr.DataArray:
         """Return an empty (NaN-filled) DataArray."""
         n_time = len(output_coords["time"])
         n_var = len(output_coords["variable"])

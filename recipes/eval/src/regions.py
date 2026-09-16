@@ -43,14 +43,13 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.statistics.weights import lat_weight
-from earth2studio.utils.type import CoordSystem
 
 # Dimensions that never count as spatial when scanning a grid's
 # coordinate system for its spatial axes.
 NON_SPATIAL = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
 
 
-def spatial_dims(spatial_coords: CoordSystem) -> list[str]:
+def spatial_dims(spatial_coords: dict[str, np.ndarray]) -> list[str]:
     """Return the spatial dimension names of a coordinate system."""
     return [d for d in spatial_coords if d not in NON_SPATIAL]
 
@@ -128,14 +127,14 @@ def parse_regions(value: Any) -> dict[str, list[dict] | None] | None:
 
 
 def region_masks(
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
     regions: dict[str, list[dict] | None],
 ) -> OrderedDict[str, torch.Tensor]:
     """Compute each region's {0, 1} mask on the scored grid.
 
     Parameters
     ----------
-    spatial_coords : CoordSystem
+    spatial_coords : dict[str, np.ndarray]
         Spatial coordinate arrays of the scored grid (1D per dimension).
     regions : dict[str, list[dict] | None]
         Parsed ``scoring.regions`` (see :func:`parse_regions`).
@@ -212,7 +211,7 @@ def region_masks(
 
 
 def build_spatial_weights(
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
     lat_weights: bool,
     regions: dict[str, list[dict] | None] | None = None,
 ) -> torch.Tensor:
@@ -229,7 +228,7 @@ def build_spatial_weights(
 
     Parameters
     ----------
-    spatial_coords : CoordSystem
+    spatial_coords : dict[str, np.ndarray]
         Spatial coordinate arrays of the scored grid.
     lat_weights : bool
         Whether to apply cosine-latitude weighting.

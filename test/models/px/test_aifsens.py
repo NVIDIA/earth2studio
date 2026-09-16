@@ -42,7 +42,9 @@ except ImportError:
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -163,12 +165,12 @@ def test_aifsens_call(time, device):
         invariants=invariants,
     ).to(device)
 
-    dc = {k: p._input_tensor_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: tensor_input_coords(p)[k] for k in ["lat", "lon"]}
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -177,7 +179,7 @@ def test_aifsens_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440])
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -219,12 +221,12 @@ def test_aifsens_iter(ensemble, device):
         invariants=invariants,
     ).to(device)
 
-    dc = {k: p._input_tensor_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: tensor_input_coords(p)[k] for k in ["lat", "lon"]}
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -243,7 +245,7 @@ def test_aifsens_iter(ensemble, device):
         )
         assert (
             out_coords["variable"]
-            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
+            == tensor_output_coords(p, tensor_input_coords(p))["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i), "h")
@@ -292,10 +294,10 @@ def test_aifsens_exceptions(dc, device):
         invariants=invariants,
     ).to(device)
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     with pytest.raises((KeyError, ValueError)):
@@ -336,12 +338,12 @@ def test_aifsens_package(device, ensemble, model):
     assert len(p.input_variables) == EXPECTED_INPUT_VARIABLES
     assert len(p.output_variables) == EXPECTED_OUTPUT_VARIABLES
 
-    dc = {k: p._input_tensor_coords()[k] for k in ["lat", "lon"]}
+    dc = {k: tensor_input_coords(p)[k] for k in ["lat", "lon"]}
 
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     coords = {"ensemble": np.arange(ensemble, dtype=int)} | coords
@@ -355,7 +357,7 @@ def test_aifsens_package(device, ensemble, model):
     assert out.shape == torch.Size(
         [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
     )
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     handshake_dim(out_coords, "lon", 5)
     handshake_dim(out_coords, "lat", 4)
     handshake_dim(out_coords, "variable", 3)

@@ -33,7 +33,8 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.io import AsyncZarrBackend, ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+from earth2studio.utils.coords import handshake_coords, split_coords
 
 from .distributed import run_on_rank0_first
 
@@ -44,7 +45,7 @@ _NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemb
 _ITERATION_DIMS = ("time", "lead_time", "ensemble")
 
 
-def _spatial_dims(coords: CoordSystem) -> list[str]:
+def _spatial_dims(coords: dict[str, np.ndarray]) -> list[str]:
     """Return dimension names from *coords* that are spatial (not structural).
 
     Structural dimensions (batch, time, lead_time, variable, ensemble) are
@@ -55,14 +56,14 @@ def _spatial_dims(coords: CoordSystem) -> list[str]:
 
 
 def build_output_coords(
-    spatial_ref: CoordSystem,
+    spatial_ref: dict[str, np.ndarray],
     output_variables: list[str],
-) -> CoordSystem:
+) -> dict[str, np.ndarray]:
     """Build the coordinate filter used to sub-select model output before writing.
 
     Parameters
     ----------
-    spatial_ref : CoordSystem
+    spatial_ref : dict[str, np.ndarray]
         Reference coordinate system whose spatial entries define the output
         grid.  Typically the output coords of the prognostic or diagnostic
         model.
@@ -71,10 +72,9 @@ def build_output_coords(
 
     Returns
     -------
-    CoordSystem
         Filter with ``variable`` and any spatial dimension keys.
     """
-    oc: CoordSystem = OrderedDict()
+    oc: dict[str, np.ndarray] = OrderedDict()
     oc["variable"] = np.array(output_variables)
     for dim in _spatial_dims(spatial_ref):
         oc[dim] = spatial_ref[dim]
@@ -107,8 +107,8 @@ def build_forecast_coords(
     times: np.ndarray,
     nsteps: int,
     ensemble_size: int = 1,
-    spatial_ref: CoordSystem | None = None,
-) -> CoordSystem:
+    spatial_ref: dict[str, np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
     """Build the full coordinate system for a standard prognostic forecast.
 
     Derives lead-time coordinates from the model's single-step output (the
@@ -127,7 +127,7 @@ def build_forecast_coords(
     ensemble_size : int
         Total number of ensemble members.  When 1 the ensemble dimension
         is omitted.
-    spatial_ref : CoordSystem | None
+    spatial_ref : dict[str, np.ndarray] | None
         If provided, the spatial dims of the output store are taken from
         this coord system instead of the model's output coords.  Used
         when an output regridder is active so that the zarr schema
@@ -135,14 +135,13 @@ def build_forecast_coords(
 
     Returns
     -------
-    CoordSystem
         Full coordinate system suitable for passing to
         :meth:`OutputManager.validate_output_store`.
     """
-    input_c = prognostic._input_tensor_coords()
-    output_c = prognostic._output_tensor_coords(input_c)
+    input_c = tensor_input_coords(prognostic)
+    output_c = tensor_output_coords(prognostic, input_c)
 
-    total: CoordSystem = OrderedDict()
+    total: dict[str, np.ndarray] = OrderedDict()
     if ensemble_size > 1:
         total["ensemble"] = np.arange(ensemble_size)
     total["time"] = times
@@ -170,8 +169,8 @@ def build_diagnostic_coords(
     diagnostics: list[DiagnosticModel],
     times: np.ndarray,
     ensemble_size: int = 1,
-    spatial_ref: CoordSystem | None = None,
-) -> CoordSystem:
+    spatial_ref: dict[str, np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
     """Build the full coordinate system for a diagnostic-only pipeline.
 
     Uses the first diagnostic model to determine the output spatial grid.
@@ -188,13 +187,12 @@ def build_diagnostic_coords(
     ensemble_size : int
         Total number of ensemble members.  When 1 the ensemble dimension
         is omitted.
-    spatial_ref : CoordSystem | None
+    spatial_ref : dict[str, np.ndarray] | None
         If provided, the spatial dims of the output store are taken from
         this coord system instead of the first diagnostic's output coords.
 
     Returns
     -------
-    CoordSystem
         Full coordinate system suitable for passing to
         :meth:`OutputManager.validate_output_store`.
     """
@@ -206,7 +204,7 @@ def build_diagnostic_coords(
         spatial_ref if spatial_ref is not None else dx.output_coords(dx.input_coords())
     )
 
-    total: CoordSystem = OrderedDict()
+    total: dict[str, np.ndarray] = OrderedDict()
     if ensemble_size > 1:
         total["ensemble"] = np.arange(ensemble_size)
     total["time"] = times
@@ -221,8 +219,8 @@ def build_diagnostic_coords(
 def build_analysis_coords(
     times: np.ndarray,
     ensemble_size: int = 1,
-    spatial_ref: CoordSystem | None = None,
-) -> CoordSystem:
+    spatial_ref: dict[str, np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
     """Build the full coordinate system for an analysis-product pipeline.
 
     Analyses (e.g. data-assimilation output) are single-time products, so
@@ -237,19 +235,18 @@ def build_analysis_coords(
     ensemble_size : int
         Total number of ensemble members.  When 1 the ensemble dimension
         is omitted.
-    spatial_ref : CoordSystem | None
+    spatial_ref : dict[str, np.ndarray] | None
         Coordinate system whose spatial dims define the output grid.
 
     Returns
     -------
-    CoordSystem
         Full coordinate system suitable for passing to
         :meth:`OutputManager.validate_output_store`.
     """
     if spatial_ref is None:
         raise ValueError("spatial_ref is required for analysis coords.")
 
-    total: CoordSystem = OrderedDict()
+    total: dict[str, np.ndarray] = OrderedDict()
     if ensemble_size > 1:
         total["ensemble"] = np.arange(ensemble_size)
     total["time"] = times
@@ -262,9 +259,9 @@ def build_analysis_coords(
 
 
 def build_predownload_coords(
-    spatial_ref: CoordSystem,
+    spatial_ref: dict[str, np.ndarray],
     times: np.ndarray,
-) -> CoordSystem:
+) -> dict[str, np.ndarray]:
     """Build coords for a predownload zarr store: ``(time, <spatial...>)``.
 
     The returned coordinate system has a ``time`` dimension followed by
@@ -274,7 +271,7 @@ def build_predownload_coords(
 
     Parameters
     ----------
-    spatial_ref : CoordSystem
+    spatial_ref : dict[str, np.ndarray]
         Reference coordinate system whose spatial entries define the grid.
     times : np.ndarray
         All valid times to be stored (IC-adjusted times, verification
@@ -282,10 +279,9 @@ def build_predownload_coords(
 
     Returns
     -------
-    CoordSystem
         ``(time, <spatial...>)`` coordinate system.
     """
-    coords: CoordSystem = OrderedDict()
+    coords: dict[str, np.ndarray] = OrderedDict()
     coords["time"] = times
     for dim in _spatial_dims(spatial_ref):
         coords[dim] = spatial_ref[dim]
@@ -295,8 +291,8 @@ def build_predownload_coords(
 def build_score_coords(
     metric: Any,
     times: np.ndarray,
-    input_coords_template: CoordSystem,
-) -> CoordSystem:
+    input_coords_template: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
     """Build the output coordinate system for a single metric's score arrays.
 
     Calls ``metric.output_coords()`` on a template coordinate system (which
@@ -311,21 +307,19 @@ def build_score_coords(
         ``output_coords`` method).
     times : np.ndarray
         All initial-condition times that will appear in the score store.
-    input_coords_template : CoordSystem
+    input_coords_template : dict[str, np.ndarray]
         Representative coordinate system matching the tensors that will be
         passed to the metric (e.g. ``{lead_time, variable, lat, lon}``).
 
     Returns
     -------
-    CoordSystem
         Coordinate system for the score arrays: ``(time, <surviving dims>)``.
     """
     score_output = metric.output_coords(input_coords_template)
-    total: CoordSystem = OrderedDict()
-    total["time"] = times
-    for dim, vals in score_output.items():
-        if dim != "time":
-            total[dim] = vals
+    total: dict[str, np.ndarray] = OrderedDict(
+        [("time", times)]
+        + [(dim, vals) for dim, vals in score_output.items() if dim != "time"]
+    )
     return total
 
 
@@ -442,7 +436,7 @@ class OutputManager:
                 "output.shard_coords requires output.io_backend=async_zarr"
             )
 
-        self._total_coords: CoordSystem | None = None
+        self._total_coords: dict[str, np.ndarray] | None = None
         self._variables: list[str] | None = None
         self._io: ZarrBackend | AsyncZarrBackend | None = None
 
@@ -506,7 +500,7 @@ class OutputManager:
 
     def validate_output_store(
         self,
-        total_coords: CoordSystem,
+        total_coords: dict[str, np.ndarray],
         variables: list[str],
     ) -> None:
         """Create or validate the zarr store against the given schema.
@@ -520,7 +514,7 @@ class OutputManager:
 
         Parameters
         ----------
-        total_coords : CoordSystem
+        total_coords : dict[str, np.ndarray]
             Full coordinate system for the output arrays (e.g. from
             :func:`build_forecast_coords`).
         variables : list[str]
@@ -540,14 +534,14 @@ class OutputManager:
             )
         return self._io
 
-    def write(self, x: torch.Tensor, coords: CoordSystem) -> None:
+    def write(self, x: torch.Tensor, coords: dict[str, np.ndarray]) -> None:
         """Write a chunk of forecast data.
 
         Parameters
         ----------
         x : torch.Tensor
             Data tensor to write.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinates corresponding to *x*.
         """
         arrays, coord_sets, var_names = split_coords(x, coords)
@@ -601,7 +595,7 @@ class OutputManager:
             # Iteration axes are parallel coordinates, which the backend chunks at
             # 1 and allows to be written one slice at a time (guarded in __init__).
             # Every other dim keeps its requested chunk size and is written whole.
-            parallel: CoordSystem = OrderedDict(
+            parallel: dict[str, np.ndarray] = OrderedDict(
                 (dim, np.asarray(values))
                 for dim, values in self._total_coords.items()
                 if dim in _ITERATION_DIMS

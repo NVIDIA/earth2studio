@@ -37,7 +37,6 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.utils.coords import CoordSystem
 
 if TYPE_CHECKING:
     from omegaconf import DictConfig
@@ -75,7 +74,7 @@ class _RegriddedDataSource:
 
 def _align_source_to_spatial_ref(
     source: object,
-    spatial_ref: CoordSystem,
+    spatial_ref: dict[str, np.ndarray],
     probe_time: np.datetime64,
     probe_variable: str,
 ) -> object:
@@ -177,7 +176,7 @@ def declare_single_source_stores(
     ic_times: list[np.datetime64],
     verif_variables: list[str],
     verif_times: list[np.datetime64],
-    spatial_ref: CoordSystem,
+    spatial_ref: dict[str, np.ndarray],
     always_separate_verification: bool = False,
 ) -> list[PredownloadStore]:
     """Declare IC and verification predownload stores for single-source pipelines.
@@ -207,7 +206,7 @@ def declare_single_source_stores(
         Variable names required for IC fetching and verification, respectively.
     ic_times, verif_times : list[np.datetime64]
         Times to fetch for IC and verification, respectively.
-    spatial_ref : CoordSystem
+    spatial_ref : dict[str, np.ndarray]
         Spatial reference (output coords) shared by both stores.
     always_separate_verification : bool
         Force ``verification`` into its own store even when verification
@@ -304,7 +303,7 @@ def declare_verification_only_store(
     *,
     verif_variables: list[str],
     verif_times: list[np.datetime64],
-    spatial_ref: CoordSystem,
+    spatial_ref: dict[str, np.ndarray],
 ) -> list[PredownloadStore]:
     """Declare a standalone ``verification.zarr`` store (no IC store).
 
@@ -324,7 +323,7 @@ def declare_verification_only_store(
         Variable names required for verification.
     verif_times : list[np.datetime64]
         Valid times to fetch.
-    spatial_ref : CoordSystem
+    spatial_ref : dict[str, np.ndarray]
         Spatial coordinate system of the stored data.  Must match the
         grid the verification source returns — the store schema is
         validated against fetched data at download time.
@@ -368,8 +367,8 @@ def declare_verification_only_store(
 
 
 def squeeze_lead_time(
-    x: torch.Tensor, coords: CoordSystem
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor, coords: dict[str, np.ndarray]
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Remove the lead_time dimension from a (tensor, coords) pair.
 
     ``fetch_data()`` always returns a ``lead_time`` dimension even when it

@@ -26,7 +26,6 @@ import xarray as xr
 from earth2studio.data import ARCO_ERA5
 from earth2studio.data.utils import fetch_data
 from earth2studio.statistics import crps
-from earth2studio.utils.coords import CoordSystem
 
 expected_scores = {
     "dlesym": {
@@ -69,7 +68,7 @@ def main() -> None:
         with xr.open_zarr(path) as ds:
             # Load forecast data
             fcst = ds[var].isel(time=[0]).sel(lead_time=verif_lead_times)
-            fcst_coords = CoordSystem(
+            fcst_coords = dict[str, np.ndarray](
                 ensemble=fcst.ensemble.values,
                 time=fcst.time.values,
                 lead_time=fcst.lead_time.values,

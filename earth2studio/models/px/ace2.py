@@ -33,14 +33,19 @@ from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils.coords import handshake_coords, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.interp import LatLonInterpolation
-from earth2studio.utils.type import CoordSystem
 
 try:
     # Optional dependency: FME
@@ -218,7 +223,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.forcing_data_source = forcing_data_source
         self._forcing_cache: dict[
             tuple[int, tuple[str, ...], str, str, int],
-            tuple[torch.Tensor, CoordSystem],
+            tuple[torch.Tensor, dict[str, np.ndarray]],
         ] = {}
 
         # Grid handling
@@ -246,15 +251,15 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             self.needs_regrid = False
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
-        coords = CoordSystem(
+        coords = dict[str, np.ndarray](
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
@@ -268,19 +273,21 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return coords
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = OrderedDict(
@@ -300,7 +307,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         test_coords["lead_time"] = (
             test_coords["lead_time"] - input_coords["lead_time"][0]
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         for i, key in enumerate(target_input_coords):
             if key not in ["batch", "time"]:
                 handshake_dim(test_coords, key, i)
@@ -361,9 +368,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _tensor_to_batch_data(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         forcing_x: torch.Tensor,
-        forcing_coords: CoordSystem,
+        forcing_coords: dict[str, np.ndarray],
     ) -> tuple[BatchData, PrognosticState]:
         """Pack Earth2Studio (x, coords) into fme BatchData/PrognosticState.
 
@@ -371,11 +378,11 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
         forcing_x : torch.Tensor
             Forcing tensor
-        forcing_coords : CoordSystem
+        forcing_coords : dict[str, np.ndarray]
             Forcing coordinate system
 
         Returns
@@ -470,7 +477,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _fetch_forcing_year(
         self, year: int, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         device = torch.device(device)
         cache_key = (
             id(self.forcing_data_source),
@@ -507,7 +514,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _fetch_forcing_at_time(
         self, valid_time: np.datetime64, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         valid_time = valid_time.astype("datetime64[ns]")
         device = torch.device(device)
         if isinstance(self.forcing_data_source, ACE2ERA5Data):
@@ -549,8 +556,11 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return forcing_x, forcing_coords.copy()
 
     def _fetch_forcing(
-        self, x: torch.Tensor, coords: CoordSystem, lead_times: np.ndarray
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self,
+        x: torch.Tensor,
+        coords: dict[str, np.ndarray],
+        lead_times: np.ndarray,
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         forcing_by_lead = []
         forcing_coords = None
         for lead_time in lead_times:
@@ -580,20 +590,20 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Run one prognostic step using fme predict_paired API.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future
         """
 
@@ -613,6 +623,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing_x = torch.stack([forcing_x] * len(coords["batch"]), dim=0).to(
             device=x.device, dtype=x.dtype
         )
+        forcing_coords = OrderedDict(forcing_coords)
         forcing_coords["batch"] = coords["batch"]
         forcing_coords.move_to_end("batch", last=False)
 
@@ -624,12 +635,12 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Predict one step forward
         paired, _ = self.stepper.predict_paired(ic, forcing_batch)
         y = self._batch_data_to_tensor(paired.prediction)
-        out_coords = self._output_tensor_coords(coords)
+        out_coords = tensor_output_coords(self, coords)
         return y, out_coords
 
     def _build_initial_output(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Construct an initial-condition output tensor matching model output schema.
 
         Fills output-only variables with NaN and copies prognostic variables from the
@@ -640,12 +651,12 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Initial condition output tensor and coordinate system
         """
 
@@ -674,40 +685,40 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs one prognostic step using fme predict_paired API.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future
         """
         return self._forward(x, coords)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Generator to perform time-integration of ACE2ERA5.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        Generator[tuple[torch.Tensor, CoordSystem]]
+        Generator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Generator of output tensors and coordinate systems
         """
         coords = coords.copy()
@@ -748,8 +759,8 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coords["lead_time"] = coords["lead_time"] + self._dt
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates an iterator to perform time-integration of ACE2ERA5.
 
         Yields the first forecast step, then continues autoregressively by feeding
@@ -760,12 +771,12 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator of output tensors and coordinate systems
         """
         yield from self._default_generator(x, coords)

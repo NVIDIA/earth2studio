@@ -14,17 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 from numpy import asarray
 from torch import Tensor, inference_mode
 from xarray import open_dataset
 
 from earth2studio.data import DataSource
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import tensor_input_coords
 from earth2studio.perturbation import (
     CorrelatedSphericalGaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.coords import CoordSystem
 
 
 class HENSPerturbation:
@@ -127,7 +128,7 @@ class HENSPerturbation:
                 f"provide path to data set containing {lead_time}h deterministic [r]mse"
             )
 
-        model_vars = model._input_tensor_coords()["variable"]
+        model_vars = tensor_input_coords(model)["variable"]
         if perturbed_var is None:
             perturbed_var = model_vars
         elif isinstance(perturbed_var, str):
@@ -154,20 +155,20 @@ class HENSPerturbation:
     def __call__(
         self,
         x: Tensor,
-        coords: CoordSystem,
-    ) -> tuple[Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[Tensor, dict[str, np.ndarray]]:
         """Apply the perturbation.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor to be perturbed
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system describing the input tensor
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             The perturbed tensor and its corresponding coordinate system
         """
         return self.perturbation(x, coords)

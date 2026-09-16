@@ -29,13 +29,18 @@ from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils.coords import map_coords
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import chex
@@ -267,7 +272,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
     def _update_cyclone_tracks(
         self,
         predictions: xr.Dataset,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         accumulate_predictions: bool,
     ) -> None:
         """Update cyclone tracks from native WeatherNext prediction fields."""
@@ -336,28 +341,30 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 [self._cyclone_tracks, tracks], ignore_index=True
             )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary.
         """
         return self._input_coords.copy()
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary.
         """
         output_coords = self._output_coords.copy()
@@ -674,26 +681,26 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
 
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model one step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 6 hours in the future.
         """
         self._reset_cyclone_tracks()
         device = x.device
         with jax.default_device(self.get_jax_device_from_tensor(x)):
-            x, coords = map_coords(x, coords, self._input_tensor_coords())
+            x, coords = map_coords(x, coords, tensor_input_coords(self))
             time_dim = list(coords.keys()).index("time")
             results = []
             for t in range(len(coords["time"])):
@@ -718,20 +725,20 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
                 )
                 self._update_cyclone_tracks(
                     predictions,
-                    self._output_tensor_coords(coords_t),
+                    tensor_output_coords(self, coords_t),
                     accumulate_predictions=False,
                 )
                 results.append(self.iterator_result_to_tensor(predictions))
 
             out = torch.cat(results, dim=1) if len(results) > 1 else results[0]
-            return out.to(device), self._output_tensor_coords(coords)
+            return out.to(device), tensor_output_coords(self, coords)
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         coords = coords.copy()
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
         device = x.device
         coords_out = coords.copy()
         coords_out["lead_time"] = coords["lead_time"][1:]
@@ -749,7 +756,7 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
         ), coords_out
 
         while True:
-            coords = self._output_tensor_coords(coords)
+            coords = tensor_output_coords(self, coords)
             predictions = [next(it) for it in self.iterators]
             if len(predictions) == 1:
                 self._update_cyclone_tracks(
@@ -765,23 +772,23 @@ class WeatherNext2CyclonesMini(torch.nn.Module, AutoModelMixin, PrognosticMixin)
             yield x.to(device), coords.copy()
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Create a time-integration iterator for the prognostic model.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates model time steps.
         """
-        self._output_tensor_coords(coords)
+        tensor_output_coords(self, coords)
         self._reset_cyclone_tracks()
         with jax.default_device(self.get_jax_device_from_tensor(x)):
             time_dim = list(coords.keys()).index("time")

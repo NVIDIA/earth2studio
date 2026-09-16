@@ -29,7 +29,9 @@ except ImportError:
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.px import FuXi
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class PhooFuXiModel(torch.nn.Module):
@@ -94,17 +96,17 @@ class TestFuXiMock:
         # Use dummy package
         p = FuXi.load_model(fuxi_test_package).to(device)
 
-        dc = p._input_tensor_coords()
+        dc = tensor_input_coords(p)
         del dc["batch"]
         del dc["time"]
         del dc["lead_time"]
         del dc["variable"]
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
-        lead_time = p._input_tensor_coords()["lead_time"]
-        variable = p._input_tensor_coords()["variable"]
+        lead_time = tensor_input_coords(p)["lead_time"]
+        variable = tensor_input_coords(p)["variable"]
         x, coords = fetch_data(
             r, time, variable, lead_time, device=device
         ).e2s.to_torch()
@@ -125,13 +127,13 @@ class TestFuXiMock:
             [
                 len(time),
                 1,
-                len(p._output_tensor_coords(p._input_tensor_coords())["variable"]),
+                len(tensor_output_coords(p, tensor_input_coords(p))["variable"]),
                 721,
                 1440,
             ]
         )
         assert (
-            out_coords["variable"] == p._output_tensor_coords(coords)["variable"]
+            out_coords["variable"] == tensor_output_coords(p, coords)["variable"]
         ).all()
         assert (out_coords["time"] == time).all()
         assert torch.allclose(
@@ -154,17 +156,17 @@ class TestFuXiMock:
         # Use dummy package
         p = FuXi.load_model(fuxi_test_package).to(device)
 
-        dc = p._input_tensor_coords()
+        dc = tensor_input_coords(p)
         del dc["batch"]
         del dc["time"]
         del dc["lead_time"]
         del dc["variable"]
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
-        lead_time = p._input_tensor_coords()["lead_time"]
-        variable = p._input_tensor_coords()["variable"]
+        lead_time = tensor_input_coords(p)["lead_time"]
+        variable = tensor_input_coords(p)["variable"]
         x, coords = fetch_data(
             r, time, variable, lead_time, device=device
         ).e2s.to_torch()
@@ -199,7 +201,7 @@ class TestFuXiMock:
             assert out.shape[0] == ensemble
             assert (
                 out_coords["variable"]
-                == p._output_tensor_coords(p._input_tensor_coords())["variable"]
+                == tensor_output_coords(p, tensor_input_coords(p))["variable"]
             ).all()
             assert (out_coords["time"] == time).all()
             assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
@@ -223,14 +225,14 @@ class TestFuXiMock:
                 ensemble,
                 len(time),
                 1,
-                len(p._output_tensor_coords(p._input_tensor_coords())["variable"]),
+                len(tensor_output_coords(p, tensor_input_coords(p))["variable"]),
                 721,
                 1440,
             ]
         )
         assert (
             out_coords["variable"]
-            == p._output_tensor_coords(p._input_tensor_coords())["variable"]
+            == tensor_output_coords(p, tensor_input_coords(p))["variable"]
         ).all()
         assert torch.allclose(
             out[:, :, :-1],
@@ -253,11 +255,11 @@ class TestFuXiMock:
         p = FuXi.load_model(fuxi_test_package).to(device)
 
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
-        lead_time = p._input_tensor_coords()["lead_time"]
-        variable = p._input_tensor_coords()["variable"]
+        lead_time = tensor_input_coords(p)["lead_time"]
+        variable = tensor_input_coords(p)["variable"]
         x, coords = fetch_data(
             r, time, variable, lead_time, device=device
         ).e2s.to_torch()
@@ -275,17 +277,17 @@ def test_fuxi_package(device):
         package = FuXi.load_default_package()
         p = FuXi.load_model(package).to(device)
 
-    dc = p._input_tensor_coords()
+    dc = tensor_input_coords(p)
     del dc["batch"]
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
-    lead_time = p._input_tensor_coords()["lead_time"]
-    variable = p._input_tensor_coords()["variable"]
+    lead_time = tensor_input_coords(p)["lead_time"]
+    variable = tensor_input_coords(p)["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     out, out_coords = p(x, coords)
@@ -294,9 +296,9 @@ def test_fuxi_package(device):
         time = [time]
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p._output_tensor_coords(coords)["variable"]), 721, 1440]
+        [len(time), 1, len(tensor_output_coords(p, coords)["variable"]), 721, 1440]
     )
-    assert (out_coords["variable"] == p._output_tensor_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == tensor_output_coords(p, coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

@@ -25,8 +25,14 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
+from earth2studio.utils.coords import map_coords
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -203,7 +209,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _compute_latlon(self) -> None:
         # compute sin/cos of lat/lon
-        coords = self._output_tensor_coords(self._input_tensor_coords())
+        coords = tensor_output_coords(self, tensor_input_coords(self))
         lat = np.deg2rad(coords["lat"])
         lon = np.deg2rad(coords["lon"])
         lat, lon = np.meshgrid(lat, lon, indexing="ij")
@@ -219,11 +225,11 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __str__(self) -> str:
         return "InterpModAFNO"
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         # Getter / Setters don't work with torch.nn.Module, need to check manually here
@@ -239,22 +245,24 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lon": np.empty(0),
             }
         )
-        for key, value in self.px_model._input_tensor_coords().items():
+        for key, value in tensor_input_coords(self.px_model).items():
             if key in input_coords:
                 input_coords[key] = value
         return input_coords
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = OrderedDict(
@@ -369,8 +377,8 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x0: torch.Tensor,
         x1: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords: dict[str, np.ndarray],
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Interpolate between two forecast steps.
 
         Parameters
@@ -379,12 +387,12 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             First forecast step
         x1 : torch.Tensor
             Second forecast step
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system for the forecast steps
 
         Yields
         ------
-        Generator[tuple[torch.Tensor, CoordSystem], None, None]
+        Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]
             Generator yielding interpolated forecast steps and their coordinate systems
         """
         x0 = (x0 - self.center) / self.scale
@@ -401,11 +409,11 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         t0 = coords["time"][:, None] + coords["lead_time"][None, :]
         coords_end = coords
         for _ in range(self.num_interp_steps):
-            coords_end = self._output_tensor_coords(coords_end)
+            coords_end = tensor_output_coords(self, coords_end)
         t1 = coords_end["time"][:, None] + coords_end["lead_time"][None, :]
 
         for interp_step in range(1, self.num_interp_steps):
-            coords = self._output_tensor_coords(coords)
+            coords = tensor_output_coords(self, coords)
 
             for ti, t in enumerate(coords["time"]):
                 for lti, lt in enumerate(coords["lead_time"]):
@@ -439,20 +447,20 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system 1 hour in the future
         """
         gen = self._default_generator(x, coords)
@@ -460,8 +468,8 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         if self.px_model is None:
             raise ValueError(
@@ -474,7 +482,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         iterator = self.px_model.create_iterator(x, coords)
         for fc_step, (x, coords) in enumerate(iterator):
             # Make sure prognostic model has all 73 required variables
-            x, coords = map_coords(x, coords, self._output_tensor_coords(coords))
+            x, coords = map_coords(x, coords, tensor_output_coords(self, coords))
             if fc_step == 0:
                 x0 = x
                 coords0 = coords
@@ -483,14 +491,14 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 x1 = x
                 for x, coords in self._interpolate(x0, x1, coords0):
                     yield (x, coords)
-                coords = self._output_tensor_coords(coords)
+                coords = tensor_output_coords(self, coords)
                 yield (x1, coords)
                 x0 = x1
                 coords0 = coords
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -498,12 +506,12 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """

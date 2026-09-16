@@ -25,7 +25,7 @@ from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array
 
 
 class PhooDiagnostic(torch.nn.Module):
@@ -36,10 +36,12 @@ class PhooDiagnostic(torch.nn.Module):
         self.in_variable = np.array(in_variable)
         self.out_variable = np.array(out_variable)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         return OrderedDict({"batch": np.empty(0), "variable": self.in_variable})
 
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray] | None = None
+    ) -> dict[str, np.ndarray]:
         return OrderedDict({"batch": np.empty(0), "variable": self.out_variable})
 
     def __call__(self, x, coords):
@@ -62,8 +64,8 @@ class TestPersistence(Persistence):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         assert x.device == self.target_device
         return super()._forward(x, coords)
 
@@ -84,7 +86,7 @@ class TestPersistence(Persistence):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_run_diagnostic(coords, variable, nsteps, time, device):
 
-    data = Random(domain_coords=coords)
+    data = Random(coord_array(tuple(coords), coords))
     model = TestPersistence(variable, coords, target_device=device)
     diagnostic = Identity()
 
@@ -119,7 +121,7 @@ def test_run_diagnostic_mapping(coords, in_variable, out_variable, device):
 
     nsteps = 5
     time = np.array([np.datetime64("1993-04-05T00:00")])
-    data = Random(domain_coords=coords)
+    data = Random(coord_array(tuple(coords), coords))
     model = Persistence(
         ["u10m", "v10m", "u100", "z500", "t2m", "r700", "msl", "nvidia"], coords
     )
@@ -163,7 +165,7 @@ def test_diagnostic_output_coords(output_coords, device):
     nsteps = 2
     time = ["1993-04-05T12:00:00"]
 
-    data = Random(domain_coords=coords)
+    data = Random(coord_array(tuple(coords), coords))
     model = TestPersistence(variable, coords, target_device=device)
     diagnostic = Identity()
     io = ZarrBackend()

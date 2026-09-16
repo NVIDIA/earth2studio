@@ -51,7 +51,7 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from earth2studio.data import DataSource
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.utils.coords import map_coords
 from src.data import CompositeSource, PredownloadedSource
 from src.distributed import get_rank
 from src.output import OutputManager, build_output_coords
@@ -128,7 +128,7 @@ class PredownloadStore:
         Timestamps to fetch (analysis times; no lead-time expansion).
     variables : list[str]
         Variable names to fetch.
-    spatial_ref : CoordSystem
+    spatial_ref : dict[str, np.ndarray]
         Spatial coordinate system of the **stored** data (post-regrid if the
         source is a :class:`~src.regrid.RegriddedSource`).  Used to build the
         zarr schema.
@@ -147,7 +147,7 @@ class PredownloadStore:
     source: DataSource
     times: list[np.datetime64]
     variables: list[str]
-    spatial_ref: CoordSystem
+    spatial_ref: dict[str, np.ndarray]
     role: str = "data"
     extra_coords: dict[str, np.ndarray] = field(default_factory=dict)
 
@@ -271,7 +271,7 @@ class Pipeline(ABC):
     coordinate filter (variable + lat/lon sub-selection).
     """
 
-    _spatial_ref: CoordSystem
+    _spatial_ref: dict[str, np.ndarray]
     """Reference coordinate system whose spatial dimensions define the output
     grid.  Must be set by :meth:`setup`.  When an output regridder is
     configured, :meth:`effective_spatial_ref` returns the *regridded* target
@@ -371,10 +371,10 @@ class Pipeline(ABC):
         self,
         times: np.ndarray,
         ensemble_size: int,
-    ) -> CoordSystem:
+    ) -> dict[str, np.ndarray]:
         """Build the full output coordinate system for the zarr store.
 
-        The returned ``CoordSystem`` defines every dimension and its values
+        The returned ``dict[str, np.ndarray]`` defines every dimension and its values
         for the output arrays.  It is passed directly to
         :meth:`OutputManager.validate_output_store` to create or validate
         the zarr store.
@@ -395,7 +395,6 @@ class Pipeline(ABC):
 
         Returns
         -------
-        CoordSystem
             Full coordinate system for the output store.
         """
         ...
@@ -406,7 +405,7 @@ class Pipeline(ABC):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Run inference for a single work item and yield output chunks.
 
         This is the core method that varies between pipelines.  It should:
@@ -436,7 +435,7 @@ class Pipeline(ABC):
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             ``(data, coords)`` pairs to be written to the output store.
             These should include all variables the pipeline produces
             (the caller handles sub-selection to output variables).
@@ -452,7 +451,7 @@ class Pipeline(ABC):
         items: list[WorkItem],
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Run several ensemble members of one IC through a single rollout.
 
         The member-batched twin of :meth:`run_item`, used by online scoring
@@ -484,7 +483,7 @@ class Pipeline(ABC):
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             ``(data, coords)`` pairs with a leading ``ensemble`` dimension.
 
         Raises
@@ -720,10 +719,10 @@ class Pipeline(ABC):
     def _inject_ensemble(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         item: WorkItem,
         has_ensemble: bool,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Inject the ensemble dimension before writing.
 
         Default: ``unsqueeze(0)`` on the tensor and prepend an ``ensemble``
@@ -735,7 +734,7 @@ class Pipeline(ABC):
         ----------
         x : torch.Tensor
             Output tensor from :meth:`run_item`, post regrid and filter.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Matching coord system.
         item : WorkItem
             The work item being written (supplies ``ensemble_id``).
@@ -744,7 +743,7 @@ class Pipeline(ABC):
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Possibly-modified ``(x, coords)`` pair.
         """
         if not has_ensemble or "ensemble" in coords:
@@ -752,10 +751,12 @@ class Pipeline(ABC):
             # ``ensemble`` axis, so there is nothing to inject.
             return x, coords
         x = x.unsqueeze(0)
-        coords = CoordSystem({"ensemble": np.array([item.ensemble_id])} | dict(coords))
+        coords = dict[str, np.ndarray](
+            {"ensemble": np.array([item.ensemble_id])} | dict(coords)
+        )
         return x, coords
 
-    def effective_spatial_ref(self) -> CoordSystem:
+    def effective_spatial_ref(self) -> dict[str, np.ndarray]:
         """Return the spatial coord system used for the output zarr.
 
         If an output regridder is configured, returns its target coords
@@ -765,15 +766,13 @@ class Pipeline(ABC):
         if self._output_regridder is None:
             return self._spatial_ref
 
-        merged: CoordSystem = OrderedDict()
-        # Preserve any non-spatial keys (e.g. a lingering 'variable' from
-        # model output_coords) — in practice spatial_ref only has spatial
-        # dims, so this loop is usually a no-op.
-        for d, v in self._spatial_ref.items():
-            if d in _STRUCTURAL_DIMS:
-                merged[d] = v
-        for d, v in self._output_regridder.target_coords().items():
-            merged[d] = v
+        # Preserve non-spatial keys before adding the target grid.
+        merged: dict[str, np.ndarray] = OrderedDict(
+            (dim, values)
+            for dim, values in self._spatial_ref.items()
+            if dim in _STRUCTURAL_DIMS
+        )
+        merged.update(self._output_regridder.target_coords())
         return merged
 
     # ------------------------------------------------------------------

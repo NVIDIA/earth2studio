@@ -24,7 +24,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo.metrics.general.histogram import _count_bins, linspace
@@ -85,23 +84,24 @@ class rank_histogram:
     def reduction_dimensions(self) -> list[str]:
         return [self.ensemble_dimension] + self._reduction_dimensions
 
-    def _get_number_of_bins(self, input_coords: CoordSystem) -> int:
+    def _get_number_of_bins(self, input_coords: dict[str, np.ndarray]) -> int:
         if self.number_of_bins is None:
             return len(input_coords[self.ensemble_dimension]) + 1
         else:
             return self.number_of_bins
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -125,10 +125,10 @@ class rank_histogram:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dimensions`.
@@ -138,18 +138,18 @@ class rank_histogram:
         x : torch.Tensor
             Input tensor of ensemble data. The rank of observation input tensor `y`
             is determined with respect to the ensemble dimension of `x`.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
         y : torch.Tensor
             The observation input tensor.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Returns rank histogram tensor with appropriate reduced coordinates.
         """
         if not all([rd in x_coords for rd in self.reduction_dimensions]):

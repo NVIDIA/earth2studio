@@ -32,7 +32,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import FrameSchema, TimeTolerance
 
 try:
     import cupy as cp
@@ -132,20 +132,20 @@ class InterpEquirectangular(torch.nn.Module):
 
     def output_coords(
         self,
-        input_coords: tuple[CoordSystem],
+        input_coords: tuple[dict[str, np.ndarray]],
         request_time: np.ndarray,
         **kwargs: Any,
-    ) -> tuple[CoordSystem]:
+    ) -> tuple[dict[str, np.ndarray]]:
         """Output coordinate system for assimilated data.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem, ...]
-            Input coordinate system (CoordSystem for DataFrame input)
+        input_coords : tuple[dict[str, np.ndarray], ...]
+            Input coordinate system (dict[str, np.ndarray] for DataFrame input)
 
         Returns
         -------
-        tuple[CoordSystem]
+        tuple[dict[str, np.ndarray]]
             Coordinate system dictionary with time, variable, lat, and lon dimensions
 
         Raises
@@ -160,7 +160,7 @@ class InterpEquirectangular(torch.nn.Module):
             variables = self.VARIABLES
 
         return (
-            CoordSystem(
+            dict[str, np.ndarray](
                 {
                     "time": request_time,
                     "variable": np.array(variables, dtype=str),
@@ -208,7 +208,7 @@ class InterpEquirectangular(torch.nn.Module):
             logger.debug("InterpEquirectangular clean up complete.")
 
     def _interpolate_dataframe(
-        self, df: pd.DataFrame, output_coords: CoordSystem
+        self, df: pd.DataFrame, output_coords: dict[str, np.ndarray]
     ) -> xr.DataArray:
         """Interpolate DataFrame observations to a regular lat-lon grid.
 
@@ -216,7 +216,7 @@ class InterpEquirectangular(torch.nn.Module):
         ----------
         df : pd.DataFrame
             Input observations DataFrame with columns: time, lat, lon, observation, variable
-        output_coords : CoordSystem
+        output_coords : dict[str, np.ndarray]
             Output coordinate system with time, variable, lat, lon dimensions
 
         Returns

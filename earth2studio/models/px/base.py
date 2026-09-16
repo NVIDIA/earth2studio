@@ -18,9 +18,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any, Protocol, runtime_checkable
 
+import numpy as np
 import torch
 
-from earth2studio.utils.coordinate import CoordinateSystem
 from earth2studio.utils.type import CoordSystem
 
 
@@ -32,27 +32,27 @@ class PrognosticModel(Protocol):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of the prognostic model, time integrating a single time-step
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor intended to apply diagnostic function on
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the tensor
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate dictionary one time-step into the future
         """
         pass
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -60,18 +60,18 @@ class PrognosticModel(Protocol):
         ----------
         x : torch.Tensor
             Input tensor, which can be viewed as the initial state of the prognositc
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem:
+    def input_coords(self) -> CoordSystem:
         """Return ordered allocation-free input coordinate signatures.
 
         Returns
@@ -81,7 +81,7 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Return ordered output signatures for one forecast step.
 
         Parameters
@@ -99,14 +99,6 @@ class PrognosticModel(Protocol):
         ValueError
             If input_coords are not valid
         """
-        pass
-
-    def _input_tensor_coords(self) -> CoordSystem:
-        """Return coordinates used by the tensor execution path."""
-        pass
-
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Return tensor output coordinates for one forecast step."""
         pass
 
     def to(self, device: Any) -> PrognosticModel:

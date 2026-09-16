@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+from collections import OrderedDict
 
-from earth2studio.utils.type import CoordSystem
+import numpy as np
+import torch
 
 
 def _broadcast_weights(
-    weights: torch.Tensor, rd: list[str], coords: CoordSystem
+    weights: torch.Tensor, rd: list[str], coords: dict[str, np.ndarray]
 ) -> torch.Tensor:
     """
     Broadcast weights to appropriate dimensions. This is meant for internal use.
@@ -32,7 +33,7 @@ def _broadcast_weights(
         be None, in which a 1.0 is returned.
     rd : List[str]
         A list of dimension names corresponding to the dimensions of weights.
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         An ordered dict containing dimensions and coordinates that the weights
         will be broadcasted to.
     """
@@ -50,12 +51,15 @@ def _broadcast_weights(
 
 
 def _spatial_dims_to_end(
-    x: torch.Tensor, coords: CoordSystem, spatial_dimensions: tuple[str, str]
-) -> tuple[torch.Tensor, CoordSystem]:
+    x: torch.Tensor,
+    coords: dict[str, np.ndarray],
+    spatial_dimensions: tuple[str, str],
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Permute spatial dimensions to last two dimensions."""
     coords = coords.copy()
     dims = list(range(x.ndim))
     coord_list = list(coords)
+    coords = OrderedDict(coords)
     for dim_name in spatial_dimensions:
         dim_index = coord_list.index(dim_name)
         dims.remove(dim_index)

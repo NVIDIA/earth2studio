@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import torch
 
 from earth2studio.data import DataSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.statistics.utils import _broadcast_weights
 from earth2studio.utils.coords import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class acc:
@@ -68,17 +68,18 @@ class acc:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         output_coords = input_coords.copy()
@@ -91,10 +92,10 @@ class acc:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable.
@@ -104,14 +105,14 @@ class acc:
         x : torch.Tensor
             Input tensor, typically the forecast or prediction tensor, but ACC is
             symmetric with respect to `x` and `y`.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `x` tensor.
             `reduction_dimensions` must be in coords.
             "time" and "variable" must be in x_coords.
         y : torch.Tensor
             Input tensor #2 intended to be used as validation data, but ACC is symmetric
             with respect to `x` and `y`.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Ordered dict representing coordinate system that describes the `y` tensor.
             `reduction_dimensions` must be in coords.
             "time" and "variable" must be in y_coords.
@@ -121,7 +122,7 @@ class acc:
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Returns anomaly correlation coefficient tensor with appropriate reduced coordinates.
 
         Note

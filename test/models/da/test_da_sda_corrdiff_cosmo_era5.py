@@ -44,7 +44,6 @@ from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
 from earth2studio.models.auto import Package
 from earth2studio.models.da.sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
-from earth2studio.utils.type import CoordSystem
 
 # ── Mock networks ────────────────────────────────────────────────────────────
 
@@ -660,7 +659,7 @@ def test_call_rejects_multi_lead_time():
 
 def _analysis_output_inputs(
     sda: CorrDiffCosmoEra5SDA,
-) -> tuple[torch.Tensor, np.ndarray, CoordSystem]:
+) -> tuple[torch.Tensor, np.ndarray, dict[str, np.ndarray]]:
     """A dummy (out, times, oc) triple for exercising ``_to_output_dataarray``."""
     times = np.array([np.datetime64("2021-07-14T12:00")])
     xf = sda._era5_frames(_era5_da(sda, times))

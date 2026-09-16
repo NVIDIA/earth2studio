@@ -66,7 +66,6 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
@@ -800,7 +799,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
         are the native ERA5 footprint (regrid the ERA5 input onto this grid)."""
         return OrderedDict(
@@ -814,7 +813,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system on the rotated-pole target grid.
 
         The input must be on the native ERA5 grid (:meth:`input_coords`); for a
@@ -1384,8 +1385,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     @batch_func()
     def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Run the model. ``x`` is [batch, time, variable, lat, lon]; ``coords``
         carries a ``time`` axis (validity times) driving the solar-zenith channel."""
         output_coords = self.output_coords(coords)

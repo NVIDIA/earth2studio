@@ -26,6 +26,7 @@ from omegaconf import DictConfig
 
 from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
 from earth2studio.utils.coords import map_coords, split_coords
 
 
@@ -57,9 +58,7 @@ def initialise_output_coords(
     out_coords = OrderedDict(
         {
             k: v
-            for k, v in model._output_tensor_coords(
-                model._input_tensor_coords()
-            ).items()
+            for k, v in tensor_output_coords(model, tensor_input_coords(model)).items()
             if (k != "batch") and (v.shape != 0)
         }
     )

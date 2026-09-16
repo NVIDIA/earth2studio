@@ -29,7 +29,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import icechunk
@@ -169,8 +168,11 @@ class IceChunkBackend(ZarrBackend):
         return super().__getitem__(item)
 
     def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self,
+        coords: dict[str, np.ndarray],
+        array_name: str,
+        device: torch.device = "cpu",
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Read data from the current zarr group, flushing pending non-blocking
         writes first.

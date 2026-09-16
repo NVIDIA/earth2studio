@@ -32,7 +32,13 @@ from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import (
+    PrognosticMixin,
+    coordinate_input,
+    coordinate_output,
+    tensor_input_coords,
+    tensor_output_coords,
+)
 from earth2studio.utils import (
     handshake_coords,
     handshake_dim,
@@ -46,7 +52,6 @@ from earth2studio.utils.interp import (
     LatLonInterpolation,
     NearestNeighborInterpolator,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module
@@ -703,23 +708,26 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device=self.latitudes.device
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system. Subclasses should override for specific variants."""
         raise NotImplementedError(
             "StormScopeBase.input_coords must be implemented by a subclass."
         )
 
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    @coordinate_output
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output coordinates.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary for the model output.
         """
         raise NotImplementedError(
@@ -727,20 +735,20 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def fetch_conditioning(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, coords: dict[str, np.ndarray], device: torch.device
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch external conditioning data. Subclasses should override.
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
         device : torch.device
             Device on which the conditioning tensor should reside.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Conditioning tensor aligned with `coords`.
         """
         raise NotImplementedError(
@@ -748,7 +756,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def _inject_auto_observations(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> torch.Tensor:
         """Hook to overwrite state channels with freshly-fetched observations.
 
@@ -763,7 +771,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             State tensor on the model grid, shape ``[B, T, L, C, H, W]``.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system for ``x``.
 
         Returns
@@ -796,8 +804,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.where(glm_view, torch.log1p(conditioning), affine)
 
     def _stack_lead_times(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Stack lead times along the channel dimension. Reshapes tensors from (..., n_lt, n_vars, y, x)
         to (..., 1, n_lt * n_vars, y, x) and updates the coordinate system to reflect the new shape.
         The last lead time from the original coordinate system is used as the lead time for the stacked tensor.
@@ -827,9 +835,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def build_condition(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         conditioning: torch.Tensor | None = None,
-        conditioning_coords: CoordSystem | None = None,
+        conditioning_coords: dict[str, np.ndarray] | None = None,
     ) -> torch.Tensor:
         """Construct the full conditioning input to the diffusion model.
         Subclasses can override to customize the channel layout.
@@ -838,11 +846,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x_norm : torch.Tensor
             Normalized input high-resolution state.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system to provide time and lead time for cos zenith angle calculation
         conditioning : torch.Tensor | None, optional
             Optional normalized external conditioning, by default None.
-        conditioning_coords : CoordSystem | None, optional
+        conditioning_coords : dict[str, np.ndarray] | None, optional
             Optional coordinate system for the conditioning, by default None.
 
         Returns
@@ -985,9 +993,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         conditioning: torch.Tensor | None = None,
-        conditioning_coords: CoordSystem | None = None,
+        conditioning_coords: dict[str, np.ndarray] | None = None,
     ) -> torch.Tensor:
         """Run a single prognostic step using staged diffusion denoising.
 
@@ -995,11 +1003,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor for a single step with shape [B, T, L, C, H, W].
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinates describing `x`.
         conditioning : torch.Tensor | None, optional
             External conditioning aligned to `x` if used, by default None.
-        conditioning_coords : CoordSystem | None, optional
+        conditioning_coords : dict[str, np.ndarray] | None, optional
             Coordinate system for the conditioning, by default None.
 
         Returns
@@ -1093,9 +1101,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _raise_nonfinite_input(
         self,
         x_norm: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         conditioning_norm: torch.Tensor | None,
-        conditioning_coords: CoordSystem | None,
+        conditioning_coords: dict[str, np.ndarray] | None,
     ) -> None:
         """Raise a ValueError naming the variables carrying non-finite values.
 
@@ -1265,8 +1273,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._experts_compiled = True
 
     def prep_input(
-        self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray], conditioning: bool = False
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepares the input tensor for the prognostic model."""
         if not conditioning:
             type_label = "input"
@@ -1315,10 +1323,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def next_input(
         self,
         pred: torch.Tensor,
-        pred_coords: CoordSystem,
+        pred_coords: dict[str, np.ndarray],
         x: torch.Tensor,
-        x_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Gets the inputs for the next step of the prognostic model given a pair
         of inputs and predictions that were just run. If the model uses a sliding
         window, the oldest lead time in the input is removed and the latest
@@ -1329,11 +1337,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         pred : torch.Tensor
             Prediction tensor.
-        pred_coords : CoordSystem
+        pred_coords : dict[str, np.ndarray]
             Prediction coordinate system.
         x : torch.Tensor
             Input tensor.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Input coordinate system.
         """
         lt_dim = list(x_coords.keys()).index("lead_time")
@@ -1364,20 +1372,20 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system.
         """
 
@@ -1408,7 +1416,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning = None
             conditioning_coords = None
 
-        output_coords = self._output_tensor_coords(x_coords)
+        output_coords = tensor_output_coords(self, x_coords)
 
         x = self._forward(
             x,
@@ -1423,10 +1431,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def call_with_conditioning(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         conditioning: torch.Tensor,
-        conditioning_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        conditioning_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Calls the prognostic model with explicitly provided conditioning. Useful when
         combining multiple cross-conditioned models during rollout (does not require
         model to define a conditioning data source).
@@ -1435,16 +1443,16 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
         conditioning : torch.Tensor
             Conditioning tensor.
-        conditioning_coords : CoordSystem
+        conditioning_coords : dict[str, np.ndarray]
             Conditioning coordinate system.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system.
         """
 
@@ -1462,7 +1470,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning, conditioning_coords = self.prep_input(
             conditioning, conditioning_coords, conditioning=True
         )
-        output_coords = self._output_tensor_coords(x_coords)
+        output_coords = tensor_output_coords(self, x_coords)
 
         x = self._forward(
             x,
@@ -1477,8 +1485,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords: dict[str, np.ndarray],
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
 
         # Yield the initial condition, but use prep_input to regrid if needed
         # Return the result with any invalid points set to nan
@@ -1498,20 +1506,20 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.next_input(x_pred, coords_pred, x, coords)
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates an iterator to perform time-integration of the prognostic model.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]
             Iterator that generates time-steps of the prognostic model containing the
             output data tensor and coordinate system dictionary.
         """
@@ -1667,7 +1675,8 @@ class StormScopeGOES(StormScopeBase):
             compile=compile,
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -1680,18 +1689,20 @@ class StormScopeGOES(StormScopeBase):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output coordinates.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary.
         """
         output_coords = OrderedDict(
@@ -1704,7 +1715,7 @@ class StormScopeGOES(StormScopeBase):
                 "x": self.x,
             }
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
         handshake_dim(input_coords, "variable", 3)
@@ -1720,13 +1731,13 @@ class StormScopeGOES(StormScopeBase):
         return output_coords
 
     def fetch_conditioning(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, coords: dict[str, np.ndarray], device: torch.device
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch external conditioning data.
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
         device : torch.device
             Device on which the conditioning tensor should reside.
@@ -2135,7 +2146,9 @@ class StormScopeMRMS(StormScopeBase):
         out = self.glm_interp(glm)
         return torch.nan_to_num(out, nan=0.0)
 
-    def _inject_glm(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _inject_glm(
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> torch.Tensor:
         """Fetch GLM observations and overwrite the GLM-channel slots in ``x``.
 
         Called from :meth:`_inject_auto_observations` (the :meth:`__call__` auto
@@ -2149,7 +2162,7 @@ class StormScopeMRMS(StormScopeBase):
         ----------
         x : torch.Tensor
             State tensor on the model grid, shape ``[B, T, L, C, H, W]``.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinate system for ``x``, used to supply ``time`` and
             ``lead_time`` to :meth:`fetch_glm`.
 
@@ -2167,8 +2180,8 @@ class StormScopeMRMS(StormScopeBase):
         return x
 
     def fetch_glm(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, coords: dict[str, np.ndarray], device: torch.device
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch the GLM observation window from ``glm_data_source`` and bilinearly
         regrid it onto the model grid.
 
@@ -2186,14 +2199,14 @@ class StormScopeMRMS(StormScopeBase):
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Coordinates providing ``time`` and the input ``lead_time`` window.
         device : torch.device
             Device for the fetched/regridded tensor.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             ``(glm, glm_coords)`` with ``glm`` shaped ``[time, lead_time, n_glm, H, W]``.
         """
         if self.glm_data_source is None:
@@ -2221,7 +2234,8 @@ class StormScopeMRMS(StormScopeBase):
         new_coords["x"] = self.x
         return glm, new_coords
 
-    def _input_tensor_coords(self) -> CoordSystem:
+    @coordinate_input
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -2234,18 +2248,20 @@ class StormScopeMRMS(StormScopeBase):
             }
         )
 
+    @coordinate_output
     @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output coordinates.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary.
         """
         output_coords = OrderedDict(
@@ -2258,7 +2274,7 @@ class StormScopeMRMS(StormScopeBase):
                 "x": self.x,
             }
         )
-        target_input_coords = self._input_tensor_coords()
+        target_input_coords = tensor_input_coords(self)
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
         handshake_dim(input_coords, "variable", 3)
@@ -2274,13 +2290,13 @@ class StormScopeMRMS(StormScopeBase):
         return output_coords
 
     def fetch_conditioning(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, coords: dict[str, np.ndarray], device: torch.device
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Fetch external conditioning data.
 
         Parameters
         ----------
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system.
         device : torch.device
             Device on which the conditioning tensor should reside.
@@ -2324,8 +2340,8 @@ class StormScopeMRMS(StormScopeBase):
             )
 
     def prep_input(
-        self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray], conditioning: bool = False
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Prepares the input tensor for the MRMS prognostic model. Same behavior as the base
         class, but with additional value imputation/standardization for low reflectivity values.
         """
@@ -2340,7 +2356,7 @@ class StormScopeMRMS(StormScopeBase):
         return x, x_coords
 
     def _inject_auto_observations(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> torch.Tensor:
         """Inject freshly-fetched GLM observations into the GLM state channels.
 

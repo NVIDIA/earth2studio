@@ -89,7 +89,6 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import DataSource
-from earth2studio.utils.coords import CoordSystem
 
 from .distributed import run_on_rank0_first
 from .output import OutputManager
@@ -704,7 +703,9 @@ class FieldCache:
         self._nan_policy = nan_policy
         self._valid_ranges = valid_ranges or {}
         self._cache: OrderedDict[int, torch.Tensor] = OrderedDict()
-        self._coords: CoordSystem = OrderedDict({"variable": np.array(self._variables)})
+        self._coords: dict[str, np.ndarray] = OrderedDict(
+            {"variable": np.array(self._variables)}
+        )
 
     def get(self, valid_time: np.datetime64) -> torch.Tensor:
         """Return the field at *valid_time* as a ``[variable, <spatial...>]`` tensor.
@@ -1254,14 +1255,14 @@ class LogSpectralDistance:
         # Entirely local per member.  The metric only uses the coordinate
         # system to check x/y compatibility, so index coords suffice.
         n_var = ctx.f_local.shape[1]
-        y_coords: CoordSystem = OrderedDict(
+        y_coords: dict[str, np.ndarray] = OrderedDict(
             {
                 "variable": np.arange(n_var),
                 "ilat": np.arange(ctx.f_local.shape[-2]),
                 "ilon": np.arange(ctx.f_local.shape[-1]),
             }
         )
-        x_coords: CoordSystem = OrderedDict(
+        x_coords: dict[str, np.ndarray] = OrderedDict(
             {"ensemble": np.array(ctx.member_ids), **y_coords}
         )
         values, _ = self._metric(ctx.f_local, x_coords, ctx.y, y_coords)
@@ -1976,7 +1977,7 @@ def stats_array_groups(
     lead_times: np.ndarray,
     ensemble_size: int,
     region_names: Sequence[str] | None = None,
-) -> tuple[CoordSystem, list[tuple[CoordSystem, list[str]]]]:
+) -> tuple[dict[str, np.ndarray], list[tuple[dict[str, np.ndarray], list[str]]]]:
     """Build the ``stats.zarr`` schema for the configured statistics.
 
     Mirrors the offline scorer's layout: a superset coordinate system
@@ -2005,7 +2006,7 @@ def stats_array_groups(
 
     Returns
     -------
-    tuple[CoordSystem, list[tuple[CoordSystem, list[str]]]]
+    tuple[dict[str, np.ndarray], list[tuple[dict[str, np.ndarray], list[str]]]]
         ``(superset_coords, array_groups)``.
     """
     n_regions = 0 if region_names is None else len(region_names)
@@ -2028,7 +2029,7 @@ def stats_array_groups(
                 f"{field_name}__{v}" for v in stat_variables
             )
 
-    superset: CoordSystem = OrderedDict()
+    superset: dict[str, np.ndarray] = OrderedDict()
     for dim in ("time", "region", "ensemble", "rank_bin", "lead_time"):
         if dim == "region":
             if n_regions:
@@ -2038,12 +2039,12 @@ def stats_array_groups(
         ):
             superset[dim] = axes[dim]
 
-    groups: list[tuple[CoordSystem, list[str]]] = []
+    groups: list[tuple[dict[str, np.ndarray], list[str]]] = []
     for layout in (_LAYOUT_SCALAR, _LAYOUT_MEMBER, _LAYOUT_RANK):
         names = used_layouts.get(layout)
         if not names:
             continue
-        coords: CoordSystem = OrderedDict(
+        coords: dict[str, np.ndarray] = OrderedDict(
             (dim, axes[dim]) for dim in _layout_dims(layout, n_regions)
         )
         groups.append((coords, names))
@@ -2052,7 +2053,7 @@ def stats_array_groups(
 
 def add_stats_arrays(
     io: Any,
-    array_groups: list[tuple[CoordSystem, list[str]]],
+    array_groups: list[tuple[dict[str, np.ndarray], list[str]]],
     region_names: Sequence[str] | None = None,
 ) -> None:
     """Create the ``stats.zarr`` data arrays, skipping any that exist.
@@ -2070,7 +2071,7 @@ def add_stats_arrays(
     ----------
     io : ZarrBackend
         Backend from ``OutputManager.io``.
-    array_groups : list[tuple[CoordSystem, list[str]]]
+    array_groups : list[tuple[dict[str, np.ndarray], list[str]]]
         Groups from :func:`stats_array_groups`.
     region_names : Sequence[str] | None
         Regional split names, recorded in the store's attributes so the
@@ -2184,7 +2185,7 @@ class OnlineScorer:
         Variables to score, in store order.
     lead_times : np.ndarray
         All lead times in the forecast, in store order.
-    spatial_coords : CoordSystem
+    spatial_coords : dict[str, np.ndarray]
         Spatial coordinate arrays of the scored grid.
     weights : torch.Tensor
         Spatial weights, shaped to the spatial dims.
@@ -2210,7 +2211,7 @@ class OnlineScorer:
         climatology: FieldCache | None,
         variables: list[str],
         lead_times: np.ndarray,
-        spatial_coords: CoordSystem,
+        spatial_coords: dict[str, np.ndarray],
         weights: torch.Tensor,
         stats_mgr: OutputManager,
         device: torch.device,
@@ -2271,7 +2272,7 @@ class OnlineScorer:
         )
         # `_apply_valid_ranges` locates the variable axis by name, so the
         # member block needs a coord system with its leading member axis.
-        self._member_coords: CoordSystem = OrderedDict(
+        self._member_coords: dict[str, np.ndarray] = OrderedDict(
             {
                 "ensemble": np.array(comm.group.member_ids),
                 "variable": np.array(self._variables),
@@ -2298,7 +2299,7 @@ class OnlineScorer:
                 n_regions=self._n_regions,
             )
 
-    def update(self, x: torch.Tensor, coords: CoordSystem) -> None:
+    def update(self, x: torch.Tensor, coords: dict[str, np.ndarray]) -> None:
         """Accumulate one yielded chunk.
 
         Parameters
@@ -2308,7 +2309,7 @@ class OnlineScorer:
             regridded to the output grid.  Carries a ``member`` axis of
             size ``members_per_rank`` when the pipeline runs a batched
             rollout.
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Matching coordinate system; must carry ``lead_time`` and
             ``variable``.
         """
@@ -2391,7 +2392,7 @@ class OnlineScorer:
     # ------------------------------------------------------------------
 
     def _normalize(
-        self, x: torch.Tensor, coords: CoordSystem
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
     ) -> tuple[torch.Tensor, np.ndarray]:
         """Reshape a yielded chunk to ``(lead_time, member, variable, <spatial...>)``.
 
@@ -2463,7 +2464,7 @@ class OnlineScorer:
 
         return x, np.asarray(coords["lead_time"]).astype("timedelta64[ns]")
 
-    def _check_member_block(self, coords: CoordSystem) -> None:
+    def _check_member_block(self, coords: dict[str, np.ndarray]) -> None:
         """Verify a batched chunk carries exactly this rank's members.
 
         Member identity is load-bearing: ``sse_member`` is written at
@@ -2631,7 +2632,7 @@ class OnlineScorer:
             # buffers slots in the same way.
             data = torch.cat(parts, dim=-1).unsqueeze(0).cpu()
 
-            write_coords: CoordSystem = OrderedDict()
+            write_coords: dict[str, np.ndarray] = OrderedDict()
             write_coords["time"] = np.array([time])
             for dim in _layout_dims(layout, self._n_regions)[1:]:
                 write_coords[dim] = self._axis_values(dim)
@@ -2847,7 +2848,7 @@ def build_online_scorer(
     verification_source: DataSource,
     variables: list[str],
     lead_times: np.ndarray,
-    spatial_coords: CoordSystem,
+    spatial_coords: dict[str, np.ndarray],
     stats_mgr: OutputManager,
     device: torch.device,
     known_missing_leads: Iterable[np.timedelta64] = (),
@@ -2872,7 +2873,7 @@ def build_online_scorer(
         :meth:`~src.pipelines.base.Pipeline.known_missing_leads`).
     lead_times : np.ndarray
         Full lead-time axis of the forecast.
-    spatial_coords : CoordSystem
+    spatial_coords : dict[str, np.ndarray]
         Spatial coordinates of the scored (post-regrid) grid.
     stats_mgr : OutputManager
         Manager for ``stats.zarr``.

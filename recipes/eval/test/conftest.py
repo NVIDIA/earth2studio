@@ -26,7 +26,6 @@ from omegaconf import OmegaConf
 from earth2studio.data import Random
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
@@ -54,7 +53,7 @@ class FakeDiagnostic(torch.nn.Module):
             {"lat": SMALL_LAT, "lon": SMALL_LON}
         )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -64,7 +63,9 @@ class FakeDiagnostic(torch.nn.Module):
             }
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         output = input_coords.copy()
         output["variable"] = np.array(self._output_variables)
         return output
@@ -73,8 +74,8 @@ class FakeDiagnostic(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         # Produce output with the correct number of channels.
         n_out = len(self._output_variables)
         out_shape = list(x.shape)
@@ -117,7 +118,7 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
         self.number_of_samples = number_of_samples
         self.seed = seed
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -127,7 +128,9 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
             }
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -143,8 +146,8 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         # `coords` here is already batch-compressed by @batch_func — any
         # pass-through dims (e.g. time, lead_time) the pipeline carried
         # have been flattened into `coords["batch"]`.

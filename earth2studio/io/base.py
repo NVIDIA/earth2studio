@@ -16,9 +16,8 @@
 
 from typing import Any, Protocol, runtime_checkable
 
+import numpy as np
 import torch
-
-from earth2studio.utils.type import CoordSystem
 
 
 # --8<-- [start:io-backend-interface]
@@ -27,7 +26,10 @@ class IOBackend(Protocol):
     """Interface for a generic IO backend."""
 
     def add_array(
-        self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
+        self,
+        coords: dict[str, np.ndarray],
+        array_name: str | list[str],
+        **kwargs: dict[str, Any],
     ) -> None:
         """
         Add an array with `array_name` to the existing IO backend object.
@@ -47,7 +49,7 @@ class IOBackend(Protocol):
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """

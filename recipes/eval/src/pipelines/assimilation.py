@@ -49,7 +49,8 @@ from omegaconf import DictConfig
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+from earth2studio.utils.coords import cat_coords, map_coords
 
 from ..assimilation import (
     AssimilationRunner,
@@ -148,7 +149,7 @@ class AssimilationPipeline(Pipeline):
         self,
         times: np.ndarray,
         ensemble_size: int,
-    ) -> CoordSystem:
+    ) -> dict[str, np.ndarray]:
         return build_analysis_coords(
             times,
             ensemble_size,
@@ -201,7 +202,7 @@ class AssimilationPipeline(Pipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         self.seed_member(item)
 
         analysis = self.runner.analysis(item.time)
@@ -214,7 +215,7 @@ class AssimilationPipeline(Pipeline):
         items: list[WorkItem],
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Run several ensemble members of one IC's analysis together.
 
         Unlike :class:`~.forecast.ForecastPipeline`, the DA runner has no
@@ -235,7 +236,7 @@ class AssimilationPipeline(Pipeline):
 
         member_ids = np.array([item.ensemble_id for item in items])
         slices: list[torch.Tensor] = []
-        coords0: CoordSystem | None = None
+        coords0: dict[str, np.ndarray] | None = None
         for item in items:
             self.seed_member(item)
             analysis = self.runner.analysis(item.time)
@@ -250,7 +251,7 @@ class AssimilationPipeline(Pipeline):
             )
 
         x = torch.stack(slices, dim=0)
-        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
+        coords = dict[str, np.ndarray]({"ensemble": member_ids} | dict(coords0))
         yield x, coords
 
 
@@ -323,13 +324,13 @@ class AssimilationForecastPipeline(ForecastPipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         ic_leads = np.asarray(self._prognostic_ic["lead_time"])
 
         # One analysis per input lead offset (offsets are <= 0 for
         # history models, so these are analyses at or before item.time).
         slices: list[torch.Tensor] = []
-        analysis_coords: CoordSystem | None = None
+        analysis_coords: dict[str, np.ndarray] | None = None
         for lt in ic_leads:
             analysis = self.runner.analysis(item.time + lt)
             x_a, analysis_coords = analysis_to_tensor(analysis, device)
@@ -344,12 +345,17 @@ class AssimilationForecastPipeline(ForecastPipeline):
             )
 
         x = torch.stack(slices, dim=0).unsqueeze(0)
-        coords: CoordSystem = OrderedDict()
-        coords["time"] = np.array([item.time], dtype="datetime64[ns]")
-        coords["lead_time"] = ic_leads
-        for dim, values in analysis_coords.items():
-            if dim != "time":
-                coords[dim] = values
+        coords: dict[str, np.ndarray] = OrderedDict(
+            [
+                ("time", np.array([item.time], dtype="datetime64[ns]")),
+                ("lead_time", ic_leads),
+            ]
+            + [
+                (dim, values)
+                for dim, values in analysis_coords.items()
+                if dim != "time"
+            ]
+        )
 
         x, coords = _align_to_grid(x, coords, self._prognostic_ic)
 
@@ -397,7 +403,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
             return []
 
         model = self._load_prognostic_for_predownload(cfg)
-        ic_lead_times = model._input_tensor_coords()["lead_time"]
+        ic_lead_times = tensor_input_coords(model)["lead_time"]
         unique_ic_times = sorted({i.time for i in build_work_items(cfg)})
         times: list[np.datetime64] = sorted(
             {t + lt for t in unique_ic_times for lt in ic_lead_times}
@@ -424,8 +430,8 @@ class AssimilationForecastPipeline(ForecastPipeline):
             return []
 
         model = self._load_prognostic_for_predownload(cfg)
-        ic_coords = model._input_tensor_coords()
-        spatial_ref = model._output_tensor_coords(ic_coords)
+        ic_coords = tensor_input_coords(model)
+        spatial_ref = tensor_output_coords(model, ic_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})

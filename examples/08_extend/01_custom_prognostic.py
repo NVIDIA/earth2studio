@@ -70,7 +70,6 @@ import torch
 
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
-from earth2studio.utils.type import CoordSystem
 
 
 class CustomPrognostic(torch.nn.Module):
@@ -80,12 +79,11 @@ class CustomPrognostic(torch.nn.Module):
         super().__init__()
         self.amp = noise_amplitude
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         return OrderedDict(
@@ -99,17 +97,18 @@ class CustomPrognostic(torch.nn.Module):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
         # Check input coordinates are valid
@@ -139,15 +138,15 @@ class CustomPrognostic(torch.nn.Module):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
         """
         out_coords = self.output_coords(coords)
@@ -157,8 +156,8 @@ class CustomPrognostic(torch.nn.Module):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Generator[tuple[torch.Tensor, dict[str, np.ndarray]], None, None]:
         """Create prognostic generator"""
         self.output_coords(coords)
         # First time-step should always be the initial state
@@ -170,8 +169,8 @@ class CustomPrognostic(torch.nn.Module):
             yield x, coords
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: dict[str, np.ndarray]
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
@@ -179,7 +178,7 @@ class CustomPrognostic(torch.nn.Module):
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system
         """
 

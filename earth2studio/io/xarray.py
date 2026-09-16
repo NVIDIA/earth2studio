@@ -24,7 +24,6 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.utils.coords import convert_multidim_to_singledim
-from earth2studio.utils.type import CoordSystem
 
 
 class XarrayBackend:
@@ -32,7 +31,7 @@ class XarrayBackend:
 
     Parameters
     ----------
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         Coordinates to initialize the xarray Dataset with. Must be a
         complete set of coordinates, i.e., the Dataset object should
         be viewed as (mostly) immutable with the given set of coordinates.
@@ -41,7 +40,9 @@ class XarrayBackend:
 
     """
 
-    def __init__(self, coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any) -> None:
+    def __init__(
+        self, coords: dict[str, np.ndarray] = OrderedDict({}), **xr_kwargs: Any
+    ) -> None:
         adjusted_coords, mapping = convert_multidim_to_singledim(coords)
 
         data_vars: dict[str, tuple[list[str], np.ndarray]] = {}
@@ -91,7 +92,7 @@ class XarrayBackend:
 
     def add_array(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
         data: torch.Tensor | list[torch.Tensor] = None,
         **xr_kwargs: Any,
@@ -100,7 +101,7 @@ class XarrayBackend:
 
         Parameters
         ----------
-        coords: CoordSystem
+        coords: dict[str, np.ndarray]
             Ordered dict of coordinate information.
         array_name : str
             Name to add to xarray Dataset for the new array.
@@ -162,7 +163,7 @@ class XarrayBackend:
     def write(
         self,
         x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str | list[str],
     ) -> None:
         """
@@ -224,11 +225,11 @@ class XarrayBackend:
 
     def read(
         self,
-        coords: CoordSystem,
+        coords: dict[str, np.ndarray],
         array_name: str,
         device: torch.device = "cpu",
         dtype: torch.dtype = torch.float32,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """
         Read data from the current xarray dataset using the passed array_name.
 

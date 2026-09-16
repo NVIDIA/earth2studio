@@ -33,7 +33,11 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
+from earth2studio.utils.coords import (
+    cat_coords,
+    map_coords,
+    split_coords,
+)
 from earth2studio.utils.time import to_time_array
 
 from .hens_utilities import (
@@ -68,7 +72,7 @@ class EnsembleBase:
         Data object for storing generated data.
     perturbation : Perturbation
         Method for perturbing initial conditions.
-    output_coords_dict : dict[str, CoordSystem]
+    output_coords_dict : dict[str, dict[str, np.ndarray]]
         Dictionary of coordinate systems of data that shall be stored.
     dx_model_dict : dict[str, DiagnosticModel], optional
         Dictionary of diagnostic models.
@@ -99,7 +103,7 @@ class EnsembleBase:
         data: DataSource,
         io_dict: dict[str, IOBackend],
         perturbation: Perturbation,
-        output_coords_dict: dict[str, CoordSystem],
+        output_coords_dict: dict[str, dict[str, np.ndarray]],
         dx_model_dict: dict[str, DiagnosticModel] = {},
         cd_model_dict: dict[str, object] = {},
         cyclone_tracking: TCTracking | None = None,

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+from collections import OrderedDict
 
 import hydra
 import numpy as np
@@ -28,7 +29,6 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.data import DataSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.io import ZarrBackend
-from earth2studio.utils.coords import CoordSystem
 from src.aiwq_utilities import (
     convert_to_quintile_probs,
     get_quintile_clim,
@@ -113,6 +113,7 @@ def prepare_score_io_dict(
         # Prepare output score coordinates
         score_coords = io_dict[k].coords.copy()
         score_coords.pop("ensemble")
+        score_coords = OrderedDict(score_coords)
         for dim in ["time", "lead_time", "lat", "lon"]:
             # Manually reset dimension order as io_dict[k].coords does not preserve order
             score_coords.move_to_end(dim, last=True)
@@ -261,9 +262,9 @@ def load_forecast_data(
     io: ZarrBackend,
     ic: np.datetime64,
     array: str,
-    score_coords: CoordSystem,
+    score_coords: dict[str, np.ndarray],
     device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Load the forecast data for scoring
 
     Parameters
@@ -276,20 +277,20 @@ def load_forecast_data(
         The initial condition to score
     array : str
         The array to load
-    score_coords : CoordSystem
+    score_coords : dict[str, np.ndarray]
         The coordinates of the scored data
 
     Returns
     -------
     forecast_data : torch.Tensor
         The forecast data
-    forecast_coords : CoordSystem
+    forecast_coords : dict[str, np.ndarray]
         The coordinates of the forecast data
     """
 
     # Populate coordiantes of the read data in proper dimension order
     # (accessing io.coords directly does not preserve dimension order)
-    read_coords = CoordSystem({})
+    read_coords = dict[str, np.ndarray]({})
     for dim in io.root[array].metadata.dimension_names:
         read_coords[dim] = io.coords[dim]
     read_coords["time"] = np.array([ic])
@@ -312,11 +313,11 @@ def load_verification_data(
     cfg: DictConfig,
     data_source: DataSource,
     ic: np.datetime64,
-    fcst_coords: CoordSystem,
+    fcst_coords: dict[str, np.ndarray],
     variable: str,
-    score_coords: CoordSystem,
+    score_coords: dict[str, np.ndarray],
     device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Load the verification data for scoring
 
     Parameters
@@ -327,11 +328,11 @@ def load_verification_data(
         The data source for loading verification data
     ic : np.datetime64
         The initial condition to score
-    fcst_coords : CoordSystem
+    fcst_coords : dict[str, np.ndarray]
         The coordinates of the forecast data
     variable : str
         The variable to load
-    score_coords : CoordSystem
+    score_coords : dict[str, np.ndarray]
         The coordinates of the scored data
     device : torch.device
         The device to load the data onto
@@ -340,7 +341,7 @@ def load_verification_data(
     -------
     verif_data : torch.Tensor
         The verification data
-    verif_coords : CoordSystem
+    verif_coords : dict[str, np.ndarray]
         The coordinates of the verification data
     """
 
@@ -377,8 +378,11 @@ def load_verification_data(
 
 
 def apply_temporal_aggregation(
-    agg_window: str, data: torch.Tensor, coords: CoordSystem, score_coords: CoordSystem
-) -> tuple[torch.Tensor, CoordSystem]:
+    agg_window: str,
+    data: torch.Tensor,
+    coords: dict[str, np.ndarray],
+    score_coords: dict[str, np.ndarray],
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Apply temporal aggregation to the data
 
     Parameters
@@ -387,22 +391,23 @@ def apply_temporal_aggregation(
         The temporal aggregation window to apply
     data : torch.Tensor
         The data to apply temporal aggregation to
-    coords : CoordSystem
+    coords : dict[str, np.ndarray]
         The coordinates of the data
-    score_coords : CoordSystem
+    score_coords : dict[str, np.ndarray]
         The target coordinates of the scored data
 
     Returns
     -------
     fcst_data : torch.Tensor
         The aggregated forecast data
-    fcst_coords : CoordSystem
+    fcst_coords : dict[str, np.ndarray]
         The coordinates of the aggregated forecast data
     """
 
     if "ensemble" not in coords:
         # Spoof an ensemble dimension so this works for single-member forecasts/verification data as well
         data = data.unsqueeze(0)
+        coords = OrderedDict(coords)
         coords["ensemble"] = np.array([0])
         coords.move_to_end("ensemble", last=False)
         spoofed_ensemble = True
@@ -440,9 +445,9 @@ def apply_temporal_aggregation(
 
 def score_forecast(
     fcst_data: torch.Tensor,
-    fcst_coords: CoordSystem,
+    fcst_coords: dict[str, np.ndarray],
     verif_data: torch.Tensor,
-    verif_coords: CoordSystem,
+    verif_coords: dict[str, np.ndarray],
     metric_dict: dict,
     var: str,
 ) -> dict:
@@ -452,11 +457,11 @@ def score_forecast(
     ----------
     fcst_data : torch.Tensor
         The forecast data
-    fcst_coords : CoordSystem
+    fcst_coords : dict[str, np.ndarray]
         The coordinates of the forecast data
     verif_data : torch.Tensor
         The verification data
-    verif_coords : CoordSystem
+    verif_coords : dict[str, np.ndarray]
         The coordinates of the verification data
     metric_dict : dict
         The dictionary of metric objects to use for scoring
@@ -501,7 +506,7 @@ def write_scores(score_io_dict: dict, scores: dict) -> None:
 
 def load_forecast_for_aiwq(
     io: ZarrBackend, ic: np.datetime64, array: str, device: torch.device
-) -> tuple[torch.Tensor, CoordSystem]:
+) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
     """Load the forecast data for AIWQ scoring
 
     Parameters
@@ -517,7 +522,7 @@ def load_forecast_for_aiwq(
     """
 
     # Populate coordiantes of the read data in proper dimension order
-    read_coords = CoordSystem({})
+    read_coords = dict[str, np.ndarray]({})
     for dim in io.root[array].metadata.dimension_names:
         read_coords[dim] = io.coords[dim]
     read_coords["time"] = np.array([ic])
@@ -543,7 +548,7 @@ def load_forecast_for_aiwq(
 
 
 def compute_aiwq_rpss(
-    fcst_data: list[torch.Tensor], fcst_coords: CoordSystem, var: str
+    fcst_data: list[torch.Tensor], fcst_coords: dict[str, np.ndarray], var: str
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute the AIWQ RPSS
 
@@ -551,7 +556,7 @@ def compute_aiwq_rpss(
     ----------
     fcst_data : list[torch.Tensor]
         The forecast data
-    fcst_coords : CoordSystem
+    fcst_coords : dict[str, np.ndarray]
         The coordinates of the forecast data
     var : str
         The variable being scored

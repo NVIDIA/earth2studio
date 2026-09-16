@@ -26,7 +26,8 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.models.px.utils import tensor_input_coords, tensor_output_coords
+from earth2studio.utils.coords import map_coords
 
 from ..distributed import get_rank
 from ..models import load_prognostic
@@ -124,8 +125,8 @@ class DLESyMPipeline(ForecastPipeline):
 
         # CPU-inspect the model to infer IC requirements + output lead times.
         model = load_prognostic(cfg)
-        ic_coords = model._input_tensor_coords()
-        out_coords = model._output_tensor_coords(ic_coords)
+        ic_coords = tensor_input_coords(model)
+        out_coords = tensor_output_coords(model, ic_coords)
         spatial_ref = out_coords  # lat/lon (LatLon) or face/height/width (raw)
 
         all_items = build_work_items(cfg)
@@ -157,7 +158,7 @@ class DLESyMPipeline(ForecastPipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    ) -> Iterator[tuple[torch.Tensor, dict[str, np.ndarray]]]:
         x, coords = fetch_data(
             source=data_source,
             time=[item.time],
@@ -204,7 +205,7 @@ class DLESyMPipeline(ForecastPipeline):
     def _mask_invalid_ocean(
         self,
         x_step: torch.Tensor,
-        coords_step: CoordSystem,
+        coords_step: dict[str, np.ndarray],
     ) -> torch.Tensor:
         """Replace ocean-variable values at non-valid lead times with NaN.
 

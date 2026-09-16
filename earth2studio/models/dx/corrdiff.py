@@ -42,7 +42,6 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module as PhysicsNemoModule
@@ -528,12 +527,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Get the input coordinate system for the model.
 
         Returns
         -------
-        CoordSystem
             Dictionary containing the input coordinate system
         """
 
@@ -547,17 +545,18 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Get the output coordinate system for the model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
             Dictionary containing the output coordinate system
         """
         output_coords = OrderedDict(
@@ -1108,15 +1107,15 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Execute the model on input data.
 
         Parameters
         ----------
         x : torch.Tensor
             Input tensor
-        coords : CoordSystem
+        coords : dict[str, np.ndarray]
             Input coordinate system. May optionally contain a ``"time"`` key with an
             array-like of numpy datetime64 values (or a ``list[datetime]``) representing
             the validity time of each sample (i.e., when the atmospheric state is
@@ -1127,7 +1126,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             Output tensor and coordinate system
 
         Notes
@@ -1140,7 +1139,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
         # Pull optional time metadata before any coordinate validation.
         #
-        # Design note: CoordSystem was designed for dimensional coords (batch, variable,
+        # Design note: dict[str, np.ndarray] was designed for dimensional coords (batch, variable,
         # lat, lon) where each key maps to a tensor axis. "time" here is per-sample
         # metadata (validity timestamp), not a tensor dimension.
         #
@@ -1338,7 +1337,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.seed = seed
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> dict[str, np.ndarray]:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -1350,18 +1349,19 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
             Coordinate system dictionary
         """
 
@@ -1610,8 +1610,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Forward pass of diagnostic"""
         output_coords = self.output_coords(coords)
 

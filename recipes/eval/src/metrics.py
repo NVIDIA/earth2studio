@@ -35,10 +35,11 @@ ensemble_variance
 
 from __future__ import annotations
 
+import numpy as np
 import torch
 
 from earth2studio.statistics.moments import mean, variance
-from earth2studio.utils.coords import CoordSystem, handshake_dim
+from earth2studio.utils.coords import handshake_dim
 
 
 class mse:
@@ -90,17 +91,18 @@ class mse:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Return the coordinate system after reduction.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform.
 
         Returns
         -------
-        CoordSystem
         """
         output_coords = input_coords.copy()
         for dimension in self.reduction_dimensions:
@@ -113,26 +115,26 @@ class mse:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
+        x_coords: dict[str, np.ndarray],
         y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        y_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Compute MSE between *x* (forecast) and *y* (observation).
 
         Parameters
         ----------
         x : torch.Tensor
             Forecast tensor.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Coordinates describing *x*.
         y : torch.Tensor
             Observation tensor.
-        y_coords : CoordSystem
+        y_coords : dict[str, np.ndarray]
             Coordinates describing *y*.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             ``(mse_values, output_coords)``
         """
         if self.ensemble_dimension is not None:
@@ -186,17 +188,18 @@ class ensemble_variance:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(
+        self, input_coords: dict[str, np.ndarray]
+    ) -> dict[str, np.ndarray]:
         """Return the coordinate system after reduction.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : dict[str, np.ndarray]
             Input coordinate system to transform.
 
         Returns
         -------
-        CoordSystem
         """
         output_coords = input_coords.copy()
         for dimension in self._reduction_dimensions:
@@ -207,20 +210,20 @@ class ensemble_variance:
     def __call__(
         self,
         x: torch.Tensor,
-        x_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x_coords: dict[str, np.ndarray],
+    ) -> tuple[torch.Tensor, dict[str, np.ndarray]]:
         """Compute spatially-averaged ensemble variance.
 
         Parameters
         ----------
         x : torch.Tensor
             Forecast tensor with an ensemble dimension.
-        x_coords : CoordSystem
+        x_coords : dict[str, np.ndarray]
             Coordinates describing *x*.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        tuple[torch.Tensor, dict[str, np.ndarray]]
             ``(variance_values, output_coords)``
         """
         var, var_coords = self.ens_var(x, x_coords)
