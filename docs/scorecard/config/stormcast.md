@@ -30,14 +30,17 @@ conditions.
 
 ## Event-based scoring
 
-Unlike the global scorecards, this page comes from an event campaign.
-Each event is a space-time window over the evaluation data showcasing a physical event.
-Initial conditions run every 3 hours from 12 hours before the window to its end.
-The headline curves pool every event's initial conditions, and the Event selector
-shows one episode at a time. Truth is the HRRR analysis, and scores are uniformly weighted on the model grid. The campaign definition is
-[stormcast_2025_events.yaml](https://github.com/NVIDIA/earth2studio/blob/main/recipes/eval/scorecard/cfg/campaign/stormcast_2025_events.yaml)
-and the event scoring lives in the
-[evaluation recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval).
+Unlike the global scorecards, this page comes from an event campaign. Each
+event is a space-time window over the evaluation data showcasing a physical
+event. Initial conditions run every 3 hours from 12 hours before the window to
+its end. The headline curves pool every event's initial conditions, and the
+Event selector shows one episode at a time. Truth is the HRRR analysis, and
+scores are uniformly weighted on the model grid. The campaign definition is
+[stormcast_2025_events.yaml][events-yaml] and the event scoring lives in the
+[evaluation recipe][eval-recipe].
+
+[events-yaml]: https://github.com/NVIDIA/earth2studio/blob/main/recipes/eval/scorecard/cfg/campaign/stormcast_2025_events.yaml
+[eval-recipe]: https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval
 
 ## Reference
 
