@@ -24,25 +24,41 @@ own ``src.report.aggregation`` -- nothing is reimplemented here.
 
 Runs scored with regional splits (``scoring.regions``) additionally get
 one ``eval_scores_<model>_region_<name>.json`` per non-global region; runs
-spanning more than one calendar month get ``eval_scores_<model>_monthly.json``
-(individual months plus DJF/MAM/JJA/SON season blocks); runs with more than
+spanning more than one calendar month, other than event campaigns, get
+``eval_scores_<model>_monthly.json`` (individual months plus DJF/MAM/JJA/SON
+season blocks); runs with more than
 one initialization hour get ``eval_scores_<model>_hourly.json`` (per synoptic
 hour); and every run gets ``eval_scores_<model>_heatmap.json`` with per-IC
-skill grids for every scored variable.  The docs plot fetches these lazily
-when the reader first touches the matching control, so the first paint only
-pays for the main file.
+skill grids for every scored variable.  Runs with ``scoring.events``, or a
+sibling events campaign (``--events-run``, found by default at
+``models/<model>/outputs/<model>_2025_events``), get
+``eval_scores_<model>_events.json``: one curve set per named event, windowed
+in time and restricted to the event's region.  The docs plot fetches these
+lazily when the reader first touches the matching control, so the first
+paint only pays for the main file.
 
     python export_scores.py fcn3 aurora          # -> exports/eval_scores_<model>*.json
     python export_scores.py fcn3 --docs          # also copy into docs/_static/scorecard/
+    python export_scores.py fcn3 --events-run models/fcn3/outputs/fcn3_2025_events
+    python export_scores.py fcn3 --upload        # push to <your HF user>/earth2studio-assets
+
+``--upload`` publishes the files to a Hugging Face dataset with the layout the
+docs build reads (``scorecard/<model>/eval_scores_<model>*.json``).  Without a
+repo name it uses ``$SCORECARD_DATA_REPO``, else ``<user>/earth2studio-assets``
+for the logged-in user (``hf auth login`` once, or set ``HF_TOKEN``), creating
+the dataset on first use.  Point a docs build at that dataset with the same
+``SCORECARD_DATA_REPO`` variable.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xarray as xr
@@ -50,7 +66,15 @@ import xarray as xr
 HERE = Path(__file__).resolve().parent  # scorecard root
 sys.path.insert(0, str(HERE.parent))  # <recipe> -> src.report.*
 
+from src.regions import (  # noqa: E402
+    event_region_name,
+    events_from_attrs,
+    parse_events,
+)
 from src.report.aggregation import aggregate_over_time  # noqa: E402
+
+# An event's time window: (start, end, kind) with kind "valid" or "init".
+Window = tuple[np.datetime64, np.datetime64, str]
 
 # The docs copy lives under _static so the interactive plot can fetch it
 # directly in the browser -- one copy of the numbers, none embedded in HTML.
@@ -133,6 +157,8 @@ _UNITS_EXACT = {
     "sic": "fraction",
     "sd": "m",
     "tp06": "m",
+    "refc": "dBZ",
+    "mslp": "Pa",
     "cp06": "m",
     "sf06": "m",
     "ro06": "m",
@@ -188,6 +214,7 @@ def curve(
     region: str | None = None,
     months: tuple[int, ...] | None = None,
     hour: int | None = None,
+    window: Window | None = None,
 ) -> np.ndarray | None:
     """Aggregated-over-ICs curve for one stored metric/variable.
 
@@ -202,6 +229,13 @@ def curve(
     hour : int | None
         Restrict the IC average to initial conditions at this synoptic
         hour (0/6/12/18).
+    window : Window | None
+        An event's ``(start, end, kind)`` window, inclusive at both ends.
+        ``kind="init"`` keeps the initial conditions inside it;
+        ``kind="valid"`` keeps every (initial condition, lead time) pair
+        whose valid time falls inside it, so each lead time averages over
+        a different set of initial conditions and lead times that never
+        reach the window come out as ``None``.
     """
     source = next((s for s in sources if f"{s}__{var}" in ds), None)
     if source is None:
@@ -224,6 +258,17 @@ def curve(
     if hour is not None:
         da = da.sel(time=da.time.dt.hour == hour)
         if da.sizes.get("time", 0) == 0:
+            return None
+    if window is not None:
+        start, end, kind = window
+        if kind == "init":
+            da = da.sel(time=(da.time >= start) & (da.time <= end))
+        else:
+            # Valid time of every (IC, lead) pair; entries outside the
+            # window become NaN and drop out of the per-lead mean below.
+            valid = da.time + da.lead_time
+            da = da.where((valid >= start) & (valid <= end))
+        if da.sizes.get("time", 0) == 0 or not bool(np.isfinite(da.values).any()):
             return None
     da = da.transpose("time", "lead_time")  # never trust stored dim order
     out = np.asarray(aggregate_over_time(da, source).values, dtype=float)
@@ -319,6 +364,9 @@ def data_sources(run: Path) -> dict:
             out["ic_source"] = ic.rsplit(".", 1)[-1]
         if verif:
             out["verification_source"] = verif.rsplit(".", 1)[-1]
+        # Whether the scores carry cosine-latitude weights (global grids) or
+        # uniform weights (limited-area grids); the docs page says which.
+        out["lat_weights"] = bool((cfg.get("scoring") or {}).get("lat_weights", True))
     return out
 
 
@@ -329,8 +377,9 @@ def build_metrics(
     region: str | None = None,
     months: tuple[int, ...] | None = None,
     hour: int | None = None,
+    window: Window | None = None,
 ) -> dict:
-    """The ``metrics`` block for one (region, months, hour) slice of a run."""
+    """The ``metrics`` block for one (region, months, hour, window) slice."""
     stored = {k.split("__")[0] for k in ds.data_vars if "__" in k}
 
     metrics: dict = {}
@@ -353,6 +402,7 @@ def build_metrics(
                     region=region,
                     months=months,
                     hour=hour,
+                    window=window,
                 )
                 sk = curve(
                     ds,
@@ -362,6 +412,7 @@ def build_metrics(
                     region=region,
                     months=months,
                     hour=hour,
+                    window=window,
                 )
                 if sp is None or sk is None:
                     continue
@@ -375,6 +426,7 @@ def build_metrics(
                     region=region,
                     months=months,
                     hour=hour,
+                    window=window,
                 )
                 if c is None:
                     continue
@@ -422,14 +474,129 @@ def build_heatmap(ds: xr.Dataset, variables: list[str], lead_h: list[int]) -> di
     return metrics
 
 
-def export(model: str, run: Path) -> tuple[dict, dict[str, dict]]:
+def drop_unscored_times(ds: xr.Dataset) -> xr.Dataset:
+    """Leave out initial conditions the run never scored.
+
+    The score stores carry every planned initial condition, and the ones a
+    campaign never reached (stopped early, or trimmed afterwards) hold
+    only NaN.  Listing them as scored would misstate the campaign, so the
+    export keeps the initial conditions with at least one finite value.
+    """
+    scored = None
+    for name in ds.data_vars:
+        if "__" not in str(name) or "time" not in ds[name].dims:
+            continue
+        others = [d for d in ds[name].dims if d != "time"]
+        present = np.isfinite(ds[name]).any(dim=others)
+        scored = present if scored is None else (scored | present)
+    if scored is None:
+        return ds
+    keep = np.asarray(scored.values, dtype=bool)
+    if keep.all():
+        return ds
+    print(f"!! {int((~keep).sum())} initial condition(s) without scores left out")
+    return ds.isel(time=np.flatnonzero(keep))
+
+
+def run_events(run: Path, ds: xr.Dataset) -> dict[str, dict]:
+    """The events a scored run defines, keyed by name.
+
+    Preferred source is the ``events`` attribute that both scoring paths
+    stamp onto ``scores.zarr``; stores that predate it fall back to the
+    ``scoring.events`` block of the campaign config matching the run
+    directory name (best effort).
+    """
+    events = events_from_attrs(ds.attrs.get("events"))
+    if events:
+        return events
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        import yaml
+
+        cfg = yaml.safe_load(
+            (HERE / "cfg" / "campaign" / f"{run.name}.yaml").read_text()
+        )
+        events = parse_events((cfg.get("scoring") or {}).get("events"))
+    return events or {}
+
+
+def event_ic_count(ds: xr.Dataset, event: dict) -> int:
+    """Initial conditions that contribute to an event's curves."""
+    times = np.asarray(ds.time.values, dtype="datetime64[ns]")
+    start = np.datetime64(event["start"], "ns")
+    end = np.datetime64(event["end"], "ns")
+    if event["window"] == "init":
+        return int(((times >= start) & (times <= end)).sum())
+    leads = np.asarray(ds.lead_time.values, dtype="timedelta64[ns]")
+    valid = times[:, None] + leads[None, :]
+    return int(((valid >= start) & (valid <= end)).any(axis=1).sum())
+
+
+def build_events(
+    ds: xr.Dataset, variables: list[str], lead_h: list[int], events: dict[str, dict]
+) -> dict[str, dict]:
+    """One ``metrics`` block per event: its region, windowed in time.
+
+    Every event scores on the store region named by
+    :func:`src.regions.event_region_name` (the event's own box, or the
+    ``scoring.regions`` entry it points at).  Spectral metrics stay
+    whole-grid, so they appear only for events on the ``global`` split.
+    """
+    labels = [str(r) for r in ds.region.values] if "region" in ds.dims else []
+    out: dict[str, dict] = {}
+    for name, event in events.items():
+        region = event_region_name(name, event)
+        if labels and region not in labels:
+            print(
+                f"!! event {name}: region '{region}' is not in the store "
+                f"({labels}); skipping"
+            )
+            continue
+        if not labels and event["region"] is not None:
+            print(
+                f"!! event {name}: the store has no regional splits, so its "
+                "box cannot be applied; skipping"
+            )
+            continue
+        window: Window = (event["start"], event["end"], event["window"])
+        metrics = build_metrics(
+            ds,
+            variables,
+            lead_h,
+            region=None if region == "global" else region,
+            window=window,
+        )
+        if not metrics:
+            print(f"!! event {name}: no scored (IC, lead) pairs inside its window")
+            continue
+        out[name] = {
+            "label": event["label"],
+            "start": str(np.datetime64(event["start"], "m")).replace("T", " "),
+            "end": str(np.datetime64(event["end"], "m")).replace("T", " "),
+            "window": event["window"],
+            "region": region,
+            "region_box": None if isinstance(event["region"], str) else event["region"],
+            "initial_conditions": event_ic_count(ds, event),
+            "metrics": metrics,
+        }
+    return out
+
+
+def export(
+    model: str, run: Path, events_run: Path | None = None
+) -> tuple[dict, dict[str, dict]]:
     """Assemble the export documents for one scored run.
 
     Returns the main document plus sibling split documents keyed by file
-    suffix (``region_<name>`` / ``monthly``) — the plot fetches those
-    lazily, so the first paint never pays for the splits.
+    suffix (``region_<name>`` / ``monthly`` / ``events``) — the plot
+    fetches those lazily, so the first paint never pays for the splits.
+    Events come from the run itself and, when given, from ``events_run``:
+    a sibling campaign whose initial conditions surround the events (see
+    the scorecard README).  Its events join the run's own and, on a name
+    clash, replace them.
     """
-    ds = xr.open_zarr(run / "scores.zarr")
+    ds = drop_unscored_times(xr.open_zarr(run / "scores.zarr"))
     variables = sorted(
         {k.split("__", 1)[1] for k in ds.data_vars if "__" in k}, key=sort_key
     )
@@ -438,6 +605,15 @@ def export(model: str, run: Path) -> tuple[dict, dict[str, dict]]:
     n_ens = int(ds.sizes.get("ensemble", 1))
     regions = [str(r) for r in ds.region.values] if "region" in ds.dims else []
     months_present = sorted({int(m) for m in ds.time.dt.month.values})
+    events = run_events(run, ds)
+    # Regions that exist only to carry an event's box: the events file
+    # reports them windowed in time, so they stay out of the year-round
+    # splits.
+    event_only_regions = {
+        event_region_name(n, e)
+        for n, e in events.items()
+        if not isinstance(e["region"], str)
+    }
 
     out_leads = lead_h[1:] if lead_h and lead_h[0] == 0 else lead_h
     doc = {
@@ -464,12 +640,15 @@ def export(model: str, run: Path) -> tuple[dict, dict[str, dict]]:
     # main document) and one holding the monthly breakdown (whole grid).
     splits: dict[str, dict] = {}
     for region in regions:
-        if region == "global":
+        if region == "global" or region in event_only_regions:
             continue
         metrics = build_metrics(ds, variables, lead_h, region=region)
         if metrics:
             splits[f"region_{region}"] = {"region": region, "metrics": metrics}
-    if len(months_present) > 1:
+    # Event campaigns pick their initial conditions around a few case dates.
+    # Grouping those by calendar month or season says nothing about the
+    # model, so the monthly split stays a year-round campaign's breakdown.
+    if len(months_present) > 1 and not events:
         # Season blocks first, then the individual months, in one file —
         # a season is just a three-month IC group through the same path.
         monthly: dict = {}
@@ -501,16 +680,121 @@ def export(model: str, run: Path) -> tuple[dict, dict[str, dict]]:
     if heatmap:
         splits["heatmap"] = {"initial_conditions": times, "metrics": heatmap}
 
-    if regions:
-        doc["regions"] = regions
+    # Events: the run's own first, then the sibling events campaign, whose
+    # curves also carry that campaign's provenance and run name.
+    by_event: dict[str, dict] = {}
+    runs: dict[str, dict] = {}
+    for src_run, src_ds, src_events in (
+        (run, ds, events),
+        *(
+            [(events_run, xr.open_zarr(events_run / "scores.zarr"), None)]
+            if events_run is not None
+            else []
+        ),
+    ):
+        if src_events is None:
+            src_events = run_events(src_run, src_ds)
+        if not src_events:
+            continue
+        src_vars = sorted(
+            {k.split("__", 1)[1] for k in src_ds.data_vars if "__" in k},
+            key=sort_key,
+        )
+        src_lead_h = (
+            (src_ds.lead_time.values / np.timedelta64(1, "h")).astype(int).tolist()
+        )
+        built = build_events(src_ds, src_vars, src_lead_h, src_events)
+        for name, block in built.items():
+            by_event[name] = {**block, "run": src_run.name}
+        if built:
+            runs[src_run.name] = provenance(src_run)
+        if src_ds is not ds:
+            src_ds.close()
+    if by_event:
+        splits["events"] = {
+            "events": list(by_event),
+            "metrics_by_event": by_event,
+            "runs": runs,
+        }
+        doc["events"] = {
+            name: {k: block[k] for k in ("label", "start", "end", "window", "region")}
+            for name, block in by_event.items()
+        }
+
+    if [r for r in regions if r not in event_only_regions]:
+        doc["regions"] = [r for r in regions if r not in event_only_regions]
     if "monthly" in splits:
         doc["has_monthly"] = True
     if "hourly" in splits:
         doc["has_hourly"] = True
     if heatmap:
         doc["has_heatmap"] = True
+    if by_event:
+        doc["has_events"] = True
     ds.close()
     return doc, splits
+
+
+DEFAULT_DATASET_NAME = "earth2studio-assets"
+
+
+def upload_exports(model: str, repo: str | None = None, api: Any | None = None) -> str:
+    """Publish a model's export files to a Hugging Face dataset.
+
+    Uploads ``exports/eval_scores_<model>*.json`` into ``scorecard/<model>/``
+    of the dataset in one commit, deleting stale files of that model that
+    the export no longer writes (a split that went away), so the dataset
+    mirrors the export exactly.  The first upload creates the dataset,
+    public.
+
+    Parameters
+    ----------
+    model : str
+        Model name, as exported.
+    repo : str | None
+        Dataset id such as ``user/earth2studio-assets``.  ``None`` takes
+        ``$SCORECARD_DATA_REPO``, else ``<user>/earth2studio-assets`` for
+        the logged-in user.
+    api : object | None
+        A ``huggingface_hub.HfApi``-like object (tests inject a fake).
+
+    Returns
+    -------
+    str
+        The dataset id the files went to.
+
+    Raises
+    ------
+    RuntimeError
+        Without a repo argument and without a Hugging Face login.
+    """
+    if api is None:
+        from huggingface_hub import HfApi
+
+        api = HfApi()
+    repo = repo or os.environ.get("SCORECARD_DATA_REPO") or None
+    if repo is None:
+        try:
+            user = api.whoami()["name"]
+        except Exception as err:  # noqa: BLE001 - any auth failure reads the same
+            raise RuntimeError(
+                "No Hugging Face login: run `hf auth login`, set HF_TOKEN, or "
+                "pass --upload <user>/earth2studio-assets."
+            ) from err
+        repo = f"{user}/{DEFAULT_DATASET_NAME}"
+    patterns = [f"eval_scores_{model}.json", f"eval_scores_{model}_*.json"]
+    api.create_repo(repo, repo_type="dataset", exist_ok=True)
+    api.upload_folder(
+        folder_path=str(EXPORTS),
+        path_in_repo=f"scorecard/{model}",
+        repo_id=repo,
+        repo_type="dataset",
+        allow_patterns=patterns,
+        delete_patterns=patterns,
+        commit_message=f"Update {model} scorecard exports",
+    )
+    print(f"uploaded {model} exports to https://huggingface.co/datasets/{repo}")
+    return repo
 
 
 def main() -> int:
@@ -531,18 +815,49 @@ def main() -> int:
     ap.add_argument(
         "--main-only",
         action="store_true",
-        help="skip the split files (regions/monthly/hourly/heatmap) — used "
-        "for baseline runs, where the docs plot only reads the main curves",
+        help="skip the split files (regions/monthly/hourly/heatmap/events) — "
+        "used for baseline runs, where the docs plot only reads the main curves",
+    )
+    ap.add_argument(
+        "--events-run",
+        metavar="PATH",
+        help="run directory of a sibling events campaign whose scores.zarr "
+        "feeds eval_scores_<model>_events.json (one model only); default "
+        "models/<model>/outputs/<model>_2025_events when it exists",
+    )
+    ap.add_argument(
+        "--upload",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="REPO",
+        help="publish the exports to a Hugging Face dataset; default "
+        "$SCORECARD_DATA_REPO, else <user>/earth2studio-assets for the "
+        "logged-in user (hf auth login)",
     )
     args = ap.parse_args()
+    if args.events_run and len(args.models) != 1:
+        ap.error("--events-run applies to exactly one model")
 
     EXPORTS.mkdir(exist_ok=True)
     for model in args.models:
-        run = (
-            Path(args.run)
-            if args.run
-            else (HERE / "models" / model / "outputs" / f"{model}_2025_scorecard")
-        )
+        outputs = HERE / "models" / model / "outputs"
+        run = Path(args.run) if args.run else outputs / f"{model}_2025_scorecard"
+        events_run: Path | None = None
+        if args.events_run:
+            events_run = Path(args.events_run)
+            if not (events_run / "scores.zarr").exists():
+                raise SystemExit(f"{model}: no scores.zarr under {events_run}")
+        elif (outputs / f"{model}_2025_events" / "scores.zarr").exists():
+            candidate = outputs / f"{model}_2025_events"
+            if args.run is None and not (run / "scores.zarr").exists():
+                # A model scored only on events (e.g. a regional model): the
+                # events run is the main run, and its events export from it.
+                run = candidate
+                print(f"{model}: no main campaign run; exporting {candidate}")
+            else:
+                events_run = candidate
+                print(f"{model}: using events campaign {candidate}")
         if not (run / "scores.zarr").exists():
             raise SystemExit(f"{model}: no scores.zarr under {run}")
         # Plain minified JSON: the docs plot fetches and JSON.parses it
@@ -555,12 +870,19 @@ def main() -> int:
             "generated_by": "recipes/eval/scorecard/export_scores.py "
             "-- do not hand-edit",
         }
-        main_doc, splits = export(model, run)
+        main_doc, splits = export(model, run, events_run)
         if args.main_only:
             # Baseline exports: the plot reads only the main curves,
             # and the flags below would otherwise advertise split files
             # that were never written.
-            for key in ("regions", "has_monthly", "has_hourly", "has_heatmap"):
+            for key in (
+                "regions",
+                "has_monthly",
+                "has_hourly",
+                "has_heatmap",
+                "has_events",
+                "events",
+            ):
                 main_doc.pop(key, None)
             splits = {}
         documents = {f"eval_scores_{model}.json": main_doc}
@@ -580,6 +902,8 @@ def main() -> int:
                 dst = DOCS_STATIC / filename
                 dst.write_text(text)
                 print(f"  ->  {dst}")
+        if args.upload is not None:
+            upload_exports(model, args.upload or None)
     return 0
 
 

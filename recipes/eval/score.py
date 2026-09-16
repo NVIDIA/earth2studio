@@ -62,6 +62,7 @@ from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging, run_on_rank0_first
 from src.online import finalize_stats, online_enabled
 from src.output import OutputManager
+from src.regions import events_to_attrs, parse_events
 from src.scoring import (
     add_score_arrays,
     build_input_coords_template,
@@ -163,6 +164,12 @@ def main(cfg: DictConfig) -> None:
         # Add data arrays per dimension group — metrics that reduce
         # different dims get arrays with different dimension sets.
         run_on_rank0_first(add_score_arrays, output_mgr.io, array_groups)
+        # Stamp the event definitions onto the store, as the online path
+        # does when it derives scores.zarr, so the scorecard exporter can
+        # window the per-IC scores.
+        events = events_to_attrs(parse_events(cfg.scoring.get("events", None)))
+        if events is not None and dist.rank == 0:
+            output_mgr.io.root.attrs["events"] = events
         if my_times:
             run_scoring(
                 my_times,

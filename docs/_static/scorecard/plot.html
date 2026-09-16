@@ -73,6 +73,7 @@ limitations under the License.
   <div class="ctl" id="rctl" hidden><label>Region</label><select id="r"></select></div>
   <div class="ctl" id="moctl" hidden><label>Month</label><select id="mo"></select></div>
   <div class="ctl" id="hctl" hidden><label>Init hour</label><select id="h"></select></div>
+  <div class="ctl" id="ectl" hidden><label>Event</label><select id="e"></select></div>
   <div class="ctl" id="bctl" hidden><label>Baseline</label><select id="b"></select></div>
 </div>
 <div class="card"><h2 id="t"></h2><p id="s"></p>
@@ -81,12 +82,16 @@ limitations under the License.
 <div class="tip" id="tip"></div>
 <script>
 // No data here: the model is picked by ?model=, its JSON fetched below.
-// Regional / monthly splits live in sibling eval_scores_<model>_*.json
-// files and are fetched lazily the first time their control is used.
+// Regional / monthly / hourly / event splits live in sibling
+// eval_scores_<model>_*.json files and are fetched lazily the first time
+// their control is used.
 const $=s=>document.querySelector(s);
 const Q=new URLSearchParams(location.search);
 const MODEL=Q.get("model")||"";
 const LABEL=Q.get("label")||MODEL;
+// What the whole scored grid is called: "Global" for global models, the
+// model domain for limited-area ones (config/<model>.md, `domain:`).
+const DOMAIN=Q.get("domain")||"Global";
 document.title=LABEL+" skill";
 $(".badge") && ($(".badge").textContent=LABEL);
 let D=null,days=[],MONTHLY=null;
@@ -103,9 +108,10 @@ const fmt=v=>{if(!isFin(v))return "–";const a=Math.abs(v);
   if(a!==0&&(a<1e-3||a>=1e5))return v.toExponential(2);
   return v.toFixed(a>=100?1:a>=10?2:3);};
 const mSel=$("#m"),vSel=$("#v"),lSel=$("#l"),rSel=$("#r"),moSel=$("#mo"),
-      hSel=$("#h"),bSel=$("#b"),vwSel=$("#vw");
+      hSel=$("#h"),eSel=$("#e"),bSel=$("#b"),vwSel=$("#vw");
 let HEAT=null;   // lazily fetched eval_scores_<model>_heatmap.json
 let HOURLY=null; // lazily fetched eval_scores_<model>_hourly.json
+let EVENTS=null; // lazily fetched eval_scores_<model>_events.json
 const BASELINES={"persistence": "Persistence", "climatology": "Climatology"};
 const BCACHE={}; // baseline name -> its main eval_scores_<name>.json
 // The heatmap view swaps in its own (narrower) metric/variable sets.
@@ -166,10 +172,11 @@ function fillLevels(){
 function varName(){
   return VBASES[vSel.value]?vSel.value+lSel.value:vSel.value;
 }
-// The active split curve (region or month) for the current metric/variable,
-// or null when the whole-grid / all-IC curve is the only one to show.
-// undefined y means the split has no data for this metric (e.g. LSD is
-// spectral, hence global-only).
+// The active split curve (region, month, init hour or event) for the
+// current metric/variable, or null when the whole-grid / all-IC curve is
+// the only one to show.  undefined y means the split has no data for this
+// metric (e.g. LSD is spectral, hence global-only).  An event split also
+// carries a note for the subtitle: its window, region and IC count.
 function activeSplit(){
   const k=mSel.value,v=varName();
   if(moSel.value&&moSel.value!=="all"){
@@ -180,10 +187,19 @@ function activeSplit(){
     const hh=HOURLY&&HOURLY.metrics_by_hour[hSel.value];
     return {y:hh&&hh[k]?hh[k].values[v]:undefined,label:hSel.value+" ICs",ref:"All hours"};
   }
+  if(eSel.value&&eSel.value!=="none"){
+    const ev=EVENTS&&EVENTS.metrics_by_event[eSel.value];
+    const meta=(D.events||{})[eSel.value]||{};
+    const label=(ev&&ev.label)||meta.label||pretty(eSel.value);
+    const note=ev?` Event: ${ev.start} to ${ev.end} UTC (${ev.window==="init"?"initial":"valid"} time), `
+      +`region ${ev.region==="global"?DOMAIN:pretty(ev.region)}, ${ev.initial_conditions} initial conditions.`:"";
+    return {y:ev&&ev.metrics[k]?ev.metrics[k].values[v]:undefined,label,
+            ref:"All ICs, "+DOMAIN,note};
+  }
   if(rSel.value&&rSel.value!=="global"){
     const rd=RCACHE[rSel.value];
     return {y:rd&&rd.metrics[k]?rd.metrics[k].values[v]:undefined,
-            label:pretty(rSel.value),ref:"Global"};
+            label:pretty(rSel.value),ref:DOMAIN};
   }
   return null;
 }
@@ -232,7 +248,7 @@ function drawHeat(){
   if(!flat.length){$("#s").textContent="";
     mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
   const lo=Math.min(...flat),hi=Math.max(...flat);
-  $("#s").textContent=`One row per initial condition, one column per lead time (whole grid). `
+  $("#s").textContent=`One row per initial condition, one column per lead time (${DOMAIN}). `
     +`Range ${fmt(lo)} to ${fmt(hi)} ${unit}.`;
   const W=900,H=330,L=64,R=24,T=14,B=44;
   // Sequential single-hue ramp: chart surface -> accent.
@@ -292,8 +308,8 @@ function drawCurve(){
     ?" Baseline curves are whole-grid, all-IC references in every view.":"";
   $("#s").textContent=(
     k==="spread_skill"?"Ensemble spread over ensemble-mean RMSE. 1.0 is calibrated; below 1 is over-confident."
-    :LOWER.includes(k)?"Lower is better. Latitude-weighted, averaged over initial conditions."
-    :"Higher is better.")+bnote;
+    :LOWER.includes(k)?"Lower is better. "+(D.lat_weights===false?"Uniformly weighted on the model grid":"Latitude-weighted")+", averaged over initial conditions."
+    :"Higher is better.")+bnote+((split&&split.note)||"");
   if(split&&split.y===undefined){
     legend(null);
     mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"})
@@ -368,22 +384,25 @@ function drawCurve(){
   hit.addEventListener("mouseleave",()=>{tip.style.opacity=0;
     hl.setAttribute("opacity",0);dots.forEach(d=>d.setAttribute("opacity",0));});
 }
-// Region and month are mutually exclusive splits: the monthly breakdown is
-// computed on the whole grid, so picking a month snaps the region back to
-// Global (and vice versa the month back to All).
+// Region, month, init hour and event are mutually exclusive splits: the
+// monthly breakdown is computed on the whole grid, so picking a month
+// snaps the region back to Global (and vice versa the month back to All).
 function syncControls(){
-  // One split at a time: region, month/season, and init hour are computed
-  // on independent axes, so combining them would need cross exports.  The
-  // baseline overlays stay available in every curve view: they are always
-  // whole-grid all-IC references (noted in the subtitle), so they never
-  // depend on the split.  The heatmap is a per-IC view of one model.
+  // One split at a time: region, month/season, init hour and event are
+  // computed on independent axes, so combining them would need cross
+  // exports.  The baseline overlays stay available in every curve view:
+  // they are always whole-grid all-IC references (noted in the subtitle),
+  // so they never depend on the split.  The heatmap is a per-IC view of
+  // one model.
   const heat=vwSel.value==="heat";
   const monthOn=moSel.value&&moSel.value!=="all";
   const regionOn=rSel.value&&rSel.value!=="global";
   const hourOn=hSel.value&&hSel.value!=="all";
-  rSel.disabled=heat||monthOn||hourOn;
-  moSel.disabled=heat||regionOn||hourOn;
-  hSel.disabled=heat||regionOn||monthOn;
+  const eventOn=eSel.value&&eSel.value!=="none";
+  rSel.disabled=heat||monthOn||hourOn||eventOn;
+  moSel.disabled=heat||regionOn||hourOn||eventOn;
+  hSel.disabled=heat||regionOn||monthOn||eventOn;
+  eSel.disabled=heat||regionOn||monthOn||hourOn;
   bSel.disabled=heat;
 }
 function activeBaselines(){
@@ -397,7 +416,15 @@ function onBaseline(){
   want.filter(b=>!(b in BCACHE)).forEach(b=>{
     BCACHE[b]=null;
     fetchJSON(`eval_scores_${b}.json`)
-      .then(d=>{BCACHE[b]=d;syncControls();draw();})
+      .then(d=>{
+        // The baselines are whole-grid ERA5 reference runs. A model whose
+        // variables they do not carry (a limited-area model, for instance)
+        // has nothing to compare against. Hide the control, just as the
+        // region selector stays hidden without regional splits.
+        if(!D.variables.some(v=>d.variables.includes(v))){
+          $("#bctl").hidden=true;bSel.value="none";delete BCACHE[b];
+          syncControls();draw();return;}
+        BCACHE[b]=d;syncControls();draw();})
       .catch(()=>{delete BCACHE[b];syncControls();draw();});
   });
   syncControls();draw();
@@ -407,6 +434,15 @@ function onHour(){
     fetchJSON(`eval_scores_${MODEL}_hourly.json`)
       .then(d=>{HOURLY=d;syncControls();draw();})
       .catch(()=>{hSel.value="all";syncControls();draw();});
+    return;
+  }
+  syncControls();draw();
+}
+function onEvent(){
+  if(eSel.value!=="none"&&!EVENTS){
+    fetchJSON(`eval_scores_${MODEL}_events.json`)
+      .then(d=>{EVENTS=d;syncControls();draw();})
+      .catch(()=>{eSel.value="none";syncControls();draw();});
     return;
   }
   syncControls();draw();
@@ -448,6 +484,7 @@ lSel.addEventListener("change",draw);
 rSel.addEventListener("change",onRegion);
 moSel.addEventListener("change",onMonth);
 hSel.addEventListener("change",onHour);
+eSel.addEventListener("change",onEvent);
 bSel.addEventListener("change",onBaseline);
 vwSel.addEventListener("change",onView);
 // The export is plain minified JSON.
@@ -458,7 +495,7 @@ fetchJSON(`eval_scores_${MODEL}.json`)
     fillMetrics();
     if(D.regions&&D.regions.length>1){
       $("#rctl").hidden=false;
-      D.regions.forEach(r=>rSel.appendChild(new Option(pretty(r),r)));
+      D.regions.forEach(r=>rSel.appendChild(new Option(r==="global"?DOMAIN:pretty(r),r)));
       rSel.value="global";
     }
     if(D.has_monthly){
@@ -477,6 +514,13 @@ fetchJSON(`eval_scores_${MODEL}.json`)
       [...new Set(D.initial_conditions.map(t=>t.slice(11,13)+"Z"))].sort()
         .forEach(hh=>hSel.appendChild(new Option(hh,hh)));
       hSel.value="all";
+    }
+    if(D.has_events&&D.events){
+      $("#ectl").hidden=false;
+      eSel.appendChild(new Option("None","none"));
+      Object.keys(D.events).forEach(n=>
+        eSel.appendChild(new Option(D.events[n].label||pretty(n),n)));
+      eSel.value="none";
     }
     if(D.has_heatmap){$("#vwctl").hidden=false;vwSel.value="curve";}
     const bnames=Object.keys(BASELINES).filter(b=>b!==MODEL);
