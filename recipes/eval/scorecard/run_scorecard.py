@@ -134,10 +134,15 @@ def main() -> int:
     ap.add_argument("--ngpu", type=int, default=None, help="GPUs (default: all)")
     args, extra = ap.parse_known_args()
     # Anything with '=' is a Hydra override, wherever argparse routed it
-    # (after a bare `--` they arrive as positionals in `stages`).
+    # (after a bare `--` they arrive as positionals in `stages`).  Hydra's
+    # bare deletions and additions (`~scoring.events.x`, `+key`) count too.
     tokens = args.stages + [t for t in extra if t != "--"]
-    overrides = [t for t in tokens if "=" in t]
-    stages = [t for t in tokens if "=" not in t] or list(STAGES)
+
+    def is_override(token: str) -> bool:
+        return "=" in token or token.startswith(("~", "+"))
+
+    overrides = [t for t in tokens if is_override(t)]
+    stages = [t for t in tokens if not is_override(t)] or list(STAGES)
     if bad := [s for s in stages if s not in STAGES]:
         ap.error(f"unknown stage(s) {bad}; choose from {STAGES}")
 

@@ -45,7 +45,7 @@ from earth2studio.utils.coords import CoordSystem
 
 from .distributed import get_rank
 from .output import OutputManager
-from .regions import parse_regions, region_masks, spatial_dims
+from .regions import region_masks, scoring_regions, spatial_dims
 from .work import write_scoring_marker
 
 # Dimensions that are never spatial.
@@ -169,9 +169,10 @@ def instantiate_metrics(
     metric's ``reduction_dimensions``, cosine latitude weights are injected
     automatically.
 
-    With ``scoring.regions``, every metric that reduces over all spatial
-    dimensions and accepts a ``weights`` argument becomes a
-    :class:`RegionalMetric` - adding a labeled ``region`` axis to its scores.
+    With ``scoring.regions`` (plus any boxes declared by ``scoring.events``),
+    every metric that reduces over all spatial dimensions and accepts a
+    ``weights`` argument becomes a :class:`RegionalMetric` - adding a
+    labeled ``region`` axis to its scores.
 
     Parameters
     ----------
@@ -188,7 +189,7 @@ def instantiate_metrics(
         Metric instances keyed by their config name.
     """
     use_lat_weights = cfg.scoring.get("lat_weights", False)
-    regions = parse_regions(cfg.scoring.get("regions", None))
+    regions = scoring_regions(cfg.scoring)
     masks = region_masks(spatial_coords, regions) if regions is not None else None
     grid_dims = spatial_dims(spatial_coords)
     metrics: OrderedDict = OrderedDict()
