@@ -452,9 +452,15 @@ class RegionalForecastPipeline(ForecastPipeline):
     ``conditioning_source``, the pipeline either predownloads those fields
     into ``conditioning.zarr`` on a lat/lon window around the domain and
     attaches that store as a local :class:`src.data.PredownloadedSource`,
-    or, in ``live`` mode, attaches the source itself so the run writes
-    nothing.
-    A streaming campaign that saves only its scores looks like::
+    or, in ``live`` mode, attaches the source itself and streams them
+    during inference.
+
+    ``conditioning_mode`` covers the conditioning fields only. The
+    initial-condition and verification stores follow the recipe's own
+    ``predownload`` settings, so an event campaign can predownload them as
+    usual, or bring its own ``ic_source`` and ``verification_source`` to
+    stream them. Combining all three streaming options gives a campaign
+    that saves only its scores::
 
         pipeline:
           _target_: scorecard.utils.pipelines.RegionalForecastPipeline
