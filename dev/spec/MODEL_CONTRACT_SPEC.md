@@ -7,8 +7,9 @@ wrapper must satisfy, so that a shared execution substrate can drive any model
 without wrapper-specific knowledge. This contract codifies behavior the correct
 wrappers already implement; it does not add capability.
 
-The contract is enforced by `earth2studio.models.conformance`, which reports the rule
-identifiers used below. A model that passes is drivable by any conforming caller.
+The legacy tensor contract is enforced by `earth2studio.models.conformance`, which
+reports the rule identifiers used below. DataArray execution is covered by focused
+model, batching, metadata, hook and checkpoint tests during incremental migration.
 
 `AssimilationModel` is deliberately out of scope, and the omission is a scoping
 decision rather than an oversight — see Open Questions for the gaps it has and why
@@ -69,19 +70,55 @@ concrete DataArrays without mutating either.
 
 ### Migration boundary
 
-The legacy `CoordSystem` alias remains `OrderedDict[str, np.ndarray]`. Models
-migrate incrementally: the four wrappers above now expose DataArray coordinate
-signatures, while their tensor execution paths use private `_input_tensor_coords`
-and `_output_tensor_coords` adapters. Tensor batching selects these adapters when
-present. Public DataArray execution, hooks, and conformance checks are a separate
-migration; a signature migration alone does not certify those paths. The rules
-and tensor examples below describe the legacy execution contract until that
-migration updates them. See `dev/examples/03_coordinate_signatures.py` for the
-allocation-free signature API.
+The public `PrognosticModel` and `DiagnosticModel` protocols use DataArrays:
+
+```python
+def __call__(self, x: xr.DataArray) -> xr.DataArray: ...
+def input_coords(self) -> CoordinateSystem: ...
+def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
+# Prognostic models additionally expose:
+def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]: ...
+```
+
+**FCN and PrecipitationAFNO implement this execution API.** Inputs are NumPy-backed
+on CPU or CuPy-backed on CUDA and must reside on the model's device. Conversion at
+the Torch boundary uses `.e2s.to_torch()` and `from_torch(tensor, signature)`; the
+latter preserves all coordinates and output metadata without materializing the
+signature. Real outputs omit signature kind/schema/dynamic attributes and preserve
+user metadata, grid ID/CRS, and applicable statistics. Precipitation changes the
+variable to `tp` and statistics to `sum:6h`. FCN requires finite timedelta-valued
+lead times and advances by six hours, including from nonzero starting offsets.
+
+`batch_func` dispatches DataArrays to `.e2s.batch()` / `.e2s.unbatch()`. It packs
+arbitrary leading dimensions, handles an existing `batch` dimension, and inserts
+a singleton for inputs without leading dimensions. Batch labels and batch-only
+auxiliaries survive even when the core drops attrs; spatial auxiliaries survive,
+and output variable counts may change. Mixed batch/fixed auxiliary coordinates
+are unsupported. The core must retain the packed batch dimension, size, and labels
+in their original order; reordering is rejected to prevent mislabeled output.
+
+FCN's `DataArrayPrognosticMixin` hooks take and return one DataArray in the original
+leading dimensions, and run only during iteration. `clear_hooks()` restores identity
+hooks. Level-two checkpoints store the field tensor separately from dimensions,
+coordinate values/attrs, name, attrs and encoding. Restarts yield the next forecast
+step after the saved state, rather than repeating that state.
+
+The legacy `CoordSystem` remains `OrderedDict[str, np.ndarray]`. Other wrappers,
+including Random/Random_FX, and existing inference drivers retain their tensor
+execution API. The regional wrappers above expose DataArray signatures with private
+tensor-coordinate adapters; tensor batching selects these adapters when present.
+Runtime protocol membership checks method presence, not call signatures, so it is
+not an execution-API detector. `models.conformance` and the rules/examples below
+still test the legacy tensor contract; do not pass migrated models to that checker.
+See `dev/examples/03_coordinate_signatures.py` for signature planning and
+`dev/examples/04_xarray_model_execution.py` for runnable DataArray execution.
 
 ## Rules
 
 ### Prognostic
+
+These rule tables describe the legacy conformance checker. The DataArray protocol
+and current coverage are specified in the migration section above.
 
 | Rule | Requirement |
 | --- | --- |
@@ -146,8 +183,9 @@ consume its input before the 0th yield, and must not emit a partial step.
 ## Hooks
 
 `front_hook` and `rear_hook` are the declared mutation points of a step, applied
-immediately before and after the model advances. A hook takes and returns
-`(tensor, coords)`, so it may rewrite values, coordinates, or both.
+immediately before and after the model advances. Legacy `PrognosticMixin` hooks
+take and return `(tensor, coords)`. Migrated `DataArrayPrognosticMixin` hooks take
+and return `xr.DataArray`, allowing transformations of values and coordinates.
 
 **Hooks belong to the iterator.** `create_iterator()` applies both hooks on every
 forecast step; `__call__` applies neither. This is not a concession to the existing

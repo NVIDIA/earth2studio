@@ -22,10 +22,18 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FCN
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def cupy_for_cuda(request):
+    if hasattr(request.node, "callspec") and request.node.callspec.params.get(
+        "device", "cpu"
+    ).startswith("cuda"):
+        pytest.importorskip("cupy")
 
 
 class PhooFCNModel(torch.nn.Module):
@@ -89,7 +97,9 @@ def test_fcn_call(time, device):
     variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    out, out_coords = p(x, coords)
+    array = from_torch(x, coords, attrs=signature.attrs)
+    result = p(array)
+    out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -132,14 +142,15 @@ def test_fcn_iter(ensemble, device):
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
 
-    p_iter = p.create_iterator(x, coords)
+    p_iter = p.create_iterator(from_torch(x, coords, attrs=signature.attrs))
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
     next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, result in enumerate(p_iter):
+        out, out_coords = result.e2s.to_torch()
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
         assert (
@@ -152,17 +163,17 @@ def test_fcn_iter(ensemble, device):
             break
 
 
-def test_fcn_conformance():
+def test_fcn_shifted_output_signature():
     model = PhooFCNModel()
     center = torch.zeros(26, 1, 1)
     scale = torch.ones(26, 1, 1)
     p = FCN(model, center, scale)
-    # FCN is deterministic (stochastic=False via PrognosticMixin's default), so P14
-    # is reported as an informational skip rather than evaluated; that is expected
-    # and not a contract violation.
-    assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
-    ]
+    signature = p.input_coords().assign_coords(
+        lead_time=np.array([12], dtype="timedelta64[h]")
+    )
+    output = p.output_coords(signature)
+    assert output.data.nbytes == 0
+    assert output.lead_time.values[0] == np.timedelta64(18, "h")
 
 
 def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
@@ -184,9 +195,9 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
     checkpoint = Checkpoint("fcn", path=tmp_path, flush_interval=1, level=2)
     with checkpoint as ckpt:
         model = FCN(IncrementFCNModel(), center, scale)
-        iterator = model.create_iterator(x, coords)
+        iterator = model.create_iterator(from_torch(x, coords, attrs=base_coords.attrs))
         next(iterator)
-        saved_x, saved_coords = next(iterator)
+        saved_x, saved_coords = next(iterator).e2s.to_torch()
         assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
         assert saved_x[0, 0, 0, 0, 0] == 1
         ckpt.write(lead_time=saved_coords["lead_time"][-1])
@@ -196,7 +207,11 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
         model = FCN(IncrementFCNModel(), center, scale)
         assert model.checkpoint.checkpoint_state_loaded
         restart_x = torch.full_like(x, -5)
-        resumed_x, resumed_coords = next(model.create_iterator(restart_x, coords))
+        resumed_x, resumed_coords = next(
+            model.create_iterator(
+                from_torch(restart_x, coords, attrs=base_coords.attrs)
+            )
+        ).e2s.to_torch()
 
     assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
     assert resumed_x[0, 0, 0, 0, 0] == 2
@@ -229,7 +244,7 @@ def test_fcn_exceptions(dc, device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(from_torch(x, coords, attrs=signature.attrs))
 
 
 @pytest.fixture(scope="function")
@@ -256,7 +271,7 @@ def test_fcn_package(model, device):
     variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    out, out_coords = p(x, coords)
+    out, out_coords = p(from_torch(x, coords, attrs=signature.attrs)).e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
