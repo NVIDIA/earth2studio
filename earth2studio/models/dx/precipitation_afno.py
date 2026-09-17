@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -28,6 +29,7 @@ from earth2studio.utils import (
     coord_array_like,
     handshake_dataarray,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -190,16 +192,28 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
-    ) -> tuple[torch.Tensor, CoordinateSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Predict six-hour accumulated precipitation from an atmospheric DataArray.
 
-        x = (x - self.center) / self.scale
-        out = self.core_model(x)
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy- or CuPy-backed atmospheric input on the FCN grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Total precipitation with ``tp`` / ``sum:6h`` metadata on the input device.
+        """
+        output_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = (tensor - self.center) / self.scale
+        out = self.core_model(tensor)
         # Unlog output
         # https://github.com/NVlabs/FourCastNet/blob/master/utils/weighted_acc_rmse.py#L66
         out = self.eps * (torch.exp(out) - 1)
 
-        return out, output_coords  # Softmax channels
+        output = from_torch(out, output_coords, name=x.name)
+        output.encoding = x.encoding.copy()
+        return output

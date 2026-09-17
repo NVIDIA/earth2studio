@@ -289,7 +289,7 @@ def test_coordinate_pair_preserves_output_metadata(regional_model):
     np.testing.assert_array_equal(output.quality, [3, 4])
 
 
-def test_precipitation_tensor_call():
+def test_precipitation_array_call():
     model = PrecipitationAFNO.__new__(PrecipitationAFNO)
     torch.nn.Module.__init__(model)
     model.core_model = torch.nn.Conv2d(20, 1, 1)
@@ -297,11 +297,12 @@ def test_precipitation_tensor_call():
     signature = model.input_coords()
     assert isinstance(signature, xr.DataArray)
     coords = coord_array_like(signature, {"batch": [0]}).isel(batch=0, drop=True)
-    output, output_coords = model(torch.zeros(20, 720, 1440), coords)
+    from earth2studio.utils.cupy import from_torch
+
+    output = model(from_torch(torch.zeros(20, 720, 1440), coords))
     assert output.shape == (1, 720, 1440)
-    np.testing.assert_array_equal(output_coords["variable"], ["tp:sum:6h"])
-    assert output_coords.data.nbytes == 0
-    assert output_coords.attrs[E2S_STATISTICS]["tp:sum:6h"]["modifier"] == "sum:6h"
+    np.testing.assert_array_equal(output["variable"], ["tp:sum:6h"])
+    assert output.attrs[E2S_STATISTICS]["tp:sum:6h"]["modifier"] == "sum:6h"
 
 
 def test_regional_tensor_rollout(regional_model):
@@ -362,9 +363,10 @@ def test_regional_tensor_rollout(regional_model):
         torch.testing.assert_close(regridded, y)
 
 
-def test_fcn_tensor_rollout():
+def test_fcn_array_rollout():
     from earth2studio.models.px.fcn import FCN
     from earth2studio.utils.coords import coord_array
+    from earth2studio.utils.cupy import from_torch
 
     model = FCN(torch.nn.Identity(), torch.tensor(0.0), torch.tensor(1.0))
     model.input_coords = lambda: coord_array(
@@ -381,12 +383,12 @@ def test_fcn_tensor_rollout():
         batch="member"
     )
     x = torch.ones(coords.shape)
-    iterator = model.create_iterator(x, coords)
+    iterator = model.create_iterator(from_torch(x, coords))
     for step in range(3):
-        y, output = next(iterator)
+        output = next(iterator)
+        y, _ = output.e2s.to_torch()
         torch.testing.assert_close(y, x)
         assert output.dims == coords.dims
-        assert output.data.nbytes == 0
         np.testing.assert_array_equal(
             output.lead_time, np.array([step * 6], dtype="timedelta64[h]")
         )
