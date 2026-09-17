@@ -570,6 +570,15 @@ def test_stormscope_mrms(device):
     assert out.shape == torch.Size([1, 1, 1, h, w])
 
 
+@pytest.fixture(autouse=True)
+def legacy_tensor_coordinates(monkeypatch):
+    # This module exercises tensor execution and legacy conformance. Public
+    # DataArray signatures are covered in test/models/test_coordinate_signatures.py.
+    for cls in (StormScopeGOES, StormScopeMRMS):
+        monkeypatch.setattr(cls, "input_coords", cls._input_tensor_coords)
+        monkeypatch.setattr(cls, "output_coords", cls._output_tensor_coords)
+
+
 def test_stormscope_goes_conformance():
     model = create_spoof_model()
 

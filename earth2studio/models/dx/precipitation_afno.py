@@ -25,14 +25,17 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
     handshake_coords,
+    handshake_dataarray,
     handshake_dim,
 )
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from earth2studio.models.nn.afno_precip import PrecipNet
@@ -106,7 +109,37 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
         self.eps = 1e-5
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free atmospheric input signature on the FCN grid."""
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid="fcn1",
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return the signature for six-hour accumulated total precipitation.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Atmospheric input signature or data array.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free output signature with variable ``tp`` and ``sum:6h``
+            temporal statistics, preserving leading dimensions and the FCN grid.
+        """
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(
+            input_coords,
+            {"variable": np.array(["tp"])},
+            statistics={"tp": "sum:6h"},
+        )
+
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
 
         Returns
@@ -124,7 +157,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -138,7 +171,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "lon", 3)
         handshake_dim(input_coords, "lat", 2)
         handshake_dim(input_coords, "variable", 1)
@@ -209,7 +242,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
 
         x = (x - self.center) / self.scale
         out = self.core_model(x)

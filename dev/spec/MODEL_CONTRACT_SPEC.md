@@ -16,19 +16,62 @@ they need their own document.
 
 ## Coordinate Systems
 
-A coordinate system is an `OrderedDict[str, np.ndarray]`. Order is part of the
-contract: the key order is the tensor's dimension order, and callers index
-positionally against it.
+The new `CoordinateSystem` is an `xarray.DataArray` created by `coord_array()`.
+Its backing array stores only shape and dtype: it allocates no field values,
+including when every dimension has a concrete size. Read labels through `.coords`,
+order through `.dims`, and lengths through `.sizes`. Accessing field `.values` is
+unsupported. Dimension and auxiliary coordinate arrays themselves occupy memory.
 
-`input_coords()` is a *declaration*, not a concrete coordinate system. A zero-length
-array declares an open dimension whose size the caller chooses; every other entry
-declares required coordinate values. The leading dimension is always `batch`.
+`input_coords()` is a *declaration*. Dynamic dimensions form an explicitly marked,
+zero-sized leading prefix (`earth2studio_dynamic_dims`), conventionally `batch`
+and, for regional models, `time`. The remaining dimensions, labels, auxiliary
+coordinates, and declared grid/CRS/statistics metadata must match. Concrete inputs
+may use any leading batch dimensions or none; fixed trailing dimension order is
+authoritative. A zero-sized fixed dimension is not implicitly a wildcard.
 
 `output_coords(input_coords)` is a *resolver*. It validates a concrete input
 coordinate system and returns the coordinate system the model will produce, without
 touching field data. Validation and resolution happen together so that a caller can
 plan a rollout — output shapes, lead times, and dimension order — before allocating
-anything.
+field data. Use `coord_array_like(input, replacements)` to preserve arbitrary
+leading dimensions, dtype, name, metadata, and unaffected coordinates. Replacing
+`lead_time` or `variable` removes dependent auxiliaries (for example `valid_time`
+or variable-specific units), which must be recomputed explicitly if needed.
+Statistics are retained only for surviving variables unless explicitly supplied.
+Spatial replacements require `coord_array(grid=...)` with a new grid definition;
+`coord_array_like()` rejects them to prevent stale grid metadata.
+
+### Grid-backed signatures
+
+Pass a registered name or `GridDefinition` to `coord_array(grid=...)` rather than
+repeating grid axes in each model. The helper attaches grid metadata and
+`earth2studio_crs` when the definition has a CRS; a registered name also attaches
+`earth2studio_grid_id`. Projected and HEALPix signatures use index coordinates by
+default to avoid generating large geographic arrays. Known latitude/longitude
+arrays can be supplied explicitly. Curvilinear and point signatures include their
+geographic coordinates, and handshakes validate these coordinates as well as axes.
+
+| Model | Grid declaration | Spatial dimensions | Output |
+| --- | --- | --- | --- |
+| `StormScopeGOES`, `StormScopeMRMS` | `CurvilinearGrid` from checkpoint geometry | `y, x` | Configured output offsets added to final input lead time |
+| `StormCastCONUS` | Cropped `ProjectedGrid` using registered HRRR CRS | `hrrr_y, hrrr_x` via `grid_dims` | Final input lead time plus one hour |
+| `PrecipitationAFNO` | Registered `fcn1` grid (720 × 1440) | `lat, lon` | `tp`, with `sum:6h` statistics |
+
+Regional validation subtracts the final input lead time before checking the
+declared history window. Output planning accepts both dynamic declarations and
+concrete DataArrays without mutating either.
+
+### Migration boundary
+
+The legacy `CoordSystem` alias remains `OrderedDict[str, np.ndarray]`. Models
+migrate incrementally: the four wrappers above now expose DataArray coordinate
+signatures, while their tensor execution paths use private `_input_tensor_coords`
+and `_output_tensor_coords` adapters. Tensor batching selects these adapters when
+present. Public DataArray execution, hooks, and conformance checks are a separate
+migration; a signature migration alone does not certify those paths. The rules
+and tensor examples below describe the legacy execution contract until that
+migration updates them. See `dev/examples/03_coordinate_signatures.py` for the
+allocation-free signature API.
 
 ## Rules
 

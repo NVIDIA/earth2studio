@@ -29,12 +29,16 @@ from numpy.typing import ArrayLike
 from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.data.utils import fetch_data
+from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
     handshake_coords,
+    handshake_dataarray,
     handshake_dim,
     handshake_size,
 )
@@ -46,7 +50,7 @@ from earth2studio.utils.interp import (
     LatLonInterpolation,
     NearestNeighborInterpolator,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from physicsnemo import Module
@@ -703,27 +707,39 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device=self.latitudes.device
         )
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system. Subclasses should override for specific variants."""
-        raise NotImplementedError(
-            "StormScopeBase.input_coords must be implemented by a subclass."
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free signature on the model's curvilinear grid."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
+            {"lead_time": self.input_times, "variable": np.array(self.variables)},
+            dynamic=("batch", "time"),
+            grid=CurvilinearGrid(
+                self._lat_cpu_copy, self._lon_cpu_copy, self.y, self.x
+            ),
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of prognostic model.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return an allocation-free signature for the next forecast window.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output coordinates.
+        input_coords : CoordinateSystem
+            Input signature or data array, with absolute forecast lead times.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary for the model output.
+        CoordinateSystem
+            Output signature with the configured output lead-time window.
         """
-        raise NotImplementedError(
-            "StormScopeBase.output_coords must be implemented by a subclass."
+        if input_coords.sizes.get("lead_time", 0) == 0:
+            raise ValueError("Input lead_time must be nonempty")
+        last_time = np.asarray(input_coords["lead_time"])[-1]
+        relative = input_coords.assign_coords(
+            lead_time=input_coords["lead_time"] - last_time
+        )
+        handshake_dataarray(relative, self.input_coords())
+        return coord_array_like(
+            input_coords, {"lead_time": self.output_times + last_time}
         )
 
     def fetch_conditioning(
@@ -1408,7 +1424,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning = None
             conditioning_coords = None
 
-        output_coords = self.output_coords(x_coords)
+        output_coords = self._output_tensor_coords(x_coords)
 
         x = self._forward(
             x,
@@ -1462,7 +1478,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning, conditioning_coords = self.prep_input(
             conditioning, conditioning_coords, conditioning=True
         )
-        output_coords = self.output_coords(x_coords)
+        output_coords = self._output_tensor_coords(x_coords)
 
         x = self._forward(
             x,
@@ -1667,7 +1683,7 @@ class StormScopeGOES(StormScopeBase):
             compile=compile,
         )
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -1681,7 +1697,7 @@ class StormScopeGOES(StormScopeBase):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -1704,7 +1720,7 @@ class StormScopeGOES(StormScopeBase):
                 "x": self.x,
             }
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
         handshake_dim(input_coords, "variable", 3)
@@ -2221,7 +2237,7 @@ class StormScopeMRMS(StormScopeBase):
         new_coords["x"] = self.x
         return glm, new_coords
 
-    def input_coords(self) -> CoordSystem:
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -2235,7 +2251,7 @@ class StormScopeMRMS(StormScopeBase):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -2258,7 +2274,7 @@ class StormScopeMRMS(StormScopeBase):
                 "x": self.x,
             }
         )
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
         handshake_dim(input_coords, "x", 5)
         handshake_dim(input_coords, "y", 4)
         handshake_dim(input_coords, "variable", 3)

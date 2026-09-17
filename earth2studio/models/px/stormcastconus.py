@@ -28,11 +28,15 @@ import torch
 import xarray as xr
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
     handshake_coords,
+    handshake_dataarray,
     handshake_dim,
     handshake_size,
 )
@@ -42,7 +46,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.obs import ObsGridMapping
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import CoordinateSystem, CoordSystem, TimeArray
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -323,7 +327,50 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free signature on the cropped HRRR projected grid."""
+        grid = ProjectedGrid(self.hrrr_y, self.hrrr_x, resolve_grid("hrrr").crs)
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "hrrr_y", "hrrr_x"),
+            {
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(self.variables),
+                "lat": (("hrrr_y", "hrrr_x"), self.lat),
+                "lon": (("hrrr_y", "hrrr_x"), self.lon),
+            },
+            dynamic=("batch", "time"),
+            grid=grid,
+            grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return an allocation-free signature one hour after the input.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input signature or data array, with absolute forecast lead times.
+
+        Returns
+        -------
+        CoordinateSystem
+            Output signature preserving the input grid and leading dimensions.
+        """
+        if input_coords.sizes.get("lead_time", 0) == 0:
+            raise ValueError("Input lead_time must be nonempty")
+        relative = input_coords.assign_coords(
+            lead_time=input_coords["lead_time"] - input_coords["lead_time"][-1]
+        )
+        handshake_dataarray(relative, self.input_coords())
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": np.asarray(input_coords["lead_time"])
+                + np.timedelta64(1, "h")
+            },
+        )
+
+    def _input_tensor_coords(self) -> CoordSystem:
         """Input coordinate system"""
         return OrderedDict(
             {
@@ -337,7 +384,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of prognostic model
 
         Parameters
@@ -362,7 +409,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-        target_input_coords = self.input_coords()
+        target_input_coords = self._input_tensor_coords()
 
         handshake_dim(input_coords, "hrrr_x", 5)
         handshake_dim(input_coords, "hrrr_y", 4)
@@ -605,7 +652,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
-        output_coords = self.output_coords(coords)
+        output_coords = self._output_tensor_coords(coords)
         conditioning = self._get_conditioning(output_coords, x.shape[0], x.device)
         x = x.clone()  # prevent editing of argument
 

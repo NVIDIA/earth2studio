@@ -97,10 +97,11 @@ class batch_func:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
-        input_coords = model.input_coords()
+        input_coords = getattr(model, "_input_tensor_coords", model.input_coords)()
+        output_coords = getattr(model, "_output_tensor_coords", model.output_coords)
         if (
             next(iter(input_coords)) != "batch"
-            or next(iter(model.output_coords(input_coords))) != "batch"
+            or next(iter(output_coords(input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
@@ -312,7 +313,7 @@ class batch_coords:
         ValueError
             If model's input_coords do not contain the batch dimension
         """
-        input_coords = model.input_coords()
+        input_coords = getattr(model, "_input_tensor_coords", model.input_coords)()
         if next(iter(input_coords)) != "batch":
             raise ValueError(
                 "Model input coordinate systems not compatible with batch processing"
