@@ -18,6 +18,11 @@
 
 The rule identifiers reported here (``P1``-``P16``, ``D1``-``D10``) match the rule
 table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
+
+These checks exercise the legacy tensor/CoordSystem execution contract. DataArray
+execution models (currently FCN and PrecipitationAFNO) use dedicated execution,
+batching, metadata, hook and checkpoint tests until this checker is migrated.
+Runtime protocol membership alone does not distinguish the two calling conventions.
 """
 
 from __future__ import annotations

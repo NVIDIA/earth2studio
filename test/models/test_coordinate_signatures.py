@@ -197,7 +197,7 @@ def test_tensor_batching_with_public_signatures(regional_model):
     assert tuple(output_coords) == tuple(coords)
 
 
-def test_precipitation_tensor_call():
+def test_precipitation_array_call():
     model = PrecipitationAFNO.__new__(PrecipitationAFNO)
     torch.nn.Module.__init__(model)
     model.core_model = torch.nn.Conv2d(20, 1, 1)
@@ -209,6 +209,17 @@ def test_precipitation_tensor_call():
         for d in signature.dims
         if d != "batch"
     )
-    output, output_coords = model(torch.zeros(20, 720, 1440), coords)
+    from earth2studio.utils.cupy import from_torch
+
+    x = from_torch(
+        torch.zeros(20, 720, 1440),
+        coords,
+        attrs={
+            key: value
+            for key, value in signature.attrs.items()
+            if key in ("earth2studio_grid_id", "earth2studio_crs")
+        },
+    )
+    output = model(x)
     assert output.shape == (1, 720, 1440)
-    np.testing.assert_array_equal(output_coords["variable"], ["tp"])
+    np.testing.assert_array_equal(output["variable"], ["tp"])
