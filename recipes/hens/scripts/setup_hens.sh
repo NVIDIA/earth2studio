@@ -8,13 +8,6 @@ REGISTRY="$HENS_DIR/hens_model_registry"
 sudo apt-get update
 sudo apt-get install -y git curl wget build-essential
 
-mkdir -p "$HOME/projects"
-
-#git clone https://github.com/dougrichardson/earth2studio.git 
-git clone --branch beryl-poc \
-  https://github.com/dougrichardson/earth2studio.git \
-  "$PROJECT"
-
 cd "$HENS_DIR"
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
