@@ -41,7 +41,6 @@ from earth2studio.utils.checkpoint import (
     bind_checkpoint_state,
     default_checkpoint_path,
 )
-from earth2studio.utils.coords import coord_array
 
 
 @dataclass
@@ -566,7 +565,7 @@ def test_deterministic_checkpoint_below_level_two_reruns_from_zero(tmp_path):
         ["2024-01-01"],
         1,
         Persistence(variables, coords),
-        Random(coord_array(tuple(coords), coords)),
+        Random(domain_coords=coords),
         io,
         device=torch.device("cpu"),
         verbose=False,
@@ -577,7 +576,7 @@ def test_deterministic_checkpoint_below_level_two_reruns_from_zero(tmp_path):
         ["2024-01-01"],
         3,
         Persistence(variables, coords),
-        Random(coord_array(tuple(coords), coords)),
+        Random(domain_coords=coords),
         io,
         device=torch.device("cpu"),
         verbose=False,
@@ -604,7 +603,7 @@ def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
         1,
         1,
         Persistence(variables, coords),
-        Random(coord_array(tuple(coords), coords)),
+        Random(domain_coords=coords),
         io,
         Zero(),
         batch_size=1,
@@ -620,7 +619,7 @@ def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
 def test_deterministic_workflow_records_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
-    data = Random(coord_array(tuple(coords), coords))
+    data = Random(domain_coords=coords)
     model = Persistence(variables, coords)
     io = ZarrBackend()
     checkpoint = Checkpoint(
@@ -662,7 +661,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
         "deterministic", path=tmp_path, mode="append", flush_interval=1
     )
 
-    data = Random(coord_array(tuple(coords), coords))
+    data = Random(domain_coords=coords)
     model = Persistence(variables, coords)
     run.deterministic(
         ["2024-01-01"],
@@ -677,7 +676,7 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
     with checkpoint.select(-1):
-        data = Random(coord_array(tuple(coords), coords))
+        data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         run.deterministic(
             ["2024-01-01"],
@@ -717,7 +716,7 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
         "deterministic", path=tmp_path, mode="append", flush_interval=1
     )
 
-    data = Random(coord_array(tuple(coords), coords))
+    data = Random(domain_coords=coords)
     model = Persistence(variables, coords)
     run.deterministic(
         ["2024-01-01"],
@@ -732,7 +731,7 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
     )
 
     with checkpoint.select(-1):
-        data = Random(coord_array(tuple(coords), coords))
+        data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         run.deterministic(
             ["2024-01-01"],
@@ -772,7 +771,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
     )
 
     with checkpoint as ckpt:
-        data = Random(coord_array(tuple(coords), coords))
+        data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
@@ -789,7 +788,7 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
     with checkpoint.select(-1) as ckpt:
-        data = Random(coord_array(tuple(coords), coords))
+        data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
@@ -821,7 +820,7 @@ def test_diagnostic_checkpoint_tracks_prognostic_lead_time(tmp_path):
         1,
         Persistence(variables, coords),
         DroppingLeadTimeDiagnostic(variables, coords),
-        Random(coord_array(tuple(coords), coords)),
+        Random(domain_coords=coords),
         io,
         device=torch.device("cpu"),
         verbose=False,
@@ -843,7 +842,7 @@ def test_ensemble_workflow_records_checkpoint(tmp_path):
         1,
         1,
         Persistence(variables, coords),
-        Random(coord_array(tuple(coords), coords)),
+        Random(domain_coords=coords),
         io,
         Zero(),
         batch_size=1,
@@ -859,7 +858,7 @@ def test_ensemble_workflow_records_checkpoint(tmp_path):
         1,
         2,
         Persistence(variables, coords),
-        Random(coord_array(tuple(coords), coords)),
+        Random(domain_coords=coords),
         io,
         Zero(),
         batch_size=1,

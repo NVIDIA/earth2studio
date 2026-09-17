@@ -34,7 +34,6 @@ from earth2studio.models.conformance import ContractException, check_prognostic_
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
 from earth2studio.models.px.graphcast_small import GraphCastSmall
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 def mocked_chunked_prediction_generator(
@@ -150,7 +149,7 @@ def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -188,7 +187,7 @@ def test_graphcast_small_iter(ensemble, device, mock_GraphCastSmall_model):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -234,7 +233,7 @@ def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GraphCastSmall_model.to(device)
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -302,7 +301,7 @@ def test_graphcast_small_package(model, device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -407,7 +406,7 @@ def test_graphcast_operational_call(time, device, mock_GraphCastOperational_mode
     del dc["variable"]
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -443,7 +442,7 @@ def test_graphcast_operational_iter(ensemble, device, mock_GraphCastOperational_
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -492,7 +491,7 @@ def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GraphCastOperational_model.to(device)
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -559,7 +558,7 @@ def test_graphcast_operational_package(operational_model, device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]

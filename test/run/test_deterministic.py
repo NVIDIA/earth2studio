@@ -24,7 +24,6 @@ import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
-from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordSystem
 
 
@@ -59,7 +58,7 @@ class TestPersistence(Persistence):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_run_deterministic(coords, variable, nsteps, time, device):
 
-    data = Random(coord_array(tuple(coords), coords))
+    data = Random(domain_coords=coords)
     model = TestPersistence(variable, coords, target_device=device)
 
     io = ZarrBackend()
@@ -98,7 +97,7 @@ def test_deterministic_output_coords(output_coords, device):
     nsteps = 2
     time = ["1993-04-05T12:00:00"]
 
-    data = Random(coord_array(tuple(coords), coords))
+    data = Random(domain_coords=coords)
     model = TestPersistence(variable, coords, target_device=device)
     io = ZarrBackend()
 

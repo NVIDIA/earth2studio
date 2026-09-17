@@ -28,7 +28,6 @@ from earth2studio.models.px.stormscope import (
     StormScopeMRMS,
 )
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
@@ -99,9 +98,7 @@ def create_spoof_model(
     dc = OrderedDict(
         [("lat", np.linspace(90, -90, num=181)), ("lon", np.linspace(0, 360, num=360))]
     )
-    conditioning_data_source = (
-        Random(coord_array(tuple(dc), dc)) if nvar_cond > 0 else None
-    )
+    conditioning_data_source = Random(dc) if nvar_cond > 0 else None
 
     # Input/output times
     if sliding_window:
@@ -164,7 +161,7 @@ def test_stormscope_call(time, device, batch):
 
     # Create random data source matching model grid
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = model.input_coords()["lead_time"]
@@ -225,7 +222,7 @@ def test_stormscope_amp_compile(amp, compile, device):
         assert model._experts_compiled == compile
 
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
@@ -257,7 +254,7 @@ def test_stormscope_iter(batch, device):
 
     # Create random data source
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data
     lead_time = model.input_coords()["lead_time"]
@@ -316,7 +313,7 @@ def test_stormscope_interpolation(device):
     # Create random data on the input grid
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -359,7 +356,7 @@ def test_stormscope_next_input(sliding_window, device, batch):
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -413,7 +410,7 @@ def test_stormscope_call_with_conditioning(device):
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get input data
     lead_time = model.input_coords()["lead_time"]
@@ -468,7 +465,7 @@ def test_stormscope_conditioning_nan_check(device):
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -533,7 +530,7 @@ def test_stormscope_mrms(device):
     conditioning_variables = np.array([f"abi{i:02d}c" for i in range(1, nvar_cond + 1)])
 
     dc_cond = OrderedDict([("y", y), ("x", x)])
-    conditioning_data_source = Random(coord_array(tuple(dc_cond), dc_cond))
+    conditioning_data_source = Random(dc_cond)
 
     model = StormScopeMRMS(
         model_spec=model_spec,
@@ -554,7 +551,7 @@ def test_stormscope_mrms(device):
     # Test prep_input with low reflectivity values (MRMS-specific preprocessing)
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -654,7 +651,7 @@ def test_stormscope_exceptions(device):
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -669,7 +666,7 @@ def test_stormscope_exceptions(device):
 
     h_input, w_input = 16, 32
     dc2 = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
-    r2 = Random(coord_array(tuple(dc2), dc2))
+    r2 = Random(dc2)
     x2, coords2 = fetch_data(r2, time, variable, lead_time, device=device)
 
     with pytest.raises(ValueError):

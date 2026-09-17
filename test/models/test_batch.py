@@ -24,7 +24,6 @@ import torch
 
 from earth2studio.data import Random, prep_data_array
 from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils.coords import coord_array
 
 
 @pytest.fixture
@@ -107,7 +106,7 @@ def test_batch_call(PhooModel, bc, device):
     variable = ["a", "b"]
     dc = {"lead_time": np.ones(1)}
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     da = r(time, variable)
 
@@ -140,7 +139,7 @@ def test_batch_iter(PhooModel, bc, device):
     variable = ["a", "b"]
     dc = {"lead_time": np.zeros(1)}
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     da = r(time, variable)
 
@@ -178,7 +177,7 @@ def test_batch_multiple_pairs(PhooModel, bc, device):
     variable = ["a", "b"]
     dc = {"lead_time": np.ones(1)}
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     da = r(time, variable)
 
@@ -209,7 +208,7 @@ def test_invalid_ordering_raises(PhooModel, device):
     time = datetime.datetime(year=1958, month=1, day=31)
     variable = ["a", "b"]
     dc = {"lead_time": np.ones(1)}
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     da = r(time, variable)
     x, coords = prep_data_array(da, device=device)
     model = PhooModel().to(device)
@@ -223,7 +222,7 @@ def test_invalid_extra_positional_raises(PhooModel, device):
     time = datetime.datetime(year=1958, month=1, day=31)
     variable = ["a", "b"]
     dc = {"lead_time": np.ones(1)}
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     da = r(time, variable)
     x1, coords1 = prep_data_array(da, device=device)
     x2 = torch.randn_like(x1)
@@ -239,7 +238,7 @@ def test_kwargs_allowed_not_batched(PhooModel, device):
     time = datetime.datetime(year=1958, month=1, day=31)
     variable = ["a", "b"]
     dc = {"lead_time": np.ones(1)}
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     da = r(time, variable)
     x1, coords1 = prep_data_array(da, device=device)
     x2 = torch.randn_like(x1)
@@ -256,7 +255,7 @@ def test_mismatched_batched_dims_raise(PhooModel, device):
     time = datetime.datetime(year=1958, month=1, day=31)
     variable = ["a", "b"]
     dc = {"lead_time": np.ones(1)}
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     da = r(time, variable)
     x1, coords1 = prep_data_array(da, device=device)
     x2 = torch.randn_like(x1)

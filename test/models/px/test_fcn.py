@@ -24,7 +24,7 @@ import torch
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FCN
-from earth2studio.utils import coord_array, handshake_dim
+from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import Checkpoint
 
 
@@ -49,7 +49,14 @@ def test_fcn_coordinate_signatures():
 
 
 def _random_source() -> Random:
-    return Random(coord_array(("lat", "lon"), grid="fcn1"))
+    return Random(
+        OrderedDict(
+            {
+                "lat": np.linspace(90, -90, 720, endpoint=False),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -214,7 +221,7 @@ def test_fcn_exceptions(dc, device):
 
     p = FCN(model, center, scale).to(device)
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     signature = p.input_coords()
     lead_time = signature["lead_time"].values

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
@@ -24,13 +25,7 @@ import pyarrow as pa
 import xarray as xr
 
 from earth2studio.data.utils import prep_data_inputs, prep_forecast_inputs
-from earth2studio.utils.type import (
-    CoordinateSystem,
-    FieldArray,
-    LeadTimeArray,
-    TimeArray,
-    VariableArray,
-)
+from earth2studio.utils.type import FieldArray, LeadTimeArray, TimeArray, VariableArray
 
 
 class Random:
@@ -38,17 +33,15 @@ class Random:
 
     Parameters
     ----------
-    coordinate_system : xr.DataArray
-        Allocation-free Earth2Studio coordinate signature.
+    domain_coords: OrderedDict[str, np.ndarray]
+        Domain coordinates that the random data will assume (such as lat, lon).
     """
 
     def __init__(
         self,
-        coordinate_system: CoordinateSystem,
+        domain_coords: OrderedDict[str, np.ndarray],
     ):
-        if not isinstance(coordinate_system, xr.DataArray):
-            raise TypeError("coordinate_system must be an xarray DataArray")
-        self.coordinate_system = coordinate_system
+        self.domain_coords = domain_coords
 
     def __call__(
         self,
@@ -72,19 +65,15 @@ class Random:
 
         time, variable = prep_data_inputs(time, variable)
 
-        shape = [
-            len(time),
-            len(variable),
-            *self.coordinate_system.shape,
-        ]
+        shape = [len(time), len(variable)]
         coords = {"time": time, "variable": variable}
 
-        coords.update(self.coordinate_system.coords)
+        for key, value in self.domain_coords.items():
+            shape.append(len(value))
+            coords[key] = value
+
         da = xr.DataArray(
-            data=np.random.randn(*shape).astype(np.float32),
-            dims=("time", "variable", *self.coordinate_system.dims),
-            coords=coords,
-            attrs=self.coordinate_system.attrs,
+            data=np.random.randn(*shape), dims=list(coords), coords=coords
         )
 
         return da
@@ -95,17 +84,15 @@ class Random_FX:
 
     Parameters
     ----------
-    coordinate_system : xr.DataArray
-        Allocation-free Earth2Studio coordinate signature.
+    domain_coords: OrderedDict[str, np.ndarray]
+        Domain coordinates that the random data will assume (such as lat, lon).
     """
 
     def __init__(
         self,
-        coordinate_system: CoordinateSystem,
+        domain_coords: OrderedDict[str, np.ndarray],
     ):
-        if not isinstance(coordinate_system, xr.DataArray):
-            raise TypeError("coordinate_system must be an xarray DataArray")
-        self.coordinate_system = coordinate_system
+        self.domain_coords = domain_coords
 
     def __call__(  # type: ignore[override]
         self,
@@ -130,19 +117,15 @@ class Random_FX:
 
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
 
-        shape = [
-            len(time),
-            len(lead_time),
-            len(variable),
-            *self.coordinate_system.shape,
-        ]
+        shape = [len(time), len(lead_time), len(variable)]
         coords = {"time": time, "lead_time": lead_time, "variable": variable}
-        coords.update(self.coordinate_system.coords)
+
+        for key, value in self.domain_coords.items():
+            shape.append(len(value))
+            coords[key] = value
+
         da = xr.DataArray(
-            data=np.random.randn(*shape).astype(np.float32),
-            dims=("time", "lead_time", "variable", *self.coordinate_system.dims),
-            coords=coords,
-            attrs=self.coordinate_system.attrs,
+            data=np.random.randn(*shape), dims=list(coords), coords=coords
         )
         return da
 

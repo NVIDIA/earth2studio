@@ -45,7 +45,6 @@ from src.work import build_work_items, distribute_work
 
 from earth2studio.data import Random
 from earth2studio.models.px import Persistence
-from earth2studio.utils.coords import coord_array
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
@@ -111,7 +110,7 @@ def test_end_to_end_inference(output_dir: str) -> None:
 
     domain = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
     prognostic = Persistence(variable=VARIABLES, domain_coords=domain)
-    data_source = Random(coord_array(tuple(domain), domain))
+    data_source = Random(domain_coords=domain)
 
     nsteps = 2
     ensemble_size = 1

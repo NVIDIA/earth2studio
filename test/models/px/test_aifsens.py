@@ -44,7 +44,6 @@ from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -167,7 +166,7 @@ def test_aifsens_call(time, device):
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -223,7 +222,7 @@ def test_aifsens_iter(ensemble, device):
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -293,7 +292,7 @@ def test_aifsens_exceptions(dc, device):
         invariants=invariants,
     ).to(device)
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -378,7 +377,7 @@ def test_aifsens_package(device, ensemble, model):
 
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]

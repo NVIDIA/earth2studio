@@ -27,7 +27,6 @@ from earth2studio.models.px import InterpModAFNO
 from earth2studio.models.px.interpmodafno import VARIABLES
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 class PhooInterpolationModel(torch.nn.Module):
@@ -83,7 +82,7 @@ def test_forecast_interpolation_call(time, device):
     dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = model.input_coords()["lead_time"]
@@ -148,7 +147,7 @@ def test_forecast_interpolation_iter(ensemble, history, device):
     dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = model.input_coords()["lead_time"]
@@ -231,7 +230,7 @@ def test_forecast_interpolation_exceptions(dc, device):
     ).to(device)
 
     # Initialize Data Source with invalid domain coordinates
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = model.input_coords()["lead_time"]
@@ -333,7 +332,7 @@ def test_forecast_interpolation_package(device, model):
     dc = {k: model.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = model.input_coords()["lead_time"]

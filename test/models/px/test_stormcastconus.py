@@ -26,7 +26,6 @@ from earth2studio.models.conformance import ContractException, check_prognostic_
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 # Small subdomain aligned to the mock patch size (8, 8) so that crop_model
 # validation passes.  Must satisfy:
@@ -219,7 +218,7 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
             ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
         ]
     )
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -255,7 +254,7 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
             ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
         ]
     )
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -320,7 +319,7 @@ def test_stormcastconus_exceptions(device):
             ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
         ]
     )
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(

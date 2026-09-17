@@ -35,7 +35,6 @@ from earth2studio.io import XarrayBackend
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
 from earth2studio.run import ensemble
-from earth2studio.utils.coords import coord_array
 
 
 @pytest.fixture
@@ -278,7 +277,7 @@ def test_inference_output_source(
         num_members: int = 0,
     ) -> tuple[str, xr.Dataset]:
         domain_coords = {"lat": np.linspace(-10, 10, 4), "lon": np.linspace(0, 30, 8)}
-        ds = Random(coord_array(tuple(domain_coords), domain_coords))
+        ds = Random(domain_coords=domain_coords)
         px = Persistence(
             variable=var_names, domain_coords=domain_coords, dt=np.timedelta64(1, "h")
         )
