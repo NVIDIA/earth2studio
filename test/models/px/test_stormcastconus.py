@@ -337,6 +337,18 @@ def test_stormcastconus_exceptions(device):
         next(p.create_iterator(x, coords))
 
 
+@pytest.fixture(autouse=True)
+def legacy_tensor_coordinates(monkeypatch):
+    # Keep these tensor execution/conformance tests on their private adapter;
+    # public signatures have independent CPU coverage without model extras.
+    monkeypatch.setattr(
+        StormCastCONUS, "input_coords", StormCastCONUS._input_tensor_coords
+    )
+    monkeypatch.setattr(
+        StormCastCONUS, "output_coords", StormCastCONUS._output_tensor_coords
+    )
+
+
 def test_stormcastconus_conformance():
     p = _build_model()
 

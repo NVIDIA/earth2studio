@@ -17,6 +17,7 @@
 from .coords import (
     convert_multidim_to_singledim,
     coord_array,
+    coord_array_like,
     handshake_coords,
     handshake_dataarray,
     handshake_dataarrays,

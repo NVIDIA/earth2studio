@@ -915,3 +915,80 @@ def test_coordinate_system_grid_and_collection():
     handshake_dataarrays((array, array), (signature, signature))
     with pytest.raises(ValueError, match="Expected 2 DataArrays"):
         handshake_dataarrays((array,), (signature, signature))
+
+
+def test_coordinate_projected_grid_metadata():
+    from earth2studio.grids import E2S_CRS, ProjectedGrid, infer_grid
+
+    grid = ProjectedGrid(np.arange(2) * 1000, np.arange(3) * 1000, "EPSG:3857")
+    signature = coord_array(("y", "x"), grid=grid)
+    assert signature.attrs[E2S_CRS] == grid.crs.to_string()
+    assert infer_grid(signature).fingerprint() == grid.fingerprint()
+    named = coord_array(
+        ("hrrr_y", "hrrr_x"),
+        grid=grid,
+        grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
+    )
+    assert named.attrs["dims"] == ["hrrr_y", "hrrr_x"]
+    xr.testing.assert_identical(named.rename(hrrr_y="y", hrrr_x="x").y, signature.y)
+
+
+def test_coordinate_auxiliary_geometry_validation():
+    from earth2studio.grids import CurvilinearGrid
+
+    signature = coord_array(
+        ("y", "x"), grid=CurvilinearGrid(np.zeros((2, 3)), np.ones((2, 3)))
+    )
+    with pytest.raises(ValueError, match="lat"):
+        handshake_dataarray(signature.assign_coords(lat=signature.lat + 1), signature)
+    with pytest.raises(ValueError, match="lon"):
+        handshake_dataarray(signature.drop_vars("lon"), signature)
+
+
+def test_coordinate_array_like_replaces_dependent_coordinates():
+    from earth2studio.utils.coords import coord_array_like
+
+    array = xr.DataArray(
+        np.zeros((2, 2, 3)),
+        dims=("member", "variable", "x"),
+        coords={
+            "member": [0, 1],
+            "variable": ["a", "b"],
+            "x": [0, 1, 2],
+            "units": ("variable", ["K", "m"]),
+            "height": ("x", [1, 2, 3]),
+        },
+        name="forecast",
+        attrs={"source": "test", "earth2studio_dynamic_dims": ("batch",)},
+    )
+    output = coord_array_like(array, {"variable": ["tp"]}, statistics={"tp": "sum:6h"})
+    assert output.shape == (2, 1, 3)
+    assert output.data.nbytes == 0
+    assert output.name == array.name
+    assert output.attrs["source"] == "test"
+    assert output.attrs["earth2studio_dynamic_dims"] == ()
+    assert "units" not in output.coords
+    xr.testing.assert_identical(output.height, array.height)
+    assert "units" in array.coords
+    copied = coord_array_like(output)
+    assert copied.attrs == output.attrs
+    replaced = coord_array_like(output, {"variable": ["other"]})
+    assert "earth2studio_statistics" not in replaced.attrs
+
+
+def test_coordinate_array_like_rejects_implicit_resize():
+    from earth2studio.utils.coords import coord_array_like
+
+    array = xr.DataArray(np.zeros((2, 3)), dims=("y", "x"))
+    with pytest.raises(ValueError, match="size"):
+        coord_array_like(array, {"height": ("x", [4, 5])})
+
+
+def test_coordinate_array_like_spatial_replacement_requires_new_grid():
+    from earth2studio.utils.coords import coord_array_like
+
+    signature = coord_array(("lat", "lon"), grid="fcn1")
+    with pytest.raises(ValueError, match="grid"):
+        coord_array_like(signature, {"lat": np.asarray(signature.lat) + 1})
+    with pytest.raises(ValueError, match="grid"):
+        coord_array_like(signature, {"lon": np.asarray(signature.lon)[:3]})

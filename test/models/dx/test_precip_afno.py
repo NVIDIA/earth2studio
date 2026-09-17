@@ -25,6 +25,18 @@ from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.utils import handshake_dim
 
 
+@pytest.fixture(autouse=True)
+def legacy_tensor_coordinates(monkeypatch):
+    # Public signatures are tested separately; this module exercises the legacy
+    # tensor adapter and its conformance checker until DataArray execution lands.
+    monkeypatch.setattr(
+        PrecipitationAFNO, "input_coords", PrecipitationAFNO._input_tensor_coords
+    )
+    monkeypatch.setattr(
+        PrecipitationAFNO, "output_coords", PrecipitationAFNO._output_tensor_coords
+    )
+
+
 class PhooAFNOPrecip(torch.nn.Module):
     def forward(self, x):
         return x[:, :1, :, :]
