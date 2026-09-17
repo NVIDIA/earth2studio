@@ -20,8 +20,8 @@ then
     echo "HENS completed successfully at $(date -u)"
 
     # Optional: copy outputs to S3 before stopping
-    aws s3 cp outputs_beryl_poc/ \
-      s3://hens-beryl/ \
+    aws s3 cp hens_beryl/ \
+      s3://hens-beryl/beryl_poc/outputs \
       --recursive \
       --region us-east-2
 

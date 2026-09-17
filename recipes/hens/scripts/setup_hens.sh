@@ -30,12 +30,6 @@ wget --show-progress \
   --directory-prefix="$REGISTRY" \
   https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
 
-# Download HENS forecast model package(s).
-# wget --recursive --no-parent --no-host-directories \
-#   --cut-dirs=5 --show-progress \
-#   --directory-prefix="$REGISTRY" \
-#   https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16/
-
 for seed in 12 16 17 18; do
   mkdir -p "hens_model_registry/sfno_seed${seed}"
 
