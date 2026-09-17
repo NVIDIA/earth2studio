@@ -25,6 +25,7 @@ from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Gaussian, Zero
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordSystem
 
 
@@ -61,7 +62,7 @@ def test_run_ensemble(
     coords, variable, nsteps, nensemble, batch_size, perturbation_method, time, device
 ):
 
-    data = Random(domain_coords=coords)
+    data = Random(coord_array(tuple(coords), coords))
     model = TestPersistence(variable, coords, target_device=device)
 
     io = ZarrBackend()
@@ -116,7 +117,7 @@ def test_ensemble_output_coords(output_coords, device):
     batch_size = 1
     time = ["1993-04-05T12:00:00"]
 
-    data = Random(domain_coords=coords)
+    data = Random(coord_array(tuple(coords), coords))
     model = TestPersistence(variable, coords, target_device=device)
     perturbation_method = Zero()
     io = ZarrBackend()

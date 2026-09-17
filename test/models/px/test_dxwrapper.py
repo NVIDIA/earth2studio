@@ -35,7 +35,7 @@ from earth2studio.models.dx import (
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
 from earth2studio.run import deterministic
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import coord_array, map_coords
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
@@ -193,7 +193,7 @@ def test_dxwrapper_call(device, model_type, times):
     )
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    data = Random(coord_array(tuple(dc), dc))
 
     x, coords = fetch_data(
         data,
@@ -265,7 +265,7 @@ def test_dxwrapper_iter(device, times, number_of_samples):
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    data = Random(coord_array(tuple(dc), dc))
 
     x, coords = fetch_data(
         data,
@@ -334,7 +334,7 @@ def test_dxwrapper_run(device, times, number_of_samples):
     ).to(device=device)
 
     dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    data = Random(coord_array(tuple(dc), dc))
 
     x, coords = fetch_data(
         data,

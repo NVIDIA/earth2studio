@@ -22,6 +22,7 @@ import torch
 
 from earth2studio.data import GFS, Random, fetch_data
 from earth2studio.perturbation import LaggedEnsemble
+from earth2studio.utils.coords import coord_array
 
 
 @pytest.mark.parametrize(
@@ -82,7 +83,7 @@ def test_lagged_api(time, lags, lead_time, device):
     )
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Initialize Lagged Ensemble
     le = LaggedEnsemble(r, lags)

@@ -16,7 +16,10 @@
 
 from .coords import (
     convert_multidim_to_singledim,
+    coord_array,
     handshake_coords,
+    handshake_dataarray,
+    handshake_dataarrays,
     handshake_dim,
     handshake_size,
 )

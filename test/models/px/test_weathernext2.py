@@ -35,6 +35,7 @@ from earth2studio.models.px.weathernext2_cyclones_mini import (
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
 )
+from earth2studio.utils.coords import coord_array
 
 TEST_TIME = np.array([np.datetime64("2025-01-01T00:00")])
 
@@ -62,7 +63,11 @@ def fetch_random_input(model, time=TEST_TIME, device="cpu"):
     coords = model.input_coords()
     spatial = OrderedDict((dim, coords[dim]) for dim in ("lat", "lon"))
     return fetch_data(
-        Random(spatial), time, coords["variable"], coords["lead_time"], device=device
+        Random(coord_array(tuple(spatial), spatial)),
+        time,
+        coords["variable"],
+        coords["lead_time"],
+        device=device,
     )
 
 
@@ -221,7 +226,7 @@ def test_weathernext2_call_updates_cyclone_tracks(mock_weathernext2_model):
 def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
     model = mock_weathernext2_model.to(device)
     x, coords = fetch_data(
-        Random(coords),
+        Random(coord_array(tuple(coords), coords)),
         TEST_TIME,
         model.input_coords()["variable"],
         model.input_coords()["lead_time"],

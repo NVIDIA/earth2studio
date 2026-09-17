@@ -26,6 +26,7 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 # Spoof diffusion model with the same call signature as an EDMPreconditioner-wrapped
@@ -201,7 +202,7 @@ def test_stormscope_meteosat_call(time, device, batch, model_batch_size):
     model = create_spoof_model(nvar=nvar, batch_size=model_batch_size, device=device)
 
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -271,7 +272,7 @@ def test_stormscope_meteosat_amp(use_amp, device):
 
     time = np.array([np.datetime64("2024-06-01T00:00")])
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -308,7 +309,7 @@ def test_stormscope_meteosat_iter(time, batch, device):
     model = create_spoof_model(nvar=nvar, device=device)
 
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
@@ -686,7 +687,7 @@ def test_stormscope_meteosat_package():
     variable = model.input_coords()["variable"]
 
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})

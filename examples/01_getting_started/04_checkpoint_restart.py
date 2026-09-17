@@ -72,6 +72,7 @@ from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import FCN
 from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.time import to_time_array
 
 os.makedirs("outputs", exist_ok=True)
@@ -172,7 +173,7 @@ with checkpoint as ckpt:
     coords = deterministic_output_coords(model, time, final_nsteps, output_variables)
     var_names = coords.pop("variable")
     io.add_array(coords, var_names)
-    data = Random(domain_coords=domain_coords)
+    data = Random(coord_array(tuple(domain_coords), domain_coords))
     run.deterministic(
         time=time,
         nsteps=first_attempt_nsteps,
@@ -215,7 +216,7 @@ checkpoint = Checkpoint(
 with checkpoint.select(-1) as ckpt:
     model = FCN.load_model(model_package)
     domain_coords = model_domain_coords(model)
-    data = Random(domain_coords=domain_coords)
+    data = Random(coord_array(tuple(domain_coords), domain_coords))
     run.deterministic(
         time=time,
         nsteps=final_nsteps,

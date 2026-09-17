@@ -50,6 +50,7 @@ from src.work import WorkItem
 
 from earth2studio.data import Random
 from earth2studio.models.px import Persistence
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordSystem
 
 SMALL_LAT = np.linspace(90, -90, 4)
@@ -470,7 +471,12 @@ class TestAssimilationPipeline:
         cfg.predownload.verification.enabled = True
         # Random needs domain_coords, which isn't expressible in plain YAML —
         # patch the source instantiation and check the declaration itself.
-        source = Random(OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}))
+        source = Random(
+            coord_array(
+                ("lat", "lon"),
+                OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}),
+            )
+        )
         with patch(_RANK0_ASSIM, side_effect=_passthrough):
             with patch(
                 "src.predownload_utils.hydra.utils.instantiate", return_value=source
@@ -568,7 +574,7 @@ class TestAssimilationForecastPipeline:
         domain = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
         pipeline = _make_da_forecast_pipeline(
             da_variables=["t2m"],  # z500 must come from the fill source
-            fill_source=Random(domain),
+            fill_source=Random(coord_array(tuple(domain), domain)),
         )
         assert pipeline._missing_vars == ["z500"]
 
@@ -586,7 +592,7 @@ class TestAssimilationForecastPipeline:
 
         domain = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
         prognostic = Persistence(variable=DA_VARIABLES, domain_coords=domain)
-        fill = Random(domain)
+        fill = Random(coord_array(tuple(domain), domain))
 
         with patch("src.pipelines.forecast.load_prognostic", return_value=prognostic):
             with patch("src.data.resolve_ic_source", return_value=fill):

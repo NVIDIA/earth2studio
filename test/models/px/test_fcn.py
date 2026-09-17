@@ -24,7 +24,7 @@ import torch
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FCN
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array, handshake_dim
 from earth2studio.utils.checkpoint import Checkpoint
 
 
@@ -36,6 +36,20 @@ class PhooFCNModel(torch.nn.Module):
 class IncrementFCNModel(torch.nn.Module):
     def forward(self, x):
         return x + 1
+
+
+def test_fcn_coordinate_signatures():
+    model = FCN(PhooFCNModel(), torch.zeros(26, 1, 1), torch.ones(26, 1, 1))
+    input_coords = model.input_coords()
+    output_coords = model.output_coords(input_coords)
+
+    assert input_coords.data.nbytes == output_coords.data.nbytes == 0
+    assert input_coords.attrs["earth2studio_grid_id"] == "fcn1"
+    assert output_coords.coords["lead_time"] == np.timedelta64(6, "h")
+
+
+def _random_source() -> Random:
+    return Random(coord_array(("lat", "lon"), grid="fcn1"))
 
 
 @pytest.mark.parametrize(
@@ -60,16 +74,12 @@ def test_fcn_call(time, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    signature = p.input_coords()
+    r = _random_source()
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    # Get data and convert to the established tensor coordinate contract.
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -78,7 +88,9 @@ def test_fcn_call(time, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+    ).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
     handshake_dim(out_coords, "variable", 2)
@@ -100,16 +112,12 @@ def test_fcn_iter(ensemble, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    signature = p.input_coords()
+    r = _random_source()
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    # Get data and convert to the established tensor coordinate contract.
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add ensemble to front
@@ -127,7 +135,9 @@ def test_fcn_iter(ensemble, device):
     for i, (out, out_coords) in enumerate(p_iter):
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
@@ -156,10 +166,10 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
     coords = OrderedDict(
         {
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
-            "lead_time": base_coords["lead_time"],
-            "variable": base_coords["variable"],
-            "lat": base_coords["lat"],
-            "lon": base_coords["lon"],
+            "lead_time": base_coords["lead_time"].values,
+            "variable": base_coords["variable"].values,
+            "lat": base_coords["lat"].values,
+            "lon": base_coords["lon"].values,
         }
     )
     x = torch.zeros(1, 1, 26, 720, 1440)
@@ -204,12 +214,11 @@ def test_fcn_exceptions(dc, device):
 
     p = FCN(model, center, scale).to(device)
 
-    # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    signature = p.input_coords()
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
@@ -232,16 +241,12 @@ def test_fcn_package(model, device):
     # Test the cached model package FCN
     p = model.to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    signature = p.input_coords()
+    r = _random_source()
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    # Get data and convert to the established tensor coordinate contract.
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     out, out_coords = p(x, coords)
@@ -250,7 +255,9 @@ def test_fcn_package(model, device):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+    ).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)

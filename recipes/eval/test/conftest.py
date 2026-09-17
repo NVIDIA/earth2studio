@@ -26,6 +26,7 @@ from omegaconf import OmegaConf
 from earth2studio.data import Random
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px import Persistence
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordSystem
 
 SMALL_LAT = np.linspace(90, -90, 4)
@@ -194,7 +195,7 @@ def prognostic(small_domain) -> Persistence:
 
 @pytest.fixture()
 def data_source(small_domain) -> Random:
-    return Random(domain_coords=small_domain)
+    return Random(coord_array(tuple(small_domain), small_domain))
 
 
 @pytest.fixture()

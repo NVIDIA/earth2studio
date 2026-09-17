@@ -26,6 +26,7 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffCMIP6
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class MockPhysicsNemoModule(torch.nn.Module):
@@ -321,7 +322,7 @@ def test_corrdiff_cmip6_forward(
     dc = {k: dx.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = dx.input_coords()["lead_time"]
@@ -360,7 +361,7 @@ def test_corrdiff_cmip6_package(device):
     dc = {k: dx.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = dx.input_coords()["lead_time"]

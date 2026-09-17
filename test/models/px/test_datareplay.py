@@ -23,6 +23,7 @@ import torch
 from earth2studio.data import Random, Random_FX, fetch_data
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.datareplay import DataReplay
+from earth2studio.utils.coords import coord_array
 
 LAT = np.linspace(90, -90, 8)
 LON = np.linspace(0, 360, 16, endpoint=False)
@@ -43,7 +44,7 @@ def _initial_condition(source: Random | Random_FX):
 
 @pytest.mark.parametrize("source_type", [Random, Random_FX])
 def test_datareplay_call(source_type):
-    source = source_type(DOMAIN)
+    source = source_type(coord_array(tuple(DOMAIN), DOMAIN))
     x, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
 
@@ -58,7 +59,7 @@ def test_datareplay_call(source_type):
 
 @pytest.mark.parametrize("source_type", [Random, Random_FX])
 def test_datareplay_iter(source_type):
-    source = source_type(DOMAIN)
+    source = source_type(coord_array(tuple(DOMAIN), DOMAIN))
     x, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
     hook_calls = {"front": 0, "rear": 0}
@@ -110,7 +111,7 @@ def test_datareplay_conformance(source_type):
 
 
 def test_datareplay_input_coords_copy():
-    replay = DataReplay(Random(DOMAIN), "t2m", DOMAIN)
+    replay = DataReplay(Random(coord_array(tuple(DOMAIN), DOMAIN)), "t2m", DOMAIN)
     coords = replay.input_coords()
     coords["variable"][0] = "msl"
 
@@ -119,7 +120,7 @@ def test_datareplay_input_coords_copy():
 
 
 def test_datareplay_output_coords_copy():
-    source = Random(DOMAIN)
+    source = Random(coord_array(tuple(DOMAIN), DOMAIN))
     _, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN)
     original_lead_time = coords["lead_time"].copy()
@@ -131,8 +132,13 @@ def test_datareplay_output_coords_copy():
 
 
 def test_datareplay_grid_mismatch_raises():
-    source = Random(OrderedDict(lat=np.linspace(90, -90, 9), lon=LON))
-    x, coords = _initial_condition(Random(DOMAIN))
+    source = Random(
+        coord_array(
+            ("lat", "lon"),
+            OrderedDict(lat=np.linspace(90, -90, 9), lon=LON),
+        )
+    )
+    x, coords = _initial_condition(Random(coord_array(tuple(DOMAIN), DOMAIN)))
     replay = DataReplay(source, VARIABLE, DOMAIN)
 
     with pytest.raises(ValueError, match="not the same"):
@@ -140,7 +146,7 @@ def test_datareplay_grid_mismatch_raises():
 
 
 def test_datareplay_nonfinite_raises(monkeypatch):
-    source = Random(DOMAIN)
+    source = Random(coord_array(tuple(DOMAIN), DOMAIN))
     x, coords = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN)
     monkeypatch.setattr(np.random, "randn", lambda *shape: np.full(shape, np.nan))
@@ -157,7 +163,7 @@ def test_datareplay_nonfinite_raises(monkeypatch):
     ],
 )
 def test_datareplay_invalid_coords(coords_update, match):
-    source = Random(DOMAIN)
+    source = Random(coord_array(tuple(DOMAIN), DOMAIN))
     x, coords = _initial_condition(source)
     coords.update(coords_update)
     replay = DataReplay(source, VARIABLE, DOMAIN)
@@ -177,4 +183,6 @@ def test_datareplay_invalid_coords(coords_update, match):
 )
 def test_datareplay_invalid_step(step, error):
     with pytest.raises(error):
-        DataReplay(Random(DOMAIN), VARIABLE, DOMAIN, step=step)
+        DataReplay(
+            Random(coord_array(tuple(DOMAIN), DOMAIN)), VARIABLE, DOMAIN, step=step
+        )
