@@ -10,7 +10,10 @@ sudo apt-get install -y git curl wget build-essential
 
 mkdir -p "$HOME/projects"
 
-git clone https://github.com/dougrichardson/earth2studio.git "$PROJECT"
+#git clone https://github.com/dougrichardson/earth2studio.git 
+git clone --branch beryl-poc \
+  https://github.com/dougrichardson/earth2studio.git \
+  "$PROJECT"
 
 cd "$HENS_DIR"
 
@@ -34,11 +37,22 @@ wget --show-progress \
   --directory-prefix="$REGISTRY" \
   https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
 
-# Download one HENS forecast model package.
-wget --recursive --no-parent --no-host-directories \
-  --cut-dirs=5 --show-progress \
-  --directory-prefix="$REGISTRY" \
-  https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16/
+# Download HENS forecast model package(s).
+# wget --recursive --no-parent --no-host-directories \
+#   --cut-dirs=5 --show-progress \
+#   --directory-prefix="$REGISTRY" \
+#   https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16/
+
+for seed in 12 16 17 18; do
+  mkdir -p "hens_model_registry/sfno_seed${seed}"
+
+  wget --recursive --no-parent --no-host-directories \
+    --cut-dirs=5 \
+    --show-progress \
+    --reject="index.html*" \
+    --directory-prefix="hens_model_registry/sfno_seed${seed}" \
+    "https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed${seed}/"
+done
 
 mkdir -p "$HENS_DIR/output/outputs_beryl_poc"
 
