@@ -31,6 +31,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXi
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class PhooFuXiModel(torch.nn.Module):
@@ -101,7 +102,7 @@ class TestFuXiMock:
         del dc["lead_time"]
         del dc["variable"]
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
         lead_time = p.input_coords()["lead_time"]
@@ -157,7 +158,7 @@ class TestFuXiMock:
         del dc["lead_time"]
         del dc["variable"]
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
         lead_time = p.input_coords()["lead_time"]
@@ -246,7 +247,7 @@ class TestFuXiMock:
         p = FuXi.load_model(fuxi_test_package).to(device)
 
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
         lead_time = p.input_coords()["lead_time"]
@@ -294,7 +295,7 @@ def test_fuxi_package(device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]

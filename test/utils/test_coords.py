@@ -19,10 +19,14 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.utils import (
     convert_multidim_to_singledim,
+    coord_array,
     handshake_coords,
+    handshake_dataarray,
+    handshake_dataarrays,
     handshake_dim,
     handshake_size,
 )
@@ -858,3 +862,56 @@ def test_cat_coords_errors():
     )
     with pytest.raises(ValueError):
         cat_coords((xx, yy_bad), (cox, coy_bad), dim="variable")
+
+
+def test_coordinate_system_signature():
+    signature = coord_array(
+        ("batch", "lead_time", "variable", "x"),
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a"],
+            "x": [0, 1],
+        },
+        dynamic=("batch",),
+        statistics={"a": "mean:24h"},
+    )
+    assert signature.shape == (0, 1, 1, 2)
+    assert signature.data.nbytes == 0
+    assert signature.attrs["earth2studio_dynamic_dims"] == ("batch",)
+    assert signature.attrs["earth2studio_statistics"]["a"]["modifier"] == "mean:24h"
+
+    array = xr.DataArray(
+        np.zeros((3, 1, 1, 2)),
+        dims=("time", "lead_time", "variable", "x"),
+        coords={
+            "lead_time": signature.lead_time,
+            "variable": ["a"],
+            "x": [0, 1],
+        },
+        attrs=signature.attrs,
+    )
+    handshake_dataarray(array, signature)
+    with pytest.raises(ValueError, match="trailing dimensions"):
+        handshake_dataarray(
+            array.transpose("time", "lead_time", "x", "variable"), signature
+        )
+
+
+def test_coordinate_system_grid_and_collection():
+    signature = coord_array(
+        ("batch", "lead_time", "variable", "lat", "lon"),
+        {"lead_time": [np.timedelta64(0, "h")], "variable": ["a"]},
+        dynamic=("batch",),
+        grid="fcn1",
+    )
+    assert signature.shape == (0, 1, 1, 720, 1440)
+    assert signature.attrs["earth2studio_grid_id"] == "fcn1"
+    array = xr.DataArray(
+        np.zeros((1, 1, 1, 720, 1440), dtype=np.float32),
+        dims=signature.dims,
+        coords=signature.coords,
+        attrs=signature.attrs,
+    )
+    handshake_dataarrays((array, array), (signature, signature))
+    with pytest.raises(ValueError, match="Expected 2 DataArrays"):
+        handshake_dataarrays((array,), (signature, signature))

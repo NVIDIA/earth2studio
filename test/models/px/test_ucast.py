@@ -26,6 +26,7 @@ from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import UCast
 from earth2studio.models.px.ucast import VARIABLES
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class PhooUCastModel(torch.nn.Module):
@@ -97,7 +98,7 @@ def _input(
     del dc["lead_time"]
     del dc["variable"]
 
-    ds = Random(dc)
+    ds = Random(coord_array(tuple(dc), dc))
     lead_time = ucast_model.input_coords()["lead_time"]
     variable = ucast_model.input_coords()["variable"]
     return fetch_data(ds, time, variable, lead_time, device=device)

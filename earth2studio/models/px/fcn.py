@@ -22,16 +22,21 @@ import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    coord_array,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_dim,
+)
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from physicsnemo.models.afno import AFNO
@@ -67,6 +72,33 @@ VARIABLES = [
     "z250",
     "t250",
 ]
+
+
+def _tensor_coords(lead_time: np.timedelta64) -> CoordSystem:
+    return OrderedDict(
+        {
+            "batch": np.empty(0),
+            "lead_time": np.array([lead_time]),
+            "variable": np.array(VARIABLES),
+            "lat": np.linspace(90, -90, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        }
+    )
+
+
+def _advance_tensor_coords(input_coords: CoordSystem) -> CoordSystem:
+    target = _tensor_coords(np.timedelta64(0, "h"))
+    relative = input_coords.copy()
+    relative["lead_time"] = relative["lead_time"] - input_coords["lead_time"][-1]
+    for index, dimension in enumerate(target):
+        if dimension != "batch":
+            handshake_dim(relative, dimension, index)
+            handshake_coords(relative, target, dimension)
+
+    output = _tensor_coords(np.timedelta64(6, "h"))
+    output["batch"] = input_coords["batch"]
+    output["lead_time"] = output["lead_time"] + input_coords["lead_time"]
+    return output
 
 
 @dataclass
@@ -116,66 +148,24 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("scale", scale)
         self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free FCN input coordinate signature."""
+        return coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch",),
+            grid="fcn1",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return the FCN coordinate signature after one forecast step."""
+        handshake_dataarray(input_coords, self.input_coords())
+        return input_coords.assign_coords(
+            lead_time=input_coords["lead_time"] + np.timedelta64(6, "h")
         )
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key != "batch":
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords = output_coords.copy()
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
-        )
-
-        return output_coords
 
     def __str__(
         self,
@@ -280,7 +270,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system 6 hours in the future
         """
         x, coords, _ = self._restore_checkpoint_state(x, coords)
-        output_coords = self.output_coords(coords)
+        output_coords = _advance_tensor_coords(coords)
 
         x = self._forward(x)
         self._save_checkpoint_state(x, output_coords)
@@ -294,7 +284,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         coords = coords.copy()
         x, coords, restored = self._restore_checkpoint_state(x, coords)
 
-        self.output_coords(coords)
+        _advance_tensor_coords(coords)
 
         if not restored:
             self._save_checkpoint_state(x, coords)
@@ -305,7 +295,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            coords = self.output_coords(coords)
+            coords = _advance_tensor_coords(coords)
             x = self._forward(x)
 
             # Rear hook

@@ -29,6 +29,7 @@ from earth2studio.perturbation import (
     Gaussian,
     HemisphericCentredBredVector,
 )
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordSystem
 
 
@@ -113,7 +114,7 @@ def test_hem_centered_bred(
     model.index = 0
 
     # Initialize Data Source and input tensor
-    data_source = Random(dc)
+    data_source = Random(coord_array(tuple(dc), dc))
     x = torch.randn(batch, 1, 1, len(variable), 16, 16).to(device)
     coords = OrderedDict(
         [
@@ -156,7 +157,7 @@ def test_hem_centered_bred(
             ("lon", np.arange(20)),
         ]
     )
-    data_source = Random(dc_diff)
+    data_source = Random(coord_array(tuple(dc_diff), dc_diff))
     prtb = HemisphericCentredBredVector(
         model=model,
         data=data_source,

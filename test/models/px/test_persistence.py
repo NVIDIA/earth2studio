@@ -24,6 +24,7 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Persistence
 from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.coords import coord_array
 
 
 @pytest.mark.parametrize(
@@ -50,7 +51,7 @@ def test_persistence_lat_lon(
     p = Persistence(variable, dc, history=history)
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -84,7 +85,7 @@ def test_persistence_unstructured(variable, device):
     p = Persistence(variable, dc)
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -117,7 +118,7 @@ def test_persistence_iter(ensemble, variable, history, device):
     p = Persistence(variable, dc, history=history)
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -151,7 +152,7 @@ def test_persistence_checkpoint_state_round_trip(tmp_path):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     domain_coords = OrderedDict({"lat": np.arange(2), "lon": np.arange(3)})
     lead_time = np.asarray([np.timedelta64(-6, "h"), np.timedelta64(0, "h")])
-    data = Random(domain_coords)
+    data = Random(coord_array(tuple(domain_coords), domain_coords))
     x, coords = fetch_data(data, time, np.asarray(variable), lead_time, device="cpu")
     checkpoint = Checkpoint("persistence", path=tmp_path, mode="append", level=2)
 
@@ -192,7 +193,7 @@ def test_persistence_coords(dc, device):
     # Initialize Model
     p = Persistence(variable, true_dc)
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]

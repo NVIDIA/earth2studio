@@ -25,6 +25,7 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import SFNO
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 class PhooSFNOModel(torch.nn.Module):
@@ -55,7 +56,7 @@ def test_sfno_call(time, device):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -93,7 +94,7 @@ def test_sfno_iter(ensemble, device):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -141,7 +142,7 @@ def test_sfno_exceptions(dc, device):
     p = SFNO(model).to(device)
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -181,7 +182,7 @@ def test_sfno_package(device, model):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]

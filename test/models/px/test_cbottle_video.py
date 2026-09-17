@@ -36,6 +36,7 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.px import CBottleVideo
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 
 @pytest.fixture(scope="class")
@@ -179,7 +180,7 @@ class TestCBottleVideoMock:
         del dc["time"]
         del dc["lead_time"]
         del dc["variable"]
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
         lead_time = px.input_coords()["lead_time"]
@@ -221,7 +222,7 @@ class TestCBottleVideoMock:
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
 
         # Initialize Data Source
-        r = Random(dc)
+        r = Random(coord_array(tuple(dc), dc))
 
         # Get Data and convert to tensor, coords
         lead_time = px.input_coords()["lead_time"]
@@ -269,7 +270,7 @@ def test_cbottle_video_package(device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = px.input_coords()["lead_time"]

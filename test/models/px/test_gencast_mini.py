@@ -42,6 +42,7 @@ from earth2studio.models.px.gencast_mini import (
     GenCastMini,
 )
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
 
 # GenCast-specific variable lists (matching graphcast module names)
 GENCAST_TARGET_SURFACE_VARS = (
@@ -224,7 +225,7 @@ def test_gencast_mini_call(time, device, mock_GenCastMini_model):
     del dc["variable"]
 
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -260,7 +261,7 @@ def test_gencast_mini_iter(ensemble, device, mock_GenCastMini_model):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -308,7 +309,7 @@ def test_gencast_mini_exceptions(dc, device, mock_GenCastMini_model):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = mock_GenCastMini_model.to(device)
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -379,7 +380,7 @@ def test_gencast_mini_package(model, device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(dc)
+    r = Random(coord_array(tuple(dc), dc))
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
