@@ -742,6 +742,9 @@ every `step_hours` from `start - lookback_hours` up to `end`. They join
 `start_times` or the `ic_block_*` sweep, or stand alone when the config
 has neither. A `valid` window must state `lookback_hours`. Set it to the
 forecast horizon so every lead time has valid times inside the window.
+Each event's `ics` block adds initial conditions, so a campaign grows with
+every event. Trim it with fewer events, a larger `step_hours`, or a
+smaller `lookback_hours`.
 
 The score stores carry the event definitions in their `events`
 attribute. The scorecard exporter turns them into

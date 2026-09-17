@@ -146,9 +146,8 @@ in a global campaign export the same way, and their boxes stay out of
 the year-round Region selector.
 
 Keep an event campaign's ensemble size and horizon comparable to the
-model's main campaign when it has one. Adding events adds initial
-conditions, so trim with fewer events, a larger `step_hours`, or a
-smaller `lookback_hours`.
+model's main campaign when it has one, since the docs plot draws each
+event against that campaign's curve.
 
 ## Model-specific pipelines (`utils/pipelines.py`)
 
