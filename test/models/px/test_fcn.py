@@ -25,6 +25,15 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import FCN
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def cupy_for_cuda(request):
+    if hasattr(request.node, "callspec") and request.node.callspec.params.get(
+        "device", "cpu"
+    ).startswith("cuda"):
+        pytest.importorskip("cupy")
 
 
 class PhooFCNModel(torch.nn.Module):
@@ -89,7 +98,9 @@ def test_fcn_call(time, device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
-    out, out_coords = p(x, coords)
+    array = from_torch(x, coords, attrs=signature.attrs)
+    result = p(array)
+    out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -98,8 +109,7 @@ def test_fcn_call(time, device):
     assert (
         out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
     ).all()
-    assert out_coords.dims == ("time", "lead_time", "variable", "lat", "lon")
-    assert out_coords.data.nbytes == 0
+    assert result.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize(
@@ -130,19 +140,19 @@ def test_fcn_iter(ensemble, device):
     coords.move_to_end("ensemble", last=False)
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
-    p_iter = p.create_iterator(x, coords)
+    p_iter = p.create_iterator(from_torch(x, coords, attrs=signature.attrs))
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
-    initial, initial_coords = next(p_iter)
+    initial_array = next(p_iter)
+    initial, _ = initial_array.e2s.to_torch()
     torch.testing.assert_close(initial, x)
-    assert initial_coords.dims == coords.dims
-    assert initial_coords.data.nbytes == 0
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert out_coords.dims == coords.dims
-        assert out_coords.data.nbytes == 0
+    assert initial_array.dims == coords.dims
+    for i, result in enumerate(p_iter):
+        out, out_coords = result.e2s.to_torch()
+        assert result.dims == coords.dims
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
         assert (
@@ -153,6 +163,19 @@ def test_fcn_iter(ensemble, device):
 
         if i > 5:
             break
+
+
+def test_fcn_shifted_output_signature():
+    model = PhooFCNModel()
+    center = torch.zeros(26, 1, 1)
+    scale = torch.ones(26, 1, 1)
+    p = FCN(model, center, scale)
+    signature = p.input_coords().assign_coords(
+        lead_time=np.array([12], dtype="timedelta64[h]")
+    )
+    output = p.output_coords(signature)
+    assert output.data.nbytes == 0
+    assert output.lead_time.values[0] == np.timedelta64(18, "h")
 
 
 def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
@@ -175,24 +198,27 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
     checkpoint = Checkpoint("fcn", path=tmp_path, flush_interval=1, level=2)
     with checkpoint as ckpt:
         model = FCN(IncrementFCNModel(), center, scale)
-        iterator = model.create_iterator(x, coords)
+        iterator = model.create_iterator(from_torch(x, coords, attrs=base_coords.attrs))
         next(iterator)
-        saved_x, saved_coords = next(iterator)
+        saved_x, saved_coords = next(iterator).e2s.to_torch()
         assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
         assert saved_x[0, 0, 0, 0, 0] == 1
-        assert saved_coords.data.nbytes == 0
-        ckpt.write(lead_time=saved_coords["lead_time"].values[-1])
+        ckpt.write(lead_time=saved_coords["lead_time"][-1])
 
     checkpoint = Checkpoint("fcn", path=tmp_path, level=2)
     with checkpoint.select(-1):
         model = FCN(IncrementFCNModel(), center, scale)
         assert model.checkpoint.checkpoint_state_loaded
         restart_x = torch.full_like(x, -5)
-        resumed_x, resumed_coords = next(model.create_iterator(restart_x, coords))
+        resumed = next(
+            model.create_iterator(
+                from_torch(restart_x, coords, attrs=base_coords.attrs)
+            )
+        )
+        resumed_x, resumed_coords = resumed.e2s.to_torch()
 
     assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
-    assert resumed_coords.dims == coords.dims
-    assert resumed_coords.data.nbytes == 0
+    assert resumed.dims == coords.dims
     assert resumed_x[0, 0, 0, 0, 0] == 2
     assert resumed_x.amin() == 2
     assert resumed_x.amax() == 2
@@ -224,7 +250,7 @@ def test_fcn_exceptions(dc, device):
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(from_torch(x, coords, attrs=signature.attrs))
 
 
 @pytest.fixture(scope="function")
@@ -252,7 +278,8 @@ def test_fcn_package(model, device):
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
-    out, out_coords = p(x, coords)
+    result = p(from_torch(x, coords, attrs=signature.attrs))
+    out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -262,5 +289,4 @@ def test_fcn_package(model, device):
         out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
     ).all()
     assert (out_coords["time"] == time).all()
-    assert out_coords.dims == ("time", "lead_time", "variable", "lat", "lon")
-    assert out_coords.data.nbytes == 0
+    assert result.dims == ("time", "lead_time", "variable", "lat", "lon")
