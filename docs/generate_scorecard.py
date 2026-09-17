@@ -726,7 +726,7 @@ Pick a metric and variable; hover for exact values at each lead time.{splits_hin
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
-  "../../../_static/scorecard/plot.html?model={model_q}&label={label_q}&domain={domain_q}",
+  "../../../_static/scorecard/plot.html?model={model_q}&label={label_q}&domain={domain_q}&v={plot_v}",
   window.location.href);
 </script>
 
@@ -994,6 +994,14 @@ def horizon_span(lead_hours: list[int]) -> str:
     return f"{last // 24} days" if last >= 48 else f"{last} hours"
 
 
+def _plot_version() -> str:
+    """Short content hash of the shared plot, appended to its iframe URL so
+    browsers fetch a redeployed plot instead of serving a cached copy."""
+    import hashlib
+
+    return hashlib.sha256((STATIC / "plot.html").read_bytes()).hexdigest()[:8]
+
+
 def build_page(model: str, doc: dict, conf: dict) -> str:
     """Return the model's generated page."""
     label = conf["label"]
@@ -1086,6 +1094,7 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         variables_table=variables_table(doc),
         label_q=quote(label),
         domain_q=quote(conf["domain"]),
+        plot_v=_plot_version(),
         badges=("\n{% badges " + conf["badges"] + " %}\n" if conf["badges"] else ""),
         description=("\n" + conf["description"] + "\n") if conf["description"] else "",
         reference=("\n" + conf["extras"] + "\n") if conf["extras"] else "",
