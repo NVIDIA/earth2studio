@@ -46,7 +46,6 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFS2
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -669,7 +668,7 @@ def test_aifs2_call(time, device):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -779,7 +778,7 @@ def test_aifs2_iter(ensemble, device):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data
     lead_time = p.input_coords()["lead_time"]
@@ -851,7 +850,7 @@ def test_aifs2_exceptions(dc, device):
     ).to(device)
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data
     lead_time = p.input_coords()["lead_time"]
@@ -926,7 +925,7 @@ def test_aifs2_package(device, model):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data
     lead_time = p.input_coords()["lead_time"]

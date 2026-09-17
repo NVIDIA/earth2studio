@@ -228,7 +228,7 @@ def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_arr
 def test_fetch_data(time, lead_time, device):
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
-    r = Random(coord_array(tuple(domain), domain))
+    r = Random(domain)
 
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
@@ -274,7 +274,7 @@ def test_fetch_data_out_of_ns_range():
     nanosecond-precision range, which numpy wraps silently rather than raising.
     """
     domain = OrderedDict({"lat": np.random.randn(8), "lon": np.random.randn(16)})
-    random_source = Random(coord_array(tuple(domain), domain))
+    random_source = Random(domain)
     received: list[np.ndarray] = []
 
     class RecordingSource:
@@ -322,7 +322,7 @@ def test_fetch_data_legacy_false(device):
     lead_time = np.array([np.timedelta64(0, "h")])
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
-    r = Random(coord_array(tuple(domain), domain))
+    r = Random(domain)
 
     da = fetch_data(r, time, variable, lead_time, device=device, legacy=False)
 
@@ -440,7 +440,7 @@ def test_fetch_data_interp(time, lead_time, device):
             "lon": np.linspace(0, 360, 1440),
         }
     )
-    r = Random(coord_array(tuple(domain), domain))
+    r = Random(domain)
 
     # Target domain, 1d lat/lon coords
     lat = np.linspace(60, 20, num=256)
@@ -567,7 +567,7 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
-    ds = Random(coord_array(tuple(domain), domain))
+    ds = Random(domain)
 
     if backend == "netcdf":
         file_name = str(tmp_path) + "/temp.nc"

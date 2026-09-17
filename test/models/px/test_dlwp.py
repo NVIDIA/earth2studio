@@ -25,7 +25,6 @@ from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLWP
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 class PhooDLWPModel(torch.nn.Module):
@@ -92,7 +91,7 @@ def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -152,7 +151,7 @@ def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -229,7 +228,7 @@ def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
     ).to(device)
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -288,7 +287,7 @@ def test_dlwp_package(device, model):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]

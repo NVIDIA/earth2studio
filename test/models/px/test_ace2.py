@@ -29,7 +29,6 @@ from earth2studio.models.px.ace2 import (
     _npdatetime64_to_cftime,
 )
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 pytest.importorskip("fme")
 
@@ -170,7 +169,7 @@ def test_ACE2ERA5_call(device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -211,7 +210,7 @@ def test_ACE2ERA5_iter(batch, device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -299,7 +298,7 @@ def test_ace2era5_package(device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]

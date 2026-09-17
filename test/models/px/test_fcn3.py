@@ -28,7 +28,6 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.px import FCN3
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
@@ -110,7 +109,7 @@ def test_fcn3_call(time, device, dummy_model):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -148,7 +147,7 @@ def test_fcn3_iter(ensemble, device, dummy_model):
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -196,7 +195,7 @@ def test_fcn3_exceptions(dc, device, dummy_model):
     p = FCN3(model).to(device)
 
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
@@ -265,7 +264,7 @@ def test_fcn3_load_package(device, model):
 #     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
 
 #     # Initialize Data Source
-#     r = Random(coord_array(tuple(dc), dc))
+#     r = Random(dc)
 
 #     # Get Data and convert to tensor, coords
 #     lead_time = p.input_coords()["lead_time"]

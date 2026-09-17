@@ -27,7 +27,6 @@ from earth2studio.models.auto import Package
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Pangu3, Pangu6, Pangu24
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 class PhooPanguModel(torch.nn.Module):
@@ -91,7 +90,7 @@ class TestPanguMock:
         del dc["lead_time"]
         del dc["variable"]
         # Initialize Data Source
-        r = Random(coord_array(tuple(dc), dc))
+        r = Random(dc)
 
         # Get Data and convert to tensor, coords
         lead_time = p.input_coords()["lead_time"]
@@ -138,7 +137,7 @@ class TestPanguMock:
         del dc["lead_time"]
         del dc["variable"]
         # Initialize Data Source
-        r = Random(coord_array(tuple(dc), dc))
+        r = Random(dc)
 
         # Get Data and convert to tensor, coords
         lead_time = p.input_coords()["lead_time"]
@@ -200,7 +199,7 @@ class TestPanguMock:
         p = PanguModel.load_model(onnx_test_package)
 
         # Initialize Data Source
-        r = Random(coord_array(tuple(dc), dc))
+        r = Random(dc)
 
         # Get Data and convert to tensor, coords
         lead_time = p.input_coords()["lead_time"]
@@ -256,7 +255,7 @@ def test_pangu_package(PanguModel, delta_t, device):
     del dc["lead_time"]
     del dc["variable"]
     # Initialize Data Source
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]

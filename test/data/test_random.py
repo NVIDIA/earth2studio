@@ -22,7 +22,6 @@ import pandas as pd
 import pytest
 
 from earth2studio.data import Random, Random_FX, RandomDataFrame
-from earth2studio.utils.coords import coord_array
 
 
 @pytest.mark.parametrize(
@@ -40,7 +39,8 @@ from earth2studio.utils.coords import coord_array
 def test_random(time, variable, lat, lon):
 
     coords = OrderedDict({"lat": lat, "lon": lon})
-    data_source = Random(coord_array(tuple(coords), coords))
+
+    data_source = Random(coords)
 
     data = data_source(time, variable)
     shape = data.shape
@@ -80,7 +80,8 @@ def test_random(time, variable, lat, lon):
 def test_random_forecast(time, lead_time, variable, lat, lon):
 
     coords = OrderedDict({"lat": lat, "lon": lon})
-    data_source = Random_FX(coord_array(tuple(coords), coords))
+
+    data_source = Random_FX(coords)
 
     data = data_source(time, lead_time, variable)
     shape = data.shape
@@ -97,24 +98,6 @@ def test_random_forecast(time, lead_time, variable, lat, lon):
     assert shape[3] == len(coords["lat"])
     assert shape[4] == len(coords["lon"])
     assert not np.isnan(data.values).any()
-
-
-def test_random_coordinate_signature():
-    signature = coord_array(
-        ("y", "x"),
-        {
-            "y": range(2),
-            "x": range(3),
-        },
-    )
-    array = Random(signature)(datetime.datetime.now(), "a")
-    assert array.dims == ("time", "variable", "y", "x")
-    assert array.shape == (1, 1, 2, 3)
-
-
-def test_random_requires_coordinate_signature():
-    with pytest.raises(TypeError, match="coordinate_system"):
-        Random({"x": np.arange(3)})  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(

@@ -25,7 +25,6 @@ from earth2studio.data import HRRR, Random, fetch_data
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import StormCast
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 
 # Spoof models with same call signature
@@ -82,7 +81,7 @@ def test_stormcast_call(time, device):
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     r_condition = Random(
         OrderedDict(
             [
@@ -161,7 +160,7 @@ def test_stormcast_iter(ensemble, device):
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     r_condition = Random(
         OrderedDict(
             [
@@ -256,7 +255,7 @@ def test_stormcast_exceptions(dc, device):
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     means = torch.zeros(1, 99, 1, 1)
     stds = torch.ones(1, 99, 1, 1)
     invariants = torch.randn(1, 2, 512, 640)
@@ -375,7 +374,7 @@ def test_stormcast_package(cond_dims, device, model):
             ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     # returns dimensions in a different order
     class _RandomWithSpecifiedOrder(Random):

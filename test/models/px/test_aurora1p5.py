@@ -31,7 +31,6 @@ from earth2studio.models.conformance import ContractException, check_prognostic_
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array
 
 _N_VARS = 90  # 65 atmos + 18 surface + 7 output-only
 _H = 720
@@ -124,7 +123,7 @@ def test_aurora1p5_call(time, device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -156,7 +155,7 @@ def test_aurora1p5_iter(ensemble, device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -201,7 +200,7 @@ def test_aurora1p5_iter_repeated(device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -234,7 +233,7 @@ def test_aurora1p5_exceptions(dc, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
@@ -281,7 +280,7 @@ def test_aurora1p5_package(model, device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -314,7 +313,7 @@ def test_aurora1p5_ensemble_iter(n_members, device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
@@ -385,7 +384,7 @@ def test_aurora1p5_ensemble_package(ensemble_model, device):
     del dc["time"]
     del dc["lead_time"]
     del dc["variable"]
-    r = Random(coord_array(tuple(dc), dc))
+    r = Random(dc)
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
