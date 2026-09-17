@@ -6,8 +6,8 @@ Define prognostic and diagnostic iterator, coordinate, hook, ownership, and RNG
 semantics for model-independent execution, codifying existing correct behavior.
 
 The legacy tensor contract is enforced by `earth2studio.models.conformance`, which
-reports the rule identifiers used below. This branch updates coordinate signatures;
-DataArray execution migration is a separate effort.
+reports the rule identifiers used below. DataArray execution is covered by focused
+model, batching, metadata, hook and checkpoint tests during incremental migration.
 
 `AssimilationModel` is out of scope; unresolved differences appear in Open Questions.
 
@@ -63,43 +63,59 @@ concrete DataArrays without mutating either.
 
 ### Migration boundary
 
-Migrated models expose allocation-free coordinate signatures:
+The public `PrognosticModel` and `DiagnosticModel` protocols use DataArrays:
 
 ```python
+def __call__(self, x: xr.DataArray) -> xr.DataArray: ...
 def input_coords(self) -> CoordinateSystem: ...
 def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
+# Prognostic models additionally expose:
+def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]: ...
 ```
 
-FCN, PrecipitationAFNO, StormCastCONUS, StormScopeGOES, and StormScopeMRMS
-use these signatures for both planning and tensor-pair execution:
+**FCN and PrecipitationAFNO implement this execution API.** Inputs are NumPy-backed
+on CPU or CuPy-backed on CUDA and must reside on the model's device. Conversion at
+the Torch boundary uses `.e2s.to_torch()` and `from_torch(tensor, signature)`; the
+latter preserves all coordinates and output metadata without materializing the
+signature. Real outputs omit signature kind/schema/dynamic attributes and preserve
+user metadata, grid ID/CRS, and applicable statistics. Precipitation changes the
+variable to `tp` and statistics to `sum:6h`. FCN requires finite timedelta-valued
+lead times and advances by six hours, including from nonzero starting offsets.
 
-```python
-def __call__(self, x: torch.Tensor, coords: CoordinateSystem
-             ) -> tuple[torch.Tensor, CoordinateSystem]: ...
-def create_iterator(self, x: torch.Tensor, coords: CoordinateSystem
-                    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]: ...
-```
+`batch_func` dispatches DataArrays to `.e2s.batch()` / `.e2s.unbatch()`. It packs
+arbitrary leading dimensions, handles an existing `batch` dimension, and inserts
+a singleton for inputs without leading dimensions. Batch labels and batch-only
+auxiliaries survive even when the core drops attrs; spatial auxiliaries survive,
+and output variable counts may change. Mixed batch/fixed auxiliary coordinates
+are unsupported. The core must retain the packed batch dimension, size, and labels
+in their original order; reordering is rejected to prevent mislabeled output.
 
-Field values remain separate tensors. Coordinate shapes must match the tensors;
-wildcard dimensions must be concretized before execution. Batching preserves
-leading dimension labels, geographic auxiliaries and metadata, and outputs remain
-allocation-free. Converted models reject dictionary coordinate arguments.
-`CoordSystem` remains the dictionary alias for unmigrated models and data helpers.
-StormCastCONUS derives geographic auxiliaries from its cropped projected axes
-and registered HRRR CRS through `coord_array(grid=...)`.
+FCN's `DataArrayPrognosticMixin` hooks take and return one DataArray in the original
+leading dimensions, and run only during iteration. `clear_hooks()` restores identity
+hooks. Level-two checkpoints store the field tensor separately from dimensions,
+coordinate values/attrs, name, attrs and encoding. Restarts yield the next forecast
+step after the saved state, rather than repeating that state.
 
-Single field-DataArray inputs belong to the separate execution migration.
-Runtime protocol membership checks method
-presence, not call signatures. The conformance checker still expects dictionary
-signatures; migrated public signatures are covered by focused coordinate tests.
-See `dev/examples/03_coordinate_signatures.py` for allocation-free planning.
+The legacy `CoordSystem` remains `OrderedDict[str, np.ndarray]`. Other wrappers,
+including Random/Random_FX, and existing inference drivers retain their tensor
+execution API. StormCastCONUS and StormScopeGOES/MRMS accept and return
+`(torch.Tensor, CoordinateSystem)` pairs: field tensors remain separate from
+allocation-free signatures, whose concrete shapes must match the tensors. Shared
+batching preserves their leading labels, auxiliaries, and output metadata.
+These regional wrappers reject dictionary coordinate arguments. StormCastCONUS
+derives geographic auxiliaries through its cropped projected grid declaration.
+Runtime protocol membership checks method presence, not call signatures, so it is
+not an execution-API detector. `models.conformance` and the rules/examples below
+still test the legacy tensor contract; do not pass migrated models to that checker.
+See `dev/examples/03_coordinate_signatures.py` for signature planning and
+`dev/examples/04_xarray_model_execution.py` for runnable DataArray execution.
 
 ## Rules
 
 ### Prognostic
 
-These rule tables describe the legacy conformance checker. Coordinate-signature
-migration and its coverage are specified above.
+These rule tables describe the legacy conformance checker. The DataArray protocol
+and current coverage are specified in the migration section above.
 
 | Rule | Requirement |
 | --- | --- |
@@ -153,7 +169,8 @@ consume its input before the 0th yield or emit partial steps.
 
 **Hooks belong to the iterator (`P10`).** Every forecast step applies `front_hook`
 immediately before advancing and `rear_hook` immediately after; `__call__` applies
-neither. `PrognosticMixin` hooks transform `(tensor, coords)` pairs.
+neither. `PrognosticMixin` hooks transform `(tensor, coords)` pairs;
+`DataArrayPrognosticMixin` hooks transform a single `xr.DataArray`.
 The front hook reaches recurrent state otherwise inaccessible between
 steps; see `examples/02_medium_range/02_model_perturbation_hook.py`.
 

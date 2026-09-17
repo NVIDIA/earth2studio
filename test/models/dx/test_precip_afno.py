@@ -22,6 +22,15 @@ import torch
 
 from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def cupy_for_cuda(request):
+    if hasattr(request.node, "callspec") and request.node.callspec.params.get(
+        "device", "cpu"
+    ).startswith("cuda"):
+        pytest.importorskip("cupy")
 
 
 class PhooAFNOPrecip(torch.nn.Module):
@@ -56,12 +65,24 @@ def test_afno_precip(x, device):
     )
     coords = coord_array(tuple(coords), coords, attrs=dx.input_coords().attrs)
 
-    out, out_coords = dx(x, coords)
+    array = from_torch(x, coords, attrs=dx.input_coords().attrs)
+    result = dx(array)
+    out, out_coords = result.e2s.to_torch()
 
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    assert out_coords.dims == ("batch", "variable", "lat", "lon")
-    assert out_coords.data.nbytes == 0
+    assert result.dims == ("batch", "variable", "lat", "lon")
+
+
+def test_precipitationafno_output_signature():
+    model = PhooAFNOPrecip()
+    center = torch.zeros(20, 1, 1)
+    scale = torch.ones(20, 1, 1)
+    dx = PrecipitationAFNO(model, center, scale)
+    output = dx.output_coords(dx.input_coords())
+    assert output.data.nbytes == 0
+    assert output["variable"].values.tolist() == ["tp"]
+    assert "tp" in output.attrs["earth2studio_statistics"]
 
 
 @pytest.mark.package
@@ -80,11 +101,12 @@ def test_afno_precip_package(device):
     )
     coords = coord_array(tuple(coords), coords, attrs=dx.input_coords().attrs)
 
-    out, out_coords = dx(x, coords)
+    array = from_torch(x, coords, attrs=dx.input_coords().attrs)
+    result = dx(array)
+    out, out_coords = result.e2s.to_torch()
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    assert out_coords.dims == ("batch", "variable", "lat", "lon")
-    assert out_coords.data.nbytes == 0
+    assert result.dims == ("batch", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -95,7 +117,7 @@ def test_afno_exceptions(device):
     scale = torch.ones(20)
 
     dx = PrecipitationAFNO(model, center, scale).to(device)
-    x = torch.randn(1).to(device)
+    x = torch.randn(1, 20, 720, 1440).to(device)
     wrong_coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
@@ -109,7 +131,7 @@ def test_afno_exceptions(device):
     )
 
     with pytest.raises((KeyError, ValueError)):
-        dx(x, wrong_coords)
+        dx(from_torch(x, wrong_coords, attrs=dx.input_coords().attrs))
 
     wrong_coords = OrderedDict(
         {
@@ -124,7 +146,7 @@ def test_afno_exceptions(device):
     )
 
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(from_torch(x.transpose(-1, -2), wrong_coords, attrs=dx.input_coords().attrs))
 
     wrong_coords = OrderedDict(
         {
@@ -138,4 +160,10 @@ def test_afno_exceptions(device):
         tuple(wrong_coords), wrong_coords, attrs=dx.input_coords().attrs
     )
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(
+            from_torch(
+                torch.zeros(1, 20, 721, 1440, device=device),
+                wrong_coords,
+                attrs=dx.input_coords().attrs,
+            )
+        )
