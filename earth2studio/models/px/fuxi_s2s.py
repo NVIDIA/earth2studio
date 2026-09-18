@@ -18,25 +18,26 @@ import hashlib
 import os
 import shutil
 import tempfile
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from onnxruntime import InferenceSession  # type: ignore[import-untyped]
@@ -151,7 +152,7 @@ def _resolve_model_assets(package: Package) -> Path:
 
 
 @check_optional_dependencies()
-class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """FuXi-S2S global daily-mean prognostic model.
 
     FuXi-S2S consumes daily means from two consecutive UTC calendar days and
@@ -231,57 +232,58 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort: InferenceSession | None = None
         self._time_step = np.timedelta64(1, "D")
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
+        CoordinateSystem
             Coordinate system for two consecutive UTC daily means.
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [np.timedelta64(-1, "D"), np.timedelta64(0, "D")]
                 ),
                 "variable": np.array(DAILY_VARIABLES),
                 "lat": np.linspace(90, -90, 121, endpoint=True),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
-            }
+            },
+            dynamic=("batch", "time"),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate input coordinates and return the next daily coordinates.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinates with two consecutive daily lead times.
 
         Returns
         -------
-        CoordSystem
+        CoordinateSystem
             Output coordinates for the daily mean one day after the latest
             input.
         """
-        target_input_coords = self.input_coords()
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Missing lead_time coordinate")
+        lead = input_coords.lead_time.values
+        if (
+            input_coords.lead_time.dims != ("lead_time",)
+            or lead.size != 2
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain two finite timedeltas")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-
-        for index, key in enumerate(target_input_coords):
-            handshake_dim(test_coords, key, index)
-            if key not in ("batch", "time"):
-                handshake_coords(test_coords, target_input_coords, key)
         self._initial_step(input_coords)
-
-        output_coords = input_coords.copy()
-        output_coords["lead_time"] = input_coords["lead_time"][-1:] + self._time_step
-        return output_coords
+        return coord_array_like(
+            input_coords, {"lead_time": lead[-1:] + self._time_step}
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -383,8 +385,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output
 
-    def _initial_step(self, coords: CoordSystem) -> int:
-        lead_days = float(coords["lead_time"][-1] / self._time_step)
+    def _initial_step(self, coords: CoordinateSystem) -> int:
+        lead_days = float(coords["lead_time"].values[-1] / self._time_step)
         if not np.isfinite(lead_days) or lead_days < 0 or not lead_days.is_integer():
             raise ValueError(
                 "Latest lead time must be a non-negative whole number of days"
@@ -403,7 +405,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: CoordinateSystem,
         step: int,
     ) -> torch.Tensor:
         """Run one FuXi-S2S ONNX step.
@@ -431,7 +433,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         output = torch.empty_like(model_input)
         valid_times = np.tile(
-            coords["time"] + coords["lead_time"][-1],
+            coords["time"].values + coords["lead_time"].values[-1],
             x.shape[0],
         )
         day_of_year = self._day_of_year(valid_times)
@@ -504,81 +506,85 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.cat((x[:, :, -1:], prediction), dim=2)
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def _step(self, x: xr.DataArray) -> xr.DataArray:
+        signature = self.output_coords(x)
+        if "time" not in x.coords or x.time.dims != ("time",):
+            raise ValueError("A one-dimensional time coordinate is required")
+        times = x.time.values
+        if not np.issubdtype(times.dtype, np.datetime64) or np.isnat(times).any():
+            raise ValueError("time must contain finite datetimes")
+        tensor, _ = x.e2s.to_torch()
+        tensor = tensor.to(self.device_buffer.device)
+        rolling = self._forward(tensor, x, self._initial_step(x))
+        output = from_torch(rolling[:, :, -1:], signature, name=x.name)
+        output.encoding = x.encoding.copy()
+        return output
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Run FuXi-S2S one daily step.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Two consecutive UTC daily means.
-        coords : CoordSystem
-            Coordinates describing the input tensor.
+        x : xr.DataArray
+            Two consecutive UTC daily means, backed by NumPy or CuPy, with
+            qualified variable labels and temporal-statistics metadata.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Predicted next daily mean and its coordinates.
+        xr.DataArray
+            Predicted next daily mean on the model device.
         """
-        step = self._initial_step(coords)
-        output_coords = self.output_coords(coords)
-        x = x.to(self.device_buffer.device)
-        rolling_output = self._forward(x, coords, step)
-        return rolling_output[:, :, -1:], output_coords
+        return self._step(x)
 
-    @batch_func()
     def _default_generator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        x: xr.DataArray,
+    ) -> Generator[xr.DataArray, None, None]:
         """Advance FuXi-S2S while retaining its two-day rolling state."""
-        self.output_coords(coords)
-        coords = coords.copy()
-        x = x.to(self.device_buffer.device)
-
-        initial_coords = coords.copy()
-        initial_coords["lead_time"] = coords["lead_time"][-1:]
-        yield x[:, :, -1:], initial_coords
+        self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        encoding = x.encoding.copy()
+        x = from_torch(tensor.to(self.device_buffer.device), x)
+        x.encoding = encoding
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
 
         while True:
-            x, coords = self.front_hook(x, coords)
-            output_coords = self.output_coords(coords)
-            step = self._initial_step(coords)
-            rolling_output = self._forward(x, coords, step)
-            prediction = rolling_output[:, :, -1:]
-            prediction, output_coords = self.rear_hook(prediction, output_coords)
-            rolling_output = torch.cat(
-                (rolling_output[:, :, :-1], prediction),
-                dim=2,
+            x = self.front_hook(x)
+            prediction = self.rear_hook(self._step(x))
+            previous, _ = x.isel(lead_time=slice(-1, None)).e2s.to_torch()
+            future, _ = prediction.e2s.to_torch()
+            signature = coord_array_like(
+                prediction,
+                {
+                    "lead_time": np.concatenate(
+                        (x.lead_time.values[-1:], prediction.lead_time.values)
+                    )
+                },
             )
-            yield prediction, output_coords.copy()
-
-            x = rolling_output
-            coords["lead_time"] = np.concatenate(
-                (coords["lead_time"][-1:], output_coords["lead_time"])
+            x = from_torch(
+                torch.cat(
+                    (previous.to(future.device), future),
+                    dim=x.get_axis_num("lead_time"),
+                ),
+                signature,
             )
+            x.encoding = prediction.encoding.copy()
+            yield prediction.copy(deep=False)
 
     def create_iterator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        x: xr.DataArray,
+    ) -> Iterator[xr.DataArray]:
         """Create a daily FuXi-S2S forecast iterator.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Two consecutive UTC daily means.
-        coords : CoordSystem
-            Coordinates describing the input tensor.
+        x : xr.DataArray
+            Two consecutive prepared UTC daily means with coordinates and statistics.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
+        xr.DataArray
             Initial current day followed by successive daily predictions.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_generator(x)
