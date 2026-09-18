@@ -18,6 +18,7 @@ from .ace2 import ACE2ERA5Data
 from .arco import ARCO, ARCO_ERA5
 from .base import DataSource, ForecastSource
 from .cams import CAMS_FX
+from .camulator import CAMulatorForcing
 from .cbottle import CBottle3D
 from .cds import CDS, CDS_ERA5
 from .cfs import CFS_FX, CFS_FX_Flux

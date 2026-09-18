@@ -158,6 +158,7 @@ atlas = [
 aurora = [
     "microsoft-aurora>=2.0.0",
 ]
+camulator = []
 dlesym = [
     "nvidia-physicsnemo>=2.2.0a0", # TODO introduce a >=2.2 constraint and drop the git pin when PNM releases
     "earth2grid",
@@ -322,7 +323,7 @@ da-stormcast = [
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
+    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
 ]
