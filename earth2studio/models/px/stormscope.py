@@ -731,12 +731,18 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordinateSystem
             Output signature with the configured output lead-time window.
         """
-        if input_coords.sizes.get("lead_time", 0) == 0:
-            raise ValueError("Input lead_time must be nonempty")
-        last_time = np.asarray(input_coords["lead_time"])[-1]
-        relative = input_coords.assign_coords(
-            lead_time=input_coords["lead_time"] - last_time
-        )
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords.coords["lead_time"])
+        if (
+            input_coords.coords["lead_time"].dims != ("lead_time",)
+            or lead.size == 0
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("Input lead_time must contain finite timedeltas")
+        last_time = lead[-1]
+        relative = input_coords.assign_coords(lead_time=lead - last_time)
         handshake_dataarray(relative, self.input_coords())
         return coord_array_like(
             input_coords, {"lead_time": self.output_times + last_time}

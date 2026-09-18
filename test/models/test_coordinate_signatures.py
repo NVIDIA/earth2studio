@@ -138,6 +138,24 @@ def test_regional_signature_validation(regional_model):
             regional_model.output_coords(bad_crs)
 
 
+@pytest.mark.parametrize("kind", ["datetime", "integer", "nat", "missing"])
+def test_regional_lead_time_type(regional_model, kind):
+    signature = regional_model.input_coords()
+    lead = np.asarray(signature.lead_time)
+    if kind == "datetime":
+        invalid = signature.assign_coords(lead_time=np.datetime64("2026-09-17") + lead)
+    elif kind == "integer":
+        invalid = signature.assign_coords(lead_time=lead.astype(np.int64))
+    elif kind == "nat":
+        lead = lead.copy()
+        lead[-1] = np.timedelta64("NaT")
+        invalid = signature.assign_coords(lead_time=lead)
+    else:
+        invalid = signature.drop_vars("lead_time")
+    with pytest.raises(ValueError, match="lead_time"):
+        regional_model.output_coords(invalid)
+
+
 def test_precipitation_signature():
     model = PrecipitationAFNO.__new__(PrecipitationAFNO)
     torch.nn.Module.__init__(model)

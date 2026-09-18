@@ -984,6 +984,23 @@ def test_coordinate_array_like_rejects_implicit_resize():
         coord_array_like(array, {"height": ("x", [4, 5])})
 
 
+def test_coordinate_array_like_partial_dynamic_dimensions():
+    from earth2studio.utils.coords import coord_array_like
+
+    signature = coord_array(
+        ("batch", "time", "x"), {"x": [0, 1]}, dynamic=("batch", "time")
+    )
+    # Resolve the rightmost wildcard first to preserve a leading dynamic prefix.
+    partial = coord_array_like(signature, {"time": [np.datetime64("2026-09-17")]})
+    assert partial.attrs["earth2studio_dynamic_dims"] == ("batch",)
+    assert partial.shape == (0, 1, 2)
+    concrete = coord_array_like(partial, {"batch": [0, 1]})
+    assert concrete.attrs["earth2studio_dynamic_dims"] == ()
+    assert concrete.shape == (2, 1, 2)
+    with pytest.raises(ValueError, match="Dynamic dimensions must lead"):
+        coord_array_like(signature, {"batch": [0, 1]})
+
+
 def test_coordinate_array_like_spatial_replacement_requires_new_grid():
     from earth2studio.utils.coords import coord_array_like
 

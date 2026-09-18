@@ -356,18 +356,21 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordinateSystem
             Output signature preserving the input grid and leading dimensions.
         """
-        if input_coords.sizes.get("lead_time", 0) == 0:
-            raise ValueError("Input lead_time must be nonempty")
-        relative = input_coords.assign_coords(
-            lead_time=input_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords.coords["lead_time"])
+        if (
+            input_coords.coords["lead_time"].dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("Input lead_time must contain one finite timedelta")
+        relative = input_coords.assign_coords(lead_time=lead - lead[-1])
         handshake_dataarray(relative, self.input_coords())
         return coord_array_like(
             input_coords,
-            {
-                "lead_time": np.asarray(input_coords["lead_time"])
-                + np.timedelta64(1, "h")
-            },
+            {"lead_time": lead + np.timedelta64(1, "h")},
         )
 
     def _input_tensor_coords(self) -> CoordSystem:
