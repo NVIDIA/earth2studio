@@ -81,8 +81,8 @@ def test_precipitationafno_output_signature():
     dx = PrecipitationAFNO(model, center, scale)
     output = dx.output_coords(dx.input_coords())
     assert output.data.nbytes == 0
-    assert output["variable"].values.tolist() == ["tp"]
-    assert "tp" in output.attrs["earth2studio_statistics"]
+    assert output["variable"].values.tolist() == ["tp:sum:6h"]
+    assert "tp:sum:6h" in output.attrs["earth2studio_statistics"]
 
 
 @pytest.mark.package

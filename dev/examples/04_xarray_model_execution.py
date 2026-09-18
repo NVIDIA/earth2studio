@@ -23,6 +23,8 @@ it requires no model weights, downloads, or GPU. Production FCN uses its declare
 26 variables and registered fcn1 grid, including the grid ID and CRS metadata.
 """
 
+from collections.abc import Generator
+
 import numpy as np
 import torch
 import xarray as xr
@@ -78,7 +80,8 @@ iterator = model.create_iterator(x)
 xr.testing.assert_identical(next(iterator), x)
 step = next(iterator)
 np.testing.assert_array_equal(step.data, 1)
-iterator.close()
+if isinstance(iterator, Generator):
+    iterator.close()
 model.clear_hooks()
 
 # %%
@@ -86,4 +89,4 @@ model.clear_hooks()
 # with x.e2s.as_cupy(device=0). Outputs remain on CUDA through the DLPack bridge.
 # PrecipitationAFNO follows the same one-array API: select its required variables
 # from an FCN forecast and call diagnostic(forecast.sel(variable=variables)).
-# Its output retains leading time/lead_time dimensions and reports tp / sum:6h.
+# Its output retains leading time/lead_time dimensions and reports tp:sum:6h.

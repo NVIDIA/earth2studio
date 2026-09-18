@@ -582,7 +582,9 @@ def _check_rollout(
     # converged on the final step's values by the time the rollout finishes
     steps: list[tuple[torch.Tensor, CoordSystem]] = []
     snapshots: list[torch.Tensor] = []
-    for values, step_coords in islice(model.create_iterator(x, coords), nsteps + 1):
+    for values, step_coords in islice(
+        cast(Callable, model.create_iterator)(x, coords), nsteps + 1
+    ):
         steps.append((values, step_coords))
         snapshots.append(values.clone())
 
@@ -685,7 +687,9 @@ def _rollout_values(
     The input is cloned per rollout so that a model violating ``P15`` cannot make
     successive rollouts disagree for the wrong reason.
     """
-    steps = islice(model.create_iterator(x.clone(), coords.copy()), 1, nsteps + 1)
+    steps = islice(
+        cast(Callable, model.create_iterator)(x.clone(), coords.copy()), 1, nsteps + 1
+    )
     return torch.cat([values.flatten().clone() for values, _ in steps])
 
 
@@ -842,7 +846,7 @@ def _check_diagnostic_reproducibility(
     x = _sample_tensor(coords, device)
 
     def run() -> torch.Tensor:
-        out, _ = model(x.clone(), coords.copy())
+        out, _ = cast(Callable, model)(x.clone(), coords.copy())
         return out.detach().flatten().clone()
 
     if not stochastic:
@@ -946,7 +950,7 @@ def _check_step_rng_isolation(
     x = _sample_tensor(coords, device)
 
     def step() -> None:
-        for _ in islice(model.create_iterator(x, coords.copy()), 2):
+        for _ in islice(cast(Callable, model.create_iterator)(x, coords.copy()), 2):
             pass
 
     _check_rng_isolation(report, step, "stepping a seeded model", "P14", device)
@@ -968,7 +972,7 @@ def _check_call_rng_isolation(
     x = _sample_tensor(coords, device)
     _check_rng_isolation(
         report,
-        lambda: model(x, coords.copy()),
+        lambda: cast(Callable, model)(x, coords.copy()),
         "calling a seeded model",
         "D10",
         device,
@@ -1009,11 +1013,11 @@ def _check_hook_scope(
     hooks.rear_hook = rear
     try:
         x = _sample_tensor(coords, device)
-        next(islice(model.create_iterator(x, coords.copy()), 1, 2))
+        next(islice(cast(Callable, model.create_iterator)(x, coords.copy()), 1, 2))
         iterator_calls = set(calls)
 
         calls.clear()
-        model(_sample_tensor(coords, device), coords.copy())
+        cast(Callable, model)(_sample_tensor(coords, device), coords.copy())
         call_calls = set(calls)
     finally:
         hooks.front_hook = original_front
@@ -1118,7 +1122,9 @@ def _evaluate_diagnostic(
             "built",
         )
     else:
-        out, out_coords = model(_sample_tensor(coords, device), coords.copy())
+        out, out_coords = cast(Callable, model)(
+            _sample_tensor(coords, device), coords.copy()
+        )
         report.require(
             "D5",
             list(out_coords) == list(output_coords),
