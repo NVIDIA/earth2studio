@@ -91,16 +91,91 @@ so users should explore and test different ones if possible.
 
 ### `earth2studio.data.fetch_data`
 
-The `fetch_data` function is useful for getting a PyTorch tensor and
-coordinate system for a given model.
-This utility fetches data for an array of times and lead times for the specified
-variables.
-For example, in the deterministic workflow `earth2studio.run.deterministic`, it is
-used to get the initial state for the provided prognostic.
+`fetch_data` returns an Xarray **field DataArray** with dimensions
+`[time, lead_time, variable, ...]`. Values are NumPy-backed on CPU and CuPy-backed
+when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordinates,
+the array name, and source attributes travel with the values.
+
+Pass a model's coordinate signature as `metadata` to request its spatial grid and
+temporal statistics. The result is validated against that signature after spatial
+mapping. Alternatively, `interp_to` accepts a coordinate DataArray, a
+`GridDefinition`, or a registered grid name such as `"fcn1"`. Exact grid subsets
+are selected without interpolation; other locations are interpolated from
+rectilinear or projected sources. Native curvilinear, point and HEALPix grids
+support exact selection. Interpolation from those topologies requires a separate
+regridder. Geographic subsets use the grid's `subset_indexers` through `bounds`
+and optional `bounds_crs`.
 
 ```python
---8<-- "earth2studio/run.py:fetch-data"
+import numpy as np
+
+from earth2studio.data import fetch_data
+from earth2studio.grids import LatLonGrid
+from earth2studio.utils.coords import coord_array
+
+target = coord_array(
+    ("time", "lead_time", "variable", "lat", "lon"),
+    {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m"]},
+    dynamic=("time",),
+    grid=LatLonGrid(np.array([40., 39.]), np.array([250., 251.])),
+    statistics={"t2m": "mean:24h"},
+)
+field = fetch_data(
+    source,
+    np.array([np.datetime64("2024-01-02T00")]),
+    target.coords["variable"].values,
+    metadata=target,
+    delta_t=np.timedelta64(6, "h"),
+)
 ```
+
+Here `source` is an analysis or forecast source providing instantaneous `t2m`.
+The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
+left-closed and right-open. The cadence defaults to `source.time_step` when
+available; otherwise provide `delta_t` explicitly. Qualified variable labels
+such as `"t2m:mean:24h"` also request reductions. Signature declarations and
+qualified labels must agree; duplicate normalized quantities are rejected.
+Output `earth2studio_statistics` describes the reductions actually performed.
+Already aggregated source variables cannot be reduced again.
+
+`ARCO_ERA5.time_step` is `np.timedelta64(1, "h")`, so ARCO statistics requests
+use hourly samples automatically without an explicit `delta_t`.
+
+Analysis sources fetch absolute valid timestamps, while forecast sources reduce
+lead times separately for each initialization. Missing or duplicate reduction
+samples raise an error.
+
+#### Calendar-day means (FuXi-S2S)
+
+FuXi-S2S labels each daily mean by its **starting midnight**. Use explicit forward
+windows with hourly source cadence:
+
+```python
+from earth2studio.models.px.fuxi_s2s import DAILY_VARIABLES
+
+field = fetch_data(
+    source,
+    np.array([np.datetime64("2024-01-02T00")]),
+    np.array(DAILY_VARIABLES),
+    lead_time=np.array([-24, 0], dtype="timedelta64[h]"),
+    delta_t=np.timedelta64(1, "h"),
+)
+```
+
+Ordinary fields such as `t2m:mean:0h:24h` average samples at 00–23 UTC.
+The interval-ending sources `tp:mean:1h:25h` and `ttr:mean:1h:25h` average
+one-hour accumulations ending at 01 UTC through the next midnight. These are
+means, not daily totals. The two requested leads retain their start-of-day labels
+and full qualified variable names. `mean:24h` instead selects the preceding day;
+it is not interchangeable with these forward windows.
+
+Variables sharing a normalized window are fetched as one block using their base
+names. The full labels and normalized statistics metadata are restored after
+reduction. Already-prepared daily means should be labeled directly and passed to
+the model without applying these reductions again.
+
+The former tuple return and `legacy` argument have been removed. Access values
+through `field.data` and coordinates through `field.coords`.
 
 ### `earth2studio.data.prep_data_array`
 
