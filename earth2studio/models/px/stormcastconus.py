@@ -268,6 +268,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.diffusion_model.crop_model(crop_bbox)
 
         hrrr_grid = resolve_grid("hrrr")
+        if not isinstance(hrrr_grid, ProjectedGrid):
+            raise TypeError("The registered HRRR grid must be a ProjectedGrid")
         self.grid = ProjectedGrid(
             hrrr_grid.y[slice(*hrrr_lat_lim)],
             hrrr_grid.x[slice(*hrrr_lon_lim)],

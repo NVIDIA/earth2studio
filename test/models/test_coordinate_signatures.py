@@ -184,8 +184,8 @@ def test_precipitation_signature():
     assert signature.data.nbytes == 0
     output = model.output_coords(signature)
     assert output.shape == (0, 1, 720, 1440)
-    np.testing.assert_array_equal(output.coords["variable"], ["tp"])
-    assert output.attrs[E2S_STATISTICS]["tp"]["modifier"] == "sum:6h"
+    np.testing.assert_array_equal(output.coords["variable"], ["tp:sum:6h"])
+    assert output.attrs[E2S_STATISTICS]["tp:sum:6h"]["modifier"] == "sum:6h"
     assert E2S_STATISTICS not in signature.attrs
     assert output.data.nbytes == 0
     with pytest.raises(ValueError, match="variable"):
@@ -299,9 +299,9 @@ def test_precipitation_tensor_call():
     coords = coord_array_like(signature, {"batch": [0]}).isel(batch=0, drop=True)
     output, output_coords = model(torch.zeros(20, 720, 1440), coords)
     assert output.shape == (1, 720, 1440)
-    np.testing.assert_array_equal(output_coords["variable"], ["tp"])
+    np.testing.assert_array_equal(output_coords["variable"], ["tp:sum:6h"])
     assert output_coords.data.nbytes == 0
-    assert output_coords.attrs[E2S_STATISTICS]["tp"]["modifier"] == "sum:6h"
+    assert output_coords.attrs[E2S_STATISTICS]["tp:sum:6h"]["modifier"] == "sum:6h"
 
 
 def test_regional_tensor_rollout(regional_model):

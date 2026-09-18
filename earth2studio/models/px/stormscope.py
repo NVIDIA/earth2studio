@@ -39,7 +39,6 @@ from earth2studio.utils import (
     coord_array_like,
     handshake_dataarray,
 )
-from earth2studio.utils.coords import statistics_from_metadata
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -1357,11 +1356,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 attrs=attrs,
                 name=coords.name,
                 dtype=coords.dtype,
-                statistics=(
-                    statistics_from_metadata(coords)
-                    if "earth2studio_statistics" in coords.attrs
-                    else None
-                ),
             )
         return x, coords
 

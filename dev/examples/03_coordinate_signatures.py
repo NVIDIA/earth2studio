@@ -102,6 +102,8 @@ print("Planned forecast:", forecast.shape, np.asarray(forecast.lead_time))
 
 # %%
 hrrr = resolve_grid("hrrr")
+if not isinstance(hrrr, ProjectedGrid):
+    raise TypeError("The registered HRRR grid must be a ProjectedGrid")
 y_slice, x_slice = slice(10, 12), slice(20, 23)
 crop = ProjectedGrid(hrrr.y[y_slice], hrrr.x[x_slice], hrrr.crs)
 projected = coord_array(
@@ -132,7 +134,8 @@ print("Native CRS:", projected.attrs["earth2studio_crs"])
 # Declare Accumulated Precipitation
 # --------------------------------
 # PrecipitationAFNO uses the registered FCN grid. Variable replacement drops
-# variable-dependent auxiliaries and explicitly declares the output statistic.
+# variable-dependent auxiliaries. Qualified labels declare the output statistic;
+# coord_array_like derives matching metadata automatically.
 
 # %%
 atmosphere = coord_array(
@@ -141,9 +144,7 @@ atmosphere = coord_array(
     dynamic=("batch",),
     grid="fcn1",
 )
-precipitation = coord_array_like(
-    atmosphere, {"variable": ["tp"]}, statistics={"tp": "sum:6h"}
-)
+precipitation = coord_array_like(atmosphere, {"variable": ["tp:sum:6h"]})
 np.testing.assert_equal(precipitation.shape, (0, 1, 720, 1440))
 np.testing.assert_equal(precipitation.data.nbytes, 0)
 print("Precipitation statistics:", precipitation.attrs["earth2studio_statistics"])

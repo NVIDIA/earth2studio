@@ -8,16 +8,15 @@ and metadata accessors are separate work.
 Qualified variable labels identify temporal quantities unambiguously:
 
 ```python
-variables = ["u10m", "t2m:mean:1day", "t2m:mean:1week", "t2m:max:1month"]
+variables = ["u10m", "t2m:mean:1day", "t2m:mean:1week", "t2m:max:30days"]
 ```
 
 The first `:` separates the source name from its modifier; base names cannot
 contain `:`. Unqualified labels are instantaneous. Qualified labels are canonical
-for model and output coordinates. When each source variable occurs once, a mapping
-such as `{"u10m": "mean:24h"}` is equivalent shorthand; a single modifier can also
-apply to all requested variables.
+for model and output coordinates. Coordinate constructors derive statistics
+metadata from these labels; there is no separate `statistics=` declaration.
 
-`fetch_data` or coordinate-system objects own label splitting, shorthand conversion,
+`fetch_data` or coordinate-system objects own label splitting,
 duplicate/conflict checks, and grouping. `time_statistics` accepts modifiers only
 and owns normalization, source-window planning, metadata, and reductions.
 
@@ -32,9 +31,12 @@ For valid time `T`, intervals are half-open:
 
 Built-in methods are `mean`, `sum`, `min`, and `max`. Source cadence must divide
 the window exactly. Durations are integers with units `ns`, `us`, `ms`,
-`s/sec/second`, `m/min/minute`, `h/hr/hour`, `d/day`, `w/wk/week`, or
-`mo/mon/month`; plural names are accepted. Weeks are seven days, months fixed
-30-day windows—not calendar-relative months.
+`s/sec/second`, `m/min/minute`, `h/hr/hour`, `d/day`, or `w/wk/week`;
+plural names are accepted. Weeks are seven days. Month and year durations are
+unsupported: specify an explicit number of days or hours instead (for example,
+`30days`). `M` and `Y` are rejected rather than interpreted as minutes or fixed
+calendar approximations; use lowercase `m` for minutes. NumPy month/year timedeltas
+are also rejected as source cadences.
 
 ### Calendar-Day Means: FuXi-S2S
 
