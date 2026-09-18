@@ -21,8 +21,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.grids import E2S_CRS, E2S_GRID_ID, resolve_grid
-from earth2studio.models.batch import batch_func
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID, ProjectedGrid, resolve_grid
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO
 from earth2studio.models.px.stormcastconus import StormCastCONUS
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
@@ -68,6 +67,11 @@ def test_regional_input_signature(regional_model):
         assert signature.attrs[E2S_CRS] == resolve_grid("hrrr").crs.to_string()
         assert signature.attrs["dims"] == ["hrrr_y", "hrrr_x"]
         np.testing.assert_array_equal(signature.hrrr_y, regional_model.hrrr_y)
+        grid = ProjectedGrid(
+            regional_model.hrrr_y, regional_model.hrrr_x, resolve_grid("hrrr").crs
+        )
+        np.testing.assert_allclose(signature.lat, grid.coords()["lat"])
+        np.testing.assert_allclose(signature.lon, grid.coords()["lon"])
     else:
         assert signature.dims[-2:] == ("y", "x")
         np.testing.assert_array_equal(signature.lat, regional_model._lat_cpu_copy)
@@ -174,27 +178,88 @@ def test_precipitation_signature():
         model.output_coords(signature.isel(variable=slice(1)))
 
 
-def test_tensor_batching_with_public_signatures(regional_model):
-    class TensorStep:
-        input_coords = regional_model.input_coords
-        output_coords = regional_model.output_coords
-        _input_tensor_coords = regional_model._input_tensor_coords
-        _output_tensor_coords = regional_model._output_tensor_coords
-
-        @batch_func()
-        def __call__(self, x, coords):
-            return x, coords
-
-    coords = regional_model._input_tensor_coords()
-    coords["batch"] = np.arange(2)
-    coords["time"] = np.array(["2026-09-17"], dtype="datetime64[ns]")
-    coords = OrderedDict(
-        ("member" if k == "batch" else k, v) for k, v in coords.items()
+def test_regional_array_execution(regional_model):
+    signature = regional_model.input_coords()
+    coords = {k: v for k, v in signature.coords.items() if k not in ("batch", "time")}
+    coords.update(
+        member=["a", "b"], time=np.array(["2026-09-17"], dtype="datetime64[ns]")
     )
-    x = torch.zeros(tuple(len(v) for v in coords.values()))
-    output, output_coords = TensorStep()(x, coords)
-    assert output.shape == x.shape
-    assert tuple(output_coords) == tuple(coords)
+    x = xr.DataArray(
+        np.zeros((2, 1, *signature.shape[2:]), dtype=np.float32),
+        dims=("member", *signature.dims[1:]),
+        coords=coords,
+        attrs=signature.attrs,
+        name="weather",
+    )
+    x.encoding = {"source": "test"}
+    x = x.assign_coords(
+        batch="source",
+        valid_time=(
+            ("time", "lead_time"),
+            np.asarray(x.time)[:, None] + np.asarray(x.lead_time)[None, :],
+        ),
+    )
+    if isinstance(regional_model, StormCastCONUS):
+        regional_model.batch_size = 1
+        regional_model.conditioning_data_source = object()
+        regional_model._get_conditioning = lambda coords, batch, device: torch.zeros(
+            x.shape
+        )
+        regional_model._forward = lambda state, condition, time, **kwargs: state + 1
+    else:
+        regional_model.valid_mask = torch.ones(2, 3, dtype=torch.bool)
+        regional_model.input_interp = None
+        regional_model.conditioning_variables = None
+        regional_model.sliding_window = True
+        regional_model._inject_auto_observations = lambda state, coords: state
+        regional_model._forward = lambda state, coords, **kwargs: state[:, :, -2:] + 1
+    out = regional_model(x)
+    assert isinstance(out, xr.DataArray)
+    assert out.dims == x.dims
+    assert out.name == x.name and out.encoding == x.encoding
+    np.testing.assert_array_equal(out.member, x.member)
+    np.testing.assert_allclose(out.data, 1)
+    np.testing.assert_array_equal(
+        out.lead_time, regional_model.output_coords(x).lead_time
+    )
+    np.testing.assert_allclose(x.data, 0)
+    if not isinstance(regional_model, StormCastCONUS):
+        regional_model.conditioning_interp = None
+        regional_model.conditioning_valid_mask = regional_model.valid_mask
+        conditioned = regional_model.call_with_conditioning(
+            x, x.assign_coords(sensor="GOES")
+        )
+        xr.testing.assert_identical(conditioned, out)
+        with pytest.raises(ValueError, match="member"):
+            regional_model.call_with_conditioning(
+                x, x.isel(member=slice(None, None, -1))
+            )
+    else:
+        observations = []
+        regional_model._forward = lambda state, condition, time, **kwargs: (
+            observations.append(kwargs["y_obs"]) or state + 1
+        )
+        generator = regional_model.create_generator(x)
+        next(generator)
+        observation = torch.ones(1)
+        generator.send((observation, torch.ones(1)))
+        assert all(value is observation for value in observations)
+        generator.close()
+    seen = []
+    regional_model.front_hook = lambda state: (seen.append(state.dims) or state)
+    iterator = regional_model.create_iterator(x)
+    initial = next(iterator)
+    assert initial.encoding == x.encoding
+    first = next(iterator)
+    second = next(iterator)
+    assert seen == [x.dims, x.dims]
+    np.testing.assert_allclose(first.data, 1)
+    np.testing.assert_allclose(second.data, 2)
+    iterator.close()
+    assert not hasattr(regional_model, "_input_tensor_coords")
+    assert not hasattr(regional_model, "_output_tensor_coords")
+    with pytest.raises(TypeError):
+        regional_model(torch.zeros(x.shape), OrderedDict())
 
 
 def test_precipitation_array_call():

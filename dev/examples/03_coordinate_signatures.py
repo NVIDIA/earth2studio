@@ -111,6 +111,11 @@ projected = coord_array(
     grid=crop,
     grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
 )
+
+# Geographic auxiliary coordinates are derived by coord_array from this cropped
+# ProjectedGrid; callers do not need to provide lat/lon separately.
+np.testing.assert_equal(projected.lat.dims, ("hrrr_y", "hrrr_x"))
+np.testing.assert_equal(projected.lon.dims, ("hrrr_y", "hrrr_x"))
 np.testing.assert_equal(projected.shape, (0, 0, 1, 2, 2, 3))
 np.testing.assert_equal(projected.data.nbytes, 0)
 np.testing.assert_array_equal(projected.hrrr_y, hrrr.y[y_slice])
