@@ -52,6 +52,42 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
+from earth2studio.grids import CurvilinearGrid, LatLonGrid
+from earth2studio.utils.coords import coord_array
+
+
+class _AnalysisSequence:
+    def __call__(self, time, variable):
+        values = (np.asarray(time) - np.datetime64("2024-01-02")) / np.timedelta64(
+            1, "h"
+        )
+        return xr.DataArray(
+            np.broadcast_to(values[:, None, None], (len(time), len(variable), 2)),
+            dims=("time", "variable", "x"),
+            coords={"time": time, "variable": variable, "x": [0, 1]},
+        )
+
+
+class _ForecastSequence:
+    def __call__(self, time, lead_time, variable):
+        values = np.asarray(lead_time) / np.timedelta64(1, "h")
+        return xr.DataArray(
+            np.broadcast_to(
+                values[None, :, None, None],
+                (len(time), len(lead_time), len(variable), 2),
+            ),
+            dims=("time", "lead_time", "variable", "x"),
+            coords={
+                "time": time,
+                "lead_time": lead_time,
+                "variable": variable,
+                "x": [0, 1],
+            },
+        )
+
+
+class _CadencedAnalysisSequence(_AnalysisSequence):
+    time_step = np.timedelta64(6, "h")
 
 
 @pytest.fixture
@@ -195,13 +231,42 @@ def test_fetch_data(time, lead_time, device):
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
     r = Random(domain)
 
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    if device != "cpu":
+        pytest.importorskip("cupy")
+    x = fetch_data(r, time, variable, lead_time, device=device)
+    coords = x.coords
 
-    assert x.device == torch.device(device)
+    assert isinstance(x, xr.DataArray)
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert not torch.isnan(x).any()
+    assert not np.isnan(x.data).any()
+
+
+@pytest.mark.parametrize(
+    "source", [_AnalysisSequence(), _CadencedAnalysisSequence(), _ForecastSequence()]
+)
+def test_fetch_data_time_statistics(source):
+    metadata = coord_array(
+        ("time", "lead_time", "variable", "x"),
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a:mean:24h", "a:max:12h", "b"],
+            "x": [0, 1],
+        },
+        dynamic=("time",),
+    )
+    delta_t = None if hasattr(source, "time_step") else np.timedelta64(6, "h")
+    array = fetch_data(
+        source,
+        np.array([np.datetime64("2024-01-02")]),
+        metadata.coords["variable"].values,
+        metadata=metadata,
+        delta_t=delta_t,
+    )
+    np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
+    np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)
+    np.testing.assert_allclose(array.sel(variable="b"), 0)
 
 
 def test_fetch_data_out_of_ns_range():
@@ -227,13 +292,14 @@ def test_fetch_data_out_of_ns_range():
     variable = np.array(["a"])
     lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
 
-    x, coords = fetch_data(RecordingSource(), time, variable, lead_time)
+    x = fetch_data(RecordingSource(), time, variable, lead_time)
+    coords = x.coords
 
     assert len(received) == len(lead_time)
     assert received[0][0] == time[0]
     assert received[1][0] == time[0] + np.timedelta64(6, "h")
     assert np.all(coords["time"] == time)
-    assert not torch.isnan(x).any()
+    assert not np.isnan(x.data).any()
 
 
 @pytest.mark.parametrize(
@@ -248,7 +314,7 @@ def test_fetch_data_out_of_ns_range():
         ),
     ],
 )
-def test_fetch_data_legacy_false(device):
+def test_fetch_data_backend(device):
 
     if device == "cuda:0" and torch.cuda.is_available():
         try:
@@ -262,7 +328,7 @@ def test_fetch_data_legacy_false(device):
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
     r = Random(domain)
 
-    da = fetch_data(r, time, variable, lead_time, device=device, legacy=False)
+    da = fetch_data(r, time, variable, lead_time, device=device)
 
     assert isinstance(da, xr.DataArray)
     assert da.dims == ("time", "lead_time", "variable", "lat", "lon")
@@ -370,6 +436,8 @@ def test_fetch_dataframe(time, lead_time, device):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_fetch_data_interp(time, lead_time, device):
     pytest.importorskip("scipy", reason="scipy not installed")
+    if device != "cpu":
+        pytest.importorskip("cupy")
     # Original (source) domain
     variable = np.array(["a", "b", "c"])
     domain = OrderedDict(
@@ -383,15 +451,10 @@ def test_fetch_data_interp(time, lead_time, device):
     # Target domain, 1d lat/lon coords
     lat = np.linspace(60, 20, num=256)
     lon = np.linspace(130, 60, num=512)
-    target_coords = OrderedDict(
-        {
-            "_lat": lat,
-            "_lon": lon,
-        }
-    )
+    target_coords = LatLonGrid(lat, lon)
 
     # nearest neighbor interp
-    x, coords = fetch_data(
+    x = fetch_data(
         r,
         time,
         variable,
@@ -401,16 +464,16 @@ def test_fetch_data_interp(time, lead_time, device):
         interp_method="nearest",
     )
 
-    assert x.device == torch.device(device)
+    coords = x.coords
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256,)
-    assert coords["_lon"].shape == (512,)
-    assert not torch.isnan(x).any()
+    assert coords["lat"].shape == (256,)
+    assert coords["lon"].shape == (512,)
+    assert not np.isnan(x.data).any()
 
     # bilinear interp
-    x, coords = fetch_data(
+    x = fetch_data(
         r,
         time,
         variable,
@@ -420,27 +483,22 @@ def test_fetch_data_interp(time, lead_time, device):
         interp_method="linear",
     )
 
-    assert x.device == torch.device(device)
+    coords = x.coords
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256,)
-    assert coords["_lon"].shape == (512,)
-    assert not torch.isnan(x).any()
+    assert coords["lat"].shape == (256,)
+    assert coords["lon"].shape == (512,)
+    assert not np.isnan(x.data).any()
 
     # Target domain, 2d lat/lon coords
     lat = np.linspace(60, 20, num=256)
     lon = np.linspace(130, 60, num=512)
     lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
-    target_coords = OrderedDict(
-        {
-            "_lat": lat2d,
-            "_lon": lon2d,
-        }
-    )
+    target_coords = CurvilinearGrid(lat2d, lon2d)
 
     # nearest neighbor interp
-    x, coords = fetch_data(
+    x = fetch_data(
         r,
         time,
         variable,
@@ -450,16 +508,16 @@ def test_fetch_data_interp(time, lead_time, device):
         interp_method="nearest",
     )
 
-    assert x.device == torch.device(device)
+    coords = x.coords
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256, 512)
-    assert coords["_lon"].shape == (256, 512)
-    assert not torch.isnan(x).any()
+    assert coords["lat"].shape == (256, 512)
+    assert coords["lon"].shape == (256, 512)
+    assert not np.isnan(x.data).any()
 
     # bilinear interp
-    x, coords = fetch_data(
+    x = fetch_data(
         r,
         time,
         variable,
@@ -469,13 +527,13 @@ def test_fetch_data_interp(time, lead_time, device):
         interp_method="linear",
     )
 
-    assert x.device == torch.device(device)
+    coords = x.coords
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256, 512)
-    assert coords["_lon"].shape == (256, 512)
-    assert not torch.isnan(x).any()
+    assert coords["lat"].shape == (256, 512)
+    assert coords["lon"].shape == (256, 512)
+    assert not np.isnan(x.data).any()
 
 
 @pytest.mark.parametrize(
@@ -522,14 +580,15 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     # To check attempt to get input data from saved file
     ds = DataArrayFile(file_name)
-    x, coords = fetch_data(ds, time, variable, lead_time)
+    x = fetch_data(ds, time, variable, lead_time)
+    coords = x.coords
 
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
     assert np.all(coords["lat"] == domain["lat"])
     assert np.all(coords["lon"] == domain["lon"])
-    assert not torch.isnan(x).any()
+    assert not np.isnan(x.data).any()
 
 
 def test_datasource_cache(tmp_path, monkeypatch):
