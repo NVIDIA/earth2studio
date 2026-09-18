@@ -15,27 +15,24 @@
 # limitations under the License.
 
 import zipfile
-from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
-    handshake_coords,
     handshake_dataarray,
-    handshake_dim,
 )
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordinateSystem, CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from earth2studio.models.nn.afno_precip import PrecipNet
@@ -139,50 +136,6 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
             statistics={"tp": "sum:6h"},
         )
 
-    def _input_tensor_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-
-    @batch_coords()
-    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self._input_tensor_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["tp"])
-        return output_coords
-
     def __str__(self) -> str:
         return "precipnet"
 
@@ -239,10 +192,10 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: CoordinateSystem,
+    ) -> tuple[torch.Tensor, CoordinateSystem]:
         """Forward pass of diagnostic"""
-        output_coords = self._output_tensor_coords(coords)
+        output_coords = self.output_coords(coords)
 
         x = (x - self.center) / self.scale
         out = self.core_model(x)

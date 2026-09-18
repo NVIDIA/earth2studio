@@ -64,6 +64,9 @@ print("Regional declaration:", regional.dims, regional.shape)
 # ---------------------
 # Leading dimensions can have concrete sizes without allocating fields. Rebase
 # lead times for validation, then advance from the final input lead time.
+# Converted models accept these coordinates alongside a separate field tensor:
+# ``prediction, prediction_coords = model(tensor, concrete)``. The tensor shape
+# must equal ``concrete.shape``. Iterators accept and yield the same pair.
 
 # %%
 concrete = coord_array_like(
