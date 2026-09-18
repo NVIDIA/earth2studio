@@ -18,9 +18,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any, Protocol, runtime_checkable
 
-import xarray as xr
+import torch
 
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.type import CoordSystem
 
 
 # --8<-- [start:prognostic-model-interface]
@@ -30,63 +30,70 @@ class PrognosticModel(Protocol):
 
     def __call__(
         self,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Forward pass of the prognostic model, time integrating a single time-step
 
         Parameters
         ----------
-        x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA state with labeled coordinates
-            and the metadata required by ``input_coords()``.
+        x : torch.Tensor
+            Input tensor intended to apply diagnostic function on
+        coords : CoordSystem
+            Ordered dict representing coordinate system that describes the tensor
 
         Returns
         -------
-        xr.DataArray
-            State one time-step into the future, including output coordinates.
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate dictionary one time-step into the future
         """
         pass
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
         Parameters
         ----------
-        x : xr.DataArray
-            Initial state with labeled coordinates and model metadata.
+        x : torch.Tensor
+            Input tensor, which can be viewed as the initial state of the prognositc
+        coords : CoordSystem
+            Input coordinate system
 
         Yields
         ------
-        xr.DataArray
-            Initial state followed by successive forecast states.
+        Iterator[tuple[torch.Tensor, CoordSystem]]
+            Iterator that generates time-steps of the prognostic model container the
+            output data tensor and coordinate system dictionary.
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem:
+    def input_coords(self) -> CoordSystem:
         """Input coordinate system of prognostic model, time dimension should contain
         time-delta objects
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray input signature with relative lead times.
+        CoordSystem
+            Coordinate system dictionary
         """
         pass
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model give an input coordinate
         system.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem
-            Input signature or real DataArray to validate and transform.
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free output signature, retaining concrete leading dimensions.
+        CoordSystem
+            Coordinate system dictionary
 
         Raises
         ------

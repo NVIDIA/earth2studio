@@ -13,8 +13,6 @@ Runnable tutorials for proposed APIs and workflows.
 - `02_model_contract_tutorial.py`: legacy tensor execution, hooks, and conformance.
 - `03_coordinate_signatures.py`: new allocation-free DataArray signatures,
   grid-backed regional geometry, output planning, and precipitation statistics.
-- `04_xarray_model_execution.py`: FCN DataArray stepping, leading-dimension batching,
-  iterator hooks, and the Torch bridge with a small CPU-only synthetic core.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only

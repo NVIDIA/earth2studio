@@ -6,8 +6,8 @@ Define prognostic and diagnostic iterator, coordinate, hook, ownership, and RNG
 semantics for model-independent execution, codifying existing correct behavior.
 
 The legacy tensor contract is enforced by `earth2studio.models.conformance`, which
-reports the rule identifiers used below. DataArray execution is covered by focused
-model, batching, metadata, hook and checkpoint tests during incremental migration.
+reports the rule identifiers used below. This branch updates coordinate signatures;
+DataArray execution migration is a separate effort.
 
 `AssimilationModel` is out of scope; unresolved differences appear in Open Questions.
 
@@ -63,66 +63,32 @@ concrete DataArrays without mutating either.
 
 ### Migration boundary
 
-The public `PrognosticModel` and `DiagnosticModel` protocols use DataArrays:
+Migrated models expose allocation-free coordinate signatures:
 
 ```python
-def __call__(self, x: xr.DataArray) -> xr.DataArray: ...
 def input_coords(self) -> CoordinateSystem: ...
 def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
-# Prognostic models additionally expose:
-def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]: ...
 ```
 
-**FCN, PrecipitationAFNO, StormCastCONUS, StormScopeGOES, and StormScopeMRMS
-implement this execution API.** Inputs are NumPy-backed
-on CPU or CuPy-backed on CUDA and must reside on the model's device. Conversion at
-the Torch boundary uses `.e2s.to_torch()` and `from_torch(tensor, signature)`; the
-latter preserves all coordinates and output metadata without materializing the
-signature. Real outputs omit signature kind/schema/dynamic attributes and preserve
-user metadata, grid ID/CRS, and applicable statistics. Precipitation changes the
-variable to `tp` and statistics to `sum:6h`. FCN requires finite timedelta-valued
-lead times and advances by six hours, including from nonzero starting offsets.
+FCN, PrecipitationAFNO, StormCastCONUS, StormScopeGOES, and StormScopeMRMS
+use these signatures while retaining tensor-plus-coordinate execution inputs.
+`CoordSystem` remains `OrderedDict[str, np.ndarray]`. Private tensor-coordinate
+helpers bridge existing model calls and batching during signature migration.
+StormCastCONUS derives geographic auxiliaries from its cropped projected axes
+and registered HRRR CRS through `coord_array(grid=...)`.
 
-`batch_func` dispatches DataArrays to `.e2s.batch()` / `.e2s.unbatch()`. It packs
-arbitrary leading dimensions, handles an existing `batch` dimension, and inserts
-a singleton for inputs without leading dimensions. Batch labels and batch-only
-auxiliaries survive even when the core drops attrs; spatial auxiliaries survive,
-and output variable counts may change. Mixed batch/fixed auxiliary coordinates
-are unsupported. The core must retain the packed batch dimension, size, and labels
-in their original order; reordering is rejected to prevent mislabeled output.
-
-Level-two checkpoints store the field tensor separately from dimensions,
-coordinate values/attrs, name, attrs and encoding. Restarts yield the next forecast
-step after the saved state, rather than repeating that state (FCN).
-
-Regional public calls and iterators accept DataArrays exclusively. State inputs
-must match the native grid signature, including geographic auxiliary coordinates;
-`coord_array(grid=...)` supplies these for projected and curvilinear grids.
-StormCastCONUS derives lat/lon from its cropped projected axes and registered HRRR
-CRS. Its `create_generator(x)` yields the initial state and accepts observations
-through `send(obs)`; single steps accept `model(x, obs=obs)`.
-StormScope's coupled path is `call_with_conditioning(x, conditioning)`, with both
-arguments DataArrays and matching leading/time coordinates. Its
-`next_input(pred, x)` maintains the sliding window using named lead-time axes.
-Tensors and coordinate mappings remain internal to network computation and
-existing data-fetch/interpolation helpers.
-
-The legacy `CoordSystem` remains `OrderedDict[str, np.ndarray]`. Other wrappers,
-including Random/Random_FX, and existing inference drivers retain their tensor
-execution API. FCN and the regional wrappers have no private tensor-coordinate
-signature adapters.
-Runtime protocol membership checks method presence, not call signatures, so it is
-not an execution-API detector. `models.conformance` and the rules/examples below
-still test the legacy tensor contract; do not pass migrated models to that checker.
-See `dev/examples/03_coordinate_signatures.py` for signature planning and
-`dev/examples/04_xarray_model_execution.py` for runnable DataArray execution.
+DataArray calls, iterators, hooks, batching, and checkpoint execution belong to
+the separate execution migration. Runtime protocol membership checks method
+presence, not call signatures. The conformance checker still expects dictionary
+signatures; migrated public signatures are covered by focused coordinate tests.
+See `dev/examples/03_coordinate_signatures.py` for allocation-free planning.
 
 ## Rules
 
 ### Prognostic
 
-These rule tables describe the legacy conformance checker. The DataArray protocol
-and current coverage are specified in the migration section above.
+These rule tables describe the legacy conformance checker. Coordinate-signature
+migration and its coverage are specified above.
 
 | Rule | Requirement |
 | --- | --- |
@@ -176,9 +142,8 @@ consume its input before the 0th yield or emit partial steps.
 
 **Hooks belong to the iterator (`P10`).** Every forecast step applies `front_hook`
 immediately before advancing and `rear_hook` immediately after; `__call__` applies
-neither. Hooks transform values and coordinates: legacy `PrognosticMixin` uses
-`(tensor, coords)`; `DataArrayPrognosticMixin` uses one DataArray in original leading
-dimensions. The front hook reaches recurrent state otherwise inaccessible between
+neither. `PrognosticMixin` hooks transform `(tensor, coords)` pairs.
+The front hook reaches recurrent state otherwise inaccessible between
 steps; see `examples/02_medium_range/02_model_perturbation_hook.py`.
 
 Each hook is a single callable slot. Callers compose transformations explicitly;
@@ -207,7 +172,6 @@ ownership guarantees address the underlying buffer-lifetime problem.
 
 Legacy `batch_func` rebuilds coordinates but does not protect tensor inputs:
 `_compress_batch` uses `unsqueeze`/`flatten` views, so internal writes reach callers.
-DataArray batching is described above.
 
 ## Stochasticity
 
