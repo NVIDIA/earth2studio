@@ -151,7 +151,6 @@ def coord_array(
     dtype: DTypeLike = np.float32,
     name: Hashable | None = None,
     attrs: Mapping[Hashable, Any] | None = None,
-    statistics: Mapping[str, str] | str | None = None,
 ) -> CoordinateSystem:
     """Create an allocation-free Earth2Studio coordinate signature.
 
@@ -167,7 +166,8 @@ def coord_array(
         Sizes for dimensions without coordinates.
     grid : str or GridDefinition, optional
         Registered grid or definition supplying spatial coordinates and metadata.
-        Projected and HEALPix grids supply only their inexpensive index coordinates.
+        Projected grids also supply geographic coordinates; HEALPix grids supply
+        only index coordinates.
     grid_dims : mapping, optional
         Rename grid dimensions to model dimensions, for example
         ``{"y": "hrrr_y", "x": "hrrr_x"}``. Explicit coordinates use model names.
@@ -177,9 +177,11 @@ def coord_array(
         DataArray name.
     attrs : mapping, optional
         Additional metadata. Grid and signature metadata take precedence.
-    statistics : mapping or str, optional
-        Temporal-statistic modifiers by variable, or one modifier for all variables.
-        Statistics must be supplied here rather than through ``attrs``.
+
+    Notes
+    -----
+    Declare temporal statistics in variable labels, for example ``tp:sum:6h``.
+    Statistics metadata is derived from those labels, not supplied independently.
 
     Returns
     -------
@@ -210,10 +212,10 @@ def coord_array(
             raise ValueError(
                 f"Grid dimensions are missing from dims: {sorted(missing)}"
             )
-        for dim, size in zip(spatial_dims, definition.shape, strict=True):
-            if dim in candidates and candidates[dim] != size:
+        for dim, grid_size in zip(spatial_dims, definition.shape, strict=True):
+            if dim in candidates and candidates[dim] != grid_size:
                 raise ValueError(f"Grid and declared size differ for '{dim}'")
-            candidates[dim] = size
+            candidates[dim] = grid_size
         grid_coords = definition.coords(
             only_index=definition.topology not in {"curvilinear", "points", "projected"}
         )
@@ -268,34 +270,27 @@ def coord_array(
         name=name,
         attrs=metadata,
     )
-    if statistics is not None:
-        if "variable" not in array.coords:
-            raise ValueError("Statistics require a variable coordinate")
+    if "variable" in array.coords:
+        if array.coords["variable"].dims != ("variable",):
+            raise ValueError("Variable must be a one-dimensional coordinate")
         variables = tuple(np.asarray(array.coords["variable"]).astype(str))
         if len(set(variables)) != len(variables):
             raise ValueError("Variable coordinates must be unique")
-        declarations = (
-            {variable: statistics for variable in variables}
-            if isinstance(statistics, str)
-            else dict(statistics)
-        )
-        unknown = set(declarations) - set(variables)
-        if unknown:
-            raise ValueError(
-                f"Statistics reference unknown variables: {sorted(unknown)}"
-            )
-        array.attrs[E2S_STATISTICS] = {
-            variable: time_statistic_metadata(modifier)
-            for variable, modifier in declarations.items()
-        }
+        declarations = {}
+        for variable in variables:
+            base, separator, modifier = variable.partition(":")
+            if not base:
+                raise ValueError("Variable source name must not be empty")
+            if separator:
+                declarations[variable] = time_statistic_metadata(modifier)
+        if declarations:
+            array.attrs[E2S_STATISTICS] = declarations
     return array
 
 
 def coord_array_like(
     array: xr.DataArray,
     coords: Mapping[Hashable, Any] | None = None,
-    *,
-    statistics: Mapping[str, str] | str | None = None,
 ) -> CoordinateSystem:
     """Build a fresh coordinate signature from an array without copying field data.
 
@@ -311,9 +306,7 @@ def coord_array_like(
         Resolve dynamic dimensions together or from right to left so remaining
         wildcards stay a leading prefix. Resolving only ``batch`` while leaving
         a following ``time`` dynamic raises ``ValueError``.
-    statistics : mapping or str, optional
-        Output temporal statistics. If omitted, retain statistics for variables
-        still present in the output. Pass an empty mapping to clear statistics.
+        Temporal statistics are derived from the resulting variable labels.
 
     Returns
     -------
@@ -355,16 +348,7 @@ def coord_array_like(
         dtype=array.dtype,
         name=array.name,
         attrs=array.attrs,
-        statistics=statistics,
     )
-    if statistics is None and "variable" in output.coords:
-        retained = {
-            variable: deepcopy(details)
-            for variable, details in array.attrs.get(E2S_STATISTICS, {}).items()
-            if variable in np.asarray(output.coords["variable"])
-        }
-        if retained:
-            output.attrs[E2S_STATISTICS] = retained
     return output
 
 

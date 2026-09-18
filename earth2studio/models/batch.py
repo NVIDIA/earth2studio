@@ -25,7 +25,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.utils.coords import coord_array, statistics_from_metadata
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 FuncType = Callable[..., Any]
@@ -165,7 +165,7 @@ class batch_func:
         size = int(np.prod(shape))
         if size == 0:
             raise ValueError("Execution batch dimensions must be nonempty")
-        coordinates = {}
+        coordinates: dict[Any, Any] = {}
         for name, coordinate in coords.coords.items():
             if name in leading or name == "batch":
                 continue
@@ -192,11 +192,6 @@ class batch_func:
             attrs=coords.attrs,
             name=coords.name,
             dtype=coords.dtype,
-            statistics=(
-                statistics_from_metadata(coords)
-                if "earth2studio_statistics" in coords.attrs
-                else None
-            ),
         )
         return x.reshape(size, *x.shape[n:]), compressed, coords, shape
 
@@ -271,11 +266,6 @@ class batch_func:
                 attrs=out_coords.attrs,
                 name=out_coords.name,
                 dtype=out_coords.dtype,
-                statistics=(
-                    statistics_from_metadata(out_coords)
-                    if "earth2studio_statistics" in out_coords.attrs
-                    else None
-                ),
             )
             return out.reshape(shape), restored
 

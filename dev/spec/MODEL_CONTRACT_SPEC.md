@@ -20,8 +20,10 @@ order through `.dims`, and lengths through `.sizes`. Accessing field `.values` i
 unsupported. Dimension and auxiliary coordinate arrays themselves occupy memory.
 
 `input_coords()` is a *declaration*. Dynamic dimensions form an explicitly marked,
-zero-sized leading prefix (`earth2studio_dynamic_dims`), conventionally `batch`
-and, for regional models, `time`. The remaining dimensions, labels, auxiliary
+zero-sized leading prefix (`earth2studio_dynamic_dims`). Any model can declare
+dynamic dimensions, including `time` or other model-specific axes; this is not a
+regional/global distinction and names are not restricted to `batch` and `time`.
+The remaining dimensions, labels, auxiliary
 coordinates, and declared grid/CRS/statistics metadata must match. Concrete inputs
 may use any leading batch dimensions or none; fixed trailing dimension order is
 authoritative. A zero-sized fixed dimension is not implicitly a wildcard.
@@ -30,13 +32,28 @@ Resolve multiple dynamic dimensions together or from right to left: concretizing
 `batch` would leave a non-leading wildcard and is rejected. Dimensions are not
 silently reordered or converted from wildcards to fixed zero-length axes.
 
+Flexible input shapes and variable sets are configured on the model **instance**
+before querying `input_coords()`. For example, a model supporting arbitrary crops
+is configured with the chosen domain/grid, and an observation model accepting
+optional channels is configured with the available variable set. Its declaration
+then gives concrete spatial coordinates and variable labels for that configuration,
+so fetching and output planning are unambiguous. Reconfigure before planning a
+different domain or channel set. The contract does not prescribe a common
+configuration method: constructors or model-specific setters may provide it.
+An unresolved wildcard is not a request to fetch an unspecified region or variable
+set. Model-specific validation enforces constraints such as patch-size multiples
+or supported channel combinations in addition to coordinate handshakes.
+
 `output_coords(input_coords)` validates and resolves output coordinates without
 touching field data, enabling rollout planning before allocation.
 Use `coord_array_like(input, replacements)` to preserve arbitrary
 leading dimensions, dtype, name, metadata, and unaffected coordinates. Replacing
 `lead_time` or `variable` removes dependent auxiliaries (for example `valid_time`
 or variable-specific units), which must be recomputed explicitly if needed.
-Statistics are retained only for surviving variables unless explicitly supplied.
+Temporal statistics are declared only in qualified variable labels such as
+`tp:sum:6h`. `coord_array()` and `coord_array_like()` derive the
+`earth2studio_statistics` attribute from those labels; it is not an independent
+declaration. Replacing variables recomputes the metadata from the output labels.
 Spatial replacements require `coord_array(grid=...)` with a new grid definition;
 `coord_array_like()` rejects them to prevent stale grid metadata.
 
@@ -49,13 +66,14 @@ repeating grid axes in each model. The helper attaches grid metadata and
 geographic coordinates; HEALPix signatures use index coordinates. Handshakes
 validate geographic coordinates as well as axes.
 
-| Model | Grid declaration | Spatial dimensions | Output |
-| --- | --- | --- | --- |
-| `StormScopeGOES`, `StormScopeMRMS` | `CurvilinearGrid` from checkpoint geometry | `y, x` | Configured output offsets added to final input lead time |
-| `StormCastCONUS` | Cropped `ProjectedGrid` using registered HRRR CRS | `y, x` | Final input lead time plus one hour |
-| `PrecipitationAFNO` | Registered `fcn1` grid (720 × 1440) | `lat, lon` | `tp`, with `sum:6h` statistics |
+- `StormScopeGOES`, `StormScopeMRMS`: checkpoint `CurvilinearGrid` on `y, x`;
+  output offsets are added to the final input lead time.
+- `StormCastCONUS`: cropped `ProjectedGrid` with registered HRRR CRS on `y, x`;
+  output advances the final input lead time by one hour.
+- `PrecipitationAFNO`: registered `fcn1` grid (720 × 1440) on `lat, lon`;
+  output is `tp:sum:6h` with derived statistics metadata.
 
-Regional validation subtracts the final input lead time before checking the
+Models declaring relative lead-time history subtract the final input lead time before checking the
 declared history window. Before subtraction, `lead_time` must be an explicit,
 nonempty one-dimensional timedelta coordinate with no `NaT` entries; datetime
 and numeric labels are rejected. Output planning accepts both dynamic declarations and

@@ -104,15 +104,29 @@ signature = coord_array(
 )
 ```
 
-StormCastCONUS uses the standard projected `y, x` dimensions directly, preserving
-native meter values and supporting `infer_grid()` without renaming.
+Models using projected grids use the standard `y, x` dimensions, preserving
+native coordinate values in the CRS's units. The grid supplies these axes and
+geographic coordinates; `infer_grid()` can recover the geometry without renaming.
 
 Optional `grid_dims` maps standard grid axes to a model's
 dimension names, including grid-coordinate dimensions and the `dims` metadata.
 Explicit coordinates use the mapped names. This mapping does not rename the grid
 definition itself: rename model axes back before passing such an array to
-`infer_grid()` or grid selection methods. A cropped grid should use a definition
-constructed from the cropped axes, not the identifier of its full parent grid.
+`infer_grid()` or grid selection methods.
+
+A crop has different axes and shape from its full parent grid. Construct a new
+definition with the selected native axes and the same CRS, then pass that definition
+to `coord_array`. For example, for a projected `parent` grid:
+
+```python
+crop = ProjectedGrid(parent.y[10:20], parent.x[30:50], parent.crs)
+signature = coord_array(("y", "x"), grid=crop)
+```
+
+This produces the cropped axes and their geographic coordinates without attaching
+the full parent's registered ID. Using `grid="hrrr"`, for example, requests the
+entire registered HRRR geometry, not a crop; attaching that ID to cropped data
+would incorrectly claim that its geometry matches the full registered grid.
 
 Coordinate handshakes compare fixed axes and auxiliary coordinates and require
 matching declared grid ID and CRS metadata. `coord_array_like()` creates output
