@@ -137,7 +137,7 @@ def test_precipitation_array_execution(device: str) -> None:
     out = model(x)
     assert out.e2s.is_cupy == x.e2s.is_cupy
     assert out.dims == x.dims
-    assert out["variable"].values.tolist() == ["tp"]
+    assert out["variable"].values.tolist() == ["tp:sum:6h"]
     np.testing.assert_allclose(out.e2s.as_numpy().data, 1e-5 * np.expm1(1), rtol=1e-6)
     xr.testing.assert_identical(out.height, x.height)
     assert out.attrs["experiment"] == "test"
@@ -160,7 +160,7 @@ def test_fcn_checkpoint_metadata_round_trip(tmp_path: Path) -> None:
         {
             key: value
             for key, value in coord_array_like(
-                x, statistics={"u": "mean:6h"}
+                x, {"variable": ["u:mean:6h", "v"]}
             ).attrs.items()
             if key == "earth2studio_statistics"
         }

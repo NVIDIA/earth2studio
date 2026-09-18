@@ -251,7 +251,6 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             },
             dynamic=("batch", "time"),
-            statistics={label: label.split(":", 1)[1] for label in DAILY_VARIABLES},
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
