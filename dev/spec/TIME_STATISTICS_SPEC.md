@@ -109,8 +109,8 @@ then privately groups variables that can share one fetch and one reduction:
 
 ```python
 variables = ["u10m:mean:1day", "v10m:mean:1day", "t2m:max:1day"]
-groups = _group_time_statistics(variables, None)
-# {"mean:24h": ("u10m", "v10m"), "max:24h": ("t2m",)}
+# The fetch layer constructs this plan after normalizing modifiers:
+groups = {"mean:24h": ("u10m", "v10m"), "max:24h": ("t2m",)}
 ```
 
 The fetch layer iterates over unique groups, not individual variables. It fetches
@@ -126,6 +126,13 @@ for modifier, group in groups.items():
 This loop belongs inside `fetch_data`. The assembled output keeps the requested
 qualified labels in its `variable` coordinate even though the source receives base
 variable names.
+
+Variable declaration conversion belongs to `fetch_data` or the coordinate-system
+object: splitting qualified labels, resolving mapping shorthand, detecting duplicate
+quantities or conflicting declarations, and grouping source variables. The
+`time_statistics` module accepts statistic modifiers only; it handles modifier
+normalization, source-time windows, metadata, and reductions without variable-name
+parsing or grouping utilities.
 
 ## Reduction
 

@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, TypeAlias
@@ -29,7 +29,6 @@ import xarray as xr
 from numpy.typing import NDArray
 
 TimeReduction: TypeAlias = Callable[[xr.DataArray, Hashable], xr.DataArray]
-StatisticDeclaration: TypeAlias = Mapping[str, str] | str | None
 Duration: TypeAlias = str | np.timedelta64
 TemporalTarget: TypeAlias = np.datetime64 | np.timedelta64
 
@@ -183,41 +182,6 @@ def register_time_statistic(name: str, reduction: TimeReduction) -> None:
 def list_time_statistics() -> tuple[str, ...]:
     """Return registered temporal reduction names."""
     return tuple(sorted(_TIME_STATISTICS))
-
-
-def _group_time_statistics(
-    variables: Sequence[str], statistics: StatisticDeclaration
-) -> dict[str, tuple[str, ...]]:
-    """Group variables by normalized temporal-statistic modifier."""
-    labels = tuple(str(variable) for variable in variables)
-    parsed = tuple(_split_variable_statistic(label) for label in labels)
-    if statistics is None:
-        declarations = parsed
-    elif isinstance(statistics, str):
-        if any(modifier for _, modifier in parsed):
-            raise ValueError("Qualified variables cannot use a separate statistic")
-        declarations = tuple((label, statistics) for label in labels)
-    else:
-        if any(modifier for _, modifier in parsed):
-            raise ValueError("Qualified variables cannot use a statistics mapping")
-        unknown = set(statistics) - set(labels)
-        if unknown:
-            raise ValueError(
-                f"Statistics reference unknown variables: {sorted(unknown)}"
-            )
-        declarations = tuple((label, statistics.get(label)) for label in labels)
-    groups: dict[str, list[str]] = {}
-    for variable, modifier in declarations:
-        if modifier is not None:
-            groups.setdefault(_parse(modifier).modifier, []).append(variable)
-    return {modifier: tuple(group) for modifier, group in groups.items()}
-
-
-def _split_variable_statistic(variable: str) -> tuple[str, str | None]:
-    name, separator, modifier = variable.partition(":")
-    if not name:
-        raise ValueError("Variable name must not be empty")
-    return (name, modifier) if separator else (name, None)
 
 
 def source_times(
