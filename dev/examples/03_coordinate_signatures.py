@@ -105,25 +105,24 @@ hrrr = resolve_grid("hrrr")
 y_slice, x_slice = slice(10, 12), slice(20, 23)
 crop = ProjectedGrid(hrrr.y[y_slice], hrrr.x[x_slice], hrrr.crs)
 projected = coord_array(
-    ("batch", "time", "lead_time", "variable", "hrrr_y", "hrrr_x"),
+    ("batch", "time", "lead_time", "variable", "y", "x"),
     {
         "lead_time": np.array([0], dtype="timedelta64[h]"),
         "variable": ["u10m", "v10m"],
     },
     dynamic=("batch", "time"),
     grid=crop,
-    grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
 )
 
 # Geographic auxiliary coordinates are derived by coord_array from this cropped
 # ProjectedGrid; callers do not need to provide lat/lon separately.
-np.testing.assert_equal(projected.lat.dims, ("hrrr_y", "hrrr_x"))
-np.testing.assert_equal(projected.lon.dims, ("hrrr_y", "hrrr_x"))
+np.testing.assert_equal(projected.lat.dims, ("y", "x"))
+np.testing.assert_equal(projected.lon.dims, ("y", "x"))
 np.testing.assert_equal(projected.shape, (0, 0, 1, 2, 2, 3))
 np.testing.assert_equal(projected.data.nbytes, 0)
-np.testing.assert_array_equal(projected.hrrr_y, hrrr.y[y_slice])
-np.testing.assert_array_equal(projected.hrrr_x, hrrr.x[x_slice])
-inferred = infer_grid(projected.rename(hrrr_y="y", hrrr_x="x"))
+np.testing.assert_array_equal(projected.y, hrrr.y[y_slice])
+np.testing.assert_array_equal(projected.x, hrrr.x[x_slice])
+inferred = infer_grid(projected)
 np.testing.assert_equal(inferred.fingerprint(), crop.fingerprint())
 print("Full HRRR grid:", hrrr.shape, "Cropped grid:", crop.shape)
 print("Cropped forecast signature:", projected.dims, projected.shape)
