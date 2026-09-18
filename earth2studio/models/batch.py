@@ -23,8 +23,10 @@ from typing import Any, TypeVar
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 FuncType = Callable[..., Any]
 F = TypeVar("F", bound=FuncType)
@@ -35,6 +37,11 @@ class batch_func:
     to help enable support for automatic batching of data. This class contains a
     decorator function which should be added to calls where this functionality is
     desired.
+
+    CoordinateSystem inputs remain allocation-free DataArrays paired with separate
+    tensors. Leading dimensions are flattened into ``batch`` and restored on each
+    output, including auxiliary coordinates. Dictionary coordinates remain supported
+    for models whose input signatures are dictionaries.
 
     Note
     ----
@@ -72,8 +79,13 @@ class batch_func:
         return self._batch_wrap(func)
 
     def _compress_batch(
-        self, model: Any, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem, CoordSystem, torch.Size]:
+        self, model: Any, x: torch.Tensor, coords: CoordSystem | CoordinateSystem
+    ) -> tuple[
+        torch.Tensor,
+        CoordSystem | CoordinateSystem,
+        CoordSystem | CoordinateSystem,
+        torch.Size,
+    ]:
         """Compresses dimensions into the models batch dimension
 
         Parameters
@@ -98,9 +110,12 @@ class batch_func:
             If model's input_coords do not contain the batch dimension
         """
         input_coords = model.input_coords()
+        if isinstance(input_coords, xr.DataArray):
+            return self._compress_coordinates(input_coords, x, coords)
+        output_coords = model.output_coords
         if (
             next(iter(input_coords)) != "batch"
-            or next(iter(model.output_coords(input_coords))) != "batch"
+            or next(iter(output_coords(input_coords))) != "batch"
         ):
             raise ValueError(
                 "Model coordinate systems not compatible with batch processing"
@@ -132,13 +147,61 @@ class batch_func:
 
         return x, flatten_coords, batched_coords, batched_shape
 
+    def _compress_coordinates(
+        self, signature: CoordinateSystem, x: torch.Tensor, coords: CoordinateSystem
+    ) -> tuple[torch.Tensor, CoordinateSystem, CoordinateSystem, torch.Size]:
+        if not isinstance(coords, xr.DataArray):
+            raise TypeError("This model requires a CoordinateSystem coordinate array")
+        if signature.dims[0] != "batch":
+            raise ValueError("Model signature must start with batch")
+        if tuple(x.shape) != coords.shape:
+            raise ValueError("Input tensor shape does not match coordinates")
+        fixed = len(signature.dims) - 1
+        if coords.ndim < fixed:
+            raise ValueError("Input has fewer dimensions than the model requires")
+        n = coords.ndim - fixed
+        leading = coords.dims[:n]
+        shape = x.shape[:n]
+        size = int(np.prod(shape))
+        if size == 0:
+            raise ValueError("Execution batch dimensions must be nonempty")
+        coordinates: dict[Any, Any] = {}
+        for name, coordinate in coords.coords.items():
+            if name in leading or name == "batch":
+                continue
+            if any(d in leading for d in coordinate.dims):
+                trailing = tuple(d for d in coordinate.dims if d not in leading)
+                expanded = coordinate.variable.set_dims(
+                    {d: coords.sizes[d] for d in (*leading, *trailing)}
+                )
+                coordinates[name] = (
+                    ("batch", *trailing),
+                    np.asarray(expanded).reshape(
+                        size, *(coords.sizes[d] for d in trailing)
+                    ),
+                    dict(coordinate.attrs),
+                )
+            else:
+                coordinates[name] = coordinate.variable
+        coordinates["batch"] = np.arange(size)
+        dims = ("batch", *coords.dims[n:])
+        compressed = coord_array(
+            dims,
+            coordinates,
+            sizes=dict(zip(dims, (size, *x.shape[n:]))),
+            attrs=coords.attrs,
+            name=coords.name,
+            dtype=coords.dtype,
+        )
+        return x.reshape(size, *x.shape[n:]), compressed, coords, shape
+
     def _decompress_batch(
         self,
         out: torch.Tensor,
-        out_coords: CoordSystem,
-        batched_coords: CoordSystem,
+        out_coords: CoordSystem | CoordinateSystem,
+        batched_coords: CoordSystem | CoordinateSystem,
         batched_shape: torch.Size,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> tuple[torch.Tensor, CoordSystem | CoordinateSystem]:
         """Decompresses the batch dimension of a tensor
 
         Parameters
@@ -157,6 +220,54 @@ class batch_func:
         tuple[torch.Tensor, CoordSystem]
             Uncompressed tensor and coordinates
         """
+
+        if isinstance(batched_coords, xr.DataArray):
+            if not isinstance(out_coords, xr.DataArray):
+                raise TypeError("Model must return CoordinateSystem coordinates")
+            size = int(np.prod(batched_shape))
+            if (
+                out_coords.dims[0] != "batch"
+                or out.shape != out_coords.shape
+                or out.shape[0] != size
+                or not np.array_equal(out_coords.coords["batch"], np.arange(size))
+            ):
+                raise ValueError("Model changed batch shape, labels, or order")
+            leading = batched_coords.dims[: len(batched_shape)]
+            coordinates = {}
+            for name, coordinate in out_coords.coords.items():
+                if name == "batch":
+                    continue
+                if "batch" in coordinate.dims:
+                    trailing = tuple(d for d in coordinate.dims if d != "batch")
+                    values = np.asarray(
+                        coordinate.transpose("batch", *trailing)
+                    ).reshape(*batched_shape, *(out_coords.sizes[d] for d in trailing))
+                    variable = xr.Variable(
+                        (*leading, *trailing), values, attrs=coordinate.attrs
+                    )
+                    if name in batched_coords.coords:
+                        original = batched_coords.coords[name]
+                        variable = variable.isel(
+                            {d: 0 for d in leading if d not in original.dims}
+                        )
+                        variable = variable.transpose(*original.dims)
+                    coordinates[name] = variable
+                else:
+                    coordinates[name] = coordinate.variable
+            for name, coordinate in batched_coords.coords.items():
+                if name in leading or (name == "batch" and "batch" not in leading):
+                    coordinates[name] = coordinate.variable
+            dims = (*leading, *out_coords.dims[1:])
+            shape = (*batched_shape, *out.shape[1:])
+            restored = coord_array(
+                dims,
+                coordinates,
+                sizes=dict(zip(dims, shape)),
+                attrs=out_coords.attrs,
+                name=out_coords.name,
+                dtype=out_coords.dtype,
+            )
+            return out.reshape(shape), restored
 
         # Reconstruct batch dims
         out = out.reshape(batched_shape + out.shape[1:])
@@ -186,7 +297,9 @@ class batch_func:
             for i in range(0, len(args), 2):
                 xi = args[i]
                 ci = args[i + 1]
-                if not isinstance(xi, torch.Tensor) or not isinstance(ci, OrderedDict):
+                if not isinstance(xi, torch.Tensor) or not isinstance(
+                    ci, (OrderedDict, xr.DataArray)
+                ):
                     raise ValueError(
                         "Invalid positional arguments: only (torch.Tensor, CoordSystem) pairs are supported"
                     )
@@ -214,11 +327,18 @@ class batch_func:
                     raise ValueError(
                         "Mismatched batched dimensions across input (x, CoordSystem) pairs"
                     )
+                elif isinstance(ref_coords, xr.DataArray):
+                    leading = ref_coords.dims[: len(ref_shape)]
+                    if ci.dims[: len(ref_shape)] != leading or any(
+                        not ref_coords.coords[d].variable.equals(ci.coords[d].variable)
+                        for d in leading
+                    ):
+                        raise ValueError("Mismatched batch labels across input pairs")
 
             # Model forward
             out, out_coords = func(model, *new_args, **kwargs)
             out, out_coords = self._decompress_batch(
-                out, out_coords, batched_coords, batched_shape
+                out, out_coords, ref_coords, ref_shape
             )
             return out, out_coords
 

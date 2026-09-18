@@ -2,37 +2,125 @@
 
 ## Goal
 
-Pin the iterator, coordinate, and hook semantics that a prognostic or diagnostic
-wrapper must satisfy, so that a shared execution substrate can drive any model
-without wrapper-specific knowledge. This contract codifies behavior the correct
-wrappers already implement; it does not add capability.
+Define prognostic and diagnostic iterator, coordinate, hook, ownership, and RNG
+semantics for model-independent execution, codifying existing correct behavior.
 
-The contract is enforced by `earth2studio.models.conformance`, which reports the rule
-identifiers used below. A model that passes is drivable by any conforming caller.
+The legacy tensor contract is enforced by `earth2studio.models.conformance`, which
+reports the rule identifiers used below. This branch updates coordinate signatures;
+DataArray execution migration is a separate effort.
 
-`AssimilationModel` is deliberately out of scope, and the omission is a scoping
-decision rather than an oversight — see Open Questions for the gaps it has and why
-they need their own document.
+`AssimilationModel` is out of scope; unresolved differences appear in Open Questions.
 
 ## Coordinate Systems
 
-A coordinate system is an `OrderedDict[str, np.ndarray]`. Order is part of the
-contract: the key order is the tensor's dimension order, and callers index
-positionally against it.
+The new `CoordinateSystem` is an `xarray.DataArray` created by `coord_array()`.
+Its backing array stores only shape and dtype: it allocates no field values,
+including when every dimension has a concrete size. Read labels through `.coords`,
+order through `.dims`, and lengths through `.sizes`. Accessing field `.values` is
+unsupported. Dimension and auxiliary coordinate arrays themselves occupy memory.
 
-`input_coords()` is a *declaration*, not a concrete coordinate system. A zero-length
-array declares an open dimension whose size the caller chooses; every other entry
-declares required coordinate values. The leading dimension is always `batch`.
+`input_coords()` is a *declaration*. Dynamic dimensions form an explicitly marked,
+zero-sized leading prefix (`earth2studio_dynamic_dims`). Any model can declare
+dynamic dimensions, including `time` or other model-specific axes; this is not a
+regional/global distinction and names are not restricted to `batch` and `time`.
+The remaining dimensions, labels, auxiliary
+coordinates, and declared grid/CRS/statistics metadata must match. Concrete inputs
+may use any leading batch dimensions or none; fixed trailing dimension order is
+authoritative. A zero-sized fixed dimension is not implicitly a wildcard.
+Resolve multiple dynamic dimensions together or from right to left: concretizing
+`time` in `(batch, time, ...)` retains a dynamic `batch`, but concretizing only
+`batch` would leave a non-leading wildcard and is rejected. Dimensions are not
+silently reordered or converted from wildcards to fixed zero-length axes.
 
-`output_coords(input_coords)` is a *resolver*. It validates a concrete input
-coordinate system and returns the coordinate system the model will produce, without
-touching field data. Validation and resolution happen together so that a caller can
-plan a rollout — output shapes, lead times, and dimension order — before allocating
-anything.
+Flexible input shapes and variable sets are configured on the model **instance**
+before querying `input_coords()`. For example, a model supporting arbitrary crops
+is configured with the chosen domain/grid, and an observation model accepting
+optional channels is configured with the available variable set. Its declaration
+then gives concrete spatial coordinates and variable labels for that configuration,
+so fetching and output planning are unambiguous. Reconfigure before planning a
+different domain or channel set. The contract does not prescribe a common
+configuration method: constructors or model-specific setters may provide it.
+An unresolved wildcard is not a request to fetch an unspecified region or variable
+set. Model-specific validation enforces constraints such as patch-size multiples
+or supported channel combinations in addition to coordinate handshakes.
+
+`output_coords(input_coords)` validates and resolves output coordinates without
+touching field data, enabling rollout planning before allocation.
+Use `coord_array_like(input, replacements)` to preserve arbitrary
+leading dimensions, dtype, name, metadata, and unaffected coordinates. Replacing
+`lead_time` or `variable` removes dependent auxiliaries (for example `valid_time`
+or variable-specific units), which must be recomputed explicitly if needed.
+Temporal statistics are declared only in qualified variable labels such as
+`tp:sum:6h`. `coord_array()` and `coord_array_like()` derive the
+`earth2studio_statistics` attribute from those labels; it is not an independent
+declaration. Replacing variables recomputes the metadata from the output labels.
+Spatial replacements require `coord_array(grid=...)` with a new grid definition;
+`coord_array_like()` rejects them to prevent stale grid metadata.
+
+### Grid-backed signatures
+
+Pass a registered name or `GridDefinition` to `coord_array(grid=...)` rather than
+repeating grid axes in each model. The helper attaches grid metadata and
+`earth2studio_crs` when the definition has a CRS; a registered name also attaches
+`earth2studio_grid_id`. Projected, curvilinear, and point signatures include
+geographic coordinates; HEALPix signatures use index coordinates. Handshakes
+validate geographic coordinates as well as axes.
+
+- `StormScopeGOES`, `StormScopeMRMS`: checkpoint `CurvilinearGrid` on `y, x`;
+  output offsets are added to the final input lead time.
+- `StormCastCONUS`: cropped `ProjectedGrid` with registered HRRR CRS on `y, x`;
+  output advances the final input lead time by one hour.
+- `PrecipitationAFNO`: registered `fcn1` grid (720 × 1440) on `lat, lon`;
+  output is `tp:sum:6h` with derived statistics metadata.
+
+Models declaring relative lead-time history subtract the final input lead time before checking the
+declared history window. Before subtraction, `lead_time` must be an explicit,
+nonempty one-dimensional timedelta coordinate with no `NaT` entries; datetime
+and numeric labels are rejected. Output planning accepts both dynamic declarations and
+concrete DataArrays without mutating either.
+
+### Migration boundary
+
+Migrated models expose allocation-free coordinate signatures:
+
+```python
+def input_coords(self) -> CoordinateSystem: ...
+def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
+```
+
+FCN, PrecipitationAFNO, StormCastCONUS, StormScopeGOES, and StormScopeMRMS
+use these signatures for both planning and tensor-pair execution:
+
+```python
+def __call__(self, x: torch.Tensor, coords: CoordinateSystem
+             ) -> tuple[torch.Tensor, CoordinateSystem]: ...
+def create_iterator(self, x: torch.Tensor, coords: CoordinateSystem
+                    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]: ...
+```
+
+Field values remain separate tensors. Coordinate shapes must match the tensors;
+wildcard dimensions must be concretized before execution. Batching preserves
+leading dimension labels, geographic auxiliaries and metadata, and outputs remain
+allocation-free. Converted models reject dictionary coordinate arguments.
+`CoordSystem` remains the dictionary alias for unmigrated models and data helpers.
+StormCastCONUS derives geographic auxiliaries from its cropped projected axes
+and registered HRRR CRS through `coord_array(grid=...)`.
+Its stored `ProjectedGrid` is the geometry source of truth; consumers obtain
+native axes from `input_coords()["y"]` and `input_coords()["x"]`.
+Read-only `hrrr_y` and `hrrr_x` properties derive their values from those coordinates.
+
+Single field-DataArray inputs belong to the separate execution migration.
+Runtime protocol membership checks method
+presence, not call signatures. The conformance checker still expects dictionary
+signatures; migrated public signatures are covered by focused coordinate tests.
+See `dev/examples/03_coordinate_signatures.py` for allocation-free planning.
 
 ## Rules
 
 ### Prognostic
+
+These rule tables describe the legacy conformance checker. Coordinate-signature
+migration and its coverage are specified above.
 
 | Rule | Requirement |
 | --- | --- |
@@ -70,298 +158,119 @@ anything.
 
 ## Lead Time
 
-Input `lead_time` is relative to the analysis time and ends at zero, so a model with
-two history steps and a six hour step declares `[-6h, 0h]`. The final entry is the
-step being advanced from.
-
-Rebasing is the rule that makes a rollout composable: a model resolves output
-`lead_time` as its own step offset added to the *final input* `lead_time`, never to a
-constant. Consequently, feeding a model's output back to its input advances the
-forecast, and a caller can start a model from any lead time — mid-rollout, resumed
-from a checkpoint, or driven by an upstream model — without the model knowing.
-
-`P6` is the machine-checkable form: shift every input `lead_time` by a constant and
-the output must shift by exactly that constant.
+Declared input `lead_time` is relative to analysis time and ends at zero (e.g.,
+`[-6h, 0h]`). Output offsets are added to the *final input* lead time, never a
+constant, allowing nonzero starts and resumed rollouts. Shifting every input lead
+time must shift output equally (`P6`).
 
 ## Iteration
 
-`create_iterator()` yields the initial condition first. That 0th yield carries the
-input coordinate system with `lead_time` reduced to its final entry, and the tensor
-reduced to match. Forecast steps follow, each advancing `lead_time` by the model's
-step.
-
-The 0th yield is the initial condition rather than a forecast, so a caller writing
-output for `nsteps` forecast steps draws `nsteps + 1` yields. A model must not
-consume its input before the 0th yield, and must not emit a partial step.
+`create_iterator()` first yields the initial condition with `lead_time` and data
+reduced to the final input entry. Complete forecast steps follow, advancing by the
+model's step; `nsteps` forecasts require `nsteps + 1` yields. The model must not
+consume its input before the 0th yield or emit partial steps.
 
 ## Hooks
 
-`front_hook` and `rear_hook` are the declared mutation points of a step, applied
-immediately before and after the model advances. A hook takes and returns
-`(tensor, coords)`, so it may rewrite values, coordinates, or both.
+**Hooks belong to the iterator (`P10`).** Every forecast step applies `front_hook`
+immediately before advancing and `rear_hook` immediately after; `__call__` applies
+neither. `PrognosticMixin` hooks transform `(tensor, coords)` pairs.
+The front hook reaches recurrent state otherwise inaccessible between
+steps; see `examples/02_medium_range/02_model_perturbation_hook.py`.
 
-**Hooks belong to the iterator.** `create_iterator()` applies both hooks on every
-forecast step; `__call__` applies neither. This is not a concession to the existing
-wrappers, though all thirty of them already behave this way — it is the scope the
-feature earns.
+Each hook is a single callable slot. Callers compose transformations explicitly;
+there is no registration chain. `clear_hooks()` restores identity hooks.
 
-`__call__` is a single-step primitive. A caller holding one step already has the
-tensor and can transform it directly, so a hook adds nothing there. What a caller
-cannot reach is the state fed *back* between steps inside `create_iterator()`:
-history buffers, cubed-sphere state, a multi-model cascade. `front_hook` mutates
-exactly that state, which is why it cannot be replicated from outside and why the
-feature survives the arrival of `Pipeline`. Perturbing a recurrent state between
-steps to produce a model-uncertainty ensemble is the load-bearing use case, and
-`examples/02_medium_range/02_model_perturbation_hook.py` is it.
+Single-step callers can transform inputs and outputs directly. Iterator hooks
+add access to internal history buffers and coupled recurrent state. Explicit
+composition keeps ordering at the assignment site and avoids drivers silently
+interleaving transformations with caller-configured hooks.
 
-`rear_hook` *is* externally replicable — a caller can transform each yield — but it
-is implemented on twenty-seven wrappers and costs nothing to keep, so it stays.
-
-Giving two step paths different hook semantics is the ambiguity worth avoiding, so
-`P10` checks both directions: the iterator must apply both hooks, and `__call__`
-must apply none.
-
-`front_hook` and `rear_hook` are single callable slots, not a registration list.
-`clear_hooks()` restores the pass-through default. A caller with more than one
-transformation to apply composes them into one function and assigns that:
-
-```python
-def clamp_precipitation(x, coords):
-    index = np.where(coords["variable"] == "tp")[0]
-    x[:, :, index] = x[:, :, index].clamp(min=0)
-    return x, coords
-
-
-def bias_correct(x, coords):
-    ...
-    return x, coords
-
-
-def combined(x, coords):
-    x, coords = clamp_precipitation(x, coords)
-    return bias_correct(x, coords)
-
-
-model.rear_hook = combined
-```
-
-A registration API (`add_rear_hook()` appending to a chain) was considered and
-dropped: the composition order that matters is decided at the assignment site
-either way, and a chain only moves that decision out of view, spread across every
-place that happened to register a hook, with no benefit over a plain function call.
-It would also invite a `Pipeline` or driver to auto-register its own hook onto a
-model a caller configured, silently interleaving with whatever the caller assigned
-— worse than the callable-slot alternative, not better, since hook order is exactly
-where silent interleaving is most likely to produce a wrong result. If a caller
-needs to compose hooks whose contents aren't known until runtime, they can still
-close over a list and iterate it inside one assigned function.
-
-**Known deviation.** `gencast_mini`, `graphcast_small`, `graphcast_operational`, and
-`weathernext2_cyclones_mini` apply `rear_hook` and never `front_hook`, so a front
-hook set on them is silently discarded. `P10` detects this; fixing it is four lines
-across four wrappers.
+**Known deviation:** `gencast_mini`, `graphcast_small`, `graphcast_operational`, and
+`weathernext2_cyclones_mini` apply only `rear_hook`, failing `P10`.
 
 ## Ownership of Tensors
 
-A model borrows the tensor it is given and owns the tensor it returns.
+A model borrows its input and owns its output. Neither `__call__` nor
+`create_iterator()` may modify caller input tensors or coordinates (`P15`, `D6`).
+Earlier yields must remain unchanged after later steps (`P16`); views are allowed
+only if their backing buffers will not be overwritten. This protects asynchronous
+IO, resume buffers, and accumulators without caller-side defensive copies.
 
-`__call__` and `create_iterator()` must not write into the caller's input tensor or
-coordinate system (`P15`, `D6`). Mutating the input does not save memory: a model
-that clones and then mutates holds two copies at peak, exactly as one that builds
-its output out-of-place. Mutating the caller's buffer instead of cloning saves that
-peak only by destroying data the caller may still need — which forces *every* caller
-to clone defensively before calling, turning an optional copy into a mandatory one.
+The motivating failure was `stormcast` overwriting the caller's initial condition
+([issue #1133](https://github.com/NVIDIA/earth2studio/issues/1133), fixed in PR #1134).
+`AsyncZarrBackend` currently copies every non-blocking write defensively; model-level
+ownership guarantees address the underlying buffer-lifetime problem.
 
-This is already the informal convention — eight wrappers clone their input, two with
-the comment `# prevent editing of argument` — and it has already failed once in the
-field. `stormcast` wrote forecast results back into the caller's initial condition
-while `stormcastconus` cloned, which is
-[issue #1133](https://github.com/NVIDIA/earth2studio/issues/1133), fixed per-model in
-PR #1134. A per-model fix does not prevent the next occurrence; `P15` does.
-
-`P16` is the related guarantee for the iterator: once a later step is produced, an
-earlier yield must not have changed. A model may return a view into its own buffers,
-but not a view into a buffer it will overwrite on the next step. Without this, a
-caller that holds a yield across steps reads the wrong values, and holding a yield
-across steps is exactly what an asynchronous IO backend, a resume buffer, and a
-scoring accumulator all do. `AsyncZarrBackend` currently defends itself with an
-unconditional copy on the non-blocking write path, commented "prevents race
-conditions when the data is mutated in place before the write is completed" — the
-guarantee is being purchased per-write at the IO layer because the model layer does
-not offer it.
-
-Note that the `batch_func` decorator does *not* protect the input tensor:
-`_compress_batch` reshapes with `unsqueeze` and `flatten`, both of which return
-views, so a write inside a decorated method reaches the caller. It does shield the
-coordinate system, which it rebuilds. `P15`'s tensor half is therefore the
-important one. Note that `batch_func` will be updated in the xarray/cupy migration.
+Legacy `batch_func` rebuilds coordinates but does not protect tensor inputs:
+`_compress_batch` uses `unsqueeze`/`flatten` views, so internal writes reach callers.
 
 ## Stochasticity
 
-A model declares whether it draws randomness. The requirement is identical for both
-protocols — `P11`-`P14` for prognostics, `D7`-`D10` for diagnostics — because the
-caller's need is identical: a driver scheduling ensemble members has to know whether
-members will differ and how to make them reproducible, and it does not care which
-protocol the component implements.
+`P11`–`P14` and `D7`–`D10` require a readable boolean `stochastic` declaration and,
+when true, `set_rng(seed: int, reset: bool = True) -> None`. Absent declarations
+default to `False`: `PrognosticMixin` supplies this default; diagnostics need no
+shared base class. The declaration lets drivers plan ensembles before execution.
 
-```python
-class MyModel(torch.nn.Module, PrognosticMixin):
-    stochastic = True
+The integer seed is the first positional argument, supporting seed-only core APIs.
+`reset=True` replaces the generator; `reset=False` initializes it only if absent,
+otherwise ignoring the seed and preserving the current trajectory. Ensemble drivers
+reseed each member with `reset=True`; per-step hooks may use
+`set_rng(fallback_seed, reset=False)` without clobbering driver seeding. Resetting
+to the same seed each step would repeat identical noise. Never-seeded models fall
+back to the global RNG rather than failing.
 
-    def set_rng(self, seed: int, reset: bool = True) -> None: ...
-```
-
-`stochastic` is a statically readable attribute, defaulting to `False` when absent.
-It is a declaration, not a capability: a caller reads it to decide whether ensemble
-members will differ at all, and to reject a fifty-member request against a
-deterministic model, *before* running anything. `PrognosticMixin` supplies the
-`False` default; diagnostics have no shared base class, so for them the default comes
-from the attribute being absent. Adding a `DiagnosticMixin` purely to hold one class
-attribute is not worth the inheritance change across twenty wrappers, and the
-conformance check reads the attribute either way.
-
-`set_rng(seed, reset=True)` is the single seeding entry point, required when
-`stochastic` is `True`. The seed is the first positional argument. `reset=False`
-leaves an already-initialized generator alone, which is what a caller wants when
-reseeding mid-rollout would break a noise trajectory. A model that is never seeded
-falls back to the global RNG rather than failing.
-
-The two arguments serve two different callers, and the distinction is what `reset`
-does to an *already-initialized* generator: `reset=True` replaces it, `reset=False`
-leaves it drawing from where it left off — so the seed argument is only consulted the
-first time a model is seeded, and ignored on every `reset=False` call after that.
-
-An ensemble driver wants replacement: each member is a fresh, independent trajectory,
-so it reseeds with `reset=True` (the default) before every rollout.
-
-```python
-driver_rng = np.random.default_rng(0)
-
-for member in range(n_members):
-    model.set_rng(int(driver_rng.integers(2**32)))  # reset=True: fresh generator
-    run(model)
-```
-
-A hook installed on the iterator wants the opposite. It runs once per step, *inside*
-the rollout the driver already seeded, and its job is to keep drawing from that same
-generator across steps — a new draw each step, not a restart to the first draw. If
-the hook does not know whether the model has been seeded yet (it may run before or
-after the driver, depending on setup order), it seeds defensively:
-
-```python
-def perturb(values, coords):
-    # reset=False: a no-op if the driver already seeded the model, so this call
-    # cannot clobber the trajectory in progress. Only takes effect as a fallback
-    # if perturb runs before the driver has seeded anything.
-    model.set_rng(fallback_seed, reset=False)
-    noise = torch.randn(values.shape, generator=model.generator)
-    return values + noise, coords
-
-
-model.front_hook = perturb
-```
-
-Had the hook called `set_rng(fallback_seed, reset=True)` instead, every step would
-reinitialize the generator to the same state, so `perturb` would draw the *same*
-noise at every step — silently collapsing what should be `nsteps` independent
-perturbations into one value repeated across the whole forecast.
-
-The only difference between the protocols is what reproducibility ranges over. `P13`
-is a property of a rollout: the same seed reproduces every step. `D9` is a property
-of a single call, because a diagnostic has no rollout.
-
-An `int` seed rather than a `torch.Generator` is deliberate: several wrappers
-delegate to a core model that accepts only a seed, and every existing implementation
-already takes one.
+The same seed must reproduce every rollout step (`P13`) or diagnostic output (`D9`)
+exactly; different seeds must differ. A model declaring `stochastic=False` but
+returning different results for the same input also fails these rules.
 
 ### RNG isolation
 
-A seeded model must keep its randomness to itself. `P14` and `D10`: once `set_rng()`
-has been called, neither seeding nor stepping may leave the global RNG state
-perturbed.
+After `set_rng()`, neither seeding nor stepping/calling may leave global RNG state
+perturbed (`P14`, `D10`). Use a local `torch.Generator` for every draw, a functional
+PRNG key, or `torch.random.fork_rng()` around global seeding and execution to restore
+state afterward. Forking supports external packages without generator injection
+(e.g., `aifs2ens`/`anemoi`); pass `devices` explicitly because the default forks all
+visible CUDA devices and warns. Unseeded global-RNG draws remain allowed.
 
-The harm is specific. A wrapper that seeds the global RNG reaches every other
-consumer in the process — a second model in a cascade, a perturbation method, a
-dataloader — and resets its stream to a fixed point. Two ensemble members that should
-differ draw identical noise from an unrelated component. `P13` and `D9` make this
-worse rather than catching it: they pass when the model is checked alone, and the
-failure only appears once the model is one component of a pipeline.
-
-The rule constrains the effect, not the mechanism. Three implementations satisfy it:
-
-- a local `torch.Generator` seeded in `set_rng` and threaded into every draw;
-- a functional PRNG key, as the JAX-backed wrappers already use;
-- global seeding confined to a `torch.random.fork_rng()` block, which snapshots the
-  RNG state, lets the seeded code run, and restores the state on exit.
-
-The third is what makes the rule satisfiable for a model whose randomness is drawn
-inside an external package with no generator injection point — `aifs2ens` calls
-`torch.manual_seed(self.seed + step)` because `anemoi` offers nothing else. Forking
-keeps that call and removes its blast radius:
+For a core that accepts only global seeding, store the seed without drawing and
+isolate each step:
 
 ```python
 def set_rng(self, seed: int, reset: bool = True) -> None:
     if reset or self._seed is None:
         self._seed = seed
 
-# at the step
+# Seeded step:
 with torch.random.fork_rng(devices=[x.device] if x.is_cuda else []):
     torch.manual_seed(self._seed + step)
     out = self.core_model(...)
 ```
 
-Pass `devices` explicitly: the default forks every visible CUDA device and warns. The
-residual cost is a state copy per step, negligible against a model forward.
+Isolation protects other models, perturbations, and dataloaders from having their
+streams reset. Reproducibility checks alone cannot catch this interference: a model
+may reproduce perfectly in isolation while destroying independence in a cascade.
+The rule constrains the observable effect, not the isolation mechanism.
 
-**Known deviation.** Of the three wrappers that implement `set_rng` today, `dlesym`
-seeds a local `torch.Generator` and conforms; `fcn3` delegates to its core model and
-fails `P14`, because refreshing that model's internal noise state draws from the
-global generator; and `aurora1p5` is a bare
-`torch.manual_seed(seed)` and fails `P14`. That is the same wrapper whose
-constructor seed already conflicts with `set_rng` below, so both of its seeding
-defects are fixed by the same rewrite. Tracked as an exemption in
-`test/models/test_model_conformance.py` (`Aurora1p5Ensemble`) pending a wrapper fix
-in a follow-up PR — this spec change does not alter the wrapper itself.
-
-The rule is scoped to models that implement `set_rng`, and to the state *after* it is
-called. An unseeded model drawing from the global generator merely *advances* it,
-which is what any program using the default RNG does and is not the harm being
-prevented; forbidding it would contradict the global-RNG fallback above. Reseeding is
-the harm, because it destroys independence rather than consuming it.
+**Known deviations:** `dlesym` uses a local generator and conforms; `fcn3` fails
+`P14` because core noise-state refresh draws globally; `aurora1p5` fails through
+bare `torch.manual_seed(seed)`. `Aurora1p5Ensemble` is exempt in
+`test/models/test_model_conformance.py` pending a follow-up wrapper fix.
 
 ### Seeding is the only entry point
 
-A construction-time `seed` argument must not override a later `set_rng()` call.
-`Aurora1p5Ensemble` currently shows why this matters: it stores `seed` on the
-instance and `create_iterator()` re-applies `self.set_rng(self.seed)` on every call,
-so a caller that does `model.set_rng(42)` and then iterates silently gets
-`self.seed` instead. Two mechanisms for one piece of state is the bug; `set_rng` is
-the one that survives, because a caller reseeding per ensemble member cannot reach a
-constructor argument. Tracked as a known exemption (see above) pending a wrapper fix
-in a follow-up PR.
-
-`seed` on `load_model` is not a hypothetical: `corrdiff`, `cbottle_sr`, and
-`stormscope_dx_nsrdb` already accept it there and thread it to the constructor. Any
-decision to remove constructor seeds has to account for that established diagnostic
-convention rather than treating it as a new question — see Open Questions.
-
-`P13` and `D9` are the properties that actually matter for a distributed run: the
-same seed reproduces output exactly, so a resumed run matches the run it resumes, and
-different seeds produce different output, so ensemble members are not duplicates. A
-model that declares `stochastic=False` but produces two different results from one
-input fails the same rule.
+A constructor `seed` must not override later `set_rng()` calls.
+`Aurora1p5Ensemble` violates this by reapplying `self.set_rng(self.seed)` in
+`create_iterator()`; its exemption also covers this pending fix. Removing constructor
+seeds remains open, including the `load_model(seed=...)` APIs of `corrdiff`,
+`cbottle_sr`, and `stormscope_dx_nsrdb`.
 
 ### Migration
 
-Three wrappers implement `set_rng` today, with two incompatible signatures
-(`fcn3` and `dlesym` take `(seed, reset)`; `aurora1p5` takes `(seed)`), and callers
-discover it by `hasattr`. Those three now declare `stochastic`; `dlesym` declares it
-as a property because it is conditional on `use_cln`.
-
-The remaining stochastic wrappers each need a `stochastic` declaration and a
-`set_rng` from its owner — they are left undeclared here rather than guessed at. They
-divide by how their randomness is reached today, which is what determines the work
-`P14`/`D10` implies for each:
+Current `set_rng` implementations differ: `fcn3`/`dlesym` take `(seed, reset)`,
+`aurora1p5` takes `(seed)`, and callers use `hasattr`. All three declare `stochastic`;
+`dlesym` uses a property conditional on `use_cln`. Remaining declarations and seeding
+implementations belong to wrapper owners, with this migration work:
 
 | Mechanism today | Wrappers | Work |
 | --- | --- | --- |
@@ -371,143 +280,63 @@ divide by how their randomness is reached today, which is what determines the wo
 | Global `torch.manual_seed` | `aifs2ens`, `cbottle_sr`, `stormscope_dx_nsrdb` | fork the RNG |
 | None at all | `atlas_crps`, `stormscope` | add seeding, forked |
 
-"Declare and wrap" means the randomness is already isolated, so only the `stochastic`
-declaration and a `set_rng` entry point are missing. "Fork the RNG" means the seeding
-call stays as written and moves inside `torch.random.fork_rng()`.
-
-Every wrapper in the tree is therefore reachable, and none needs a change to an
-upstream package. The last row is the case that gains most: `atlas_crps` currently
-documents "use `torch.manual_seed` for reproducible members", which is to say it
-pushes global reseeding onto the caller and offers no per-instance control. A forked
-`set_rng` gives it control it does not have today rather than taking any away.
-
-The diagnostics share one further pattern worth naming before it is standardized:
-`seed=None` means *draw a fresh seed per call*, implemented as
-`seed = self.seed if self.seed is not None else np.random.randint(2**32)`. That is a
-third state which `set_rng(seed: int)` does not express. Under this spec the
-unseeded state is simply "never called `set_rng`", so the `None` sentinel becomes
-redundant — but the migration has to preserve today's default of a nondeterministic
-run for a caller who seeds nothing.
+"Declare and wrap" adds `stochastic`/`set_rng` around already-isolated randomness;
+"fork" confines existing global seeding to `torch.random.fork_rng()`. No upstream
+package changes are needed. Diagnostics currently use `seed=None` for a fresh seed
+per call. Migration represents this as "never called `set_rng`" and must preserve
+unseeded nondeterministic defaults.
 
 ## Conformance
 
-```python
-from earth2studio.models.conformance import check_prognostic_contract
+`earth2studio.models.conformance.check_prognostic_contract(model)` evaluates every
+legacy rule before failing, reporting all violations and returning unevaluated
+rules with reasons. `rollout=False` runs only `P1`–`P6`, `P11`, `P12`, and the
+seeding half of `P14`. `check_diagnostic_contract(model, forward=False)` similarly
+runs `D1`–`D4`, `D7`, `D8`, and the seeding half of `D10`. RNG seeding and stepping
+are checked separately so seeding violations need no forward pass.
 
-skipped = check_prognostic_contract(model)
-```
-
-Every rule is evaluated before the check fails, so one call reports all violations.
-The return value lists rules that could not be evaluated and why — a rule that cannot
-run is reported rather than passed silently.
-
-`rollout=False` restricts the check to the rules that need no forward pass
-(`P1`-`P6`, `P11`, `P12`, and the seeding half of `P14`), for models too expensive to
-step in continuous integration. `check_diagnostic_contract(model, forward=False)` is
-the equivalent, leaving `D1`-`D4`, `D7`, `D8`, and the seeding half of `D10`.
-
-`P14` and `D10` are evaluated in two halves because only one of them needs a model
-step: whether `set_rng()` itself perturbs the global RNG is answerable for free, and
-it is the half that catches the common violation of implementing `set_rng` as a bare
-`torch.manual_seed`.
-
-The rollout rules build a probe input from `input_coords()`, which requires deriving
-a tensor shape from a coordinate system. A one-dimensional coordinate contributes one
-dimension of its own length. A multidimensional coordinate spans several dimensions at
-once — a curvilinear grid declares `lat` and `lon` as two entries, both shaped
-`(ny, nx)`, describing two tensor dimensions between them rather than one each. The
-shape is derived by the convention `convert_multidim_to_singledim` already documents:
-an `n`-dimensional entry is followed by `n - 1` partners of the same shape, and the
-group contributes that shape once.
-
-A coordinate system that does not satisfy that convention implies no shape, so no
-probe input can be built and `P7`-`P10` and `P13`-`P16` are reported as skipped
-rather than passed.
-
-The probe tensor is pseudo-random rather than zero, so that a model writing into its
-input is detectable. Models that reject unphysical input will need a fixture that
-supplies a realistic initial condition.
+Probe shapes follow `convert_multidim_to_singledim`: a 1-D coordinate contributes
+its length; an n-D entry requires n−1 following partners of identical shape, with
+the group contributing that shape once. Invalid groupings prevent probe creation
+and skip `P7`–`P10` and `P13`–`P16`. Pseudo-random probes expose input mutation;
+models rejecting unphysical data need realistic initial-condition fixtures.
 
 ### Enforcement
 
-A model creation skill produces a `test_<model>_conformance` test alongside a model's
-other required tests, checking the mock-weight instance the rest of the test file
-already builds — no real weights, no network. `test/models/test_conformance.py`
-checks the checker itself and `test/models/test_model_conformance.py` is the
-completeness gate: every class reachable from `earth2studio.models.px` /
-`earth2studio.models.dx` must be listed there as conformant or explicitly exempt with
-a reason, discovered by introspecting the namespace rather than trusting a
-hand-maintained list, so a new model cannot land without either passing the contract
-or documenting why it does not. All three run in CI on every pull request.
-
-Every model that predates this spec is currently listed as exempt pending backfill —
-the gate stops new gaps from opening, and existing ones close incrementally as each
-model's test file gains a conformance test.
+Model creation skills produce `test_<model>_conformance` using existing mock-weight
+fixtures, without real weights or network access. `test/models/test_conformance.py`
+tests the checker; `test/models/test_model_conformance.py` introspects
+`earth2studio.models.px`/`dx` and requires every class to be conformant or explicitly
+exempt with a reason. All three run in every PR's CI. Pre-spec models are currently
+exempt pending incremental test backfill.
 
 ## Open Questions
 
-- `P13` compares rollouts with `torch.allclose`, so a deterministic model running on
-  nondeterministic GPU kernels may report as stochastic. The tolerance may need to
-  be configurable.
-- `stochastic` currently answers two questions at once: *will ensemble members
-  differ?* and *can I reproduce them?* `P12` fuses them by requiring `set_rng`
-  whenever `stochastic` is `True`. A model whose randomness is drawn by an opaque
-  dependency — one that neither accepts a generator nor draws from a forkable global
-  RNG — would be stochastic but unseedable, and could not satisfy both. No such model
-  is in the tree today: every wrapper is either already isolated or reachable by
-  forking, which is why the two are not split here. If one arrives, the split is
-  adding a `seedable` declaration and demoting `P13` to a skip, not reopening `P14`.
-- `P14` and `D10` are scoped to models that implement `set_rng`. A model declaring
-  `stochastic=False` that reseeds the global RNG anyway would go uncaught, but it
-  would be pathological, and none exists today. Widening the rule to every model is
-  cheap if one shows up.
-- `AssimilationModel` needs an equivalent contract, but writing one means *choosing*
-  between live divergences rather than codifying settled behavior, which is why it is
-  not folded in here. Four gaps, in severity order:
-  1. `output_coords()` has no callable contract. The protocol declares
-     `(input_coords, *args, **kwargs)`, and the implementations split:
-     `InterpEquirectangular` requires `request_time` as a positional with no default,
-     `HealDA` takes it as an optional keyword, and `StormCastSDA` and
-     `CorrDiffCosmoEra5SDA` accept `input_coords` alone and reject it. No caller can
-     resolve output coordinates generically, which forfeits the plan-before-allocate
-     property that `P8` and `D5` give the other two protocols.
-  2. There is no priming-yield convention. `HealDA`, `InterpEquirectangular`, and
-     `CorrDiffCosmoEra5SDA` prime with `yield None`; `StormCastSDA` primes by
-     yielding the initial state. `CorrDiffCosmoEra5SDA` documents the split in its
-     own docstring — "unlike StormCast, yields no initial state" — so it is a known,
-     unresolved divergence. This is the `P7` question for the send-protocol
-     generator.
-  3. Stochasticity is undeclared. `CorrDiffCosmoEra5SDA` holds `self.seed` and
-     derives per-member seeds as `seed + i`, the same pattern the diagnostics use,
-     with no `set_rng`. `P11`-`P14` port across unchanged.
-  4. Input immutability matters more here, not less. Inputs are `pd.DataFrame` and
-     `xr.DataArray`, which are mutated in place far more idiomatically than tensors,
-     so the `P15`/`D6` hazard is larger while the defensive-clone convention that
-     grew up around the tensor models does not exist.
+- Should `P13`'s `torch.allclose` tolerance be configurable for nondeterministic GPU
+  kernels that make deterministic models appear stochastic?
+- An opaque, unseedable dependency would require a separate `seedable` declaration
+  and skipping `P13`, while retaining `P14`. No current wrapper requires this split.
+- `P14`/`D10` currently cover only models implementing `set_rng`; widen them if a
+  deterministic model that reseeds globally appears.
+- `AssimilationModel` needs decisions on four divergences before a contract:
+  1. Output resolution: `InterpEquirectangular` requires positional `request_time`,
+     `HealDA` accepts it optionally, and `StormCastSDA`/`CorrDiffCosmoEra5SDA` reject
+     it, preventing generic planning.
+  2. Priming: `StormCastSDA` yields initial state; `HealDA`, `InterpEquirectangular`,
+     and `CorrDiffCosmoEra5SDA` yield `None`.
+  3. Stochasticity: `CorrDiffCosmoEra5SDA` uses `self.seed + i` without `set_rng`;
+     `P11`–`P14` could transfer unchanged.
+  4. Ownership: mutable DataFrame/DataArray inputs need `P15`/`D6` guarantees.
 
-  A conformance checker is feasible on the same pattern: `FrameSchema` is an
-  `OrderedDict[str, np.ndarray]` mapping column names to representative arrays, so a
-  probe DataFrame is constructible exactly as `_sample_tensor` builds a probe tensor.
-  The generator lifecycle — what `send(None)` means mid-stream, whether `__call__` is
-  equivalent to one generator step, who closes the generator — would need deciding
-  first.
-- The forcing and conditioning declaration is deliberately absent. It is shared with
-  the coupling and labelled-array proposals and must be agreed across all three
-  before it is specified here
-- Existing `seed=` constructor arguments currently stay as conveniences and could be
-  defined as equivalent to calling `set_rng` at construction. Would it be more clear
-  to remove them outright and not permit `seed` constructor args so we really control
-  RNG behavior per model from just one single place?
-  Reviewers should weigh three facts. First, `seed` is not only a constructor
-  argument today: `corrdiff`, `cbottle_sr`, and `stormscope_dx_nsrdb` accept it on
-  `load_model` and pass it through, so removal touches the loading API too. Second,
-  `Aurora1p5Ensemble` demonstrates the concrete failure of keeping both — its
-  `create_iterator` re-applies `self.seed` and silently discards a caller's
-  `set_rng`. Third, `seed=None` currently means "fresh seed per call" on the
-  diagnostics, so removal needs a replacement for that default, or we need to
-  communicate the breaking change.
-- Relatedly, should this effort also migrate the existing stochastic wrappers that
-don't use `set_rng` but instead hold a `seed` attribute and seed the global RNG?
-(`aifs2ens`, `gencast_mini`, `cbottle_video`,
-`weathernext2_cyclones_mini`, `atlas_crps`, and `stormscope`; diagnostic `corrdiff`,
-`corrdiff_cosmo_era5`, `cbottle_sr`, and `stormscope_dx_nsrdb`)
+  `FrameSchema` (ordered column-to-array mappings) supports probe DataFrames, but
+  mid-stream `send(None)`, single-call/step equivalence, and generator closure
+  ownership remain undecided.
+- Forcing/conditioning declarations require agreement with coupling and
+  labelled-array proposals before inclusion here.
+- Keep constructor `seed=` as a construction-time `set_rng` convenience or remove
+  it? Account for loading APIs, Aurora's override bug, and preserving diagnostics'
+  fresh-seed default (or communicating a breaking change).
+- Should this effort migrate other seed-attribute/global-RNG wrappers too:
+  `aifs2ens`, `gencast_mini`, `cbottle_video`, `weathernext2_cyclones_mini`,
+  `atlas_crps`, `stormscope`, `corrdiff`, `corrdiff_cosmo_era5`, `cbottle_sr`, and
+  `stormscope_dx_nsrdb`?

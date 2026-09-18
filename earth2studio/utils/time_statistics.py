@@ -19,22 +19,23 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 import numpy as np
 import xarray as xr
 from numpy.typing import NDArray
 
 TimeReduction: TypeAlias = Callable[[xr.DataArray, Hashable], xr.DataArray]
-StatisticDeclaration: TypeAlias = Mapping[str, str] | str | None
 Duration: TypeAlias = str | np.timedelta64
 TemporalTarget: TypeAlias = np.datetime64 | np.timedelta64
 
 _DURATION_PATTERN = re.compile(r"^([+-]?)(\d+)([a-z]+)$")
-_DURATION_UNITS = {
+_DURATION_UNITS: dict[
+    str, tuple[int, Literal["ns", "us", "ms", "s", "m", "h", "D"]]
+] = {
     "ns": (1, "ns"),
     "nanosecond": (1, "ns"),
     "us": (1, "us"),
@@ -55,17 +56,22 @@ _DURATION_UNITS = {
     "w": (7, "D"),
     "wk": (7, "D"),
     "week": (7, "D"),
-    "mo": (30, "D"),
-    "mon": (30, "D"),
-    "month": (30, "D"),
 }
 _TIME_STATISTICS: dict[str, TimeReduction] = {}
 
 
 def _duration(value: Duration, *, name: str) -> np.timedelta64:
     if isinstance(value, np.timedelta64):
+        if np.datetime_data(value.dtype)[0] in {"M", "Y"}:
+            raise ValueError(
+                "Calendar-relative durations are not supported; use days or hours"
+            )
         duration = value
     elif isinstance(value, str):
+        if re.fullmatch(r"[+-]?\d+[MY]", value.strip()):
+            raise ValueError(
+                "Calendar-relative durations are not supported; use days or hours"
+            )
         match = _DURATION_PATTERN.fullmatch(value.strip().lower())
         if match is None:
             raise ValueError(f"{name} must be an integer duration such as '6h'")
@@ -146,12 +152,12 @@ class _Window:
 
 @lru_cache
 def _parse(modifier: str) -> _Window:
-    parts = modifier.strip().lower().split(":")
+    parts = modifier.strip().split(":")
     if len(parts) not in {2, 3}:
         raise ValueError(
             "Statistic modifier must be 'method:window' or 'method:start:end'"
         )
-    method = parts[0]
+    method = parts[0].lower()
     if method not in _TIME_STATISTICS:
         raise ValueError(f"Unknown time statistic '{method}'")
     if len(parts) == 2:
@@ -183,41 +189,6 @@ def register_time_statistic(name: str, reduction: TimeReduction) -> None:
 def list_time_statistics() -> tuple[str, ...]:
     """Return registered temporal reduction names."""
     return tuple(sorted(_TIME_STATISTICS))
-
-
-def _group_time_statistics(
-    variables: Sequence[str], statistics: StatisticDeclaration
-) -> dict[str, tuple[str, ...]]:
-    """Group variables by normalized temporal-statistic modifier."""
-    labels = tuple(str(variable) for variable in variables)
-    parsed = tuple(_split_variable_statistic(label) for label in labels)
-    if statistics is None:
-        declarations = parsed
-    elif isinstance(statistics, str):
-        if any(modifier for _, modifier in parsed):
-            raise ValueError("Qualified variables cannot use a separate statistic")
-        declarations = tuple((label, statistics) for label in labels)
-    else:
-        if any(modifier for _, modifier in parsed):
-            raise ValueError("Qualified variables cannot use a statistics mapping")
-        unknown = set(statistics) - set(labels)
-        if unknown:
-            raise ValueError(
-                f"Statistics reference unknown variables: {sorted(unknown)}"
-            )
-        declarations = tuple((label, statistics.get(label)) for label in labels)
-    groups: dict[str, list[str]] = {}
-    for variable, modifier in declarations:
-        if modifier is not None:
-            groups.setdefault(_parse(modifier).modifier, []).append(variable)
-    return {modifier: tuple(group) for modifier, group in groups.items()}
-
-
-def _split_variable_statistic(variable: str) -> tuple[str, str | None]:
-    name, separator, modifier = variable.partition(":")
-    if not name:
-        raise ValueError("Variable name must not be empty")
-    return (name, modifier) if separator else (name, None)
 
 
 def source_times(

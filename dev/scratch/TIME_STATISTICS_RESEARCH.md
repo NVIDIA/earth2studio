@@ -100,7 +100,7 @@ The refined API keeps strings at the model-coordinate boundary. Qualified labels
 distinguish repeated source variables with different windows:
 
 ```python
-variables = ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:1month"]
+variables = ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:30days"]
 ```
 
 A mapping remains a convenient request shorthand when each source variable appears

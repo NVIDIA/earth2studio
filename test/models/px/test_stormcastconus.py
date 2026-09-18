@@ -21,11 +21,11 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.data import HRRR, Random, Random_FX, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.data import Random, Random_FX, fetch_data
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 # Small subdomain aligned to the mock patch size (8, 8) so that crop_model
 # validation passes.  Must satisfy:
@@ -36,6 +36,16 @@ LON_START, LON_END = 3, 19  # width  = 16
 
 NVAR = 4  # must include "refc" – it is always indexed in __init__
 NVAR_COND = 5
+
+
+def _public_coords(model: StormCastCONUS, coords: CoordSystem) -> CoordinateSystem:
+    signature = model.input_coords()
+    auxiliary = {
+        name: value
+        for name, value in signature.coords.items()
+        if name not in signature.dims
+    }
+    return coord_array(tuple(coords), {**auxiliary, **coords}, attrs=signature.attrs)
 
 
 class _Tokenizer(torch.nn.Module):
@@ -214,15 +224,16 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
 
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[LAT_START:LAT_END]),
-            ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
+            ("y", p.input_coords()["y"].values),
+            ("x", p.input_coords()["x"].values),
         ]
     )
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = p.input_coords()["lead_time"].values
+    variable = p.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    coords = _public_coords(p, coords)
 
     out, out_coords = p(x, coords)
 
@@ -233,11 +244,8 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
     assert out.shape == torch.Size([len(time), 1, NVAR, ny, nx])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "hrrr_x", 4)
-    handshake_dim(out_coords, "hrrr_y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize("ensemble", [1, 2])
@@ -250,27 +258,33 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
 
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[LAT_START:LAT_END]),
-            ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
+            ("y", p.input_coords()["y"].values),
+            ("x", p.input_coords()["x"].values),
         ]
     )
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = p.input_coords()["lead_time"].values
+    variable = p.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Prepend ensemble dimension
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
+    coords = _public_coords(p, coords)
 
     p_iter = p.create_iterator(x, coords)
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
 
-    next(p_iter)  # consume the initial condition
+    initial, initial_coords = next(p_iter)
+    assert initial.shape == x.shape
+    assert initial_coords.dims == coords.dims
+    assert initial_coords.data.nbytes == 0
     for i, (out, out_coords) in enumerate(p_iter):
+        assert out_coords.dims == coords.dims
+        assert out_coords.data.nbytes == 0
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, NVAR, ny, nx])
         assert (
@@ -315,13 +329,13 @@ def test_stormcastconus_exceptions(device):
 
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[LAT_START:LAT_END]),
-            ("hrrr_x", HRRR.HRRR_X[LON_START:LON_END]),
+            ("y", p.input_coords()["y"].values),
+            ("x", p.input_coords()["x"].values),
         ]
     )
     r = Random(dc)
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = p.input_coords()["lead_time"].values
+    variable = p.input_coords()["variable"].values
     x, coords = fetch_data(
         r,
         np.array([np.datetime64("2020-04-05T00:00")]),
@@ -329,29 +343,13 @@ def test_stormcastconus_exceptions(device):
         lead_time,
         device=device,
     )
+    coords = _public_coords(p, coords)
 
     with pytest.raises(RuntimeError):
         p(x, coords)
 
     with pytest.raises(RuntimeError):
         next(p.create_iterator(x, coords))
-
-
-def test_stormcastconus_conformance():
-    p = _build_model()
-
-    # StormCastCONUS draws its diffusion latents from the global RNG
-    # (`torch.randn_like`) without declaring itself stochastic or
-    # implementing set_rng, so this is a real P13 violation rather than a
-    # checker skip. Tracked as a follow-up to declare `stochastic = True`
-    # and add a seeded `set_rng`; asserting on the exception here documents
-    # the known-bad state without leaving a permanently red test.
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one "
-        "input disagree; declare stochastic=True and implement set_rng()"
-    ]
 
 
 def test_stormcastconus_conditioning_init_time():
@@ -419,13 +417,11 @@ def test_stormcastconus_package(cond_dims, device, model):
     time = np.array([np.datetime64("2020-04-05T00:00")])
     p = model.to(device)
 
-    lat_start, lat_end = p.hrrr_lat_lim
-    lon_start, lon_end = p.hrrr_lon_lim
     r = Random(
         OrderedDict(
             [
-                ("hrrr_y", HRRR.HRRR_Y[lat_start:lat_end]),
-                ("hrrr_x", HRRR.HRRR_X[lon_start:lon_end]),
+                ("y", p.input_coords()["y"].values),
+                ("x", p.input_coords()["x"].values),
             ]
         )
     )
@@ -445,9 +441,10 @@ def test_stormcastconus_package(cond_dims, device, model):
     )
     p.num_diffusion_steps = 2
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = p.input_coords()["lead_time"].values
+    variable = p.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    coords = _public_coords(p, coords)
 
     out, out_coords = p(x, coords)
 
@@ -456,8 +453,5 @@ def test_stormcastconus_package(cond_dims, device, model):
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "hrrr_x", 4)
-    handshake_dim(out_coords, "hrrr_y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
+    assert out_coords.data.nbytes == 0

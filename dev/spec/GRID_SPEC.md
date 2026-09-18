@@ -88,6 +88,50 @@ Selected index values avoid generating geographic coordinates for the full grid:
 coordinates = definition.coords({"y": selected_y, "x": selected_x})
 ```
 
+### Allocation-free model signatures
+
+`earth2studio.utils.coord_array` consumes the same definitions without allocating
+field values. It supplies grid sizes, index coordinates, serializable grid attrs,
+and `earth2studio_crs` from `definition.crs`. Curvilinear and point grids also
+supply geographic coordinates. A registered string adds `earth2studio_grid_id`.
+
+```python
+signature = coord_array(
+    ("batch", "variable", "lat", "lon"),
+    {"variable": ["t2m"]},
+    dynamic=("batch",),
+    grid="fcn1",
+)
+```
+
+Models using projected grids use the standard `y, x` dimensions, preserving
+native coordinate values in the CRS's units. The grid supplies these axes and
+geographic coordinates; `infer_grid()` can recover the geometry without renaming.
+
+Optional `grid_dims` maps standard grid axes to a model's
+dimension names, including grid-coordinate dimensions and the `dims` metadata.
+Explicit coordinates use the mapped names. This mapping does not rename the grid
+definition itself: rename model axes back before passing such an array to
+`infer_grid()` or grid selection methods.
+
+A crop has different axes and shape from its full parent grid. Construct a new
+definition with the selected native axes and the same CRS, then pass that definition
+to `coord_array`. For example, for a projected `parent` grid:
+
+```python
+crop = ProjectedGrid(parent.y[10:20], parent.x[30:50], parent.crs)
+signature = coord_array(("y", "x"), grid=crop)
+```
+
+This produces the cropped axes and their geographic coordinates without attaching
+the full parent's registered ID. Using `grid="hrrr"`, for example, requests the
+entire registered HRRR geometry, not a crop; attaching that ID to cropped data
+would incorrectly claim that its geometry matches the full registered grid.
+
+Coordinate handshakes compare fixed axes and auxiliary coordinates and require
+matching declared grid ID and CRS metadata. `coord_array_like()` creates output
+signatures from validated inputs without recreating or reprojecting their grid.
+
 ## HEALPix Representations
 
 HEALPix ordering and storage layout are explicit. `nested` and `ring` use a flat

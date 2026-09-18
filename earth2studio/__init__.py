@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.type import CoordinateSystem
+
 __version__ = "1.0.0a0"
 
 # Deprecation warnings

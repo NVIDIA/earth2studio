@@ -19,10 +19,14 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.utils import (
     convert_multidim_to_singledim,
+    coord_array,
     handshake_coords,
+    handshake_dataarray,
+    handshake_dataarrays,
     handshake_dim,
     handshake_size,
 )
@@ -858,3 +862,195 @@ def test_cat_coords_errors():
     )
     with pytest.raises(ValueError):
         cat_coords((xx, yy_bad), (cox, coy_bad), dim="variable")
+
+
+def test_coordinate_system_signature():
+    signature = coord_array(
+        ("batch", "lead_time", "variable", "x"),
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a:mean:24h"],
+            "x": [0, 1],
+        },
+        dynamic=("batch",),
+    )
+    assert signature.shape == (0, 1, 1, 2)
+    assert signature.data.nbytes == 0
+    assert signature.attrs["earth2studio_dynamic_dims"] == ("batch",)
+    assert (
+        signature.attrs["earth2studio_statistics"]["a:mean:24h"]["modifier"]
+        == "mean:24h"
+    )
+
+    array = xr.DataArray(
+        np.zeros((3, 1, 1, 2)),
+        dims=("time", "lead_time", "variable", "x"),
+        coords={
+            "lead_time": signature.lead_time,
+            "variable": ["a:mean:24h"],
+            "x": [0, 1],
+        },
+        attrs=signature.attrs,
+    )
+    handshake_dataarray(array, signature)
+    with pytest.raises(ValueError, match="trailing dimensions"):
+        handshake_dataarray(
+            array.transpose("time", "lead_time", "x", "variable"), signature
+        )
+
+
+def test_coordinate_system_grid_and_collection():
+    signature = coord_array(
+        ("batch", "lead_time", "variable", "lat", "lon"),
+        {"lead_time": [np.timedelta64(0, "h")], "variable": ["a"]},
+        dynamic=("batch",),
+        grid="fcn1",
+    )
+    assert signature.shape == (0, 1, 1, 720, 1440)
+    assert signature.attrs["earth2studio_grid_id"] == "fcn1"
+    array = xr.DataArray(
+        np.zeros((1, 1, 1, 720, 1440), dtype=np.float32),
+        dims=signature.dims,
+        coords=signature.coords,
+        attrs=signature.attrs,
+    )
+    handshake_dataarrays((array, array), (signature, signature))
+    with pytest.raises(ValueError, match="Expected 2 DataArrays"):
+        handshake_dataarrays((array,), (signature, signature))
+
+
+def test_coordinate_projected_grid_metadata():
+    from earth2studio.grids import E2S_CRS, ProjectedGrid, infer_grid
+
+    grid = ProjectedGrid(np.arange(2) * 1000, np.arange(3) * 1000, "EPSG:3857")
+    signature = coord_array(("y", "x"), grid=grid)
+    assert signature.attrs[E2S_CRS] == grid.crs.to_string()
+    assert infer_grid(signature).fingerprint() == grid.fingerprint()
+    named = coord_array(
+        ("hrrr_y", "hrrr_x"),
+        grid=grid,
+        grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
+    )
+    assert named.attrs["dims"] == ["hrrr_y", "hrrr_x"]
+    xr.testing.assert_identical(named.rename(hrrr_y="y", hrrr_x="x").y, signature.y)
+
+
+def test_coordinate_auxiliary_geometry_validation():
+    from earth2studio.grids import CurvilinearGrid
+
+    signature = coord_array(
+        ("y", "x"), grid=CurvilinearGrid(np.zeros((2, 3)), np.ones((2, 3)))
+    )
+    with pytest.raises(ValueError, match="lat"):
+        handshake_dataarray(signature.assign_coords(lat=signature.lat + 1), signature)
+    with pytest.raises(ValueError, match="lon"):
+        handshake_dataarray(signature.drop_vars("lon"), signature)
+
+
+def test_coordinate_array_like_replaces_dependent_coordinates():
+    from earth2studio.utils.coords import coord_array_like
+
+    array = xr.DataArray(
+        np.zeros((2, 2, 3)),
+        dims=("member", "variable", "x"),
+        coords={
+            "member": [0, 1],
+            "variable": ["a", "b"],
+            "x": [0, 1, 2],
+            "units": ("variable", ["K", "m"]),
+            "height": ("x", [1, 2, 3]),
+        },
+        name="forecast",
+        attrs={"source": "test", "earth2studio_dynamic_dims": ("batch",)},
+    )
+    output = coord_array_like(array, {"variable": ["tp:sum:6h"]})
+    assert output.shape == (2, 1, 3)
+    assert output.data.nbytes == 0
+    assert output.name == array.name
+    assert output.attrs["source"] == "test"
+    assert output.attrs["earth2studio_dynamic_dims"] == ()
+    assert "units" not in output.coords
+    assert output.attrs["earth2studio_statistics"]["tp:sum:6h"]["modifier"] == "sum:6h"
+    xr.testing.assert_identical(output.height, array.height)
+    assert "units" in array.coords
+    copied = coord_array_like(output)
+    assert copied.attrs == output.attrs
+    replaced = coord_array_like(output, {"variable": ["other"]})
+    assert "earth2studio_statistics" not in replaced.attrs
+
+
+def test_coordinate_statistics_derived_from_labels() -> None:
+    signature = coord_array(
+        ("variable",),
+        {"variable": ["tp:sum:6h", "t2m", "tp:mean:1day"]},
+        attrs={"earth2studio_statistics": {"tp:sum:6h": "mean:12h"}},
+    )
+    statistics = signature.attrs["earth2studio_statistics"]
+    assert set(statistics) == {"tp:sum:6h", "tp:mean:1day"}
+    assert statistics["tp:sum:6h"]["modifier"] == "sum:6h"
+    assert statistics["tp:mean:1day"]["modifier"] == "mean:24h"
+    np.testing.assert_array_equal(
+        signature.coords["variable"], ["tp:sum:6h", "t2m", "tp:mean:1day"]
+    )
+
+
+@pytest.mark.parametrize(
+    "dynamic", [("time",), ("sample", "sensor"), ("batch", "time", "member")]
+)
+def test_coordinate_dynamic_dimensions_are_model_independent(
+    dynamic: tuple[str, ...],
+) -> None:
+    signature = coord_array(
+        (*dynamic, "variable", "x"), {"variable": ["t2m"], "x": [0, 1]}, dynamic=dynamic
+    )
+    concrete = coord_array(
+        (*dynamic, "variable", "x"),
+        {**{dim: [0, 1] for dim in dynamic}, "variable": ["t2m"], "x": [0, 1]},
+    )
+    handshake_dataarray(concrete, signature)
+    assert signature.attrs["earth2studio_dynamic_dims"] == dynamic
+    assert signature.data.nbytes == 0
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [["tp:sum:6h", "tp:sum:6h"], ["tp:mean:1month"], ["tp:unknown:6h"], [":sum:6h"]],
+)
+def test_coordinate_invalid_statistic_labels(labels: list[str]) -> None:
+    with pytest.raises(ValueError):
+        coord_array(("variable",), {"variable": labels})
+
+
+def test_coordinate_array_like_rejects_implicit_resize():
+    from earth2studio.utils.coords import coord_array_like
+
+    array = xr.DataArray(np.zeros((2, 3)), dims=("y", "x"))
+    with pytest.raises(ValueError, match="size"):
+        coord_array_like(array, {"height": ("x", [4, 5])})
+
+
+def test_coordinate_array_like_partial_dynamic_dimensions():
+    from earth2studio.utils.coords import coord_array_like
+
+    signature = coord_array(
+        ("batch", "time", "x"), {"x": [0, 1]}, dynamic=("batch", "time")
+    )
+    # Resolve the rightmost wildcard first to preserve a leading dynamic prefix.
+    partial = coord_array_like(signature, {"time": [np.datetime64("2026-09-17")]})
+    assert partial.attrs["earth2studio_dynamic_dims"] == ("batch",)
+    assert partial.shape == (0, 1, 2)
+    concrete = coord_array_like(partial, {"batch": [0, 1]})
+    assert concrete.attrs["earth2studio_dynamic_dims"] == ()
+    assert concrete.shape == (2, 1, 2)
+    with pytest.raises(ValueError, match="Dynamic dimensions must lead"):
+        coord_array_like(signature, {"batch": [0, 1]})
+
+
+def test_coordinate_array_like_spatial_replacement_requires_new_grid():
+    from earth2studio.utils.coords import coord_array_like
+
+    signature = coord_array(("lat", "lon"), grid="fcn1")
+    with pytest.raises(ValueError, match="grid"):
+        coord_array_like(signature, {"lat": np.asarray(signature.lat) + 1})
+    with pytest.raises(ValueError, match="grid"):
+        coord_array_like(signature, {"lon": np.asarray(signature.lon)[:3]})
