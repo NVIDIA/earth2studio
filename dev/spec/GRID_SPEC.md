@@ -104,6 +104,13 @@ signature = coord_array(
 )
 ```
 
+`ProjectedGrid` lazily caches full-grid latitude/longitude as read-only arrays.
+Repeated `coords()` calls share those arrays in fresh coordinate containers.
+`coord_array(grid=...)` also avoids repeat projections, although xarray may copy
+the coordinates when constructing a DataArray. Index-only requests skip projection;
+explicit custom indexes are projected independently without populating the full-grid
+cache.
+
 `grid_dims={"y": "hrrr_y", "x": "hrrr_x"}` maps standard grid axes to a model's
 dimension names, including grid-coordinate dimensions and the `dims` metadata.
 Explicit coordinates use the mapped names. This mapping does not rename the grid

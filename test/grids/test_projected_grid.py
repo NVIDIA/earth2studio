@@ -19,6 +19,7 @@ import pytest
 import xarray as xr
 
 from earth2studio.grids import E2S_CRS, ProjectedGrid, infer_grid, resolve_grid
+from earth2studio.utils.coords import coord_array
 
 GRID = ProjectedGrid([0.0, 3000.0], [0.0, 3000.0, 6000.0], "EPSG:3857")
 
@@ -49,6 +50,62 @@ def test_grid_selection():
 def test_grid_validation():
     with pytest.raises(ValueError, match="read-only"):
         GRID.x[0] = 0
+
+
+def test_coordinate_cache(monkeypatch):
+    from earth2studio.grids.projected import Transformer
+
+    grid = ProjectedGrid(GRID.y, GRID.x, GRID.crs)
+    original = Transformer.from_crs
+    calls = []
+
+    def transform(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(Transformer, "from_crs", transform)
+    grid.coords(only_index=True)
+    assert not calls
+    first = coord_array(("y", "x"), grid=grid)
+    second = coord_array(("y", "x"), grid=grid)
+    assert len(calls) == 1
+    first_grid = grid.coords()
+    second_grid = grid.coords()
+    for name in ("lat", "lon"):
+        assert np.shares_memory(first_grid[name].data, second_grid[name].data)
+        with pytest.raises(ValueError, match="read-only"):
+            first_grid[name].data[0, 0] = 99
+        first_grid[name].attrs["source"] = "changed"
+        assert "source" not in second_grid[name].attrs
+        first[name].attrs["source"] = "changed"
+        assert "source" not in second[name].attrs
+        first.coords[name] = (("y", "x"), np.zeros(grid.shape))
+        np.testing.assert_array_equal(grid.coords()[name], second[name])
+    assert len(calls) == 1
+
+
+def test_custom_indexes_do_not_populate_full_grid_cache(monkeypatch):
+    from earth2studio.grids.projected import Transformer
+
+    grid = ProjectedGrid(GRID.y, GRID.x, GRID.crs)
+    original = Transformer.from_crs
+    calls = []
+
+    def transform(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(Transformer, "from_crs", transform)
+    indexes = {"y": grid.y[:1], "x": grid.x[1:]}
+    subset = grid.coords(indexes)
+    assert subset["lat"].shape == (1, 2)
+    assert len(calls) == 1
+    full = grid.coords()
+    assert len(calls) == 2
+    grid.coords()
+    assert len(calls) == 2
+    for name in ("lat", "lon"):
+        np.testing.assert_allclose(subset[name], full[name][:1, 1:])
 
 
 def test_grid_inference():
