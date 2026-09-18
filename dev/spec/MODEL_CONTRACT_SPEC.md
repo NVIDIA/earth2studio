@@ -28,6 +28,10 @@ and, for regional models, `time`. The remaining dimensions, labels, auxiliary
 coordinates, and declared grid/CRS/statistics metadata must match. Concrete inputs
 may use any leading batch dimensions or none; fixed trailing dimension order is
 authoritative. A zero-sized fixed dimension is not implicitly a wildcard.
+Resolve multiple dynamic dimensions together or from right to left: concretizing
+`time` in `(batch, time, ...)` retains a dynamic `batch`, but concretizing only
+`batch` would leave a non-leading wildcard and is rejected. Dimensions are not
+silently reordered or converted from wildcards to fixed zero-length axes.
 
 `output_coords(input_coords)` is a *resolver*. It validates a concrete input
 coordinate system and returns the coordinate system the model will produce, without
@@ -58,7 +62,9 @@ geographic coordinates, and handshakes validate these coordinates as well as axe
 | `PrecipitationAFNO` | Registered `fcn1` grid (720 × 1440) | `lat, lon` | `tp`, with `sum:6h` statistics |
 
 Regional validation subtracts the final input lead time before checking the
-declared history window. Output planning accepts both dynamic declarations and
+declared history window. Before subtraction, `lead_time` must be an explicit,
+nonempty one-dimensional timedelta coordinate with no `NaT` entries; datetime
+and numeric labels are rejected. Output planning accepts both dynamic declarations and
 concrete DataArrays without mutating either.
 
 ### Migration boundary

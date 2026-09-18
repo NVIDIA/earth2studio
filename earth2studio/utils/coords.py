@@ -308,6 +308,9 @@ def coord_array_like(
         coordinates and infers its new size. Dimension order is preserved.
         Grid geometry cannot be replaced; use ``coord_array(grid=...)`` with a
         new definition when changing spatial coordinates.
+        Resolve dynamic dimensions together or from right to left so remaining
+        wildcards stay a leading prefix. Resolving only ``batch`` while leaving
+        a following ``time`` dynamic raises ``ValueError``.
     statistics : mapping or str, optional
         Output temporal statistics. If omitted, retain statistics for variables
         still present in the output. Pass an empty mapping to clear statistics.

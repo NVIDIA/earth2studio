@@ -88,20 +88,38 @@ print("Planned forecast:", forecast.shape, np.asarray(forecast.lead_time))
 # %%
 # Preserve Native Projected Axes
 # -----------------------------
-# CONUS crops HRRR's projected axes and reuses its registered CRS. Model axis
-# names are mapped at signature construction; infer_grid uses standard names.
+# CONUS crops HRRR's projected axes and reuses its registered CRS. Build a grid
+# definition from the selected axes, then pass it to ``coord_array`` just as in
+# the regional example above. Cropping preserves the native coordinate values
+# in meters; it does not reset them to zero-based pixel indexes.
+#
+# Use the cropped definition rather than ``grid="hrrr"``: the registry name
+# describes the full HRRR domain. Model axis names are mapped at signature
+# construction; ``infer_grid`` uses standard names.
 
 # %%
 hrrr = resolve_grid("hrrr")
-crop = ProjectedGrid(hrrr.y[10:12], hrrr.x[20:23], hrrr.crs)
+y_slice, x_slice = slice(10, 12), slice(20, 23)
+crop = ProjectedGrid(hrrr.y[y_slice], hrrr.x[x_slice], hrrr.crs)
 projected = coord_array(
-    ("hrrr_y", "hrrr_x"),
+    ("batch", "time", "lead_time", "variable", "hrrr_y", "hrrr_x"),
+    {
+        "lead_time": np.array([0], dtype="timedelta64[h]"),
+        "variable": ["u10m", "v10m"],
+    },
+    dynamic=("batch", "time"),
     grid=crop,
     grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
 )
+np.testing.assert_equal(projected.shape, (0, 0, 1, 2, 2, 3))
+np.testing.assert_equal(projected.data.nbytes, 0)
+np.testing.assert_array_equal(projected.hrrr_y, hrrr.y[y_slice])
+np.testing.assert_array_equal(projected.hrrr_x, hrrr.x[x_slice])
 inferred = infer_grid(projected.rename(hrrr_y="y", hrrr_x="x"))
 np.testing.assert_equal(inferred.fingerprint(), crop.fingerprint())
-print("Projected grid:", projected.shape, projected.attrs["earth2studio_crs"])
+print("Full HRRR grid:", hrrr.shape, "Cropped grid:", crop.shape)
+print("Cropped forecast signature:", projected.dims, projected.shape)
+print("Native CRS:", projected.attrs["earth2studio_crs"])
 
 # %%
 # Declare Accumulated Precipitation
