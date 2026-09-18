@@ -224,8 +224,8 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
 
     dc = OrderedDict(
         [
-            ("hrrr_y", p.hrrr_y),
-            ("hrrr_x", p.hrrr_x),
+            ("y", p.input_coords()["y"].values),
+            ("x", p.input_coords()["x"].values),
         ]
     )
     r = Random(dc)
@@ -244,7 +244,7 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
     assert out.shape == torch.Size([len(time), 1, NVAR, ny, nx])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    assert out_coords.dims == ("time", "lead_time", "variable", "hrrr_y", "hrrr_x")
+    assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
     assert out_coords.data.nbytes == 0
 
 
@@ -258,8 +258,8 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
 
     dc = OrderedDict(
         [
-            ("hrrr_y", p.hrrr_y),
-            ("hrrr_x", p.hrrr_x),
+            ("y", p.input_coords()["y"].values),
+            ("x", p.input_coords()["x"].values),
         ]
     )
     r = Random(dc)
@@ -329,8 +329,8 @@ def test_stormcastconus_exceptions(device):
 
     dc = OrderedDict(
         [
-            ("hrrr_y", p.hrrr_y),
-            ("hrrr_x", p.hrrr_x),
+            ("y", p.input_coords()["y"].values),
+            ("x", p.input_coords()["x"].values),
         ]
     )
     r = Random(dc)
@@ -420,8 +420,8 @@ def test_stormcastconus_package(cond_dims, device, model):
     r = Random(
         OrderedDict(
             [
-                ("hrrr_y", p.hrrr_y),
-                ("hrrr_x", p.hrrr_x),
+                ("y", p.input_coords()["y"].values),
+                ("x", p.input_coords()["x"].values),
             ]
         )
     )
@@ -453,5 +453,5 @@ def test_stormcastconus_package(cond_dims, device, model):
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    assert out_coords.dims == ("time", "lead_time", "variable", "hrrr_y", "hrrr_x")
+    assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
     assert out_coords.data.nbytes == 0

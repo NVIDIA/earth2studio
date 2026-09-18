@@ -27,7 +27,7 @@ import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.data import GFS_FX, DataSource, ForecastSource, fetch_data
 from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -267,15 +267,15 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             self.diffusion_model.crop_model(crop_bbox)
 
-        hrrr_lat, hrrr_lon = HRRR.grid()
-        self.lat = hrrr_lat[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.lon = hrrr_lon[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
-        self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
+        hrrr_grid = resolve_grid("hrrr")
+        self.grid = ProjectedGrid(
+            hrrr_grid.y[slice(*hrrr_lat_lim)],
+            hrrr_grid.x[slice(*hrrr_lon_lim)],
+            hrrr_grid.crs,
+        )
+        grid_coords = self.grid.coords()
+        self.lat = np.asarray(grid_coords["lat"])
+        self.lon = np.asarray(grid_coords["lon"])
 
         self.variables = variables
         self.conditioning_variables = conditioning_variables
@@ -325,18 +325,26 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
 
+    @property
+    def hrrr_x(self) -> np.ndarray:
+        """Native projected x coordinates derived from the input signature."""
+        return np.asarray(self.input_coords()["x"])
+
+    @property
+    def hrrr_y(self) -> np.ndarray:
+        """Native projected y coordinates derived from the input signature."""
+        return np.asarray(self.input_coords()["y"])
+
     def input_coords(self) -> CoordinateSystem:
         """Return the allocation-free signature on the cropped HRRR projected grid."""
-        grid = ProjectedGrid(self.hrrr_y, self.hrrr_x, resolve_grid("hrrr").crs)
         return coord_array(
-            ("batch", "time", "lead_time", "variable", "hrrr_y", "hrrr_x"),
+            ("batch", "time", "lead_time", "variable", "y", "x"),
             {
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
             },
             dynamic=("batch", "time"),
-            grid=grid,
-            grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
+            grid=self.grid,
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:

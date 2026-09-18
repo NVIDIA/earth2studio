@@ -104,7 +104,10 @@ signature = coord_array(
 )
 ```
 
-`grid_dims={"y": "hrrr_y", "x": "hrrr_x"}` maps standard grid axes to a model's
+StormCastCONUS uses the standard projected `y, x` dimensions directly, preserving
+native meter values and supporting `infer_grid()` without renaming.
+
+Optional `grid_dims` maps standard grid axes to a model's
 dimension names, including grid-coordinate dimensions and the `dims` metadata.
 Explicit coordinates use the mapped names. This mapping does not rename the grid
 definition itself: rename model axes back before passing such an array to

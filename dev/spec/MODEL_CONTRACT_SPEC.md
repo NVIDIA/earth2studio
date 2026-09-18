@@ -52,7 +52,7 @@ validate geographic coordinates as well as axes.
 | Model | Grid declaration | Spatial dimensions | Output |
 | --- | --- | --- | --- |
 | `StormScopeGOES`, `StormScopeMRMS` | `CurvilinearGrid` from checkpoint geometry | `y, x` | Configured output offsets added to final input lead time |
-| `StormCastCONUS` | Cropped `ProjectedGrid` using registered HRRR CRS | `hrrr_y, hrrr_x` via `grid_dims` | Final input lead time plus one hour |
+| `StormCastCONUS` | Cropped `ProjectedGrid` using registered HRRR CRS | `y, x` | Final input lead time plus one hour |
 | `PrecipitationAFNO` | Registered `fcn1` grid (720 × 1440) | `lat, lon` | `tp`, with `sum:6h` statistics |
 
 Regional validation subtracts the final input lead time before checking the
@@ -87,6 +87,9 @@ allocation-free. Converted models reject dictionary coordinate arguments.
 `CoordSystem` remains the dictionary alias for unmigrated models and data helpers.
 StormCastCONUS derives geographic auxiliaries from its cropped projected axes
 and registered HRRR CRS through `coord_array(grid=...)`.
+Its stored `ProjectedGrid` is the geometry source of truth; consumers obtain
+native axes from `input_coords()["y"]` and `input_coords()["x"]`.
+Read-only `hrrr_y` and `hrrr_x` properties derive their values from those coordinates.
 
 Single field-DataArray inputs belong to the separate execution migration.
 Runtime protocol membership checks method

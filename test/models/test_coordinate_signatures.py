@@ -20,7 +20,13 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.grids import E2S_CRS, E2S_GRID_ID, resolve_grid
+from earth2studio.grids import (
+    E2S_CRS,
+    E2S_GRID_ID,
+    ProjectedGrid,
+    infer_grid,
+    resolve_grid,
+)
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO
 from earth2studio.models.px.stormcastconus import StormCastCONUS
@@ -43,8 +49,7 @@ def regional_model(request):
     lon = np.array([[250.0, 251.0, 252.0], [250.1, 251.1, 252.1]])
     if isinstance(model, StormCastCONUS):
         grid = resolve_grid("hrrr")
-        model.hrrr_y = grid.y[10:12]
-        model.hrrr_x = grid.x[20:23]
+        model.grid = ProjectedGrid(grid.y[10:12], grid.x[20:23], grid.crs)
         model.lat, model.lon = lat, lon
     else:
         model.y, model.x = np.arange(2), np.arange(3)
@@ -68,14 +73,17 @@ def test_regional_input_signature(regional_model):
     assert signature.lat.dims == signature.dims[-2:]
     assert signature.lon.dims == signature.dims[-2:]
     if isinstance(regional_model, StormCastCONUS):
-        assert signature.dims[-2:] == ("hrrr_y", "hrrr_x")
+        assert signature.dims[-2:] == ("y", "x")
         assert signature.attrs[E2S_CRS] == resolve_grid("hrrr").crs.to_string()
-        assert signature.attrs["dims"] == ["hrrr_y", "hrrr_x"]
-        np.testing.assert_array_equal(signature.hrrr_y, regional_model.hrrr_y)
-        grid = resolve_grid("hrrr")
-        from earth2studio.grids import ProjectedGrid
-
-        cropped = ProjectedGrid(regional_model.hrrr_y, regional_model.hrrr_x, grid.crs)
+        assert signature.attrs["dims"] == ["y", "x"]
+        np.testing.assert_array_equal(signature.y, regional_model.grid.y)
+        np.testing.assert_array_equal(signature.x, regional_model.grid.x)
+        assert infer_grid(signature).fingerprint() == regional_model.grid.fingerprint()
+        np.testing.assert_array_equal(regional_model.hrrr_y, signature.y)
+        np.testing.assert_array_equal(regional_model.hrrr_x, signature.x)
+        assert "hrrr_y" not in regional_model.__dict__
+        assert "hrrr_x" not in regional_model.__dict__
+        cropped = regional_model.grid
         np.testing.assert_array_equal(signature.lat, cropped.coords()["lat"])
         np.testing.assert_array_equal(signature.lon, cropped.coords()["lon"])
     else:

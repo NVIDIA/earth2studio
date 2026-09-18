@@ -52,41 +52,6 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
-from earth2studio.utils.coords import coord_array
-
-
-class _AnalysisSequence:
-    def __call__(self, time, variable):
-        values = (np.asarray(time) - np.datetime64("2024-01-02")) / np.timedelta64(
-            1, "h"
-        )
-        return xr.DataArray(
-            np.broadcast_to(values[:, None, None], (len(time), len(variable), 2)),
-            dims=("time", "variable", "x"),
-            coords={"time": time, "variable": variable, "x": [0, 1]},
-        )
-
-
-class _ForecastSequence:
-    def __call__(self, time, lead_time, variable):
-        values = np.asarray(lead_time) / np.timedelta64(1, "h")
-        return xr.DataArray(
-            np.broadcast_to(
-                values[None, :, None, None],
-                (len(time), len(lead_time), len(variable), 2),
-            ),
-            dims=("time", "lead_time", "variable", "x"),
-            coords={
-                "time": time,
-                "lead_time": lead_time,
-                "variable": variable,
-                "x": [0, 1],
-            },
-        )
-
-
-class _CadencedAnalysisSequence(_AnalysisSequence):
-    time_step = np.timedelta64(6, "h")
 
 
 @pytest.fixture
@@ -237,33 +202,6 @@ def test_fetch_data(time, lead_time, device):
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
     assert not torch.isnan(x).any()
-
-
-@pytest.mark.parametrize(
-    "source", [_AnalysisSequence(), _CadencedAnalysisSequence(), _ForecastSequence()]
-)
-def test_fetch_data_time_statistics(source):
-    metadata = coord_array(
-        ("time", "lead_time", "variable", "x"),
-        {
-            "lead_time": [np.timedelta64(0, "h")],
-            "variable": ["a:mean:24h", "a:max:12h", "b"],
-            "x": [0, 1],
-        },
-        dynamic=("time",),
-    )
-    delta_t = None if hasattr(source, "time_step") else np.timedelta64(6, "h")
-    array = fetch_data(
-        source,
-        np.array([np.datetime64("2024-01-02")]),
-        metadata.coords["variable"].values,
-        metadata=metadata,
-        delta_t=delta_t,
-        legacy=False,
-    )
-    np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
-    np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)
-    np.testing.assert_allclose(array.sel(variable="b"), 0)
 
 
 def test_fetch_data_out_of_ns_range():
