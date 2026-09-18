@@ -22,10 +22,9 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FCN
-from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.coords import coord_array
 
 
 class PhooFCNModel(torch.nn.Module):
@@ -84,10 +83,11 @@ def test_fcn_call(time, device):
     signature = p.input_coords()
     r = _random_source()
 
-    # Get data and convert to the established tensor coordinate contract.
+    # Keep field values in the tensor and attach the public coordinate signature.
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     out, out_coords = p(x, coords)
 
@@ -98,11 +98,8 @@ def test_fcn_call(time, device):
     assert (
         out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
     ).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out_coords.dims == ("time", "lead_time", "variable", "lat", "lon")
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize(
@@ -122,7 +119,7 @@ def test_fcn_iter(ensemble, device):
     signature = p.input_coords()
     r = _random_source()
 
-    # Get data and convert to the established tensor coordinate contract.
+    # Get field values and dimension labels.
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
@@ -131,6 +128,7 @@ def test_fcn_iter(ensemble, device):
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     p_iter = p.create_iterator(x, coords)
 
@@ -138,8 +136,13 @@ def test_fcn_iter(ensemble, device):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
+    initial, initial_coords = next(p_iter)
+    torch.testing.assert_close(initial, x)
+    assert initial_coords.dims == coords.dims
+    assert initial_coords.data.nbytes == 0
     for i, (out, out_coords) in enumerate(p_iter):
+        assert out_coords.dims == coords.dims
+        assert out_coords.data.nbytes == 0
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
         assert (
@@ -150,19 +153,6 @@ def test_fcn_iter(ensemble, device):
 
         if i > 5:
             break
-
-
-def test_fcn_conformance():
-    model = PhooFCNModel()
-    center = torch.zeros(26, 1, 1)
-    scale = torch.ones(26, 1, 1)
-    p = FCN(model, center, scale)
-    # FCN is deterministic (stochastic=False via PrognosticMixin's default), so P14
-    # is reported as an informational skip rather than evaluated; that is expected
-    # and not a contract violation.
-    assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
-    ]
 
 
 def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
@@ -179,6 +169,7 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
             "lon": base_coords["lon"].values,
         }
     )
+    coords = coord_array(tuple(coords), coords, attrs=base_coords.attrs)
     x = torch.zeros(1, 1, 26, 720, 1440)
 
     checkpoint = Checkpoint("fcn", path=tmp_path, flush_interval=1, level=2)
@@ -189,7 +180,8 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
         saved_x, saved_coords = next(iterator)
         assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
         assert saved_x[0, 0, 0, 0, 0] == 1
-        ckpt.write(lead_time=saved_coords["lead_time"][-1])
+        assert saved_coords.data.nbytes == 0
+        ckpt.write(lead_time=saved_coords["lead_time"].values[-1])
 
     checkpoint = Checkpoint("fcn", path=tmp_path, level=2)
     with checkpoint.select(-1):
@@ -199,6 +191,8 @@ def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
         resumed_x, resumed_coords = next(model.create_iterator(restart_x, coords))
 
     assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
+    assert resumed_coords.dims == coords.dims
+    assert resumed_coords.data.nbytes == 0
     assert resumed_x[0, 0, 0, 0, 0] == 2
     assert resumed_x.amin() == 2
     assert resumed_x.amax() == 2
@@ -227,6 +221,7 @@ def test_fcn_exceptions(dc, device):
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     with pytest.raises((KeyError, ValueError)):
         p(x, coords)
@@ -251,10 +246,11 @@ def test_fcn_package(model, device):
     signature = p.input_coords()
     r = _random_source()
 
-    # Get data and convert to the established tensor coordinate contract.
+    # Keep field values in the tensor and attach the public coordinate signature.
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     out, out_coords = p(x, coords)
 
@@ -266,8 +262,5 @@ def test_fcn_package(model, device):
         out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
     ).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out_coords.dims == ("time", "lead_time", "variable", "lat", "lon")
+    assert out_coords.data.nbytes == 0

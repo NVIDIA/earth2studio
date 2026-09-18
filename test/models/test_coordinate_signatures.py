@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 
 import numpy as np
 import pytest
@@ -26,7 +25,12 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO
 from earth2studio.models.px.stormcastconus import StormCastCONUS
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
-from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, E2S_STATISTICS
+from earth2studio.utils.coords import (
+    E2S_DYNAMIC_DIMS,
+    E2S_STATISTICS,
+    coord_array,
+    coord_array_like,
+)
 
 
 @pytest.fixture(params=[StormScopeGOES, StormScopeMRMS, StormCastCONUS])
@@ -184,23 +188,97 @@ def test_tensor_batching_with_public_signatures(regional_model):
     class TensorStep:
         input_coords = regional_model.input_coords
         output_coords = regional_model.output_coords
-        _input_tensor_coords = regional_model._input_tensor_coords
-        _output_tensor_coords = regional_model._output_tensor_coords
 
         @batch_func()
         def __call__(self, x, coords):
             return x, coords
 
-    coords = regional_model._input_tensor_coords()
-    coords["batch"] = np.arange(2)
-    coords["time"] = np.array(["2026-09-17"], dtype="datetime64[ns]")
-    coords = OrderedDict(
-        ("member" if k == "batch" else k, v) for k, v in coords.items()
-    )
-    x = torch.zeros(tuple(len(v) for v in coords.values()))
+    coords = coord_array_like(
+        regional_model.input_coords(),
+        {
+            "batch": np.arange(2),
+            "time": np.array(["2026-09-17"], dtype="datetime64[ns]"),
+        },
+    ).rename(batch="member")
+    coords = coords.assign_coords(member_label=("member", ["a", "b"]), source="test")
+    coords.member_label.attrs["description"] = "member identity"
+    x = torch.zeros(coords.shape)
     output, output_coords = TensorStep()(x, coords)
     assert output.shape == x.shape
-    assert tuple(output_coords) == tuple(coords)
+    assert output_coords.dims == coords.dims
+    assert output_coords.attrs == coords.attrs
+    xr.testing.assert_identical(
+        output_coords.coords.to_dataset(), coords.coords.to_dataset()
+    )
+    assert output_coords.data.nbytes == 0
+
+
+@pytest.mark.parametrize("batch_kind", ["none", "batch", "multiple"])
+def test_coordinate_pair_batch_layout(regional_model, batch_kind):
+    class Step:
+        input_coords = regional_model.input_coords
+
+        @batch_func()
+        def __call__(self, x, coords):
+            return x + 1, coords
+
+    coords = coord_array_like(
+        regional_model.input_coords(),
+        {"batch": [0, 1], "time": np.array(["2026-09-17"], dtype="datetime64[ns]")},
+    )
+    if batch_kind == "none":
+        coords = coords.isel(batch=0, drop=True).assign_coords(batch="source")
+    elif batch_kind == "multiple":
+        coords = coords.rename(batch="member")
+        coords = coord_array(
+            ("ensemble", *coords.dims),
+            {**dict(coords.coords), "ensemble": [0, 1, 2]},
+            attrs=coords.attrs,
+        )
+    x = torch.zeros(coords.shape)
+    output, actual = Step()(x, coords)
+    torch.testing.assert_close(output, x + 1)
+    assert actual.dims == coords.dims
+    xr.testing.assert_identical(actual.coords.to_dataset(), coords.coords.to_dataset())
+    with pytest.raises(ValueError, match="shape"):
+        Step()(x.unsqueeze(0), coords)
+
+
+def test_coordinate_pair_rejects_batch_reordering(regional_model):
+    class Step:
+        input_coords = regional_model.input_coords
+
+        @batch_func()
+        def __call__(self, x, coords):
+            return x.flip(0), coords.isel(batch=slice(None, None, -1))
+
+    coords = coord_array_like(
+        regional_model.input_coords(),
+        {"batch": [0, 1], "time": np.array(["2026-09-17"], dtype="datetime64[ns]")},
+    )
+    with pytest.raises(ValueError, match="batch"):
+        Step()(torch.zeros(coords.shape), coords)
+
+
+def test_coordinate_pair_preserves_output_metadata(regional_model):
+    class Step:
+        input_coords = regional_model.input_coords
+
+        @batch_func()
+        def __call__(self, x, coords):
+            return x, coords.assign_coords(source="forecast", quality=("batch", [3, 4]))
+
+    coords = (
+        coord_array_like(
+            regional_model.input_coords(),
+            {"batch": [0, 1], "time": np.array(["2026-09-17"], dtype="datetime64[ns]")},
+        )
+        .rename(batch="member")
+        .assign_coords(source="input", quality=("member", [1, 2]))
+    )
+    _, output = Step()(torch.zeros(coords.shape), coords)
+    assert output.source.item() == "forecast"
+    np.testing.assert_array_equal(output.quality, [3, 4])
 
 
 def test_precipitation_tensor_call():
@@ -210,11 +288,98 @@ def test_precipitation_tensor_call():
     model.center, model.scale, model.eps = 0.0, 1.0, 1e-5
     signature = model.input_coords()
     assert isinstance(signature, xr.DataArray)
-    coords = OrderedDict(
-        (str(d), np.asarray(signature.coords[d]))
-        for d in signature.dims
-        if d != "batch"
-    )
+    coords = coord_array_like(signature, {"batch": [0]}).isel(batch=0, drop=True)
     output, output_coords = model(torch.zeros(20, 720, 1440), coords)
     assert output.shape == (1, 720, 1440)
     np.testing.assert_array_equal(output_coords["variable"], ["tp"])
+    assert output_coords.data.nbytes == 0
+    assert output_coords.attrs[E2S_STATISTICS]["tp"]["modifier"] == "sum:6h"
+
+
+def test_regional_tensor_rollout(regional_model):
+    model = regional_model
+    coords = coord_array_like(
+        model.input_coords(),
+        {"batch": [0, 1], "time": np.array(["2026-09-17"], dtype="datetime64[ns]")},
+    ).rename(batch="member")
+    coords = coords.assign_coords(source="test", member_label=("member", ["a", "b"]))
+    x = torch.ones(coords.shape)
+    if isinstance(model, StormCastCONUS):
+        model.batch_size = 1
+        model.conditioning_data_source = object()
+        model._get_conditioning = lambda c, b, d: torch.zeros((b, 1, 1, 2, 2, 3))
+        model._forward = lambda state, *args, **kwargs: state + 1
+    else:
+        model.input_interp = None
+        model.valid_mask = torch.ones(2, 3, dtype=torch.bool)
+        model.conditioning_variables = None
+        model.sliding_window = True
+        model._inject_auto_observations = lambda state, c: state
+        model._forward = lambda state, c, **kwargs: state[:, :, -2:] + 1
+    y, output = model(x, coords)
+    assert output.dims == coords.dims
+    assert tuple(y.shape) == output.shape
+    assert output.data.nbytes == 0
+    xr.testing.assert_identical(output.lat, coords.lat)
+    torch.testing.assert_close(x, torch.ones_like(x))
+    iterator = model.create_iterator(x, coords)
+    next(iterator)
+    first, first_coords = next(iterator)
+    second, second_coords = next(iterator)
+    assert first_coords.dims == second_coords.dims == coords.dims
+    assert second_coords.data.nbytes == 0
+    assert (
+        np.asarray(second_coords.lead_time)[-1] > np.asarray(first_coords.lead_time)[-1]
+    )
+    torch.testing.assert_close(second, first + 1)
+    iterator.close()
+    assert not hasattr(model, "_input_tensor_coords")
+    if not isinstance(model, StormCastCONUS):
+        model.conditioning_interp = None
+        model.conditioning_valid_mask = model.valid_mask
+        coupled, coupled_coords = model.call_with_conditioning(x, coords, x, coords)
+        torch.testing.assert_close(coupled, y)
+        assert coupled_coords.dims == coords.dims
+        source = coord_array(
+            (*coords.dims[:-2], "lat", "lon"),
+            {
+                **{str(d): coords[d].variable for d in coords.dims[:-2]},
+                "lat": [30.0],
+                "lon": [250.0],
+            },
+        )
+        model.input_interp = lambda state: state.expand(*state.shape[:-2], 2, 3)
+        regridded, native = model(torch.ones(source.shape), source)
+        assert native.dims == coords.dims
+        torch.testing.assert_close(regridded, y)
+
+
+def test_fcn_tensor_rollout():
+    from earth2studio.models.px.fcn import FCN
+    from earth2studio.utils.coords import coord_array
+
+    model = FCN(torch.nn.Identity(), torch.tensor(0.0), torch.tensor(1.0))
+    model.input_coords = lambda: coord_array(
+        ("batch", "lead_time", "variable", "lat", "lon"),
+        {
+            "lead_time": np.array([0], dtype="timedelta64[h]"),
+            "variable": ["u10m"],
+            "lat": [30.0],
+            "lon": [250.0],
+        },
+        dynamic=("batch",),
+    )
+    coords = coord_array_like(model.input_coords(), {"batch": [0, 1]}).rename(
+        batch="member"
+    )
+    x = torch.ones(coords.shape)
+    iterator = model.create_iterator(x, coords)
+    for step in range(3):
+        y, output = next(iterator)
+        torch.testing.assert_close(y, x)
+        assert output.dims == coords.dims
+        assert output.data.nbytes == 0
+        np.testing.assert_array_equal(
+            output.lead_time, np.array([step * 6], dtype="timedelta64[h]")
+        )
+    iterator.close()

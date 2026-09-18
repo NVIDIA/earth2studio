@@ -71,14 +71,25 @@ def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
 ```
 
 FCN, PrecipitationAFNO, StormCastCONUS, StormScopeGOES, and StormScopeMRMS
-use these signatures while retaining tensor-plus-coordinate execution inputs.
-`CoordSystem` remains `OrderedDict[str, np.ndarray]`. Private tensor-coordinate
-helpers bridge existing model calls and batching during signature migration.
+use these signatures for both planning and tensor-pair execution:
+
+```python
+def __call__(self, x: torch.Tensor, coords: CoordinateSystem
+             ) -> tuple[torch.Tensor, CoordinateSystem]: ...
+def create_iterator(self, x: torch.Tensor, coords: CoordinateSystem
+                    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]: ...
+```
+
+Field values remain separate tensors. Coordinate shapes must match the tensors;
+wildcard dimensions must be concretized before execution. Batching preserves
+leading dimension labels, geographic auxiliaries and metadata, and outputs remain
+allocation-free. Converted models reject dictionary coordinate arguments.
+`CoordSystem` remains the dictionary alias for unmigrated models and data helpers.
 StormCastCONUS derives geographic auxiliaries from its cropped projected axes
 and registered HRRR CRS through `coord_array(grid=...)`.
 
-DataArray calls, iterators, hooks, batching, and checkpoint execution belong to
-the separate execution migration. Runtime protocol membership checks method
+Single field-DataArray inputs belong to the separate execution migration.
+Runtime protocol membership checks method
 presence, not call signatures. The conformance checker still expects dictionary
 signatures; migrated public signatures are covered by focused coordinate tests.
 See `dev/examples/03_coordinate_signatures.py` for allocation-free planning.

@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import torch
@@ -27,16 +27,16 @@ from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
-    handshake_coords,
+    coord_array_like,
     handshake_dataarray,
-    handshake_dim,
 )
 from earth2studio.utils.checkpoint import bind_checkpoint_state
+from earth2studio.utils.coords import statistics_from_metadata
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordinateSystem, CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.models.afno import AFNO
@@ -74,38 +74,10 @@ VARIABLES = [
 ]
 
 
-def _tensor_coords(lead_time: np.timedelta64) -> CoordSystem:
-    return OrderedDict(
-        {
-            "batch": np.empty(0),
-            "lead_time": np.array([lead_time]),
-            "variable": np.array(VARIABLES),
-            "lat": np.linspace(90, -90, 720, endpoint=False),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
-
-
-def _advance_tensor_coords(input_coords: CoordSystem) -> CoordSystem:
-    target = _tensor_coords(np.timedelta64(0, "h"))
-    relative = input_coords.copy()
-    relative["lead_time"] = relative["lead_time"] - input_coords["lead_time"][-1]
-    for index, dimension in enumerate(target):
-        if dimension != "batch":
-            handshake_dim(relative, dimension, index)
-            handshake_coords(relative, target, dimension)
-
-    output = _tensor_coords(np.timedelta64(6, "h"))
-    output["batch"] = input_coords["batch"]
-    output["lead_time"] = output["lead_time"] + input_coords["lead_time"]
-    return output
-
-
 @dataclass
 class _FCNCheckpointState:
     x: torch.Tensor | None = None
-    coord_keys: tuple[str, ...] = ()
-    coord_values: tuple[np.ndarray, ...] = ()
+    coords: dict[str, Any] | None = None
 
 
 class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -162,9 +134,21 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return the FCN coordinate signature after one forecast step."""
-        handshake_dataarray(input_coords, self.input_coords())
-        return input_coords.assign_coords(
-            lead_time=input_coords["lead_time"] + np.timedelta64(6, "h")
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords["lead_time"])
+        if (
+            input_coords["lead_time"].dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("Input lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
 
     def __str__(
@@ -173,35 +157,41 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "fcn"
 
     def _restore_checkpoint_state(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem, bool]:
+        self, x: torch.Tensor, coords: CoordinateSystem
+    ) -> tuple[torch.Tensor, CoordinateSystem, bool]:
         if (
             self.checkpoint.checkpoint_level == 2
             and self.checkpoint.checkpoint_state_loaded
             and self.checkpoint.x is not None
-            and self.checkpoint.coord_keys
+            and self.checkpoint.coords is not None
         ):
             x = self.checkpoint.x.to(x.device)
-            coords = OrderedDict(
-                (key, np.asarray(value).copy())
-                for key, value in zip(
-                    self.checkpoint.coord_keys, self.checkpoint.coord_values
-                )
-            )
+            coords = coord_array(**self.checkpoint.coords)
             return x, coords, True
         return x, coords, False
 
-    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
+    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordinateSystem) -> None:
         if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
             self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
-            self.checkpoint.coord_keys = tuple(coords.keys())
-            self.checkpoint.coord_values = tuple(
-                np.asarray(value).copy() for value in coords.values()
-            )
+            self.checkpoint.coords = {
+                "dims": tuple(coords.dims),
+                "sizes": dict(coords.sizes),
+                "coords": {
+                    str(name): (
+                        tuple(value.dims),
+                        np.asarray(value).copy(),
+                        dict(value.attrs),
+                    )
+                    for name, value in coords.coords.items()
+                },
+                "attrs": dict(coords.attrs),
+                "name": coords.name,
+                "dtype": str(coords.dtype),
+                "statistics": statistics_from_metadata(coords),
+            }
         else:
             self.checkpoint.x = None
-            self.checkpoint.coord_keys = ()
-            self.checkpoint.coord_values = ()
+            self.checkpoint.coords = None
 
     # --8<-- [start:fcn-default-package]
     @classmethod
@@ -253,8 +243,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: CoordinateSystem,
+    ) -> tuple[torch.Tensor, CoordinateSystem]:
         """Runs prognostic model 1 step.
 
         Parameters
@@ -270,7 +260,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system 6 hours in the future
         """
         x, coords, _ = self._restore_checkpoint_state(x, coords)
-        output_coords = _advance_tensor_coords(coords)
+        output_coords = self.output_coords(coords)
 
         x = self._forward(x)
         self._save_checkpoint_state(x, output_coords)
@@ -279,12 +269,12 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: torch.Tensor, coords: CoordinateSystem
+    ) -> Generator[tuple[torch.Tensor, CoordinateSystem], None, None]:
         coords = coords.copy()
         x, coords, restored = self._restore_checkpoint_state(x, coords)
 
-        _advance_tensor_coords(coords)
+        self.output_coords(coords)
 
         if not restored:
             self._save_checkpoint_state(x, coords)
@@ -295,7 +285,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
 
             # Forward is identity operator
-            coords = _advance_tensor_coords(coords)
+            coords = self.output_coords(coords)
             x = self._forward(x)
 
             # Rear hook
@@ -305,8 +295,8 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield x, coords.copy()
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: CoordinateSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 

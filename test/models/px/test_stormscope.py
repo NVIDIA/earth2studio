@@ -22,12 +22,24 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
 )
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
+
+
+def _public_coords(
+    model: StormScopeGOES | StormScopeMRMS, coords: CoordSystem
+) -> CoordinateSystem:
+    signature = model.input_coords()
+    auxiliary = {
+        name: value
+        for name, value in signature.coords.items()
+        if name not in signature.dims
+    }
+    return coord_array(tuple(coords), {**auxiliary, **coords}, attrs=signature.attrs)
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
@@ -164,8 +176,8 @@ def test_stormscope_call(time, device, batch):
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add batch dimension
@@ -174,6 +186,7 @@ def test_stormscope_call(time, device, batch):
     coords.move_to_end("batch", last=False)
 
     # Test forward pass
+    coords = _public_coords(model, coords)
     out, out_coords = model(x, coords)
 
     if not isinstance(time, Iterable):
@@ -183,12 +196,8 @@ def test_stormscope_call(time, device, batch):
     assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "x", 5)
-    handshake_dim(out_coords, "y", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out_coords.dims == ("batch", "time", "lead_time", "variable", "y", "x")
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize("amp", [False, True])
@@ -223,19 +232,22 @@ def test_stormscope_amp_compile(amp, compile, device):
 
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
 
+    coords = _public_coords(model, coords)
     out, out_coords = model(x, coords)
 
     # Output is unchanged in shape/dtype and finite regardless of the flags.
     assert out.shape == torch.Size([1, len(time), 1, nvar, h, w])
     assert out.dtype == x.dtype
     assert torch.isfinite(out).all()
+    assert out_coords.dims == coords.dims
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize(
@@ -257,8 +269,8 @@ def test_stormscope_iter(batch, device):
     r = Random(dc)
 
     # Get Data
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Add batch dimension
@@ -266,6 +278,7 @@ def test_stormscope_iter(batch, device):
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
+    coords = _public_coords(model, coords)
     p_iter = model.create_iterator(x, coords)
 
     if not isinstance(time, Iterable):
@@ -276,8 +289,12 @@ def test_stormscope_iter(batch, device):
     assert ic_x.shape == torch.Size([batch, len(time), 1, nvar, h, w])
     assert ic_coords["lead_time"].shape == (1,)
     assert ic_coords["lead_time"][0] == lead_time[-1]
+    assert ic_coords.dims == coords.dims
+    assert ic_coords.data.nbytes == 0
 
     for i, (out, out_coords) in enumerate(p_iter):
+        assert out_coords.dims == coords.dims
+        assert out_coords.data.nbytes == 0
         assert len(out.shape) == 6
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
         assert (
@@ -315,8 +332,8 @@ def test_stormscope_interpolation(device):
     dc = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Test that prep_input can handle the different grid
@@ -358,14 +375,15 @@ def test_stormscope_next_input(sliding_window, device, batch):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
     # Simulate a prediction
+    coords = _public_coords(model, coords)
     pred_coords = model.output_coords(coords)
     pred = torch.randn(
         batch,
@@ -379,16 +397,15 @@ def test_stormscope_next_input(sliding_window, device, batch):
 
     # Get next input
     next_x, next_coords = model.next_input(pred, pred_coords, x, coords)
+    assert next_coords.dims == coords.dims
+    assert next_coords.data.nbytes == 0
 
     if sliding_window:
         # Should have same number of lead times as input
         assert len(next_coords["lead_time"]) == len(coords["lead_time"])
         # Lead times should be shifted forward
-        expected_lead_time = model.input_times + pred_coords["lead_time"][-1]
-        assert np.allclose(
-            next_coords["lead_time"].astype("timedelta64[h]").astype(int),
-            expected_lead_time.astype("timedelta64[h]").astype(int),
-        )
+        expected_lead_time = model.input_times + pred_coords["lead_time"].values[-1]
+        np.testing.assert_array_equal(next_coords["lead_time"], expected_lead_time)
         # Should contain old input data and new prediction
         assert next_x.shape[2] == len(next_coords["lead_time"])
     else:
@@ -413,8 +430,8 @@ def test_stormscope_call_with_conditioning(device):
     r = Random(dc)
 
     # Get input data
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Manually create conditioning data
@@ -442,6 +459,8 @@ def test_stormscope_call_with_conditioning(device):
     conditioning_coords.move_to_end("batch", last=False)
 
     # Test call_with_conditioning
+    coords = _public_coords(model, coords)
+    conditioning_coords = _public_coords(model, conditioning_coords)
     out, out_coords = model.call_with_conditioning(
         x, coords, conditioning, conditioning_coords
     )
@@ -449,6 +468,8 @@ def test_stormscope_call_with_conditioning(device):
     # Check output shape
     assert out.shape == torch.Size([batch_size, len(time), 1, nvar, h, w])
     assert (out_coords["variable"] == variable).all()
+    assert out_coords.dims == coords.dims
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -467,8 +488,8 @@ def test_stormscope_conditioning_nan_check(device):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     conditioning = torch.randn(
@@ -498,6 +519,8 @@ def test_stormscope_conditioning_nan_check(device):
     valid_yx = model.conditioning_valid_mask.nonzero(as_tuple=False)[0]
     conditioning[..., valid_yx[0], valid_yx[1]] = torch.nan
 
+    coords = _public_coords(model, coords)
+    conditioning_coords = _public_coords(model, conditioning_coords)
     with pytest.raises(ValueError, match="not sanitized") as excinfo:
         model.call_with_conditioning(x, coords, conditioning, conditioning_coords)
 
@@ -553,8 +576,8 @@ def test_stormscope_mrms(device):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Set some values to very low reflectivity
@@ -566,86 +589,11 @@ def test_stormscope_mrms(device):
     assert torch.all(x_prep <= -10.0)  # All values should be >= -10 after imputation
 
     # Test forward pass
+    coords = _public_coords(model, coords)
     out, out_coords = model(x, coords)
     assert out.shape == torch.Size([1, 1, 1, h, w])
-
-
-@pytest.fixture(autouse=True)
-def legacy_tensor_coordinates(monkeypatch):
-    # This module exercises tensor execution and legacy conformance. Public
-    # DataArray signatures are covered in test/models/test_coordinate_signatures.py.
-    for cls in (StormScopeGOES, StormScopeMRMS):
-        monkeypatch.setattr(cls, "input_coords", cls._input_tensor_coords)
-        monkeypatch.setattr(cls, "output_coords", cls._output_tensor_coords)
-
-
-def test_stormscope_goes_conformance():
-    model = create_spoof_model()
-
-    # StormScope draws its diffusion latents from the global RNG
-    # (`torch.randn`) without declaring itself stochastic or implementing
-    # set_rng, so this is a real P13 violation rather than a checker skip.
-    # Tracked as a follow-up to declare `stochastic = True` and add a
-    # seeded `set_rng`; asserting on the exception here documents the
-    # known-bad state without leaving a permanently red test.
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one "
-        "input disagree; declare stochastic=True and implement set_rng()"
-    ]
-
-
-def test_stormscope_mrms_conformance():
-    nvar_cond = 8
-    h, w = 32, 64
-    y = np.arange(h)
-    x_ = np.arange(w)
-    lat = torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w)
-    lon = torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1)
-
-    diffusion = PhooStormScopeDiffusionModel(nvar=1)
-    # sigma_min=0.001 rather than 0.0: a zero sigma_min puts a real 0 into the
-    # EDM noise schedule, making the Euler update divide by t_hat == 0 and
-    # producing NaNs once the iterator steps more than once (see
-    # create_spoof_model's docstring note above).
-    model_spec = [{"model": diffusion, "sigma_min": 0.001, "sigma_max": 88.0}]
-
-    means = torch.zeros(1, 1, 1, 1)
-    stds = torch.ones(1, 1, 1, 1)
-    variables = np.array(["refc"])
-
-    conditioning_means = torch.zeros(1, nvar_cond, 1, 1)
-    conditioning_stds = torch.ones(1, nvar_cond, 1, 1)
-    conditioning_variables = np.array([f"abi{i:02d}c" for i in range(1, nvar_cond + 1)])
-
-    dc_cond = OrderedDict([("y", y), ("x", x_)])
-    conditioning_data_source = Random(dc_cond)
-
-    model = StormScopeMRMS(
-        model_spec=model_spec,
-        means=means,
-        stds=stds,
-        latitudes=lat,
-        longitudes=lon,
-        variables=variables,
-        conditioning_means=conditioning_means,
-        conditioning_stds=conditioning_stds,
-        conditioning_variables=conditioning_variables,
-        conditioning_data_source=conditioning_data_source,
-        sampler_args={"num_steps": 2},
-        y_coords=y,
-        x_coords=x_,
-        amp=False,
-    )
-
-    # Same real P13 violation as StormScopeGOES; see comment above.
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one "
-        "input disagree; declare stochastic=True and implement set_rng()"
-    ]
+    assert out_coords.dims == coords.dims
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -662,11 +610,12 @@ def test_stormscope_exceptions(device):
     dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
 
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
+    lead_time = model.input_coords()["lead_time"].values
+    variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Should raise error when trying to fetch conditioning without data source
+    coords = _public_coords(model, coords)
     with pytest.raises(RuntimeError):
         model(x, coords)
 
@@ -701,6 +650,8 @@ def test_stormscope_exceptions(device):
     x_test = torch.randn(1, 1, nvar, h, w, device=device)
     conditioning_test = torch.randn(1, 1, 1, h, w, device=device)
 
+    bad_coords = _public_coords(model3, bad_coords)
+    conditioning_coords = _public_coords(model3, conditioning_coords)
     with pytest.raises(ValueError):
         model3.call_with_conditioning(
             x_test, bad_coords, conditioning_test, conditioning_coords
@@ -775,13 +726,15 @@ def test_stormscope_package_loading():
 
     batch_size = 1
     time = np.array([np.datetime64("2025-07-01T00:00")])
-    coords = model.input_coords()
+    signature = model.input_coords()
+    coords = OrderedDict((dim, signature[dim].values) for dim in signature.dims)
     coords["batch"] = np.arange(batch_size)
     coords["time"] = time
     lead_times = coords["lead_time"]
     variables = coords["variable"]
 
     h, w = len(model.y), len(model.x)
+    coords = _public_coords(model, coords)
     x = torch.randn(
         batch_size,
         len(time),
@@ -816,6 +769,7 @@ def test_stormscope_package_loading():
         )
         conditioning_coords.update({"batch": np.arange(batch_size)})
         conditioning_coords.move_to_end("batch", last=False)
+        conditioning_coords = _public_coords(model, conditioning_coords)
 
         out, out_coords = model.call_with_conditioning(
             x, coords, conditioning, conditioning_coords
@@ -833,6 +787,8 @@ def test_stormscope_package_loading():
         w,
     )
     assert out.shape == torch.Size(expected_shape)
+    assert out_coords.dims == coords.dims
+    assert out_coords.data.nbytes == 0
     assert np.array_equal(out_coords["lead_time"], expected_coords["lead_time"])
     assert (out_coords["variable"] == expected_coords["variable"]).all()
 

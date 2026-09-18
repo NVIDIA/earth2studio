@@ -20,21 +20,8 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import PrecipitationAFNO
-from earth2studio.utils import handshake_dim
-
-
-@pytest.fixture(autouse=True)
-def legacy_tensor_coordinates(monkeypatch):
-    # Public signatures are tested separately; this module exercises the legacy
-    # tensor adapter and its conformance checker until DataArray execution lands.
-    monkeypatch.setattr(
-        PrecipitationAFNO, "input_coords", PrecipitationAFNO._input_tensor_coords
-    )
-    monkeypatch.setattr(
-        PrecipitationAFNO, "output_coords", PrecipitationAFNO._output_tensor_coords
-    )
+from earth2studio.utils.coords import coord_array
 
 
 class PhooAFNOPrecip(torch.nn.Module):
@@ -61,31 +48,20 @@ def test_afno_precip(x, device):
 
     coords = OrderedDict(
         {
-            "batch": np.ones(x.shape[0]),
+            "batch": np.arange(x.shape[0]),
             "variable": dx.input_coords()["variable"],
             "lat": dx.input_coords()["lat"],
             "lon": dx.input_coords()["lon"],
         }
     )
+    coords = coord_array(tuple(coords), coords, attrs=dx.input_coords().attrs)
 
     out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    handshake_dim(out_coords, "lon", 3)
-    handshake_dim(out_coords, "lat", 2)
-    handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0)
-
-
-def test_precipitationafno_conformance():
-    model = PhooAFNOPrecip()
-    center = torch.zeros(20, 1, 1)
-    scale = torch.ones(20, 1, 1)
-    dx = PrecipitationAFNO(model, center, scale)
-    assert check_diagnostic_contract(dx) == [
-        "D10: model does not declare itself stochastic"
-    ]
+    assert out_coords.dims == ("batch", "variable", "lat", "lon")
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.package
@@ -96,20 +72,19 @@ def test_afno_precip_package(device):
     x = torch.randn(2, 20, 720, 1440).to(device)
     coords = OrderedDict(
         {
-            "batch": np.ones(x.shape[0]),
+            "batch": np.arange(x.shape[0]),
             "variable": dx.input_coords()["variable"],
             "lat": dx.input_coords()["lat"],
             "lon": dx.input_coords()["lon"],
         }
     )
+    coords = coord_array(tuple(coords), coords, attrs=dx.input_coords().attrs)
 
     out, out_coords = dx(x, coords)
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    handshake_dim(out_coords, "lon", 3)
-    handshake_dim(out_coords, "lat", 2)
-    handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out_coords.dims == ("batch", "variable", "lat", "lon")
+    assert out_coords.data.nbytes == 0
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -124,10 +99,13 @@ def test_afno_exceptions(device):
     wrong_coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
-            "wrong": dx.input_coords()["variable"],
+            "wrong": dx.input_coords()["variable"].values,
             "lat": dx.input_coords()["lat"],
             "lon": dx.input_coords()["lon"],
         }
+    )
+    wrong_coords = coord_array(
+        tuple(wrong_coords), wrong_coords, attrs=dx.input_coords().attrs
     )
 
     with pytest.raises((KeyError, ValueError)):
@@ -141,6 +119,9 @@ def test_afno_exceptions(device):
             "lat": dx.input_coords()["lat"],
         }
     )
+    wrong_coords = coord_array(
+        tuple(wrong_coords), wrong_coords, attrs=dx.input_coords().attrs
+    )
 
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
@@ -152,6 +133,9 @@ def test_afno_exceptions(device):
             "lat": np.linspace(-90, 90, 721),
             "lon": dx.input_coords()["lon"],
         }
+    )
+    wrong_coords = coord_array(
+        tuple(wrong_coords), wrong_coords, attrs=dx.input_coords().attrs
     )
     with pytest.raises(ValueError):
         dx(x, wrong_coords)
