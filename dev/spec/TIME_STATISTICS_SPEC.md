@@ -54,6 +54,36 @@ Plural names are accepted. Weeks are seven days and months are fixed 30-day wind
 so declarations behave identically for analysis timestamps and forecast lead times.
 Calendar-relative months are not supported.
 
+## Calendar-Day Means and Interval-Ending Sources
+
+The timestamp convention is part of a statistic's meaning. For a UTC day labeled
+by its **starting midnight** `T`, declare `t2m:mean:0h:24h`: its half-open window
+`[T, T + 24h)` selects hourly observations at 00–23 UTC. `t2m:mean:24h` instead
+selects `[T - 24h, T)` and describes the preceding day. These labels are not
+interchangeable at the same timestamp.
+
+FuXi-S2S consumes two consecutive daily means and predicts the next daily mean.
+Its input and output variable coordinates use:
+
+| Source quantity | Qualified label | Hourly samples relative to day start |
+| --- | --- | --- |
+| Instantaneous fields (e.g. temperature) | `t2m:mean:0h:24h` | 00–23 UTC |
+| One-hour precipitation accumulations | `tp:mean:1h:25h` | 01 UTC through next 00 UTC |
+| One-hour top thermal radiation accumulations | `ttr:mean:1h:25h` | 01 UTC through next 00 UTC |
+
+The latter sources label each one-hour accumulation by its interval end. Their
+window `[T + 1h, T + 25h)` selects exactly the 24 intervals covering that calendar
+day. It does not include next-day 01 UTC. All 76 FuXi-S2S channels declare a mean;
+only `tp` and `ttr` use the shifted window. Channel order and model-unit conversions
+are unchanged. Means of one-hour accumulations retain the source accumulation
+units: multiplying predicted `tp` by 24 gives a daily total.
+
+Fetch implementations must split the source name from the modifier, fetch the
+declared samples at hourly cadence, and retain the full qualified label after
+reduction. Already-prepared daily means must be labeled directly rather than
+reduced again. Preserve the model's start-of-day timestamps and its one-day lead
+increments; changing the timestamp convention also requires changing the windows.
+
 ## Source Planning
 
 Analysis sources request timestamps:
