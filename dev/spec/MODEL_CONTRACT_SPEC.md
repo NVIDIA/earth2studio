@@ -95,7 +95,7 @@ def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
 def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]: ...
 ```
 
-**FCN and PrecipitationAFNO implement this execution API.** Inputs are NumPy-backed
+**FCN, FuXiS2S, and PrecipitationAFNO implement this execution API.** Inputs are NumPy-backed
 on CPU or CuPy-backed on CUDA and must reside on the model's device. Conversion at
 the Torch boundary uses `.e2s.to_torch()` and `from_torch(tensor, signature)`; the
 latter preserves all coordinates and output metadata without materializing the
@@ -117,6 +117,15 @@ leading dimensions, and run only during iteration. `clear_hooks()` restores iden
 hooks. Level-two checkpoints store the field tensor separately from dimensions,
 coordinate values/attrs, name, attrs and encoding. Restarts yield the next forecast
 step after the saved state, rather than repeating that state.
+
+FuXi-S2S declares two consecutive daily means with start-of-day timestamps:
+ordinary channels use `mean:0h:24h`, while hourly interval-ending `tp` and `ttr`
+use `mean:1h:25h`. Qualified variable labels and matching statistics metadata are
+required. Its iterator first yields the latest input day, then daily predictions;
+front hooks see the two-day history and rear hooks see one prediction. Hook-modified
+predictions feed the next rolling state. Hooks use original leading dimensions.
+Field values move to the model device at the Torch/ONNX boundary. Input preparation
+and units follow `TIME_STATISTICS_SPEC.md`'s calendar-day means section.
 
 The legacy `CoordSystem` remains `OrderedDict[str, np.ndarray]`. Other wrappers,
 including Random/Random_FX, and existing inference drivers retain their tensor

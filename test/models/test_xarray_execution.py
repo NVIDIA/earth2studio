@@ -23,6 +23,7 @@ import xarray as xr
 
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO
 from earth2studio.models.px.fcn import FCN
+from earth2studio.models.px.fuxi_s2s import DAILY_VARIABLES, FuXiS2S
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.cupy import from_torch
@@ -194,3 +195,94 @@ def test_fcn_cuda_execution() -> None:
     out = model(x)
     assert isinstance(out.data, cp.ndarray)
     np.testing.assert_array_equal(out.data.get(), x.data.get())
+
+
+def make_fuxi() -> FuXiS2S:
+    model = FuXiS2S.__new__(FuXiS2S)
+    torch.nn.Module.__init__(model)
+    model.register_buffer("device_buffer", torch.empty(0))
+    model._time_step = np.timedelta64(1, "D")
+    signature = model.input_coords()
+    model.input_coords = lambda: signature.isel(lat=slice(2), lon=slice(3))
+    return model
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_fuxi_array_rollout(device: str) -> None:
+    if device.startswith("cuda"):
+        pytest.importorskip("cupy")
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA unavailable")
+    model = make_fuxi()
+    model.device_buffer = model.device_buffer.to(device)
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": [2, 7],
+            "time": np.array(["2020-01-01", "2020-06-01"], dtype="datetime64[ns]"),
+        },
+    ).rename(batch="member")
+    x = from_torch(torch.ones(signature.shape, device=device), signature, name="daily")
+    x = x.assign_coords(lead_time=x.lead_time + np.timedelta64(10, "D"), source="test")
+    x.encoding["test"] = "retained"
+    steps = []
+
+    def forward(tensor: torch.Tensor, coords: xr.DataArray, step: int) -> torch.Tensor:
+        steps.append(step)
+        return torch.cat((tensor[:, :, -1:], tensor[:, :, -1:] + 1), dim=2)
+
+    model._forward = forward
+    output = model(x)
+    assert output.dims == x.dims
+    assert output.e2s.to_torch()[0].device == torch.device(device)
+    assert output.encoding == x.encoding
+    assert (
+        output.attrs["earth2studio_statistics"]
+        == signature.attrs["earth2studio_statistics"]
+    )
+    assert "earth2studio_kind" not in output.attrs
+    np.testing.assert_array_equal(
+        output.lead_time, np.array([11], dtype="timedelta64[D]")
+    )
+    hooks = []
+
+    def rear(y: xr.DataArray) -> xr.DataArray:
+        hooks.append(y.dims)
+        return y.copy(data=y.data + 2)
+
+    model.rear_hook = rear
+    iterator = model.create_iterator(x)
+    xr.testing.assert_identical(next(iterator), x.isel(lead_time=slice(-1, None)))
+    first = next(iterator)
+    second = next(iterator)
+    torch.testing.assert_close(
+        first.e2s.to_torch()[0], torch.full(first.shape, 4.0, device=device)
+    )
+    torch.testing.assert_close(
+        second.e2s.to_torch()[0], torch.full(second.shape, 7.0, device=device)
+    )
+    assert steps == [10, 10, 11]
+    assert hooks == [x.dims, x.dims]
+    assert second.encoding == x.encoding
+    torch.testing.assert_close(x.e2s.to_torch()[0], torch.ones(x.shape, device=device))
+    iterator.close()
+
+
+def test_fuxi_signature_statistics() -> None:
+    model = make_fuxi()
+    signature = model.input_coords()
+    output = model.output_coords(signature)
+    assert signature.data.nbytes == output.data.nbytes == 0
+    assert signature["variable"].values.tolist() == DAILY_VARIABLES
+    assert (
+        output.attrs["earth2studio_statistics"]["tp:mean:1h:25h"]["modifier"]
+        == "mean:+1h:+25h"
+    )
+    with pytest.raises(ValueError):
+        model.output_coords(signature.assign_coords(lead_time=[0, 1]))
+    with pytest.raises(ValueError):
+        model.output_coords(
+            signature.assign_coords(
+                lead_time=np.array(["NaT", "NaT"], dtype="timedelta64[D]")
+            )
+        )
