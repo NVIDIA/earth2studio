@@ -1,0 +1,72 @@
+project: 'hens-hurricanes'
+random_seed: 377778
+
+start_times: [
+     # La Nina
+    "2010-06-01 00:00:00",
+    "2010-07-01 00:00:00",
+    "2010-08-01 00:00:00",
+    "2010-09-01 00:00:00",
+    "2010-10-01 00:00:00",
+    "2010-11-01 00:00:00",
+    # El Nino
+    "2015-06-01 00:00:00",
+    "2015-07-01 00:00:00",
+    "2015-08-01 00:00:00",
+    "2015-09-01 00:00:00",
+    "2015-10-01 00:00:00",
+    "2015-11-01 00:00:00",
+    # Neutral
+    "2019-06-01 00:00:00",
+    "2019-07-01 00:00:00",
+    "2019-08-01 00:00:00",
+    "2019-09-01 00:00:00",
+    "2019-10-01 00:00:00",
+    "2019-11-01 00:00:00"
+]
+nsteps: 84         # number of forecasting steps
+nensemble: 20       # ensemble size per checkpoint
+batch_size: 2      # inference batch size
+
+forecast_model:
+    architecture: earth2studio.models.px.SFNO   # forecast model class
+    registry: /home/ubuntu/projects/earth2studio/recipes/hens/hens_model_registry
+    max_num_checkpoints: 4 # max number of checkpoints which will be used
+
+perturbation:
+    skill_path : /home/ubuntu/projects/earth2studio/recipes/hens/hens_model_registry/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+    noise_amplification: .35
+    perturbed_var: 'z500'
+    integration_steps: 3
+
+data_source:
+    _target_: earth2studio.data.NCAR_ERA5  # data source class
+
+cyclone_tracking:
+   path: '/home/ubuntu/projects/earth2studio/recipes/hens/outputs_hurricanes'
+   tracker:
+       _target_: earth2studio.models.dx.tc_tracking.TCTrackerWuDuan
+       path_search_distance: 250
+       path_search_window_size: 2
+
+file_output:
+    path: '/home/ubuntu/projects/earth2studio/recipes/hens/outputs_hurricanes'       # directory to which outfiles are written
+    output_vars: ['u10m', 'v10m', 'msl']
+    thread_io: False      # write out in seperate thread (needs further testing)
+    format:               # io backend class
+        _target_: earth2studio.io.NetCDF4Backend
+        _partial_: True
+        backend_kwargs:
+            mode: 'w'
+            diskless: False
+            persist: False
+            chunks:
+                ensemble: 1
+                time: 1
+                lead_time: 1
+    cropboxes:
+        houston:
+            lat_min: 25
+            lat_max: 35
+            lon_min: 260
+            lon_max: 270

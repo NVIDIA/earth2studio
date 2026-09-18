@@ -14,14 +14,14 @@ export LD_LIBRARY_PATH="$HENS_DIR/.venv/lib/python3.13/site-packages/nvidia/cudn
 echo "Starting HENS at $(date -u)"
 
 if /usr/bin/time -v \
-    uv run python main.py --config-name=beryl_poc.yaml \
+    uv run python main.py --config-name=hurricanes.yaml \
     2>&1 | tee run.log
 then
     echo "HENS completed successfully at $(date -u)"
 
     # Optional: copy outputs to S3 before stopping
     aws s3 cp hens_beryl/ \
-      s3://hens-beryl/beryl_poc/outputs \
+      s3://hens-beryl/hurricanes/outputs \
       --recursive \
       --region us-east-2
 
