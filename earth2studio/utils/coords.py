@@ -215,7 +215,7 @@ def coord_array(
                 raise ValueError(f"Grid and declared size differ for '{dim}'")
             candidates[dim] = size
         grid_coords = definition.coords(
-            only_index=definition.topology not in {"curvilinear", "points"}
+            only_index=definition.topology not in {"curvilinear", "points", "projected"}
         )
         for coordinate, value in grid_coords.items():
             coordinates.setdefault(

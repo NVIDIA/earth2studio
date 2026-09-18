@@ -20,12 +20,14 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.data import HRRR, Random, Random_FX, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordSystem
 
 # Small subdomain aligned to the mock patch size (8, 8) so that crop_model
 # validation passes.  Must satisfy:
@@ -36,6 +38,21 @@ LON_START, LON_END = 3, 19  # width  = 16
 
 NVAR = 4  # must include "refc" – it is always indexed in __init__
 NVAR_COND = 5
+
+
+def _native_array(
+    model: StormCastCONUS, tensor: torch.Tensor, coords: CoordSystem
+) -> xr.DataArray:
+    signature = model.input_coords()
+    grid_coords = {
+        name: coordinate
+        for name, coordinate in signature.coords.items()
+        if name not in signature.dims or name in signature.dims[-2:]
+    }
+    return from_torch(
+        tensor,
+        coord_array(tuple(coords), {**coords, **grid_coords}, attrs=signature.attrs),
+    )
 
 
 class _Tokenizer(torch.nn.Module):
@@ -220,24 +237,24 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
     )
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = np.asarray(p.input_coords()["lead_time"])
+    variable = np.asarray(p.input_coords()["variable"])
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    out, out_coords = p(x, coords)
+    x = _native_array(p, x, coords)
+    out = p(x)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
     assert out.shape == torch.Size([len(time), 1, NVAR, ny, nx])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "hrrr_x", 4)
-    handshake_dim(out_coords, "hrrr_y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert isinstance(out, xr.DataArray)
+    assert out.dims == ("time", "lead_time", "variable", "hrrr_y", "hrrr_x")
+    xr.testing.assert_equal(
+        out.coords.to_dataset(), p.output_coords(x).coords.to_dataset()
+    )
+    assert out.attrs == x.attrs
 
 
 @pytest.mark.parametrize("ensemble", [1, 2])
@@ -256,8 +273,8 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
     )
     r = Random(dc)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = np.asarray(p.input_coords()["lead_time"])
+    variable = np.asarray(p.input_coords()["variable"])
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
     # Prepend ensemble dimension
@@ -265,12 +282,22 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
 
-    p_iter = p.create_iterator(x, coords)
+    x = _native_array(p, x, coords)
+    p_iter = p.create_iterator(x)
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
 
-    next(p_iter)  # consume the initial condition
-    for i, (out, out_coords) in enumerate(p_iter):
+    initial = next(p_iter)
+    xr.testing.assert_identical(initial, x)
+    for i, out in enumerate(p_iter):
+        assert isinstance(out, xr.DataArray)
+        out_coords = out.coords
+        assert out.dims == x.dims
+        assert out.attrs == x.attrs
+        xr.testing.assert_equal(
+            out.coords.to_dataset(),
+            x.assign_coords(lead_time=[np.timedelta64(i + 1, "h")]).coords.to_dataset(),
+        )
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, NVAR, ny, nx])
         assert (
@@ -320,8 +347,8 @@ def test_stormcastconus_exceptions(device):
         ]
     )
     r = Random(dc)
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = np.asarray(p.input_coords()["lead_time"])
+    variable = np.asarray(p.input_coords()["variable"])
     x, coords = fetch_data(
         r,
         np.array([np.datetime64("2020-04-05T00:00")]),
@@ -329,41 +356,13 @@ def test_stormcastconus_exceptions(device):
         lead_time,
         device=device,
     )
+    x = _native_array(p, x, coords)
 
     with pytest.raises(RuntimeError):
-        p(x, coords)
+        p(x)
 
     with pytest.raises(RuntimeError):
-        next(p.create_iterator(x, coords))
-
-
-@pytest.fixture(autouse=True)
-def legacy_tensor_coordinates(monkeypatch):
-    # Keep these tensor execution/conformance tests on their private adapter;
-    # public signatures have independent CPU coverage without model extras.
-    monkeypatch.setattr(
-        StormCastCONUS, "input_coords", StormCastCONUS._input_tensor_coords
-    )
-    monkeypatch.setattr(
-        StormCastCONUS, "output_coords", StormCastCONUS._output_tensor_coords
-    )
-
-
-def test_stormcastconus_conformance():
-    p = _build_model()
-
-    # StormCastCONUS draws its diffusion latents from the global RNG
-    # (`torch.randn_like`) without declaring itself stochastic or
-    # implementing set_rng, so this is a real P13 violation rather than a
-    # checker skip. Tracked as a follow-up to declare `stochastic = True`
-    # and add a seeded `set_rng`; asserting on the exception here documents
-    # the known-bad state without leaving a permanently red test.
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one "
-        "input disagree; declare stochastic=True and implement set_rng()"
-    ]
+        next(p.create_iterator(x))
 
 
 def test_stormcastconus_conditioning_init_time():
@@ -457,19 +456,19 @@ def test_stormcastconus_package(cond_dims, device, model):
     )
     p.num_diffusion_steps = 2
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
+    lead_time = np.asarray(p.input_coords()["lead_time"])
+    variable = np.asarray(p.input_coords()["variable"])
     x, coords = fetch_data(r, time, variable, lead_time, device=device)
 
-    out, out_coords = p(x, coords)
+    x = _native_array(p, x, coords)
+    out = p(x)
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(coords)["variable"]), 1024, 1792]
+        [len(time), 1, len(p.output_coords(x)["variable"]), 1024, 1792]
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "hrrr_x", 4)
-    handshake_dim(out_coords, "hrrr_y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert isinstance(out, xr.DataArray)
+    assert out.dims == ("time", "lead_time", "variable", "hrrr_y", "hrrr_x")
+    xr.testing.assert_equal(
+        out.coords.to_dataset(), p.output_coords(x).coords.to_dataset()
+    )
+    assert out.attrs == x.attrs
