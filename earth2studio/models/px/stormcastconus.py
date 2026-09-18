@@ -30,16 +30,17 @@ import xarray as xr
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
 from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_coords,
     handshake_dataarray,
+    handshake_dim,
+    handshake_size,
 )
 from earth2studio.utils.coords import map_coords
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -93,7 +94,7 @@ FULL_MODEL_HRRR_BBOX = ((17, 1041), (3, 1795))
 
 
 @check_optional_dependencies()
-class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast-CONUS generative convection-allowing model for the full CONUS domain.
 
     - High-resolution (3km) HRRR state over the Continental United States (99 vars)
@@ -370,6 +371,62 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             {"lead_time": lead + np.timedelta64(1, "h")},
         )
 
+    def _input_tensor_coords(self) -> CoordSystem:
+        """Input coordinate system"""
+        return OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(self.variables),
+                "hrrr_y": self.hrrr_y,
+                "hrrr_x": self.hrrr_x,
+            }
+        )
+
+    @batch_coords()
+    def _output_tensor_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        """Output coordinate system of prognostic model
+
+        Parameters
+        ----------
+        input_coords : CoordSystem
+            Input coordinate system to transform into output coordinates.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary
+        """
+
+        output_coords = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(1, "h")]),
+                "variable": np.array(self.variables),
+                "hrrr_y": self.hrrr_y,
+                "hrrr_x": self.hrrr_x,
+            }
+        )
+
+        target_input_coords = self._input_tensor_coords()
+
+        handshake_dim(input_coords, "hrrr_x", 5)
+        handshake_dim(input_coords, "hrrr_y", 4)
+        handshake_dim(input_coords, "variable", 3)
+        # Index coords are arbitrary as long its on the HRRR grid, so just check size
+        handshake_size(input_coords, "hrrr_y", self.lat.shape[0])
+        handshake_size(input_coords, "hrrr_x", self.lat.shape[1])
+        handshake_coords(input_coords, target_input_coords, "variable")
+
+        output_coords["batch"] = input_coords["batch"]
+        output_coords["time"] = input_coords["time"]
+        output_coords["lead_time"] = (
+            output_coords["lead_time"] + input_coords["lead_time"]
+        )
+        return output_coords
+
     def get_obs_mapping(self, device: torch.device | None) -> ObsGridMapping:
         """Return the obs grid mapping, (re-)creating it if the device has changed.
 
@@ -564,17 +621,20 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     @torch.no_grad()  # safe - PhysicsNeMo SDA code uses torch.enable_grad()
     @batch_func()
-    def _step(
+    def __call__(
         self,
-        x: xr.DataArray,
+        x: torch.Tensor,
+        coords: CoordSystem,
         obs: pd.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None,
-    ) -> xr.DataArray:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
-        x : xr.DataArray
-            Input state on the native projected grid.
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
         obs : pd.DataFrame, tuple[torch.Tensor, torch.Tensor], or None, optional
             Observations for SDA guidance. Either a dataframe with columns
             ``variable``, ``lat``, ``lon``, ``observation``, ``time``, or a
@@ -583,8 +643,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
         Returns
         -------
-        xr.DataArray
-            Forecast on the native projected grid.
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system
 
         Raises
         ------
@@ -593,16 +653,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         """
 
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
-        signature = self.output_coords(x)
-        encoding = x.encoding.copy()
-        tensor, coords = x.e2s.to_torch()
-        output_coords = OrderedDict(
-            (str(d), np.asarray(signature[d])) for d in signature.dims
-        )
-        conditioning = self._get_conditioning(
-            output_coords, tensor.shape[0], tensor.device
-        )
-        x = tensor.clone()  # prevent editing of argument
+        output_coords = self._output_tensor_coords(coords)
+        conditioning = self._get_conditioning(output_coords, x.shape[0], x.device)
+        x = x.clone()  # prevent editing of argument
 
         for j, time in enumerate(coords["time"]):
             for k, lead_time in enumerate(coords["lead_time"]):
@@ -627,49 +680,27 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                         mask=mask,
                     )
 
-        output = from_torch(x, signature)
-        output.encoding = encoding
-        return output
+        return x, output_coords
 
-    def __call__(
-        self,
-        x: xr.DataArray,
-        *,
-        obs: pd.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None,
-    ) -> xr.DataArray:
-        """Forecast one hour from a NumPy- or CuPy-backed DataArray.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            State on the native projected grid.
-        obs : pd.DataFrame or tuple[torch.Tensor, torch.Tensor], optional
-            Observations or pre-gridded observation values and mask.
-
-        Returns
-        -------
-        xr.DataArray
-            Forecast with input leading dimensions and metadata preserved.
-        """
-        if not isinstance(x, xr.DataArray):
-            raise TypeError("StormCastCONUS requires a DataArray")
-        return self._step(x, obs=obs)
-
+    @batch_func()
     def create_generator(
         self,
-        x: xr.DataArray,
-    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> Generator[tuple[torch.Tensor, CoordSystem], pd.DataFrame | None, None]:
         """Create a generator for autoregressive rollout.
 
         Parameters
         ----------
-        x : xr.DataArray
-            Initial state with coordinates and grid metadata.
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
 
         Yields
         ------
-        xr.DataArray
-            State after each time step, starting with the initial condition.
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system after each time step
 
         Receives
         --------
@@ -688,22 +719,24 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 "conditioning_data_source"
             )
 
-        self.output_coords(x)
-        obs = yield x.copy(deep=False)
+        obs = yield x, coords
 
         try:
             while True:
-                x = self.rear_hook(self(self.front_hook(x), obs=obs))
-                obs = yield x.copy(deep=False)
+                x, coords = self.front_hook(x, coords)
+                x, coords = self(x, coords, obs=obs)
+                x, coords = self.rear_hook(x, coords)
+                obs = yield x, coords
         except GeneratorExit:
             pass
 
     def create_iterator(
         self,
-        x: xr.DataArray,
-    ) -> Iterator[xr.DataArray]:
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Iterator wrapper around ``create_generator`` without observation input."""
-        yield from self.create_generator(x)
+        yield from self.create_generator(x, coords)
 
     def _get_conditioning(
         self,

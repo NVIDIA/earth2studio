@@ -18,35 +18,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import torch
-import xarray as xr
 
 from earth2studio.utils.coords import CoordSystem
 
 Hook = Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, CoordSystem]]
-ArrayHook = Callable[[xr.DataArray], xr.DataArray]
-
-
-class DataArrayPrognosticMixin:
-    """DataArray iterator hooks applied before and after each forecast step.
-
-    Hooks receive the original leading dimensions and run only in iterators.
-    Assign a callable to either slot, or use ``clear_hooks`` to reset both.
-    """
-
-    stochastic: bool = False
-
-    @staticmethod
-    def _default_hook(x: xr.DataArray) -> xr.DataArray:
-        return x
-
-    front_hook: ArrayHook = _default_hook
-    rear_hook: ArrayHook = _default_hook
-
-    def clear_hooks(self) -> None:
-        """Restore pass-through iterator hooks."""
-        for name in ("front_hook", "rear_hook"):
-            if name in vars(self):
-                delattr(self, name)
 
 
 class PrognosticMixin:

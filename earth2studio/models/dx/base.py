@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-import xarray as xr
+import torch
 
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.type import CoordSystem
 
 
 # --8<-- [start:diagnostic-model-interface]
@@ -29,46 +29,48 @@ class DiagnosticModel(Protocol):
 
     def __call__(
         self,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
-        x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA data with labeled coordinates
-            and the metadata required by ``input_coords()``.
+        x : torch.Tensor
+            Input tensor intended to apply diagnostic function on
+        coords : CoordSystem
+            Ordered dict representing coordinate system that describes the tensor
 
         Returns
         -------
-        xr.DataArray
-            Diagnostic output with labeled coordinates and output metadata.
+        tuple[torch.Tensor, CoordSystem]:
+            Output tensor and respective coordinate system dictionary
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem:
+    def input_coords(self) -> CoordSystem:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray input signature.
+        CoordSystem
+            Coordinate system dictionary
         """
         pass
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the diagnostic model given an input coordinate
         system.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem
-            Input signature or real DataArray to validate and transform.
+        input_coords : CoordSystem
+            Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray output signature.
+        CoordSystem
+            Coordinate system dictionary
 
         Raises
         ------

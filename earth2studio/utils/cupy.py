@@ -115,7 +115,7 @@ def _coord_system(array: xr.DataArray) -> CoordSystem:
 
 def from_torch(
     tensor: torch.Tensor,
-    coords: CoordSystem | xr.DataArray,
+    coords: CoordSystem,
     name: Hashable | None = None,
     attrs: Mapping[Any, Any] | None = None,
     requires_grad: bool = False,
@@ -129,9 +129,8 @@ def from_torch(
     ----------
     tensor : torch.Tensor
         Tensor containing the data.
-    coords : CoordSystem | xr.DataArray
-        Ordered dimension mapping or DataArray signature. A signature supplies
-        all coordinates and attributes; signature-only attributes are omitted.
+    coords : CoordSystem
+        Ordered coordinate mapping with one entry per tensor dimension.
     name : Hashable | None, optional
         DataArray name, by default None
     attrs : Mapping[Any, Any] | None, optional
@@ -160,36 +159,17 @@ def from_torch(
             "Torch conversion with requires_grad=True is not implemented"
         )
 
-    if isinstance(coords, xr.DataArray):
-        if tuple(tensor.shape) != coords.shape:
-            raise ValueError("Coordinate dimensions do not match the tensor shape")
-        dimensions = coords.dims
-        xr_coords = dict(coords.coords)
-        metadata = dict(coords.attrs)
-        if attrs is not None:
-            metadata.update(attrs)
-        for key in (
-            "earth2studio_kind",
-            "earth2studio_schema_version",
-            "earth2studio_dynamic_dims",
-        ):
-            metadata.pop(key, None)
-        attrs = metadata
-        if name is None:
-            name = coords.name
-    else:
-        dimensions = tuple(coords)
-        xr_coords = {}
-        for (dim, values), size in zip(coords.items(), tensor.shape):
-            coordinate = np.asarray(values)
-            if coordinate.ndim != 1 or coordinate.shape[0] != size:
-                raise ValueError(
-                    f"Coordinate '{dim}' does not match tensor dimension size {size}"
-                )
-            xr_coords[dim] = coordinate
-
-    if len(dimensions) != tensor.ndim:
+    if len(coords) != tensor.ndim:
         raise ValueError("Coordinate dimensions do not match the tensor rank")
+
+    xr_coords: dict[str, np.ndarray] = {}
+    for (dim, values), size in zip(coords.items(), tensor.shape, strict=True):
+        coordinate = np.asarray(values)
+        if coordinate.ndim != 1 or coordinate.shape[0] != size:
+            raise ValueError(
+                f"Coordinate '{dim}' does not match tensor dimension size {size}"
+            )
+        xr_coords[dim] = coordinate
 
     detached = tensor.detach()
     if detached.device.type == "cpu":
@@ -202,7 +182,7 @@ def from_torch(
     return xr.DataArray(
         data=data,
         coords=xr_coords,
-        dims=dimensions,
+        dims=tuple(coords),
         name=name,
         attrs=dict(attrs) if attrs is not None else None,
     )

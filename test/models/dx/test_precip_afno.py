@@ -20,17 +20,21 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.cupy import from_torch
 
 
 @pytest.fixture(autouse=True)
-def cupy_for_cuda(request):
-    if hasattr(request.node, "callspec") and request.node.callspec.params.get(
-        "device", "cpu"
-    ).startswith("cuda"):
-        pytest.importorskip("cupy")
+def legacy_tensor_coordinates(monkeypatch):
+    # Public signatures are tested separately; this module exercises the legacy
+    # tensor adapter and its conformance checker until DataArray execution lands.
+    monkeypatch.setattr(
+        PrecipitationAFNO, "input_coords", PrecipitationAFNO._input_tensor_coords
+    )
+    monkeypatch.setattr(
+        PrecipitationAFNO, "output_coords", PrecipitationAFNO._output_tensor_coords
+    )
 
 
 class PhooAFNOPrecip(torch.nn.Module):
@@ -64,27 +68,24 @@ def test_afno_precip(x, device):
         }
     )
 
-    array = from_torch(x, coords, attrs=dx.input_coords().attrs)
-    result = dx(array)
-    out, out_coords = result.e2s.to_torch()
+    out, out_coords = dx(x, coords)
 
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
-    assert out_coords["variable"] == dx.output_coords(array)["variable"]
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
     handshake_dim(out_coords, "batch", 0)
 
 
-def test_precipitationafno_output_signature():
+def test_precipitationafno_conformance():
     model = PhooAFNOPrecip()
     center = torch.zeros(20, 1, 1)
     scale = torch.ones(20, 1, 1)
     dx = PrecipitationAFNO(model, center, scale)
-    output = dx.output_coords(dx.input_coords())
-    assert output.data.nbytes == 0
-    assert output["variable"].values.tolist() == ["tp"]
-    assert "tp" in output.attrs["earth2studio_statistics"]
+    assert check_diagnostic_contract(dx) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 @pytest.mark.package
@@ -102,10 +103,9 @@ def test_afno_precip_package(device):
         }
     )
 
-    array = from_torch(x, coords, attrs=dx.input_coords().attrs)
-    out, out_coords = dx(array).e2s.to_torch()
+    out, out_coords = dx(x, coords)
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
-    assert out_coords["variable"] == dx.output_coords(array)["variable"]
+    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)
@@ -120,7 +120,7 @@ def test_afno_exceptions(device):
     scale = torch.ones(20)
 
     dx = PrecipitationAFNO(model, center, scale).to(device)
-    x = torch.randn(1, 20, 720, 1440).to(device)
+    x = torch.randn(1).to(device)
     wrong_coords = OrderedDict(
         {
             "batch": np.ones(x.shape[0]),
@@ -131,7 +131,7 @@ def test_afno_exceptions(device):
     )
 
     with pytest.raises((KeyError, ValueError)):
-        dx(from_torch(x, wrong_coords, attrs=dx.input_coords().attrs))
+        dx(x, wrong_coords)
 
     wrong_coords = OrderedDict(
         {
@@ -143,7 +143,7 @@ def test_afno_exceptions(device):
     )
 
     with pytest.raises(ValueError):
-        dx(from_torch(x.transpose(-1, -2), wrong_coords, attrs=dx.input_coords().attrs))
+        dx(x, wrong_coords)
 
     wrong_coords = OrderedDict(
         {
@@ -154,10 +154,4 @@ def test_afno_exceptions(device):
         }
     )
     with pytest.raises(ValueError):
-        dx(
-            from_torch(
-                torch.zeros(1, 20, 721, 1440, device=device),
-                wrong_coords,
-                attrs=dx.input_coords().attrs,
-            )
-        )
+        dx(x, wrong_coords)

@@ -14,31 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 import numpy as np
 import torch
-import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
-    coord_array_like,
+    handshake_coords,
     handshake_dataarray,
+    handshake_dim,
 )
 from earth2studio.utils.checkpoint import bind_checkpoint_state
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from physicsnemo.models.afno import AFNO
@@ -76,13 +74,41 @@ VARIABLES = [
 ]
 
 
+def _tensor_coords(lead_time: np.timedelta64) -> CoordSystem:
+    return OrderedDict(
+        {
+            "batch": np.empty(0),
+            "lead_time": np.array([lead_time]),
+            "variable": np.array(VARIABLES),
+            "lat": np.linspace(90, -90, 720, endpoint=False),
+            "lon": np.linspace(0, 360, 1440, endpoint=False),
+        }
+    )
+
+
+def _advance_tensor_coords(input_coords: CoordSystem) -> CoordSystem:
+    target = _tensor_coords(np.timedelta64(0, "h"))
+    relative = input_coords.copy()
+    relative["lead_time"] = relative["lead_time"] - input_coords["lead_time"][-1]
+    for index, dimension in enumerate(target):
+        if dimension != "batch":
+            handshake_dim(relative, dimension, index)
+            handshake_coords(relative, target, dimension)
+
+    output = _tensor_coords(np.timedelta64(6, "h"))
+    output["batch"] = input_coords["batch"]
+    output["lead_time"] = output["lead_time"] + input_coords["lead_time"]
+    return output
+
+
 @dataclass
 class _FCNCheckpointState:
     x: torch.Tensor | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
 
 
-class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet global prognostic model. Consists of a single model with a time-step
     size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
     excluding) equirectangular grid with 26 variables.
@@ -136,20 +162,9 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return the FCN coordinate signature after one forecast step."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Missing lead_time coordinate")
-        lead = input_coords["lead_time"].values
-        if (
-            lead.ndim != 1
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        relative = input_coords.assign_coords(lead_time=lead - lead[-1])
-        handshake_dataarray(relative, self.input_coords())
-        return coord_array_like(
-            input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
+        handshake_dataarray(input_coords, self.input_coords())
+        return input_coords.assign_coords(
+            lead_time=input_coords["lead_time"] + np.timedelta64(6, "h")
         )
 
     def __str__(
@@ -157,53 +172,36 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     ) -> str:
         return "fcn"
 
-    def _restore_checkpoint_state(self, x: xr.DataArray) -> tuple[xr.DataArray, bool]:
+    def _restore_checkpoint_state(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem, bool]:
         if (
             self.checkpoint.checkpoint_level == 2
             and self.checkpoint.checkpoint_state_loaded
             and self.checkpoint.x is not None
-            and self.checkpoint.metadata
+            and self.checkpoint.coord_keys
         ):
-            tensor, _ = x.e2s.to_torch()
-            metadata = deepcopy(self.checkpoint.metadata)
-            state = self.checkpoint.x.to(tensor.device)
-            signature = coord_array(
-                metadata["dims"],
-                metadata["coords"],
-                sizes=metadata["sizes"],
-                attrs=metadata["attrs"],
+            x = self.checkpoint.x.to(x.device)
+            coords = OrderedDict(
+                (key, np.asarray(value).copy())
+                for key, value in zip(
+                    self.checkpoint.coord_keys, self.checkpoint.coord_values
+                )
             )
-            restored = from_torch(
-                state, signature, name=metadata["name"], attrs=metadata["attrs"]
-            )
-            restored.encoding = metadata["encoding"]
-            return restored, True
-        return x, False
+            return x, coords, True
+        return x, coords, False
 
-    def _save_checkpoint_state(self, x: xr.DataArray) -> None:
+    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
         if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
-            tensor, _ = x.e2s.to_torch()
-            self.checkpoint.x = tensor.detach().clone().to(self.checkpoint.device)
-            self.checkpoint.metadata = deepcopy(
-                {
-                    "dims": tuple(x.dims),
-                    "sizes": dict(x.sizes),
-                    "name": x.name,
-                    "coords": {
-                        name: (
-                            tuple(value.dims),
-                            value.values.copy(),
-                            dict(value.attrs),
-                        )
-                        for name, value in x.coords.items()
-                    },
-                    "attrs": dict(x.attrs),
-                    "encoding": dict(x.encoding),
-                }
+            self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
+            self.checkpoint.coord_keys = tuple(coords.keys())
+            self.checkpoint.coord_values = tuple(
+                np.asarray(value).copy() for value in coords.values()
             )
         else:
             self.checkpoint.x = None
-            self.checkpoint.metadata = {}
+            self.checkpoint.coord_keys = ()
+            self.checkpoint.coord_values = ()
 
     # --8<-- [start:fcn-default-package]
     @classmethod
@@ -252,60 +250,78 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         return x
 
     @batch_func()
-    def _step(self, x: xr.DataArray) -> xr.DataArray:
-        signature = self.output_coords(x)
-        tensor, _ = x.e2s.to_torch()
-        output = from_torch(self._forward(tensor), signature, name=x.name)
-        output.encoding = x.encoding.copy()
-        return output
-
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
-        x : xr.DataArray
-            NumPy- or CuPy-backed input with coordinates and grid metadata.
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
 
         Returns
         -------
-        xr.DataArray
-            Forecast six hours in the future on the same device.
+        tuple[torch.Tensor, CoordSystem]
+            Output tensor and coordinate system 6 hours in the future
         """
-        x, _ = self._restore_checkpoint_state(x)
-        x = self._step(x)
-        self._save_checkpoint_state(x)
-        return x
+        x, coords, _ = self._restore_checkpoint_state(x, coords)
+        output_coords = _advance_tensor_coords(coords)
 
+        x = self._forward(x)
+        self._save_checkpoint_state(x, output_coords)
+
+        return x, output_coords
+
+    @batch_func()
     def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        x, restored = self._restore_checkpoint_state(x)
-        self.output_coords(x)
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords = coords.copy()
+        x, coords, restored = self._restore_checkpoint_state(x, coords)
+
+        _advance_tensor_coords(coords)
 
         if not restored:
-            self._save_checkpoint_state(x)
-            yield x.copy(deep=False)
+            self._save_checkpoint_state(x, coords)
+            yield x, coords
 
         while True:
-            x = self.rear_hook(self._step(self.front_hook(x)))
-            self._save_checkpoint_state(x)
-            yield x.copy(deep=False)
+            # Front hook
+            x, coords = self.front_hook(x, coords)
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+            # Forward is identity operator
+            coords = _advance_tensor_coords(coords)
+            x = self._forward(x)
+
+            # Rear hook
+            x, coords = self.rear_hook(x, coords)
+            self._save_checkpoint_state(x, coords)
+
+            yield x, coords.copy()
+
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
         Parameters
         ----------
-        x : xr.DataArray
-            Initial state with coordinates and grid metadata.
+        x : torch.Tensor
+            Input tensor
+        coords : CoordSystem
+            Input coordinate system
 
 
         Yields
         ------
-        xr.DataArray
-            Initial condition followed by six-hour forecast steps. A restored
-            level-two checkpoint resumes at the next step.
+        Iterator[tuple[torch.Tensor, CoordSystem]]
+            Iterator that generates time-steps of the prognostic model container the
+            output data tensor and coordinate system dictionary.
         """
-        yield from self._default_generator(x)
+        yield from self._default_generator(x, coords)
