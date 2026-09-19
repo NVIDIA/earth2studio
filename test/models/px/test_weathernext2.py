@@ -30,8 +30,9 @@ except ImportError:
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
-from earth2studio.models.px.weathernext2_cyclones_mini import (
+from earth2studio.models.px.weathernext2_cyclones import (
     OUTPUT_VARIABLES,
+    WeatherNext2Cyclones,
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
 )
@@ -43,9 +44,10 @@ def mocked_chunked_prediction(*args, targets_template, **kwargs):
     return targets_template
 
 
-def mocked_chunked_prediction_generator(self, *args, targets_template, **kwargs):
+def mocked_chunked_prediction_generator(self, *args, targets_template, batch, **kwargs):
+    value = float(batch["2m_temperature"].isel(time=-1).mean())
     while True:
-        yield targets_template.isel(time=[0])
+        yield targets_template.isel(time=[0]).fillna(value)
 
 
 @pytest.fixture
@@ -120,6 +122,19 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
     assert out_coords["lead_time"] == np.timedelta64(6, "h")
 
 
+@mock.patch.object(
+    WeatherNext2CyclonesMini,
+    "_chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_weathernext2_concurrent_iterators(mock_weathernext2_model):
+    x, coords = fetch_random_input(mock_weathernext2_model)
+    first = mock_weathernext2_model.create_iterator(x, coords)
+    second = mock_weathernext2_model.create_iterator(x + 1, coords)
+    next(first), next(second)
+    assert not torch.equal(next(first)[0], next(second)[0])
+
+
 @mock.patch("weathernext.utils.rollout.chunked_prediction")
 def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
     rngs = []
@@ -152,11 +167,10 @@ def test_weathernext2_conformance(mock_weathernext2_model):
       weathernext2_cyclones_mini (along with gencast_mini, graphcast_small,
       graphcast_operational) as a known deviation that applies rear_hook but
       never front_hook, so a front hook set on it is silently discarded.
-    - P13: the wrapper does not declare `stochastic` or implement `set_rng()`
-      (Migration table: its randomness is already an isolated functional JAX
-      PRNG key, per test_weathernext2_rng_advances above, so only the
-      declaration and set_rng() entry point are missing), so the checker takes
-      stochastic=False at face value and two rollouts from one input disagree.
+    - P13: the wrapper does not declare `stochastic`. Its randomness is already
+      an isolated functional JAX PRNG key and it implements `set_rng()`, but the
+      checker takes stochastic=False at face value and two rollouts from one
+      input disagree.
     - P16: the yields alias one buffer, so yield 1 changes once a later step is
       produced.
     """
@@ -165,6 +179,17 @@ def test_weathernext2_conformance(mock_weathernext2_model):
         check_prognostic_contract(model)
     violations = excinfo.value.violations
     assert {v.split(":")[0] for v in violations} == {"P5", "P10", "P13", "P16"}
+
+
+def test_weathernext2_set_rng(mock_weathernext2_model):
+    mock_weathernext2_model.set_rng(123)
+    key = np.asarray(mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(456, reset=False)
+    np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(456)
+    assert not np.array_equal(key, mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(123)
+    np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
 
 
 def test_weathernext2_target_order(mock_weathernext2_model):
@@ -179,7 +204,7 @@ def test_weathernext2_target_order(mock_weathernext2_model):
 
 def test_weathernext2_cyclone_tracks_inactive(mock_weathernext2_model):
     with mock.patch(
-        "earth2studio.models.px.weathernext2_cyclones_mini.logger.warning"
+        "earth2studio.models.px.weathernext2_cyclones.logger.warning"
     ) as warning:
         assert mock_weathernext2_model.cyclone_tracks.empty
     warning.assert_called_once()
@@ -229,6 +254,24 @@ def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
     )
     with pytest.raises((KeyError, ValueError)):
         model(x, coords)
+
+
+def test_weathernext2_operational_checkpoint():
+    assert WeatherNext2Cyclones._params_path(1).endswith("_<2025_model1.npz")
+    assert WeatherNext2Cyclones._params_path(4).endswith("_<2025_model4.npz")
+    with pytest.raises(ValueError, match="1 through 4"):
+        WeatherNext2Cyclones._params_path(0)
+
+
+@pytest.mark.package
+def test_weathernext2_operational_package():
+    model = WeatherNext2Cyclones.load_model(
+        WeatherNext2Cyclones.load_default_package(), jit_compile=False
+    )
+    assert tuple(len(model.input_coords()[dim]) for dim in ("lat", "lon")) == (
+        721,
+        1440,
+    )
 
 
 @pytest.mark.package

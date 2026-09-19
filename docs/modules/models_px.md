@@ -41,6 +41,7 @@ earth2studio.models.px.FCN
 earth2studio.models.px.FCN3
 earth2studio.models.px.FengWu
 earth2studio.models.px.FuXi
+earth2studio.models.px.FuXiS2S
 earth2studio.models.px.GenCastMini
 earth2studio.models.px.GraphCastOperational
 earth2studio.models.px.GraphCastSmall
@@ -57,6 +58,7 @@ earth2studio.models.px.StormScopeGOES
 earth2studio.models.px.StormScopeMeteosatEU
 earth2studio.models.px.StormScopeMRMS
 earth2studio.models.px.UCast
+earth2studio.models.px.WeatherNext2Cyclones
 earth2studio.models.px.WeatherNext2CyclonesMini
 {% endautosummary %}
 

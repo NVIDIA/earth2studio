@@ -11,12 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
+- Added Aurora 1.5 Ensemble, SFNO, Pangu, FengWu, FuXi, DLWP, and FCN to the
+  docs scorecard
+- Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
+- Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
+  (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
 - Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event
   detections from the LFL, LGR and LEF collections as a data frame
 - Added group- and flash-level variables to the `GOESGLM` data source
+- Added footprint size variables to the optical lightning imager vocabulary:
+  `lightning_group_area` and `lightning_flash_area` for `GOESGLM` (native GLM
+  footprint area in square meters) and `lightning_group_footprint_pixels` for
+  `MeteosatLI`, complementing the existing
+  `lightning_flash_footprint_pixels`. These give group and flash detections a
+  footprint size for extent-density gridding.
 - Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
   ONNX sessions at construction instead of on first use in a rollout
 - Added regional splits to evaluation recipe scoring, in both the online
@@ -57,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Eval recipe: per-member seeding now works for models whose `set_rng` has no
+  `reset` argument (for example `Aurora1p5Ensemble`)
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
   `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
   analysis stable (the old defaults could diverge to non-finite output).
