@@ -31,7 +31,6 @@ from earth2studio.utils import (
     handshake_dataarray,
 )
 from earth2studio.utils.checkpoint import bind_checkpoint_state
-from earth2studio.utils.coords import statistics_from_metadata
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -129,7 +128,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(VARIABLES),
             },
             dynamic=("batch",),
-            grid="fcn1",
+            grid="latlon-0.25deg-south-pole-excluded",
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
@@ -187,7 +186,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "attrs": dict(coords.attrs),
                 "name": coords.name,
                 "dtype": str(coords.dtype),
-                "statistics": statistics_from_metadata(coords),
             }
         else:
             self.checkpoint.x = None

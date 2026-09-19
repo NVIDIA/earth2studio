@@ -38,8 +38,11 @@ is configured with the chosen domain/grid, and an observation model accepting
 optional channels is configured with the available variable set. Its declaration
 then gives concrete spatial coordinates and variable labels for that configuration,
 so fetching and output planning are unambiguous. Reconfigure before planning a
-different domain or channel set. The contract does not prescribe a common
-configuration method: constructors or model-specific setters may provide it.
+different domain or channel set. Keep that configuration fixed throughout a run;
+changing it requires new signatures and a new input-fetch/output plan. Constructors
+or model-specific setters currently provide configuration. A shared configuration
+interface (for example, `set_domain` and variable selection) remains an open
+contract question rather than an established method that callers can rely on.
 An unresolved wildcard is not a request to fetch an unspecified region or variable
 set. Model-specific validation enforces constraints such as patch-size multiples
 or supported channel combinations in addition to coordinate handshakes.
@@ -70,7 +73,8 @@ validate geographic coordinates as well as axes.
   output offsets are added to the final input lead time.
 - `StormCastCONUS`: cropped `ProjectedGrid` with registered HRRR CRS on `y, x`;
   output advances the final input lead time by one hour.
-- `PrecipitationAFNO`: registered `fcn1` grid (720 × 1440) on `lat, lon`;
+- `PrecipitationAFNO`: registered `latlon-0.25deg-south-pole-excluded` grid
+  (720 × 1440) on `lat, lon`;
   output is `tp:sum:6h` with derived statistics metadata.
 
 Models declaring relative lead-time history subtract the final input lead time before checking the

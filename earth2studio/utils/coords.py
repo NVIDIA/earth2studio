@@ -143,7 +143,6 @@ def _coordinate_sizes(coordinates: Mapping[Hashable, Any]) -> dict[Hashable, int
 def coord_array(
     dims: Sequence[Hashable],
     coords: Mapping[Hashable, Any] | None = None,
-    *,
     dynamic: Sequence[Hashable] = (),
     sizes: Mapping[Hashable, int] | None = None,
     grid: str | GridDefinition | None = None,
@@ -152,7 +151,11 @@ def coord_array(
     name: Hashable | None = None,
     attrs: Mapping[Hashable, Any] | None = None,
 ) -> CoordinateSystem:
-    """Create an allocation-free Earth2Studio coordinate signature.
+    """Create a coordinate signature from dimensions and optional information.
+
+    The returned CoordinateSystem's backing array stores only shape and dtype;
+    it does not allocate memory for field values. Coordinate arrays themselves
+    still occupy memory.
 
     Parameters
     ----------
@@ -392,16 +395,6 @@ def handshake_dataarrays(
         )
     for array, signature in zip(arrays, signatures, strict=True):
         handshake_dataarray(array, signature)
-
-
-def statistics_from_metadata(array: xr.DataArray | None) -> dict[str, str]:
-    """Return compact temporal-statistic modifiers from a signature."""
-    if array is None:
-        return {}
-    return {
-        variable: details["modifier"]
-        for variable, details in array.attrs.get(E2S_STATISTICS, {}).items()
-    }
 
 
 def handshake_dim(

@@ -904,10 +904,12 @@ def test_coordinate_system_grid_and_collection():
         ("batch", "lead_time", "variable", "lat", "lon"),
         {"lead_time": [np.timedelta64(0, "h")], "variable": ["a"]},
         dynamic=("batch",),
-        grid="fcn1",
+        grid="latlon-0.25deg-south-pole-excluded",
     )
     assert signature.shape == (0, 1, 1, 720, 1440)
-    assert signature.attrs["earth2studio_grid_id"] == "fcn1"
+    assert (
+        signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg-south-pole-excluded"
+    )
     array = xr.DataArray(
         np.zeros((1, 1, 1, 720, 1440), dtype=np.float32),
         dims=signature.dims,
@@ -1049,7 +1051,7 @@ def test_coordinate_array_like_partial_dynamic_dimensions():
 def test_coordinate_array_like_spatial_replacement_requires_new_grid():
     from earth2studio.utils.coords import coord_array_like
 
-    signature = coord_array(("lat", "lon"), grid="fcn1")
+    signature = coord_array(("lat", "lon"), grid="latlon-0.25deg-south-pole-excluded")
     with pytest.raises(ValueError, match="grid"):
         coord_array_like(signature, {"lat": np.asarray(signature.lat) + 1})
     with pytest.raises(ValueError, match="grid"):

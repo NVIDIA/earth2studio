@@ -100,7 +100,7 @@ signature = coord_array(
     ("batch", "variable", "lat", "lon"),
     {"variable": ["t2m"]},
     dynamic=("batch",),
-    grid="fcn1",
+    grid="latlon-0.25deg-south-pole-excluded",
 )
 ```
 

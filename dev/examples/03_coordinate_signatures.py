@@ -142,7 +142,7 @@ atmosphere = coord_array(
     ("batch", "variable", "lat", "lon"),
     {"variable": ["u10m", "v10m"]},
     dynamic=("batch",),
-    grid="fcn1",
+    grid="latlon-0.25deg-south-pole-excluded",
 )
 precipitation = coord_array_like(atmosphere, {"variable": ["tp:sum:6h"]})
 np.testing.assert_equal(precipitation.shape, (0, 1, 720, 1440))

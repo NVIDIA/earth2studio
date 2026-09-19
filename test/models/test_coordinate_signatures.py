@@ -180,7 +180,7 @@ def test_precipitation_signature():
     signature = model.input_coords()
     assert isinstance(signature, xr.DataArray)
     assert signature.shape == (0, 20, 720, 1440)
-    assert signature.attrs[E2S_GRID_ID] == "fcn1"
+    assert signature.attrs[E2S_GRID_ID] == "latlon-0.25deg-south-pole-excluded"
     assert signature.data.nbytes == 0
     output = model.output_coords(signature)
     assert output.shape == (0, 1, 720, 1440)

@@ -43,7 +43,10 @@ def test_fcn_coordinate_signatures():
     output_coords = model.output_coords(input_coords)
 
     assert input_coords.data.nbytes == output_coords.data.nbytes == 0
-    assert input_coords.attrs["earth2studio_grid_id"] == "fcn1"
+    assert (
+        input_coords.attrs["earth2studio_grid_id"]
+        == "latlon-0.25deg-south-pole-excluded"
+    )
     assert output_coords.coords["lead_time"] == np.timedelta64(6, "h")
 
 

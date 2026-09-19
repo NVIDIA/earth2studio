@@ -112,7 +112,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
             ("batch", "variable", "lat", "lon"),
             {"variable": np.array(VARIABLES)},
             dynamic=("batch",),
-            grid="fcn1",
+            grid="latlon-0.25deg-south-pole-excluded",
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
