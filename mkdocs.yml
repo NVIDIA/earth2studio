@@ -575,6 +575,13 @@ nav:
     - Aurora: scorecard/generated/aurora.md
     - GraphCast: scorecard/generated/graphcast.md
     - Atlas CRPS: scorecard/generated/atlas_crps.md
+    - Aurora 1.5 Ensemble: scorecard/generated/aurora1p5ens.md
+    - DLWP: scorecard/generated/dlwp.md
+    - FCN: scorecard/generated/fcn.md
+    - FengWu: scorecard/generated/fengwu.md
+    - FuXi: scorecard/generated/fuxi.md
+    - Pangu: scorecard/generated/pangu.md
+    - SFNO: scorecard/generated/sfno.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

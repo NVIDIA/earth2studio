@@ -47,6 +47,8 @@ env:
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
+  XLA_PYTHON_CLIENT_ALLOCATOR: vmm
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
 
 jobs:
   changes:
