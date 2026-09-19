@@ -141,6 +141,12 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "produced, so the yields alias one buffer) — "
         "test/models/px/test_fuxi.py::TestFuXiMock::test_fuxi_conformance"
     ),
+    "FuXiS2S": (
+        "fails P13: the official ONNX graph samples flow-dependent "
+        "perturbations internally, but the wrapper declares stochastic=False "
+        "and implements no set_rng(), so two rollouts from one input disagree "
+        "— test/models/px/test_fuxi_s2s.py::test_fuxi_s2s_conformance"
+    ),
     "DLESyM": (
         "fails P7 (the 0th yield's lead_time carries the whole input history "
         "rather than the analysis time), always; and, from two independent, "
@@ -252,6 +258,12 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "chain applied), and P13 (same unseeded diffusion-latent gap as "
         "StormCast) — "
         "test/models/px/test_stormscope_meteosat.py::test_stormscopemeteosateu_conformance"
+    ),
+    "WeatherNext2Cyclones": (
+        "shares _WeatherNext2Base's rollout implementation with "
+        "WeatherNext2CyclonesMini and fails the same four rules "
+        "(P5/P10/P13/P16); only the grid and checkpoint differ — "
+        "test/models/px/test_weathernext2.py::test_weathernext2_conformance"
     ),
     "WeatherNext2CyclonesMini": (
         "fails the same four rules as GraphCast/GenCastMini "

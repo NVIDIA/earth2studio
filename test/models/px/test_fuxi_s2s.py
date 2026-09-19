@@ -27,6 +27,7 @@ import xarray as xr
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXiS2S
 from earth2studio.models.px.fuxi_s2s import VARIABLES
 from earth2studio.utils import handshake_dim
@@ -339,6 +340,17 @@ def test_fuxi_s2s_ensemble_members_use_independent_ort_calls() -> None:
     assert prediction.shape == (2, 1, 1, len(VARIABLES), 121, 240)
     assert not torch.equal(prediction[0], prediction[1])
     np.testing.assert_array_equal(prediction_coords["ensemble"], np.arange(2))
+
+
+def test_fuxi_s2s_conformance() -> None:
+    model = _identity_model()
+    model.ort = PhooStochasticSession()  # type: ignore[assignment]
+
+    with pytest.raises(ContractException) as excinfo:
+        check_prognostic_contract(model)
+
+    violations = excinfo.value.violations
+    assert {violation.split(":")[0] for violation in violations} == {"P13"}
 
 
 def test_fuxi_s2s_shifted_leads_use_matching_step(fuxi_s2s_test_package) -> None:
