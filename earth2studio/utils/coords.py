@@ -14,21 +14,387 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Allocation-free Xarray coordinate signatures."""
+
+from __future__ import annotations
+
 import warnings
 from collections import OrderedDict
+from collections.abc import Hashable, Mapping, Sequence
 from copy import deepcopy
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import torch
 import xarray as xr
+from numpy.typing import DTypeLike
 
-from earth2studio.utils.type import CoordSystem
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID, GridDefinition, resolve_grid
 
 try:
     import cupy as cp
 except ImportError:
     cp = None
+
+from earth2studio.utils.time_statistics import time_statistic_metadata
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
+
+E2S_DYNAMIC_DIMS = "earth2studio_dynamic_dims"
+E2S_KIND = "earth2studio_kind"
+E2S_SCHEMA_VERSION = "earth2studio_schema_version"
+E2S_STATISTICS = "earth2studio_statistics"
+
+
+class _CoordinateArray:
+    """Shape/dtype-only backing array for allocation-free coordinate signatures.
+
+    Indexing and transposing update the shape without allocating field values;
+    converting this placeholder to a NumPy array is intentionally unsupported.
+    """
+
+    __array_priority__ = 100
+
+    def __init__(self, shape: Sequence[int], dtype: DTypeLike) -> None:
+        self.shape = tuple(shape)
+        self.dtype = np.dtype(dtype)
+
+    @property
+    def ndim(self) -> int:
+        return len(self.shape)
+
+    @property
+    def size(self) -> int:
+        return int(np.prod(self.shape))
+
+    @property
+    def nbytes(self) -> int:
+        return 0
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def __array__(self, *args: Any, **kwargs: Any) -> np.ndarray:
+        raise TypeError("Coordinate arrays do not contain field values")
+
+    def __array_function__(self, func: Any, types: Any, args: Any, kwargs: Any) -> Any:
+        return NotImplemented
+
+    def __array_ufunc__(
+        self, ufunc: Any, method: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        return NotImplemented
+
+    def __getitem__(self, key: Any) -> _CoordinateArray:
+        key = getattr(key, "tuple", key)
+        items = key if isinstance(key, tuple) else (key,)
+        shape: list[int] = []
+        axis = 0
+        for item in items:
+            if item is Ellipsis:
+                count = self.ndim - len(items) + 1
+                shape.extend(self.shape[axis : axis + count])
+                axis += count
+            elif item is None:
+                shape.append(1)
+            elif isinstance(item, slice):
+                shape.append(len(range(*item.indices(self.shape[axis]))))
+                axis += 1
+            elif isinstance(item, (int, np.integer)):
+                axis += 1
+            elif isinstance(item, np.ndarray) and item.ndim == 1:
+                shape.append(
+                    int(np.count_nonzero(item))
+                    if item.dtype == bool
+                    else int(item.size)
+                )
+                axis += 1
+            else:
+                raise TypeError("Unsupported coordinate-array indexer")
+        shape.extend(self.shape[axis:])
+        return type(self)(shape, self.dtype)
+
+    def transpose(self, axes: Sequence[int] | None = None) -> _CoordinateArray:
+        axes = tuple(reversed(range(self.ndim))) if axes is None else tuple(axes)
+        return type(self)(tuple(self.shape[axis] for axis in axes), self.dtype)
+
+
+def _coordinate_sizes(coordinates: Mapping[Hashable, Any]) -> dict[Hashable, int]:
+    sizes: dict[Hashable, int] = {}
+    for name, value in coordinates.items():
+        if isinstance(value, (xr.DataArray, xr.Variable)):
+            dimensions, shape = value.dims, value.shape
+        elif isinstance(value, tuple) and len(value) >= 2:
+            dimensions = (value[0],) if isinstance(value[0], str) else tuple(value[0])
+            shape = np.asarray(value[1]).shape
+        else:
+            array = np.asarray(value)
+            dimensions, shape = (
+                ((name,), array.shape) if array.ndim == 1 else ((), array.shape)
+            )
+        if len(dimensions) != len(shape):
+            raise ValueError(f"Coordinate '{name}' dimensions do not match its shape")
+        for dimension, size in zip(dimensions, shape, strict=True):
+            if dimension in sizes and sizes[dimension] != size:
+                raise ValueError(f"Coordinates disagree on size of '{dimension}'")
+            sizes[dimension] = int(size)
+    return sizes
+
+
+def coord_array(
+    dims: Sequence[Hashable],
+    coords: Mapping[Hashable, Any] | None = None,
+    dynamic: Sequence[Hashable] = (),
+    sizes: Mapping[Hashable, int] | None = None,
+    grid: str | GridDefinition | None = None,
+    grid_dims: Mapping[str, str] | None = None,
+    dtype: DTypeLike = np.float32,
+    name: Hashable | None = None,
+    attrs: Mapping[Hashable, Any] | None = None,
+) -> CoordinateSystem:
+    """Create a coordinate signature from dimensions and optional information.
+
+    The returned CoordinateSystem's backing array stores only shape and dtype;
+    it does not allocate memory for field values. Coordinate arrays themselves
+    still occupy memory.
+
+    Parameters
+    ----------
+    dims : sequence of hashable
+        Ordered dimensions, including any dynamic leading dimensions.
+    coords : mapping, optional
+        Xarray-compatible dimension and auxiliary coordinates.
+    dynamic : sequence of hashable, optional
+        Leading wildcard dimensions, each with size zero.
+    sizes : mapping, optional
+        Sizes for dimensions without coordinates.
+    grid : str or GridDefinition, optional
+        Registered grid or definition supplying spatial coordinates and metadata.
+        Projected grids also supply geographic coordinates; HEALPix grids supply
+        only index coordinates.
+    grid_dims : mapping, optional
+        Rename grid dimensions to model dimensions, for example
+        ``{"y": "hrrr_y", "x": "hrrr_x"}``. Explicit coordinates use model names.
+    dtype : dtype-like, optional
+        Declared field dtype; no field values are allocated.
+    name : hashable, optional
+        DataArray name.
+    attrs : mapping, optional
+        Additional metadata. Grid and signature metadata take precedence.
+
+    Notes
+    -----
+    Declare temporal statistics in variable labels, for example ``tp:sum:6h``.
+    Statistics metadata is derived from those labels, not supplied independently.
+
+    Returns
+    -------
+    CoordinateSystem
+        DataArray with coordinates and a shape/dtype-only backing array.
+    """
+    dimensions = tuple(dims)
+    dynamic_dims = tuple(dynamic)
+    coordinates = dict(coords or {})
+    if len(set(dimensions)) != len(dimensions):
+        raise ValueError("Dimensions must be unique")
+    if not set(dynamic_dims).issubset(dimensions):
+        raise ValueError("Dynamic dimensions must be present in dims")
+    if dimensions[: len(dynamic_dims)] != dynamic_dims:
+        raise ValueError("Dynamic dimensions must lead the coordinate signature")
+
+    candidates = dict(sizes or {})
+    definition = resolve_grid(grid) if isinstance(grid, str) else grid
+    renamed = dict(grid_dims or {})
+    if renamed and (definition is None or not set(renamed).issubset(definition.dims)):
+        raise ValueError("grid_dims must map dimensions of the supplied grid")
+    if definition is not None:
+        spatial_dims = tuple(renamed.get(dim, dim) for dim in definition.dims)
+        if len(set(spatial_dims)) != len(spatial_dims):
+            raise ValueError("Renamed grid dimensions must be unique")
+        missing = set(spatial_dims) - set(dimensions)
+        if missing:
+            raise ValueError(
+                f"Grid dimensions are missing from dims: {sorted(missing)}"
+            )
+        for dim, grid_size in zip(spatial_dims, definition.shape, strict=True):
+            if dim in candidates and candidates[dim] != grid_size:
+                raise ValueError(f"Grid and declared size differ for '{dim}'")
+            candidates[dim] = grid_size
+        grid_coords = definition.coords(
+            only_index=definition.topology not in {"curvilinear", "points", "projected"}
+        )
+        for coordinate, value in grid_coords.items():
+            coordinates.setdefault(
+                renamed.get(coordinate, coordinate),
+                xr.Variable(
+                    tuple(renamed.get(dim, dim) for dim in value.dims),
+                    value.data,
+                    attrs=value.attrs,
+                ),
+            )
+
+    coordinate_sizes = _coordinate_sizes(coordinates)
+    resolved_sizes: dict[Hashable, int] = {}
+    for dimension in dimensions:
+        coordinate_size = coordinate_sizes.get(dimension)
+        declared_size = candidates.get(dimension)
+        if coordinate_size is not None and declared_size not in {None, coordinate_size}:
+            raise ValueError(f"Coordinate and declared size differ for '{dimension}'")
+        size = coordinate_size if coordinate_size is not None else declared_size
+        if dimension in dynamic_dims:
+            if size not in {None, 0}:
+                raise ValueError(f"Dynamic dimension '{dimension}' must have size zero")
+            size = 0
+        if size is None:
+            raise ValueError(f"Missing size for dimension '{dimension}'")
+        resolved_sizes[dimension] = int(size)
+
+    metadata = dict(attrs or {})
+    metadata.pop(E2S_STATISTICS, None)
+    metadata.update(
+        {
+            E2S_KIND: "coordinate_array",
+            E2S_SCHEMA_VERSION: 1,
+            E2S_DYNAMIC_DIMS: dynamic_dims,
+        }
+    )
+    if definition is not None:
+        metadata.update(definition.attrs)
+        metadata["dims"] = list(spatial_dims)
+        if definition.crs is not None:
+            metadata[E2S_CRS] = definition.crs.to_string()
+    if isinstance(grid, str):
+        metadata[E2S_GRID_ID] = grid
+    array = xr.DataArray(
+        _CoordinateArray(
+            tuple(resolved_sizes[dimension] for dimension in dimensions), dtype
+        ),
+        dims=dimensions,
+        coords=coordinates,
+        name=name,
+        attrs=metadata,
+    )
+    if "variable" in array.coords:
+        if array.coords["variable"].dims != ("variable",):
+            raise ValueError("Variable must be a one-dimensional coordinate")
+        variables = tuple(np.asarray(array.coords["variable"]).astype(str))
+        if len(set(variables)) != len(variables):
+            raise ValueError("Variable coordinates must be unique")
+        declarations = {}
+        for variable in variables:
+            base, separator, modifier = variable.partition(":")
+            if not base:
+                raise ValueError("Variable source name must not be empty")
+            if separator:
+                declarations[variable] = time_statistic_metadata(modifier)
+        if declarations:
+            array.attrs[E2S_STATISTICS] = declarations
+    return array
+
+
+def coord_array_like(
+    array: xr.DataArray,
+    coords: Mapping[Hashable, Any] | None = None,
+) -> CoordinateSystem:
+    """Build a fresh coordinate signature from an array without copying field data.
+
+    Parameters
+    ----------
+    array : xr.DataArray
+        Concrete data or a coordinate signature to describe.
+    coords : mapping, optional
+        Coordinate replacements. Replacing a dimension drops its dependent
+        coordinates and infers its new size. Dimension order is preserved.
+        Grid geometry cannot be replaced; use ``coord_array(grid=...)`` with a
+        new definition when changing spatial coordinates.
+        Resolve dynamic dimensions together or from right to left so remaining
+        wildcards stay a leading prefix. Resolving only ``batch`` while leaving
+        a following ``time`` dynamic raises ``ValueError``.
+        Temporal statistics are derived from the resulting variable labels.
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free signature preserving name, dtype, metadata, and unaffected
+        coordinates. Nonzero dimensions are never declared dynamic.
+    """
+    replacements = dict(coords or {})
+    changed_dims = set(replacements).intersection(array.dims)
+    spatial_dims = set(array.attrs.get("dims", ()))
+    for key in replacements:
+        if key in spatial_dims or (
+            key in array.coords and spatial_dims.intersection(array.coords[key].dims)
+        ):
+            raise ValueError(
+                "Use coord_array with a new grid to replace spatial coordinates"
+            )
+    coordinates = {
+        key: value.variable
+        for key, value in array.coords.items()
+        if not changed_dims.intersection(value.dims)
+    }
+    coordinates.update(replacements)
+    sizes = {dim: size for dim, size in array.sizes.items() if dim not in changed_dims}
+    for dim, size in _coordinate_sizes(coordinates).items():
+        if dim in sizes and sizes[dim] != size:
+            raise ValueError(f"Coordinate and existing size differ for '{dim}'")
+        sizes[dim] = size
+    dynamic = tuple(
+        dim
+        for dim in array.attrs.get(E2S_DYNAMIC_DIMS, ())
+        if dim in sizes and sizes[dim] == 0
+    )
+    output = coord_array(
+        array.dims,
+        coordinates,
+        sizes=sizes,
+        dynamic=dynamic,
+        dtype=array.dtype,
+        name=array.name,
+        attrs=array.attrs,
+    )
+    return output
+
+
+def handshake_dataarray(array: xr.DataArray, signature: xr.DataArray) -> None:
+    """Validate ordered dimensions, sizes, and labels against a signature."""
+    dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
+    if tuple(signature.dims[: len(dynamic)]) != dynamic:
+        raise ValueError("Dynamic dimensions must lead the coordinate signature")
+    fixed = signature.dims[len(dynamic) :]
+    trailing = tuple(array.dims[-len(fixed) :]) if fixed else ()
+    if trailing != fixed:
+        raise ValueError(f"Expected trailing dimensions {fixed}, got {array.dims}")
+    for dimension in fixed:
+        if array.sizes[dimension] != signature.sizes[dimension]:
+            raise ValueError(f"Dimension '{dimension}' has the wrong size")
+    for name, coordinate in signature.coords.items():
+        if set(coordinate.dims).intersection(dynamic):
+            continue
+        if name not in array.coords:
+            raise ValueError(f"Coordinate '{name}' is missing")
+        actual = array.coords[name]
+        if actual.dims != coordinate.dims or not np.array_equal(actual, coordinate):
+            raise ValueError(f"Coordinate '{name}' does not match")
+    for key, label in (
+        (E2S_GRID_ID, "grid"),
+        (E2S_CRS, "CRS"),
+        (E2S_STATISTICS, "statistics"),
+    ):
+        expected = signature.attrs.get(key)
+        if expected is not None and array.attrs.get(key) != expected:
+            raise ValueError(f"DataArray {label} metadata does not match")
+
+
+def handshake_dataarrays(
+    arrays: Sequence[xr.DataArray], signatures: Sequence[xr.DataArray]
+) -> None:
+    """Validate an ordered collection of DataArrays against model signatures."""
+    if len(arrays) != len(signatures):
+        raise ValueError(
+            f"Expected {len(signatures)} DataArrays, received {len(arrays)}"
+        )
+    for array, signature in zip(arrays, signatures, strict=True):
+        handshake_dataarray(array, signature)
 
 
 def handshake_dim(

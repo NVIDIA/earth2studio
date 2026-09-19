@@ -23,6 +23,9 @@ Resolve coordinates, iterate a rollout, compose hooks, and check conformance.
 
 A conforming model can be driven by any caller without wrapper-specific knowledge.
 This tutorial walks the contract on a model that needs no weights, then checks it.
+
+This example uses the legacy tensor/OrderedDict interface. See
+``03_coordinate_signatures.py`` for allocation-free DataArray coordinate planning.
 """
 
 # /// script

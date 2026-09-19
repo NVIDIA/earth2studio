@@ -34,7 +34,7 @@ import xarray as xr
 import earth2studio.utils.time_statistics as e2s
 
 # Statistic-qualified labels distinguish multiple windows of one source quantity.
-variables = ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:1month"]
+variables = ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:30days"]
 print(variables)
 
 # %%
@@ -60,10 +60,11 @@ wind = xr.DataArray(
 )
 result = e2s.apply_time_statistic(wind, modifier, target=valid_time, delta_t=delta_t)
 result = result.assign_coords(
-    variable=[f"{variable}:{modifier}" for variable in result.variable.values]
+    variable=[f"{variable}:{modifier}" for variable in result.coords["variable"].values]
 )
 result.attrs["earth2studio_statistics"] = {
-    variable: modifier for variable in result.variable.values
+    variable: e2s.time_statistic_metadata(modifier)
+    for variable in result.coords["variable"].values
 }
 print(result)
 

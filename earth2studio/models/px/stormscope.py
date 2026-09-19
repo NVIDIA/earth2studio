@@ -29,14 +29,15 @@ from numpy.typing import ArrayLike
 from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.data.utils import fetch_data
+from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    handshake_size,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -46,7 +47,7 @@ from earth2studio.utils.interp import (
     LatLonInterpolation,
     NearestNeighborInterpolator,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from physicsnemo import Module
@@ -703,27 +704,45 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device=self.latitudes.device
         )
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system. Subclasses should override for specific variants."""
-        raise NotImplementedError(
-            "StormScopeBase.input_coords must be implemented by a subclass."
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free signature on the model's curvilinear grid."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
+            {"lead_time": self.input_times, "variable": np.array(self.variables)},
+            dynamic=("batch", "time"),
+            grid=CurvilinearGrid(
+                self._lat_cpu_copy, self._lon_cpu_copy, self.y, self.x
+            ),
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of prognostic model.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return an allocation-free signature for the next forecast window.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output coordinates.
+        input_coords : CoordinateSystem
+            Input signature or data array, with absolute forecast lead times.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary for the model output.
+        CoordinateSystem
+            Output signature with the configured output lead-time window.
         """
-        raise NotImplementedError(
-            "StormScopeBase.output_coords must be implemented by a subclass."
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords.coords["lead_time"])
+        if (
+            input_coords.coords["lead_time"].dims != ("lead_time",)
+            or lead.size == 0
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("Input lead_time must contain finite timedeltas")
+        last_time = lead[-1]
+        relative = input_coords.assign_coords(lead_time=lead - last_time)
+        handshake_dataarray(relative, self.input_coords())
+        return coord_array_like(
+            input_coords, {"lead_time": self.output_times + last_time}
         )
 
     def fetch_conditioning(
@@ -1311,14 +1330,43 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x, x_coords
 
+    def _prep_coordinate_input(
+        self, x: torch.Tensor, coords: CoordinateSystem
+    ) -> tuple[torch.Tensor, CoordinateSystem]:
+        tensor_coords = OrderedDict((d, np.asarray(coords[d])) for d in coords.dims)
+        x, prepared = self.prep_input(x, tensor_coords)
+        if tuple(prepared) != coords.dims or any(
+            not np.array_equal(prepared[d], coords[d]) for d in prepared
+        ):
+            spatial = coords.dims[-2:]
+            coordinates = {
+                name: value.variable
+                for name, value in coords.coords.items()
+                if not any(d in spatial for d in value.dims)
+            }
+            attrs = dict(coords.attrs)
+            for key in ("earth2studio_grid_id", "earth2studio_crs"):
+                attrs.pop(key, None)
+            coords = coord_array(
+                tuple(prepared),
+                coordinates,
+                grid=CurvilinearGrid(
+                    self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
+                ),
+                attrs=attrs,
+                name=coords.name,
+                dtype=coords.dtype,
+            )
+        return x, coords
+
     @batch_func()
     def next_input(
         self,
         pred: torch.Tensor,
-        pred_coords: CoordSystem,
+        pred_coords: CoordinateSystem,
         x: torch.Tensor,
-        x_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x_coords: CoordinateSystem,
+    ) -> tuple[torch.Tensor, CoordinateSystem]:
         """Gets the inputs for the next step of the prognostic model given a pair
         of inputs and predictions that were just run. If the model uses a sliding
         window, the oldest lead time in the input is removed and the latest
@@ -1336,22 +1384,26 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_coords : CoordSystem
             Input coordinate system.
         """
-        lt_dim = list(x_coords.keys()).index("lead_time")
-        lt_dim_pred = list(pred_coords.keys()).index("lead_time")
+        lt_dim = x_coords.dims.index("lead_time")
+        lt_dim_pred = pred_coords.dims.index("lead_time")
         if lt_dim != lt_dim_pred or lt_dim != 2:
             raise ValueError(
                 f"The lead time dimension must be in the 3rd position for the input and prediction, got {lt_dim} and {lt_dim_pred} respectively"
             )
 
         if self.sliding_window:
-            x, x_coords = self.prep_input(x, x_coords)  # Sanitize/regrid
+            x, x_coords = self._prep_coordinate_input(x, x_coords)
+            self.output_coords(x_coords)
             n_in, n_out = len(self.input_times), len(self.output_times)
             next_input = torch.zeros_like(x)
-            next_input_coords = x_coords.copy()
             next_input[:, :, : n_in - n_out, ...] = x[:, :, n_out:, ...]
             next_input[:, :, n_in - n_out :, ...] = pred[:, :, :, ...]
-            next_input_coords["lead_time"] = (
-                self.input_times + pred_coords["lead_time"][-1]
+            next_input_coords = coord_array_like(
+                x_coords,
+                {
+                    "lead_time": self.input_times
+                    + np.asarray(pred_coords["lead_time"])[-1]
+                },
             )
         else:
             next_input = pred
@@ -1364,8 +1416,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        coords: CoordinateSystem,
+    ) -> tuple[torch.Tensor, CoordinateSystem]:
         """Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
 
         Parameters
@@ -1381,7 +1433,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output tensor and coordinate system.
         """
 
-        x, x_coords = self.prep_input(x, coords)
+        x, coords = self._prep_coordinate_input(x, coords)
+        output_coords = self.output_coords(coords)
+        tensor_coords = OrderedDict((d, np.asarray(coords[d])) for d in coords.dims)
+        x, x_coords = self.prep_input(x, tensor_coords)
 
         # Auto-fetch hook for state observations that live on their own source
         # grid (e.g. StormScopeMRMS GLM). This fires only in the auto path; the
@@ -1395,7 +1450,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             and len(self.conditioning_variables) > 0
         ):
             conditioning, conditioning_coords = self.fetch_conditioning(
-                coords, device=x.device
+                tensor_coords, device=x.device
             )
             conditioning, conditioning_coords = self.prep_input(
                 conditioning, conditioning_coords, conditioning=True
@@ -1408,8 +1463,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning = None
             conditioning_coords = None
 
-        output_coords = self.output_coords(x_coords)
-
         x = self._forward(
             x,
             x_coords,
@@ -1420,13 +1473,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x, output_coords
 
     @torch.inference_mode()
+    @batch_func()
     def call_with_conditioning(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: CoordinateSystem,
         conditioning: torch.Tensor,
-        conditioning_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        conditioning_coords: CoordinateSystem,
+    ) -> tuple[torch.Tensor, CoordinateSystem]:
         """Calls the prognostic model with explicitly provided conditioning. Useful when
         combining multiple cross-conditioned models during rollout (does not require
         model to define a conditioning data source).
@@ -1449,8 +1503,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         if (
-            "time" not in coords
-            or "batch" not in coords
+            "time" not in coords.dims
+            or "batch" not in coords.dims
             or len(coords["time"]) == 0
             or len(coords["batch"]) == 0
         ):
@@ -1458,11 +1512,16 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "Invalid coordinates for call_with_conditioning: must contain 'time' and 'batch' dimensions with nonzero length"
             )
 
-        x, x_coords = self.prep_input(x, coords)
+        x, coords = self._prep_coordinate_input(x, coords)
+        output_coords = self.output_coords(coords)
+        tensor_coords = OrderedDict((d, np.asarray(coords[d])) for d in coords.dims)
+        conditioning_coords = OrderedDict(
+            (d, np.asarray(conditioning_coords[d])) for d in conditioning_coords.dims
+        )
+        x, x_coords = self.prep_input(x, tensor_coords)
         conditioning, conditioning_coords = self.prep_input(
             conditioning, conditioning_coords, conditioning=True
         )
-        output_coords = self.output_coords(x_coords)
 
         x = self._forward(
             x,
@@ -1477,15 +1536,17 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        coords: CoordinateSystem,
+    ) -> Generator[tuple[torch.Tensor, CoordinateSystem], None, None]:
 
         # Yield the initial condition, but use prep_input to regrid if needed
         # Return the result with any invalid points set to nan
         coords = coords.copy()
-        x, coords = self.prep_input(x, coords)
-        ic_coords = coords.copy()
-        ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
+        x, coords = self._prep_coordinate_input(x, coords)
+        self.output_coords(coords)
+        ic_coords = coord_array_like(
+            coords, {"lead_time": np.asarray(coords["lead_time"])[-1:]}
+        )
         ic_x = x[:, :, -1:, ...]
         yield torch.where(~self.valid_mask, torch.nan, ic_x), ic_coords
 
@@ -1498,8 +1559,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.next_input(x_pred, coords_pred, x, coords)
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: torch.Tensor, coords: CoordinateSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]:
         """Creates an iterator to perform time-integration of the prognostic model.
 
         Parameters
@@ -1666,58 +1727,6 @@ class StormScopeGOES(StormScopeBase):
             amp=amp,
             compile=compile,
         )
-
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": self.input_times,
-                "variable": np.array(self.variables),
-                "y": self.y,
-                "x": self.x,
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of prognostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output coordinates.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary.
-        """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": self.output_times,
-                "variable": np.array(self.variables),
-                "y": self.y,
-                "x": self.x,
-            }
-        )
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "x", 5)
-        handshake_dim(input_coords, "y", 4)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_size(input_coords, "y", self.latitudes.shape[0])
-        handshake_size(input_coords, "x", self.latitudes.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"][-1]
-        )
-        return output_coords
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
@@ -2220,58 +2229,6 @@ class StormScopeMRMS(StormScopeBase):
         new_coords["y"] = self.y
         new_coords["x"] = self.x
         return glm, new_coords
-
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": self.input_times,
-                "variable": np.array(self.variables),
-                "y": self.y,
-                "x": self.x,
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of prognostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output coordinates.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary.
-        """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": self.output_times,
-                "variable": np.array(self.variables),
-                "y": self.y,
-                "x": self.x,
-            }
-        )
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "x", 5)
-        handshake_dim(input_coords, "y", 4)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_size(input_coords, "y", self.latitudes.shape[0])
-        handshake_size(input_coords, "x", self.latitudes.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"][-1]
-        )
-        return output_coords
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
