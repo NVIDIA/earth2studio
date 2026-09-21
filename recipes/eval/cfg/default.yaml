@@ -242,8 +242,52 @@ scoring:
         validate_coords: true          # cross-check lead steps within a group
         nccl_timeout_s: 1800           # a dead rank hangs its whole group
         # DataSource supplying climatology on the verification grid; required
-        # for ACC, which is otherwise skipped.
+        # for ACC, which is otherwise skipped. Shared across every named
+        # reference below (per-reference climatology is not implemented).
         climatology: null
+
+        # ------------------------------------------------------------------
+        # Multiple reference / truth sources (optional)
+        # ------------------------------------------------------------------
+        # Score the SAME rollout against several truth datasets in one pass
+        # — e.g. our own ERA5 archive, IFS HRES, and self-verification
+        # against our own analysis zarr — without ever materializing the
+        # forecast (output.retain stays 'none' at campaign scale). Default
+        # (null) keeps today's behavior exactly: score the single
+        # `verification_source` (BYO) / predownloaded verification store,
+        # writing plain stats_store/scores_store filenames.
+        #
+        # Set this to a mapping of reference name -> DataSource config to
+        # score against N references simultaneously. A null value reuses
+        # the pipeline's default verification_source resolution under that
+        # name. Each name gets its own physical store, the name inserted
+        # before the extension (src.online.named_store_filename):
+        #   stats_store  'stats.zarr'  -> 'stats__<name>.zarr'
+        #   scores_store 'scores.zarr' -> 'scores__<name>.zarr'
+        #
+        # Cost model: N truth reads and N passes of the per-step accumulator
+        # at every lead step, never N reruns of the model. Every statistic is
+        # built from the residual f - y, so no per-step collective is
+        # shareable between references: N scales the ensemble-moment and
+        # rank-count reduces (one field each) and the fair-CRPS member
+        # exchange (M fields, so it dominates). Reducing raw-forecast moments
+        # instead would be shareable, but sum(f^2) dwarfs the spread it is
+        # differenced from and costs ~7% of the variance in float32.
+        #
+        # Every named source must be local/predownloaded, exactly like the
+        # singular verification_source: online scoring does not tolerate
+        # in-loop remote fetches. predownload.py only stages the primary
+        # verification.zarr, so any additional reference is yours to stage.
+        #
+        # verification_sources:
+        #     era5:
+        #         _target_: src.data.PredownloadedSource
+        #         path: ${output.path}/verification.zarr
+        #     ifs:
+        #         _target_: src.data.PredownloadedSource
+        #         path: /data/ifs_analysis.zarr   # staged by you, see below
+        #     self_analysis: null   # reuse the pipeline's default resolution
+        verification_sources: null
 
         # ------------------------------------------------------------------
         # Fair CRPS

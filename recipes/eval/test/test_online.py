@@ -38,6 +38,7 @@ from src.metrics import ensemble_variance, mse
 from src.online import (
     FieldCache,
     GroupComm,
+    MultiRefScorer,
     OnlineScorer,
     StepContext,
     available_times,
@@ -45,9 +46,11 @@ from src.online import (
     build_statistics,
     check_verification_coverage,
     finalize_stats,
+    named_store_filename,
     online_enabled,
     open_stats_store,
     parse_online_settings,
+    resolve_verification_sources,
     retain_raw_output,
     stats_array_groups,
 )
@@ -1060,6 +1063,92 @@ class TestFairCRPS:
 # ---------------------------------------------------------------------------
 # Store schema
 # ---------------------------------------------------------------------------
+
+
+class TestMultiReference:
+    """The multi-reference knob: names -> own sources, own stores, one rollout."""
+
+    def test_unset_sources_keep_the_original_filenames(self, tmp_path):
+        cfg = _base_cfg(tmp_path)
+        sources = resolve_verification_sources(cfg, _StubPipeline("default"))
+        assert list(sources) == [None]
+        # A campaign written before this feature must be byte-identical.
+        assert named_store_filename("stats.zarr", None) == "stats.zarr"
+        assert named_store_filename("scores.zarr", None) == "scores.zarr"
+
+    def test_named_sources_get_their_own_stores(self, tmp_path):
+        cfg = _base_cfg(tmp_path)
+        cfg.scoring.online.verification_sources = {"era5": None, "ifs": None}
+        sources = resolve_verification_sources(cfg, _StubPipeline("default"))
+        assert list(sources) == ["era5", "ifs"]
+        assert named_store_filename("stats.zarr", "era5") == "stats__era5.zarr"
+        assert named_store_filename("scores.zarr", "ifs") == "scores__ifs.zarr"
+
+    def test_empty_sources_is_rejected_not_ignored(self, tmp_path):
+        cfg = _base_cfg(tmp_path)
+        cfg.scoring.online.verification_sources = {}
+        # Empty is a config mistake; silently scoring one reference would hide it.
+        with pytest.raises(ValueError, match="set but empty"):
+            resolve_verification_sources(cfg, _StubPipeline("default"))
+
+    @pytest.mark.parametrize("bad", ["../../escape", "has/slash", "with.dot", "_lead"])
+    def test_names_that_would_escape_the_store_path_are_rejected(self, tmp_path, bad):
+        cfg = _base_cfg(tmp_path)
+        cfg.scoring.online.verification_sources = {bad: None}
+        # Names are interpolated into a filename that is joined onto output.path.
+        with pytest.raises(ValueError, match="Invalid verification source name"):
+            resolve_verification_sources(cfg, _StubPipeline("default"))
+
+    def test_fan_out_hands_every_chunk_to_every_reference(self):
+        a, b = _RecordingScorer(), _RecordingScorer()
+        scorer = MultiRefScorer({"era5": a, "ifs": b})
+        item = object()
+        chunk = torch.zeros(2, 3)
+        coords = OrderedDict({"lead_time": LEAD_TIMES})
+
+        scorer.begin_item(item)
+        scorer.update(chunk, coords)
+        scorer.update(chunk, coords)
+        scorer.finish_item(item)
+
+        for child in (a, b):
+            assert child.begun == [item]
+            assert len(child.updates) == 2
+            assert child.finished == [item]
+        # The chunk is shared, not copied per reference.
+        assert a.updates[0] is b.updates[0] is chunk
+
+    def test_fan_out_requires_a_child(self):
+        with pytest.raises(ValueError, match="at least one"):
+            MultiRefScorer({})
+
+
+class _StubPipeline:
+    """Stands in for a Pipeline; only verification_source() is consulted."""
+
+    def __init__(self, tag):
+        self._tag = tag
+
+    def verification_source(self, cfg):
+        return self._tag
+
+
+class _RecordingScorer:
+    """Records the fan-out calls a MultiRefScorer makes to each child."""
+
+    def __init__(self):
+        self.begun = []
+        self.updates = []
+        self.finished = []
+
+    def begin_item(self, item):
+        self.begun.append(item)
+
+    def update(self, x, coords):
+        self.updates.append(x)
+
+    def finish_item(self, item):
+        self.finished.append(item)
 
 
 class TestStatsSchema:

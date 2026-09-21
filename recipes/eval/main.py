@@ -26,13 +26,16 @@ from src.data import resolve_ic_source
 from src.distributed import configure_logging
 from src.online import (
     build_group_comm,
-    build_online_scorer,
+    build_online_scorers,
     build_statistics,
     check_verification_coverage,
+    finalize_scores_store_name,
     finalize_stats,
+    named_store_filename,
     online_enabled,
     open_stats_store,
     parse_online_settings,
+    resolve_verification_sources,
     retain_raw_output,
 )
 from src.output import OutputManager, sentinel_path
@@ -241,16 +244,22 @@ def _run_online(
     lead_times = np.asarray(total_coords["lead_time"])
     spatial_coords = pipeline.effective_spatial_ref()
 
-    # --- Verification -------------------------------------------------------
+    # --- Verification ---------------------------------------------------
     # Verification is required predownloaded, so full coverage of every
     # (IC + lead) valid time is knowable before the first forecast runs.
     # That turns what would otherwise hang a whole ensemble group hours in
-    # into a startup error.
-    verif_source = pipeline.verification_source(cfg)
+    # into a startup error. `verif_sources` is always a *named collection*
+    # of references (scoring.online.verification_sources); with none
+    # configured it normalizes to a single entry keyed None
+    # (see resolve_verification_sources) rather than main.py running a
+    # separate single-source code path. named_store_filename maps that
+    # sentinel back to a plain, unprefixed filename, so nothing below needs
+    # to branch on "how many references" to keep an existing
+    # single-reference campaign's stats.zarr / scores.zarr unchanged.
+    verif_sources = resolve_verification_sources(cfg, pipeline)
     if my_times:
-        check_verification_coverage(
-            verif_source, my_times, lead_times, scoring_variables
-        )
+        for ref_name, source in verif_sources.items():
+            check_verification_coverage(source, my_times, lead_times, scoring_variables)
 
     if pipeline.needs_data_source:
         data_source = resolve_ic_source(
@@ -261,34 +270,49 @@ def _run_online(
     else:
         data_source = None
 
-    # --- Stores -------------------------------------------------------------
-    statistics = build_statistics(
-        ensemble_size,
-        settings.climatology is not None,
-        settings,
-        scoring_variables,
-    )
-    stats_mgr = open_stats_store(
-        cfg, statistics, scoring_variables, all_times, lead_times, ensemble_size
-    )
+    # --- Stores ---------------------------------------------------------
+    # One stats.zarr per named reference — named_store_filename resolves
+    # the unnamed reference to a plain filename, so this is the same loop
+    # whether there is one reference or several. `statistics` is rebuilt
+    # per reference only to describe the store's schema; the accumulation
+    # instances actually used live inside each OnlineScorer built below.
+    stats_mgrs: dict[str | None, OutputManager] = {}
+    for ref_name in verif_sources:
+        stats_store_name = named_store_filename(settings.stats_store, ref_name)
+        statistics = build_statistics(
+            ensemble_size,
+            settings.climatology is not None,
+            settings,
+            scoring_variables,
+        )
+        stats_mgrs[ref_name] = open_stats_store(
+            cfg,
+            statistics,
+            scoring_variables,
+            all_times,
+            lead_times,
+            ensemble_size,
+            store_name=stats_store_name,
+        )
     raw_mgr = OutputManager(cfg) if retain_raw else None
 
     with ExitStack() as stack:
-        stack.enter_context(stats_mgr)
+        for mgr in stats_mgrs.values():
+            stack.enter_context(mgr)
         if raw_mgr is not None:
             stack.enter_context(raw_mgr)
             raw_mgr.validate_output_store(total_coords, output_variables)
 
         if my_items and comm is not None:
-            scorer = build_online_scorer(
+            scorer = build_online_scorers(
                 cfg,
                 settings,
                 comm,
-                verif_source,
+                verif_sources,
                 scoring_variables,
                 lead_times,
                 spatial_coords,
-                stats_mgr,
+                stats_mgrs,
                 device,
                 known_missing_leads=pipeline.known_missing_leads(),
             )
@@ -306,9 +330,19 @@ def _run_online(
             logger.info(f"Rank {dist.rank}: no ICs assigned, waiting at barrier.")
 
     # Cheap and idempotent — re-derives scores.zarr from the full store, so
-    # it is correct after a resumed or multi-job campaign too.
+    # it is correct after a resumed or multi-job campaign too. One
+    # finalize pass per reference, writing to its own scores store (the
+    # same named_store_filename mapping as above, so the unnamed case again
+    # lands on the plain, unprefixed filenames).
     if dist.rank == 0:
-        finalize_stats(cfg)
+        for ref_name in verif_sources:
+            finalize_stats(
+                cfg,
+                stats_store=named_store_filename(settings.stats_store, ref_name),
+                scores_store=named_store_filename(
+                    finalize_scores_store_name(cfg), ref_name
+                ),
+            )
 
 
 if __name__ == "__main__":
