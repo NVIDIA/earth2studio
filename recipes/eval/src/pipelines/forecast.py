@@ -19,8 +19,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Callable, Iterator
+from typing import Any, cast
 
 import hydra
 import numpy as np
@@ -314,7 +314,8 @@ class ForecastPipeline(Pipeline):
         """
         self.seed_member(item)
 
-        model_iter = self.prognostic.create_iterator(x, coords)
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        model_iter = cast(Callable, self.prognostic.create_iterator)(x, coords)
 
         # Rank only gates tqdm output below.
         rank = get_rank()
@@ -332,7 +333,7 @@ class ForecastPipeline(Pipeline):
             for dx in self.diagnostics:
                 dx_ic = self._dx_input_coords[id(dx)]
                 y, y_coords = map_coords(x_step, coords_step, dx_ic)
-                y, y_coords = dx(y, y_coords)
+                y, y_coords = cast(Callable, dx)(y, y_coords)
                 x_step, coords_step = cat_coords(
                     (x_step, y), (coords_step, y_coords), "variable"
                 )

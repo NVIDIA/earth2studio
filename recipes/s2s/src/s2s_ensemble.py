@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
@@ -311,7 +311,8 @@ class S2SEnsembleRunner:
         xx, coords = run_with_rank_ordered_execution(self.perturbation, xx, coords)
 
         # Create prognostic iterator
-        model = self.prognostic.create_iterator(xx, coords)
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        model = cast(Callable, self.prognostic.create_iterator)(xx, coords)
 
         return model, mini_batch_size, full_seed_string, torch_seed
 
@@ -372,7 +373,7 @@ class S2SEnsembleRunner:
                     for dx_name, dx_model in self.dx_model_dict.items():
                         # select input vars, remove lead time dim and apply diagnostic model
                         yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
-                        yy, codib = dx_model(yy, codia)
+                        yy, codib = cast(Callable, dx_model)(yy, codia)
 
                         # concatenate diagnostic variable to forecast vars
                         xx, coords = cat_coords((xx, yy), (coords, codib), "variable")

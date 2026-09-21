@@ -19,8 +19,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Callable, Iterator
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -237,7 +237,8 @@ class DiagnosticPipeline(Pipeline):
         for dx in self.diagnostics:
             dx_ic = self._dx_input_coords[id(dx)]
             x_in, coords_in = map_coords(x, coords, dx_ic)
-            y, y_coords = dx(x_in, coords_in)
+            # This pipeline still uses the legacy tensor/coordinate model API.
+            y, y_coords = cast(Callable, dx)(x_in, coords_in)
             y, y_coords = _rename_sample_axis(y, y_coords, member_ids)
 
             if "ensemble" in y_coords or "ensemble" in coords_combined:

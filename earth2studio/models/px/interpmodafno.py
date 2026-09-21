@@ -15,8 +15,9 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from datetime import datetime
+from typing import cast
 
 import numpy as np
 import torch
@@ -471,7 +472,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if not hasattr(self, "sincos_latlon"):
             self._compute_latlon()
 
-        for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
+        # This wrapper still requires the legacy tensor/coordinate model API.
+        for fc_step, (x, coords) in enumerate(
+            cast(Callable, self.px_model.create_iterator)(x, coords)
+        ):
             # Make sure prognostic model has all 73 required variables
             x, coords = map_coords(x, coords, self.output_coords(coords))
             if fc_step == 0:
