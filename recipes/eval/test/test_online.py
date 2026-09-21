@@ -1087,6 +1087,23 @@ class TestStatsSchema:
         assert "var_ens__t2m" in by_dims[("time", "lead_time")]
         assert len(by_dims[("time", "rank_bin", "lead_time")]) == len(VARIABLES)
 
+    def test_member_arrays_hold_one_chunk_per_ic(self, tmp_path):
+        ensemble_size = 4
+        cfg = _base_cfg(tmp_path, ensemble_size=ensemble_size)
+        stats = build_statistics(ensemble_size, has_climatology=False)
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
+            mgr = open_stats_store(
+                cfg, stats, VARIABLES, IC_TIMES, LEAD_TIMES, ensemble_size
+            )
+            with mgr:
+                member = mgr.io.root["sse_member__z500"]
+                scalar = mgr.io.root["sse_ensmean__z500"]
+        assert member.chunks == (1, ensemble_size, len(LEAD_TIMES))
+        assert scalar.chunks == (1, len(LEAD_TIMES))
+
     def test_climatology_switches_moment_field_names(self):
         anom = build_statistics(1, has_climatology=True)
         raw = build_statistics(1, has_climatology=False)

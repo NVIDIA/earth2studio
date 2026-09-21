@@ -2146,8 +2146,14 @@ def open_stats_store(
     superset, groups = stats_array_groups(
         statistics, variables, times, lead_times, ensemble_size, region_names
     )
+    # Only the group root writes this store, and it writes every member of an
+    # IC at once. OutputManager otherwise gives each member its own chunk,
+    # which forecast.zarr needs because there each member has its own writer.
     mgr = OutputManager(
-        cfg, store_name=settings.stats_store, chunks={"time": 1}, io_backend="zarr"
+        cfg,
+        store_name=settings.stats_store,
+        chunks={"time": 1, "ensemble": ensemble_size},
+        io_backend="zarr",
     )
     mgr.validate_output_store(superset, [])
     run_on_rank0_first(add_stats_arrays, mgr.io, groups, region_names)
