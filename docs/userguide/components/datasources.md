@@ -99,7 +99,7 @@ the array name, and source attributes travel with the values.
 Pass a model's coordinate signature as `metadata` to request its spatial grid and
 temporal statistics. The result is validated against that signature after spatial
 mapping. Alternatively, `interp_to` accepts a coordinate DataArray, a
-`GridDefinition`, or a registered grid name such as `"fcn1"`. Exact grid subsets
+`GridDefinition`, or a registered grid name such as `"latlon-0.25deg"`. Exact grid subsets
 are selected without interpolation; other locations are interpolated from
 rectilinear or projected sources. Native curvilinear, point and HEALPix grids
 support exact selection. Interpolation from those topologies requires a separate
@@ -115,10 +115,9 @@ from earth2studio.utils.coords import coord_array
 
 target = coord_array(
     ("time", "lead_time", "variable", "lat", "lon"),
-    {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m"]},
+    {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m:mean:24h"]},
     dynamic=("time",),
     grid=LatLonGrid(np.array([40., 39.]), np.array([250., 251.])),
-    statistics={"t2m": "mean:24h"},
 )
 field = fetch_data(
     source,
@@ -133,8 +132,9 @@ Here `source` is an analysis or forecast source providing instantaneous `t2m`.
 The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
 left-closed and right-open. The cadence defaults to `source.time_step` when
 available; otherwise provide `delta_t` explicitly. Qualified variable labels
-such as `"t2m:mean:24h"` also request reductions. Signature declarations and
-qualified labels must agree; duplicate normalized quantities are rejected.
+such as `"t2m:mean:24h"` declare reductions, and coordinate signatures derive their
+statistics metadata from those labels. Metadata and qualified labels must agree;
+duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
 Already aggregated source variables cannot be reduced again.
 

@@ -66,13 +66,12 @@ class ForecastSource(AnalysisSource):
         return xr.concat(arrays, "lead_time")
 
 
-def request(variables=("a",), grid=GRID, statistics=None, **kwargs):
+def request(variables=("a",), grid=GRID, **kwargs):
     return coord_array(
         ("batch", "time", "lead_time", "variable", *grid.dims),
         {"lead_time": [np.timedelta64(0, "h")], "variable": list(variables)},
         dynamic=("batch", "time"),
         grid=grid,
-        statistics=statistics,
         **kwargs,
     )
 
@@ -158,10 +157,12 @@ def test_inconsistent_registered_target_is_rejected():
 
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
 def test_signature_statistics_are_computed(source_cls):
-    signature = request(("a", "b"), statistics={"a": "sum:3h"})
-    array = fetch_data(source_cls(), TIME, np.array(["a", "b"]), metadata=signature)
+    signature = request(("a:sum:3h", "b"))
+    array = fetch_data(
+        source_cls(), TIME, np.array(["a:sum:3h", "b"]), metadata=signature
+    )
     np.testing.assert_allclose(
-        array.sel(variable="a")[0, 0], [[0, 6, 12], [-3, 3, 9], [-6, 0, 6]]
+        array.sel(variable="a:sum:3h")[0, 0], [[0, 6, 12], [-3, 3, 9], [-6, 0, 6]]
     )
     np.testing.assert_allclose(
         array.sel(variable="b")[0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]]
@@ -199,7 +200,6 @@ def test_fuxi_s2s_daily_windows(source_cls):
         {"lead_time": leads, "variable": labels},
         dynamic=("time",),
         grid=target_grid,
-        statistics={label: label.partition(":")[2] for label in labels},
     )
     array = fetch_data(source, times, labels, leads, metadata=signature)
     handshake_dataarray(array, signature)
@@ -300,7 +300,8 @@ def test_duplicate_normalized_quantities_fail_before_fetch():
 
 def test_conflicting_statistics_fail_before_fetch():
     source = AnalysisSource()
-    signature = request(("a:mean:3h",), statistics={"a:mean:3h": "sum:3h"})
+    signature = request(("a:mean:3h",))
+    signature.attrs[E2S_STATISTICS] = {"a:mean:3h": time_statistic_metadata("sum:3h")}
     with pytest.raises(ValueError, match="[Cc]onflict"):
         fetch_data(source, TIME, np.array(["a:mean:3h"]), metadata=signature)
     assert not source.requests
@@ -309,11 +310,11 @@ def test_conflicting_statistics_fail_before_fetch():
 @pytest.mark.parametrize("method", ["nearest", "linear"])
 def test_grid_signature_interpolation(method):
     target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
-    signature = request(grid=target, statistics="mean:2h")
+    signature = request(("a:mean:2h",), grid=target)
     array = fetch_data(
         AnalysisSource(),
         TIME,
-        np.array(["a"]),
+        np.array(["a:mean:2h"]),
         metadata=signature,
         interp_method=method,
     )
@@ -394,9 +395,9 @@ def test_cuda_field_array():
     array = fetch_data(
         AnalysisSource(),
         TIME,
-        np.array(["a"]),
+        np.array(["a:mean:2h"]),
         device="cuda:0",
-        metadata=request(statistics="mean:2h"),
+        metadata=request(("a:mean:2h",)),
     )
     assert isinstance(array.data, cp.ndarray)
     assert array.data.device.id == 0

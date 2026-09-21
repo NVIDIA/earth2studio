@@ -25,7 +25,7 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
+from earth2studio.data import DataSource, fetch_data, prep_data_array
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
@@ -184,15 +184,13 @@ class S2SEnsembleRunner:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0, self.coords0 = cast(
-            tuple[torch.Tensor, CoordSystem],
+        self.x0, self.coords0 = prep_data_array(
             fetch_data(
                 source=data,
-                time=time,
+                time=self.time,
                 variable=self.prognostic_ic["variable"],
                 lead_time=self.prognostic_ic["lead_time"],
                 device="cpu",
-                legacy=True,
             ),
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
