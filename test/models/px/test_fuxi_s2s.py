@@ -31,6 +31,33 @@ from earth2studio.models.conformance import ContractException, check_prognostic_
 from earth2studio.models.px import FuXiS2S
 from earth2studio.models.px.fuxi_s2s import VARIABLES
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.time_statistics import source_times
+
+
+def test_fuxi_s2s_daily_mean_windows() -> None:
+    model = FuXiS2S.__new__(FuXiS2S)
+    torch.nn.Module.__init__(model)
+    model._time_step = np.timedelta64(1, "D")
+    coords = model.input_coords()
+    labels = list(coords["variable"])
+    assert len(labels) == len(VARIABLES) == 76
+    day = np.datetime64("2026-01-02T00", "ns")
+    for base, label in zip(VARIABLES, labels):
+        offset = 1 if base in ("tp", "ttr") else 0
+        assert label == f"{base}:mean:{offset}h:{24 + offset}h"
+        times = source_times(label.split(":", 1)[1], day, np.timedelta64(1, "h"))
+        np.testing.assert_array_equal(
+            times, day + np.arange(offset, 24 + offset) * np.timedelta64(1, "h")
+        )
+    coords["batch"] = np.array([0])
+    coords["time"] = np.array([day])
+    output = model.output_coords(coords)
+    np.testing.assert_array_equal(output["variable"], labels)
+    np.testing.assert_array_equal(output["lead_time"], [np.timedelta64(1, "D")])
+    bad = coords.copy()
+    bad["variable"] = np.array(VARIABLES)
+    with pytest.raises(ValueError):
+        model.output_coords(bad)
 
 
 class PhooFuXiS2S(torch.nn.Module):
@@ -122,6 +149,8 @@ class PhooStochasticSession:
 
 @pytest.fixture(scope="class")
 def fuxi_s2s_test_package(tmp_path_factory) -> Package:
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
     tmp_path = tmp_path_factory.mktemp("fuxi_s2s")
     torch.onnx.export(
         PhooFuXiS2S(),
@@ -141,7 +170,14 @@ def fuxi_s2s_test_package(tmp_path_factory) -> Package:
 
 
 def _identity_model() -> FuXiS2S:
-    return FuXiS2S("")
+    # Coordinate/unit-conversion tests and the fake ORT session need no ONNX runtime.
+    model = FuXiS2S.__new__(FuXiS2S)
+    torch.nn.Module.__init__(model)
+    model.register_buffer("device_buffer", torch.empty(0))
+    model.onnx_path = ""
+    model.ort = None
+    model._time_step = np.timedelta64(1, "D")
+    return model
 
 
 def test_fuxi_s2s_coords() -> None:

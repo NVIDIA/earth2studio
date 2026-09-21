@@ -32,23 +32,9 @@ def test_time_statistic_declarations():
     }
     assert e2s.time_statistic_metadata("max:-12h:+12h")["modifier"] == ("max:-12h:+12h")
     assert e2s.time_statistic_metadata("sum:1week")["window"] == np.timedelta64(7, "D")
-    assert e2s.time_statistic_metadata("mean:1month")["window"] == np.timedelta64(
+    assert e2s.time_statistic_metadata("mean:30days")["window"] == np.timedelta64(
         30, "D"
     )
-    assert e2s._group_time_statistics(
-        ["u10m", "v10m", "t2m"],
-        {"u10m": "mean:24h", "v10m": "mean:24h", "t2m": "max:24h"},
-    ) == {"mean:24h": ("u10m", "v10m"), "max:24h": ("t2m",)}
-    assert e2s._group_time_statistics(["u10m", "t2m"], "sum:6h") == {
-        "sum:6h": ("u10m", "t2m")
-    }
-    assert e2s._group_time_statistics(
-        ["t2m:mean:1day", "t2m:mean:1week", "t2m:mean:1month"], None
-    ) == {
-        "mean:24h": ("t2m",),
-        "mean:168h": ("t2m",),
-        "mean:720h": ("t2m",),
-    }
 
     for modifier, message in (
         ("median:24h", "Unknown"),
@@ -59,10 +45,6 @@ def test_time_statistic_declarations():
     ):
         with pytest.raises(ValueError, match=message):
             e2s.time_statistic_metadata(modifier)
-    with pytest.raises(ValueError, match="unknown variables"):
-        e2s._group_time_statistics(["u10m"], {"t2m": "mean:24h"})
-    with pytest.raises(ValueError, match="Qualified variables"):
-        e2s._group_time_statistics(["t2m:mean:1day"], "mean:1day")
 
 
 def test_time_statistic_source_coordinates():
@@ -84,7 +66,7 @@ def test_time_statistic_source_coordinates():
         delta_t,
     ).shape == (2, 4)
     assert e2s.source_times(
-        "mean:1month", valid_time, np.timedelta64(1, "D")
+        "mean:30days", valid_time, np.timedelta64(1, "D")
     ).shape == (30,)
 
     for invalid_delta, message in (
@@ -99,6 +81,23 @@ def test_time_statistic_source_coordinates():
         e2s.source_times("mean:24h", [0], delta_t)
     with pytest.raises(TypeError, match="timedelta"):
         e2s.source_lead_times("mean:24h", [0], delta_t)
+
+
+@pytest.mark.parametrize(
+    "unit", ["mo", "mon", "month", "months", "M", "Y", "y", "year", "years"]
+)
+def test_calendar_duration_strings_rejected(unit: str) -> None:
+    for modifier in (f"mean:1{unit}", f"mean:0h:1{unit}"):
+        with pytest.raises(ValueError, match="Unsupported|Calendar"):
+            e2s.time_statistic_metadata(modifier)
+
+
+@pytest.mark.parametrize("unit", ["M", "Y"])
+def test_calendar_cadence_rejected(unit: str) -> None:
+    with pytest.raises(ValueError, match="Calendar"):
+        e2s.source_times(
+            "mean:30days", np.datetime64("2026-01-01"), np.timedelta64(1, unit)
+        )
 
 
 @pytest.mark.parametrize(

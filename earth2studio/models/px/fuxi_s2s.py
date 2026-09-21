@@ -82,6 +82,16 @@ VARIABLES = [
 _TTR_INDEX = VARIABLES.index("ttr")
 _TP_INDEX = VARIABLES.index("tp")
 
+# Keep ONNX channel names/indices separate from public temporal quantity labels.
+DAILY_VARIABLES = [
+    (
+        f"{variable}:mean:1h:25h"
+        if variable in ("tp", "ttr")
+        else f"{variable}:mean:0h:24h"
+    )
+    for variable in VARIABLES
+]
+
 
 def _atomic_copy(source: Any, destination: Path) -> Path:
     """Copy a file stream to a destination atomically."""
@@ -144,96 +154,73 @@ def _resolve_model_assets(package: Package) -> Path:
 class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FuXi-S2S global daily-mean prognostic model.
 
-        FuXi-S2S consumes daily means from two consecutive UTC calendar days and
-        predicts the following daily mean. A timestamp at 00:00 UTC labels the
-        corresponding calendar-day aggregate; it is not an instantaneous midnight
-        state.
+    FuXi-S2S consumes daily means from two consecutive UTC calendar days and
+    predicts the following daily mean. A timestamp at 00:00 UTC labels the
+    corresponding calendar-day aggregate; it is not an instantaneous midnight
+    state.
 
-        Note
-        ----
-        This model uses the ONNX checkpoint from the original publication repository. For
-        additional information see the following resources:
+    Note
+    ----
+    This model uses the ONNX checkpoint from the original publication repository. For
+    additional information see the following resources:
 
-        - https://www.nature.com/articles/s41467-024-50714-1
-        - https://github.com/tpys/FuXi-S2S
-        - https://zenodo.org/records/15718402
-        - https://huggingface.co/datasets/FudanFuXi/FuXi-S2S
+    - https://www.nature.com/articles/s41467-024-50714-1
+    - https://github.com/tpys/FuXi-S2S
+    - https://zenodo.org/records/15718402
+    - https://huggingface.co/datasets/FudanFuXi/FuXi-S2S
 
-        Parameters
-        ----------
-        onnx_path : str
-            Path to the FuXi-S2S ONNX graph. Its external weight file named
-            ``fuxi_s2s`` must be in the same directory.
+    Parameters
+    ----------
+    onnx_path : str
+        Path to the FuXi-S2S ONNX graph. Its external weight file named
+        ``fuxi_s2s`` must be in the same directory.
 
-        Note
-        ----
-        Initial conditions must contain two consecutive UTC daily means on the
-        model's 1.5-degree grid. Instantaneous fields use calendar-day averages
-        from 00--23 UTC. Accumulated ``tp`` and ``ttr`` fields use the 24
-        interval-ending values from 01 UTC through 00 UTC of the following day.
-        Their daily means retain the units of each one-hour accumulation; for
-        example, multiply predicted ``tp`` by 24 to obtain a daily total.
-        Sea-surface temperature must retain ``NaN`` values over land. The wrapper
-        does not aggregate hourly fields or regrid initial conditions; callers must
-        provide these prepared daily inputs through an Earth2Studio data source.
+    Note
+    ----
+    Initial conditions must contain two consecutive UTC daily means on the
+    model's 1.5-degree grid. Instantaneous fields use calendar-day averages
+    from 00--23 UTC. Accumulated ``tp`` and ``ttr`` fields use the 24
+    interval-ending values from 01 UTC through 00 UTC of the following day.
+    Their daily means retain the units of each one-hour accumulation; for
+    example, multiply predicted ``tp`` by 24 to obtain a daily total.
+    Public variable labels declare these windows explicitly:
+    ``t2m:mean:0h:24h``, ``tp:mean:1h:25h``, and ``ttr:mean:1h:25h``.
+    The compact ``mean:24h`` modifier instead describes the preceding day
+    and must not be substituted at the same start-of-day timestamp.
+    Sea-surface temperature must retain ``NaN`` values over land. The wrapper
+    does not aggregate hourly fields or regrid initial conditions; callers must
+    provide these prepared daily inputs through an Earth2Studio data source.
 
-        The official ONNX graph samples flow-dependent perturbations internally, so
-        each forecast trajectory is one stochastic ensemble member. Member ``00`` in
-        the official inference script is the first stochastic member, not a
-        deterministic control.
+    The official ONNX graph samples flow-dependent perturbations internally, so
+    each forecast trajectory is one stochastic ensemble member. Member ``00`` in
+    the official inference script is the first stochastic member, not a
+    deterministic control.
 
-        Warning
-        -------
-        We encourage users to familiarize themselves with the license restrictions of this
-        model's checkpoints.
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
 
-        Example
-        -------
-        The following shows how to get approximate inputs from standard data
-        sources.  For formal input data consult
-    https://zenodo.org/records/15718402
+    Example
+    -------
+    Prepared daily data must carry the qualified labels returned by
+    ``input_coords()["variable"]``. For formal input data consult
+    https://zenodo.org/records/15718402. A statistics-aware fetch layer can
+    split each label at its first colon, fetch the base variable over the
+    declared window, and reduce it with ``apply_time_statistic``. Use hourly
+    source data to reproduce the daily sampling convention.
 
-        ```python
-        class DailyMeanARCO:
-            def __init__(self) -> None:
-                self.arco = ARCO_ERA5()
+    ```python
+    package = FuXiS2S.load_default_package()
+    model = FuXiS2S.load_model(package).to("cuda:0")
+    requested_variables = model.input_coords()["variable"]
+    # Includes "t2m:mean:0h:24h" and "tp:mean:1h:25h".
+    ```
 
-            def __call__(
-                self,
-                time: datetime | list[datetime] | TimeArray,
-                variable: str | list[str] | VariableArray,
-            ) -> xr.DataArray:
-                time, variable = prep_data_inputs(time, variable)
-                daily_arrays = []
-                for day in time:
-                    # Approximate daily means from 6-hourly ARCO ERA5
-                    sub_daily = [day + timedelta(hours=h) for h in (0, 6, 12, 18)]
-                    da_mean = self.arco(sub_daily, variable).mean("time", skipna=True)
-                    daily_arrays.append(
-                        da_mean.interp(lat=S2S_LAT, lon=S2S_LON, method="linear")
-                    )
-                da_out = xr.concat(daily_arrays, dim="time")
-                da_out = da_out.assign_coords(
-                    time=np.array(time, dtype="datetime64[ns]")
-                )
-                return da_out
-
-
-        # Load the model
-        package = FuXiS2S.load_default_package()
-        model = FuXiS2S.load_model(package).to("cuda:0")
-
-        # Run a single deterministic step
-        import earth2studio.run as run
-        from earth2studio.io import ZarrBackend
-
-        io = run.deterministic(["2024-01-15"], 1, model, DailyMeanARCO(), ZarrBackend())
-        ```
-
-        Badges
-        ------
-        region:global class:subseasonal-seasonal product:wind product:precip product:temp
-        product:atmos product:ocean year:2024 gpu:40gb backend:onnx
+    Badges
+    ------
+    region:global class:subseasonal-seasonal product:wind product:precip product:temp
+    product:atmos product:ocean year:2024 gpu:40gb backend:onnx
     """
 
     def __init__(self, onnx_path: str) -> None:
@@ -259,7 +246,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "lead_time": np.array(
                     [np.timedelta64(-1, "D"), np.timedelta64(0, "D")]
                 ),
-                "variable": np.array(VARIABLES),
+                "variable": np.array(DAILY_VARIABLES),
                 "lat": np.linspace(90, -90, 121, endpoint=True),
                 "lon": np.linspace(0, 360, 240, endpoint=False),
             }
