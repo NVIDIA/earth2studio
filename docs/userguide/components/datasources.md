@@ -97,10 +97,7 @@ when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordin
 the array name, and source attributes travel with the values.
 
 Pass a coordinate signature as `metadata` to declare temporal statistics.
-Spatial regridding is currently a pass-through: the result retains the source's
-grid, spatial coordinates, and grid attributes. `interp_to`, `interp_method`,
-`bounds`, and `bounds_crs` are reserved for future spatial processing and currently
-have no effect. Fetch does not reconstruct or validate grid metadata.
+The source grid is preserved; spatial regridding is deferred.
 
 ```python
 import numpy as np
@@ -138,35 +135,6 @@ use hourly samples automatically without an explicit `delta_t`.
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
 lead times separately for each initialization. Missing or duplicate reduction
 samples raise an error.
-
-#### Calendar-day means (FuXi-S2S)
-
-FuXi-S2S labels each daily mean by its **starting midnight**. Use explicit forward
-windows with hourly source cadence:
-
-```python
-from earth2studio.models.px.fuxi_s2s import DAILY_VARIABLES
-
-field = fetch_data(
-    source,
-    np.array([np.datetime64("2024-01-02T00")]),
-    np.array(DAILY_VARIABLES),
-    lead_time=np.array([-24, 0], dtype="timedelta64[h]"),
-    delta_t=np.timedelta64(1, "h"),
-)
-```
-
-Ordinary fields such as `t2m:mean:0h:24h` average samples at 00–23 UTC.
-The interval-ending sources `tp:mean:1h:25h` and `ttr:mean:1h:25h` average
-one-hour accumulations ending at 01 UTC through the next midnight. These are
-means, not daily totals. The two requested leads retain their start-of-day labels
-and full qualified variable names. `mean:24h` instead selects the preceding day;
-it is not interchangeable with these forward windows.
-
-Variables sharing a normalized window are fetched as one block using their base
-names. The full labels and normalized statistics metadata are restored after
-reduction. Already-prepared daily means should be labeled directly and passed to
-the model without applying these reductions again.
 
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.
