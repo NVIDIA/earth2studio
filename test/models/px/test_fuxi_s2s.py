@@ -27,7 +27,6 @@ import xarray as xr
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXiS2S
 from earth2studio.models.px.fuxi_s2s import VARIABLES
 from earth2studio.utils import coord_array_like, handshake_dim
@@ -399,14 +398,27 @@ def test_fuxi_s2s_ensemble_members_use_independent_ort_calls() -> None:
 
 
 def test_fuxi_s2s_conformance() -> None:
+    """Pin the known P13 violation through the field-DataArray interface."""
     model = _identity_model()
     model.ort = PhooStochasticSession()  # type: ignore[assignment]
+    coords = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array([np.datetime64("2020-01-01")])},
+    )
+    x = from_torch(torch.ones(coords.shape), coords)
+    predictions = []
+    for _ in range(2):
+        iterator = model.create_iterator(x)
+        next(iterator)
+        predictions.append(next(iterator).copy(deep=True))
+        iterator.close()
 
-    with pytest.raises(ContractException) as excinfo:
-        check_prognostic_contract(model)
-
-    violations = excinfo.value.violations
-    assert {violation.split(":")[0] for violation in violations} == {"P13"}
+    # The legacy checker only accepts tensor/dictionary models. Check its P13
+    # invariant directly here: undeclared randomness changes repeated rollouts.
+    assert model.stochastic is False
+    assert predictions[0].dims == predictions[1].dims == x.dims
+    xr.testing.assert_identical(predictions[0].coords, predictions[1].coords)
+    assert not np.array_equal(predictions[0].data, predictions[1].data)
 
 
 def test_fuxi_s2s_shifted_leads_use_matching_step(fuxi_s2s_test_package) -> None:
