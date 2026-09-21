@@ -44,6 +44,7 @@ from src.online import (
     build_spatial_weights,
     build_statistics,
     check_verification_coverage,
+    compact_stats_store,
     finalize_stats,
     online_enabled,
     open_stats_store,
@@ -1103,6 +1104,31 @@ class TestStatsSchema:
                 scalar = mgr.io.root["sse_ensmean__z500"]
         assert member.chunks == (1, ensemble_size, len(LEAD_TIMES))
         assert scalar.chunks == (1, len(LEAD_TIMES))
+
+    def test_compaction_preserves_values_and_drops_files(self, tmp_path):
+        ensemble_size = 4
+        cfg = _base_cfg(tmp_path, ensemble_size=ensemble_size)
+        stats = build_statistics(ensemble_size, has_climatology=False)
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
+            mgr = open_stats_store(
+                cfg, stats, VARIABLES, IC_TIMES, LEAD_TIMES, ensemble_size
+            )
+            with mgr:
+                arr = mgr.io.root["sse_member__z500"]
+                arr[:] = np.arange(arr.size, dtype="float64").reshape(arr.shape)
+
+        stats_path = os.path.join(cfg.output.path, "stats.zarr")
+        before = xr.open_zarr(stats_path)["sse_member__z500"].values
+        files_before, files_after = compact_stats_store(cfg)
+        after = xr.open_zarr(stats_path)["sse_member__z500"].values
+
+        assert files_after < files_before
+        assert np.array_equal(before, after, equal_nan=True)
+        assert not os.path.exists(stats_path + ".bak")
+        assert not os.path.exists(stats_path + ".compacting")
 
     def test_climatology_switches_moment_field_names(self):
         anom = build_statistics(1, has_climatology=True)
