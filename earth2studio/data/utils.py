@@ -44,7 +44,6 @@ import zarr
 import zarr.abc.store
 import zarr.storage
 from loguru import logger
-from pyproj import CRS, Transformer
 from tqdm.asyncio import tqdm
 from zarr.abc.store import ByteRequest
 from zarr.core.buffer import Buffer, BufferPrototype
@@ -55,20 +54,12 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
-from earth2studio.grids import (
-    E2S_CRS,
-    E2S_GRID_ID,
-    GridDefinition,
-    infer_grid,
-    resolve_grid,
-)
+from earth2studio.grids import GridDefinition
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
     E2S_SCHEMA_VERSION,
     E2S_STATISTICS,
-    coord_array,
-    handshake_dataarray,
 )
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
@@ -203,19 +194,6 @@ def _require_instantaneous(array: xr.DataArray, variables: VariableArray) -> Non
         )
 
 
-def _attach_grid_metadata(array: xr.DataArray) -> None:
-    try:
-        definition = infer_grid(array)
-    except ValueError:
-        if E2S_GRID_ID in array.attrs:
-            raise
-        return
-    for key, value in definition.attrs.items():
-        array.attrs.setdefault(key, value)
-    if definition.crs is not None:
-        array.attrs.setdefault(E2S_CRS, definition.crs.to_string())
-
-
 def _fetch_dataarray(
     source: DataSource | ForecastSource,
     time: TimeArray,
@@ -303,161 +281,16 @@ def _fetch_dataarray(
     array.attrs.pop(E2S_STATISTICS, None)
     if output_statistics:
         array.attrs[E2S_STATISTICS] = output_statistics
-    _attach_grid_metadata(array)
     return array
 
 
-def _standard_grid(array: xr.DataArray) -> tuple[xr.DataArray, dict[str, str]]:
-    spatial_dims = array.attrs.get("dims", ())
-    topology = array.attrs.get("topology", "")
-    native = {
-        "projected": ("y", "x"),
-        "curvilinear": ("y", "x"),
-        "rectilinear": ("lat", "lon"),
-        "points": ("x",),
-    }.get(topology)
-    renamed = (
-        dict(zip(spatial_dims, native, strict=True))
-        if native and len(spatial_dims) == len(native)
-        else {}
-    )
-    renamed = {
-        key: value
-        for key, value in renamed.items()
-        if key != value and key in array.dims
-    }
-    return array.rename(renamed), renamed
-
-
-def _grid_metadata(
-    array: xr.DataArray, definition: GridDefinition, grid_id: str | None = None
-) -> None:
-    for key in (
-        E2S_GRID_ID,
-        E2S_CRS,
-        "type",
-        "dims",
-        "shape",
-        "topology",
-        "crs",
-        "level",
-        "ordering",
-        "layout",
-        "origin",
-    ):
-        array.attrs.pop(key, None)
-    array.attrs.update(definition.attrs)
-    array.attrs["shape"] = [array.sizes[dim] for dim in definition.dims]
-    if definition.crs is not None:
-        array.attrs[E2S_CRS] = definition.crs.to_string()
-    if grid_id is not None:
-        array.attrs[E2S_GRID_ID] = grid_id
-
-
-def _validated_grid(array: xr.DataArray) -> GridDefinition:
-    if E2S_GRID_ID in array.attrs:
-        registered = resolve_grid(array.attrs[E2S_GRID_ID])
-        coords = registered.coords()
-        for dim in registered.dims:
-            if (
-                dim not in array.coords
-                or not np.isin(array.coords[dim], coords[dim]).all()
-            ):
-                raise ValueError(
-                    f"Coordinates disagree with registered grid on '{dim}'"
-                )
-        expected = xr.Dataset(coords=coords).sel(
-            {dim: array.coords[dim] for dim in registered.dims}
-        )
-        for name in ("lat", "lon"):
-            if (
-                name in array.coords
-                and name in expected.coords
-                and not np.array_equal(array.coords[name], expected.coords[name])
-            ):
-                raise ValueError(
-                    f"Coordinates disagree with registered grid on '{name}'"
-                )
-    definition = infer_grid(array)
-    declared_crs = array.attrs.get(E2S_CRS)
-    if (
-        declared_crs is not None
-        and definition.crs is not None
-        and CRS.from_user_input(declared_crs) != definition.crs
-    ):
-        raise ValueError("CRS metadata disagrees with grid geometry")
-    return definition
-
-
-def _map_grid(array: xr.DataArray, target: xr.DataArray, method: str) -> xr.DataArray:
-    array, _ = _standard_grid(array)
-    target, renamed = _standard_grid(target)
-    source_grid = _validated_grid(array)
-    target_grid = _validated_grid(target)
-    target_coords = target_grid.coords(
-        {dim: np.asarray(target.coords[dim]) for dim in target_grid.dims}
-    )
-    # Exact label selection avoids interpolation and preserves values and dtype.
-    selected = None
-    if (
-        source_grid.dims == target_grid.dims
-        and source_grid.topology == target_grid.topology
-        and source_grid.crs == target_grid.crs
-    ):
-        indexers = {
-            dim: array.get_index(dim).get_indexer(target_coords[dim].values)
-            for dim in source_grid.dims
-        }
-        if all(np.all(index >= 0) for index in indexers.values()):
-            candidate = array.isel(indexers)
-            geometry_matches = all(
-                name not in target_coords
-                or (
-                    name in candidate.coords
-                    and np.array_equal(candidate.coords[name], target_coords[name])
-                )
-                for name in ("lat", "lon")
-            )
-            if geometry_matches:
-                selected = candidate
-    if selected is None:
-        if source_grid.topology not in {"rectilinear", "projected"}:
-            raise NotImplementedError(
-                f"Interpolation from {source_grid.topology} grids is not supported; use exact native-grid selection"
-            )
-        if source_grid.topology == "rectilinear":
-            indexers = {"lat": target_coords["lat"], "lon": target_coords["lon"]}
-        else:
-            lat, lon = xr.broadcast(target_coords["lat"], target_coords["lon"])
-            x, y = Transformer.from_crs(
-                "EPSG:4326", source_grid.crs, always_xy=True
-            ).transform(lon.values, lat.values)
-            indexers = {
-                "y": xr.DataArray(y, dims=lat.dims),
-                "x": xr.DataArray(x, dims=lat.dims),
-            }
-        # Remove source spatial auxiliaries; target geometry supplies replacements.
-        auxiliary = [
-            name
-            for name, coord in array.coords.items()
-            if name not in array.dims and set(coord.dims).intersection(source_grid.dims)
-        ]
-        selected = array.drop_vars(auxiliary).interp(indexers, method=method)  # type: ignore[arg-type]
-        obsolete = [
-            name
-            for name in selected.coords
-            if name in source_grid.dims and name not in target_grid.dims
-        ]
-        selected = selected.drop_vars(obsolete)
-    selected = selected.assign_coords(target_coords)
-    _grid_metadata(selected, target_grid, target.attrs.get(E2S_GRID_ID))
-    if renamed:
-        selected = selected.rename({value: key for key, value in renamed.items()})
-        selected.attrs["dims"] = [
-            next((key for key, value in renamed.items() if value == dim), dim)
-            for dim in target_grid.dims
-        ]
-    return selected
+def _map_grid(
+    array: xr.DataArray,
+    target: CoordinateSystem | GridDefinition | str | None,
+    method: str,
+) -> xr.DataArray:
+    # Regridding is deferred; preserve the source geometry and metadata.
+    return array
 
 
 def fetch_data(
@@ -474,7 +307,7 @@ def fetch_data(
     bounds: tuple[float, float, float, float] | None = None,
     bounds_crs: Any | None = None,
 ) -> xr.DataArray:
-    """Fetch field DataArrays with grid mapping and temporal statistics.
+    """Fetch field DataArrays on the source grid with temporal statistics.
 
     Parameters
     ----------
@@ -494,20 +327,19 @@ def fetch_data(
     device : torch.device | str, optional
         NumPy CPU or CuPy CUDA destination, by default "cpu"
     interp_to : CoordinateSystem | GridDefinition | str, optional
-        Target spatial signature, grid definition or registered grid name. If omitted,
-        use the spatial coordinates in ``metadata``, or retain the source grid.
+        Reserved target for future regridding. Currently a pass-through.
     interp_method : str, optional
-        Xarray interpolation method, by default "nearest".
+        Reserved interpolation method, by default "nearest". Currently unused.
     metadata : CoordinateSystem, optional
-        Coordinate signature describing the result, validated after grid mapping.
-        Its statistics declarations trigger reductions for the requested variables.
+        Coordinate signature declaring temporal statistics for requested variables.
+        Spatial coordinates are currently ignored; the source grid is preserved.
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
     bounds : tuple[float, float, float, float], optional
-        Grid subset bounds (min_x, min_y, max_x, max_y), applied after mapping.
+        Reserved grid subset bounds (min_x, min_y, max_x, max_y). Currently unused.
     bounds_crs : Any, optional
-        CRS of bounds; defaults to geographic longitude/latitude.
+        Reserved CRS of bounds. Currently unused.
 
     Returns
     -------
@@ -538,37 +370,7 @@ def fetch_data(
     lead_time = lead_time.astype("timedelta64[ns]")
     da = _fetch_dataarray(source, time, variable, lead_time, metadata, delta_t)
     target = interp_to if interp_to is not None else metadata
-    if isinstance(target, (str, GridDefinition)):
-        definition = resolve_grid(target) if isinstance(target, str) else target
-        target = coord_array(definition.dims, grid=target)
-    if target is not None:
-        if not isinstance(target, xr.DataArray):
-            raise TypeError(
-                "interp_to must be a coordinate DataArray, grid definition or registered grid name"
-            )
-        standard, _ = _standard_grid(target)
-        if (
-            E2S_GRID_ID in target.attrs
-            or "lat" in standard.coords
-            or {"y", "x"}.issubset(standard.coords)
-        ):
-            da = _map_grid(da, target, interp_method)
-    if bounds is not None or bounds_crs is not None:
-        standard, renamed = _standard_grid(da)
-        definition = infer_grid(standard)
-        standard = standard.isel(
-            definition.subset_indexers(
-                standard.coords, bounds=bounds, bounds_crs=bounds_crs
-            )
-        )
-        _grid_metadata(standard, definition, da.attrs.get(E2S_GRID_ID))
-        da = standard.rename({value: key for key, value in renamed.items()})
-        da.attrs["dims"] = [
-            next((key for key, value in renamed.items() if value == dim), dim)
-            for dim in definition.dims
-        ]
-    if metadata is not None:
-        handshake_dataarray(da, metadata)
+    da = _map_grid(da, target, interp_method)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
     if device.type == "cuda":

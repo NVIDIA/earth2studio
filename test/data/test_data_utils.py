@@ -434,8 +434,7 @@ def test_fetch_dataframe(time, lead_time, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fetch_data_interp(time, lead_time, device):
-    pytest.importorskip("scipy", reason="scipy not installed")
+def test_fetch_data_regridding_passthrough(time, lead_time, device):
     if device != "cpu":
         pytest.importorskip("cupy")
     # Original (source) domain
@@ -453,7 +452,7 @@ def test_fetch_data_interp(time, lead_time, device):
     lon = np.linspace(130, 60, num=512)
     target_coords = LatLonGrid(lat, lon)
 
-    # nearest neighbor interp
+    # Regridding is a pass-through for each target type and method.
     x = fetch_data(
         r,
         time,
@@ -468,8 +467,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256,)
-    assert coords["lon"].shape == (512,)
+    np.testing.assert_array_equal(coords["lat"], domain["lat"])
+    np.testing.assert_array_equal(coords["lon"], domain["lon"])
     assert not np.isnan(x.data).any()
 
     # bilinear interp
@@ -487,8 +486,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256,)
-    assert coords["lon"].shape == (512,)
+    np.testing.assert_array_equal(coords["lat"], domain["lat"])
+    np.testing.assert_array_equal(coords["lon"], domain["lon"])
     assert not np.isnan(x.data).any()
 
     # Target domain, 2d lat/lon coords
@@ -512,8 +511,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256, 512)
-    assert coords["lon"].shape == (256, 512)
+    np.testing.assert_array_equal(coords["lat"], domain["lat"])
+    np.testing.assert_array_equal(coords["lon"], domain["lon"])
     assert not np.isnan(x.data).any()
 
     # bilinear interp
@@ -531,8 +530,8 @@ def test_fetch_data_interp(time, lead_time, device):
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert coords["lat"].shape == (256, 512)
-    assert coords["lon"].shape == (256, 512)
+    np.testing.assert_array_equal(coords["lat"], domain["lat"])
+    np.testing.assert_array_equal(coords["lon"], domain["lon"])
     assert not np.isnan(x.data).any()
 
 

@@ -96,28 +96,22 @@ so users should explore and test different ones if possible.
 when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordinates,
 the array name, and source attributes travel with the values.
 
-Pass a model's coordinate signature as `metadata` to request its spatial grid and
-temporal statistics. The result is validated against that signature after spatial
-mapping. Alternatively, `interp_to` accepts a coordinate DataArray, a
-`GridDefinition`, or a registered grid name such as `"latlon-0.25deg"`. Exact grid subsets
-are selected without interpolation; other locations are interpolated from
-rectilinear or projected sources. Native curvilinear, point and HEALPix grids
-support exact selection. Interpolation from those topologies requires a separate
-regridder. Geographic subsets use the grid's `subset_indexers` through `bounds`
-and optional `bounds_crs`.
+Pass a coordinate signature as `metadata` to declare temporal statistics.
+Spatial regridding is currently a pass-through: the result retains the source's
+grid, spatial coordinates, and grid attributes. `interp_to`, `interp_method`,
+`bounds`, and `bounds_crs` are reserved for future spatial processing and currently
+have no effect. Fetch does not reconstruct or validate grid metadata.
 
 ```python
 import numpy as np
 
 from earth2studio.data import fetch_data
-from earth2studio.grids import LatLonGrid
 from earth2studio.utils.coords import coord_array
 
 target = coord_array(
-    ("time", "lead_time", "variable", "lat", "lon"),
+    ("time", "lead_time", "variable"),
     {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m:mean:24h"]},
     dynamic=("time",),
-    grid=LatLonGrid(np.array([40., 39.]), np.array([250., 251.])),
 )
 field = fetch_data(
     source,

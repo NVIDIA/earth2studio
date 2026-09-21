@@ -27,15 +27,7 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 # --8<-- [start:data-source-interface]
 @runtime_checkable
 class DataSource(Protocol):
-    """Source of field DataArrays on a native spatial grid.
-
-    Return dimension coordinates and spatial auxiliaries (for example ``lat`` and
-    ``lon`` on ``y, x``), with grid/CRS attributes describing the actual source
-    geometry. These are populated field arrays, not allocation-free coordinate
-    signatures. Declare existing temporal aggregates in ``earth2studio_statistics``.
-    An optional ``time_step`` numpy timedelta supplies the sampling cadence used by
-    :func:`earth2studio.data.fetch_data` for requested temporal reductions.
-    """
+    """Data source interface."""
 
     def __call__(
         self,
@@ -93,14 +85,7 @@ class DataSource(Protocol):
 
 @runtime_checkable
 class ForecastSource(Protocol):
-    """Source of forecast field DataArrays on a native spatial grid.
-
-    Use the same spatial coordinates and metadata contract as :class:`DataSource`,
-    with initialization ``time`` and forecast ``lead_time`` as separate axes.
-    Temporal reductions in :func:`earth2studio.data.fetch_data` operate along
-    lead time within each initialization. Sources must supply all requested samples
-    or raise an error; an optional ``time_step`` supplies their sampling cadence.
-    """
+    """Forecast source interface."""
 
     def __call__(  # type: ignore[override]
         self,

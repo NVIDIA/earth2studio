@@ -15,7 +15,6 @@ from earth2studio.grids import (
     LatLonGrid,
     PointGrid,
     ProjectedGrid,
-    register_grid,
 )
 from earth2studio.models.px.fuxi_s2s import DAILY_VARIABLES, VARIABLES, FuXiS2S
 from earth2studio.utils.coords import (
@@ -82,7 +81,7 @@ def test_default_field_array():
     assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
     assert array.name == "weather"
     assert array.attrs["source"] == "offline"
-    assert array.attrs[E2S_CRS] == "EPSG:4326"
+    assert array.attrs == {"source": "offline"}
     np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
 
 
@@ -128,10 +127,11 @@ def test_renamed_target_spatial_dimensions():
         grid_dims={"y": "height", "x": "width"},
     )
     array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), metadata=signature)
-    handshake_dataarray(array, signature)
+    assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+    np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
 
 
-def test_projected_source_interpolation():
+def test_projected_source_regridding_is_passthrough():
     grid = ProjectedGrid(
         np.array([0.0, 1.0, 2.0]), np.array([0.0, 1.0, 2.0]), "EPSG:4326"
     )
@@ -143,23 +143,26 @@ def test_projected_source_interpolation():
         interp_to=target,
         interp_method="linear",
     )
-    np.testing.assert_allclose(array[0, 0, 0], [[1.5, 3.5], [2.5, 4.5]])
+    assert array.dims == ("time", "lead_time", "variable", "y", "x")
+    np.testing.assert_allclose(array[0, 0, 0], [[0, 2, 4], [1, 3, 5], [2, 4, 6]])
 
 
-def test_inconsistent_registered_target_is_rejected():
-    register_grid("fetch-test-full", GRID)
+def test_target_grid_validation_is_deferred():
     signature = request(grid=GRID)
     signature.attrs[E2S_GRID_ID] = "fetch-test-full"
     signature = signature.assign_coords(lat=[20.0, 10.0, 0.0])
-    with pytest.raises(ValueError, match="grid"):
-        fetch_data(AnalysisSource(), TIME, np.array(["a"]), interp_to=signature)
+    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), interp_to=signature)
+    np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
 
 
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
 def test_signature_statistics_are_computed(source_cls):
     signature = request(("a:sum:3h", "b"))
     array = fetch_data(
-        source_cls(), TIME, np.array(["a:sum:3h", "b"]), metadata=signature
+        source_cls(attrs=request().attrs),
+        TIME,
+        np.array(["a:sum:3h", "b"]),
+        metadata=signature,
     )
     np.testing.assert_allclose(
         array.sel(variable="a:sum:3h")[0, 0], [[0, 6, 12], [-3, 3, 9], [-6, 0, 6]]
@@ -190,11 +193,11 @@ def test_qualified_statistics_preserve_order_and_metadata(source_cls):
 
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
 def test_fuxi_s2s_daily_windows(source_cls):
-    source = source_cls()
     times = TIME + np.array([0, 72], dtype="timedelta64[h]")
     leads = np.array([-24, 0], dtype="timedelta64[h]")
     labels = np.array(DAILY_VARIABLES)
     target_grid = LatLonGrid(np.array([0.0]), np.array([0.0]))
+    source = source_cls(target_grid, attrs=request(grid=target_grid).attrs)
     signature = coord_array(
         ("time", "lead_time", "variable", "lat", "lon"),
         {"lead_time": leads, "variable": labels},
@@ -270,8 +273,9 @@ def test_fetch_fuxi_model_signature_handshake(source_cls, monkeypatch):
     # Keep the real model's temporal declarations and crop only its spatial grid.
     signature = model.input_coords().isel(lat=slice(60, 61), lon=slice(0, 1))
     monkeypatch.setattr(model, "input_coords", lambda: signature)
+    source_grid = LatLonGrid(signature.lat.values, signature.lon.values)
     array = fetch_data(
-        source_cls(),
+        source_cls(source_grid, attrs=request(grid=source_grid).attrs),
         TIME,
         signature.coords["variable"].values,
         signature.lead_time.values,
@@ -308,7 +312,7 @@ def test_conflicting_statistics_fail_before_fetch():
 
 
 @pytest.mark.parametrize("method", ["nearest", "linear"])
-def test_grid_signature_interpolation(method):
+def test_grid_signature_regridding_is_passthrough(method):
     target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
     signature = request(("a:mean:2h",), grid=target)
     array = fetch_data(
@@ -318,31 +322,30 @@ def test_grid_signature_interpolation(method):
         metadata=signature,
         interp_method=method,
     )
-    handshake_dataarray(array, signature)
-    assert array.attrs["shape"] == [2, 2]
-    if method == "linear":
-        np.testing.assert_allclose(array[0, 0, 0], [[1, 3], [0, 2]])
+    np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
+    np.testing.assert_array_equal(array.lon, GRID.coords()["lon"])
+    np.testing.assert_allclose(
+        array[0, 0, 0], [[0.5, 2.5, 4.5], [-0.5, 1.5, 3.5], [-1.5, 0.5, 2.5]]
+    )
 
 
 @pytest.mark.parametrize("kind", ["definition", "name", "signature"])
-def test_registered_grid_selection(kind):
+def test_grid_target_is_passthrough(kind):
     target = LatLonGrid(np.array([0.0, 2.0]), np.array([2.0, 0.0]))
-    register_grid("fetch-test-subset", target)
     interp_to = {
         "definition": target,
         "name": "fetch-test-subset",
         "signature": request(grid=target),
     }[kind]
     array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), interp_to=interp_to)
-    np.testing.assert_allclose(array[0, 0, 0], [[4, 0], [6, 2]])
-    if kind == "name":
-        assert array.attrs[E2S_GRID_ID] == "fetch-test-subset"
+    np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
+    assert E2S_GRID_ID not in array.attrs
 
 
-def test_geographic_bounds_use_grid_selection():
+def test_geographic_bounds_are_deferred():
     array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), bounds=(0.5, 0.5, 2, 2))
-    np.testing.assert_array_equal(array.lat, [2, 1])
-    np.testing.assert_array_equal(array.lon, [1, 2])
+    np.testing.assert_array_equal(array.lat, [2, 1, 0])
+    np.testing.assert_array_equal(array.lon, [0, 1, 2])
 
 
 @pytest.mark.parametrize(
@@ -353,7 +356,7 @@ def test_geographic_bounds_use_grid_selection():
         ProjectedGrid(np.array([0.5, 1.5]), np.array([0.5, 1.5]), "EPSG:4326"),
     ],
 )
-def test_latlon_to_other_grid_topologies(target):
+def test_other_target_topologies_are_passthrough(target):
     signature = request(grid=target)
     array = fetch_data(
         AnalysisSource(),
@@ -362,15 +365,14 @@ def test_latlon_to_other_grid_topologies(target):
         metadata=signature,
         interp_method="linear",
     )
-    handshake_dataarray(array, signature)
-    lat, lon = xr.broadcast(target.coords()["lat"], target.coords()["lon"])
+    lat, lon = xr.broadcast(GRID.coords()["lat"], GRID.coords()["lon"])
     np.testing.assert_allclose(array[0, 0, 0], lat + 2 * lon)
 
 
 def test_source_metadata_mismatch_is_not_relabelled():
     source = AnalysisSource(attrs={E2S_CRS: "EPSG:3857"})
-    with pytest.raises(ValueError, match="CRS"):
-        fetch_data(source, TIME, np.array(["a"]), metadata=request())
+    array = fetch_data(source, TIME, np.array(["a"]), metadata=request())
+    assert array.attrs[E2S_CRS] == "EPSG:3857"
 
 
 def test_already_aggregated_source_not_reduced_twice():
