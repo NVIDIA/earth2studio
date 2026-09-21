@@ -18,6 +18,7 @@ import pickle
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
+from typing import Literal
 
 import numpy as np
 import torch
@@ -227,10 +228,10 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     static_vars : dict[str, torch.Tensor]
         Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
-    lead_time_stride_hours : int, optional
-        Output cadence in hours; must evenly divide the 6h AR step (1, 2, 3, 6).
-        By default 1, querying t+1h..t+6h per AR cycle. ``6`` makes a single
-        t+6h evaluation per cycle.
+    lead_time_stride_hours : {1, 2, 3, 6}, optional
+        Output cadence in hours; must evenly divide the 6h AR step. 1 queries
+        t+1h..t+6h per AR cycle; ``6`` makes a single t+6h evaluation per cycle,
+        by default 1
 
     Badges
     ------
@@ -242,14 +243,20 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
-        lead_time_stride_hours: int = 1,
+        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> None:
         super().__init__()
 
-        if int(_AR_STEP_HOURS) % lead_time_stride_hours != 0:
+        # check_optional_dependencies() erases the signature, so the Literal above
+        # is unenforced.
+        if (
+            lead_time_stride_hours <= 0
+            or int(_AR_STEP_HOURS) % lead_time_stride_hours != 0
+        ):
             raise ValueError(
-                f"lead_time_stride_hours={lead_time_stride_hours} must evenly "
-                f"divide the {int(_AR_STEP_HOURS):.0f}h AR step (e.g. 1, 2, 3, 6)."
+                f"lead_time_stride_hours={lead_time_stride_hours} must be a "
+                f"positive integer that evenly divides the "
+                f"{int(_AR_STEP_HOURS):.0f}h AR step (e.g. 1, 2, 3, 6)."
             )
         self.lead_time_stride_hours = lead_time_stride_hours
 
@@ -351,12 +358,27 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
+        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> PrognosticModel:
-        """Load prognostic from package"""
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        lead_time_stride_hours : {1, 2, 3, 6}, optional
+            Hours between queries of the 6h auto-regressive step; see
+            :class:`Aurora1p5`, by default 1
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
         model, static_vars = _load_aurora1p5_from_package(
             package, Aurora1p5_model, "aurora-0.25-v1.5.ckpt"
         )
-        return cls(model, static_vars)
+        return cls(model, static_vars, lead_time_stride_hours=lead_time_stride_hours)
 
     def _compute_insolation(
         self,
@@ -661,8 +683,9 @@ class Aurora1p5Ensemble(Aurora1p5):
         If specified, sets the random seed via :meth:`set_rng` at the start of
         each :meth:`create_iterator` call for reproducible stochastic noise.
         By default None (non-reproducible).
-    lead_time_stride_hours : int, optional
-        See :class:`Aurora1p5`. By default 1.
+    lead_time_stride_hours : {1, 2, 3, 6}, optional
+        Hours between queries of the 6h auto-regressive step; see
+        :class:`Aurora1p5`, by default 1
 
         Warning
         -------
@@ -683,7 +706,7 @@ class Aurora1p5Ensemble(Aurora1p5):
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
         seed: int | None = None,
-        lead_time_stride_hours: int = 1,
+        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> None:
         super().__init__(core_model, static_vars, lead_time_stride_hours)
         self.seed = seed
@@ -716,12 +739,31 @@ class Aurora1p5Ensemble(Aurora1p5):
     def load_model(
         cls,
         package: Package,
+        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> PrognosticModel:
-        """Load prognostic from package"""
+        """Load prognostic from package
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from
+        lead_time_stride_hours : {1, 2, 3, 6}, optional
+            Hours between queries of the 6h auto-regressive step; see
+            :class:`Aurora1p5`, by default 1
+
+        Returns
+        -------
+        PrognosticModel
+            Prognostic model
+        """
         model, static_vars = _load_aurora1p5_from_package(
             package, Aurora1p5Ensemble_model, "aurora-0.25-v1.5-ensemble.ckpt"
         )
-        return cls(model, static_vars)
+        return cls(
+            model,
+            static_vars,
+            lead_time_stride_hours=lead_time_stride_hours,
+        )
 
     def create_iterator(
         self, x: torch.Tensor, coords: CoordSystem
