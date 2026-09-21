@@ -760,8 +760,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variable=self.conditioning_variables,
             lead_time=lead_time,
             device=device,
-            interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
-            interp_method="linear",
+            target_grid=coords | {"_lat": self.lat, "_lon": self.lon},
+            regridder="linear",
         )
         # ensure data dimensions in the expected order
         conditioning_coords_ordered = OrderedDict(

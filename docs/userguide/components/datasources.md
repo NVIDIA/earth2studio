@@ -96,25 +96,17 @@ so users should explore and test different ones if possible.
 when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordinates,
 the array name, and source attributes travel with the values.
 
-Pass a coordinate signature as `metadata` to declare temporal statistics.
+Use qualified variable labels to request temporal statistics.
 The source grid is preserved; spatial regridding is deferred.
 
 ```python
 import numpy as np
 
 from earth2studio.data import fetch_data
-from earth2studio.utils.coords import coord_array
-
-target = coord_array(
-    ("time", "lead_time", "variable"),
-    {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m:mean:24h"]},
-    dynamic=("time",),
-)
 field = fetch_data(
     source,
     np.array([np.datetime64("2024-01-02T00")]),
-    target.coords["variable"].values,
-    metadata=target,
+    np.array(["t2m:mean:24h"]),
     delta_t=np.timedelta64(6, "h"),
 )
 ```
@@ -123,9 +115,7 @@ Here `source` is an analysis or forecast source providing instantaneous `t2m`.
 The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
 left-closed and right-open. The cadence defaults to `source.time_step` when
 available; otherwise provide `delta_t` explicitly. Qualified variable labels
-such as `"t2m:mean:24h"` declare reductions, and coordinate signatures derive their
-statistics metadata from those labels. Metadata and qualified labels must agree;
-duplicate normalized quantities are rejected.
+such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
 Already aggregated source variables cannot be reduced again.
 

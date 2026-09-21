@@ -261,7 +261,6 @@ def test_fetch_data_time_statistics(source):
         source,
         np.array([np.datetime64("2024-01-02")]),
         metadata.coords["variable"].values,
-        metadata=metadata,
         delta_t=delta_t,
     )
     np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
@@ -459,8 +458,8 @@ def test_fetch_data_regridding_passthrough(time, lead_time, device):
         variable,
         lead_time,
         device=device,
-        interp_to=target_coords,
-        interp_method="nearest",
+        target_grid=target_coords,
+        regridder="nearest",
     )
 
     coords = x.coords
@@ -478,8 +477,8 @@ def test_fetch_data_regridding_passthrough(time, lead_time, device):
         variable,
         lead_time,
         device=device,
-        interp_to=target_coords,
-        interp_method="linear",
+        target_grid=target_coords,
+        regridder="linear",
     )
 
     coords = x.coords
@@ -503,8 +502,8 @@ def test_fetch_data_regridding_passthrough(time, lead_time, device):
         variable,
         lead_time,
         device=device,
-        interp_to=target_coords,
-        interp_method="nearest",
+        target_grid=target_coords,
+        regridder="nearest",
     )
 
     coords = x.coords
@@ -522,8 +521,8 @@ def test_fetch_data_regridding_passthrough(time, lead_time, device):
         variable,
         lead_time,
         device=device,
-        interp_to=target_coords,
-        interp_method="linear",
+        target_grid=target_coords,
+        regridder="linear",
     )
 
     coords = x.coords

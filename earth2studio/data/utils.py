@@ -152,35 +152,32 @@ def _fetch_statistic(
     delta_t: np.timedelta64,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
-    if "lead_time" in signature(source.__call__).parameters:
+    forecast = "lead_time" in signature(source.__call__).parameters
+    dimension = "lead_time" if forecast else "time"
+    if forecast:
         required = source_lead_times(modifier, lead_time, delta_t)
         source_array = cast(ForecastSource, source)(
             time, cast(LeadTimeArray, np.unique(required)), variables
         ).sel(time=time, variable=variables)
-        _require_instantaneous(source_array, variables)
-        arrays = []
-        for lead in lead_time:
-            reduced = apply_time_statistic(
-                source_array, modifier, lead, delta_t, "lead_time"
-            )
-            arrays.append(reduced.expand_dims(lead_time=[lead], axis=1))
-        return xr.concat(arrays, "lead_time")
-
-    required = source_times(
-        modifier,
-        np.asarray(time)[:, None] + np.asarray(lead_time)[None, :],
-        delta_t,
-    )
-    source_array = cast(DataSource, source)(
-        cast(TimeArray, np.unique(required)), variables
-    ).sel(variable=variables)
+    else:
+        required = source_times(modifier, time[:, None] + lead_time[None, :], delta_t)
+        source_array = cast(DataSource, source)(
+            cast(TimeArray, np.unique(required)), variables
+        ).sel(variable=variables)
     _require_instantaneous(source_array, variables)
     by_time = []
     for target_time in time:
+        samples = (
+            source_array.sel(time=target_time, drop=True) if forecast else source_array
+        )
         by_lead = []
         for lead in lead_time:
             reduced = apply_time_statistic(
-                source_array, modifier, target_time + lead, delta_t, "time"
+                samples,
+                modifier,
+                lead if forecast else target_time + lead,
+                delta_t,
+                dimension,
             )
             by_lead.append(reduced.expand_dims(lead_time=[lead]))
         by_time.append(xr.concat(by_lead, "lead_time").expand_dims(time=[target_time]))
@@ -199,15 +196,11 @@ def _fetch_dataarray(
     time: TimeArray,
     variable: VariableArray,
     lead_time: LeadTimeArray,
-    metadata: CoordinateSystem | None,
     delta_t: np.timedelta64 | None,
 ) -> xr.DataArray:
-    variables = tuple(str(item) for item in variable)
-    declarations = {} if metadata is None else metadata.attrs.get(E2S_STATISTICS, {})
-    if set(declarations) - set(variables):
-        raise ValueError("Signature statistics reference unrequested variables")
-    requests: list[tuple[str, str, str | None]] = []
-    for label in variables:
+    # Group source variables by reduction, retaining their requested output labels.
+    groups: dict[str | None, dict[str, str]] = {}
+    for label in map(str, variable):
         source_variable, separator, parsed_modifier = label.partition(":")
         if not source_variable:
             raise ValueError("Variable name must not be empty")
@@ -216,66 +209,50 @@ def _fetch_dataarray(
             if separator
             else None
         )
-        if label in declarations:
-            declared = str(
-                time_statistic_metadata(declarations[label]["modifier"])["modifier"]
-            )
-            if modifier is not None and modifier != declared:
-                raise ValueError(f"Conflicting statistics for '{label}'")
-            modifier = declared
-        requests.append((label, source_variable, modifier))
-    identities = [
-        (source_variable, modifier) for _, source_variable, modifier in requests
-    ]
-    if len(set(identities)) != len(identities):
-        raise ValueError("Requested variables contain duplicate quantities")
+        group = groups.setdefault(modifier, {})
+        if source_variable in group:
+            raise ValueError("Requested variables contain duplicate quantities")
+        group[source_variable] = label
 
-    instantaneous = [
-        (label, source_variable)
-        for label, source_variable, modifier in requests
-        if modifier is None
-    ]
-    groups: dict[str, list[tuple[str, str]]] = {}
-    for label, source_variable, statistic_modifier in requests:
-        if statistic_modifier is not None:
-            groups.setdefault(statistic_modifier, []).append((label, source_variable))
-
-    if groups and delta_t is None:
+    if delta_t is None:
         delta_t = getattr(source, "time_step", None)
-    if groups and delta_t is None:
-        raise ValueError("delta_t is required for temporal statistics")
     # Validate every window before any source calls.
     for modifier in groups:
-        source_lead_times(modifier, lead_time, cast(np.timedelta64, delta_t))
+        if modifier is not None:
+            if delta_t is None:
+                raise ValueError("delta_t is required for temporal statistics")
+            source_lead_times(modifier, lead_time, delta_t)
 
     arrays = []
     output_statistics = {}
-    if instantaneous:
-        labels, source_variables = zip(*instantaneous, strict=True)
-        instantaneous_array = _fetch_instantaneous(
-            source, time, lead_time, source_variables
-        )
-        for label, source_variable in instantaneous:
-            details = instantaneous_array.attrs.get(E2S_STATISTICS, {}).get(
-                source_variable
-            )
-            if details is not None:
-                output_statistics[label] = details
-        arrays.append(instantaneous_array.assign_coords(variable=np.asarray(labels)))
     for modifier, group in groups.items():
-        labels, source_variables = zip(*group, strict=True)
-        arrays.append(
-            _fetch_statistic(
-                source, time, lead_time, source_variables, modifier, delta_t  # type: ignore[arg-type]
-            ).assign_coords(variable=np.asarray(labels))
-        )
-        output_statistics.update(
-            {label: time_statistic_metadata(modifier) for label in labels}
-        )
+        source_variables, labels = list(group), list(group.values())
+        if modifier is None:
+            array = _fetch_instantaneous(source, time, lead_time, source_variables)
+            output_statistics.update(
+                {
+                    group[name]: details
+                    for name, details in array.attrs.get(E2S_STATISTICS, {}).items()
+                    if name in group
+                }
+            )
+        else:
+            array = _fetch_statistic(
+                source,
+                time,
+                lead_time,
+                source_variables,
+                modifier,
+                cast(np.timedelta64, delta_t),
+            )
+            output_statistics.update(
+                {label: time_statistic_metadata(modifier) for label in labels}
+            )
+        arrays.append(array.assign_coords(variable=labels))
     array = (
         arrays[0] if len(arrays) == 1 else xr.concat(arrays, "variable", join="exact")
     )
-    array = array.sel(variable=list(variables))
+    array = array.sel(variable=variable)
     array = array.transpose("time", "lead_time", "variable", ...)
     array.attrs = dict(array.attrs)
     array.attrs.pop(E2S_STATISTICS, None)
@@ -299,10 +276,9 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
     device: torch.device | str = "cpu",
-    interp_to: CoordinateSystem | GridDefinition | str | None = None,
-    interp_method: str = "nearest",
+    target_grid: CoordinateSystem | GridDefinition | str | None = None,
+    regridder: str = "nearest",
     *,
-    metadata: CoordinateSystem | None = None,
     delta_t: np.timedelta64 | None = None,
     bounds: tuple[float, float, float, float] | None = None,
     bounds_crs: Any | None = None,
@@ -316,23 +292,17 @@ def fetch_data(
     time : TimeArray
         Timestamps to return data for (UTC).
     variable : VariableArray
-        Variable labels to return. Temporal statistics use qualified labels such as
-        ``"tp:sum:6h"``. Calendar days labeled by their starting midnight use
-        ``"t2m:mean:0h:24h"``; hourly interval-ending accumulations use
-        ``"tp:mean:1h:25h"`` with hourly ``delta_t``. Source calls receive base
-        names, while the returned coordinates retain the full qualified labels.
+        Variable labels, optionally qualified with a temporal statistic, e.g.
+        ``"t2m:mean:24h"``.
     lead_time : LeadTimeArray, optional
         Lead times to fetch for each provided time, by default
         np.array(np.timedelta64(0, "h"))
     device : torch.device | str, optional
         NumPy CPU or CuPy CUDA destination, by default "cpu"
-    interp_to : CoordinateSystem | GridDefinition | str, optional
+    target_grid : CoordinateSystem | GridDefinition | str, optional
         Reserved target for future regridding. Currently a pass-through.
-    interp_method : str, optional
-        Reserved interpolation method, by default "nearest". Currently unused.
-    metadata : CoordinateSystem, optional
-        Coordinate signature declaring temporal statistics for requested variables.
-        Spatial coordinates are currently ignored; the source grid is preserved.
+    regridder : str, optional
+        Reserved regridding method, by default "nearest". Currently unused.
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
@@ -365,12 +335,9 @@ def fetch_data(
             )
     if variable.ndim != 1 or not variable.size:
         raise ValueError("variable must be a nonempty 1D array")
-    if metadata is not None and not isinstance(metadata, xr.DataArray):
-        raise TypeError("metadata must be a CoordinateSystem DataArray")
     lead_time = lead_time.astype("timedelta64[ns]")
-    da = _fetch_dataarray(source, time, variable, lead_time, metadata, delta_t)
-    target = interp_to if interp_to is not None else metadata
-    da = _map_grid(da, target, interp_method)
+    da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
+    da = _map_grid(da, target_grid, regridder)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
     if device.type == "cuda":

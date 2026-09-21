@@ -113,7 +113,7 @@ def test_source_variable_order_is_respected():
 def test_native_grid_preserves_auxiliaries(grid):
     signature = request(grid=grid)
     source = AnalysisSource(grid, attrs=signature.attrs)
-    array = fetch_data(source, TIME, np.array(["a"]), metadata=signature)
+    array = fetch_data(source, TIME, np.array(["a"]), target_grid=signature)
     handshake_dataarray(array, signature)
     assert array.attrs["source"] == "offline"
 
@@ -126,7 +126,7 @@ def test_renamed_target_spatial_dimensions():
         grid=ProjectedGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]), "EPSG:4326"),
         grid_dims={"y": "height", "x": "width"},
     )
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), metadata=signature)
+    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=signature)
     assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
     np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
 
@@ -140,8 +140,8 @@ def test_projected_source_regridding_is_passthrough():
         AnalysisSource(grid, attrs=request(grid=grid).attrs),
         TIME,
         np.array(["a"]),
-        interp_to=target,
-        interp_method="linear",
+        target_grid=target,
+        regridder="linear",
     )
     assert array.dims == ("time", "lead_time", "variable", "y", "x")
     np.testing.assert_allclose(array[0, 0, 0], [[0, 2, 4], [1, 3, 5], [2, 4, 6]])
@@ -151,7 +151,7 @@ def test_target_grid_validation_is_deferred():
     signature = request(grid=GRID)
     signature.attrs[E2S_GRID_ID] = "fetch-test-full"
     signature = signature.assign_coords(lat=[20.0, 10.0, 0.0])
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), interp_to=signature)
+    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=signature)
     np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
 
 
@@ -162,7 +162,6 @@ def test_signature_statistics_are_computed(source_cls):
         source_cls(attrs=request().attrs),
         TIME,
         np.array(["a:sum:3h", "b"]),
-        metadata=signature,
     )
     np.testing.assert_allclose(
         array.sel(variable="a:sum:3h")[0, 0], [[0, 6, 12], [-3, 3, 9], [-6, 0, 6]]
@@ -204,7 +203,7 @@ def test_fuxi_s2s_daily_windows(source_cls):
         dynamic=("time",),
         grid=target_grid,
     )
-    array = fetch_data(source, times, labels, leads, metadata=signature)
+    array = fetch_data(source, times, labels, leads)
     handshake_dataarray(array, signature)
     np.testing.assert_array_equal(array.time, times)
     np.testing.assert_array_equal(array.lead_time, leads)
@@ -279,7 +278,6 @@ def test_fetch_fuxi_model_signature_handshake(source_cls, monkeypatch):
         TIME,
         signature.coords["variable"].values,
         signature.lead_time.values,
-        metadata=signature,
     )
     handshake_dataarray(array, signature)
     output = model.output_coords(array)
@@ -302,13 +300,15 @@ def test_duplicate_normalized_quantities_fail_before_fetch():
     assert not source.requests
 
 
-def test_conflicting_statistics_fail_before_fetch():
+def test_target_grid_does_not_declare_statistics():
     source = AnalysisSource()
     signature = request(("a:mean:3h",))
     signature.attrs[E2S_STATISTICS] = {"a:mean:3h": time_statistic_metadata("sum:3h")}
-    with pytest.raises(ValueError, match="[Cc]onflict"):
-        fetch_data(source, TIME, np.array(["a:mean:3h"]), metadata=signature)
-    assert not source.requests
+    array = fetch_data(source, TIME, np.array(["a:mean:3h"]), target_grid=signature)
+    assert array.attrs[E2S_STATISTICS] == {
+        "a:mean:3h": time_statistic_metadata("mean:3h")
+    }
+    np.testing.assert_allclose(array[0, 0, 0], [[0, 2, 4], [-1, 1, 3], [-2, 0, 2]])
 
 
 @pytest.mark.parametrize("method", ["nearest", "linear"])
@@ -319,8 +319,8 @@ def test_grid_signature_regridding_is_passthrough(method):
         AnalysisSource(),
         TIME,
         np.array(["a:mean:2h"]),
-        metadata=signature,
-        interp_method=method,
+        target_grid=signature,
+        regridder=method,
     )
     np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
     np.testing.assert_array_equal(array.lon, GRID.coords()["lon"])
@@ -332,12 +332,12 @@ def test_grid_signature_regridding_is_passthrough(method):
 @pytest.mark.parametrize("kind", ["definition", "name", "signature"])
 def test_grid_target_is_passthrough(kind):
     target = LatLonGrid(np.array([0.0, 2.0]), np.array([2.0, 0.0]))
-    interp_to = {
+    target_grid = {
         "definition": target,
         "name": "fetch-test-subset",
         "signature": request(grid=target),
     }[kind]
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), interp_to=interp_to)
+    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=target_grid)
     np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
     assert E2S_GRID_ID not in array.attrs
 
@@ -362,8 +362,8 @@ def test_other_target_topologies_are_passthrough(target):
         AnalysisSource(),
         TIME,
         np.array(["a"]),
-        metadata=signature,
-        interp_method="linear",
+        target_grid=signature,
+        regridder="linear",
     )
     lat, lon = xr.broadcast(GRID.coords()["lat"], GRID.coords()["lon"])
     np.testing.assert_allclose(array[0, 0, 0], lat + 2 * lon)
@@ -371,7 +371,7 @@ def test_other_target_topologies_are_passthrough(target):
 
 def test_source_metadata_mismatch_is_not_relabelled():
     source = AnalysisSource(attrs={E2S_CRS: "EPSG:3857"})
-    array = fetch_data(source, TIME, np.array(["a"]), metadata=request())
+    array = fetch_data(source, TIME, np.array(["a"]), target_grid=request())
     assert array.attrs[E2S_CRS] == "EPSG:3857"
 
 
@@ -399,7 +399,6 @@ def test_cuda_field_array():
         TIME,
         np.array(["a:mean:2h"]),
         device="cuda:0",
-        metadata=request(("a:mean:2h",)),
     )
     assert isinstance(array.data, cp.ndarray)
     assert array.data.device.id == 0
