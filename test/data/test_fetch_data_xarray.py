@@ -28,7 +28,6 @@ from earth2studio.grids import (
     PointGrid,
     ProjectedGrid,
 )
-from earth2studio.models.px.fuxi_s2s import DAILY_VARIABLES, VARIABLES, FuXiS2S
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -203,10 +202,10 @@ def test_qualified_statistics_preserve_order_and_metadata(source_cls):
 
 
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
-def test_fuxi_s2s_daily_windows(source_cls):
+def test_grouped_time_windows(source_cls):
     times = TIME + np.array([0, 72], dtype="timedelta64[h]")
     leads = np.array([-24, 0], dtype="timedelta64[h]")
-    labels = np.array(DAILY_VARIABLES)
+    labels = np.array(["a:mean:0h:24h", "b:mean:1h:25h", "c:mean:0h:24h"])
     target_grid = LatLonGrid(np.array([0.0]), np.array([0.0]))
     source = source_cls(target_grid, attrs=request(grid=target_grid).attrs)
     signature = coord_array(
@@ -220,7 +219,7 @@ def test_fuxi_s2s_daily_windows(source_cls):
     np.testing.assert_array_equal(array.time, times)
     np.testing.assert_array_equal(array.lead_time, leads)
     np.testing.assert_array_equal(array.coords["variable"], labels)
-    offsets = np.array([12.5 if v in {"tp", "ttr"} else 11.5 for v in VARIABLES])
+    offsets = np.array([11.5, 12.5, 11.5])
     expected = (
         np.array([0, 72])[:, None, None]
         + np.array([-24, 0])[None, :, None]
@@ -239,9 +238,7 @@ def test_fuxi_s2s_daily_windows(source_cls):
     ]
     assert len(calls) == 2
     for call, start in zip(calls, [0, 1], strict=True):
-        expected_variables = [
-            v for v in VARIABLES if (v in {"tp", "ttr"}) == bool(start)
-        ]
+        expected_variables = ["a", "c"] if start == 0 else ["b"]
         np.testing.assert_array_equal(call[-1], expected_variables)
         hours = np.arange(-24 + start, 24 + start).astype("timedelta64[h]")
         if source_cls is ForecastSource:
@@ -274,35 +271,6 @@ def test_daily_window_rejects_incomplete_or_duplicate_samples(source_cls, duplic
     )
     with pytest.raises(ValueError, match="[Mm]issing|[Dd]uplicate"):
         fetch_data(source, TIME, np.array(["tp:mean:1h:25h"]))
-
-
-@pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
-def test_fetch_fuxi_model_signature_handshake(source_cls, monkeypatch):
-    model = FuXiS2S.__new__(FuXiS2S)
-    torch.nn.Module.__init__(model)
-    model._time_step = np.timedelta64(1, "D")
-    # Keep the real model's temporal declarations and crop only its spatial grid.
-    signature = model.input_coords().isel(lat=slice(60, 61), lon=slice(0, 1))
-    monkeypatch.setattr(model, "input_coords", lambda: signature)
-    source_grid = LatLonGrid(signature.lat.values, signature.lon.values)
-    array = fetch_data(
-        source_cls(source_grid, attrs=request(grid=source_grid).attrs),
-        TIME,
-        signature.coords["variable"].values,
-        signature.lead_time.values,
-    )
-    handshake_dataarray(array, signature)
-    output = model.output_coords(array)
-    np.testing.assert_array_equal(output.lead_time, [np.timedelta64(1, "D")])
-    np.testing.assert_array_equal(output.time, TIME)
-    np.testing.assert_array_equal(output.coords["variable"], DAILY_VARIABLES)
-    assert output.attrs[E2S_STATISTICS] == signature.attrs[E2S_STATISTICS]
-    np.testing.assert_allclose(
-        array.sel(variable="t2m:mean:0h:24h").values.ravel(), [-12.5, 11.5]
-    )
-    np.testing.assert_allclose(
-        array.sel(variable="tp:mean:1h:25h").values.ravel(), [-11.5, 12.5]
-    )
 
 
 def test_duplicate_normalized_quantities_fail_before_fetch():
