@@ -38,10 +38,35 @@ def fetch_data(
 - `target_grid` and `regridder` are reserved spatial arguments and currently have
   no effect.
 
-Grid objects own CRS and spatial subset semantics through `GridDefinition.crs`
-and `GridDefinition.subset_indexers()`. Bounds and their CRS belong to that grid
-selection interface, not to `fetch_data`. Callers describe the desired output
-geometry through `target_grid`.
+The target grid owns its geometry, spatial extent, and CRS when constructed.
+`fetch_data` consumes that definition rather than requiring separate bounds or CRS
+arguments. Bounds describe the grid's extent; they do not replace its full
+coordinates, topology, or longitude-wrap semantics.
+
+### Target Grid from Model Coordinates
+
+`coord_array(..., grid=...)` resolves a grid definition and embeds its spatial
+coordinates and metadata in the model's coordinate DataArray. This is a
+serializable description, not a stored live grid object. The grid API reconstructs
+the target from that description:
+
+```python
+from earth2studio.grids import infer_grid
+
+coords = model.input_coords()
+target_grid = infer_grid(coords)
+field = fetch_data(source, time, variable, target_grid=target_grid)
+```
+
+The reconstructed grid must represent the model's actual geometry, including any
+crop, and own the corresponding extent and CRS. Fetch may consume those properties
+for future source subsetting or regridding; callers need not extract them manually.
+Reconstruction and spatial metadata interpretation belong to the grid API.
+
+Standard coordinate layouts already support this flow. Complete reconstruction
+for renamed spatial dimensions and explicit grid-owned extent support remain grid
+API work, as specified in [GRID_SPEC.md](GRID_SPEC.md). Fetch spatial processing
+remains a pass-through until that integration is implemented.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces `interp_to`; `regridder`

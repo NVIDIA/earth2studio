@@ -132,6 +132,32 @@ Coordinate handshakes compare fixed axes and auxiliary coordinates and require
 matching declared grid ID and CRS metadata. `coord_array_like()` creates output
 signatures from validated inputs without recreating or reprojecting their grid.
 
+### Model coordinates to target grid
+
+The grid contract must support the round trip
+`GridDefinition -> coord_array -> infer_grid -> GridDefinition`. Coordinate arrays
+store spatial coordinates and serializable grid metadata, not live grid objects.
+Non-spatial model dimensions, including empty dynamic dimensions, must not affect
+reconstruction.
+
+The reconstructed target grid owns its geometry, extent, and CRS at construction.
+Consumers such as `fetch_data` can obtain spatial requirements from that object
+without asking callers for separate bounds or CRS arguments. Extent computation
+belongs to the grid implementation and must respect topology and longitude wrap;
+a bounding rectangle alone is not a complete grid description.
+
+Reconstruction must preserve actual coordinate values, crops, axis order, and CRS.
+A registered grid ID must not cause changed coordinates to be replaced by the
+parent geometry merely because their shapes match. Renamed model axes must be
+recoverable from coordinate metadata without caller-side renaming.
+
+Standard-layout reconstruction exists today. Metadata-driven reconstruction of
+renamed axes, validation of registered geometry against coordinate values, and an
+explicit grid-owned extent interface are required follow-up work. The manual
+renaming guidance above describes the current implementation until that support
+lands. Fetch-side spatial processing remains deferred; see
+[FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md).
+
 ## HEALPix Representations
 
 HEALPix ordering and storage layout are explicit. `nested` and `ring` use a flat
