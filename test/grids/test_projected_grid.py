@@ -51,30 +51,6 @@ def test_grid_validation():
         GRID.x[0] = 0
 
 
-def test_custom_indexes_do_not_populate_full_grid_cache(monkeypatch):
-    from earth2studio.grids.projected import Transformer
-
-    grid = ProjectedGrid(GRID.y, GRID.x, GRID.crs)
-    original = Transformer.from_crs
-    calls = []
-
-    def transform(*args, **kwargs):
-        calls.append(1)
-        return original(*args, **kwargs)
-
-    monkeypatch.setattr(Transformer, "from_crs", transform)
-    indexes = {"y": grid.y[:1], "x": grid.x[1:]}
-    subset = grid.coords(indexes)
-    assert subset["lat"].shape == (1, 2)
-    assert len(calls) == 1
-    full = grid.coords()
-    assert len(calls) == 2
-    grid.coords()
-    assert len(calls) == 2
-    for name in ("lat", "lon"):
-        np.testing.assert_allclose(subset[name], full[name][:1, 1:])
-
-
 def test_grid_inference():
     coordinates = dict(GRID.coords())
     coordinates.update(

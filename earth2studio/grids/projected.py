@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from functools import cached_property
 from typing import Any
 
 import numpy as np
@@ -70,47 +69,23 @@ class ProjectedGrid:
     def crs(self) -> CRS:
         return self.coordinate_reference_system
 
-    def _geographic_coordinates(
-        self, y: NDArray[Any], x: NDArray[Any]
-    ) -> tuple[NDArray[Any], NDArray[Any]]:
-        xx, yy = np.meshgrid(x, y)
-        longitude, latitude = Transformer.from_crs(
-            self.crs, CRS.from_epsg(4326), always_xy=True
-        ).transform(xx, yy)
-        longitude = np.mod(longitude, 360)
-        latitude.setflags(write=False)
-        longitude.setflags(write=False)
-        return latitude, longitude
-
-    @cached_property
-    def _full_geographic_coordinates(self) -> tuple[NDArray[Any], NDArray[Any]]:
-        return self._geographic_coordinates(self.y, self.x)
-
     def coords(
         self,
         indexes: Mapping[str, NDArray[Any]] | None = None,
-        *,
         only_index: bool = False,
     ) -> xr.Coordinates:
-        """Return fresh coordinates sharing read-only geographic arrays.
-
-        Full-grid latitude/longitude are computed lazily and cached on this grid.
-        Explicit indexes are projected independently without populating the cache.
-        Index-only requests do not compute geographic coordinates.
-        """
-        full_grid = not indexes
+        """Return projected and geographic coordinates."""
         indexes = indexes or {"y": self.y, "x": self.x}
         coordinates: dict[str, Any] = {"y": indexes["y"], "x": indexes["x"]}
         if only_index:
             return xr.Coordinates(coordinates)
-        latitude, longitude = (
-            self._full_geographic_coordinates
-            if full_grid
-            else self._geographic_coordinates(indexes["y"], indexes["x"])
-        )
+        xx, yy = np.meshgrid(indexes["x"], indexes["y"])
+        longitude, latitude = Transformer.from_crs(
+            self.crs, CRS.from_epsg(4326), always_xy=True
+        ).transform(xx, yy)
         coordinates.update(
             lat=(("y", "x"), latitude),
-            lon=(("y", "x"), longitude),
+            lon=(("y", "x"), np.mod(longitude, 360)),
         )
         return xr.Coordinates(coordinates)
 
