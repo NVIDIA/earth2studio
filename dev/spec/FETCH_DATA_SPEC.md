@@ -21,7 +21,6 @@ def fetch_data(
     device: torch.device | str = "cpu",
     target_grid: CoordinateSystem | GridDefinition | str | None = None,
     regridder: str = "nearest",
-    *,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     ...
