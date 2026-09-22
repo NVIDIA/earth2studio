@@ -72,7 +72,6 @@ class ProjectedGrid:
     def coords(
         self,
         indexes: Mapping[str, NDArray[Any]] | None = None,
-        *,
         only_index: bool = False,
     ) -> xr.Coordinates:
         """Return projected and geographic coordinates."""
