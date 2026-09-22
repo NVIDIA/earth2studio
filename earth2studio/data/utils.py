@@ -280,8 +280,6 @@ def fetch_data(
     regridder: str = "nearest",
     *,
     delta_t: np.timedelta64 | None = None,
-    bounds: tuple[float, float, float, float] | None = None,
-    bounds_crs: Any | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays on the source grid with temporal statistics.
 
@@ -306,10 +304,6 @@ def fetch_data(
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
-    bounds : tuple[float, float, float, float], optional
-        Reserved grid subset bounds (min_x, min_y, max_x, max_y). Currently unused.
-    bounds_crs : Any, optional
-        Reserved CRS of bounds. Currently unused.
 
     Returns
     -------

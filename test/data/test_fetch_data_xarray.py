@@ -342,12 +342,6 @@ def test_grid_target_is_passthrough(kind):
     assert E2S_GRID_ID not in array.attrs
 
 
-def test_geographic_bounds_are_deferred():
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), bounds=(0.5, 0.5, 2, 2))
-    np.testing.assert_array_equal(array.lat, [2, 1, 0])
-    np.testing.assert_array_equal(array.lon, [0, 1, 2])
-
-
 @pytest.mark.parametrize(
     "target",
     [

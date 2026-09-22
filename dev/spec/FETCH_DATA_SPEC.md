@@ -23,8 +23,6 @@ def fetch_data(
     regridder: str = "nearest",
     *,
     delta_t: np.timedelta64 | None = None,
-    bounds: tuple[float, float, float, float] | None = None,
-    bounds_crs: Any | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -37,8 +35,13 @@ def fetch_data(
   use `source.time_step`; statistical requests fail if neither is available.
   Instantaneous requests do not require a cadence.
 - `device` accepts CPU or CUDA destinations. CUDA output requires CuPy.
-- `target_grid`, `regridder`, `bounds`, and `bounds_crs` are reserved spatial
-  arguments and currently have no effect.
+- `target_grid` and `regridder` are reserved spatial arguments and currently have
+  no effect.
+
+Grid objects own CRS and spatial subset semantics through `GridDefinition.crs`
+and `GridDefinition.subset_indexers()`. Bounds and their CRS belong to that grid
+selection interface, not to `fetch_data`. Callers describe the desired output
+geometry through `target_grid`.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces `interp_to`; `regridder`
