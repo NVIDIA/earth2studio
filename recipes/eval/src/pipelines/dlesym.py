@@ -18,7 +18,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import cast
 
 import numpy as np
 import torch
@@ -172,7 +173,8 @@ class DLESyMPipeline(ForecastPipeline):
         if self.perturbation is not None:
             x, coords = self.perturbation(x, coords)
 
-        model_iter = self.prognostic.create_iterator(x, coords)
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        model_iter = cast(Callable, self.prognostic.create_iterator)(x, coords)
 
         # Skip the IC yield — its lead_times are in the input window
         # ([-48h..0h] for DLESyM), outside the output zarr schema.

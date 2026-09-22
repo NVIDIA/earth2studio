@@ -145,6 +145,7 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
         "fails P13: the official ONNX graph samples flow-dependent "
         "perturbations internally, but the wrapper declares stochastic=False "
         "and implements no set_rng(), so two rollouts from one input disagree "
+        "(verified directly through DataArrays; the checker is tensor-only) "
         "— test/models/px/test_fuxi_s2s.py::test_fuxi_s2s_conformance"
     ),
     "DLESyM": (

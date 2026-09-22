@@ -15,8 +15,10 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import datetime
 from math import ceil
+from typing import cast
 
 import numpy as np
 import torch
@@ -157,7 +159,8 @@ def deterministic(
         # Map lat and lon if needed
         x, coords = map_coords(x, coords, prognostic.input_coords())
         # Create prognostic iterator
-        model = prognostic.create_iterator(x, coords)
+        # This runner still uses the legacy tensor/coordinate execution API.
+        model = cast(Callable, prognostic.create_iterator)(x, coords)
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
@@ -307,7 +310,7 @@ def diagnostic(
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         x, coords = map_coords(x, coords, prognostic_ic)
-        model = prognostic.create_iterator(x, coords)
+        model = cast(Callable, prognostic.create_iterator)(x, coords)
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
@@ -327,7 +330,7 @@ def diagnostic(
 
                 current_lead_time = coords["lead_time"][-1]
                 x, coords = map_coords(x, coords, diagnostic_ic)
-                x, coords = diagnostic(x, coords)
+                x, coords = cast(Callable, diagnostic)(x, coords)
                 x, coords = map_coords(x, coords, output_coords)
                 io.write(*split_coords(x, coords))
                 ckpt.write(lead_time=current_lead_time)
@@ -500,7 +503,7 @@ def ensemble(
             x, coords = map_coords(x, coords, prognostic_ic)
             x, coords = perturbation(x, coords)
 
-            model = prognostic.create_iterator(x, coords)
+            model = cast(Callable, prognostic.create_iterator)(x, coords)
             initial_progress = 0 if restart_step is None else restart_step + 1
             with tqdm(
                 total=nsteps + 1,

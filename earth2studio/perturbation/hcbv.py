@@ -15,7 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from typing import cast
 
 import numpy as np
 import torch
@@ -129,8 +130,9 @@ class HemisphericCentredBredVector:
         xper, coords = self.seeding_perturbation_method(xunp, coords)
 
         for ii in range(self.integration_steps):
-            xunp, _ = self.model(xunp, coords)
-            xper, _ = self.model(xper, coords)
+            # Breeding still uses the legacy tensor/coordinate model API.
+            xunp, _ = cast(Callable, self.model)(xunp, coords)
+            xper, _ = cast(Callable, self.model)(xper, coords)
             dx = xper - xunp
 
             hem_norm = self.hemispheric_norm(dx, device)

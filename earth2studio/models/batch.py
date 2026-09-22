@@ -26,6 +26,7 @@ import torch
 import xarray as xr
 
 from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import _BATCH_METADATA_KEY
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 FuncType = Callable[..., Any]
@@ -42,6 +43,14 @@ class batch_func:
     tensors. Leading dimensions are flattened into ``batch`` and restored on each
     output, including auxiliary coordinates. Dictionary coordinates remain supported
     for models whose input signatures are dictionaries.
+
+    DataArray methods take one DataArray followed by optional pass-through arguments
+    and return or yield a DataArray. The input signature must start with ``batch``;
+    all remaining signature dimensions are fixed trailing dimensions. Leading input
+    dimensions are packed with ``.e2s.batch()`` and restored with ``.e2s.unbatch()``.
+    This preserves leading labels and auxiliary coordinates even if the model drops
+    attributes. Output batch size must remain unchanged. Coordinates spanning both
+    packed and fixed dimensions are rejected by the accessor.
 
     Note
     ----
@@ -75,8 +84,115 @@ class batch_func:
 
     def __call__(self, func: F) -> Callable:
         if inspect.isgeneratorfunction(func):
-            return self._batch_wrap_generator(func)
-        return self._batch_wrap(func)
+            legacy = self._batch_wrap_generator(func)
+            arrays = self._array_wrap_generator(func)
+        else:
+            legacy = self._batch_wrap(func)
+            arrays = self._array_wrap(func)
+
+        @functools.wraps(func)
+        def _dispatch(model: Any, *args: Any, **kwargs: Any) -> Any:
+            if args and isinstance(args[0], xr.DataArray):
+                return arrays(model, *args, **kwargs)
+            if not args and isinstance(kwargs.get("x"), xr.DataArray):
+                return arrays(model, **kwargs)
+            return legacy(model, *args, **kwargs)
+
+        return _dispatch
+
+    def _compress_array(
+        self, model: Any, x: xr.DataArray
+    ) -> tuple[xr.DataArray, Callable[[xr.DataArray], xr.DataArray]]:
+        signature = model.input_coords()
+        if not isinstance(signature, xr.DataArray) or signature.dims[0] != "batch":
+            raise ValueError("Model signature must have leading batch dimension")
+        fixed = signature.dims[1:]
+        count = x.ndim - len(fixed)
+        if count < 0 or x.dims[count:] != fixed:
+            raise ValueError(f"Input dimensions must end in {fixed}")
+        leading = x.dims[:count]
+        batch_coordinate = None
+        if "batch" in x.coords and "batch" not in x.dims:
+            batch_coordinate = x.coords["batch"].variable.copy(deep=True)
+            x = x.drop_vars("batch")
+        if not leading:
+            packed = x.expand_dims(batch=[0])
+            metadata = None
+            temporary = "batch"
+        else:
+            temporary = "_model_batch"
+            while temporary in x.dims or temporary in x.coords:
+                temporary += "_"
+            packed = x.e2s.batch(leading, batch_dim=temporary)
+            metadata = packed.attrs[_BATCH_METADATA_KEY]
+            packed = packed.rename({temporary: "batch"})
+        size = packed.sizes["batch"]
+        # Keep restoration state outside model metadata: model arithmetic may drop attrs.
+        packed.attrs = {
+            key: value
+            for key, value in packed.attrs.items()
+            if key != _BATCH_METADATA_KEY
+        }
+
+        def restore(out: xr.DataArray) -> xr.DataArray:
+            if not isinstance(out, xr.DataArray):
+                raise TypeError("Batched model must return a DataArray")
+            if not out.dims or out.dims[0] != "batch" or out.sizes["batch"] != size:
+                raise ValueError("Batch dimension size must be preserved by the model")
+            if "batch" not in out.coords or not np.array_equal(
+                out.coords["batch"].values, np.arange(size)
+            ):
+                raise ValueError(
+                    "Batch coordinate order must be preserved by the model"
+                )
+            if metadata is None:
+                out = out.isel(batch=0, drop=True)
+            else:
+                out = out.rename({"batch": temporary})
+                out.attrs = {**out.attrs, _BATCH_METADATA_KEY: metadata}
+                out = out.e2s.unbatch()
+            if batch_coordinate is not None:
+                out = out.assign_coords(batch=batch_coordinate)
+            return out
+
+        return packed, restore
+
+    def _array_wrap(self, func: Callable) -> Callable:
+        @functools.wraps(func)
+        def _wrapper(
+            model: Any, x: xr.DataArray, *args: Any, **kwargs: Any
+        ) -> xr.DataArray:
+            packed, restore = self._compress_array(model, x)
+            return restore(func(model, packed, *args, **kwargs))
+
+        return _wrapper
+
+    def _array_wrap_generator(self, func: Callable) -> Callable:
+        @functools.wraps(func)
+        def _wrapper(
+            model: Any, x: xr.DataArray, *args: Any, **kwargs: Any
+        ) -> Iterator[xr.DataArray]:
+            packed, restore = self._compress_array(model, x)
+            gen = func(model, packed, *args, **kwargs)
+            try:
+                response = next(gen)
+                while True:
+                    output = restore(response)
+                    try:
+                        request = yield output
+                    except GeneratorExit:
+                        gen.close()
+                        raise
+                    except BaseException as exc:
+                        response = gen.throw(exc)
+                    else:
+                        response = gen.send(request)
+            except StopIteration as exc:
+                return exc.value
+            finally:
+                gen.close()
+
+        return _wrapper
 
     def _compress_batch(
         self, model: Any, x: torch.Tensor, coords: CoordSystem | CoordinateSystem

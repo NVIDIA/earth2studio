@@ -15,8 +15,8 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
-from typing import Protocol
+from collections.abc import Callable, Generator, Iterator
+from typing import Protocol, cast
 
 import numpy as np
 import torch
@@ -500,7 +500,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         x : torch.Tensor
         coords : CoordSystem
         """
-        px_x, px_coords = self.px_model(x, coords)
+        # This wrapper still requires the legacy tensor/coordinate model API.
+        px_x, px_coords = cast(Callable, self.px_model)(x, coords)
         dx_x = []
         dx_coords = []
         for model, prepare_dx_input in zip(self.dx_model, self.prepare_dx_input_tensor):
@@ -532,7 +533,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Iterator that generates time-steps of the prognostic model container the
             output data tensor and coordinate system dictionary.
         """
-        for px_x, px_coords in self.px_model.create_iterator(x, coords):
+        for px_x, px_coords in cast(Callable, self.px_model.create_iterator)(x, coords):
             dx_x = []
             dx_coords = []
             for model, prepare_dx_input in zip(
