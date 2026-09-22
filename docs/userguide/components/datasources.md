@@ -91,16 +91,43 @@ so users should explore and test different ones if possible.
 
 ### `earth2studio.data.fetch_data`
 
-The `fetch_data` function is useful for getting a PyTorch tensor and
-coordinate system for a given model.
-This utility fetches data for an array of times and lead times for the specified
-variables.
-For example, in the deterministic workflow `earth2studio.run.deterministic`, it is
-used to get the initial state for the provided prognostic.
+`fetch_data` returns an Xarray **field DataArray** with dimensions
+`[time, lead_time, variable, ...]`. Values are NumPy-backed on CPU and CuPy-backed
+when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordinates,
+the array name, and source attributes travel with the values.
+
+Use qualified variable labels to request temporal statistics.
+The source grid is preserved; spatial regridding is deferred.
 
 ```python
---8<-- "earth2studio/run.py:fetch-data"
+import numpy as np
+
+from earth2studio.data import fetch_data
+field = fetch_data(
+    source,
+    np.array([np.datetime64("2024-01-02T00")]),
+    np.array(["t2m:mean:24h"]),
+    delta_t=np.timedelta64(6, "h"),
+)
 ```
+
+Here `source` is an analysis or forecast source providing instantaneous `t2m`.
+The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
+left-closed and right-open. The cadence defaults to `source.time_step` when
+available; otherwise provide `delta_t` explicitly. Qualified variable labels
+such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
+Output `earth2studio_statistics` describes the reductions actually performed.
+Already aggregated source variables cannot be reduced again.
+
+`ARCO_ERA5.time_step` is `np.timedelta64(1, "h")`, so ARCO statistics requests
+use hourly samples automatically without an explicit `delta_t`.
+
+Analysis sources fetch absolute valid timestamps, while forecast sources reduce
+lead times separately for each initialization. Missing or duplicate reduction
+samples raise an error.
+
+The former tuple return and `legacy` argument have been removed. Access values
+through `field.data` and coordinates through `field.coords`.
 
 ### `earth2studio.data.prep_data_array`
 

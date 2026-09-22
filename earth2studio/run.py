@@ -149,8 +149,8 @@ def deterministic(
             variable=prognostic_ic["variable"],
             lead_time=prognostic_ic["lead_time"],
             device=device,
-            interp_to=interp_to,
-            interp_method=interp_method,
+            target_grid=interp_to,
+            regridder=interp_method,
         )
 
         logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -304,8 +304,8 @@ def diagnostic(
             variable=prognostic_ic["variable"],
             lead_time=prognostic_ic["lead_time"],
             device=device,
-            interp_to=interp_to,
-            interp_method=interp_method,
+            target_grid=interp_to,
+            regridder=interp_method,
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -419,8 +419,8 @@ def ensemble(
         variable=prognostic_ic["variable"],
         lead_time=prognostic_ic["lead_time"],
         device=device,
-        interp_to=interp_to,
-        interp_method=interp_method,
+        target_grid=interp_to,
+        regridder=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 

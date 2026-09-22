@@ -354,7 +354,7 @@ def load_verification_data(
         time=np.array([ic]),
         variable=np.array([variable]),
         lead_time=fcst_coords["lead_time"],
-        interp_to=interp_coords,
+        target_grid=interp_coords,
         device=device,
     )
 
