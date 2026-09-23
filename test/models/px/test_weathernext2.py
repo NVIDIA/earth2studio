@@ -307,9 +307,7 @@ def test_weathernext2_from_dataarray_batched(n_batch, mock_weathernext2_model):
     coords["batch"] = np.arange(n_batch)
     coords["time"] = TEST_TIME
     shape = tuple(len(v) for v in coords.values())
-    data = xr.DataArray(
-        torch.randn(*shape, dtype=torch.float32).numpy(), coords=coords
-    )
+    data = xr.DataArray(torch.randn(*shape, dtype=torch.float32).numpy(), coords=coords)
 
     out, _ = model.from_dataarray_to_dataset(data, 6)
 
