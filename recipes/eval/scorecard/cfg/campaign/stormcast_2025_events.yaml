@@ -1,0 +1,188 @@
+# @package _global_
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ---------------------------------------------------------------------------
+# StormCast — event scorecard, HRRR 2025, 8-member ensemble, scored online,
+# with nothing but the scores written to disk.
+#
+# StormCast (v1) is a km-scale generative model on a 512 x 640 window of
+# the HRRR grid over the central United States, stepping 1 h.  Its skill is
+# most interesting during severe convective episodes, so this campaign is
+# built from events (scoring.events) rather than a monthly rotation: each
+# event adds one initial condition every 3 h from 12 h before its window
+# to its end, and every lead time out to 12 h has valid times inside the
+# window.  The model domain itself is the event region (`region: global`);
+# boxes on the HRRR grid would use its projection coordinates, `hrrr_y`
+# and `hrrr_x` in metres, not latitude and longitude.
+#
+# Everything streams during inference: HRRR analyses (AWS) for initial
+# conditions and truth (ic_source / verification_source), ERA5 (ARCO) for
+# the 26 global conditioning fields (conditioning_mode: live), all with
+# cache: false.  There are no predownload stores; the artifacts are
+# stats.zarr (sufficient statistics, tens of MB) and the derived
+# scores.zarr.  Each rank fetches through its own temporary data cache, so
+# ranks pulling the same fields at once never trip over HRRR's temporary
+# files.  The verification source is cropped to the model window by the
+# pipeline; the initial-condition fetch selects the window itself.
+#
+# This run serves as the model's main scorecard: export_scores.py falls
+# back to <model>_2025_events when there is no <model>_2025_scorecard run,
+# so `python export_scores.py stormcast --docs` writes the main file (all
+# event initial conditions pooled) plus eval_scores_stormcast_events.json.
+#
+# Cost: 20 initial conditions x 8 members x 12 steps, about a minute of
+# inference per initial condition on one 8-GPU node plus the live fetches
+# (roughly 2.5 min per initial condition all in).
+#
+# Run (from the scorecard directory; no predownload stage):
+#   python run_scorecard.py stormcast_2025_events infer score
+#   python export_scores.py stormcast --docs --upload
+# ---------------------------------------------------------------------------
+defaults:
+    - override /model: null   # self-contained: the model is defined below
+
+project: stormcast
+run_id: 2025_events
+
+pipeline:
+    _target_: scorecard.utils.pipelines.RegionalForecastPipeline
+    # Global conditioning, streamed from ARCO during inference.
+    conditioning_source:
+        _target_: earth2studio.data.ARCO_ERA5
+        cache: false
+        verbose: false
+    conditioning_mode: live
+
+model:
+    architecture: earth2studio.models.px.StormCast
+    # Default package: hf://nvidia/stormcast-v1-era5-hrrr.  Set HF_TOKEN if
+    # anonymous pulls from a shared egress IP hit the Hugging Face rate limit.
+    load_args:
+        conditioning_data_source: null   # attached by the pipeline
+        sampler_steps: 18
+
+# Initial conditions come from scoring.events below.
+start_times: null
+
+nsteps: 12           # 12 x 1 h
+ensemble_size: 8     # one member per GPU on an 8-GPU node
+random_seed: 42
+resume: true
+# StormCast is a diffusion model: members differ through the sampler's
+# noise, seeded per member by the recipe.  No IC perturbation.
+perturbation: null
+
+# HRRR analyses, read live: initial conditions (ic_source) and truth
+# (verification_source).  With both set the recipe skips predownload.
+data_source:
+    _target_: earth2studio.data.HRRR
+    cache: false
+    verbose: false
+ic_source:
+    _target_: earth2studio.data.HRRR
+    cache: false
+    verbose: false
+verification_source:
+    _target_: earth2studio.data.HRRR
+    cache: false
+    verbose: false
+
+require_predownload: false
+predownload:
+    verification:
+        enabled: false   # nothing to predownload
+
+output:
+    path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/stormcast/outputs}/${project}_${run_id}
+    overwrite: false     # paired with resume: true
+    retain: none         # no raw forecast store
+    thread_writers: 4
+    chunks:
+        time: 1
+        lead_time: 1
+    # Names follow the checkpoint's own variable list (sea-level pressure
+    # is `mslp` there, not `msl`).  Truth is fetched for these only.
+    variables:
+        - refc
+        - t2m
+        - u10m
+        - v10m
+        - mslp
+
+scoring:
+    mode: online
+    variables: ${output.variables}
+    lat_weights: false   # Lambert-conformal grid: uniform weights
+    # The whole model domain is the only split; every event scores on it.
+    regions:
+        global: null
+    online:
+        members_per_rank: 1
+        mae: true
+        lsd: false       # spectral metric: lat/lon grids only
+    resume: true
+
+    # Severe convective episodes of 2025 inside the StormCast domain
+    # (roughly 32-45 N, 108-87 W).  Windows are inclusive, in UTC, and span
+    # the convective afternoon through the following morning.  Each event
+    # adds one initial condition every 3 h from 12 h before its window to
+    # its end: 10 per event here.
+    events:
+        mar14_missouri_arkansas:
+            label: "14 March 2025 (Missouri, Arkansas)"
+            start: "2025-03-14 18:00:00"
+            end: "2025-03-15 09:00:00"
+            region: global
+            window: valid
+            ics: {step_hours: 3, lookback_hours: 12}
+        apr02_mid_south:
+            label: "2 April 2025 (Mid-South)"
+            start: "2025-04-02 18:00:00"
+            end: "2025-04-03 09:00:00"
+            region: global
+            window: valid
+            ics: {step_hours: 3, lookback_hours: 12}
+        # Two more events of the season; add them back to extend the
+        # campaign:
+        # may16_st_louis:
+        #     label: "16 May 2025 (St. Louis)"
+        #     start: "2025-05-16 18:00:00"
+        #     end: "2025-05-17 06:00:00"
+        #     region: global
+        #     window: valid
+        #     ics: {step_hours: 3, lookback_hours: 12}
+        # may18_central_plains:
+        #     label: "18-19 May 2025 (Kansas, Oklahoma)"
+        #     start: "2025-05-18 18:00:00"
+        #     end: "2025-05-20 06:00:00"
+        #     region: global
+        #     window: valid
+        #     ics: {step_hours: 3, lookback_hours: 12}
+
+# The markdown report has no event windowing; it summarizes the run's
+# initial conditions as a whole.  The event curves live in the JSON export.
+report:
+    title: "StormCast event scorecard — HRRR 2025 (8 members)"
+    projection: hrrr_lambert
+    figure_format: png
+    sections:
+        - type: summary_table
+          lead_times: ["1 hours", "3 hours", "6 hours", "12 hours"]
+          collapsed: false
+        - type: lead_time_curves
+          collapsed: true
+    variable_groups:
+        10m_wind: [u10m, v10m]
