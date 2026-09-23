@@ -28,7 +28,6 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.da import utils_gpsro
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import filter_time_range
 from earth2studio.utils.imports import (
@@ -127,8 +126,6 @@ _QC_HEIGHT_MAX = 60000.0
 _QC_PRESSURE_MIN_GPS = 0.5
 _QC_PRESSURE_MIN_DEFAULT = 200.0
 _QC_PRESSURE_MAX = 1100.0
-# HealDA training rejected occultations with this WMO 0-33-039 QFRO bit set.
-_GPSRO_REJECT_QFRO_BITS = (5,)
 
 # Per-conv-channel valid ranges (name, min_valid, max_valid)
 _CONV_CHANNEL_RANGES = [
@@ -260,18 +257,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "lon": np.empty(0, dtype=np.float32),
                 "observation": np.empty(0, dtype=np.float32),
                 "variable": np.array(
-                    [
-                        "u",
-                        "v",
-                        "q",
-                        "t",
-                        "pres",
-                        "gps",
-                        "gps_t",
-                        "gps_q",
-                        "gps_refractivity",
-                    ],
-                    dtype=str,
+                    ["u", "v", "q", "t", "pres", "gps", "gps_t", "gps_q"], dtype=str
                 ),
                 "type": np.empty(0, dtype=np.uint16),
                 "elev": np.empty(0, dtype=np.float32),
@@ -669,41 +655,17 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         df : pd.DataFrame
-            Raw conventional observation DataFrame from ``UFSObsConv``,
-            ``NNJAObsConv`` or ``NNJAObsSatwnd``
+            Raw conventional observation DataFrame from UFSObsConv
 
         Returns
         -------
         pd.DataFrame
             Standardized DataFrame with unified column schema
-
-        Note
-        ----
-        GPS-RO occultations with QFRO bit 5 set are rejected when a ``quality``
-        column is present, and ``gps`` rows get their pressure/height from the
-        occultation's ``gps_refractivity`` rows (which are then dropped).
         """
 
-        unknown_vars = (
-            set(df["variable"].unique())
-            - set(CONV_VAR_CHANNEL.keys())
-            - {utils_gpsro.GPS_REFRACTIVITY_VARIABLE}
-        )
+        unknown_vars = set(df["variable"].unique()) - set(CONV_VAR_CHANNEL.keys())
         if unknown_vars:
             raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")
-
-        if "quality" in df.columns:
-            is_gps_family = (
-                df["variable"]
-                .isin([utils_gpsro.GPS_VARIABLE, utils_gpsro.GPS_REFRACTIVITY_VARIABLE])
-                .to_numpy()
-            )
-            quality = df["quality"].to_numpy(dtype=np.float64, na_value=np.nan)
-            rejected: np.ndarray = np.zeros(len(df), dtype=bool)
-            for bit in _GPSRO_REJECT_QFRO_BITS:
-                rejected |= utils_gpsro.qfro_bit_set(quality, bit)
-            df = df.loc[~(is_gps_family & rejected)]
-        df = utils_gpsro.assign_gpsro_coordinates(df)
 
         # HealDA v1 was trained with pressure values in hPa, while Earth2Studio
         # conventional data sources provide pressure-like fields in Pa.

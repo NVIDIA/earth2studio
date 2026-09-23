@@ -579,12 +579,13 @@ def test_extract_gpsro_subset_missing_bending_angle_does_not_emit_error():
     assert rows == []
 
 
-def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values():
+def test_extract_gpsro_subset_missing_level_lat_falls_back_to_reference_point():
     subset_stream = [
         (utils_ncep.GPSRO_SAID, 3),
         (utils_ncep.GPSRO_PTID, 27),
         (utils_ncep.GPSRO_QFRO, 12),
         (utils_ncep.GPSRO_ELRC, 6_371_000.0),
+        (utils_ncep.GPSRO_GEODU, 12.5),
         (utils_ncep.GPSRO_LAT, -10.5),
         (utils_ncep.GPSRO_LON, -70.25),
         (utils_ncep.GPSRO_YEAR, 2024),
@@ -599,8 +600,8 @@ def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values(
         (utils_ncep.GPSRO_IMPP, 6_373_000.0),
         (utils_ncep.GPSRO_BNDA, 0.00123),
         (utils_ncep.GPSRO_BNDA, 0.00045),
-        # A missing per-level latitude must clear state so the next observation
-        # does not reuse -9.75 from the previous bending-angle block.
+        # A missing per-level latitude falls back to the occultation's reference
+        # latitude rather than reusing -9.75 from the previous level.
         (utils_ncep.GPSRO_LAT, None),
         (utils_ncep.GPSRO_LON, -68.5),
         (utils_ncep.GPSRO_MEFR, 0.0),
@@ -619,10 +620,16 @@ def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values(
         datetime(2024, 1, 1, 1),
     )
 
-    assert len(rows) == 1
+    assert len(rows) == 2
     assert rows[0]["lat"] == pytest.approx(np.float32(-9.75))
     assert rows[0]["lon"] == pytest.approx(np.float32(290.5))
-    assert rows[0]["observation"] == pytest.approx(np.float32(0.00123))
+    assert rows[1]["lat"] == pytest.approx(np.float32(-10.5))
+    assert rows[1]["lon"] == pytest.approx(np.float32(291.5))
+    assert rows[1]["observation"] == pytest.approx(np.float32(0.00234))
+    assert rows[1]["elev"] == pytest.approx(np.float32(3000.0))
+    for row in rows:
+        assert row["radius_curvature"] == 6_371_000.0
+        assert row["geoid_undulation"] == 12.5
 
 
 def test_finalize_rows_filters_and_converts_pressure():

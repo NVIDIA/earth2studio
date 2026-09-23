@@ -76,6 +76,7 @@ GPSRO_SAID = 1007
 GPSRO_PTID = 1050
 GPSRO_QFRO = 33039
 GPSRO_ELRC = 10035
+GPSRO_GEODU = 10036
 GPSRO_LAT = 5001
 GPSRO_LON = 6001
 GPSRO_YEAR = 4001
@@ -156,6 +157,25 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
             nullable=True,
             metadata={"description": "PrepBUFR pressure quality mark (PQM)"},
         ),
+        pa.field(
+            "radius_curvature",
+            pa.float64(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "GPSRO local Earth radius of curvature (ELRC, m); null for "
+                    "other rows"
+                )
+            },
+        ),
+        pa.field(
+            "geoid_undulation",
+            pa.float64(),
+            nullable=True,
+            metadata={
+                "description": "GPSRO geoid undulation (GEODU, m); null for other rows"
+            },
+        ),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
     ]
@@ -192,6 +212,8 @@ _NULL_FLOAT_DTYPES: dict[str, type[np.floating[Any]]] = {
     "pres": np.float32,
     "elev": np.float32,
     "station_elev": np.float32,
+    "radius_curvature": np.float64,
+    "geoid_undulation": np.float64,
     "lat": np.float32,
     "lon": np.float32,
     "observation": np.float32,
@@ -534,14 +556,17 @@ def _extract_gpsro_subset(
     """Extract the requested per-level fields from one occultation.
 
     ``BNDA`` (bending angle) rows take the MEFR=0 first-slot value with
-    ``elev`` = impact parameter minus Earth radius of curvature. ``ARFR``
-    (refractivity) rows take the first-slot value with ``elev`` = the level's
-    ``HEIT``. Both leave ``pres`` null; no vertical coordinate is derived.
+    ``elev`` = impact parameter minus Earth radius of curvature and the level's
+    tangent point, or the occultation's reference point where the level has none.
+    ``ARFR`` (refractivity) rows take the first-slot value with ``elev`` = the
+    level's ``HEIT`` at the reference point. Both leave ``pres`` null and carry the
+    occultation's ``ELRC``/``GEODU``; no vertical coordinate is derived.
     """
     sat_id: Any = None
     transmitter_id: Any = None
     quality_flag: Any = None
     radius: float | None = None
+    geoid: float | None = None
     lat: float | None = None
     lon: float | None = None
     year = month = day = hour = minute = None
@@ -556,9 +581,13 @@ def _extract_gpsro_subset(
             quality_flag = value
         elif descriptor_id == GPSRO_ELRC and value is not None:
             radius = float(value)
-        elif descriptor_id == GPSRO_LAT and value is not None:
+        elif descriptor_id == GPSRO_GEODU and value is not None:
+            geoid = float(value)
+        # The occultation reference point is the first CLATH/CLONH; later ones,
+        # still ahead of the first IMPP, belong to the first level.
+        elif descriptor_id == GPSRO_LAT and value is not None and lat is None:
             lat = float(value)
-        elif descriptor_id == GPSRO_LON and value is not None:
+        elif descriptor_id == GPSRO_LON and value is not None and lon is None:
             lon = float(value)
         elif descriptor_id == GPSRO_YEAR and value is not None:
             year = int(value)
@@ -600,8 +629,8 @@ def _extract_gpsro_subset(
     )
     current_impact: float | None = None
     current_frequency: float | None = None
-    current_lat: float | None = lat
-    current_lon: float | None = lon
+    current_lat: float = lat
+    current_lon: float = lon
     current_height: float | None = None
     bnda_slot = 0
     arfr_slot = 0
@@ -629,6 +658,8 @@ def _extract_gpsro_subset(
                 np.uint16(int(quality_flag)) if quality_flag is not None else None
             ),
             "pressure_quality": None,
+            "radius_curvature": radius,
+            "geoid_undulation": geoid,
             "observation": None,
             "variable": variable,
         }
@@ -644,9 +675,9 @@ def _extract_gpsro_subset(
             arfr_slot += 1
         if value is None:
             if descriptor_id == GPSRO_LAT:
-                current_lat = None
+                current_lat = lat
             elif descriptor_id == GPSRO_LON:
-                current_lon = None
+                current_lon = lon
             elif descriptor_id == GPSRO_IMPP:
                 current_impact = None
             elif descriptor_id == GPSRO_MEFR:
@@ -697,8 +728,6 @@ def _extract_gpsro_subset(
         if current_frequency is None or round(current_frequency) != 0 or bnda_slot != 1:
             continue
         if current_impact is None or radius is None:
-            continue
-        if current_lat is None or current_lon is None:
             continue
         # Impact height = impact parameter - local radius of curvature.
         row = make_row(

@@ -159,7 +159,10 @@ class NNJAObsConv:
     ``elev`` is impact parameter minus Earth radius of curvature for ``gps``
     rows. The ``gps_refractivity`` variable exposes the message's refractivity
     levels (``ARFR``, N-units) with ``elev`` set to the level height (``HEIT``)
-    so consumers can derive their own vertical coordinate. No retrieval
+    so consumers can derive their own vertical coordinate. Both carry the
+    occultation's ``radius_curvature`` (``ELRC``) and ``geoid_undulation``
+    (``GEODU``); a level without its own tangent point sits at the
+    occultation's reference point. No retrieval
     product is read.
 
     Parameters

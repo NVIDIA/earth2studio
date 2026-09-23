@@ -22,7 +22,6 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.models.da import utils_gpsro
 from earth2studio.models.da.healda import (
     ALL_SENSORS,
     E2S_CHANNELS,
@@ -345,86 +344,6 @@ def test_healda_input_coords():
     assert "lat" in sat_schema
     assert "observation" in sat_schema
     assert "sensor_index" in sat_schema
-
-
-_GPS_GEOMETRIC = [2_000.0, 10_000.0, 40_000.0]
-_GPS_PROFILE_HEIGHT = np.arange(0.0, 60_001.0, 200.0)
-_GPS_PROFILE_N = 300.0 * np.exp(-_GPS_PROFILE_HEIGHT / 7_000.0)
-
-
-def _gps_conv_df(qfro: int) -> pd.DataFrame:
-    t = pd.Timestamp("2024-01-01T00:30:00")
-
-    def gps_row(variable, elev, obs):
-        return {
-            "time": t,
-            "lat": np.float32(-10.5),
-            "lon": np.float32(289.75),
-            "observation": np.float32(obs),
-            "variable": variable,
-            "type": 3,
-            "station": "00030027",
-            "quality": qfro,
-            "elev": np.float32(elev),
-            "pres": np.float32(np.nan),
-        }
-
-    rows = [gps_row("gps", h, 0.01) for h in _GPS_GEOMETRIC]
-    rows += [
-        gps_row("gps_refractivity", h, n)
-        for h, n in zip(_GPS_PROFILE_HEIGHT, _GPS_PROFILE_N)
-    ]
-    rows.append(
-        {
-            "time": t,
-            "lat": np.float32(40.0),
-            "lon": np.float32(255.0),
-            "observation": np.float32(280.0),
-            "variable": "t",
-            "type": 120,
-            "station": "72469",
-            "quality": 2,
-            "elev": np.float32(1_500.0),
-            "pres": np.float32(85_000.0),
-        }
-    )
-    return pd.DataFrame(rows)
-
-
-def test_prep_conv_derives_gpsro_coordinates_from_refractivity():
-    model = _build_model()
-    out = model.prep_conv(_gps_conv_df(qfro=0))
-
-    gps = out[out["local_channel"] == 0]
-    assert len(gps) == 3
-    assert len(out) == 4  # refractivity rows consumed, ``t`` row kept
-    expected_p, expected_h = utils_gpsro.gpsro_level_coordinates(
-        np.array(_GPS_GEOMETRIC) + 6_371_000.0,
-        6_371_000.0,
-        _GPS_PROFILE_HEIGHT,
-        _GPS_PROFILE_N,
-    )
-    assert np.all(np.isfinite(gps["pressure"].to_numpy()))
-    assert np.all(gps["height"].to_numpy() < np.array(_GPS_GEOMETRIC))
-    np.testing.assert_allclose(gps["height"].to_numpy(), expected_h, rtol=1e-6)
-    np.testing.assert_allclose(gps["pressure"].to_numpy(), expected_p, rtol=1e-5)
-
-    t_row = out[out["local_channel"] == 5].iloc[0]
-    assert t_row["pressure"] == pytest.approx(850.0)
-    assert t_row["height"] == pytest.approx(1_500.0)
-
-
-def test_prep_conv_rejects_gpsro_with_qfro_bit5():
-    model = _build_model()
-    out = model.prep_conv(_gps_conv_df(qfro=2048))
-    assert len(out) == 1
-    assert out.iloc[0]["local_channel"] == 5
-
-
-def test_prep_conv_keeps_gpsro_with_other_qfro_bits():
-    model = _build_model()
-    out = model.prep_conv(_gps_conv_df(qfro=32768))
-    assert (out["local_channel"] == 0).sum() == 3
 
 
 def test_healda_output_coords():

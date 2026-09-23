@@ -34,10 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   views with baseline overlays; GraphCast and Atlas CRPS added
 - Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
   the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
-  height (`HEIT`)
-- `HealDA` now derives a GPS-RO pressure/height coordinate per occultation from
-  `gps_refractivity` rows (`earth2studio.models.da.utils_gpsro`) and rejects
-  occultations with `QFRO` bit 5 set when a `quality` column is present
+  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
+  (`GEODU`) columns on GPS-RO rows
 
 ### Changed
 
@@ -69,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
+  without their own tangent point, placing them at the occultation's reference
+  point instead of dropping them
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
   `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
   analysis stable (the old defaults could diverge to non-finite output).
