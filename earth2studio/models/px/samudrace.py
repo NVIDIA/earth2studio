@@ -23,11 +23,11 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
+from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.data.base import DataSource
 from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.samudrace import SamudrACELexicon
-from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import DataArrayPrognosticMixin

@@ -21,9 +21,9 @@ from typing import Protocol, cast
 import numpy as np
 import torch
 import xarray as xr
+from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.grids import infer_grid
-from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin

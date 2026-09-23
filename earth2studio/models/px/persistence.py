@@ -22,9 +22,9 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
+from earth2studio.models._array_utils import _resolve_domain
 
 from earth2studio.grids import GridDefinition
-from earth2studio.models._array_utils import _resolve_domain
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.checkpoint import bind_checkpoint_state

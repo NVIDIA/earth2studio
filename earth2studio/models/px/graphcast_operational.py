@@ -22,10 +22,10 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
+from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.wb2 import WB2Lexicon
-from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import (

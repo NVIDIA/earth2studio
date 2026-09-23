@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
+from earth2studio.models._array_utils import _registered_grid
 from loguru import logger
 
 from earth2studio.data import ACE2ERA5Data
@@ -31,7 +32,6 @@ from earth2studio.data.base import DataSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.ace import ACELexicon
-from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
