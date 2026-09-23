@@ -27,7 +27,9 @@ except ImportError:
     pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models import px
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
+from earth2studio.models.px import aurora1p5 as aurora_module
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
 from earth2studio.utils import handshake_dim
 
@@ -301,13 +303,16 @@ def test_aurora1p5_ensemble_iter(n_members, device):
             break
 
 
-@pytest.mark.parametrize("stride,expected_n", [(1, 6), (2, 3), (3, 2), (6, 1)])
-def test_aurora1p5_ensemble_noise_accumulation_cache_size(stride, expected_n):
+@pytest.mark.parametrize(
+    "model_name,expected_n",
+    [("Aurora1p5Ensemble", 6), ("Aurora1p5Ensemble_6h", 1)],
+)
+def test_aurora1p5_ensemble_noise_accumulation_cache_size(model_name, expected_n):
     """create_iterator sizes the noise cache to the sub-steps per AR cycle and
     disables accumulation again once the iterator is closed."""
     core = PhooAurora1p5EnsembleModel()
     static_vars = {k: torch.ones(_H, _W) for k in _STATIC_KEYS}
-    p = Aurora1p5Ensemble(core, static_vars, lead_time_stride_hours=stride)
+    p = getattr(px, model_name)(core, static_vars)
 
     time = np.array([np.datetime64("1993-04-05T00:00")])
     dc = p.input_coords()
@@ -327,6 +332,92 @@ def test_aurora1p5_ensemble_noise_accumulation_cache_size(stride, expected_n):
 
     p_iter.close()
     assert core.noise_accumulation_calls == [expected_n, 0]
+
+
+_VARIANTS = [
+    ("Aurora1p5", 1, False),
+    ("Aurora1p5Ensemble", 1, True),
+    ("Aurora1p5_6h", 6, False),
+    ("Aurora1p5Ensemble_6h", 6, True),
+]
+
+
+@pytest.mark.parametrize("model_name,step,ensemble", _VARIANTS)
+def test_aurora1p5_fixed_cadence(model_name, step, ensemble):
+    assert hasattr(px, model_name)
+    model_cls = getattr(px, model_name)
+    assert model_cls.__bases__ == (aurora_module._Aurora,)
+    core = PhooAurora1p5EnsembleModel() if ensemble else PhooAurora1p5Model()
+    p = model_cls(core, {})
+    for target in (p._input_coords, p._output_coords):
+        target["lat"] = np.linspace(90, -90, 4, endpoint=False)
+        target["lon"] = np.linspace(0, 360, 8, endpoint=False)
+    coords = p.input_coords()
+    coords["batch"] = np.arange(2)
+    coords["time"] = np.array([np.datetime64("2023-01-01T00:00")])
+    coords["lead_time"] = np.array([6, 12], dtype="timedelta64[h]")
+    x = torch.zeros(2, 1, 2, 83, 4, 8)
+    calls = []
+
+    original_forward = core.forward
+
+    def forward(batch, lead_times):
+        calls.append((batch.metadata.rollout_step, lead_times[0].item()))
+        return original_forward(batch, lead_times)
+
+    core.forward = forward
+    out, out_coords = p(x, coords)
+    assert out.shape == (2, 1, 1, 90, 4, 8)
+    assert out_coords["lead_time"][0] == np.timedelta64(12 + step, "h")
+    assert calls == [(0, step)]
+    calls.clear()
+
+    iterator = p.create_iterator(x, coords)
+    initial, initial_coords = next(iterator)
+    assert initial_coords["lead_time"][0] == np.timedelta64(12, "h")
+    assert torch.isnan(initial[..., 83:, :, :]).all()
+    for i in range(12 // step):
+        out, out_coords = next(iterator)
+        assert out_coords["lead_time"][0] == np.timedelta64(12 + (i + 1) * step, "h")
+        assert out.shape == (2, 1, 1, 90, 4, 8)
+    iterator.close()
+    assert calls == [(cycle, h) for cycle in range(2) for h in range(step, 7, step)]
+    if ensemble:
+        assert core.noise_accumulation_calls == [6 // step, 0]
+    np.testing.assert_array_equal(
+        coords["lead_time"], np.array([6, 12], dtype="timedelta64[h]")
+    )
+    with pytest.raises(TypeError):
+        model_cls(core, {}, lead_time_stride_hours=step)
+
+
+@pytest.mark.parametrize("model_name,step,ensemble", _VARIANTS)
+def test_aurora1p5_variant_load_model(model_name, step, ensemble, monkeypatch):
+    assert hasattr(px, model_name)
+    model_cls = getattr(px, model_name)
+    calls = []
+    core = PhooAurora1p5EnsembleModel() if ensemble else PhooAurora1p5Model()
+
+    def load(package, aurora_cls, checkpoint):
+        calls.append((package, aurora_cls, checkpoint))
+        return core, {}
+
+    monkeypatch.setattr(aurora_module, "_load_aurora1p5_from_package", load)
+    package = object()
+    p = model_cls.load_model(package)
+    assert type(p) is model_cls
+    expected_core = (
+        aurora_module.Aurora1p5Ensemble_model
+        if ensemble
+        else aurora_module.Aurora1p5_model
+    )
+    checkpoint = (
+        "aurora-0.25-v1.5-ensemble.ckpt" if ensemble else "aurora-0.25-v1.5.ckpt"
+    )
+    assert calls == [(package, expected_core, checkpoint)]
+    assert p._output_coords["lead_time"][0] == np.timedelta64(step, "h")
+    with pytest.raises(TypeError):
+        model_cls.load_model(package, lead_time_stride_hours=step)
 
 
 @pytest.fixture(scope="function")

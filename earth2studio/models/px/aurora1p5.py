@@ -18,7 +18,6 @@ import pickle
 from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
-from typing import Literal
 
 import numpy as np
 import torch
@@ -177,88 +176,16 @@ def _load_aurora1p5_from_package(
 
 # Adapted from https://microsoft.github.io/aurora/example_v1p5.html
 @check_optional_dependencies()
-class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """Aurora v1.5 0.25 degree global forecast model. This model is the improved
-    version of Aurora, featuring an expanded set of surface variables (18 vs 4)
-    and a richer set of static fields. It consists of a single auto-regressive
-    model with a base time-step of 6 hours, operating on a 0.25 degree lat-lon
-    grid (720, 1440) with 5 atmospheric variables across 13 pressure levels and
-    18 surface variables plus 7 output-only surface variables.
-
-    This wrapper uses an hourly rollout by default: the underlying 6-hour
-    auto-regressive step is queried at each integer lead time from t+1h to t+6h
-    before advancing the AR state. Set ``lead_time_stride_hours`` to change the
-    output cadence; ``lead_time_stride_hours=6`` skips the intermediate hourly
-    queries and only evaluates the model once per 6h AR cycle.
-
-    Note
-    ----
-    This model uses the checkpoints from the microsoft/aurora HuggingFace
-    repository. For additional information see the following resources:
-
-    - https://arxiv.org/abs/2405.13063
-    - https://github.com/microsoft/aurora
-    - https://huggingface.co/microsoft/aurora
-    - https://microsoft.github.io/aurora/example_v1p5.html
-
-    Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
-    analyses and as such recommended to be initialized with IFS analyses.
-    The open-data IFS does not publish sea ice concentration (``sic``).
-    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO_ERA5`
-    (which provide all required variables) may be used instead. GFS is not
-    supported due to missing surface variables.
-
-    Note
-    ----
-    The iterator yields the initial condition (h=0) first, as required by the
-    Earth2Studio convention. For the 7 output-only diagnostic variables
-    (``i10fg``, ``blh``, ``uvb1h``, ``ssrd1h``, ``ttr1h``, ``tp1h``,
-    ``sf1h``), the h=0 output contains ``NaN`` because the decoder has not run
-    at that step. All subsequent outputs (h≥1) contain real model predictions.
-
-    Warning
-    -------
-    We encourage users to familiarize themselves with the license restrictions of this
-    model's checkpoints.
-
-    Parameters
-    ----------
-    core_model : torch.nn.Module
-        Core Aurora1p5 model
-    static_vars : dict[str, torch.Tensor]
-        Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
-        Each tensor should have shape (720, 1440).
-    lead_time_stride_hours : {1, 2, 3, 6}, optional
-        Output cadence in hours; must evenly divide the 6h AR step. 1 queries
-        t+1h..t+6h per AR cycle; ``6`` makes a single t+6h evaluation per cycle,
-        by default 1
-
-    Badges
-    ------
-    region:global class:medium-range product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
-    provider:microsoft backend:pytorch
-    """
+class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    _STEP_HOURS: int = 1
+    _ENSEMBLE: bool = False
 
     def __init__(
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
-        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> None:
         super().__init__()
-
-        # check_optional_dependencies() erases the signature, so the Literal above
-        # is unenforced.
-        if (
-            lead_time_stride_hours <= 0
-            or int(_AR_STEP_HOURS) % lead_time_stride_hours != 0
-        ):
-            raise ValueError(
-                f"lead_time_stride_hours={lead_time_stride_hours} must be a "
-                f"positive integer that evenly divides the "
-                f"{int(_AR_STEP_HOURS):.0f}h AR step (e.g. 1, 2, 3, 6)."
-            )
-        self.lead_time_stride_hours = lead_time_stride_hours
 
         self.model = core_model
         self._static_var_keys = list(static_vars.keys())
@@ -282,7 +209,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "batch": np.empty(0),
                 "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(lead_time_stride_hours, "h")]),
+                "lead_time": np.array([np.timedelta64(self._STEP_HOURS, "h")]),
                 "variable": np.array(OUTPUT_VARIABLES),
                 "lat": np.linspace(90, -90, 720, endpoint=False),
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
@@ -358,7 +285,6 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -366,19 +292,22 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        lead_time_stride_hours : {1, 2, 3, 6}, optional
-            Hours between queries of the 6h auto-regressive step; see
-            :class:`Aurora1p5`, by default 1
 
         Returns
         -------
         PrognosticModel
             Prognostic model
         """
+        if cls._ENSEMBLE:
+            aurora_cls = Aurora1p5Ensemble_model
+            checkpoint = "aurora-0.25-v1.5-ensemble.ckpt"
+        else:
+            aurora_cls = Aurora1p5_model
+            checkpoint = "aurora-0.25-v1.5.ckpt"
         model, static_vars = _load_aurora1p5_from_package(
-            package, Aurora1p5_model, "aurora-0.25-v1.5.ckpt"
+            package, aurora_cls, checkpoint
         )
-        return cls(model, static_vars, lead_time_stride_hours=lead_time_stride_hours)
+        return cls(model, static_vars)
 
     def _compute_insolation(
         self,
@@ -541,12 +470,10 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 1 hour in the future
+            Output tensor and coordinate system one output time-step in the future
         """
         output_coords = self.output_coords(coords)
-        x = self._forward_sub_steps(
-            x, coords, lead_time_hours=[self.lead_time_stride_hours]
-        )[0]
+        x = self._forward_sub_steps(x, coords, lead_time_hours=[self._STEP_HOURS])[0]
         return x, output_coords
 
     @staticmethod
@@ -590,7 +517,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Compute t+stride, t+2*stride, ..., t+6h from the same AR input
             # pair [t-6h, t]. stride=6 evaluates only the AR boundary.
-            stride = self.lead_time_stride_hours
+            stride = self._STEP_HOURS
             lead_time_hours = list(range(stride, int(_AR_STEP_HOURS) + 1, stride))
             sub_preds = self._forward_sub_steps(
                 x, coords, lead_time_hours=lead_time_hours
@@ -639,20 +566,90 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Iterator that generates time-steps of the prognostic model containing
             the output data tensor and coordinate system dictionary.
         """
-        yield from self._default_generator(x, coords)
+        if not self._ENSEMBLE:
+            yield from self._default_generator(x, coords)
+            return
+
+        self._set_rng(self.seed)
+        # Set once: the FIFO noise cache rolls across AR cycles, not per-cycle.
+        n_substeps = int(_AR_STEP_HOURS) // self._STEP_HOURS
+        self.model.set_noise_accumulation(n=n_substeps)
+        try:
+            yield from self._default_generator(x, coords)
+        finally:
+            self.model.set_noise_accumulation(n=0)
+
+    def _set_rng(self, seed: int | None) -> None:
+        if seed is not None:
+            torch.manual_seed(seed)
+        self.model.reset_noise()
 
 
 @check_optional_dependencies()
-class Aurora1p5Ensemble(Aurora1p5):
+class Aurora1p5(_Aurora):
+    """Aurora v1.5 0.25 degree global forecast model with hourly output.
+
+    The underlying 6-hour auto-regressive model is queried at t+1h through
+    t+6h from the same input pair before advancing the AR state. Inputs are
+    two states six hours apart on a (720, 1440) grid, with 5 atmospheric
+    variables across 13 pressure levels and 18 surface variables. Outputs
+    include 7 additional diagnostic variables.
+
+    Note
+    ----
+    This model uses the checkpoints from the microsoft/aurora HuggingFace
+    repository. For additional information see:
+
+    - https://arxiv.org/abs/2405.13063
+    - https://github.com/microsoft/aurora
+    - https://huggingface.co/microsoft/aurora
+    - https://microsoft.github.io/aurora/example_v1p5.html
+
+    Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
+    analyses and is recommended to be initialized with IFS analyses.
+    The open-data IFS does not publish sea ice concentration (``sic``).
+    :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO_ERA5`
+    may be used instead. GFS is not supported due to missing surface variables.
+
+    The iterator yields the initial condition first. Its output-only variables
+    (``i10fg``, ``blh``, ``uvb1h``, ``ssrd1h``, ``ttr1h``, ``tp1h``, ``sf1h``)
+    contain ``NaN`` at that step; subsequent steps contain model predictions.
+    Use :class:`Aurora1p5_6h` for six-hourly output.
+
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions
+    of this model's checkpoints.
+
+    Parameters
+    ----------
+    core_model : torch.nn.Module
+        Core Aurora1p5 model
+    static_vars : dict[str, torch.Tensor]
+        Static field tensors, each with shape (720, 1440).
+
+    Badges
+    ------
+    region:global class:medium-range product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    provider:microsoft backend:pytorch
+    """
+
+    _STEP_HOURS = 1
+    _ENSEMBLE = False
+
+
+@check_optional_dependencies()
+class Aurora1p5Ensemble(_Aurora):
     """Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to
     :class:`Aurora1p5` except it uses the stochastic ensemble checkpoint, where
     each forward pass injects fresh Gaussian noise into the backbone conditioning
     context. Calling the model N times (or with a batch of N copies of the same
     initial condition) therefore produces N statistically independent members.
 
-    Like :class:`Aurora1p5`, this wrapper uses an hourly rollout by default,
-    leveraging the 6-hour base time-step to produce hourly lead times without
-    additional model evaluations per AR cycle.
+    Like :class:`Aurora1p5`, this wrapper produces hourly output using six
+    lead-time queries per 6-hour AR cycle. Use :class:`Aurora1p5Ensemble_6h`
+    for six-hourly output. The two cadences consume the RNG stream differently,
+    so the same seed does not produce matching trajectories between variants.
 
     Note
     ----
@@ -683,17 +680,6 @@ class Aurora1p5Ensemble(Aurora1p5):
         If specified, sets the random seed via :meth:`set_rng` at the start of
         each :meth:`create_iterator` call for reproducible stochastic noise.
         By default None (non-reproducible).
-    lead_time_stride_hours : {1, 2, 3, 6}, optional
-        Hours between queries of the 6h auto-regressive step; see
-        :class:`Aurora1p5`, by default 1
-
-        Warning
-        -------
-        Output is not sample-wise invariant to this stride.
-        :meth:`create_iterator` sizes the backbone noise cache to
-        ``6 // lead_time_stride_hours``, as ``aurora.rollout.rollout`` does,
-        so a different stride consumes the RNG stream differently and the same
-        seed gives different — not matching — trajectories.
 
     Badges
     ------
@@ -701,14 +687,16 @@ class Aurora1p5Ensemble(Aurora1p5):
     provider:microsoft backend:pytorch
     """
 
+    _STEP_HOURS = 1
+    _ENSEMBLE = True
+
     def __init__(
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
         seed: int | None = None,
-        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
     ) -> None:
-        super().__init__(core_model, static_vars, lead_time_stride_hours)
+        super().__init__(core_model, static_vars)
         self.seed = seed
 
     def set_rng(self, seed: int | None) -> None:
@@ -719,76 +707,87 @@ class Aurora1p5Ensemble(Aurora1p5):
         seed : int | None
             Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
         """
-        if seed is not None:
-            torch.manual_seed(seed)
-        self.model.reset_noise()
+        self._set_rng(seed)
 
-    @classmethod
-    def load_default_package(cls) -> Package:
-        """Load prognostic package"""
-        return Package(
-            "hf://microsoft/aurora@c171214768997594e1a3fc6b8d9bbb489e9d21ab",
-            cache_options={
-                "cache_storage": Package.default_cache("aurora1p5"),
-                "same_names": True,
-            },
-        )
 
-    @classmethod
-    @check_optional_dependencies()
-    def load_model(
-        cls,
-        package: Package,
-        lead_time_stride_hours: Literal[1, 2, 3, 6] = 1,
-    ) -> PrognosticModel:
-        """Load prognostic from package
+@check_optional_dependencies()
+class Aurora1p5_6h(_Aurora):
+    """Aurora v1.5 0.25 degree global forecast model with six-hourly output.
+
+    Uses the same checkpoint, input history and variables as :class:`Aurora1p5`,
+    but queries only t+6h per AR cycle. Both single-step calls and the iterator
+    advance six hours. Diagnostic variables suffixed ``1h`` retain their
+    one-hour accumulation windows; they are not six-hour totals.
+
+    See :class:`Aurora1p5` for checkpoint references, data source recommendations,
+    license information and initial-condition diagnostic handling.
+
+    Parameters
+    ----------
+    core_model : torch.nn.Module
+        Core Aurora1p5 model
+    static_vars : dict[str, torch.Tensor]
+        Static field tensors, each with shape (720, 1440).
+
+    Badges
+    ------
+    region:global class:medium-range product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    provider:microsoft backend:pytorch
+    """
+
+    _STEP_HOURS = 6
+    _ENSEMBLE = False
+
+
+@check_optional_dependencies()
+class Aurora1p5Ensemble_6h(_Aurora):
+    """Aurora v1.5 ensemble global forecast model with six-hourly output.
+
+    Uses the stochastic checkpoint of :class:`Aurora1p5Ensemble`, querying
+    only t+6h per AR cycle. Inputs and variables match :class:`Aurora1p5`.
+    Diagnostic variables suffixed ``1h`` retain their one-hour accumulation
+    windows; they are not six-hour totals. The iterator uses a single-entry
+    noise cache, so seeds do not give matching trajectories with the hourly
+    ensemble variant.
+
+    See :class:`Aurora1p5Ensemble` for checkpoint references, data source
+    recommendations and license information. Initial-condition diagnostic
+    handling is described in :class:`Aurora1p5`.
+
+    Parameters
+    ----------
+    core_model : torch.nn.Module
+        Core Aurora1p5Ensemble model (stochastic=True)
+    static_vars : dict[str, torch.Tensor]
+        Static field tensors, each with shape (720, 1440).
+    seed : int | None, optional
+        Seed applied at the start of each iterator for reproducible stochastic
+        noise, by default None
+
+    Badges
+    ------
+    region:global class:medium-range product:wind product:temp product:atmos product:precip product:land product:ocean product:solar year:2026 gpu:48gb
+    provider:microsoft backend:pytorch
+    """
+
+    _STEP_HOURS = 6
+    _ENSEMBLE = True
+
+    def __init__(
+        self,
+        core_model: torch.nn.Module,
+        static_vars: dict[str, torch.Tensor],
+        seed: int | None = None,
+    ) -> None:
+        super().__init__(core_model, static_vars)
+        self.seed = seed
+
+    def set_rng(self, seed: int | None) -> None:
+        """Seed the global RNG and reset the model's internal noise cache.
 
         Parameters
         ----------
-        package : Package
-            Package to load model from
-        lead_time_stride_hours : {1, 2, 3, 6}, optional
-            Hours between queries of the 6h auto-regressive step; see
-            :class:`Aurora1p5`, by default 1
-
-        Returns
-        -------
-        PrognosticModel
-            Prognostic model
+        seed : int | None
+            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
         """
-        model, static_vars = _load_aurora1p5_from_package(
-            package, Aurora1p5Ensemble_model, "aurora-0.25-v1.5-ensemble.ckpt"
-        )
-        return cls(
-            model,
-            static_vars,
-            lead_time_stride_hours=lead_time_stride_hours,
-        )
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model containing
-            the output data tensor and coordinate system dictionary.
-        """
-        self.set_rng(self.seed)
-        # Set once: the FIFO noise cache rolls across AR cycles, not per-cycle.
-        n_substeps = int(_AR_STEP_HOURS) // self.lead_time_stride_hours
-        self.model.set_noise_accumulation(n=n_substeps)
-        try:
-            yield from self._default_generator(x, coords)
-        finally:
-            self.model.set_noise_accumulation(n=0)
+        self._set_rng(seed)
