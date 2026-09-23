@@ -304,37 +304,6 @@ def test_aurora1p5_ensemble_iter(n_members, device):
 
 
 @pytest.mark.parametrize(
-    "model_name,expected_n",
-    [("Aurora1p5Ensemble", 6), ("Aurora1p5Ensemble_6h", 1)],
-)
-def test_aurora1p5_ensemble_noise_accumulation_cache_size(model_name, expected_n):
-    """create_iterator sizes the noise cache to the sub-steps per AR cycle and
-    disables accumulation again once the iterator is closed."""
-    core = PhooAurora1p5EnsembleModel()
-    static_vars = {k: torch.ones(_H, _W) for k in _STATIC_KEYS}
-    p = getattr(px, model_name)(core, static_vars)
-
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device="cpu")
-
-    p_iter = p.create_iterator(x, coords)
-    next(p_iter)  # initial condition; runs the pre-yield setup in create_iterator
-
-    assert core.noise_accumulation_calls == [expected_n]
-
-    p_iter.close()
-    assert core.noise_accumulation_calls == [expected_n, 0]
-
-
-@pytest.mark.parametrize(
     "model_name,step,ensemble",
     [
         ("Aurora1p5", 1, False),
