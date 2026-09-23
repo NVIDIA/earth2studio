@@ -3328,7 +3328,7 @@
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:medium-range" data-badge-group="class" style="--badge-color:#0dcaf0;--badge-text-color:#000" title="Medium Range"><span class="mkdocs-badge__label">MRF</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:precip" data-badge-group="product" style="--badge-color:#339af0;--badge-text-color:#fff" title="Surface Precipitation"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud-rain"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:land" data-badge-group="product" style="--badge-color:#a0522d;--badge-text-color:#fff" title="Land/Soil"><span class="mkdocs-badge__icon"><i class="fa-solid fa-mound"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:ocean" data-badge-group="product" style="--badge-color:#1098ad;--badge-text-color:#fff" title="Ocean"><span class="mkdocs-badge__icon"><i class="fa-solid fa-water"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:solar" data-badge-group="product" style="--badge-color:#f59f00;--badge-text-color:#fff" title="Solar"><span class="mkdocs-badge__icon"><i class="fa-solid fa-sun"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:48gb" data-badge-group="gpu" style="--badge-color:#4b9934;--badge-text-color:#fff" title="48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">48 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:microsoft" data-badge-group="provider" style="--badge-color:#5e5e5e;--badge-text-color:#fff"><span class="mkdocs-badge__label">Microsoft</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:pytorch" data-badge-group="backend" style="--badge-color:#ee4c2c;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-fire"></i></span><span class="mkdocs-badge__label">PyTorch</span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.models.px.Aurora1p5Ensemble</code></p>
 <p><a href="" id="earth2studio.models.px.Aurora1p5Ensemble"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/aurora1p5.py#L605-L716" title="earth2studio/models/px/aurora1p5.py:605">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=aurora#install-command" title="category=prognostic item=aurora">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/px/aurora1p5.py#L642-L710" title="earth2studio/models/px/aurora1p5.py:642">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=prognostic&amp;item=aurora#install-command" title="category=prognostic item=aurora">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3339,7 +3339,7 @@
 
     <div class="doc doc-contents first">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="px.aurora1p5.Aurora1p5">Aurora1p5</span></code></p>
+              Bases: <code><span title="px.aurora1p5._Aurora">_Aurora</span></code></p>
 
 
 
@@ -3348,9 +3348,10 @@
 each forward pass injects fresh Gaussian noise into the backbone conditioning
 context. Calling the model N times (or with a batch of N copies of the same
 initial condition) therefore produces N statistically independent members.</p>
-<p>Like <code>Aurora1p5</code>, this wrapper uses an hourly rollout by default,
-leveraging the 6-hour base time-step to produce hourly lead times without
-additional model evaluations per AR cycle.</p>
+<p>Like <code>Aurora1p5</code>, this wrapper produces hourly output using six
+lead-time queries per 6-hour AR cycle. Use <code>Aurora1p5Ensemble_6h</code>
+for six-hourly output. The two cadences consume the RNG stream differently,
+so the same seed does not produce matching trajectories between variants.</p>
 
 
 <details class="note" open>
@@ -3469,7 +3470,7 @@ By default None (non-reproducible).</p>
               <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
           –
           <div class="doc-md-description">
-            <p>Output tensor and coordinate system 1 hour in the future</p>
+            <p>Output tensor and coordinate system one output time-step in the future</p>
           </div>
         </li>
     </ul>
@@ -3593,6 +3594,31 @@ the output data tensor and coordinate system dictionary.</p>
     <div class="doc doc-contents ">
 
         <p>Load prognostic from package</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>package</code></b>
+              (<code><a class="autorefs autorefs-internal" title="earth2studio.models.auto.Package" href="../../auto/Package/#earth2studio.models.auto.Package">Package</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Package to load model from</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="earth2studio.models.px.base.PrognosticModel">PrognosticModel</span></code>
+          –
+          <div class="doc-md-description">
+            <p>Prognostic model</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>

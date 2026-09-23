@@ -5452,8 +5452,8 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "Aurora1p5(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor])",
-    "summary": "Aurora v1.5 0.25 degree global forecast model. This model is the improved version of Aurora, featuring an expanded set of surface variables (18 vs 4) and a richer set of static fields. It consists of a single auto-regressive model with a base time-step of 6 hours, operating on a 0.25 degree lat-lon grid (720, 1440) with 5 atmospheric variables across 13 pressure levels and 18 surface variables plus 7 output-only surface variables.",
+    "signature": "Aurora1p5()",
+    "summary": "Aurora v1.5 0.25 degree global forecast model with hourly output.",
     "title": "Aurora1p5",
     "tone": "solar",
     "url": "../../../modules/generated/models/px/Aurora1p5"
@@ -5518,6 +5518,128 @@
     "title": "Aurora1p5Ensemble",
     "tone": "solar",
     "url": "../../../modules/generated/models/px/Aurora1p5Ensemble"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:medium-range",
+      "product:wind",
+      "product:temp",
+      "product:atmos",
+      "product:precip",
+      "product:land",
+      "product:ocean",
+      "product:solar",
+      "year:2026",
+      "gpu:48gb",
+      "provider:microsoft",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Prognostic",
+      "Medium Range",
+      "Microsoft",
+      "PyTorch",
+      "Surface Winds",
+      "Surface Temperature"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
+      "gpu": [
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Temperature",
+        "Atmosphere",
+        "Surface Precipitation",
+        "Land/Soil",
+        "Ocean",
+        "Solar"
+      ],
+      "provider": [
+        "Microsoft"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "Aurora1p5Ensemble_6h(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
+    "summary": "Aurora v1.5 ensemble global forecast model with six-hourly output.",
+    "title": "Aurora1p5Ensemble_6h",
+    "tone": "solar",
+    "url": "../../../modules/generated/models/px/Aurora1p5Ensemble_6h"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:medium-range",
+      "product:wind",
+      "product:temp",
+      "product:atmos",
+      "product:precip",
+      "product:land",
+      "product:ocean",
+      "product:solar",
+      "year:2026",
+      "gpu:48gb",
+      "provider:microsoft",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Prognostic",
+      "Medium Range",
+      "Microsoft",
+      "PyTorch",
+      "Surface Winds",
+      "Surface Temperature"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
+      "gpu": [
+        "48 GB VRAM (L40S, A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Temperature",
+        "Atmosphere",
+        "Surface Precipitation",
+        "Land/Soil",
+        "Ocean",
+        "Solar"
+      ],
+      "provider": [
+        "Microsoft"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "Aurora1p5_6h()",
+    "summary": "Aurora v1.5 0.25 degree global forecast model with six-hourly output.",
+    "title": "Aurora1p5_6h",
+    "tone": "solar",
+    "url": "../../../modules/generated/models/px/Aurora1p5_6h"
   },
   {
     "badges": [

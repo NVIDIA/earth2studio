@@ -2583,9 +2583,9 @@
         "provider:microsoft",
         "backend:pytorch"
       ],
-      "signature": "Aurora1p5(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor])",
+      "signature": "Aurora1p5()",
       "source": "modules/generated/models/px/Aurora1p5.md",
-      "summary": "Aurora v1.5 0.25 degree global forecast model. This model is the improved version of Aurora, featuring an expanded set of surface variables (18 vs 4) and a richer set of static fields. It consists of a single auto-regressive model with a base time-step of 6 hours, operating on a 0.25 degree lat-lon grid (720, 1440) with 5 atmospheric variables across 13 pressure levels and 18 surface variables plus 7 output-only surface variables.",
+      "summary": "Aurora v1.5 0.25 degree global forecast model with hourly output.",
       "symbol": "earth2studio.models.px.Aurora1p5",
       "title": "Aurora1p5",
       "url": "modules/generated/models/px/Aurora1p5/"
@@ -2612,6 +2612,52 @@
       "symbol": "earth2studio.models.px.Aurora1p5Ensemble",
       "title": "Aurora1p5Ensemble",
       "url": "modules/generated/models/px/Aurora1p5Ensemble/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:wind",
+        "product:temp",
+        "product:atmos",
+        "product:precip",
+        "product:land",
+        "product:ocean",
+        "product:solar",
+        "year:2026",
+        "gpu:48gb",
+        "provider:microsoft",
+        "backend:pytorch"
+      ],
+      "signature": "Aurora1p5Ensemble_6h(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
+      "source": "modules/generated/models/px/Aurora1p5Ensemble_6h.md",
+      "summary": "Aurora v1.5 ensemble global forecast model with six-hourly output.",
+      "symbol": "earth2studio.models.px.Aurora1p5Ensemble_6h",
+      "title": "Aurora1p5Ensemble_6h",
+      "url": "modules/generated/models/px/Aurora1p5Ensemble_6h/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:wind",
+        "product:temp",
+        "product:atmos",
+        "product:precip",
+        "product:land",
+        "product:ocean",
+        "product:solar",
+        "year:2026",
+        "gpu:48gb",
+        "provider:microsoft",
+        "backend:pytorch"
+      ],
+      "signature": "Aurora1p5_6h()",
+      "source": "modules/generated/models/px/Aurora1p5_6h.md",
+      "summary": "Aurora v1.5 0.25 degree global forecast model with six-hourly output.",
+      "symbol": "earth2studio.models.px.Aurora1p5_6h",
+      "title": "Aurora1p5_6h",
+      "url": "modules/generated/models/px/Aurora1p5_6h/"
     },
     {
       "classifiers": [
