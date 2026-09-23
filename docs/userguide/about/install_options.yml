@@ -68,6 +68,17 @@ categories:
         summary: ACE-2 model dependencies.
         api_refs:
           - earth2studio.models.px.ACE2ERA5
+      - id: camulator
+        label: CAMulator
+        extra: camulator
+        summary: NSF NCAR CAMulator climate emulator (no additional packages).
+        api_refs:
+          - earth2studio.models.px.CAMulator
+        notes:
+          - text: The default checkpoint is ~4.8 GB and the default cyclic forcing
+              file ~1.3 GB; both are downloaded from HuggingFace on first use.
+            href: https://huggingface.co/willychap/camulator
+            label: CAMulator model card
       - id: aifs
         label: AIFS
         extra: aifs
@@ -185,6 +196,7 @@ categories:
         summary: FuXi model dependencies.
         api_refs:
           - earth2studio.models.px.FuXi
+          - earth2studio.models.px.FuXiS2S
         notes:
           - text: Requires ONNX Runtime GPU.
             href: https://onnxruntime.ai/docs/install/#python-installs
@@ -221,8 +233,9 @@ categories:
       - id: weathernext
         label: WeatherNext2
         extra: weathernext
-        summary: Google DeepMind WeatherNext 2 Cyclones Mini model dependencies.
+        summary: Google DeepMind WeatherNext 2 Cyclones model dependencies.
         api_refs:
+          - earth2studio.models.px.WeatherNext2Cyclones
           - earth2studio.models.px.WeatherNext2CyclonesMini
         preinstall:
           pip:
@@ -232,6 +245,10 @@ categories:
               - 'uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"'
         notes:
           - WeatherNext 2 uses WeatherNext and requires Python 3.12 or newer.
+          - >-
+            Before importing JAX or Earth2Studio, set
+            XLA_PYTHON_CLIENT_PREALLOCATE=false and
+            XLA_PYTHON_CLIENT_ALLOCATOR=vmm.
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
