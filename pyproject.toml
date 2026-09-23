@@ -79,6 +79,12 @@ data = [
     "scipy>=1.15.2",
     "eumdac>=3.1.0",
 ]
+# Streaming cloud-zarr loader for earth2studio.data.insitu. Its own extra rather than part
+# of `data`: it needs Python >= 3.12 (zarr-v3's floor from 3.2.0, not insitubatch's own
+# choice), so folding it into `data` would raise that floor for every other data source too.
+insitu = [
+    "insitubatch>=0.2.0,<0.3; python_version>='3.12'",
+]
 perturbation = [
     "torch-harmonics>=0.7.4",
     "scipy>=1.15.2",
@@ -321,7 +327,7 @@ da-stormcast = [
 # torch-harmonics used by `atlas`, `fcn3`, `perturbation`, and `sfno` (see
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
-    "earth2studio[data,perturbation,statistics,utils,serve]",
+    "earth2studio[data,insitu,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
