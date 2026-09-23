@@ -186,9 +186,8 @@ class TestCBottleMock:
         field.time.attrs["user"] = {"notes": ["input"]}
         planned = dx.output_coords(field)
         assert planned.data.nbytes == 0
-        planned.attrs["user"]["notes"].append("output")
-        planned.encoding["user"]["notes"].append("output")
-        planned.time.attrs["user"]["notes"].append("output")
+        assert planned.attrs["user"] == field.attrs["user"]
+        assert planned.time.attrs["user"] == field.time.attrs["user"]
         assert field.attrs["user"]["notes"] == ["input"]
         assert field.encoding["user"]["notes"] == ["input"]
         assert field.time.attrs["user"]["notes"] == ["input"]

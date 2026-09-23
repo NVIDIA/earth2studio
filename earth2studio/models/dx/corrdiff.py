@@ -65,13 +65,6 @@ def _field(tensor: torch.Tensor, signature: CoordinateSystem) -> xr.DataArray:
     return out
 
 
-def _own_metadata(x: xr.DataArray) -> xr.DataArray:
-    out = x.assign_coords({k: deepcopy(v.variable) for k, v in x.coords.items()})
-    out.attrs = deepcopy(x.attrs)
-    out.encoding = deepcopy(x.encoding)
-    return out
-
-
 def _replace_grid(
     x: xr.DataArray,
     grid: str | GridDefinition,
@@ -1189,7 +1182,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             time = (
                 xr.broadcast(time, template)[0].transpose(*leading).values.reshape(-1)
             )
-        return _own_metadata(self._call(x, valid_times=time).transpose(*signature.dims))
+        return self._call(x, valid_times=time).transpose(*signature.dims)
 
     @batch_func()
     def _call(
@@ -1610,7 +1603,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale a labelled field to the checkpoint's curvilinear grid."""
         signature = self.output_coords(x)
-        return _own_metadata(self._call(x).transpose(*signature.dims))
+        return self._call(x).transpose(*signature.dims)
 
     @batch_func()
     def _call(

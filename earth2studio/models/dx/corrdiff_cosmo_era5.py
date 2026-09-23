@@ -56,18 +56,14 @@ import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from loguru import logger
 
+from earth2studio.grids import CurvilinearGrid, LatLonGrid
 from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import (
-    _field,
-    _geographic_grid,
-    _own_metadata,
-    _replace_grid,
-)
 from earth2studio.utils import interp
 from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -815,7 +811,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 "variable": np.array(self.era5_variables),
             },
             dynamic=("batch", "time"),
-            grid=_geographic_grid(self.lat_input_numpy, self.lon_input_numpy),
+            grid=LatLonGrid(self.lat_input_numpy, self.lon_input_numpy),
         )
 
     def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
@@ -828,7 +824,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         sub-region use :meth:`set_domain` (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
         """
-        handshake_dataarray(input_coords, self.input_coords())
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
         top, bot, left, right = self._halo
@@ -837,12 +834,28 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             lat_out = lat_out[top : H - bot, left : W - right]
             lon_out = lon_out[top : H - bot, left : W - right]
 
-        return _replace_grid(
-            input_coords,
-            _geographic_grid(lat_out, lon_out),
-            self._output_coord_variables,
-            sample=self.number_of_samples,
-            sample_after_time=True,
+        leading = input_coords.dims[:-3]
+        return coord_array(
+            (*leading, "sample", "variable", "y", "x"),
+            {
+                **{
+                    k: v.variable
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
+                "sample": np.arange(self.number_of_samples),
+                "variable": self._output_coord_variables,
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=CurvilinearGrid(lat_out, lon_out),
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v
+                for k, v in input_coords.attrs.items()
+                if k not in signature.attrs and k != "earth2studio_grid_id"
+            },
         )
 
     # ── invariants ──────────────────────────────────────────────────────────
@@ -1366,7 +1379,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale labelled ERA5 frames on the configured domain."""
         signature = self.output_coords(x)
-        return _own_metadata(self._call(x).transpose(*signature.dims))
+        return self._call(x).transpose(*signature.dims)
 
     @batch_func()
     def _call(self, x: xr.DataArray) -> xr.DataArray:
@@ -1405,7 +1418,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         for b in range(out.shape[0]):
             for t in range(out.shape[2]):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t], lat2d, lon2d)
-        return _field(out, output_coords)
+        return from_torch(out, output_coords)
 
     def to(self, device: torch.device) -> "CorrDiffCosmoEra5":
         """Move the model to a device (the active regression/diffusion sub-network

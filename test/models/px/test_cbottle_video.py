@@ -153,9 +153,8 @@ class TestCBottleVideoMock:
         coords.time.attrs["user"] = {"notes": ["input"]}
         planned = px.output_coords(coords)
         assert planned.data.nbytes == 0
-        planned.attrs["user"]["notes"].append("output")
-        planned.encoding["user"]["notes"].append("output")
-        planned.time.attrs["user"]["notes"].append("output")
+        assert planned.attrs["user"] == coords.attrs["user"]
+        assert planned.time.attrs["user"] == coords.time.attrs["user"]
         assert coords.attrs["user"]["notes"] == ["input"]
         assert coords.encoding["user"]["notes"] == ["input"]
         assert coords.time.attrs["user"]["notes"] == ["input"]

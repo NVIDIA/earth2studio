@@ -469,9 +469,8 @@ class TestCorrDiffForward:
         assert model.input_coords().data.nbytes == 0
         assert out.name == field.name
         assert out.encoding == field.encoding
-        out.attrs["user"]["notes"].append("output")
-        out.encoding["user"]["notes"].append("output")
-        out.coords["batch"].attrs["user"]["notes"].append("output")
+        assert out.attrs["user"] == field.attrs["user"]
+        assert out.coords["batch"].attrs["user"] == field.coords["batch"].attrs["user"]
         assert field.attrs["user"]["notes"] == ["input"]
         assert field.encoding["user"]["notes"] == ["input"]
         assert field.coords["batch"].attrs["user"]["notes"] == ["input"]

@@ -25,18 +25,13 @@ import torch
 import torch.nn.functional as F
 import xarray as xr
 
+from earth2studio.grids import CurvilinearGrid, LatLonGrid
 from earth2studio.models.auto import Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import (
-    CorrDiff,
-    _field,
-    _geographic_grid,
-    _grid_dims,
-    _own_metadata,
-    _replace_grid,
-)
+from earth2studio.models.dx.corrdiff import CorrDiff
 from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -347,9 +342,13 @@ class CorrDiffCMIP6(CorrDiff):
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system"""
-        grid = _geographic_grid(self.lat_input_numpy, self.lon_input_numpy)
+        grid = (
+            LatLonGrid(self.lat_input_numpy, self.lon_input_numpy)
+            if self.lat_input_numpy.ndim == 1
+            else CurvilinearGrid(self.lat_input_numpy, self.lon_input_numpy)
+        )
         return coord_array(
-            ("batch", "time", "lead_time", "variable", *_grid_dims(grid)),
+            ("batch", "time", "lead_time", "variable", *grid.dims),
             {
                 "lead_time": np.array(
                     [
@@ -380,14 +379,36 @@ class CorrDiffCMIP6(CorrDiff):
         xr.DataArray
             Allocation-free output coordinate signature
         """
-        handshake_dataarray(input_coords, self.input_coords())
-        return _replace_grid(
-            input_coords,
-            _geographic_grid(self.lat_output_numpy, self.lon_output_numpy),
-            self.output_variables,
-            sample=self.number_of_samples,
-            lead_time=self.output_lead_times,
-            sample_after_time=True,
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
+        grid = (
+            LatLonGrid(self.lat_output_numpy, self.lon_output_numpy)
+            if self.lat_output_numpy.ndim == 1
+            else CurvilinearGrid(self.lat_output_numpy, self.lon_output_numpy)
+        )
+        leading = input_coords.dims[: input_coords.dims.index("time") + 1]
+        return coord_array(
+            (*leading, "sample", "lead_time", "variable", *grid.dims),
+            {
+                **{
+                    k: v.variable
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
+                "sample": np.arange(self.number_of_samples),
+                "lead_time": self.output_lead_times,
+                "variable": self.output_variables,
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=grid,
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v
+                for k, v in input_coords.attrs.items()
+                if k not in signature.attrs and k != "earth2studio_grid_id"
+            },
         )
 
     @classmethod
@@ -583,7 +604,7 @@ class CorrDiffCMIP6(CorrDiff):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale the three-day labelled conditioning history."""
         signature = self.output_coords(x)
-        return _own_metadata(self._call(x).transpose(*signature.dims))
+        return self._call(x).transpose(*signature.dims)
 
     @batch_func()
     def _call(self, x: xr.DataArray) -> xr.DataArray:
@@ -608,7 +629,7 @@ class CorrDiffCMIP6(CorrDiff):
                 out[:, :, i, j] = self._forward(
                     x[:, i, :], pd.to_datetime(valid_time).to_pydatetime()
                 )
-        return _field(out, output_coords)
+        return from_torch(out, output_coords)
 
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
         """Cached lon/lat meshgrid on the output grid (numpy arrays)."""

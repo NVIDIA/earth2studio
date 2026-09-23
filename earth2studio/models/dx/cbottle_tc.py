@@ -23,19 +23,12 @@ import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.grids import HEALPixGrid
+from earth2studio.grids import HEALPixGrid, LatLonGrid
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import (
-    _field,
-    _geographic_grid,
-    _grid_dims,
-    _own_metadata,
-    _replace_grid,
-)
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -43,6 +36,7 @@ from earth2studio.utils.coords import (
     handshake_size,
     handshake_time,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -193,7 +187,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Allocation-free input coordinate signature
         """
         grid = (
-            _geographic_grid(self.lat_grid.cpu().numpy(), self.lon_grid.cpu().numpy())
+            LatLonGrid(self.lat_grid.cpu().numpy(), self.lon_grid.cpu().numpy())
             if self.lat_lon
             else HEALPixGrid(
                 TC_HPX_LEVEL,
@@ -204,7 +198,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             )
         )
         return coord_array(
-            ("batch", "time", "lead_time", "variable", *_grid_dims(grid)),
+            ("batch", "time", "lead_time", "variable", *grid.dims),
             {
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": ["tc_guidance"],
@@ -233,16 +227,35 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         handshake_time(input_coords, "lead_time")
         lead = input_coords.coords["lead_time"]
         # Each guidance frame is independent, conditioned at time + lead_time.
+        signature = self.input_coords()
         handshake_dataarray(
             input_coords,
-            coord_array_like(self.input_coords(), {"lead_time": lead.values}),
+            coord_array_like(signature, {"lead_time": lead.values}),
         )
-        grid = (
-            _geographic_grid(self.lat_grid.cpu().numpy(), self.lon_grid.cpu().numpy())
-            if self.lat_lon
-            else "healpix-l6-nested"
+        if self.lat_lon:
+            return coord_array_like(input_coords, {"variable": self.output_variables})
+        leading = input_coords.dims[:-2]
+        return coord_array(
+            (*leading, "variable", "hpx"),
+            {
+                **{
+                    k: v.variable
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
+                "variable": self.output_variables,
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid="healpix-l6-nested",
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v
+                for k, v in input_coords.attrs.items()
+                if k not in signature.attrs and k != "earth2studio_grid_id"
+            },
         )
-        return _replace_grid(input_coords, grid, self.output_variables)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -392,7 +405,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         signature = coord_array_like(self.input_coords(), {"batch": [0], "time": times})
         signature = signature.isel(batch=0, drop=True)
-        return _field(guidance, signature)
+        return from_torch(guidance, signature)
 
     def _prepare_guidance_tensor(self, x: torch.Tensor) -> torch.Tensor:
         """Preparies HPX guidance tensor for model. If inputs are lat lon, will convert
@@ -429,7 +442,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Generate labelled fields from cyclone guidance."""
-        return _own_metadata(self._call(x))
+        return self._call(x)
 
     @batch_func()
     def _call(
@@ -517,7 +530,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 output_coords["hpx"].shape[0],
             )
 
-        return _field(output, output_coords)
+        return from_torch(output, output_coords)
 
     def calculate_odds_ratio(
         self,
@@ -604,7 +617,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             )
             forward_latents = forward_latents.squeeze(2)
 
-        return log_odds_ratio, _field(
+        return log_odds_ratio, from_torch(
             forward_latents.reshape(output_coords.shape), output_coords
         )
 

@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -27,13 +26,13 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import _field, _own_metadata
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
     handshake_time,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -241,14 +240,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             Allocation-free output coordinate signature
         """
         handshake_dataarray(input_coords, self.input_coords())
-        output = _own_metadata(
-            coord_array_like(
-                input_coords, {"variable": np.array(self.output_variables)}
-            )
+        return coord_array_like(
+            input_coords, {"variable": np.array(self.output_variables)}
         )
-        # coord_array_like does not propagate encoding; own it with the metadata.
-        output.encoding = deepcopy(input_coords.encoding)
-        return output
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -321,7 +315,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Infill labelled conditioning channels at their validity times."""
-        return _own_metadata(self._call(x))
+        return self._call(x)
 
     @torch.inference_mode()
     @batch_func()
@@ -398,7 +392,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             output_coords["lon"].shape[0],
         )
 
-        return _field(output, output_coords)
+        return from_torch(output, output_coords)
 
     def get_cbottle_input(
         self,

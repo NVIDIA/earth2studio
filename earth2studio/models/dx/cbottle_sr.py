@@ -20,18 +20,12 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.grids import HEALPixGrid
+from earth2studio.grids import HEALPixGrid, LatLonGrid, infer_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import (
-    _field,
-    _geographic_grid,
-    _grid_dims,
-    _own_metadata,
-    _replace_grid,
-)
-from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -306,7 +300,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system"""
         grid = (
-            _geographic_grid(
+            LatLonGrid(
                 np.asarray(self.input_grid.lat).ravel(),
                 np.asarray(self.input_grid.lon).ravel(),
             )
@@ -314,7 +308,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             else "healpix-l6-nested"
         )
         return coord_array(
-            ("batch", "variable", *_grid_dims(grid)),
+            (
+                "batch",
+                "variable",
+                *(grid.dims if self.input_type == "latlon" else ("hpx",)),
+            ),
             {"variable": np.array(VARIABLES)},
             dynamic=("batch",),
             grid=grid,
@@ -334,16 +332,37 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         xr.DataArray
             Allocation-free output coordinate signature
         """
-        handshake_dataarray(input_coords, self.input_coords())
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
         grid = (
-            _geographic_grid(
+            LatLonGrid(
                 np.asarray(self.output_grid.lat).ravel(),
                 np.asarray(self.output_grid.lon).ravel(),
             )
             if self.output_type == "latlon"
             else HEALPixGrid(HPX_LEVEL_HR, ordering="nested", layout="flat")
         )
-        return _replace_grid(input_coords, grid, VARIABLES)
+        if grid.fingerprint() == infer_grid(input_coords).fingerprint():
+            return coord_array_like(input_coords)
+        leading = input_coords.dims[: -len(signature.attrs["dims"]) - 1]
+        return coord_array(
+            (*leading, "variable", *grid.dims),
+            {
+                k: v.variable
+                for k, v in input_coords.coords.items()
+                if set(v.dims).issubset((*leading, "variable"))
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=grid,
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v
+                for k, v in input_coords.attrs.items()
+                if k not in signature.attrs and k != "earth2studio_grid_id"
+            },
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -487,7 +506,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Super-resolve a labelled field on the configured output domain."""
-        return _own_metadata(self._call(x))
+        return self._call(x)
 
     @batch_func()
     def _call(
@@ -506,4 +525,4 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i])
-        return _field(out, output_coords)
+        return from_torch(out, output_coords)

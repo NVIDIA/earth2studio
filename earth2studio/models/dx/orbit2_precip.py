@@ -21,16 +21,12 @@ import torch
 import xarray as xr
 import yaml  # type: ignore
 
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import (
-    _field,
-    _geographic_grid,
-    _own_metadata,
-    _replace_grid,
-)
 from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -346,14 +342,30 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         CoordinateSystem
             Allocation-free output coordinate signature
         """
-        handshake_dataarray(input_coords, self.input_coords())
-        return _replace_grid(
-            input_coords,
-            _geographic_grid(
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
+        leading = input_coords.dims[:-3]
+        return coord_array(
+            (*leading, "variable", "lat", "lon"),
+            {
+                **{
+                    k: v.variable
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
+                "variable": ["tp:sum:24h"],
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=LatLonGrid(
                 np.linspace(90, -90, OUT_HEIGHT),
                 np.linspace(0, 360, OUT_WIDTH, endpoint=False),
             ),
-            ["tp:sum:24h"],
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v for k, v in input_coords.attrs.items() if k not in signature.attrs
+            },
         )
 
     @classmethod
@@ -724,7 +736,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale a labelled field to 24-hour precipitation in meters."""
-        return _own_metadata(self._call(x))
+        return self._call(x)
 
     @batch_func()
     def _call(
@@ -738,4 +750,4 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         with torch.no_grad():
             out = self._forward(x.e2s.to_torch()[0].to(self.norm_mean.device).clone())
 
-        return _field(out, output_coords)
+        return from_torch(out, output_coords)

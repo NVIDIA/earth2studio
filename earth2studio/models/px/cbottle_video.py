@@ -28,7 +28,6 @@ from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
-from earth2studio.models.dx.corrdiff import _field, _own_metadata
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils.coords import (
@@ -37,6 +36,7 @@ from earth2studio.utils.coords import (
     handshake_dataarray,
     handshake_time,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -232,11 +232,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         """
         handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time
-        result = coord_array_like(
+        return coord_array_like(
             input_coords, {"lead_time": lead.values + self._time_step}
         )
-        result.encoding = deepcopy(input_coords.encoding)
-        return _own_metadata(result)
 
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array
@@ -505,8 +503,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 + np.arange(1, self._time_length) * self._time_step
             },
         )
-        signature.encoding = deepcopy(x.encoding)
-        return _field(out[:, :, 1:].clone(), signature)
+        return from_torch(out[:, :, 1:].clone(), signature)
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict the next six-hour field from labelled conditioning data."""
