@@ -361,9 +361,9 @@ categories:
           - earth2studio.models.dx.CorrDiffCMIP6
           - earth2studio.models.dx.CorrDiffTaiwan
       - id: corrdiff-era5-hrrr
-        label: CorrDiff ERA5-HRRR (StormCast-CONUS downscaler)
+        label: CorrDiff ERA5-HRRR
         extra: corrdiff-era5-hrrr
-        summary: ERA5 -> HRRR CONUS generative downscaler dependencies.
+        summary: CorrDiff ERA5 -> HRRR downscaler dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffEra5Hrrr
         preinstall:
@@ -377,7 +377,7 @@ categories:
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
-        summary: CorrDiff COSMO-ERA5 model dependencies.
+        summary: CorrDiff COSMO -> ERA5 model dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffCosmoEra5
         # TODO: Removed with psn release 2.2.0
