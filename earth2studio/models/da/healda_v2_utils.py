@@ -283,7 +283,8 @@ def build_conv_plevel_channel_stats(
     ----------
     level_stats : pd.DataFrame
         Per-level normalization stats with columns ``Global_Channel_ID`` (base
-        conv global id), ``Level_hPa``, ``obs_mean``, ``obs_std``
+        conv global id), ``Level_hPa``, and either ``obs_mean``/``obs_std`` or
+        ``level_mean``/``level_stddev``
     base_conv_stats : pd.DataFrame
         Base conv channel stats with columns ``Global_Channel_ID``, ``mean``,
         ``stddev`` for the 8 base conv channels
@@ -293,6 +294,13 @@ def build_conv_plevel_channel_stats(
     pd.DataFrame
         Stats table with columns ``Global_Channel_ID``, ``mean``, ``stddev``,
         ``min_valid``, ``max_valid`` for the 92 conv-plevel channels
+
+    Raises
+    ------
+    KeyError
+        If a base conv channel has no normalization in ``base_conv_stats``. A
+        missing base stat must fail loudly: falling back to mean 0 / std 1
+        silently disables normalization for every level of that channel.
     """
     conv_offset = SENSOR_OFFSET["conv"]
     conv_plevel_offset = SENSOR_OFFSET["conv-plevel"]
@@ -301,10 +309,12 @@ def build_conv_plevel_channel_stats(
         int(row["Global_Channel_ID"]): (float(row["mean"]), float(row["stddev"]))
         for _, row in base_conv_stats.iterrows()
     }
+    mean_name = "level_mean" if "level_mean" in level_stats.columns else "obs_mean"
+    std_name = "level_stddev" if "level_stddev" in level_stats.columns else "obs_std"
     level_norms = {
         (int(row["Global_Channel_ID"]), int(row["Level_hPa"])): (
-            float(row["obs_mean"]),
-            float(row["obs_std"]),
+            float(row[mean_name]),
+            float(row[std_name]),
         )
         for _, row in level_stats.iterrows()
     }
@@ -314,7 +324,11 @@ def build_conv_plevel_channel_stats(
     for base_local in CONV_PLEVEL_BASE_LOCAL_CHANNELS:
         channel = CONV_CHANNELS[int(base_local)]
         base_gid = conv_offset + int(base_local)
-        base_mean, base_stddev = base_norms.get(base_gid, (0.0, 1.0))
+        if base_gid not in base_norms:
+            raise KeyError(
+                f"no base conv normalization for Global_Channel_ID {base_gid}"
+            )
+        base_mean, base_stddev = base_norms[base_gid]
         for level_hpa in PRESSURE_LEVELS_HPA:
             mean, stddev = level_norms.get(
                 (base_gid, int(level_hpa)), (base_mean, base_stddev)
@@ -332,7 +346,11 @@ def build_conv_plevel_channel_stats(
 
     surface = CONV_CHANNELS[CONV_PLEVEL_SURFACE_LOCAL_CHANNEL]
     surface_gid = conv_offset + CONV_PLEVEL_SURFACE_LOCAL_CHANNEL
-    surface_mean, surface_stddev = base_norms.get(surface_gid, (0.0, 1.0))
+    if surface_gid not in base_norms:
+        raise KeyError(
+            f"no base conv normalization for Global_Channel_ID {surface_gid}"
+        )
+    surface_mean, surface_stddev = base_norms[surface_gid]
     rows.append(
         {
             "Global_Channel_ID": conv_plevel_offset + expanded_local,
@@ -343,6 +361,281 @@ def build_conv_plevel_channel_stats(
         }
     )
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# GPS-RO source-only pressure
+#
+# Port of the HealDA training repository's gpsro_dry_pressure / gpsro_projection
+# derivation. NNJAObsConv delivers GPS-RO bending-angle rows with a null
+# ``pres`` by design; the vertical coordinate is derived here from the raw
+# fields the source exposes (refractivity levels, radius of curvature, geoid
+# undulation). ``blended_pressure`` below reproduces the archive's validated
+# ``blended_pressure_5km_hpa`` column.
+# ---------------------------------------------------------------------------
+
+_REFRACTIVITY_CONSTANT_K_HPA = 77.60
+_DRY_AIR_GAS_CONSTANT_J_KG_K = 287.05
+_EARTH_SEMI_MAJOR_M = 6_378_137.0
+_EARTH_ECCENTRICITY_SQUARED = 6.69437999013e-3
+_EQUATORIAL_GRAVITY_M_S2 = 9.7803253359
+_SOMIGLIANA_K = 1.93185265241e-3
+_DEFAULT_TOP_SCALE_HEIGHT_M = 7_000.0
+_MIN_TOP_SCALE_HEIGHT_M = 2_000.0
+_MAX_TOP_SCALE_HEIGHT_M = 15_000.0
+
+# Below this height the moist lower troposphere biases dry pressure high, so the
+# fixed standard atmosphere carries the unbiased mean; above it dry hydrostatic
+# wins. 5 km is the observed RMSE crossover; 0.8/0.2 is the least-squares-optimal
+# weight of the training repository's 2022 benchmark.
+GPSRO_BLEND_HEIGHT_M = 5_000.0
+GPSRO_BLEND_LOW_STD_WEIGHT = 0.8
+
+# US 1976 standard atmosphere layer bases (same layering as the training repo).
+_STD_BASE_HEIGHT_M = np.array(
+    (0.0, 11_000.0, 20_000.0, 32_000.0, 47_000.0, 51_000.0, 71_000.0)
+)
+_STD_LAPSE_RATE_K_M = np.array((-0.0065, 0.0, 0.001, 0.0028, 0.0, -0.0028))
+_STD_G = 9.80665
+_STD_RD = 287.05287
+
+
+def _std_atmosphere_bases() -> tuple[np.ndarray, np.ndarray]:
+    temperature = np.empty(len(_STD_BASE_HEIGHT_M), dtype=np.float64)
+    pressure = np.empty(len(_STD_BASE_HEIGHT_M), dtype=np.float64)
+    temperature[0] = 288.15
+    pressure[0] = 1013.25
+    for layer, lapse_rate in enumerate(_STD_LAPSE_RATE_K_M):
+        delta = _STD_BASE_HEIGHT_M[layer + 1] - _STD_BASE_HEIGHT_M[layer]
+        temperature[layer + 1] = temperature[layer] + lapse_rate * delta
+        if lapse_rate == 0.0:
+            pressure[layer + 1] = pressure[layer] * math.exp(
+                -_STD_G * delta / (_STD_RD * temperature[layer])
+            )
+        else:
+            pressure[layer + 1] = pressure[layer] * (
+                temperature[layer + 1] / temperature[layer]
+            ) ** (-_STD_G / (_STD_RD * lapse_rate))
+    return temperature, pressure
+
+
+_STD_BASE_T, _STD_BASE_P = _std_atmosphere_bases()
+
+
+def standard_atmosphere_pressure_hpa(height_m: np.ndarray) -> np.ndarray:
+    """US Standard Atmosphere pressure (hPa) at geometric height (m), clipped 0-60 km."""
+    height = np.clip(np.asarray(height_m, dtype=np.float64), 0.0, 60_000.0)
+    output = np.full(height.shape, np.nan, dtype=np.float64)
+    finite = np.isfinite(height)
+    if not np.any(finite):
+        return output
+    values = height[finite]
+    layer = np.clip(
+        np.searchsorted(_STD_BASE_HEIGHT_M, values, side="right") - 1,
+        0,
+        len(_STD_LAPSE_RATE_K_M) - 1,
+    )
+    delta = values - _STD_BASE_HEIGHT_M[layer]
+    lapse = _STD_LAPSE_RATE_K_M[layer]
+    temperature = _STD_BASE_T[layer] + lapse * delta
+    pressure = np.empty_like(values)
+    gradient = lapse != 0.0
+    pressure[gradient] = _STD_BASE_P[layer[gradient]] * (
+        temperature[gradient] / _STD_BASE_T[layer[gradient]]
+    ) ** (-_STD_G / (_STD_RD * lapse[gradient]))
+    pressure[~gradient] = _STD_BASE_P[layer[~gradient]] * np.exp(
+        -_STD_G * delta[~gradient] / (_STD_RD * _STD_BASE_T[layer[~gradient]])
+    )
+    output[finite] = pressure
+    return output
+
+
+def _normal_gravity_m_s2(latitude_degrees: float, height_m: np.ndarray) -> np.ndarray:
+    height = np.asarray(height_m, dtype=np.float64)
+    sin_squared = math.sin(math.radians(latitude_degrees)) ** 2
+    surface = (
+        _EQUATORIAL_GRAVITY_M_S2
+        * (1.0 + _SOMIGLIANA_K * sin_squared)
+        / math.sqrt(1.0 - _EARTH_ECCENTRICITY_SQUARED * sin_squared)
+    )
+    return surface * (_EARTH_SEMI_MAJOR_M / (_EARTH_SEMI_MAJOR_M + height)) ** 2
+
+
+def _top_scale_height_m(height_m: np.ndarray, refractivity: np.ndarray) -> float:
+    take = min(8, height_m.size)
+    if take < 2:
+        return _DEFAULT_TOP_SCALE_HEIGHT_M
+    slope = np.polyfit(height_m[-take:], np.log(refractivity[-take:]), 1)[0]
+    if not np.isfinite(slope) or slope >= 0.0:
+        return _DEFAULT_TOP_SCALE_HEIGHT_M
+    scale_height = -1.0 / slope
+    if not _MIN_TOP_SCALE_HEIGHT_M <= scale_height <= _MAX_TOP_SCALE_HEIGHT_M:
+        return _DEFAULT_TOP_SCALE_HEIGHT_M
+    return float(scale_height)
+
+
+def _dry_pressure_profile_hpa(
+    height_m: np.ndarray, refractivity: np.ndarray, latitude_degrees: float
+) -> np.ndarray:
+    """Hydrostatic dry pressure (hPa) at each refractivity level, NaN where invalid."""
+    output = np.full(height_m.shape, np.nan, dtype=np.float64)
+    valid = np.isfinite(height_m) & np.isfinite(refractivity) & (refractivity > 0.0)
+    if np.count_nonzero(valid) < 2:
+        return output
+    source_indices = np.flatnonzero(valid)
+    order = source_indices[np.argsort(height_m[source_indices], kind="stable")]
+    sorted_height = height_m[order]
+    sorted_refractivity = refractivity[order]
+    unique = np.concatenate(([True], np.diff(sorted_height) > 0.0))
+    order = order[unique]
+    sorted_height = sorted_height[unique]
+    sorted_refractivity = sorted_refractivity[unique]
+    if sorted_height.size < 2:
+        return output
+    gravity = _normal_gravity_m_s2(latitude_degrees, sorted_height)
+    density = (
+        100.0
+        * sorted_refractivity
+        / (_REFRACTIVITY_CONSTANT_K_HPA * _DRY_AIR_GAS_CONSTANT_J_KG_K)
+    )
+    scale_height = _top_scale_height_m(sorted_height, sorted_refractivity)
+    weight = density * gravity
+    segment = 0.5 * np.diff(sorted_height) * (weight[:-1] + weight[1:])
+    top_pressure_pa = weight[-1] * scale_height
+    tail_sum = np.concatenate((np.cumsum(segment[::-1])[::-1], [0.0]))
+    output[order] = (top_pressure_pa + tail_sum) / 100.0
+    return output
+
+
+def _refractive_radius_m(
+    height_m: np.ndarray,
+    refractivity: np.ndarray,
+    radius_of_curvature_m: float,
+    geoid_undulation_m: float,
+) -> np.ndarray:
+    geometric_radius = radius_of_curvature_m + geoid_undulation_m + height_m
+    return (1.0 + 1.0e-6 * refractivity) * geometric_radius
+
+
+def _interp_monotonic(
+    x: np.ndarray, xp: np.ndarray, fp: np.ndarray, log_fp: bool
+) -> np.ndarray:
+    """Interpolate fp (optionally in log space) at x within xp's range, NaN outside."""
+    valid = np.isfinite(xp) & np.isfinite(fp)
+    if log_fp:
+        valid &= fp > 0.0
+    output = np.full(x.shape, np.nan, dtype=np.float64)
+    if np.count_nonzero(valid) < 2:
+        return output
+    order = np.argsort(xp[valid], kind="stable")
+    sorted_x = xp[valid][order]
+    sorted_f = fp[valid][order]
+    unique = np.concatenate(([True], np.diff(sorted_x) > 0.0))
+    sorted_x = sorted_x[unique]
+    sorted_f = sorted_f[unique]
+    if sorted_x.size < 2:
+        return output
+    inside = np.isfinite(x) & (x >= sorted_x[0]) & (x <= sorted_x[-1])
+    if log_fp:
+        output[inside] = np.exp(np.interp(x[inside], sorted_x, np.log(sorted_f)))
+    else:
+        output[inside] = np.interp(x[inside], sorted_x, sorted_f)
+    return output
+
+
+def derive_gpsro_pressure(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill ``pres`` on GPS bending-angle rows from the raw GPS-RO fields.
+
+    ``NNJAObsConv`` delivers GPS-RO with a null ``pres``: the bending-angle
+    rows (``variable == "gps"``) carry ``elev`` = impact parameter minus radius
+    of curvature, and the refractivity rows (``variable == "gps_refractivity"``)
+    carry ``elev`` = geometric height with the refractivity as the observation.
+    Both carry ``radius_curvature`` and ``geoid_undulation``.
+
+    Per occultation (grouped by time, lat, lon, station) this derives the dry
+    hydrostatic pressure profile from the refractivity levels, interpolates it
+    to each bending level's impact parameter, and blends it with the US
+    Standard Atmosphere below ``GPSRO_BLEND_HEIGHT_M`` — reproducing the
+    training archive's ``blended_pressure_5km_hpa``. The result is written to
+    ``pres`` in Pa. Refractivity rows are consumed and removed.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Conventional observation DataFrame from NNJAObsConv
+
+    Returns
+    -------
+    pd.DataFrame
+        The frame without ``gps_refractivity`` rows and with ``pres`` filled on
+        derivable ``gps`` rows. Frames without GPS-RO content (or from sources
+        predating the raw GPS-RO columns) are returned unchanged.
+    """
+    variable = df["variable"].to_numpy()
+    is_refractivity = variable == "gps_refractivity"
+    is_gps = variable == "gps"
+    if not is_refractivity.any() or "radius_curvature" not in df.columns:
+        return df[~is_refractivity] if is_refractivity.any() else df
+
+    df = df.copy()
+    pres = df["pres"].to_numpy(dtype=np.float64, na_value=np.nan).copy()
+    elev = df["elev"].to_numpy(dtype=np.float64, na_value=np.nan)
+    obs = df["observation"].to_numpy(dtype=np.float64, na_value=np.nan)
+    lat = df["lat"].to_numpy(dtype=np.float64, na_value=np.nan)
+    elrc = df["radius_curvature"].to_numpy(dtype=np.float64, na_value=np.nan)
+    geodu = df["geoid_undulation"].to_numpy(dtype=np.float64, na_value=np.nan)
+
+    ro = np.flatnonzero(is_refractivity | is_gps)
+    key_columns = [c for c in ("time", "lat", "lon", "station") if c in df.columns]
+    keys = df.iloc[ro][key_columns]
+    _, group_ids = np.unique(
+        pd.util.hash_pandas_object(keys, index=False).to_numpy(), return_inverse=True
+    )
+    for group in range(group_ids.max() + 1):
+        occ = ro[group_ids == group]
+        levels = occ[is_refractivity[occ]]
+        bending = occ[is_gps[occ]]
+        if levels.size < 2 or bending.size == 0:
+            continue
+        occ_elrc = elrc[occ]
+        occ_elrc = occ_elrc[np.isfinite(occ_elrc)]
+        occ_geodu = geodu[occ]
+        occ_geodu = occ_geodu[np.isfinite(occ_geodu)]
+        occ_lat = lat[occ[0]]
+        if occ_elrc.size == 0 or not np.isfinite(occ_lat):
+            continue
+        radius_of_curvature = float(occ_elrc[0])
+        undulation = float(occ_geodu[0]) if occ_geodu.size else 0.0
+
+        height = elev[levels]
+        refractivity = obs[levels]
+        pressure_profile = _dry_pressure_profile_hpa(height, refractivity, occ_lat)
+        radius_profile = _refractive_radius_m(
+            height, refractivity, radius_of_curvature, undulation
+        )
+        # elev on bending rows is the GSI-convention impact height (IMPP - ELRC)
+        impact_height = elev[bending]
+        impact = impact_height + radius_of_curvature
+        dry_p = _interp_monotonic(impact, radius_profile, pressure_profile, log_fp=True)
+        heit = _interp_monotonic(impact, radius_profile, height, log_fp=False)
+        isa = standard_atmosphere_pressure_hpa(heit)
+
+        low = impact_height < GPSRO_BLEND_HEIGHT_M
+        weighted = (
+            GPSRO_BLEND_LOW_STD_WEIGHT * isa
+            + (1.0 - GPSRO_BLEND_LOW_STD_WEIGHT) * dry_p
+        )
+        blended = np.where(low, weighted, dry_p)
+        fallback = np.where(
+            low,
+            np.where(np.isfinite(isa), isa, dry_p),
+            np.where(np.isfinite(dry_p), dry_p, isa),
+        )
+        blended = np.where(np.isfinite(blended), blended, fallback)
+        pres[bending] = blended * 100.0  # hPa -> Pa, matching the source convention
+
+    df["pres"] = pres
+    return df[~is_refractivity]
 
 
 # ---------------------------------------------------------------------------

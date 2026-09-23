@@ -45,6 +45,7 @@ from earth2studio.models.da.healda_v2_utils import (
     build_raw_to_local_lut,
     compute_unified_metadata,
     conv_plevel_local_channel_lut,
+    derive_gpsro_pressure,
     get_global_channel_id,
     nearest_pressure_level_index,
 )
@@ -487,13 +488,17 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         df : pd.DataFrame
-            Raw conventional observation DataFrame from UFSObsConv
+            Raw conventional observation DataFrame from NNJAObsConv or
+            UFSObsConv
 
         Returns
         -------
         pd.DataFrame
             Standardized DataFrame with unified column schema
         """
+        # GPS-RO bending-angle rows arrive with a null pres; derive it from the
+        # raw refractivity levels (which are consumed and removed here).
+        df = derive_gpsro_pressure(df)
         unknown_vars = set(df["variable"].unique()) - set(CONV_VAR_CHANNEL.keys())
         if unknown_vars:
             raise ValueError(f"Unknown conventional variable(s): {unknown_vars}")

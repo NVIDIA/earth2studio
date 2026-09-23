@@ -36,7 +36,9 @@ from earth2studio.models.da.healda_v2_utils import (
     build_conv_plevel_channel_stats,
     build_raw_to_local_lut,
     compute_unified_metadata,
+    derive_gpsro_pressure,
     nearest_pressure_level_index,
+    standard_atmosphere_pressure_hpa,
 )
 
 # ---------- Constants ----------
@@ -278,6 +280,131 @@ def test_build_conv_plevel_channel_stats():
     ps = plevel.iloc[CONV_PLEVEL_SURFACE_EXPANDED_CHANNEL]
     assert ps["mean"] == 950.0
     assert ps["min_valid"] == 500.0
+
+
+def test_build_conv_plevel_channel_stats_missing_base_raises():
+    conv_offset = SENSOR_OFFSET["conv"]
+    # Only 7 of the 8 base conv channels: the "t" stat is missing
+    base_conv = pd.DataFrame(
+        {
+            "Global_Channel_ID": np.arange(7) + conv_offset,
+            "mean": 0.0,
+            "stddev": 1.0,
+        }
+    )
+    level_stats = pd.DataFrame(
+        {"Global_Channel_ID": [], "Level_hPa": [], "obs_mean": [], "obs_std": []}
+    )
+    with pytest.raises(KeyError, match="no base conv normalization"):
+        build_conv_plevel_channel_stats(level_stats, base_conv)
+
+
+def test_build_conv_plevel_channel_stats_level_column_names():
+    # The per-level CSV may carry level_mean/level_stddev instead of
+    # obs_mean/obs_std; both spellings must resolve identically.
+    conv_offset = SENSOR_OFFSET["conv"]
+    base_conv = pd.DataFrame(
+        {
+            "Global_Channel_ID": np.arange(8) + conv_offset,
+            "mean": 100.0,
+            "stddev": 10.0,
+        }
+    )
+    level_stats = pd.DataFrame(
+        {
+            "Global_Channel_ID": [conv_offset + 5],
+            "Level_hPa": [600],
+            "level_mean": [T_600_MEAN],
+            "level_stddev": [T_600_STD],
+        }
+    )
+    plevel = build_conv_plevel_channel_stats(level_stats, base_conv)
+    level_600 = int(np.where(PRESSURE_LEVELS_HPA == 600)[0][0])
+    row = plevel.iloc[T_GROUP * 13 + level_600]
+    assert row["mean"] == T_600_MEAN
+    assert row["stddev"] == T_600_STD
+
+
+def test_standard_atmosphere_pressure():
+    heights = np.array([0.0, 11_000.0, np.nan])
+    pressure = standard_atmosphere_pressure_hpa(heights)
+    np.testing.assert_allclose(pressure[0], 1013.25)
+    # US 1976 tropopause value
+    np.testing.assert_allclose(pressure[1], 226.32, rtol=1e-3)
+    assert np.isnan(pressure[2])
+
+
+def _build_gpsro_df(radius_curvature=6_370_000.0, with_columns=True):
+    """One synthetic occultation: refractivity levels + bending-angle rows."""
+    heights = np.linspace(0.0, 40_000.0, 40)
+    refractivity = 300.0 * np.exp(-heights / 7_000.0)
+    n_levels = len(heights)
+    n_bending = 5
+    # Bending rows carry elev = impact height (IMPP - ELRC); pick tangent
+    # heights well inside the refractivity profile.
+    impact_height = np.array([2_000.0, 6_000.0, 10_000.0, 20_000.0, 30_000.0])
+    t = REQUEST_TIME[0].astype("datetime64[ns]")
+    n = n_levels + n_bending
+    df = pd.DataFrame(
+        {
+            "time": np.full(n, t),
+            "lat": np.full(n, 45.0, dtype=np.float32),
+            "lon": np.full(n, 120.0, dtype=np.float32),
+            "station": "G05|x",
+            "variable": ["gps_refractivity"] * n_levels + ["gps"] * n_bending,
+            "observation": np.concatenate(
+                [refractivity, np.full(n_bending, 0.02)]
+            ).astype(np.float32),
+            "type": np.zeros(n, dtype=np.uint16),
+            "elev": np.concatenate([heights, impact_height]).astype(np.float32),
+            "pres": np.full(n, np.nan, dtype=np.float32),
+        }
+    )
+    if with_columns:
+        df["radius_curvature"] = radius_curvature
+        df["geoid_undulation"] = -30.0
+    df.attrs = {"request_time": REQUEST_TIME}
+    return df
+
+
+def test_derive_gpsro_pressure():
+    df = derive_gpsro_pressure(_build_gpsro_df())
+    # Refractivity rows consumed, bending rows kept
+    assert (df["variable"] == "gps").all()
+    assert len(df) == 5
+    pres_hpa = df["pres"].to_numpy(dtype=np.float64) / 100.0
+    assert np.isfinite(pres_hpa).all()
+    # Pressure decreases with impact height and stays physically plausible
+    assert (np.diff(pres_hpa) < 0).all()
+    # The 2 km impact-height row: the refraction correction places its true
+    # tangent height near the surface (impact height diverges from geometric
+    # height by ~1.9 km at the ground), so the ISA-blended value sits just
+    # below sea-level pressure -- not at ISA(2 km).
+    assert 900.0 < pres_hpa[0] < 1013.25
+    # The 30 km row decays with the synthetic 7 km scale height
+    assert 5.0 < pres_hpa[-1] < 20.0
+
+
+def test_derive_gpsro_pressure_source_without_raw_columns():
+    # A source predating the raw GPS-RO columns: refractivity rows are dropped,
+    # bending rows pass through (their null pres then fails conv QC downstream).
+    df = derive_gpsro_pressure(_build_gpsro_df(with_columns=False))
+    assert (df["variable"] == "gps").all()
+    assert df["pres"].isna().all()
+
+
+def test_derive_gpsro_pressure_no_gpsro_rows():
+    df = _build_raw_conv_df(n_obs=3)
+    out = derive_gpsro_pressure(df)
+    pd.testing.assert_frame_equal(out, df)
+
+
+def test_prep_conv_gpsro_end_to_end():
+    model = _build_model()
+    df = derive_gpsro_pressure(_build_gpsro_df())
+    kept = model.prep_conv(df)
+    # All five bending rows survive QC with a derived pressure
+    assert len(kept) == 5
 
 
 def test_compute_unified_metadata_branches():
