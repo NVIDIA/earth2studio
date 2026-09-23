@@ -311,7 +311,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             (
                 "batch",
                 "variable",
-                *(grid.dims if self.input_type == "latlon" else ("hpx",)),
+                *(grid.dims if isinstance(grid, LatLonGrid) else ("hpx",)),
             ),
             {"variable": np.array(VARIABLES)},
             dynamic=("batch",),

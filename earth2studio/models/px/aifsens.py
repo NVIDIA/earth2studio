@@ -16,6 +16,7 @@
 import json
 import os
 import zipfile
+from collections import OrderedDict
 from collections.abc import Generator, Hashable, Iterator
 
 import numpy as np
@@ -815,7 +816,10 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tensor = self._prepare_input(tensor, coords)
         tensor, output_coords = self._forward(tensor, x)
         tensor = self._prepare_output(
-            tensor, {d: output_coords.coords[d].values for d in output_coords.dims}
+            tensor,
+            OrderedDict(
+                (d, output_coords.coords[d].values) for d in output_coords.dims
+            ),
         )
         out = from_torch(tensor, output_coords, name=x.name)
         out.encoding = x.encoding.copy()
@@ -912,7 +916,10 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     state = self._prepare_input(tensor, coords)
                 y, coords_out = self._forward(state, packed, step=step)
                 output_tensor = self._prepare_output(
-                    y, {d: coords_out.coords[d].values for d in coords_out.dims}
+                    y,
+                    OrderedDict(
+                        (d, coords_out.coords[d].values) for d in coords_out.dims
+                    ),
                 )
             out = from_torch(output_tensor, coords_out, name=hooked.name)
             out.encoding = hooked.encoding.copy()
@@ -956,7 +963,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             x.encoding = prediction.encoding.copy()
             if state is not None:
-                coords = {d: packed.coords[d].values for d in packed.dims}
+                coords = OrderedDict((d, packed.coords[d].values) for d in packed.dims)
                 coords["time"] = x.time.values
                 coords["lead_time"] = x.lead_time.values
                 with torch.inference_mode():
