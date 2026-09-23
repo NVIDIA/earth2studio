@@ -30,6 +30,7 @@ from __future__ import annotations
 import math
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -38,6 +39,7 @@ import numpy as np
 from loguru import logger
 
 from ..dsx.bus import BusTransport, build_transport
+from ..dsx.contract_adapter import TOPIC_PREFIX, check_topics_config
 from ..dsx.coordinator import DSXCoordinator
 from ..dsx.publish_loop import publish_with_reconnect, republish_on_heartbeat
 from ..dsx.publisher import DSXPublisher
@@ -275,10 +277,12 @@ def _forecast_loop(
                     model,
                     data,
                     collector,
-                    output_coords={"variable": np.array(SOURCE_VARS)},
+                    output_coords=OrderedDict({"variable": np.array(SOURCE_VARS)}),
                     device=device,
                 )
             else:
+                if perturbation is None:  # built whenever members > 1
+                    raise RuntimeError("ensemble perturbation was not built")
                 run.ensemble(
                     times,
                     nsteps,
@@ -288,7 +292,7 @@ def _forecast_loop(
                     collector,
                     perturbation=perturbation,
                     batch_size=ensemble["batch_size"],
-                    output_coords={"variable": np.array(SOURCE_VARS)},
+                    output_coords=OrderedDict({"variable": np.array(SOURCE_VARS)}),
                     device=device,
                 )
         except FileNotFoundError as exc:
@@ -437,6 +441,7 @@ def run(cfg: dict[str, Any], args: Any, stop: threading.Event) -> None:
 
     # Republish about every 100 seconds, as in the BMS contract. The 90-second default
     # leaves some room for scheduling and network delays.
+    check_topics_config(cfg.get("topics") or {})
     if "metadata_heartbeat_seconds" in cfg["bus"]:
         raise ValueError(
             "bus.metadata_heartbeat_seconds was renamed to bus.heartbeat_seconds"
@@ -481,7 +486,7 @@ def run(cfg: dict[str, Any], args: Any, stop: threading.Event) -> None:
         coordinator = DSXCoordinator(
             publisher,
             schema,
-            cfg["topics"]["forecast_prefix"],
+            TOPIC_PREFIX,
             cfg["topics"].get("product", "global-medium-range-weather"),
             {s["id"]: s for s in sites},
             model_id,

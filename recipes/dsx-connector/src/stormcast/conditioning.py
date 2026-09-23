@@ -39,13 +39,14 @@ import uuid
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 import xarray as xr  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from earth2studio.data import DataSource, InferenceOutputSource
+    from earth2studio.io import IOBackend
     from earth2studio.models.px import DiagnosticWrapper, InterpModAFNO
 
 
@@ -197,7 +198,9 @@ def run_conditioning(
                     num_hours,
                     model,
                     gfs,
-                    backend,
+                    # NetCDF4Backend.add_array's signature differs slightly from the IOBackend
+                    # protocol in earth2studio, so mypy needs the cast; it is a valid backend.
+                    cast("IOBackend", backend),
                     device=device,
                 )
             except FileNotFoundError as exc:

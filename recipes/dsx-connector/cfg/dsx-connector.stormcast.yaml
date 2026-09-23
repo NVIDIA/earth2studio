@@ -64,7 +64,6 @@ bus:
   heartbeat_seconds: 90                        # resend Metadata and latest Forecasts; must be <= 100
 
 topics:
-  forecast_prefix: "Weather/v1/PUB"            # DSX topic prefix
   product: "conus-site-weather"                # lowercase letters, digits, single hyphens
 
 sites:

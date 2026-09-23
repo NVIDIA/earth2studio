@@ -49,6 +49,9 @@ import numpy as np
 
 from ..shared.forecast import ForecastSeries
 
+# Topic prefix fixed by the DSX weather contract's channel addresses; it is not configurable.
+TOPIC_PREFIX = "Weather/v1/PUB"
+
 # Percentiles included in ensemble summaries.
 _PERCENTILES = (10, 50, 90)
 _DECIMAL_PLACES = 3
@@ -294,3 +297,27 @@ def site_metadata_message(
         metadata["heightMeters"] = spec["heightMeters"]
     topic = f"{topic_prefix}/Metadata/{product}/{site['id']}/{variable}"
     return topic, metadata
+
+
+def check_topics_config(topics: dict[str, Any]) -> None:
+    """Reject a ``topics.forecast_prefix`` that differs from the contract's fixed prefix.
+
+    Earlier configs set the prefix explicitly. Keeping the contract value is accepted; any other
+    value would fail contract validation on the first publish, so it is rejected up front.
+
+    Parameters
+    ----------
+    topics : dict[str, Any]
+        The ``topics`` section of the configuration.
+
+    Raises
+    ------
+    ValueError
+        If ``forecast_prefix`` is set to anything other than :data:`TOPIC_PREFIX`.
+    """
+    prefix = topics.get("forecast_prefix", TOPIC_PREFIX)
+    if prefix != TOPIC_PREFIX:
+        raise ValueError(
+            f"topics.forecast_prefix is fixed by the DSX weather contract as "
+            f"{TOPIC_PREFIX!r}; remove the setting (got {prefix!r})"
+        )

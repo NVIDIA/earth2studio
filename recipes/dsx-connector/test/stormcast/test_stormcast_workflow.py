@@ -101,6 +101,7 @@ def _base_config() -> dict[str, object]:
             "max_consecutive_failures": 5,
         },
         "bus": {},
+        "topics": {},
     }
 
 
@@ -182,6 +183,7 @@ def test_run_rejects_invalid_conditioning_before_model_import(
         ("bus", "heartbeat_seconds", 0, "heartbeat_seconds"),
         ("bus", "heartbeat_seconds", 101, "heartbeat_seconds"),
         ("bus", "metadata_heartbeat_seconds", 90, "renamed to bus.heartbeat_seconds"),
+        ("topics", "forecast_prefix", "Other/v1/PUB", "forecast_prefix"),
     ],
 )
 def test_run_rejects_invalid_runtime_config_before_model_import(

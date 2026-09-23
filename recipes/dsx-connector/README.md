@@ -203,7 +203,6 @@ workflows use these sections:
   - `token_file`: path to a file containing the OAuth token.
   - `ca_certs`: optional path to the trusted CA certificate bundle.
 - **`topics`** configures the MQTT namespace.
-  - `forecast_prefix`: topic prefix; normally `Weather/v1/PUB`.
   - `product`: name used in MQTT topics so consumers can choose which forecasts to receive, such as
     `"conus-site-weather"`. Like site IDs, it may contain lowercase letters, digits, and single
     hyphens, up to 63 characters. Ask the DSX Exchange administrator which name to use.
@@ -214,9 +213,8 @@ workflows use these sections:
 Each included workflow has additional settings. StormCast uses `conditioning`, `subregion`, and
 `performance`; SFNO uses `ensemble`. These settings are explained in the workflow sections below.
 
-`topics.forecast_prefix` sets the beginning of every MQTT topic. Keep the default `Weather/v1/PUB`
-unless the DSX Exchange administrator provides another value. Changing it also requires updating consumer
-subscriptions and broker permissions.
+Every topic starts with `Weather/v1/PUB`, the prefix fixed by the DSX weather contract; it is not
+configurable.
 
 ## Workflows
 

@@ -27,7 +27,12 @@ import math
 
 import numpy as np
 import pytest
-from src.dsx.contract_adapter import series_to_bundle, site_metadata_message
+from src.dsx.contract_adapter import (
+    TOPIC_PREFIX,
+    check_topics_config,
+    series_to_bundle,
+    site_metadata_message,
+)
 from src.dsx.schema import WeatherSchema
 from src.shared.forecast import ForecastSeries
 from src.stormcast.variables import VARIABLES
@@ -229,3 +234,19 @@ def test_metadata_unit_is_stripped_and_must_not_be_empty() -> None:
             600,
             [],
         )
+
+
+def test_topic_prefix_matches_the_contract_addresses(schema: WeatherSchema) -> None:
+    for channel in ("forecast", "metadata"):
+        address = schema._channels[channel]["address"]
+        assert address.startswith(f"{TOPIC_PREFIX}/"), address
+
+
+@pytest.mark.parametrize("topics", [{}, {"forecast_prefix": TOPIC_PREFIX}])
+def test_check_topics_config_accepts_missing_or_contract_prefix(topics: dict) -> None:
+    check_topics_config(topics)
+
+
+def test_check_topics_config_rejects_a_custom_prefix() -> None:
+    with pytest.raises(ValueError, match="fixed by the DSX weather contract"):
+        check_topics_config({"forecast_prefix": "Other/v1/PUB"})

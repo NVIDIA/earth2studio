@@ -34,7 +34,6 @@ bus:
   client_id: "dsx-connector-sfno"              # must be unique for each running connector
 
 topics:
-  forecast_prefix: "Weather/v1/PUB"            # DSX topic prefix
   product: "global-medium-range-weather"       # lowercase letters, digits, single hyphens
 
 sites:

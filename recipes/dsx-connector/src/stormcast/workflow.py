@@ -35,6 +35,7 @@ import pathlib
 import tempfile
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
@@ -43,6 +44,7 @@ import numpy as np
 from loguru import logger
 
 from ..dsx.bus import BusTransport, build_transport
+from ..dsx.contract_adapter import TOPIC_PREFIX, check_topics_config
 from ..dsx.coordinator import DSXCoordinator
 from ..dsx.publish_loop import publish_with_reconnect, republish_on_heartbeat
 from ..dsx.publisher import DSXPublisher
@@ -230,6 +232,7 @@ def _parse_workflow_settings(cfg: dict[str, Any], args: Any) -> _WorkflowSetting
             f"got {poll_interval_s!r}"
         )
 
+    check_topics_config(cfg.get("topics") or {})
     if "metadata_heartbeat_seconds" in cfg["bus"]:
         raise ValueError(
             "bus.metadata_heartbeat_seconds was renamed to bus.heartbeat_seconds"
@@ -604,7 +607,7 @@ def _run(
                 model,
                 hrrr,
                 collector,
-                output_coords={"variable": np.array(SOURCE_VARS)},
+                output_coords=OrderedDict({"variable": np.array(SOURCE_VARS)}),
                 device=settings.model_device,
             )
         except FileNotFoundError as exc:
@@ -850,7 +853,7 @@ def run(cfg: dict, args: Any, stop: threading.Event) -> None:
     coordinator = DSXCoordinator(
         publisher,
         schema,
-        cfg["topics"]["forecast_prefix"],
+        TOPIC_PREFIX,
         cfg["topics"].get("product", "conus-site-weather"),
         {s["id"]: s for s in sites},
         model_id,

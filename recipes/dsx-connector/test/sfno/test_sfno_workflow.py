@@ -437,6 +437,7 @@ def test_forecast_loop_honors_preset_stop(monkeypatch) -> None:
         ("bus", "heartbeat_seconds", 101),
         ("bus", "heartbeat_seconds", 0),
         ("bus", "metadata_heartbeat_seconds", 90),
+        ("topics", "forecast_prefix", "Other/v1/PUB"),
     ],
 )
 def test_run_rejects_invalid_config_before_model_import(
@@ -446,6 +447,7 @@ def test_run_rejects_invalid_config_before_model_import(
         "sites": [{"id": "site", "lat": 0.0, "lon": 0.0}],
         "run": {"init_time": "latest", "nsteps": 1},
         "bus": {},
+        "topics": {},
     }
     cfg[section][key] = value
     args = types.SimpleNamespace(once=True, dry_run=True)

@@ -189,6 +189,18 @@ def test_heartbeat_reconnects_lost_connection_and_republishes_metadata_first() -
     ]
 
 
+def test_heartbeat_does_not_retry_without_reconnect() -> None:
+    # If a publish failed but no reconnect happened, the next heartbeat retries instead of
+    # repeating the whole pass immediately.
+    coordinator, publisher, transport = _heartbeat_parts(
+        published=False, reconnected=False
+    )
+    publish_loop.republish_on_heartbeat(coordinator, publisher, transport, _stop())
+
+    assert publisher.republish_forecasts.call_count == 1
+    assert coordinator.publish_metadata.call_count == 1
+
+
 def test_heartbeat_does_not_reconnect_during_shutdown() -> None:
     coordinator, publisher, transport = _heartbeat_parts(
         published=False, reconnected=True
