@@ -334,21 +334,34 @@ def test_aurora1p5_ensemble_noise_accumulation_cache_size(model_name, expected_n
     assert core.noise_accumulation_calls == [expected_n, 0]
 
 
-_VARIANTS = [
-    ("Aurora1p5", 1, False),
-    ("Aurora1p5Ensemble", 1, True),
-    ("Aurora1p5_6h", 6, False),
-    ("Aurora1p5Ensemble_6h", 6, True),
-]
-
-
-@pytest.mark.parametrize("model_name,step,ensemble", _VARIANTS)
-def test_aurora1p5_fixed_cadence(model_name, step, ensemble):
-    assert hasattr(px, model_name)
+@pytest.mark.parametrize(
+    "model_name,step,ensemble",
+    [
+        ("Aurora1p5", 1, False),
+        ("Aurora1p5Ensemble", 1, True),
+        ("Aurora1p5_6h", 6, False),
+        ("Aurora1p5Ensemble_6h", 6, True),
+    ],
+)
+def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
     model_cls = getattr(px, model_name)
     assert model_cls.__bases__ == (aurora_module._Aurora,)
     core = PhooAurora1p5EnsembleModel() if ensemble else PhooAurora1p5Model()
-    p = model_cls(core, {})
+
+    def load(package, aurora_cls, checkpoint):
+        suffix = "-ensemble" if ensemble else ""
+        expected_core = (
+            aurora_module.Aurora1p5Ensemble_model
+            if ensemble
+            else aurora_module.Aurora1p5_model
+        )
+        assert aurora_cls is expected_core
+        assert checkpoint == f"aurora-0.25-v1.5{suffix}.ckpt"
+        return core, {}
+
+    monkeypatch.setattr(aurora_module, "_load_aurora1p5_from_package", load)
+    p = model_cls.load_model(object())
+    assert type(p) is model_cls
     for target in (p._input_coords, p._output_coords):
         target["lat"] = np.linspace(90, -90, 4, endpoint=False)
         target["lon"] = np.linspace(0, 360, 8, endpoint=False)
@@ -365,7 +378,7 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble):
         calls.append((batch.metadata.rollout_step, lead_times[0].item()))
         return original_forward(batch, lead_times)
 
-    core.forward = forward
+    monkeypatch.setattr(core, "forward", forward)
     out, out_coords = p(x, coords)
     assert out.shape == (2, 1, 1, 90, 4, 8)
     assert out_coords["lead_time"][0] == np.timedelta64(12 + step, "h")
@@ -389,35 +402,8 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble):
     )
     with pytest.raises(TypeError):
         model_cls(core, {}, lead_time_stride_hours=step)
-
-
-@pytest.mark.parametrize("model_name,step,ensemble", _VARIANTS)
-def test_aurora1p5_variant_load_model(model_name, step, ensemble, monkeypatch):
-    assert hasattr(px, model_name)
-    model_cls = getattr(px, model_name)
-    calls = []
-    core = PhooAurora1p5EnsembleModel() if ensemble else PhooAurora1p5Model()
-
-    def load(package, aurora_cls, checkpoint):
-        calls.append((package, aurora_cls, checkpoint))
-        return core, {}
-
-    monkeypatch.setattr(aurora_module, "_load_aurora1p5_from_package", load)
-    package = object()
-    p = model_cls.load_model(package)
-    assert type(p) is model_cls
-    expected_core = (
-        aurora_module.Aurora1p5Ensemble_model
-        if ensemble
-        else aurora_module.Aurora1p5_model
-    )
-    checkpoint = (
-        "aurora-0.25-v1.5-ensemble.ckpt" if ensemble else "aurora-0.25-v1.5.ckpt"
-    )
-    assert calls == [(package, expected_core, checkpoint)]
-    assert p._output_coords["lead_time"][0] == np.timedelta64(step, "h")
     with pytest.raises(TypeError):
-        model_cls.load_model(package, lead_time_stride_hours=step)
+        model_cls.load_model(object(), lead_time_stride_hours=step)
 
 
 @pytest.fixture(scope="function")
