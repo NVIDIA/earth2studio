@@ -38,16 +38,18 @@ TABLE_B = {
     33216: ("SWQM     SDMEDIT SATELLITE WIND",),
 }
 IDS = utils_satwnd.resolve_mnemonics(TABLE_B)
+TABLE_IDS = {entry[0].split()[0]: key for key, entry in TABLE_B.items()}
 PLAN = {
     "u": ("u", NNJAObsSatwndLexicon.get_item("u")[1]),
     "v": ("v", NNJAObsSatwndLexicon.get_item("v")[1]),
 }
-WANTED = {"u": "u", "v": "v"}
 BOUNDS = (datetime(2015, 1, 1, 0), datetime(2015, 1, 1, 3))
 
 
 def _stream(pairs: list[tuple[str, object]]):
-    descriptors = [SimpleNamespace(id=IDS[name]) for name, _ in pairs]
+    descriptors = [
+        SimpleNamespace(id=IDS.get(name, TABLE_IDS.get(name))) for name, _ in pairs
+    ]
     values = [value for _, value in pairs]
     return descriptors, values
 
@@ -120,163 +122,6 @@ def _goes_r(said=270, swcm=1, subset_pccf=(("GNAPS", 4), ("PCCF", 89), ("GNAPS",
     )
 
 
-def test_type_table_matches_gsi_sattabin_spot_checks():
-    table = utils_satwnd.SATWND_TYPE_TABLE
-    assert table[(10, 257, 1)] == (245, 7)
-    assert table[(19, 257, 1)] == (240, 11)
-    assert table[(30, 270, 1)] == (245, 15)
-    assert table[(31, 270, 4)] == (247, 19)
-    assert table[(31, 270, 5)] == (247, 19)
-    assert table[(44, 172, 1)] == (252, 4)
-    assert table[(46, 174, 5)] == (250, 4)
-    assert table[(47, 173, 1)] == (253, 5)
-    assert table[(64, 54, 1)] == (253, 1)
-    assert table[(66, 57, 3)] == (254, 1)
-    assert table[(67, 70, 1)] == (253, 2)
-    assert table[(71, 784, 3)] == (258, 8)
-    assert table[(71, 784, 5)] == (259, 8)
-    assert table[(72, 854, 1)] == (255, 12)
-    assert table[(81, 3, 1)] == (244, 10)
-    assert table[(91, 225, 1)] == (260, 14)
-    assert table[(99, 731, 6)] == (241, 20)
-    assert table[(24, 470, 1)] == (256, -1)
-    # Not typed by GSI: wrong method for the subset, or a SAID outside the
-    # platform list (INSAT-3DR 473 in 2024 dumps).
-    assert (10, 257, 3) not in table
-    assert (24, 473, 1) not in table
-    assert (99, 470, 1) not in table
-
-
-def test_resolve_mnemonics_prefers_file_table_over_wmo_fallbacks():
-    ids = utils_satwnd.resolve_mnemonics(
-        {2164: ("EHAM     EXTENDED HEIGHT ASSIGNM",), 33222: ("SWQM     QM",)}
-    )
-    assert ids["EHAM"] == 2164
-    assert ids["SWQM"] == 33222
-    assert ids["PRLC"] == 7004
-    assert utils_satwnd.resolve_mnemonics({})["SWQM"] == 33216
-
-
-def test_bufr_local_subcategory_by_edition():
-    ed3 = bytearray(24)
-    ed3[7] = 3
-    ed3[16] = 5
-    ed3[17] = 30
-    assert utils_satwnd.bufr_local_subcategory(bytes(ed3)) == 30
-    ed4 = bytearray(24)
-    ed4[7] = 4
-    ed4[18] = 5
-    ed4[20] = 67
-    assert utils_satwnd.bufr_local_subcategory(bytes(ed4)) == 67
-
-
-def test_legacy_nesdis_subset_rows():
-    descriptors, values = _legacy_nesdis()
-    rows = utils_satwnd._extract_satwnd_subset(
-        descriptors, values, 10, IDS, WANTED, *BOUNDS
-    )
-    assert [r["variable"] for r in rows] == ["u", "v"]
-    u, v = rows
-    # Meteorological direction 260 deg at 53.5 m/s.
-    assert u["observation"] == pytest.approx(-53.5 * math.sin(math.radians(260.0)))
-    assert v["observation"] == pytest.approx(-53.5 * math.cos(math.radians(260.0)))
-    assert u["time"] == datetime(2015, 1, 1, 1, 30, 6)
-    assert u["lat"] == pytest.approx(np.float32(36.96))
-    assert u["lon"] == pytest.approx(np.float32(360.0 - 60.73))
-    assert u["type"] == 245 and u["gsi_case"] == 7
-    assert u["class"] == "SATWND" and u["station"] == "IR257"
-    assert u["quality"] == 2 and u["height_method"] == 4
-    assert u["pres"] == pytest.approx(32500.0)
-    assert u["elev"] is None
-    assert u["satellite_id"] == 257 and u["subset"] == "NC005010"
-    assert u["wind_method"] == 1 and u["satellite_za"] == pytest.approx(45.43)
-    # NESDIS legacy: GNAP 1 = qifn, 3 = qify, 4 = ee.
-    assert u["qi"] == 99 and u["qi_forecast"] == 97 and u["expected_error"] == 44
-
-
-def test_goes_r_subset_uses_first_level_and_amvqic_gnaps():
-    descriptors, values = _goes_r()
-    rows = utils_satwnd._extract_satwnd_subset(
-        descriptors, values, 30, IDS, WANTED, *BOUNDS
-    )
-    assert len(rows) == 2
-    u = rows[0]
-    assert u["type"] == 245 and u["gsi_case"] == 15
-    assert u["pres"] == pytest.approx(41780.0)
-    assert u["height_method"] == 15
-    assert u["satellite_za"] == pytest.approx(70.43)
-    assert u["quality"] is None  # no SWQM in GOES-R BUFR
-    assert u["lat"] == pytest.approx(np.float32(61.10906))
-    # AMVQIC: GNAPS 5 -> qi, 6 -> qi with forecast (missing), 7 -> ee.
-    assert u["qi"] == 89 and math.isnan(u["qi_forecast"]) and u["expected_error"] == 61
-
-    # EUMETSAT 310077 layout orders GNAPS 6,5,4,2: ee falls back to GNAPS 2.
-    descriptors, values = _goes_r(
-        said=57,
-        subset_pccf=(("GNAPS", 6), ("PCCF", 56), ("GNAPS", 5), ("PCCF", 69), ("GNAPS", 4), ("PCCF", 58), ("GNAPS", 2), ("PCCF", 0)),  # fmt: skip
-    )
-    rows = utils_satwnd._extract_satwnd_subset(
-        descriptors, values, 67, IDS, WANTED, *BOUNDS
-    )
-    assert rows[0]["type"] == 253 and rows[0]["gsi_case"] == 2
-    assert rows[0]["qi"] == 69 and rows[0]["qi_forecast"] == 56
-    assert rows[0]["expected_error"] == 0
-
-
-def test_jma_gnap_codes_and_untyped_subsets_dropped():
-    descriptors, values = _stream(
-        [
-            ("SAID", 172),
-            ("SAZA", 44.51),
-            *_time_block(),
-            ("CLAT", 37.1),
-            ("CLON", 155.92),
-            ("SWCM", 1),
-            ("PRLC", 39330.0),
-            ("GNAP", 101),
-            ("PCCF", 76),
-            ("GNAP", 102),
-            ("PCCF", 88),
-            ("GNAP", 103),
-            ("PCCF", 0),
-            ("WDIR", 270.0),
-            ("WSPD", 10.0),
-        ]
-    )
-    rows = utils_satwnd._extract_satwnd_subset(
-        descriptors, values, 44, IDS, WANTED, *BOUNDS
-    )
-    assert rows[0]["type"] == 252 and rows[0]["gsi_case"] == 4
-    assert rows[0]["qi"] == 88 and rows[0]["qi_forecast"] == 76
-    assert rows[0]["observation"] == pytest.approx(10.0)  # westerly -> +u
-    assert rows[1]["observation"] == pytest.approx(0.0, abs=1e-6)
-
-    # INSAT is typed 256 with no GSI case; a SAID outside the table is dropped.
-    assert (
-        utils_satwnd._extract_satwnd_subset(
-            descriptors, values, 24, IDS, WANTED, *BOUNDS
-        )
-        == []
-    )
-    descriptors, values = _legacy_nesdis(said=470)
-    rows = utils_satwnd._extract_satwnd_subset(
-        descriptors, values, 24, IDS, WANTED, *BOUNDS
-    )
-    assert rows[0]["type"] == 256 and rows[0]["gsi_case"] is None
-
-
-def test_subset_filters_time_window_and_missing_wind():
-    descriptors, values = _legacy_nesdis()
-    late = (datetime(2015, 1, 1, 2), datetime(2015, 1, 1, 3))
-    assert utils_satwnd._extract_satwnd_subset(descriptors, values, 10, IDS, WANTED, *late) == []  # fmt: skip
-    descriptors, values = _legacy_nesdis(wspd=None)
-    assert utils_satwnd._extract_satwnd_subset(descriptors, values, 10, IDS, WANTED, *BOUNDS) == []  # fmt: skip
-    only_u = utils_satwnd._extract_satwnd_subset(
-        *_legacy_nesdis(), 10, IDS, {"u": "u"}, *BOUNDS
-    )
-    assert [r["variable"] for r in only_u] == ["u"]
-
-
 class _Message:
     def __init__(self, subsets):
         self.n_subsets = SimpleNamespace(value=len(subsets))
@@ -304,6 +149,108 @@ def _message_bytes(subset: int) -> bytes:
     return bytes(raw)
 
 
+def test_resolve_mnemonics_prefers_file_table_over_wmo_fallbacks():
+    ids = utils_satwnd.resolve_mnemonics(
+        {33222: ("SWQM     QM",), 2250: ("CMCM     COMPUTATION METHOD",)}
+    )
+    assert ids["SWQM"] == 33222
+    assert ids["CMCM"] == 2250
+    assert ids["PRLC"] == 7004
+    fallback = utils_satwnd.resolve_mnemonics({})
+    assert fallback["SWQM"] == 33216
+    assert "CMCM" not in fallback
+
+
+def test_bufr_local_subcategory_by_edition():
+    ed3 = bytearray(24)
+    ed3[7] = 3
+    ed3[16] = 5
+    ed3[17] = 30
+    assert utils_satwnd.bufr_local_subcategory(bytes(ed3)) == 30
+    ed4 = bytearray(24)
+    ed4[7] = 4
+    ed4[18] = 5
+    ed4[20] = 67
+    assert utils_satwnd.bufr_local_subcategory(bytes(ed4)) == 67
+
+
+def _decode(subsets, subset_number, bounds=BOUNDS):
+    message = _message_bytes(subset_number)
+    decoder = _Decoder({message: _Message(subsets)})
+    return utils_satwnd._decode_satwnd_message(decoder, message, IDS, *bounds)
+
+
+def test_legacy_nesdis_wind_is_raw():
+    winds = _decode([_legacy_nesdis()], 10)
+    assert len(winds["time"]) == 1
+    # Meteorological direction 260 deg at 53.5 m/s.
+    assert winds["u"][0] == pytest.approx(-53.5 * math.sin(math.radians(260.0)))
+    assert winds["v"][0] == pytest.approx(-53.5 * math.cos(math.radians(260.0)))
+    assert winds["time"][0] == datetime(2015, 1, 1, 1, 30, 6)
+    assert winds["lat"][0] == pytest.approx(36.96)
+    assert winds["lon"][0] == pytest.approx(360.0 - 60.73)
+    assert winds["pres"][0] == pytest.approx(32500.0)
+    assert winds["quality"][0] == 2 and winds["height_method"][0] == 4
+    assert winds["satellite_id"][0] == 257 and winds["subset"][0] == "NC005010"
+    assert winds["wind_method"][0] == 1 and winds["wind_method_local"][0] is None
+    assert winds["satellite_za"][0] == pytest.approx(45.43)
+    assert winds["quality_indicators"][0] == [
+        {"application": code, "confidence": value}
+        for code, value in ((1, 99), (2, 62), (3, 97), (4, 44))
+    ]
+    assert winds["amv_quality_indicators"][0] is None
+
+
+def test_goes_r_wind_reads_first_slot_and_amvqic_map():
+    winds = _decode([_goes_r()], 30)
+    assert winds["pres"][0] == pytest.approx(41780.0)
+    assert winds["satellite_za"][0] == pytest.approx(70.43)
+    assert winds["quality"][0] is None  # no SWQM in GOES-R BUFR
+    assert winds["lat"][0] == pytest.approx(61.10906)
+    # GNAPS 6 has a missing PCCF, so it has no entry.
+    assert winds["amv_quality_indicators"][0] == [
+        {"application": code, "confidence": value}
+        for code, value in ((4, 89), (5, 89), (7, 61))
+    ]
+    assert winds["quality_indicators"][0] is None
+
+
+def test_repeated_field_uses_first_slot_populated_in_the_message():
+    def wind(first_prlc, second_prlc):
+        return _stream(
+            [
+                ("SAID", 57),
+                *_time_block(),
+                ("CLAT", 10.0),
+                ("CLON", 20.0),
+                ("SWCM", 1),
+                ("PRLC", first_prlc),
+                ("WDIR", 90.0),
+                ("WSPD", 5.0),
+                ("PRLC", second_prlc),
+            ]
+        )
+
+    # Slot 1 is populated in the message, so a wind missing it stays missing
+    # instead of borrowing slot 2.
+    winds = _decode([wind(50000.0, 60000.0), wind(None, 70000.0)], 67)
+    assert winds["pres"][0] == pytest.approx(50000.0)
+    assert math.isnan(winds["pres"][1])
+    # Slot 1 empty for every wind: the template carries the field in slot 2.
+    winds = _decode([wind(None, 60000.0), wind(None, 70000.0)], 67)
+    assert winds["pres"] == pytest.approx([60000.0, 70000.0])
+
+
+def test_every_producer_is_kept_and_unlocatable_winds_skipped():
+    # INSAT-3DR (SAID 473) and deep-layer WV (SWCM 5) are not typed by GSI but
+    # are real winds; the source keeps them.
+    winds = _decode([_legacy_nesdis(said=473, swcm=5)], 24)
+    assert winds["satellite_id"] == [473] and winds["wind_method"] == [5]
+    late = (datetime(2015, 1, 1, 2), datetime(2015, 1, 1, 3))
+    assert _decode([_legacy_nesdis()], 10, late)["time"] == []
+    assert _decode([_legacy_nesdis(wspd=None)], 10)["time"] == []
+
+
 def test_decode_satwnd_end_to_end(tmp_path, monkeypatch):
     local = tmp_path / "gdas.satwnd.bufr_d"
     local.write_bytes(b"satwnd-bytes")
@@ -314,27 +261,30 @@ def test_decode_satwnd_end_to_end(tmp_path, monkeypatch):
         "_parse_prepbufr_messages",
         lambda data, *, silence_noise: (TABLE_B, {}, [(nesdis, 5), (goes_r, 5)]),
     )
-    monkeypatch.setattr(
-        utils_satwnd,
-        "_create_decoder",
-        lambda tb, td: _Decoder(
-            {
-                nesdis: _Message([_legacy_nesdis(), _legacy_nesdis(swcm=3)]),
-                goes_r: _Message([_goes_r()]),
-            }
-        ),
+    decoder = _Decoder(
+        {
+            nesdis: _Message([_legacy_nesdis(), _legacy_nesdis(swcm=3)]),
+            goes_r: _Message([_goes_r()]),
+        }
     )
+    monkeypatch.setattr(utils_satwnd, "init_decode_worker", lambda tb, td: None)
+    monkeypatch.setattr(utils_satwnd, "get_worker_decoder", lambda: decoder)
     df = utils_satwnd.decode_satwnd(str(local), PLAN, *BOUNDS, decode_workers=1)
-    # Two typed NESDIS/GOES-R winds x (u, v); SWCM 3 under NC005010 is untyped.
-    assert len(df) == 4
+    # Three winds x (u, v), all u rows then all v rows, source order within each.
+    assert len(df) == 6
     assert list(df.columns) == utils_satwnd.NCEP_SATWND_PUBLIC_SCHEMA.names
-    assert sorted(df["type"].unique().tolist()) == [245]
-    # Rows are grouped by variable (all u, then all v) by _finalize_rows.
-    assert df["variable"].tolist() == ["u", "u", "v", "v"]
-    assert sorted(df["subset"].tolist()) == ["NC005010", "NC005010", "NC005030", "NC005030"]  # fmt: skip
+    assert df["variable"].tolist() == ["u", "u", "u", "v", "v", "v"]
+    assert df["subset"].tolist()[:3] == ["NC005010", "NC005010", "NC005030"]
+    assert df["wind_method"].tolist()[:3] == [1, 3, 1]
+    assert df["type"].isna().all() and df["station"].isna().all()
+    assert (df["class"] == "SATWND").all()
     assert df["pres"].dtype == np.float32
     assert str(df["satellite_id"].dtype) == "uint16[pyarrow]"
     assert df.loc[df["subset"] == "NC005030", "quality"].isna().all()
+    # Round-trips through parquet with the declared nested type.
+    df.to_parquet(tmp_path / "winds.parquet")
+    back = pd.read_parquet(tmp_path / "winds.parquet")
+    assert back["quality_indicators"].iloc[0][0]["application"] == 1
 
     source = NNJAObsSatwnd(cache=False, verbose=False, decode_workers=1)
     task = utils_ncep.NCEPObsTask(
@@ -353,6 +303,8 @@ def test_nnja_obs_satwnd_uri_and_tasks():
     source = NNJAObsSatwnd(cache=False, verbose=False)
     uri = source._build_uri("satwnd", datetime(2024, 1, 1, 6))
     assert uri.endswith("amv/satwnd/2024/01/bufr/gdas.20240101.t06z.satwnd.tm00.bufr_d")
+    uri = source._build_uri("satwnd", datetime(2019, 12, 31, 18))
+    assert uri.endswith("amv/merged/2019/12/bufr/gdas.20191231.t18z.satwnd.tm00.bufr_d")
     with pytest.raises(ValueError):
         source._build_uri("prepbufr", datetime(2024, 1, 1))
     tasks = source._create_tasks([datetime(2024, 1, 1, 6)], ["u", "v"])
@@ -361,4 +313,5 @@ def test_nnja_obs_satwnd_uri_and_tasks():
     assert tasks[0].var_plan["u"][0] == "u"
     assert NNJAObsSatwnd.available(datetime(1990, 6, 1))
     assert not NNJAObsSatwnd.available(datetime(1970, 6, 1))
-    assert source.resolve_fields(["time", "qi"]).names == ["time", "qi"]
+    names = source.resolve_fields(["time", "quality_indicators"]).names
+    assert names == ["time", "quality_indicators"]

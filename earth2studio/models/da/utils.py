@@ -15,7 +15,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
@@ -105,53 +104,3 @@ def dfseries_to_torch(
 
     # CPU case - standard conversion
     return torch.tensor(series.values, dtype=dtype, device=device)
-
-
-# US Standard Atmosphere 1976 layer table for pressure -> height.
-_USSA_H_M = np.array([0.0, 11_000.0, 20_000.0, 32_000.0, 47_000.0, 51_000.0, 71_000.0])
-_USSA_LAPSE_K_M = np.array([-0.0065, 0.0, 0.001, 0.0028, 0.0, -0.0028, -0.002])
-_USSA_T_K = np.array([288.15, 216.65, 216.65, 228.65, 270.65, 270.65, 214.65])
-_USSA_P_PA = np.array(
-    [
-        101_325.0,
-        22_632.06397346295,
-        5_474.888669677785,
-        868.0186847552303,
-        110.9063055549665,
-        66.93887311868764,
-        3.9564204280407553,
-    ]
-)
-_USSA_TOP_P_PA = 0.37338358997621796
-_USSA_K = 8.31432 / (9.80665 * 0.0289644)
-
-
-def pressure_to_height_m(pressure_pa: np.ndarray) -> np.ndarray:
-    """USSA-1976 geopotential height (m) for a pressure (Pa), floored at 0.
-
-    A climatological pressure altitude for observations that report only a
-    pressure (e.g. satellite AMVs); NaN where the pressure is not finite, not
-    positive, or above the 84.852 km table top.
-    """
-    p = np.asarray(pressure_pa, dtype=np.float64)
-    height = np.full(p.shape, np.nan, dtype=np.float64)
-    usable = np.isfinite(p) & (p >= _USSA_TOP_P_PA)
-    for index in range(_USSA_P_PA.size):
-        last = index + 1 == _USSA_P_PA.size
-        top_p = _USSA_TOP_P_PA if last else _USSA_P_PA[index + 1]
-        below = p <= _USSA_P_PA[index] if index else np.ones(p.shape, dtype=bool)
-        above_top = p >= top_p if last else p > top_p
-        layer = usable & below & above_top
-        if not layer.any():
-            continue
-        ratio = p[layer] / _USSA_P_PA[index]
-        lapse = _USSA_LAPSE_K_M[index]
-        if lapse:
-            height[layer] = _USSA_H_M[index] + _USSA_T_K[index] / lapse * (
-                np.power(ratio, -lapse * _USSA_K) - 1.0
-            )
-        else:
-            height[layer] = _USSA_H_M[index] - _USSA_K * _USSA_T_K[index] * np.log(
-                ratio
-            )
-    return np.maximum(height, 0.0).astype(np.float32)

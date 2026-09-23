@@ -44,7 +44,7 @@ from earth2studio.data.utils import (
     obstore_fetch_to_cache,
     prep_data_inputs,
 )
-from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
+from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
@@ -204,6 +204,10 @@ class NNJAObsConv:
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
+    exclude_message_types : Sequence[str], optional
+        PrepBUFR message families to skip at decode, e.g. ``("SATWND",)`` when
+        atmospheric motion vectors come from :class:`NNJAObsSatwnd` instead. By
+        default every family is decoded.
 
     Warning
     -------
@@ -242,6 +246,7 @@ class NNJAObsConv:
         async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
+        exclude_message_types: Sequence[str] = (),
     ) -> None:
         if source == "convbufr":
             raise NotImplementedError(
@@ -255,6 +260,13 @@ class NNJAObsConv:
             raise ValueError(
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
             )
+        unknown = set(exclude_message_types) - set(PREPBUFR_OBS_TYPES.values())
+        if unknown:
+            raise ValueError(
+                f"Unknown PrepBUFR message types {sorted(unknown)}; valid: "
+                f"{sorted(PREPBUFR_OBS_TYPES.values())}"
+            )
+        self._exclude_message_types = frozenset(exclude_message_types)
         self._source = source
         # Internal switch for the special aircraft-profile product. Default
         # output maps profile-stage 33x/43x/53x report codes to the standard
@@ -428,6 +440,7 @@ class NNJAObsConv:
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
+                exclude_message_types=self._exclude_message_types,
             )
             if (
                 self._source == "prepbufr.acft_profiles"
@@ -479,29 +492,22 @@ class NNJAObsConv:
 class NNJAObsSatwnd(NNJAObsConv):
     """NNJA satellite-derived atmospheric motion vector (SATWND) data source.
 
-    Reads the raw NCEP ``satwnd`` dump (``amv/satwnd/`` in the NNJA archive,
-    1979 to present) rather than the AMVs merged into PrepBUFR. The dump keeps
-    every producer stream (GOES legacy and GOES-R, Meteosat, Himawari, MODIS,
-    AVHRR, VIIRS, LEO-GEO) with its own quality indicators, which PrepBUFR
-    drops, and is what GSI's ``read_satwnd`` consumes.
+    Reads the raw NCEP AMV dumps (``amv/`` in the NNJA archive) rather than the
+    AMVs merged into PrepBUFR. The dumps keep every producer stream (GOES legacy
+    and GOES-R, Meteosat, Himawari, MODIS, AVHRR, VIIRS, LEO-GEO, INSAT) with its
+    own computation method, height assignment and quality indicators. Cycles
+    through 2019 read the ``amv/merged`` reprocessed product and later cycles the
+    operational ``amv/satwnd`` dump.
 
-    ``u``/``v`` rows are decomposed from ``WDIR``/``WSPD``. The shared columns
-    follow :class:`NNJAObsConv` semantics: ``type`` is the GSI report type
-    (240-260) derived from ``(subset, SAID, SWCM)`` exactly as GSI's
-    ``sattabin`` table does, ``pres`` is the final height assignment (Pa),
-    ``elev`` is null (an AMV carries only a pressure height assignment;
-    consumers needing a geometric height derive one, e.g. from a standard
-    atmosphere), ``quality`` is the ``SDMEDIT`` wind
-    quality mark where the producer encodes one, ``station`` is GSI's
-    computation-method tag plus SAID, and ``class`` is ``"SATWND"``. Extra
-    columns carry ``satellite_id``, ``subset``, ``wind_method`` (SWCM),
-    ``height_method``, ``satellite_za``, ``qi``, ``qi_forecast``,
-    ``expected_error`` and ``gsi_case``.
-
-    Winds whose ``(subset, SAID, SWCM)`` GSI does not type (new satellites not
-    in the table, unknown subsets) are dropped, as GSI drops them. No other QC
-    or thinning is applied; GSI-style screens (125 hPa floor, zenith limb, QI
-    thresholds) and horizontal thinning belong to the consumer.
+    ``u``/``v`` rows are decomposed from ``WDIR``/``WSPD``. Shared columns follow
+    :class:`NNJAObsConv`: ``pres`` is the height assignment (``PRLC``, Pa),
+    ``quality`` the ``SWQM`` wind quality mark where the producer encodes one,
+    ``class`` is ``"SATWND"``; ``type``, ``station`` and ``elev`` are null
+    since the dump carries no report type, station or geometric height. Extra
+    columns carry ``satellite_id``, ``subset``, ``wind_method`` (``SWCM``),
+    ``wind_method_local`` (``CMCM``), ``height_method``, ``satellite_za`` and
+    the raw quality indicators keyed by generating application. No report
+    typing, quality control or thinning is applied.
 
     Parameters
     ----------
@@ -519,7 +525,8 @@ class NNJAObsSatwnd(NNJAObsConv):
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
         Number of parallel processes for BUFR message decoding. Recent cycle
-        files are 300-400 MB, so decoding benefits from several workers.
+        files hold 3-5 million winds and decode at roughly 1,500 winds per second
+        per worker, so decoding dominates run time and scales with workers.
         Set to 1 to disable multiprocessing, by default 8.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
@@ -536,7 +543,6 @@ class NNJAObsSatwnd(NNJAObsConv):
 
     - https://psl.noaa.gov/data/nnja_obs/
     - https://registry.opendata.aws/noaa-reanalyses-pds/
-    - https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/read_satwnd.f90
 
     Badges
     ------
@@ -545,8 +551,10 @@ class NNJAObsSatwnd(NNJAObsConv):
 
     SOURCE_ID = "earth2studio.data.NNJAObsSatwnd"
     SCHEMA = NCEP_SATWND_PUBLIC_SCHEMA
-    LEXICON = NNJAObsSatwndLexicon
+    LEXICON = NNJAObsSatwndLexicon  # type: ignore[assignment]
     MIN_DATE = datetime(1979, 1, 1)
+    # Last year of the reprocessed amv/merged product; the operational dump follows.
+    MERGED_LAST_YEAR = 2019
 
     def __init__(
         self,
@@ -572,8 +580,9 @@ class NNJAObsSatwnd(NNJAObsConv):
     def _build_uri(self, route: str, cycle: datetime) -> str:
         if route != "satwnd":
             raise ValueError(f"Unsupported route '{route}'")
+        product = "merged" if cycle.year <= self.MERGED_LAST_YEAR else "satwnd"
         return (
-            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/amv/satwnd/"
+            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/amv/{product}/"
             f"{cycle:%Y}/{cycle:%m}/bufr/"
             f"gdas.{cycle:%Y%m%d}.t{cycle.hour:02d}z.satwnd.tm00.bufr_d"
         )

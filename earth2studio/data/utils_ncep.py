@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pathlib
 import time
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -825,6 +825,7 @@ def decode_prepbufr(
     dt_min: datetime,
     dt_max: datetime,
     decode_workers: int = 8,
+    exclude_message_types: Collection[str] = (),
 ) -> pd.DataFrame:
     """Decode a merged NCEP PrepBUFR file into a DataFrame.
 
@@ -838,6 +839,9 @@ def decode_prepbufr(
         Time window for observation filtering.
     decode_workers : int
         Number of parallel decode processes (1 disables multiprocessing).
+    exclude_message_types : Collection[str]
+        PrepBUFR message families (e.g. ``"SATWND"``) whose messages are skipped
+        without decoding.
     """
     decode_workers = max(1, decode_workers)
     var_keys = [(variable, key) for variable, (key, _) in plan.items()]
@@ -851,6 +855,7 @@ def decode_prepbufr(
         (message_bytes, PREPBUFR_OBS_TYPES[data_category])
         for message_bytes, data_category in messages
         if data_category in PREPBUFR_OBS_TYPES
+        and PREPBUFR_OBS_TYPES[data_category] not in exclude_message_types
     ]
     if not work_items:
         return empty_dataframe()

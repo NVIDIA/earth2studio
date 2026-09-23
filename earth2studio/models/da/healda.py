@@ -29,7 +29,7 @@ from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
-from earth2studio.models.da.utils import filter_time_range, pressure_to_height_m
+from earth2studio.models.da.utils import filter_time_range
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -655,8 +655,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         df : pd.DataFrame
-            Raw conventional observation DataFrame from ``UFSObsConv``,
-            ``NNJAObsConv`` or ``NNJAObsSatwnd``
+            Raw conventional observation DataFrame from UFSObsConv
 
         Returns
         -------
@@ -674,16 +673,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         is_pres_obs = df["variable"].values == "pres"
         obs[is_pres_obs] /= 100.0  # Pa -> hPa
 
-        pressure_pa = df["pres"].values.astype(np.float32)
-        pressure = pressure_pa / np.float32(100.0)  # Pa -> hPa
-
-        # HealDA needs a geometric height for every conventional row; AMVs only
-        # report a pressure, so fill missing heights from the standard atmosphere.
-        height = df["elev"].values.astype(np.float32)
-        missing = ~np.isfinite(height) & np.isfinite(pressure_pa)
-        if missing.any():
-            height = height.copy()
-            height[missing] = pressure_to_height_m(pressure_pa[missing])
+        pressure = df["pres"].values.astype(np.float32) / np.float32(100.0)  # Pa -> hPa
 
         return pd.DataFrame(
             {
@@ -697,7 +687,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
                 "local_platform": np.int64(0),
                 "sensor": "conv",
                 "obs_type": df["type"].fillna(0).values.astype(np.int32),
-                "height": height,
+                "height": df["elev"].values.astype(np.float32),
                 "pressure": pressure,
                 "scan_angle": np.float32(np.nan),
                 "sat_zenith_angle": np.float32(np.nan),
