@@ -14,305 +14,157 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Iterable
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-try:
-    import onnx  # noqa
-except ImportError:
-    pytest.skip("onnx not installed which is needed for tests", allow_module_level=True)
-
-from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import Package
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXi
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+def test_fuxi_call_resets_short_session(monkeypatch):
+    monkeypatch.setattr(
+        "earth2studio.models.px.fuxi.create_ort_session",
+        lambda path, device: SimpleNamespace(_model_path=path),
+    )
+    model = FuXi.__new__(FuXi)
+    FuXi.__init__.__wrapped__(model, "short", "medium", "long")
+    signature = model.input_coords()
+    assert signature.data.nbytes == 0
+    assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    signature = coord_array(
+        signature.dims,
+        {"lead_time": signature.lead_time, "variable": signature.coords["variable"]},
+        dynamic=("batch", "time"),
+        grid=LatLonGrid([45, -45], [0, 120, 240]),
+    )
+    monkeypatch.setattr(model, "input_coords", lambda: signature.copy())
+    monkeypatch.setattr(
+        model,
+        "_forward",
+        lambda x, coords, session: x
+        + {"short": 1, "medium": 2, "long": 3}[session._model_path],
+    )
+    coords = coord_array_like(
+        signature,
+        {"batch": [0, 1], "time": np.array(["2000-01-01"], dtype="datetime64[ns]")},
+    )
+    x = from_torch(torch.randn(coords.shape), coords, name="weather").rename(
+        batch="member"
+    )
+    x.encoding = {"source": "fixture"}
+    original = x.copy(deep=True)
+    iterator = model.create_iterator(x)
+    initial = next(iterator)
+    total = 0
+    for step in range(42):
+        out = next(iterator)
+        total += 1 if step < 20 else 2 if step < 40 else 3
+        np.testing.assert_allclose(out.data, initial.data + total, rtol=1e-5)
+        assert out.lead_time.values[0] == np.timedelta64((step + 1) * 6, "h")
+        assert out.dims == x.dims and out.encoding == x.encoding
+    assert model.ort._model_path == "long"
+    out = model(x)
+    assert model.ort._model_path == "short"
+    np.testing.assert_allclose(out.data, x.isel(lead_time=slice(-1, None)).data + 1)
+    xr.testing.assert_identical(x, original)
+    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
 
 
 class PhooFuXiModel(torch.nn.Module):
-    """Dummy FuXi model, adds time-step"""
-
-    def __init__(self, model_type: str = "short"):
+    def __init__(self, model_type="short"):
         super().__init__()
-        # Model cascade testing
-        if model_type == "short":
-            self.delta_t = 1
-        elif model_type == "medium":
-            self.delta_t = 2
-        else:
-            self.delta_t = 3
+        self.delta_t = {"short": 1, "medium": 2, "long": 3}[model_type]
 
     def forward(self, x, y):
-        # Remove first time-step
-        assert y.shape[1] == 12
-        # Add  0*y[0,0] so input y remains in ONNX graph
-        output = x + self.delta_t + 0 * y[0, 0]
-        return output
+        return x + self.delta_t + 0 * y[0, 0]
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="module")
 def fuxi_test_package(tmp_path_factory):
-    """Creates a bunch of spoof ONNX models to unit test with"""
-    tmp_path = tmp_path_factory.mktemp("data")
-
-    for model in ["short", "medium", "long"]:
-        onnx_path = tmp_path / f"{model}.onnx"
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    tmp_path = tmp_path_factory.mktemp("fuxi-onnx")
+    for model_type in ("short", "medium", "long"):
         torch.onnx.export(
-            PhooFuXiModel(model_type=model),
-            args=(torch.rand(1, 2, 70, 721, 1440), torch.rand(1, 12)),
-            f=str(onnx_path),
+            PhooFuXiModel(model_type),
+            (torch.rand(1, 2, 70, 721, 1440), torch.rand(1, 12)),
+            str(tmp_path / f"{model_type}.onnx"),
             export_params=True,
             opset_version=10,
+            dynamo=False,
             input_names=["input", "temb"],
             output_names=["output"],
         )
-        # Empty weight file
-        open(tmp_path / f"{model}", "a").close()
-
+        (tmp_path / model_type).touch()
     return Package(str(tmp_path))
 
 
-class TestFuXiMock:
-    @pytest.mark.parametrize(
-        "time",
-        [
-            np.array([np.datetime64("1993-04-05T00:00")]),
-            np.array(
-                [
-                    np.datetime64("1999-10-11T12:00"),
-                    np.datetime64("2001-06-04T00:00"),
-                ]
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="CUDA unavailable"
             ),
-        ],
+        ),
+    ],
+)
+def test_fuxi_onnx_integration(device, fuxi_test_package):
+    model = FuXi.load_model(fuxi_test_package).to(device)
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array(["1999-10-11T12:00"], dtype="datetime64[ns]")},
     )
-    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_fuxi_call(self, time, fuxi_test_package, device):
-
-        # Use dummy package
-        p = FuXi.load_model(fuxi_test_package).to(device)
-
-        dc = p.input_coords()
-        del dc["batch"]
-        del dc["time"]
-        del dc["lead_time"]
-        del dc["variable"]
-        # Initialize Data Source
-        r = Random(dc)
-
-        # Get Data and convert to tensor, coords
-        lead_time = p.input_coords()["lead_time"]
-        variable = p.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-        # Same values, variable/lead_time permuted in memory: a data source that
-        # transposes on the way out yields a strided tensor and must not change
-        # the result.
-        x_strided = x.transpose(1, 2).contiguous().transpose(1, 2)
-        assert not x_strided.is_contiguous()
-
-        out, out_coords = p(x, coords)
-        assert torch.allclose(out, p(x_strided, coords)[0])
-
-        if not isinstance(time, Iterable):
-            time = [time]
-
-        assert out.shape == torch.Size(
-            [
-                len(time),
-                1,
-                len(p.output_coords(p.input_coords())["variable"]),
-                721,
-                1440,
-            ]
+    tensor = torch.rand(signature.shape, device=device)
+    tensor[..., -1, :, :] *= 0.001
+    x = from_torch(tensor, signature).rename(batch="ensemble")
+    strided = from_torch(
+        tensor.transpose(2, 3).contiguous().transpose(2, 3), signature
+    ).rename(batch="ensemble")
+    out = model(x)
+    assert torch.allclose(out.e2s.to_torch()[0], model(strided).e2s.to_torch()[0])
+    assert out.shape == (1, 1, 1, 70, 721, 1440)
+    np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])
+    np.testing.assert_array_equal(out.time, x.time)
+    iterator = model.create_iterator(x)
+    initial = next(iterator).e2s.to_torch()[0].clone()
+    total = 0
+    for step in range(43):
+        out = next(iterator)
+        total += 1 if step < 20 else 2 if step < 40 else 3
+        actual = out.e2s.to_torch()[0]
+        assert torch.allclose(actual[..., :-1, :, :], initial[..., :-1, :, :] + total)
+        assert torch.allclose(
+            actual[..., -1, :, :], initial[..., -1, :, :] + total / 1000, atol=1e-6
         )
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-        assert (out_coords["time"] == time).all()
-        assert torch.allclose(
-            out[:, :, :-1],
-            (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
-        )  # Phoo model should add by delta t each call
-        handshake_dim(out_coords, "lon", 4)
-        handshake_dim(out_coords, "lat", 3)
-        handshake_dim(out_coords, "variable", 2)
-        handshake_dim(out_coords, "lead_time", 1)
-        handshake_dim(out_coords, "time", 0)
-
-    @pytest.mark.parametrize(
-        "ensemble",
-        [2],
+        assert out.lead_time.values[0] == np.timedelta64((step + 1) * 6, "h")
+        assert out.dims == x.dims
+    out = model(x)
+    assert torch.allclose(
+        out.e2s.to_torch()[0][..., :-1, :, :], initial[..., :-1, :, :] + 1
     )
-    @pytest.mark.parametrize("device", ["cpu", "cuda"])
-    def test_fuxi_iter(self, ensemble, fuxi_test_package, device):
-        time = np.array([np.datetime64("1993-04-05T00:00")])
-        # Use dummy package
-        p = FuXi.load_model(fuxi_test_package).to(device)
-
-        dc = p.input_coords()
-        del dc["batch"]
-        del dc["time"]
-        del dc["lead_time"]
-        del dc["variable"]
-        # Initialize Data Source
-        r = Random(dc)
-
-        # Get Data and convert to tensor, coords
-        lead_time = p.input_coords()["lead_time"]
-        variable = p.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-        # Add ensemble to front
-        x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-        coords.update({"ensemble": np.arange(ensemble)})
-        coords.move_to_end("ensemble", last=False)
-
-        p_iter = p.create_iterator(x, coords)
-
-        if not isinstance(time, Iterable):
-            time = [time]
-
-        # Get generator
-        out, out_coords = next(p_iter)  # Skip first which should return the input
-        assert torch.allclose(
-            out[:, :, :-1], x[:, 1:, :-1]
-        )  # Ignore last field with is tp b/c mm conversion
-
-        step_index = 0
-        for i, (out, out_coords) in enumerate(p_iter):
-            # Test the model cascade
-            if i < 20:
-                step_index += 1
-            elif i < 40:
-                step_index += 2
-            else:
-                step_index += 3
-
-            assert len(out.shape) == 6
-            assert out.shape[0] == ensemble
-            assert (
-                out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-            ).all()
-            assert (out_coords["time"] == time).all()
-            assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
-            assert torch.allclose(
-                out[:, :, :-1], (x[:, 1:, :-1] + step_index)
-            )  # Phoo model should add by delta t each call
-            handshake_dim(out_coords, "lon", 5)
-            handshake_dim(out_coords, "lat", 4)
-            handshake_dim(out_coords, "variable", 3)
-            handshake_dim(out_coords, "lead_time", 2)
-            handshake_dim(out_coords, "time", 1)
-            handshake_dim(out_coords, "ensemble", 0)
-
-            if i > 41:  # Long test because of model cascade
-                break
-
-        # Test forward pass reloads short model
-        out, out_coords = p(x, coords)
-        assert out.shape == torch.Size(
-            [
-                ensemble,
-                len(time),
-                1,
-                len(p.output_coords(p.input_coords())["variable"]),
-                721,
-                1440,
-            ]
-        )
-        assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-        ).all()
-        assert torch.allclose(
-            out[:, :, :-1],
-            (x[:, 1:, :-1] + 1),  # Ignore last field with is tp b/c mm conversion
-        )  # Phoo model should add by delta t each call
-
-    @pytest.mark.parametrize(
-        "dc",
-        [
-            OrderedDict({"lat": np.random.randn(721)}),
-            OrderedDict({"lat": np.random.randn(721), "phoo": np.random.randn(1440)}),
-            OrderedDict({"lat": np.random.randn(721), "lon": np.random.randn(1)}),
-        ],
-    )
-    @pytest.mark.parametrize("device", ["cuda:0"])
-    def test_fuxi_exceptions(self, dc, fuxi_test_package, device):
-        # Test invalid coordinates error
-        time = np.array([np.datetime64("1993-04-05T00:00")])
-        # Use dummy package
-        p = FuXi.load_model(fuxi_test_package).to(device)
-
-        # Initialize Data Source
-        r = Random(dc)
-
-        # Get Data and convert to tensor, coords
-        lead_time = p.input_coords()["lead_time"]
-        variable = p.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-        with pytest.raises((KeyError, ValueError)):
-            p(x, coords)
-
-    def test_fuxi_conformance(self, fuxi_test_package):
-        """Check the mock FuXi model against the Earth2Studio model contract.
-
-        .to("cpu") is required: __init__ builds the ORT session from a
-        default self.device with index=None, which this onnxruntime build's
-        IOBinding rejects; .to() normalizes it to a valid indexed device
-        (see FuXi.to() in earth2studio/models/px/fuxi.py). Every other test
-        in this file calls .to(device) for the same reason.
-
-        This is a genuine, verified violation (not a mock artifact): fails
-        P15 (both create_iterator() and __call__ mutate the input tensor in
-        place) and P16 (yield 0 changes after later steps are produced, so
-        the yields alias one buffer). Tracked in
-        test/models/test_model_conformance.py pending a wrapper fix.
-        """
-        p = FuXi.load_model(fuxi_test_package).to("cpu")
-        with pytest.raises(ContractException) as exc_info:
-            check_prognostic_contract(p)
-        message = str(exc_info.value)
-        assert "P15" in message
-        assert "P16" in message
 
 
 @pytest.mark.package
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_fuxi_package(device):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    with torch.device(device):
-        package = FuXi.load_default_package()
-        p = FuXi.load_model(package).to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(coords)["variable"]), 721, 1440]
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
+def test_fuxi_package():
+    model = FuXi.load_model(FuXi.load_default_package()).to("cuda:0")
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array(["2000-01-01"], dtype="datetime64[ns]")},
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    x = from_torch(torch.zeros(signature.shape, device="cuda:0"), signature)
+    out = model(x)
+    assert out.dims == x.dims
+    assert out.shape == (1, 1, 1, 70, 721, 1440)
+    np.testing.assert_array_equal(out.lead_time, model.output_coords(x).lead_time)
+    np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])

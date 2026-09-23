@@ -109,14 +109,19 @@ io = deterministic(
 
 When user explicitly requests manual implementation (NOT using `earth2studio.run.deterministic`), follow this checklist in order:
 
-1. **fetch_data** - Get initial conditions: `x, coords = fetch_data(data, time, model.input_coords, device)`
+1. **fetch_data** - Get a field DataArray using the model's declared variable and
+   lead-time labels (`.values`). `fetch_data` has no `metadata` argument and
+   `target_grid` currently does not regrid. Explicitly select native spatial labels
+   or regrid incompatible geometry, verifying source CRS before assigning target
+   grid metadata. Validate the prepared field with `handshake_dataarray`.
 2. **Setup total_coords** - Build coordinate arrays for time and lead_time dimensions
 3. **io.add_array** - Initialize IO backend with total_coords before loop
-4. **create_iterator** - Create prognostic iterator: `model_iter = model.create_iterator(x, coords)`
-5. **Loop through nsteps** - `for step, (x, coords) in enumerate(model_iter): if step >= nsteps: break`
-6. **map_coords** - Filter output variables if needed: `x_out, coords_out = map_coords(x, coords, output_coords)`
-7. **split_coords** - Prepare for IO write: `x_out, coords_out = split_coords(x_out, coords_out)`
-8. **io.write** - Write each step to backend
+4. **create_iterator** - `model_iter = model.create_iterator(x)`
+5. **Loop through forecasts** - `for step, field in enumerate(model_iter):`
+   Write the initial condition (step 0) and forecasts through step `nsteps`, then break.
+6. **Select output** - `output = field.sel(variable=output_variables)` if filtering.
+7. **IO boundary** - `tensor, coords = output.e2s.to_torch()`
+8. **io.write** - `io.write(*split_coords(tensor, coords))`
 
 ### 9. Explain Next Steps
 

@@ -15,12 +15,16 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from inspect import Parameter, signature
+from typing import Any
 
+import dask.array as da
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 
+import earth2studio.utils as utils
 from earth2studio.utils import (
     convert_multidim_to_singledim,
     coord_array,
@@ -28,7 +32,10 @@ from earth2studio.utils import (
     handshake_dataarray,
     handshake_dataarrays,
     handshake_dim,
+    handshake_metadata,
+    handshake_nonempty,
     handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.coords import (
     cat_coords,
@@ -36,6 +43,119 @@ from earth2studio.utils.coords import (
     split_coords,
     tile_coords,
 )
+from earth2studio.utils.cupy import Earth2StudioAccessor
+
+
+def test_handshake_device_cpu(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = np.arange(12).reshape(3, 4)[:, ::2]
+    array = xr.DataArray(data, dims=("y", "x"))
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Device validation must not convert, copy, or read field values")
+
+    monkeypatch.setattr(Earth2StudioAccessor, "to_torch", forbidden)
+    monkeypatch.setattr(xr.DataArray, "copy", forbidden)
+    monkeypatch.setattr(xr.DataArray, "values", property(forbidden))
+    monkeypatch.setattr(np, "copy", forbidden)
+    monkeypatch.setattr(np, "array", forbidden)
+    monkeypatch.setattr(np, "asarray", forbidden)
+    monkeypatch.setattr(torch, "as_tensor", forbidden)
+    monkeypatch.setattr(torch, "from_numpy", forbidden)
+    monkeypatch.setattr(torch.cuda, "current_device", forbidden)
+    for device in ("cpu", torch.device("cpu:0")):
+        assert utils.handshake_device(array, device) is None
+    with pytest.raises(ValueError, match="Expected.*cuda:0.*got.*cpu"):
+        utils.handshake_device(array, "cuda:0")
+    assert array.data is data
+
+
+def test_handshake_device_api() -> None:
+    parameters = signature(utils.handshake_device).parameters
+    assert tuple(parameters) == ("array", "expected_device")
+    assert all(p.default is Parameter.empty for p in parameters.values())
+    assert all(p.kind is Parameter.POSITIONAL_OR_KEYWORD for p in parameters.values())
+    assert (
+        utils.handshake_device(array=xr.DataArray(np.zeros(1)), expected_device="cpu")
+        is None
+    )
+    with pytest.raises(TypeError, match="DataArray"):
+        utils.handshake_device(np.zeros(1), "cpu")
+    with pytest.raises(TypeError, match="Unsupported.*device"):
+        utils.handshake_device(xr.DataArray(np.zeros(1)), "meta")
+
+
+def test_handshake_device_cuda_normalization(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Portable even without a CUDA runtime; resolving an explicit index needs none.
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 3)
+    array = xr.DataArray(np.zeros(1))
+    with pytest.raises(ValueError, match="Expected.*cuda:3.*got.*cpu"):
+        utils.handshake_device(array, torch.device("cuda"))
+
+
+def test_handshake_device_rejects_lazy_and_signature_storage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from xarray.core.indexing import LazilyIndexedArray, NumpyIndexingAdapter
+
+    lazy = xr.DataArray(da.zeros(2, chunks=1), dims="x")
+    declaration = coord_array(("x",), sizes={"x": 2})
+    backend = LazilyIndexedArray(NumpyIndexingAdapter(np.zeros(2)))
+    backend_array = xr.DataArray(xr.Variable("x", backend))
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Unsupported storage must be rejected without materialization")
+
+    monkeypatch.setattr(da.Array, "compute", forbidden)
+    monkeypatch.setattr(type(declaration.data), "__array__", forbidden)
+    monkeypatch.setattr(LazilyIndexedArray, "get_duck_array", forbidden)
+    for array in (lazy, declaration, backend_array):
+        with pytest.raises(TypeError, match="only NumPy- or CuPy"):
+            utils.handshake_device(array, "cpu")
+
+
+def test_handshake_device_without_cupy(monkeypatch: pytest.MonkeyPatch) -> None:
+    from earth2studio.utils import cupy as cupy_utils
+
+    def missing_cupy(name: str) -> None:
+        raise ImportError
+
+    monkeypatch.setattr(cupy_utils, "import_module", missing_cupy)
+    assert utils.handshake_device(xr.DataArray(np.zeros(1)), "cpu") is None
+    with pytest.raises(TypeError, match="only NumPy- or CuPy"):
+        utils.handshake_device(coord_array(("x",), sizes={"x": 1}), "cpu")
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_handshake_device_cupy(monkeypatch: pytest.MonkeyPatch) -> None:
+    cp = pytest.importorskip("cupy")
+    index = torch.cuda.current_device()
+    with cp.cuda.Device(index):
+        data = cp.arange(12).reshape(3, 4)[:, ::2]
+    array = xr.DataArray(data, dims=("y", "x"))
+    pointer = data.data.ptr
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        pytest.fail("Device validation must not convert, copy, or read field values")
+
+    monkeypatch.setattr(Earth2StudioAccessor, "to_torch", forbidden)
+    monkeypatch.setattr(xr.DataArray, "copy", forbidden)
+    monkeypatch.setattr(xr.DataArray, "values", property(forbidden))
+    monkeypatch.setattr(cp, "copy", forbidden)
+    monkeypatch.setattr(cp, "array", forbidden)
+    monkeypatch.setattr(cp, "asarray", forbidden)
+    monkeypatch.setattr(cp, "asnumpy", forbidden)
+    monkeypatch.setattr(torch, "from_dlpack", forbidden)
+    for device in (torch.device("cuda", index), "cuda"):
+        assert utils.handshake_device(array, device) is None
+    with pytest.raises(ValueError, match=f"Expected.*cpu.*got.*cuda:{index}"):
+        utils.handshake_device(array, "cpu")
+    # Comparing another index does not require allocating on a second GPU.
+    with pytest.raises(
+        ValueError, match=f"Expected.*cuda:{index + 1}.*got.*cuda:{index}"
+    ):
+        utils.handshake_device(array, f"cuda:{index + 1}")
+    assert array.data is data
+    assert data.data.ptr == pointer
 
 
 @pytest.mark.parametrize(
@@ -74,6 +194,103 @@ def test_handshake_dim_failure(coords):
 
     with pytest.raises(ValueError):
         handshake_dim(coords, "lat", 5)
+
+
+def test_handshakes_dataarray_dimensions_and_labels():
+    signature = coord_array(
+        ("member", "variable", "y"),
+        {"variable": ["t2m"], "latitude": ("y", [10, 20])},
+        sizes={"member": 3},
+    )
+    handshake_dim(signature, "member", 0)
+    handshake_size(signature, "member", 3)
+    handshake_dim(signature, ("member", "variable", "y"))
+    handshake_coords(signature, signature.assign_coords(source="test"), "latitude")
+    with pytest.raises(KeyError):
+        handshake_dim(signature, "latitude")
+    with pytest.raises(ValueError):
+        handshake_coords(
+            signature, signature.assign_coords(latitude=("y", [20, 10])), "latitude"
+        )
+    handshake_coords(signature, signature.isel(y=[1]), "latitude", subset=True)
+    with pytest.raises(ValueError):
+        handshake_coords(
+            signature,
+            signature.assign_coords(latitude=("y", [20, 30])),
+            "latitude",
+            subset=True,
+        )
+
+
+def test_handshake_relative_history_and_runtime():
+    declaration = coord_array(
+        ("batch", "time", "lead_time", "variable"),
+        {"lead_time": np.array([-6, 0], dtype="timedelta64[h]"), "variable": ["t2m"]},
+        dynamic=("batch", "time"),
+    )
+    handshake_dataarray(declaration, declaration)
+    handshake_time(declaration, allow_dynamic=True)
+    with pytest.raises(ValueError, match="nonempty"):
+        handshake_nonempty(declaration)
+    actual = coord_array(
+        ("member", "time", "lead_time", "variable"),
+        {
+            "time": np.array(["2020-01-01"], dtype="datetime64[D]"),
+            "lead_time": np.array([6, 12], dtype="timedelta64[h]"),
+            "variable": ["t2m"],
+        },
+        sizes={"member": 2},
+    )
+    handshake_time(actual)
+    handshake_nonempty(actual)
+    handshake_time(actual, "lead_time")
+    lead = actual.lead_time.values
+    relative = actual.assign_coords(lead_time=lead - lead[-1])
+    handshake_dataarray(relative, declaration)
+    with pytest.raises(ValueError):
+        handshake_time(declaration)
+    for bad in (
+        np.array([0, 6]),
+        np.array(["NaT", "2020-01-01"], dtype="datetime64[D]"),
+        np.array(["NaT", 6], dtype="timedelta64[h]"),
+        np.array([0, 3], dtype="timedelta64[h]"),
+    ):
+        with pytest.raises(ValueError):
+            changed = actual.assign_coords(lead_time=bad)
+            handshake_time(changed, "lead_time")
+            handshake_dataarray(
+                changed.assign_coords(lead_time=bad - bad[-1]), declaration
+            )
+    with pytest.raises(ValueError):
+        handshake_time(actual.assign_coords(time=[0]))
+    handshake_time(
+        actual, "lead_time", step=np.timedelta64(6, "h"), minimum=np.timedelta64(0, "h")
+    )
+    with pytest.raises(ValueError, match="align"):
+        handshake_time(actual, "lead_time", step=np.timedelta64(1, "D"))
+    with pytest.raises(ValueError, match="at least"):
+        handshake_time(actual, "lead_time", minimum=np.timedelta64(12, "h"))
+    scalar = actual.isel(time=0)
+    handshake_time(
+        actual, minimum=np.datetime64("2020-01-01"), maximum=np.datetime64("2020-01-02")
+    )
+    with pytest.raises(ValueError, match="before"):
+        handshake_time(actual, maximum=np.datetime64("2020-01-01"))
+    handshake_time(scalar, dimension=False)
+    with pytest.raises(ValueError):
+        handshake_time(scalar)
+
+
+def test_handshake_healpix_metadata():
+    from earth2studio.grids import HEALPixGrid
+
+    signature = coord_array(("hpx",), grid=HEALPixGrid(0, ordering="nested"))
+    handshake_dataarray(signature, signature)
+    changed = signature.copy(deep=False)
+    changed.attrs = {**signature.attrs, "ordering": "ring"}
+    handshake_dataarray(changed, signature)
+    with pytest.raises(ValueError, match="metadata"):
+        handshake_metadata(changed, signature, ("ordering",))
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -925,7 +1142,12 @@ def test_coordinate_projected_grid_metadata():
     from earth2studio.grids import E2S_CRS, ProjectedGrid, infer_grid
 
     grid = ProjectedGrid(np.arange(2) * 1000, np.arange(3) * 1000, "EPSG:3857")
-    signature = coord_array(("y", "x"), grid=grid)
+    signature = coord_array(
+        ("y", "x"),
+        grid=grid,
+        attrs={"earth2studio_grid_id": "source-only", E2S_CRS: "EPSG:4326"},
+    )
+    assert "earth2studio_grid_id" not in signature.attrs
     assert signature.attrs[E2S_CRS] == grid.crs.to_string()
     assert infer_grid(signature).fingerprint() == grid.fingerprint()
     named = coord_array(
@@ -1007,7 +1229,18 @@ def test_coordinate_dynamic_dimensions_are_model_independent(
     )
     concrete = coord_array(
         (*dynamic, "variable", "x"),
-        {**{dim: [0, 1] for dim in dynamic}, "variable": ["t2m"], "x": [0, 1]},
+        {
+            **{
+                dim: (
+                    np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[D]")
+                    if dim == "time"
+                    else [0, 1]
+                )
+                for dim in dynamic
+            },
+            "variable": ["t2m"],
+            "x": [0, 1],
+        },
     )
     handshake_dataarray(concrete, signature)
     assert signature.attrs["earth2studio_dynamic_dims"] == dynamic
@@ -1049,6 +1282,7 @@ def test_coordinate_array_like_partial_dynamic_dimensions():
 
 
 def test_coordinate_array_like_spatial_replacement_requires_new_grid():
+    from earth2studio.grids import CurvilinearGrid, infer_grid
     from earth2studio.utils.coords import coord_array_like
 
     signature = coord_array(("lat", "lon"), grid="latlon-0.25deg-south-pole-excluded")
@@ -1056,3 +1290,12 @@ def test_coordinate_array_like_spatial_replacement_requires_new_grid():
         coord_array_like(signature, {"lat": np.asarray(signature.lat) + 1})
     with pytest.raises(ValueError, match="grid"):
         coord_array_like(signature, {"lon": np.asarray(signature.lon)[:3]})
+
+    # A custom crop must not inherit the source registry identity or CRS.
+    grid = CurvilinearGrid(np.zeros((2, 3)), np.ones((2, 3)))
+    cropped = coord_array(("y", "x"), grid=grid, attrs=signature.attrs)
+    assert "earth2studio_grid_id" not in cropped.attrs
+    assert "earth2studio_crs" not in cropped.attrs
+    assert "crs" not in cropped.attrs
+    assert infer_grid(cropped).fingerprint() == grid.fingerprint()
+    assert "earth2studio_grid_id" in signature.attrs

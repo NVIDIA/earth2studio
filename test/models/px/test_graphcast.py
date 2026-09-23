@@ -14,570 +14,394 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Iterable
-from unittest import mock
+from contextlib import nullcontext
+from dataclasses import make_dataclass
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 
-try:
-    from weathernext.utils import variables
-    from weathernext.weathernext1_graph import graphcast
-except ImportError:
-    pytest.importorskip("weathernext")
-
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+import earth2studio.models.px.graphcast_operational as operational
+import earth2studio.models.px.graphcast_small as small
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.graphcast_operational import GraphCastOperational
 from earth2studio.models.px.graphcast_small import GraphCastSmall
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 
-def mocked_chunked_prediction_generator(
-    predictor_fn,
-    rng,
-    inputs,
-    targets_template,
-    batch,
-    forcings,
-):
-    yield targets_template.isel(time=[0])
-    while True:
-        yield targets_template.isel(time=[0])
-
-
-def mocked_chunked_prediction(
-    predictor_fn,
-    rng,
-    inputs,
-    targets_template,
-    forcings,
-    num_steps_per_chunk=None,
-    verbose=None,
-):
-    return targets_template
-
-
-@pytest.fixture
-def mock_GraphCastSmall_model():
-    # Spoof model
-    model_config = graphcast.ModelConfig(
-        resolution=1.0,
-        mesh_size=5,
-        latent_size=512,
-        gnn_msg_steps=16,
-        hidden_layers=1,
-        radius_query_fraction_edge_length=0.6,
+def _offline_backend(monkeypatch, module):
+    if module.jax is not None:
+        return module.jax.random
+    # Substitute unavailable numerical dependencies, retaining wrapper dataset
+    # conversion, native recurrent generator, forcing cadence and tensor ordering.
+    monkeypatch.setattr(module, "chex", SimpleNamespace(PRNGKey=np.ndarray))
+    random = SimpleNamespace(
+        PRNGKey=lambda seed: np.array([seed, 0], dtype=np.int64),
+        split=lambda key: (key + [0, 1], key + [1, 1]),
+        fold_in=lambda key, i: key + [0, i],
     )
-    task_config = graphcast.TaskConfig(
-        input_variables=graphcast.TASK.input_variables,
-        target_variables=graphcast.TASK.target_variables,
-        forcing_variables=graphcast.TASK.forcing_variables,
-        pressure_levels=variables.PRESSURE_LEVELS[13],
-        input_duration=graphcast.TASK.input_duration,
-    )
-
-    class CKPT:
-        def __init__(self, model_config, task_config):
-            self.model_config = model_config
-            self.task_config = task_config
-            self.params = {}
-            self.description = "some"
-            self.license = "license"
-
-    static_data = {}
-    for v in (
-        variables.ALL_ATMOSPHERIC_VARS
-        + graphcast.TARGET_SURFACE_VARS
-        + graphcast.FORCING_VARS
-    ):
-        if v in graphcast.TARGET_ATMOSPHERIC_VARS:
-            static_data[v] = ("level", np.ones(len(variables.PRESSURE_LEVELS[37])))
-        else:
-            static_data[v] = 1
-
-    diffs_stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(variables.PRESSURE_LEVELS[37])}
-    )
-    mean_by_level = xr.Dataset(
-        static_data, coords={"level": list(variables.PRESSURE_LEVELS[37])}
-    )
-    stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(variables.PRESSURE_LEVELS[37])}
-    )
-
-    # Create a proper checkpoint with initialized parameters
-    ckpt = CKPT(model_config, task_config)
-
-    # Initialize the model with the checkpoint
-    p = GraphCastSmall(
-        ckpt,
-        diffs_stddev_by_level,
-        mean_by_level,
-        stddev_by_level,
-        np.ones((181, 360)),
-        np.ones((181, 360)),
-    )
-
-    # Set chunked_prediction_generator to the mocked function
-    p._chunked_prediction_generator = mocked_chunked_prediction_generator
-
-    return p
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [np.datetime64("1993-04-05T00:00"), np.datetime64("2001-06-04T00:00")]
+    monkeypatch.setattr(
+        module,
+        "jax",
+        SimpleNamespace(
+            random=random,
+            default_device=lambda device: nullcontext(),
+            devices=lambda kind: [kind],
         ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
-def test_graphcast_small_call(time, device, mock_GraphCastSmall_model):
+    )
 
-    p = mock_GraphCastSmall_model.to(device)
+    def extract(data, target_lead_times, **kwargs):
+        if hasattr(module, "FORCING_VARIABLES") or hasattr(
+            module, "WN2_TARGET_VARIABLES"
+        ):
+            tisr(data)
+        inputs = data.isel(time=slice(0, 2)).drop_vars("datetime")
+        targets = data.isel(time=slice(2, None)).drop_vars("datetime")
+        targets = targets.drop_vars(
+            [
+                "land_sea_mask",
+                "geopotential_at_surface",
+                "toa_incident_solar_radiation",
+            ],
+            errors="ignore",
+        )
+        forcing = xr.Dataset(coords={"time": targets.time})
+        return inputs, targets, forcing
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    def derived(data):
+        data["year_progress_sin"] = xr.zeros_like(data["datetime"], dtype=float)
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    def tisr(data):
+        if "toa_incident_solar_radiation" in data:
+            return
+        # The pinned backend squeezes batch before computing solar radiation.
+        sample = data.squeeze("batch")
+        values = xr.ones_like(sample["2m_temperature"])
+        data["toa_incident_solar_radiation"] = values.expand_dims("batch", axis=0)
 
-    out, out_coords = p(x, coords)
+    data_utils = SimpleNamespace(
+        extract_inputs_targets_forcings=extract,
+        add_derived_vars=derived,
+        add_tisr_var=tisr,
+        get_year_progress=lambda seconds: np.zeros_like(seconds, dtype=float),
+        get_day_progress=lambda seconds, lon: np.zeros((len(seconds), len(lon))),
+        featurize_progress=lambda *args: {},
+    )
+    monkeypatch.setattr(module, "data_utils", data_utils)
 
-    assert out.shape == torch.Size([len(time), 1, 83, 181, 360])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    def next_inputs(inputs, next_frame):
+        next_frame = next_frame.assign_coords(time=inputs.time.values[-1:])
+        return xr.concat(
+            (inputs.isel(time=slice(-1, None)), next_frame),
+            dim="time",
+            data_vars="minimal",
+            coords="minimal",
+            compat="override",
+        )
 
+    def prediction(predictor, rng, inputs, targets_template, forcings):
+        _, step_rng = random.split(rng)
+        return predictor(
+            rng=step_rng,
+            inputs=inputs,
+            targets_template=targets_template,
+            forcings=forcings,
+        )
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch(
-    "weathernext.utils.rollout.chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
-def test_graphcast_small_iter(ensemble, device, mock_GraphCastSmall_model):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    p = mock_GraphCastSmall_model.to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    # Get generator
-    input, input_coords = next(p_iter)  # Skip first which should return the input
-    assert input_coords["lead_time"] == np.timedelta64(0, "h")
-    assert len(input.shape) == 6
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 83, 181, 360])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"] == np.timedelta64(6 * (i + 1), "h")
-
-        if i > 5:
-            break
+    monkeypatch.setattr(
+        module,
+        "rollout",
+        SimpleNamespace(
+            chunked_prediction=prediction,
+            _get_next_inputs=next_inputs,
+        ),
+    )
+    if hasattr(module, "FORCING_VARIABLES"):
+        monkeypatch.setattr(
+            module,
+            "FORCING_VARIABLES",
+            ("year_progress_sin", "toa_incident_solar_radiation"),
+        )
+    return random
 
 
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(720)}),
-        OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
-        OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_graphcast_small_exceptions(dc, device, mock_GraphCastSmall_model):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    p = mock_GraphCastSmall_model.to(device)
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+def _prediction(rng, inputs, targets_template, forcings):
+    result = targets_template.copy(deep=True)
+    for name in result.data_vars:
+        if name in inputs:
+            result[name] = (
+                inputs[name].isel(time=slice(-1, None)).assign_coords(time=result.time)
+                + 1
+            )
+        else:
+            result[name] = xr.zeros_like(result[name])
+    return result
 
 
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
-@mock.patch(
-    "weathernext.utils.rollout.chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
-def test_graphcast_small_conformance(mock_GraphCastSmall_model):
-    """Check the mock GraphCastSmall model against the Earth2Studio model contract.
-
-    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
-    asserted exactly here to avoid leaving a permanently red test). The rules it
-    is allowed to fail are the ones its siblings gencast_mini and
-    weathernext2_cyclones_mini are pinned to, which share this wrapper's
-    structure and mocked rollout:
-      - P5: output_coords() accepts a coordinate system whose final two
-        dimensions are swapped instead of raising ValueError
-      - P10: create_iterator() applies rear_hook but never front_hook, so a
-        front hook a caller sets is silently discarded (the spec's "Known
-        deviation" note)
-      - P13: declares stochastic=False, but two rollouts from one input do not
-        compare equal
-      - P16: the yields alias one buffer, so a yield changes once a later step
-        is produced
-    Asserted as a subset rather than an exact set: a new *kind* of violation
-    still fails this test, while fixing one of the four does not.
-    """
-    p = mock_GraphCastSmall_model.to("cpu")
-    violations: list[str] = []
-    try:
-        check_prognostic_contract(p)
-    except ContractException as exc:
-        violations = exc.violations
-    # TODO(model-contract): tighten to == [] once the GraphCastSmall wrapper is fixed.
-    assert {v.split(":")[0] for v in violations} <= {"P5", "P10", "P13", "P16"}
+def _input(model, time=None, device="cpu"):
+    if time is None:
+        time = np.array(["2001-06-04"], dtype="datetime64[ns]")
+    signature = coord_array_like(model.input_coords(), {"time": time})
+    signature = coord_array_like(signature, {"batch": [0]})
+    x = from_torch(torch.rand(signature.shape, device=device), signature).isel(
+        batch=0, drop=True
+    )
+    x.name = "weather"
+    x.attrs["source"] = "test"
+    x.encoding["note"] = "kept"
+    return x.assign_coords(marker=7)
 
 
-@pytest.fixture(scope="function")
-def model() -> GraphCastSmall:
-    package = GraphCastSmall.load_default_package()
-    p = GraphCastSmall.load_model(package)
+def _stats(task):
+    from weathernext.utils import variables
+
+    return xr.Dataset(
+        {
+            name: (
+                ("level", np.ones(len(task.pressure_levels), dtype=np.float32))
+                if name in variables.ALL_ATMOSPHERIC_VARS
+                else np.float32(1)
+            )
+            for name in set(
+                task.input_variables + task.target_variables + task.forcing_variables
+            )
+        },
+        coords={"level": list(task.pressure_levels)},
+    )
+
+
+def _require_device(module, device):
+    if device.startswith("cuda"):
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA unavailable")
+        if module.hk is not None:
+            try:
+                module.jax.devices("gpu")
+            except RuntimeError:
+                pytest.skip("JAX GPU backend unavailable")
+
+
+def _check_device_selector(monkeypatch, model):
+    selector = model.get_jax_device_from_tensor
+
+    def select(tensor):
+        assert tensor is model.device_buffer
+        assert tensor.numel() == 0
+        return selector(tensor)
+
+    monkeypatch.setattr(model, "get_jax_device_from_tensor", select)
+
+
+@pytest.fixture(params=[small, operational], ids=["small", "operational"])
+def graphcast(request, monkeypatch):
+    module = request.param
+    cls = GraphCastSmall if module is small else GraphCastOperational
+    if module.jax is not None:
+        backend = module.graphcast
+        task = backend.TASK_13 if module is small else backend.TASK_13_PRECIP_OUT
+        config = backend.ModelConfig(
+            resolution=1.0 if module is small else 0.25,
+            mesh_size=5,
+            latent_size=512,
+            gnn_msg_steps=16,
+            hidden_layers=1,
+            radius_query_fraction_edge_length=0.6,
+        )
+        ckpt = backend.CheckPoint(
+            params={},
+            model_config=config,
+            task_config=task,
+            description="test",
+            license="test",
+        )
+        stats = _stats(task)
+        p = cls(ckpt, stats, stats, stats, np.ones((5, 8)), np.ones((5, 8)))
+    else:
+        random = _offline_backend(monkeypatch, module)
+        p = cls.__new__(cls)
+        torch.nn.Module.__init__(p)
+        p.register_buffer("device_buffer", torch.empty(0))
+        p.land_sea_mask = np.ones((5, 8))
+        p.geopotential_at_surface = np.ones((5, 8))
+        p.prng_key = random.PRNGKey(0)
+        p.ckpt = SimpleNamespace(
+            task_config=make_dataclass("Task", [("forcing_variables", tuple)])(
+                module.FORCING_VARIABLES
+            )
+        )
+    p.run_forward = _prediction
+    native = p.input_coords()
+    signature = coord_array(
+        native.dims,
+        {
+            "lead_time": native.lead_time.values,
+            "variable": native.coords["variable"].values,
+            "lat": np.linspace(90, -90, 5),
+            "lon": np.arange(8) * 45.0,
+        },
+        dynamic=("batch", "time"),
+    )
+    monkeypatch.setattr(p, "input_coords", lambda: signature)
+    _check_device_selector(monkeypatch, p)
     return p
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_graphcast_small_call(graphcast, device):
+    _require_device(
+        small if isinstance(graphcast, GraphCastSmall) else operational, device
+    )
+    p = graphcast.to(device)
+    x = _input(p, np.array(["1993-04-05", "2001-06-04"], dtype="datetime64[ns]"))
+    before = x.copy(deep=True)
+    out = p(x)
+    assert out.shape == (2, 1, 83, 5, 8)
+    assert out.dims == x.dims
+    assert out.name == x.name and out.encoding == x.encoding
+    assert out.attrs["source"] == "test" and out.marker == 7
+    assert out.lead_time.values == np.timedelta64(6, "h")
+    torch.testing.assert_close(
+        out.sel(variable="t2m").e2s.to_torch()[0].cpu(),
+        x.sel(variable="t2m").e2s.to_torch()[0][:, -1:] + 1,
+    )
+    xr.testing.assert_identical(x, before)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_graphcast_small_iter(graphcast, device):
+    _require_device(
+        small if isinstance(graphcast, GraphCastSmall) else operational, device
+    )
+    p = graphcast.to(device)
+    x = _input(p).expand_dims(member=2)
+    before = x.copy(deep=True)
+    calls = []
+
+    def hook(field):
+        assert field.dims == x.dims and "member" not in field.coords
+        calls.append(field.sizes["lead_time"])
+        field.data += 1
+        return field
+
+    p.front_hook = p.rear_hook = hook
+    it = p.create_iterator(x)
+    initial = next(it)
+    assert calls == []
+    first = next(it)
+    saved = first.copy(deep=True)
+    second = next(it)
+    assert calls == [2, 1, 2, 1]
+    assert second.lead_time.values == np.timedelta64(12, "h")
+    torch.testing.assert_close(
+        second.sel(variable="t2m").e2s.to_torch()[0],
+        first.sel(variable="t2m").e2s.to_torch()[0] + 3,
+    )
+    xr.testing.assert_identical(x, before)
+    xr.testing.assert_identical(first, saved)
+    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    p.clear_hooks()
+    iterator = p.create_iterator(x)
+    next(iterator)
+    next(iterator)
+    assert next(iterator).lead_time.values == np.timedelta64(12, "h")
+
+
+def test_graphcast_small_exceptions(graphcast):
+    x = _input(graphcast)
+    for bad in (
+        x.transpose(..., "lon", "lat"),
+        x.assign_coords(lead_time=[0, 6]),
+        x.drop_vars("lead_time"),
+    ):
+        with pytest.raises(ValueError):
+            graphcast(bad)
+
+
+def test_graphcast_small_conformance(graphcast):
+    check_prognostic_contract(graphcast)
+    module = small if isinstance(graphcast, GraphCastSmall) else operational
+    forcing = xr.Dataset(
+        {
+            "2m_temperature": (
+                ("batch", "time", "lat", "lon"),
+                np.zeros((2, 1, 2, 2), dtype=np.float32),
+            )
+        },
+        coords={
+            "batch": [9, 3],
+            "time": np.array([6], dtype="timedelta64[h]"),
+            "lat": [-30.0, 30.0],
+            "lon": [0.0, 180.0],
+            "datetime": (
+                ("batch", "time"),
+                np.array(
+                    [["2001-06-04T00"], ["2001-06-04T12"]], dtype="datetime64[ns]"
+                ),
+            ),
+        },
+    )
+    expected = []
+    for i in range(2):
+        sample = forcing.isel(batch=slice(i, i + 1)).copy(deep=True)
+        module.data_utils.add_tisr_var(sample)
+        expected.append(sample.toa_incident_solar_radiation)
+    operational._add_tisr_batched(forcing, module.data_utils)
+    xr.testing.assert_identical(
+        forcing.toa_incident_solar_radiation, xr.concat(expected, dim="batch")
+    )
+    np.testing.assert_array_equal(forcing.batch, [9, 3])
+    prepared = []
+    original = graphcast.from_dataarray_to_dataset
+
+    def prepare(*args, **kwargs):
+        prepared.append(1)
+        return original(*args, **kwargs)
+
+    graphcast.from_dataarray_to_dataset = prepare
+    graphcast.rear_hook = lambda field: field.assign_coords(hook_marker=1)
+    iterator = graphcast.create_iterator(_input(graphcast))
+    next(iterator)
+    next(iterator)
+    assert next(iterator).hook_marker == 1
+    assert len(prepared) == 1
+    p = type(graphcast).__new__(type(graphcast))
+    torch.nn.Module.__init__(p)
+    signature = p.input_coords()
+    assert signature.sizes["lat"] == (181 if isinstance(p, GraphCastSmall) else 721)
+    if isinstance(p, GraphCastOperational):
+        assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    assert "tp06" in p.output_coords(signature).coords["variable"]
+    shifted = coord_array_like(
+        signature, {"lead_time": np.array([6, 12], dtype="timedelta64[h]")}
+    )
+    assert p.output_coords(shifted).lead_time.values == np.timedelta64(18, "h")
+
+
+@pytest.fixture(params=[GraphCastSmall, GraphCastOperational])
+def model(request):
+    pytest.importorskip("weathernext")
+    cls = request.param
+    return cls.load_model(cls.load_default_package())
 
 
 @pytest.mark.package
 @pytest.mark.timeout(360)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_graphcast_small_package(model, device):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package graphcast
-    p = model.to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Check iter
-    p_iter = p.create_iterator(x, coords)
-    for i in range(3):
-        out, out_coords = next(p_iter)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, 83, 181, 360])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-
-
-@pytest.fixture
-def mock_GraphCastOperational_model():
-    model_config = graphcast.ModelConfig(
-        resolution=0.25,
-        mesh_size=5,
-        latent_size=512,
-        gnn_msg_steps=16,
-        hidden_layers=1,
-        radius_query_fraction_edge_length=0.6,
+def test_graphcast_small_package(model):
+    p = model.to("cuda:0")
+    x = _input(p, device="cuda:0")
+    iterator = p.create_iterator(x)
+    initial = next(iterator)
+    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    next(iterator)
+    out = next(iterator)
+    assert out.shape == (
+        1,
+        1,
+        83,
+        p.input_coords().sizes["lat"],
+        p.input_coords().sizes["lon"],
     )
-    task_config = graphcast.TaskConfig(
-        input_variables=graphcast.TASK.input_variables,
-        target_variables=graphcast.TASK.target_variables,
-        forcing_variables=graphcast.TASK.forcing_variables,
-        pressure_levels=variables.PRESSURE_LEVELS[13],
-        input_duration=graphcast.TASK.input_duration,
-    )
-
-    class CKPT:
-        def __init__(self, model_config, task_config):
-            self.model_config = model_config
-            self.task_config = task_config
-            self.params = {}
-            self.description = "some"
-            self.license = "license"
-
-    static_data = {}
-    for v in (
-        variables.ALL_ATMOSPHERIC_VARS
-        + graphcast.TARGET_SURFACE_VARS
-        + graphcast.FORCING_VARS
-    ):
-        if v in graphcast.TARGET_ATMOSPHERIC_VARS:
-            static_data[v] = ("level", np.ones(len(variables.PRESSURE_LEVELS[13])))
-        else:
-            static_data[v] = 1
-    diffs_stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(variables.PRESSURE_LEVELS[13])}
-    )
-    mean_by_level = xr.Dataset(
-        static_data, coords={"level": list(variables.PRESSURE_LEVELS[13])}
-    )
-    stddev_by_level = xr.Dataset(
-        static_data, coords={"level": list(variables.PRESSURE_LEVELS[13])}
-    )
-    ckpt = CKPT(model_config, task_config)
-    p = GraphCastOperational(
-        ckpt,
-        diffs_stddev_by_level,
-        mean_by_level,
-        stddev_by_level,
-        np.ones((721, 1440)),
-        np.ones((721, 1440)),
-    )
-    p._chunked_prediction_generator = mocked_chunked_prediction_generator
-    return p
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("2010-01-01T00:00")]),
-        np.array(
-            [np.datetime64("2010-01-01T00:00"), np.datetime64("2010-01-02T00:00")]
-        ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
-def test_graphcast_operational_call(time, device, mock_GraphCastOperational_model):
-
-    p = mock_GraphCastOperational_model.to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    out, out_coords = p(x, coords)
-    assert out.shape == torch.Size([len(time), 1, 83, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-
-
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch(
-    "weathernext.utils.rollout.chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
-def test_graphcast_operational_iter(ensemble, device, mock_GraphCastOperational_model):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    p = mock_GraphCastOperational_model.to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    # Get generator
-    input, input_coords = next(p_iter)  # Skip first which should return the input
-    assert input_coords["lead_time"] == np.timedelta64(0, "h")
-    assert input.shape == torch.Size(
-        [ensemble, len(time), 1, 83, 721, 1440]
-    )  # 83, tp06 included in output
-    assert len(input.shape) == 6
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 83, 721, 1440])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"] == np.timedelta64(6 * (i + 1), "h")
-
-        if i > 5:
-            break
-
-
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(720)}),
-        OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
-        OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
-    ],
-)
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_graphcast_operational_exceptions(dc, device, mock_GraphCastOperational_model):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    p = mock_GraphCastOperational_model.to(device)
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
-
-
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
-@mock.patch(
-    "weathernext.utils.rollout.chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
-def test_graphcast_operational_conformance(mock_GraphCastOperational_model):
-    """Check the mock GraphCastOperational model against the model contract.
-
-    Currently VIOLATES the contract (tracked for a follow-up wrapper fix, not
-    asserted exactly here to avoid leaving a permanently red test). The rules it
-    is allowed to fail are the ones its siblings gencast_mini and
-    weathernext2_cyclones_mini are pinned to, which share this wrapper's
-    structure and mocked rollout:
-      - P5: output_coords() accepts a coordinate system whose final two
-        dimensions are swapped instead of raising ValueError
-      - P10: create_iterator() applies rear_hook but never front_hook, so a
-        front hook a caller sets is silently discarded (the spec's "Known
-        deviation" note)
-      - P13: declares stochastic=False, but two rollouts from one input do not
-        compare equal
-      - P16: the yields alias one buffer, so a yield changes once a later step
-        is produced
-    Asserted as a subset rather than an exact set: a new *kind* of violation
-    still fails this test, while fixing one of the four does not.
-    """
-    p = mock_GraphCastOperational_model.to("cpu")
-    violations: list[str] = []
-    try:
-        check_prognostic_contract(p)
-    except ContractException as exc:
-        violations = exc.violations
-    # TODO(model-contract): tighten to == [] once the GraphCastOperational wrapper is fixed.
-    assert {v.split(":")[0] for v in violations} <= {"P5", "P10", "P13", "P16"}
-
-
-@pytest.fixture(scope="function")
-def operational_model() -> GraphCastOperational:
-    package = GraphCastOperational.load_default_package()
-    p = GraphCastOperational.load_model(package)
-    return p
-
-
-@pytest.mark.package
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_graphcast_operational_package(operational_model, device):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package graphcast
-    p = operational_model.to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Check iter
-    p_iter = p.create_iterator(x, coords)
-    for i in range(3):
-        out, out_coords = next(p_iter)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, 83, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.lead_time.values == np.timedelta64(12, "h")

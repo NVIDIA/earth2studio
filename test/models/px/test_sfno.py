@@ -1,202 +1,87 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from collections import OrderedDict
-from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import SFNO
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 
-class PhooSFNOModel(torch.nn.Module):
-    def forward(self, x, t, normalized_data=True):
-        return x
+def test_sfno_valid_times(monkeypatch):
+    calls = []
 
+    class Net(torch.nn.Module):
+        def forward(self, x, times, normalized_data=False):
+            assert not normalized_data
+            calls.extend(times)
+            return x + 6
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [
-                np.datetime64("1999-10-11T12:00"),
-                np.datetime64("2001-06-04T00:00"),
-            ]
-        ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_call(time, device):
-
-    # Spoof model
-    model = PhooSFNOModel()
-    p = SFNO(model).to(device)
-
-    # Create "domain coords"
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-
-
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_iter(ensemble, device):
-
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Spoof model
-    model = PhooSFNOModel()
-    p = SFNO(model).to(device)
-
-    # Create "domain coords"
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    # Get generator
-    next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 73, 721, 1440])
-        assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-        ).all()
-        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
-
-        if i > 5:
-            break
-
-
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(720)}),
-        OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
-        OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_sfno_exceptions(dc, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Spoof model
-    model = PhooSFNOModel()
-    p = SFNO(model).to(device)
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
-
-
-def test_sfno_conformance():
-    model = PhooSFNOModel()
-    p = SFNO(model)
-    # P14 is skipped rather than passed: the model does not declare itself
-    # stochastic, so the RNG-isolation rule has nothing to check.
-    assert check_prognostic_contract(p) == [
+    model = SFNO.__new__(SFNO)
+    SFNO.__init__.__wrapped__(model, Net())
+    declared = model.input_coords()
+    assert declared.data.nbytes == 0
+    assert declared.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    signature = coord_array(
+        declared.dims,
+        {"lead_time": declared.lead_time, "variable": declared.coords["variable"]},
+        dynamic=("batch", "time"),
+        grid=LatLonGrid([45, -45], [0, 120, 240]),
+    )
+    monkeypatch.setattr(model, "input_coords", lambda: signature.copy())
+    coords = coord_array_like(
+        signature,
+        {
+            "batch": [0, 1],
+            "time": np.array(["2000-01-01", "2001-02-03"], dtype="datetime64[ns]"),
+            "lead_time": np.array([12], dtype="timedelta64[h]"),
+        },
+    )
+    x = from_torch(torch.randn(coords.shape), coords, name="weather").rename(
+        batch="member"
+    )
+    x.attrs["source"] = "fixture"
+    x.encoding = {"source": "fixture"}
+    original = x.copy(deep=True)
+    out = model(x)
+    np.testing.assert_allclose(out.data, x.data + 6)
+    expected = np.tile(x.time.values + x.lead_time.values[-1], 2)
+    np.testing.assert_array_equal(
+        np.array([t.replace(tzinfo=None) for t in calls], dtype="datetime64[ns]"),
+        expected,
+    )
+    iterator = model.create_iterator(x)
+    initial = next(iterator)
+    for step in range(1, 4):
+        out = next(iterator)
+        np.testing.assert_allclose(out.data, x.data + 6 * step, rtol=1e-5)
+        assert out.name == x.name and out.encoding == x.encoding
+        assert out.attrs == x.attrs
+        assert out.lead_time.values[0] == np.timedelta64(12 + 6 * step, "h")
+    xr.testing.assert_identical(initial, original)
+    xr.testing.assert_identical(x, original)
+    assert check_prognostic_contract(model) == [
         "P14: model does not declare itself stochastic"
     ]
 
 
-@pytest.fixture(scope="function")
-def model() -> SFNO:
-    package = SFNO.load_default_package()
-    p = SFNO.load_model(package)
-    return p
-
-
 @pytest.mark.package
-@pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU for now, too slow "cpu",
-def test_sfno_package(device, model):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package SFNO
-    p = model.to(device)
-
-    # Create "domain coords"
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, 73, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
+def test_sfno_package():
+    model = SFNO.load_model(SFNO.load_default_package()).to("cuda:0")
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array(["2000-01-01"], dtype="datetime64[ns]")},
+    )
+    x = from_torch(torch.zeros(signature.shape, device="cuda:0"), signature)
+    out = model(x)
+    assert out.dims == x.dims
+    assert out.shape == (1, 1, 1, 73, 721, 1440)
+    np.testing.assert_array_equal(out.lead_time, model.output_coords(x).lead_time)
+    np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])

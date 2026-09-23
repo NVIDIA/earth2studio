@@ -149,13 +149,16 @@ class acc:
         # Get climatology information
         if self.climatology is not None:
             if "lead_time" in output_coords:
-                clim, _ = fetch_data(
+                climatology = fetch_data(
                     self.climatology,
                     output_coords["time"],
                     output_coords["variable"],
                     lead_time=output_coords["lead_time"],
                     device=x.device,
                 )
+                clim, _ = climatology.transpose(
+                    *(dim for dim in x_coords if dim in climatology.dims)
+                ).e2s.to_torch()
             else:
                 da = self.climatology(output_coords["time"], output_coords["variable"])
                 clim = torch.as_tensor(da.values, device=x.device, dtype=x.dtype)

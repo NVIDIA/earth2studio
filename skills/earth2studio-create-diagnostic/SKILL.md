@@ -146,12 +146,13 @@ Use the repo-standard SPDX/license header shown in existing model files.
 Simple diagnostic imports commonly include:
 
 ```python
-from collections import OrderedDict
 import numpy as np
 import torch
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+import xarray as xr
+from earth2studio.models.batch import batch_func
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 ```
 
 Packaged and generative diagnostics commonly also include:
@@ -167,7 +168,7 @@ Canonical method order:
 
 1. `__init__`
 2. `input_coords`
-3. `output_coords` decorated with `@batch_coords()`
+3. Allocation-free `output_coords`
 4. `__str__` if useful
 5. `load_default_package` for AutoModel/generative diagnostics
 6. `load_model` for AutoModel/generative diagnostics
@@ -182,32 +183,34 @@ multiple closely related variants where a small base class reduces duplication.
 
 Diagnostic input coordinates usually use this public Earth2Studio order:
 
-1. `batch`: `np.empty(0)` and first in the `OrderedDict`
+1. `batch`: explicitly dynamic leading dimension of `coord_array(...)`
 2. `variable`: input variable names using Earth2Studio vocabulary names
 3. `lat`: public latitude convention north-to-south, usually `90` to `-90`
 4. `lon`: public longitude convention `0` to `360`, endpoint normally false
 
-No diagnostic wrapper should expose `lead_time`. If a diagnostic needs validity
-time metadata, document it as per-sample metadata in `coords["time"]`; do not make
-it a tensor dimension unless an existing dx pattern requires it.
+Diagnostics may declare dynamic temporal dimensions when their computation consumes
+validity time. Preserve arbitrary leading axes. Configure spatial domains and variable
+sets before querying signatures, and pass the configured grid through `grid=`.
 
-`output_coords` must validate inputs with `handshake_dim` and `handshake_coords`.
-Then update output variables and, when needed, output lat/lon resolution.
-Generative diagnostics must add a `sample` dimension after `batch`.
+`output_coords` validates with `handshake_dataarray`. Use `coord_array_like` for
+output variables; changing the spatial grid requires a fresh `coord_array(grid=...)`.
+Qualified labels declare statistics (for example `tp:sum:6h`). Generative outputs
+add a `sample` dimension after the original leading dimensions.
 
 ### Step 5 - Implement Forward Pass
 
 Use a single-step `__call__`; never create an iterator. Validate coordinates
-before model execution, then return `(output_tensor, output_coords)`.
+before model execution, then return a field DataArray.
 
 ```python
 @torch.inference_mode()
 @batch_func()
-def __call__(self, x: torch.Tensor, coords: CoordSystem) -> tuple[torch.Tensor, CoordSystem]:
-    output_coords = self.output_coords(coords)
-    x = (x - self.center) / self.scale
-    out = self.core_model(x)
-    return out, output_coords
+def __call__(self, x: xr.DataArray) -> xr.DataArray:
+    output_coords = self.output_coords(x)
+    tensor, _ = x.e2s.to_torch()
+    tensor = (tensor.to(self.center.device) - self.center) / self.scale
+    out = self.core_model(tensor)
+    return from_torch(out, output_coords)
 ```
 
 For generative diagnostics, loop over the batch dimension and generate
@@ -347,7 +350,7 @@ Agent: Classifies as generative, adds sample output coordinates, supports seed
 | Error | Solution |
 |-------|----------|
 | `OptionalDependencyFailure` | Install with `uv sync --extra <model-extra>` or fix the extra name |
-| Coordinate handshake fails | Check `OrderedDict` order and `handshake_dim` indices |
+| Coordinate handshake fails | Check fixed `.dims`, labels, grid/CRS and statistics |
 | Wrong output shape | Verify `output_coords` lengths match returned tensor shape |
 | `ModuleNotFoundError: pytest` | Use `uv run pytest`, not bare `pytest` |
 | Package test fails on random input | Use a stable physically plausible input while still loading real weights |
@@ -357,7 +360,7 @@ Agent: Classifies as generative, adds sample output coordinates, supports seed
 Do:
 
 - Use `uv run python` and `uv run pytest` for all Python commands.
-- Use `@batch_coords()` on `output_coords`.
+- Use allocation-free coordinate signatures and `handshake_dataarray` in `output_coords`.
 - Use `@torch.inference_mode()` and `@batch_func()` on `__call__`.
 - Keep `batch` as the first coordinate with `np.empty(0)` in `input_coords`.
 - Validate coordinates with `handshake_dim()` and `handshake_coords()`.

@@ -59,13 +59,13 @@ t2m_np = t2m.values  # NumPy array
 ### Iterate over results
 
 Similar to Earth2Studio model iterators, we can iterate over the results as
-`(Tensor, CoordSystem)` tuples:
+field DataArrays:
 
 ```python
 model = workflow(start_time=[datetime(2025, 8, 21, 6)]).as_model()
-for (x, coords) in model.create_iterator():
+for x in model.create_iterator():
     # computes the mean on GPU if we used `device='cuda'` when creating the Workflow
-    print(x.mean().cpu().numpy())
+    print(x.mean().e2s.as_numpy().values)
 ```
 
 This can be used to provide an input to a local workflow that expects a prognostic

@@ -19,13 +19,13 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Gaussian, Zero
-from earth2studio.utils.type import CoordSystem
 
 
 # This class is used to verify the workflow moved the model onto the right device
@@ -36,11 +36,10 @@ class TestPersistence(Persistence):
 
     def _forward(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        assert x.device == self.target_device
-        return super()._forward(x, coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        assert x.e2s.to_torch()[0].device == self.target_device
+        return super()._forward(x)
 
 
 @pytest.mark.parametrize(

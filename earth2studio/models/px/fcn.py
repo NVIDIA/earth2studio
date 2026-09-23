@@ -26,11 +26,13 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
 )
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
@@ -82,7 +84,7 @@ class _FCNCheckpointState:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet global prognostic model. Consists of a single model with a time-step
     size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
     excluding) equirectangular grid with 26 variables.
@@ -136,16 +138,8 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return the FCN coordinate signature after one forecast step."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords["lead_time"])
-        if (
-            input_coords["lead_time"].dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("Input lead_time must contain one finite timedelta")
         handshake_dataarray(
             input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
@@ -273,6 +267,7 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         xr.DataArray
             Forecast six hours in the future on the same device.
         """
+        handshake_nonempty(x)
         x, _ = self._restore_checkpoint_state(x)
         x = self._step(x)
         self._save_checkpoint_state(x)
@@ -281,7 +276,9 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_nonempty(x)
         x, restored = self._restore_checkpoint_state(x)
+        handshake_nonempty(x)
         self.output_coords(x)
 
         if not restored:

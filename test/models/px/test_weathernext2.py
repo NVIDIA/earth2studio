@@ -15,19 +15,30 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from dataclasses import make_dataclass
 from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
 import torch
+import xarray as xr
 
 try:
     from weathernext.utils import fiddle_config_io
     from weathernext.weathernext2 import fgn
 except ImportError:
-    pytest.importorskip("weathernext")
+    fiddle_config_io = fgn = None
 
+from test_graphcast import (
+    _check_device_selector,
+    _input,
+    _offline_backend,
+    _prediction,
+    _require_device,
+)
+
+import earth2studio.models.px.weathernext2_cyclones as module
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.weathernext2_cyclones import (
@@ -50,29 +61,51 @@ def mocked_chunked_prediction_generator(self, *args, targets_template, batch, **
         yield targets_template.isel(time=[0]).fillna(value)
 
 
-@pytest.fixture
-def mock_weathernext2_model():
-    grid = np.ones((9, 12), dtype=np.float32)
-    ckpt = fgn.CheckPoint(params={}, description="mock", license="license")
-    with mock.patch.object(
-        WeatherNext2CyclonesMini, "_load_run_forward_from_checkpoint", return_value=None
-    ):
-        return WeatherNext2CyclonesMini(ckpt, grid, grid, jit_compile=False)
+@pytest.fixture(params=[WeatherNext2CyclonesMini, WeatherNext2Cyclones])
+def mock_weathernext2_model(request, monkeypatch):
+    if module.jax is not None:
+        ckpt = fgn.CheckPoint(params={}, description="test", license="test")
+        grid = np.ones((9, 12), dtype=np.float32)
+        p = request.param(ckpt, grid, grid, jit_compile=False)
+    else:
+        _offline_backend(monkeypatch, module)
+        monkeypatch.setattr(module, "pd", pd)
+        p = request.param.__new__(request.param)
+        torch.nn.Module.__init__(p)
+        p.register_buffer("device_buffer", torch.empty(0))
+        p.land_sea_mask = np.ones((9, 12), dtype=np.float32)
+        p.geopotential_at_surface = p.land_sea_mask.copy()
+        p.task_config = make_dataclass(
+            "Task", [("target_variables", tuple), ("forcing_variables", tuple)]
+        )((), ("year_progress_sin", "toa_incident_solar_radiation"))
+        p.track_cyclones = False
+        p._cyclone_tracks = pd.DataFrame()
+        p._cyclone_prediction_history = []
+        p._cyclone_tracker = None
+        p.set_rng(0)
+
+    def prediction(**kwargs):
+        noise = (
+            float(module.jax.random.uniform(kwargs["rng"])) / 100
+            if module.hk is not None
+            else float(np.random.default_rng(np.asarray(kwargs["rng"])).random()) / 100
+        )
+        return _prediction(**kwargs) + noise
+
+    p.run_forward = prediction
+    _check_device_selector(monkeypatch, p)
+    return p
 
 
 def fetch_random_input(model, time=TEST_TIME, device="cpu"):
-    coords = model.input_coords()
-    spatial = OrderedDict((dim, coords[dim]) for dim in ("lat", "lon"))
-    return fetch_data(
-        Random(spatial), time, coords["variable"], coords["lead_time"], device=device
-    )
+    return _input(model, time, device)
 
 
-def assert_output(out, coords, time=TEST_TIME):
+def assert_output(out, time=TEST_TIME):
     assert out.shape == (len(time), 1, len(OUTPUT_VARIABLES), 9, 12)
-    assert list(coords) == ["time", "lead_time", "variable", "lat", "lon"]
-    assert np.array_equal(coords["variable"], OUTPUT_VARIABLES)
-    assert np.array_equal(coords["time"], time)
+    assert list(out.dims) == ["time", "lead_time", "variable", "lat", "lon"]
+    assert np.array_equal(out.coords["variable"], OUTPUT_VARIABLES)
+    assert np.array_equal(out.time, time)
 
 
 @pytest.mark.parametrize(
@@ -90,101 +123,97 @@ def assert_output(out, coords, time=TEST_TIME):
         ),
     ],
 )
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
 def test_weathernext2_call(time, device, mock_weathernext2_model):
+    _require_device(module, device)
     model = mock_weathernext2_model.to(device)
-    x, coords = fetch_random_input(model, time, device)
-    assert_output(*model(x, coords), time)
+    x = fetch_random_input(model, time)
+    out = model(x)
+    assert_output(out, time)
+    assert out.name == x.name and out.encoding == x.encoding and out.marker == 7
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@mock.patch.object(
-    WeatherNext2CyclonesMini,
-    "_chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
 def test_weathernext2_iter(device, mock_weathernext2_model):
+    _require_device(module, device)
     model = mock_weathernext2_model.to(device)
-    x, coords = fetch_random_input(model, device=device)
-    iterator = model.create_iterator(x, coords)
+    x = fetch_random_input(model).expand_dims(member=2)
+    saved = x.copy(deep=True)
+    calls = []
 
-    out, out_coords = next(iterator)
-    assert_output(out, out_coords)
-    assert out_coords["lead_time"] == np.timedelta64(0, "h")
-    tp06 = OUTPUT_VARIABLES.index("tp06")
-    assert torch.count_nonzero(out[:, :, tp06]) == 0
-    assert torch.equal(
-        torch.cat((out[:, :, :tp06], out[:, :, tp06 + 1 :]), dim=2), x[:, 1:]
+    def hook(field):
+        assert field.dims == x.dims and "member" not in field.coords
+        calls.append(field.sizes["lead_time"])
+        field.data += 1
+        return field
+
+    model.front_hook = model.rear_hook = hook
+    iterator = model.create_iterator(x)
+    initial = next(iterator)
+    assert calls == []
+    first = next(iterator)
+    before = first.copy(deep=True)
+    second = next(iterator)
+    assert calls == [2, 1, 2, 1]
+    assert second.lead_time.values == np.timedelta64(12, "h")
+    delta = (
+        second.sel(variable="t2m").e2s.to_torch()[0]
+        - first.sel(variable="t2m").e2s.to_torch()[0]
     )
+    assert torch.all((delta >= 3) & (delta < 3.021))
+    xr.testing.assert_identical(x, saved)
+    xr.testing.assert_identical(first, before)
+    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    model.clear_hooks()
+    iterator = model.create_iterator(x)
+    next(iterator)
+    next(iterator)
+    assert next(iterator).lead_time.values == np.timedelta64(12, "h")
 
-    out, out_coords = next(iterator)
-    assert_output(out, out_coords)
-    assert out_coords["lead_time"] == np.timedelta64(6, "h")
 
-
-@mock.patch.object(
-    WeatherNext2CyclonesMini,
-    "_chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
 def test_weathernext2_concurrent_iterators(mock_weathernext2_model):
-    x, coords = fetch_random_input(mock_weathernext2_model)
-    first = mock_weathernext2_model.create_iterator(x, coords)
-    second = mock_weathernext2_model.create_iterator(x + 1, coords)
+    x = fetch_random_input(mock_weathernext2_model)
+    first = mock_weathernext2_model.create_iterator(x)
+    other = x.copy(deep=True)
+    other.data += 1
+    second = mock_weathernext2_model.create_iterator(other)
     next(first), next(second)
-    assert not torch.equal(next(first)[0], next(second)[0])
+    assert not next(first).equals(next(second))
 
 
-@mock.patch("weathernext.utils.rollout.chunked_prediction")
-def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
+def test_weathernext2_rng_advances(monkeypatch, mock_weathernext2_model):
     rngs = []
 
     def record_rng(*args, rng, targets_template, **kwargs):
         rngs.append(np.asarray(rng))
         return targets_template
 
-    prediction.side_effect = record_rng
-    x, coords = fetch_random_input(mock_weathernext2_model)
-    mock_weathernext2_model(x, coords)
-    mock_weathernext2_model(x, coords)
+    monkeypatch.setattr(module.rollout, "chunked_prediction", record_rng)
+    x = fetch_random_input(mock_weathernext2_model)
+    mock_weathernext2_model(x)
+    mock_weathernext2_model(x)
     assert len(rngs) == 2 and not np.array_equal(*rngs)
+    key = np.asarray(mock_weathernext2_model.prng_key).copy()
+    iterator = mock_weathernext2_model.create_iterator(x)
+    next(iterator)
+    expected, _ = module.jax.random.split(key)
+    np.testing.assert_array_equal(mock_weathernext2_model.prng_key, expected)
+    iterator.close()
 
 
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
-@mock.patch.object(
-    WeatherNext2CyclonesMini,
-    "_chunked_prediction_generator",
-    mocked_chunked_prediction_generator,
-)
 def test_weathernext2_conformance(mock_weathernext2_model):
-    """Check the mock WeatherNext2CyclonesMini model against the model contract.
-
-    Not fully conformant. Rule prefixes only are asserted, not message text, so
-    the pin survives rewording of a violation message:
-    - P5: output_coords() accepts a coordinate system whose final two dimensions
-      are swapped instead of raising ValueError.
-    - P10: dev/spec/MODEL_CONTRACT_SPEC.md's "Hooks" section documents
-      weathernext2_cyclones_mini (along with gencast_mini, graphcast_small,
-      graphcast_operational) as a known deviation that applies rear_hook but
-      never front_hook, so a front hook set on it is silently discarded.
-    - P13: the wrapper does not declare `stochastic`. Its randomness is already
-      an isolated functional JAX PRNG key and it implements `set_rng()`, but the
-      checker takes stochastic=False at face value and two rollouts from one
-      input disagree.
-    - P16: the yields alias one buffer, so yield 1 changes once a later step is
-      produced.
-    """
     model = mock_weathernext2_model
-    with pytest.raises(ContractException) as excinfo:
+    with pytest.raises(ContractException) as exc_info:
         check_prognostic_contract(model)
-    violations = excinfo.value.violations
-    assert {v.split(":")[0] for v in violations} == {"P5", "P10", "P13", "P16"}
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 def test_weathernext2_set_rng(mock_weathernext2_model):
     mock_weathernext2_model.set_rng(123)
     key = np.asarray(mock_weathernext2_model.prng_key)
     mock_weathernext2_model.set_rng(456, reset=False)
+    assert mock_weathernext2_model.seed == 456
     np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
     mock_weathernext2_model.set_rng(456)
     assert not np.array_equal(key, mock_weathernext2_model.prng_key)
@@ -192,14 +221,18 @@ def test_weathernext2_set_rng(mock_weathernext2_model):
     np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
 
 
-def test_weathernext2_target_order(mock_weathernext2_model):
+def test_weathernext2_target_order():
+    pytest.importorskip("weathernext")
     targets = fiddle_config_io.get_fiddle_config_by_name(
         "weathernext2/configs/WeatherNextCyclones_Mini"
     ).task.target_variables
     expected = tuple(
         variable for variable in targets if not variable.startswith("cyclone")
     )
-    assert mock_weathernext2_model.task_config.target_variables == expected
+    model = WeatherNext2CyclonesMini.__new__(WeatherNext2CyclonesMini)
+    torch.nn.Module.__init__(model)
+    model.track_cyclones = False
+    assert model._load_task_config().target_variables == expected
 
 
 def test_weathernext2_cyclone_tracks_inactive(mock_weathernext2_model):
@@ -222,16 +255,15 @@ def test_weathernext2_cyclone_track_aliases():
     np.testing.assert_allclose(tracks[["tcmsl", "tcw10m"]], [[99000.0, 10.28888]])
 
 
-@mock.patch("weathernext.utils.rollout.chunked_prediction", mocked_chunked_prediction)
 def test_weathernext2_call_updates_cyclone_tracks(mock_weathernext2_model):
     model = mock_weathernext2_model
     model.track_cyclones = True
-    x, coords = fetch_random_input(model)
+    x = fetch_random_input(model)
     with (
         mock.patch.object(model, "_reset_cyclone_tracks") as reset,
         mock.patch.object(model, "_update_cyclone_tracks") as update,
     ):
-        model(x, coords)
+        model(x)
     reset.assert_called_once_with()
     update.assert_called_once()
 
@@ -245,7 +277,7 @@ def test_weathernext2_call_updates_cyclone_tracks(mock_weathernext2_model):
 )
 def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
     model = mock_weathernext2_model.to(device)
-    x, coords = fetch_data(
+    x = fetch_data(
         Random(coords),
         TEST_TIME,
         model.input_coords()["variable"],
@@ -253,7 +285,7 @@ def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
         device=device,
     )
     with pytest.raises((KeyError, ValueError)):
-        model(x, coords)
+        model(x)
 
 
 def test_weathernext2_operational_checkpoint():
@@ -261,10 +293,21 @@ def test_weathernext2_operational_checkpoint():
     assert WeatherNext2Cyclones._params_path(4).endswith("_<2025_model4.npz")
     with pytest.raises(ValueError, match="1 through 4"):
         WeatherNext2Cyclones._params_path(0)
+    for cls in (WeatherNext2Cyclones, WeatherNext2CyclonesMini):
+        model = cls.__new__(cls)
+        torch.nn.Module.__init__(model)
+        shape = (721, 1440) if cls is WeatherNext2Cyclones else (181, 360)
+        model.land_sea_mask = np.ones(shape)
+        signature = model.input_coords()
+        assert signature.shape == (0, 0, 2, 83, *shape)
+        if cls is WeatherNext2Cyclones:
+            assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+        assert "tp06" in model.output_coords(signature).coords["variable"]
 
 
 @pytest.mark.package
 def test_weathernext2_operational_package():
+    pytest.importorskip("weathernext")
     model = WeatherNext2Cyclones.load_model(
         WeatherNext2Cyclones.load_default_package(), jit_compile=False
     )
@@ -276,6 +319,7 @@ def test_weathernext2_operational_package():
 
 @pytest.mark.package
 def test_weathernext2_package():
+    pytest.importorskip("weathernext")
     torch.cuda.empty_cache()
     model = WeatherNext2CyclonesMini.load_model(
         WeatherNext2CyclonesMini.load_default_package(), jit_compile=False

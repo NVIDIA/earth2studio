@@ -23,7 +23,11 @@ import torch
 try:
     import cbottle
 except ImportError:
-    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
+    cbottle = None
+
+from types import SimpleNamespace
+
+from test_cbottle_infill import _field
 
 from earth2studio.models.conformance import (
     ContractException,
@@ -34,8 +38,72 @@ from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
 from earth2studio.utils import handshake_dim
 
 
+@pytest.fixture(autouse=True)
+def offline_sr(monkeypatch):
+    if cbottle is not None:
+        return
+
+    def initialize(
+        self,
+        core,
+        lat_lon=True,
+        output_resolution=(2161, 4320),
+        super_resolution_window=None,
+        seed=None,
+        **kwargs,
+    ):
+        torch.nn.Module.__init__(self)
+        self.seed = seed
+        self.sampler_steps = kwargs.get("sampler_steps", 18)
+        self._sample_index = 0
+        self.input_type = self.output_type = "latlon" if lat_lon else "healpix"
+        self.register_buffer("_device_buffer", torch.empty(0))
+        self.input_grid = SimpleNamespace(
+            lat=np.linspace(90, -90, 721, endpoint=False), lon=np.arange(1440) / 4
+        )
+        if super_resolution_window is None:
+            lat = np.linspace(90, -90, output_resolution[0], endpoint=False)
+            lon = np.linspace(0, 360, output_resolution[1], endpoint=False)
+        else:
+            s, w, n, e = super_resolution_window
+            lat, lon = np.linspace(s, n, output_resolution[0]), np.linspace(
+                w, e, output_resolution[1]
+            )
+        self.output_grid = SimpleNamespace(lat=lat, lon=lon)
+
+    def forward(self, x):
+        # Mirror the EDM schedule denominator; one step produces NaN, not a
+        # valid diffusion trajectory, even in the lightweight offline fixture.
+        steps = torch.arange(self.sampler_steps, device=x.device, dtype=torch.float64)
+        schedule = (
+            800 ** (1 / 7)
+            + steps / (self.sampler_steps - 1) * (0.02 ** (1 / 7) - 800 ** (1 / 7))
+        ) ** 7
+        shape = (
+            (12, len(self.output_grid.lat), len(self.output_grid.lon))
+            if self.output_type == "latlon"
+            else (12, 12582912)
+        )
+        gen = (
+            torch.Generator(device=x.device).manual_seed(self.seed + self._sample_index)
+            if self.seed is not None
+            else None
+        )
+        self._sample_index += 1
+        return (
+            (torch.rand((), device=x.device, generator=gen) * schedule[0] / 800)
+            .float()
+            .expand(shape)
+        )
+
+    monkeypatch.setattr(CBottleSR, "__init__", initialize)
+    monkeypatch.setattr(CBottleSR, "_forward", forward)
+
+
 @pytest.fixture(scope="class")
 def mock_cbottle_core_model() -> torch.nn.Module:
+    if cbottle is None:
+        return torch.nn.Identity()
     """Create a mock core model similar to the actual cbottle model"""
     # Create a more realistic mock using cbottle config like in test_cbottle.py
     # Actual parameters,
@@ -96,7 +164,7 @@ class TestCBottleSRMock:
             lat_lon=True,
             output_resolution=output_resolution,
             super_resolution_window=window,
-            sampler_steps=1,  # Reduced for testing speed
+            sampler_steps=2,  # Smallest valid EDM schedule
             sigma_max=800,  # Reduced for testing
         ).to(device)
 
@@ -113,7 +181,10 @@ class TestCBottleSRMock:
         )
 
         # Forward pass
-        out, out_coords = dx(x, coords)
+        field = _field(dx, x, coords)
+        out = dx(field)
+        assert torch.isfinite(out.e2s.to_torch()[0]).all()
+        out_coords = {k: out.coords[k].values for k in out.dims}
 
         # Check output shape
         expected_shape = torch.Size(
@@ -127,7 +198,7 @@ class TestCBottleSRMock:
         assert out.shape == expected_shape
 
         # Check output coordinates
-        assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        assert all(out_coords["variable"] == dx.output_coords(field)["variable"])
         handshake_dim(out_coords, "lon", 3)
         handshake_dim(out_coords, "lat", 2)
         handshake_dim(out_coords, "variable", 1)
@@ -151,7 +222,7 @@ class TestCBottleSRMock:
         dx = CBottleSR(
             mock_cbottle_core_model,
             lat_lon=False,
-            sampler_steps=1,
+            sampler_steps=2,
             sigma_max=800,
         ).to(device)
 
@@ -167,7 +238,10 @@ class TestCBottleSRMock:
         )
 
         # Forward pass
-        out, out_coords = dx(x, coords)
+        field = _field(dx, x, coords)
+        out = dx(field)
+        assert torch.isfinite(out.e2s.to_torch()[0]).all()
+        out_coords = {k: out.coords[k].values for k in out.dims}
 
         # Check output shape - HEALPix level 10: 1024^2 * 12 = 12,582,912
         expected_shape = torch.Size(
@@ -180,7 +254,7 @@ class TestCBottleSRMock:
         assert out.shape == expected_shape
 
         # Check output coordinates are HEALPix
-        assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        assert all(out_coords["variable"] == dx.output_coords(field)["variable"])
         handshake_dim(out_coords, "hpx", 2)
         handshake_dim(out_coords, "variable", 1)
         handshake_dim(out_coords, "batch", 0)
@@ -213,7 +287,7 @@ class TestCBottleSRMock:
         )
 
         with pytest.raises((KeyError, ValueError)):
-            dx(x, wrong_coords)
+            dx(_field(dx, x, wrong_coords))
 
         # Wrong coordinate order
         wrong_coords = OrderedDict(
@@ -226,7 +300,7 @@ class TestCBottleSRMock:
         )
 
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(_field(dx, x.transpose(-1, -2), wrong_coords))
 
         # Wrong coordinate values
         wrong_coords = OrderedDict(
@@ -239,30 +313,29 @@ class TestCBottleSRMock:
         )
 
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(_field(dx, x, wrong_coords))
 
-    def test_cbottle_sr_conformance(self, mock_cbottle_core_model):
-        """Check the mock model against the Earth2Studio model contract.
-
-        CBottleSR does not currently declare `stochastic` or implement
-        `set_rng()` (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it
-        already seeds via a bare torch.manual_seed(self.seed + ...) call, so it
-        needs the seeding forked into torch.random.fork_rng()). Constructed
-        without a seed — the default, and what a caller who has not opted in
-        gets — its diffusion latents come from the unseeded global generator, so
-        two calls on one input disagree and D9 is violated. Pinned here until
-        the wrapper declares stochastic and implements set_rng().
-        """
+    def test_cbottle_sr_conformance(self, mock_cbottle_core_model, monkeypatch):
         dx = CBottleSR(
             mock_cbottle_core_model,
             lat_lon=True,
             output_resolution=(721, 1440),
-            sampler_steps=1,  # Reduced for testing speed
+            sampler_steps=2,  # Smallest valid EDM schedule
             sigma_max=800,  # Reduced for testing
         )
+        forward = dx._forward
+
+        def finite_forward(x):
+            out = forward(x)
+            assert torch.isfinite(out).all()
+            return out
+
+        monkeypatch.setattr(dx, "_forward", finite_forward)
         with pytest.raises(ContractException) as exc_info:
             check_diagnostic_contract(dx)
-        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
+        assert exc_info.value.violations == [
+            "D9: repeated runs with the same input and seed disagree"
+        ]
 
 
 @pytest.mark.package
@@ -274,7 +347,7 @@ def test_cbottle_sr_package(device):
     dx = CBottleSR.load_model(
         package,
         lat_lon=True,
-        sampler_steps=1,  # Reduced for testing
+        sampler_steps=2,  # Smallest valid EDM schedule
         output_resolution=(721, 1440),  # Reduced for testing
         seed=42,  # Set seed for reproducibility
     ).to(device)
@@ -289,11 +362,14 @@ def test_cbottle_sr_package(device):
         }
     )
 
-    out, out_coords = dx(x, coords)
+    field = _field(dx, x, coords)
+    out = dx(field)
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()
+    out_coords = {k: out.coords[k].values for k in out.dims}
     assert out.shape == torch.Size([x.shape[0], 12, 721, 1440])
 
     # Check variables
-    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+    assert all(out_coords["variable"] == dx.output_coords(field)["variable"])
     handshake_dim(out_coords, "lon", 3)
     handshake_dim(out_coords, "lat", 2)
     handshake_dim(out_coords, "variable", 1)

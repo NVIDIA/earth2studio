@@ -27,7 +27,9 @@ try:
     from cbottle.datasets import base
     from cbottle.inference import MixtureOfExpertsDenoiser
 except ImportError:
-    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
+    cbottle = None
+
+from types import SimpleNamespace
 
 from earth2studio.models.conformance import (
     ContractException,
@@ -35,10 +37,73 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.dx import CBottleInfill
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.cupy import from_torch
+
+
+def _field(model, tensor, coords):
+    signature = model.input_coords()
+    dims = tuple(coords)
+    labels = {k: np.asarray(v) for k, v in coords.items()}
+    if "time" in labels:
+        labels["time"] = labels["time"].astype("datetime64[ns]")
+    if "lead_time" in labels:
+        labels["lead_time"] = labels["lead_time"].astype("timedelta64[ns]")
+    # Coordinate construction is separate from field conversion so invalid labels
+    # still reach the wrapper's native validation.
+    from earth2studio.utils.coords import coord_array
+
+    sig = coord_array(dims, labels, attrs=signature.attrs)
+    return from_torch(tensor, sig)
+
+
+@pytest.fixture(autouse=True)
+def offline_infill(monkeypatch):
+    if cbottle is not None:
+        return
+
+    def initialize(self, core_model, sst_ds, input_variables, **kwargs):
+        torch.nn.Module.__init__(self)
+        self.sst = sst_ds
+        self.input_variables = input_variables
+        self.seed = None
+        self.sigma_max = 200
+        self.sampler_steps = 2
+        self.batch_size = 4
+        self.register_buffer("device_buffer", torch.empty(0))
+
+        def infill(batch):
+            target = batch["target"]
+            return (
+                torch.where(torch.isnan(target), torch.randn_like(target), target),
+                None,
+            )
+
+        self.core_model = SimpleNamespace(infill=infill)
+
+    def prepare(self, time, x, label=1):
+        if "sst" not in self.input_variables:
+            self._validate_sst_time(time)
+        target = x.new_full((len(time), 45, 1, 1), torch.nan)
+        target[:, self.input_variable_idx, 0, 0] = x.mean((-1, -2))
+        return {
+            "target": target,
+            "labels": x.new_zeros(len(time), 1),
+            "condition": x.new_zeros(len(time), 1),
+            "second_of_day": x.new_zeros(len(time), 1),
+            "day_of_year": x.new_zeros(len(time), 1),
+        }
+
+    monkeypatch.setattr(CBottleInfill, "__init__", initialize)
+    monkeypatch.setattr(CBottleInfill, "get_cbottle_input", prepare)
+    monkeypatch.setattr(
+        CBottleInfill, "_regrid_outputs", lambda self, x: x.expand(-1, -1, 721, 1440)
+    )
 
 
 @pytest.fixture(scope="class")
 def mock_core_model() -> torch.nn.Module:
+    if cbottle is None:
+        return torch.nn.Identity()
     # Real model checkpoint has
     # {"model_channels": 192, "label_dim": 1024, "out_channels": 45, "condition_channels": 1}
     model_config = cbottle.config.models.ModelConfigV1()
@@ -115,7 +180,20 @@ class TestCBottleMock:
             }
         )
 
-        out, out_coords = dx(x, coords)
+        field = _field(dx, x, coords)
+        field.attrs["user"] = {"notes": ["input"]}
+        field.encoding["user"] = {"notes": ["input"]}
+        field.time.attrs["user"] = {"notes": ["input"]}
+        planned = dx.output_coords(field)
+        assert planned.data.nbytes == 0
+        assert planned.attrs["user"] == field.attrs["user"]
+        assert planned.time.attrs["user"] == field.time.attrs["user"]
+        assert field.attrs["user"]["notes"] == ["input"]
+        assert field.encoding["user"]["notes"] == ["input"]
+        assert field.time.attrs["user"]["notes"] == ["input"]
+        output = dx(field)
+        out_coords = {k: output.coords[k].values for k in output.dims}
+        out = output.e2s.to_torch()[0]
 
         assert out.shape == torch.Size(
             [
@@ -126,9 +204,9 @@ class TestCBottleMock:
                 1440,
             ]
         )
-        assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-        assert np.all(out_coords["time"] == time)
-        assert np.all(out_coords["lead_time"] == lead_time)
+        assert np.all(out_coords["variable"] == dx.output_coords(field)["variable"])
+        assert np.all(out_coords["time"] == time.astype("datetime64[ns]"))
+        assert np.all(out_coords["lead_time"] == lead_time.astype("timedelta64[ns]"))
         handshake_dim(out_coords, "lon", 4)
         handshake_dim(out_coords, "lat", 3)
         handshake_dim(out_coords, "variable", 2)
@@ -157,7 +235,7 @@ class TestCBottleMock:
         )
 
         with pytest.raises((KeyError, ValueError)):
-            dx(x, wrong_coords)
+            dx(_field(dx, x, wrong_coords))
 
         wrong_coords = OrderedDict(
             {
@@ -170,7 +248,7 @@ class TestCBottleMock:
         )
 
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(_field(dx, x, wrong_coords))
 
         wrong_coords = OrderedDict(
             {
@@ -183,7 +261,7 @@ class TestCBottleMock:
             }
         )
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(_field(dx, x, wrong_coords))
 
     @pytest.mark.parametrize(
         "input_variables",
@@ -218,16 +296,16 @@ class TestCBottleMock:
                 "lon": np.linspace(0, 360, 1440, endpoint=False),
             }
         )
-        out, out_coords = dx(x, coords)
+        dx(_field(dx, x, coords))
 
         # Outside of AMIP time range
         coords["time"] = np.array([datetime(2023, 1, 1, 1), datetime(2002, 2, 2, 2)])
 
         if "sst" in input_variables:
-            out, coords = dx(x, coords)
+            dx(_field(dx, x, coords))
         else:
             with pytest.raises(ValueError):
-                out, coords = dx(x, coords)
+                dx(_field(dx, x, coords))
 
     @pytest.mark.parametrize("device", ["cuda:0"])
     def test_cbottle_infill_invariant_inputs(
@@ -257,7 +335,7 @@ class TestCBottleMock:
         torch.manual_seed(0)
         torch.cuda.manual_seed_all(0)
         np.random.seed(0)
-        out0, out_coords = dx(x, coords)
+        out0 = dx(_field(dx, x, coords)).e2s.to_torch()[0]
 
         # Adjust time and lead time dim so data is at same timestamp
         coords["time"] = np.array([datetime(1995, 8, 2, 9, 12)])
@@ -265,7 +343,7 @@ class TestCBottleMock:
         torch.manual_seed(0)
         torch.cuda.manual_seed_all(0)
         np.random.seed(0)
-        out1, out_coords = dx(x, coords)
+        out1 = dx(_field(dx, x, coords)).e2s.to_torch()[0]
 
         # Permute variables
         input_variables = np.array(["v10m", "u10m"])
@@ -277,7 +355,7 @@ class TestCBottleMock:
         torch.manual_seed(0)
         torch.cuda.manual_seed_all(0)
         np.random.seed(0)
-        out2, out_coords = dx(x, coords)
+        out2 = dx(_field(dx, x, coords)).e2s.to_torch()[0]
 
         assert torch.allclose(out0, out1)
         assert torch.allclose(out0, out2)
@@ -309,7 +387,9 @@ class TestCBottleMock:
             check_diagnostic_contract(
                 dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
             )
-        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
+        assert exc_info.value.violations == [
+            "D9: repeated runs with the same input and seed disagree"
+        ]
 
 
 @pytest.mark.package
@@ -337,7 +417,10 @@ def test_cbottle_package(device):
         }
     )
 
-    out, out_coords = dx(x, coords)
+    field = _field(dx, x, coords)
+    output = dx(field)
+    out_coords = {k: output.coords[k].values for k in output.dims}
+    out = output.e2s.to_torch()[0]
 
     assert out.shape == torch.Size(
         [
@@ -349,9 +432,9 @@ def test_cbottle_package(device):
             1440,
         ]
     )
-    assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    assert np.all(out_coords["time"] == time)
-    assert np.all(out_coords["lead_time"] == lead_time)
+    assert np.all(out_coords["variable"] == dx.output_coords(field)["variable"])
+    assert np.all(out_coords["time"] == time.astype("datetime64[ns]"))
+    assert np.all(out_coords["lead_time"] == lead_time.astype("timedelta64[ns]"))
     handshake_dim(out_coords, "lon", -1)
     handshake_dim(out_coords, "lat", -2)
     handshake_dim(out_coords, "variable", -3)

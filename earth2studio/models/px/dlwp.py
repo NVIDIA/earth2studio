@@ -15,26 +15,37 @@
 # limitations under the License.
 
 import zipfile
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
 import xarray
+import xarray as xr
 
+from earth2studio.grids import PointGrid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.checkpoint import bind_checkpoint_state
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import physicsnemo
@@ -47,6 +58,14 @@ except ImportError:
 VARIABLES = ["t850", "z1000", "z700", "z500", "z300", "tcwv", "t2m"]
 
 
+@dataclass
+class _DLWPCheckpointState:
+    x: torch.Tensor | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    public_metadata: dict[str, Any] = field(default_factory=dict)
+    pending: bool = False
+
+
 @check_optional_dependencies()
 class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious
@@ -57,6 +76,13 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     equirectangular grid of just the atmospheric varaibles as an input for better
     compatability with common data sources. Prescriptive fields are added inside the
     model wrapper.
+
+    Attributes
+    ----------
+    front_hook_interval : int
+        Number of iterator forecast outputs per core front hook. The twelve-hour
+        core advance produces two six-hour outputs: one front hook precedes the
+        core call, and a rear hook transforms each output before it is yielded.
 
     Note
     ----
@@ -94,6 +120,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     provider:nvidia backend:pytorch
     """
 
+    front_hook_interval: int = 2
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -120,73 +148,99 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         self.register_buffer("M", cubed_sphere_transform.T)
         self.register_buffer("N", cubed_sphere_inverse)
+        # Six cubed-sphere faces are not HEALPix. Flatten their exact checkpoint
+        # ordering into a point grid for labelled internal state and hooks.
+        self._cube_grid = PointGrid(
+            latgrid.cpu().numpy().reshape(-1), longrid.cpu().numpy().reshape(-1)
+        )
+        self.checkpoint = bind_checkpoint_state(_DLWPCheckpointState())
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free two-step latitude/longitude signature."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
                 ),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate relative history and advance the final lead by six hours."""
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
+        return coord_array_like(
+            input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
+        )
 
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        output_coords = OrderedDict(
+    @staticmethod
+    def _metadata(x: xr.DataArray) -> dict[str, Any]:
+        return deepcopy(
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
+                "dims": tuple(x.dims),
+                "sizes": dict(x.sizes),
+                "name": x.name,
+                "coords": {
+                    name: (tuple(value.dims), value.values.copy(), dict(value.attrs))
+                    for name, value in x.coords.items()
+                },
+                "attrs": dict(x.attrs),
+                "encoding": dict(x.encoding),
             }
         )
 
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+    @staticmethod
+    def _signature(metadata: dict[str, Any]) -> CoordinateSystem:
+        signature = coord_array(
+            metadata["dims"],
+            metadata["coords"],
+            sizes=metadata["sizes"],
+            attrs=metadata["attrs"],
+            name=metadata["name"],
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            handshake_dim(test_coords, key, i)
-            if key not in ["batch", "time"]:
-                handshake_coords(test_coords, target_input_coords, key)
+        signature.encoding = metadata["encoding"].copy()
+        return signature
 
-        # Normal forward pass of DLWP, this method returns two time-steps
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
+    def _save_checkpoint_state(
+        self, x: xr.DataArray, public: CoordinateSystem, pending: bool
+    ) -> None:
+        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
+            tensor, _ = x.e2s.to_torch()
+            self.checkpoint.x = tensor.detach().clone().to(self.checkpoint.device)
+            self.checkpoint.metadata = self._metadata(x)
+            self.checkpoint.public_metadata = self._metadata(public)
+            self.checkpoint.pending = pending
+        else:
+            self.checkpoint.x = None
+            self.checkpoint.metadata = {}
+            self.checkpoint.public_metadata = {}
 
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
-        )
-
-        return output_coords
+    def _restore_checkpoint_state(
+        self,
+    ) -> tuple[xr.DataArray, CoordinateSystem, bool] | None:
+        if (
+            self.checkpoint.checkpoint_level == 2
+            and self.checkpoint.checkpoint_state_loaded
+            and self.checkpoint.x is not None
+            and self.checkpoint.metadata
+        ):
+            signature = self._signature(self.checkpoint.metadata)
+            x = from_torch(self.checkpoint.x.to(self.center.device), signature)
+            x.encoding = signature.encoding.copy()
+            return (
+                x,
+                self._signature(self.checkpoint.public_metadata),
+                self.checkpoint.pending,
+            )
+        return None
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -304,13 +358,17 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output.append(uvcossza)
         return torch.stack(output, axis=0)
 
-    def _prepare_input(self, input: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _prepare_input(
+        self, input: torch.Tensor, coords: CoordinateSystem
+    ) -> torch.Tensor:
         """Prepares input cubed sphere tensor by adding land sea mask, uvcossza and
         orography fields to input atmospheric ([14,6,64,64] -> [18,6,64,64])
         """
         # Compress batch dim into time
-        time_array = np.tile(coords["time"], input.shape[0])
-        input = input.view(-1, *input.shape[2:])
+        time_array = np.tile(
+            coords["time"].values + coords["lead_time"].values[-1], input.shape[0]
+        )
+        input = input.reshape(-1, *input.shape[2:])
 
         uvcossza_6 = self.get_cosine_zenith_fields(
             time_array, timedelta(hours=-6), input.device
@@ -331,7 +389,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return input
 
     def _prepare_output(
-        self, output: torch.Tensor, coords: CoordSystem
+        self, output: torch.Tensor, coords: CoordinateSystem
     ) -> torch.Tensor:
         output = torch.split(output, output.shape[1] // 2, dim=1)
         # Add lead time dimension back in
@@ -344,7 +402,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: CoordinateSystem,
     ) -> torch.Tensor:
 
         center = self.center.unsqueeze(-1)
@@ -357,93 +415,184 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = scale * x + center
         return x
 
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
+    def _to_cube(self, x: xr.DataArray) -> xr.DataArray:
+        self.output_coords(x)
+        handshake_time(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = self.to_cubedsphere(tensor.to(self.center.device))
+        grid_keys = {
+            "type",
+            "dims",
+            "shape",
+            "topology",
+            "crs",
+            "earth2studio_grid_id",
+            "earth2studio_crs",
+        }
+        attrs = {k: v for k, v in x.attrs.items() if k not in grid_keys}
+        spatial_dim = "_dlwp_cell"
+        while spatial_dim in x.dims or spatial_dim in x.coords:
+            spatial_dim += "_"
+        spatial = coord_array(("x",), grid=self._cube_grid).rename(x=spatial_dim)
+        attrs.update(self._cube_grid.attrs)
+        attrs["dims"] = [spatial_dim]
+        signature = coord_array(
+            (*x.dims[:-2], spatial_dim),
+            {
+                **dict(spatial.coords),
+                **{
+                    k: v
+                    for k, v in x.coords.items()
+                    if not set(v.dims).intersection(("lat", "lon"))
+                },
+            },
+            attrs=attrs,
+            name=x.name,
+            sizes={dim: x.sizes[dim] for dim in x.dims[:-2]},
+        )
+        out = from_torch(tensor.flatten(-3), signature)
+        out.encoding = x.encoding.copy()
+        return out
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+    def _cube_step(self, x: xr.DataArray) -> xr.DataArray:
+        tensor, _ = x.e2s.to_torch()
+        shape = tensor.shape
+        tensor = tensor.reshape(
+            -1,
+            x.sizes["time"],
+            x.sizes["lead_time"],
+            x.sizes["variable"],
+            *self.latgrid.shape,
+        )
+        output = self._forward(tensor, x).reshape(shape)
+        signature = coord_array_like(
+            x, {"lead_time": x.lead_time.values + np.timedelta64(12, "h")}
+        )
+        out = from_torch(output, signature)
+        out.encoding = x.encoding.copy()
+        return out
 
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
+    def _from_cube(self, x: xr.DataArray, public: CoordinateSystem) -> xr.DataArray:
+        tensor, _ = x.e2s.to_torch()
+        tensor = tensor.reshape(*tensor.shape[:-1], *self.latgrid.shape)
+        spatial = coord_array_like(public, {"lead_time": x.lead_time.values})
+        grid_keys = set(self._cube_grid.attrs) | {
+            "crs",
+            "earth2studio_grid_id",
+            "earth2studio_crs",
+        }
+        # Only spatial metadata comes from the original public field. Rebuild
+        # everything else from the hook result, including deletions and name=None.
+        signature = coord_array(
+            (*x.dims[:-1], "lat", "lon"),
+            {
+                **{
+                    k: v.variable
+                    for k, v in spatial.coords.items()
+                    if set(v.dims).intersection(("lat", "lon"))
+                },
+                **{
+                    k: v.variable
+                    for k, v in x.coords.items()
+                    if x.dims[-1] not in v.dims
+                },
+            },
+            sizes={
+                **{dim: x.sizes[dim] for dim in x.dims[:-1]},
+                "lat": public.sizes["lat"],
+                "lon": public.sizes["lon"],
+            },
+            attrs={
+                **{k: v for k, v in public.attrs.items() if k in grid_keys},
+                **{k: v for k, v in x.attrs.items() if k not in grid_keys},
+            },
+            name=x.name,
+            dtype=x.dtype,
+        )
+        out = from_torch(self.to_equirectangular(tensor), signature, name=x.name)
+        out.encoding = x.encoding.copy()
+        return out
 
-        output_coords = self.output_coords(coords)
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict the next six-hour DataArray without iterator hooks."""
+        handshake_nonempty(x)
+        handshake_time(x)
+        restored = self._restore_checkpoint_state()
+        if restored is None:
+            public = coord_array_like(x)
+            public.encoding = x.encoding.copy()
+            state = self._cube_step(self._to_cube(x))
+            pending = True
+            out = state.isel(lead_time=slice(0, 1))
+        else:
+            state, public, pending = restored
+            if state.dims[-2:] == ("lat", "lon"):
+                state = self._to_cube(state)
+            if pending:
+                out = state.isel(lead_time=slice(-1, None))
+                pending = False
+            else:
+                state = self._cube_step(state)
+                out = state.isel(lead_time=slice(0, 1))
+                pending = True
+        self._save_checkpoint_state(state, public, pending)
+        return self._from_cube(out, public)
 
-        x = self.to_cubedsphere(x)
-        x = self._forward(x, coords)
-        x = self.to_equirectangular(x)
-
-        return x[:, :, :1], output_coords
-
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
-        coords = coords.copy()
-        self.output_coords(coords)
-
-        coords_out = coords.copy()
-        coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:], coords_out
-
-        x = self.to_cubedsphere(x)
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        handshake_nonempty(x)
+        handshake_time(x)
+        restored = self._restore_checkpoint_state()
+        if restored is None:
+            self.output_coords(x)
+            public = coord_array_like(x)
+            public.encoding = x.encoding.copy()
+            initial = x.isel(lead_time=slice(-1, None)).copy(deep=False)
+            self._save_checkpoint_state(x, public, False)
+            yield initial
+            x = self._to_cube(x)
+            pending = False
+            self._save_checkpoint_state(x, public, pending)
+        else:
+            x, public, pending = restored
+            if x.dims[-2:] == ("lat", "lon"):
+                x = self._to_cube(x)
         while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-
-            # Forward pass
-            x = self._forward(x, coords)
-            coords["lead_time"] = (
-                coords["lead_time"]
-                + 2 * self.output_coords(self.input_coords())["lead_time"]
+            if not pending:
+                x = self._cube_step(self.front_hook(x.copy(deep=True)))
+                index = 0
+            else:
+                index = 1
+            out = self.rear_hook(
+                x.isel(lead_time=slice(index, index + 1)).copy(deep=True)
             )
-            x = x.clone()
+            parts = [x.isel(lead_time=slice(0, 1)), x.isel(lead_time=slice(1, 2))]
+            parts[index] = out
+            tensors = [part.e2s.to_torch()[0] for part in parts]
+            signature = coord_array_like(
+                out,
+                {
+                    "lead_time": np.concatenate(
+                        [part.lead_time.values for part in parts]
+                    )
+                },
+            )
+            x = from_torch(
+                torch.cat(tensors, dim=out.get_axis_num("lead_time")),
+                signature,
+                name=out.name,
+            )
+            x.encoding = out.encoding.copy()
+            pending = not pending
+            self._save_checkpoint_state(x, public, pending)
+            yield self._from_cube(out, public)
 
-            # Rear hook for first predicted step
-            coords_out = coords.copy()
-            coords_out["lead_time"] = coords["lead_time"][0:1]
-            x[:, :, :1], coords_out = self.rear_hook(x[:, :, :1], coords_out)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield six-hour fields, retaining both cubed-sphere predictions internally.
 
-            # Output first predicted step
-            out = self.to_equirectangular(x[:, :, :1])
-            yield out, coords_out
-
-            # Rear hook for second predicted step
-            coords_out["lead_time"] = coords["lead_time"][-1:]
-            x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
-            out = self.to_equirectangular(x[:, :, 1:])
-            yield out, coords_out
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        Hooks receive point-grid DataArrays in checkpoint face order and original
+        leading dimensions. A front hook runs per twelve-hour core call; rear hooks
+        run on each six-hour prediction. Checkpoints retain any pending prediction.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_generator(x)

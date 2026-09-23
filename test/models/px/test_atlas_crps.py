@@ -14,17 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from collections import OrderedDict
 from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AtlasCRPS
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 
 class PhooAtlasCRPSModel(torch.nn.Module):
@@ -41,7 +45,7 @@ class PhooAtlasCRPSModel(torch.nn.Module):
 
     def forward(self, x_1, x_2):
         """Simple forward that adds delta_t to the current state stream."""
-        return x_2[:, : self.n_vars] + self.delta_t
+        return x_2 * 0.1 + x_1 * 0.2
 
 
 class PhooAutoencoder(torch.nn.Module):
@@ -51,7 +55,7 @@ class PhooAutoencoder(torch.nn.Module):
         super().__init__()
 
     def forward(self, x, residual_latent):
-        return x
+        return residual_latent
 
 
 class PhooNormalizer(torch.nn.Module):
@@ -105,6 +109,43 @@ def atlas_crps_test_components():
     }
 
 
+@pytest.fixture(autouse=True)
+def model_domain(request, monkeypatch):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
+    if request.node.originalname == "test_atlas_crps_iter":
+        declared = AtlasCRPS.input_coords
+
+        def small(self):
+            signature = declared(self)
+            return coord_array(
+                signature.dims,
+                {
+                    "lead_time": signature.lead_time,
+                    "variable": signature.coords["variable"],
+                },
+                dynamic=("batch", "time"),
+                grid=LatLonGrid([45, -45], [0, 120, 240]),
+            )
+
+        monkeypatch.setattr(AtlasCRPS, "input_coords", small)
+    elif request.node.originalname not in (
+        "test_atlas_crps_input_coords",
+        "test_atlas_crps_output_coords",
+    ):
+        pytest.importorskip("physicsnemo")
+    if request.node.originalname in (
+        "test_atlas_crps_iter",
+        "test_atlas_crps_input_coords",
+        "test_atlas_crps_output_coords",
+    ):
+        monkeypatch.setattr(AtlasCRPS, "__init__", inspect.unwrap(AtlasCRPS.__init__))
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -123,25 +164,21 @@ def test_atlas_crps_call(time, device, batch_size, atlas_crps_test_components):
     """Test AtlasCRPS __call__ method with different times and devices."""
     p = AtlasCRPS(**atlas_crps_test_components).to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
+    dc = {d: p.input_coords().coords[d].values for d in ("lat", "lon")}
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add batch dimension
-    x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
-    coords.update({"batch": np.arange(batch_size)})
-    coords.move_to_end("batch", last=False)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    x = x.expand_dims(batch=np.arange(batch_size))
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -160,12 +197,7 @@ def test_atlas_crps_call(time, device, batch_size, atlas_crps_test_components):
     assert (out_coords["time"] == time).all()
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
 
-    handshake_dim(out_coords, "lon", 5)
-    handshake_dim(out_coords, "lat", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize(
@@ -179,36 +211,43 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
 
     p = AtlasCRPS(**atlas_crps_test_components).to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
+    dc = {d: p.input_coords().coords[d].values for d in ("lat", "lon")}
     # Initialize Data Source
     r = Random(dc)
 
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_crs="EPSG:4326", source="fixture")
+    x = x.expand_dims(ensemble=np.arange(ensemble))
+    x = x.expand_dims(sample=1, axis=1).rename("weather")
+    x.encoding = {"source": "fixture"}
+    original = x.copy(deep=True)
+    tensor = x.e2s.to_torch()[0][0, 0, 0].to(device)
+    core_coords = {d: x.coords[d].values for d in x.dims if d in x.coords}
+    expected1, latent = p._forward(tensor, core_coords)
+    core_coords["lead_time"] = core_coords["lead_time"] + p.DT
+    expected2, _ = p._forward(
+        torch.cat((tensor[-1:], expected1), dim=0), core_coords, latent
+    )
+    p_iter = p.create_iterator(x)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
-    out, out_coords = next(p_iter)  # Skip first which should return the input
+    out = next(p_iter)
     # First output should be the latest lead time from input
-    assert torch.allclose(out, x[:, :, 1:])
+    xr.testing.assert_identical(out, x.isel(lead_time=slice(-1, None)))
+    initial = out
+    retained = []
 
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
+    for i, out in enumerate(p_iter):
+        out_coords = out.coords
+        assert len(out.shape) == 7
         assert out.shape[0] == ensemble
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
@@ -216,15 +255,60 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
         assert (out_coords["time"] == time).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
-        handshake_dim(out_coords, "lon", 5)
-        handshake_dim(out_coords, "lat", 4)
-        handshake_dim(out_coords, "variable", 3)
-        handshake_dim(out_coords, "lead_time", 2)
-        handshake_dim(out_coords, "time", 1)
-        handshake_dim(out_coords, "ensemble", 0)
+        assert out.dims == x.dims and "sample" not in out.coords
+        assert out.name == x.name and out.encoding == x.encoding
+        assert out.e2s.to_torch()[0].device == torch.device(device)
+        retained.append((out, out.copy(deep=True)))
+        if i < 2:
+            torch.testing.assert_close(
+                out.e2s.to_torch()[0][0, 0, 0], (expected1, expected2)[i]
+            )
 
         if i > 3:
             break
+    for out, saved in retained:
+        xr.testing.assert_identical(out, saved)
+    xr.testing.assert_identical(x, original)
+    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+    p_iter.close()
+    calls = []
+
+    def front(value):
+        calls.append("front")
+        value.data += 1
+        return value
+
+    def rear(value):
+        calls.append("rear")
+        value = value.rename(None)
+        value.attrs.pop("source", None)
+        value.encoding.clear()
+        return value
+
+    p.front_hook, p.rear_hook = front, rear
+    p(x)
+    assert calls == []
+    iterator = p.create_iterator(x)
+    next(iterator)
+    first = next(iterator)
+    saved = first.copy(deep=True)
+    second = next(iterator)
+    assert calls == ["front", "rear", "front", "rear"]
+    assert (
+        second.name is None and "source" not in second.attrs and second.encoding == {}
+    )
+    xr.testing.assert_identical(first, saved)
+    xr.testing.assert_identical(x, original)
+    iterator.close()
+    p.clear_hooks()
+
+    def preprocess(value, dates):
+        value.add_(1)
+        return value, value
+
+    p.model_processor.preprocess_input = preprocess
+    p(x)
+    xr.testing.assert_identical(x, original)
 
 
 @pytest.mark.parametrize(
@@ -248,10 +332,12 @@ def test_atlas_crps_exceptions(dc, atlas_crps_test_components, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
 
     with pytest.raises((KeyError, ValueError, RuntimeError)):
-        p(x, coords)
+        p(x)
 
 
 @pytest.mark.parametrize("batch_size", [1, 2])
@@ -274,27 +360,34 @@ def test_atlas_crps_prep_next_input(atlas_crps_test_components, batch_size, devi
 
     # Input state at t-6h and t=0
     x = torch.randn(batch_size, 1, time_steps, n_vars, lat, lon, device=device)
-    coords = p.input_coords()
-    coords["batch"] = np.arange(batch_size)
-    coords["time"] = np.array([np.datetime64("2020-01-01T00:00")])
+    coords = coord_array_like(
+        p.input_coords(),
+        {
+            "batch": np.arange(batch_size),
+            "time": np.array([np.datetime64("2020-01-01T00:00")]),
+        },
+    )
+    x = from_torch(x, coords)
 
     # Prediction at t+6h (output has shape [batch, 1, n_vars, lat, lon])
     x_pred = torch.randn(batch_size, 1, 1, n_vars, lat, lon, device=device)
     coords_pred = p.output_coords(coords)
-    coords_pred["batch"] = coords["batch"]
-    coords_pred["time"] = coords["time"]
+    x_pred = from_torch(x_pred, coords_pred)
 
     # Call prep_next_input
-    x_next, coords_next = p.prep_next_input(x_pred, coords_pred, x, coords)
+    x_next = p.prep_next_input(x_pred, x)
+    coords_next = x_next.coords
 
     # Check that x_next has the correct shape
     assert x_next.shape == x.shape
 
     # Check that the latest lead time contains the prediction
-    assert torch.allclose(x_next[:, :, -1:], x_pred[:, :, :1])
+    xr.testing.assert_equal(x_next.isel(lead_time=slice(-1, None)), x_pred)
 
     # Check that the earlier lead time contains the previous latest
-    assert torch.allclose(x_next[:, :, :-1], x[:, :, 1:])
+    xr.testing.assert_equal(
+        x_next.isel(lead_time=slice(0, 1)), x.isel(lead_time=slice(-1, None))
+    )
 
     # Check that lead times are updated correctly
     expected_lead_time = coords["lead_time"] + p.DT
@@ -325,31 +418,39 @@ def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, de
     x = torch.randn(
         ensemble_size, batch_size, 1, time_steps, n_vars, lat, lon, device=device
     )
-    coords = p.input_coords()
-    coords.update({"ensemble": np.arange(ensemble_size)})
-    coords.move_to_end("ensemble", last=False)
-    coords["batch"] = np.arange(batch_size)
-    coords["time"] = np.array([np.datetime64("2020-01-01T00:00")] * batch_size)
+    coords = coord_array_like(
+        p.input_coords(),
+        {
+            "batch": np.arange(batch_size),
+            "time": np.array([np.datetime64("2020-01-01T00:00")]),
+        },
+    )
+    coords = coord_array(
+        ("ensemble", *coords.dims),
+        {"ensemble": np.arange(ensemble_size), **dict(coords.coords)},
+        attrs=coords.attrs,
+    )
+    x = from_torch(x, coords)
 
     # Prediction at t+6h
     x_pred = torch.randn(
         ensemble_size, batch_size, 1, 1, n_vars, lat, lon, device=device
     )
     coords_pred = p.output_coords(coords)
-    coords_pred.update({"ensemble": coords["ensemble"]})
-    coords_pred.move_to_end("ensemble", last=False)
-    coords_pred["batch"] = coords["batch"]
-    coords_pred["time"] = coords["time"]
+    x_pred = from_torch(x_pred, coords_pred)
 
     # Call prep_next_input
-    x_next, coords_next = p.prep_next_input(x_pred, coords_pred, x, coords)
+    x_next = p.prep_next_input(x_pred, x)
+    coords_next = x_next.coords
 
     # Check shapes
     assert x_next.shape == x.shape
 
     # Check that sliding window works correctly with ensemble dimension
-    assert torch.allclose(x_next[:, :, :, -1:], x_pred[:, :, :, :1])
-    assert torch.allclose(x_next[:, :, :, :-1], x[:, :, :, 1:])
+    xr.testing.assert_equal(x_next.isel(lead_time=slice(-1, None)), x_pred)
+    xr.testing.assert_equal(
+        x_next.isel(lead_time=slice(0, 1)), x.isel(lead_time=slice(-1, None))
+    )
 
     # Check ensemble coordinate is preserved
     assert np.array_equal(coords_next["ensemble"], coords["ensemble"])
@@ -380,14 +481,13 @@ def test_atlas_crps_input_coords(atlas_crps_test_components):
     """Test that input_coords returns expected coordinate system."""
     p = AtlasCRPS(**atlas_crps_test_components)
     coords = p.input_coords()
+    assert (
+        coords.data.nbytes == 0
+        and coords.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    )
 
     # Check expected keys
-    assert "batch" in coords
-    assert "time" in coords
-    assert "lead_time" in coords
-    assert "variable" in coords
-    assert "lat" in coords
-    assert "lon" in coords
+    assert coords.dims == ("batch", "time", "lead_time", "variable", "lat", "lon")
 
     # Check lead_time has two steps: -6h and 0h
     assert len(coords["lead_time"]) == 2
@@ -415,12 +515,7 @@ def test_atlas_crps_output_coords(atlas_crps_test_components):
     output_coords = p.output_coords(input_coords)
 
     # Check expected keys
-    assert "batch" in output_coords
-    assert "time" in output_coords
-    assert "lead_time" in output_coords
-    assert "variable" in output_coords
-    assert "lat" in output_coords
-    assert "lon" in output_coords
+    assert output_coords.dims == input_coords.dims
 
     # Check lead_time is single step at +6h
     assert len(output_coords["lead_time"]) == 1
@@ -460,10 +555,12 @@ def test_atlas_crps_package(device):
         device=device,
     )
 
-    input_coords["batch"] = np.arange(batch_size)
-    input_coords["time"] = time
-
-    output, output_coords = model(x, input_coords)
+    input_coords = coord_array_like(
+        input_coords, {"batch": np.arange(batch_size), "time": time}
+    )
+    x = from_torch(x, input_coords)
+    output = model(x)
+    output_coords = output.coords
     expected_coords = model.output_coords(input_coords)
 
     assert output.shape == (
@@ -474,5 +571,5 @@ def test_atlas_crps_package(device):
         lat,
         lon,
     )
-    for key in expected_coords:
-        handshake_coords(output_coords, expected_coords, key)
+    for key in expected_coords.coords:
+        np.testing.assert_array_equal(output_coords[key], expected_coords.coords[key])

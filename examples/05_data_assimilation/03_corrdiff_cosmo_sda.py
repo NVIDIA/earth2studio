@@ -167,7 +167,7 @@ x_src, c_src = fetch_data(
     variable=np.array(dvars),
     lead_time=np.array([np.timedelta64(0, "h")]),
     device=DEVICE,
-)
+).e2s.to_torch()
 era5 = regrid_to_input(x_src, c_src, dvars, dlat, dlon)
 x_da = xr.DataArray(
     data=era5[None],

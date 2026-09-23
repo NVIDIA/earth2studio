@@ -14,25 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from typing import Literal
 
 import numpy as np
 import torch
+import xarray as xr
 import yaml  # type: ignore
 
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-)
+from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from climate_learn.data.precipmodule import LogTransform
@@ -178,6 +177,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     >>> from earth2studio.data import NCAR_ERA5, prep_data_array
     >>> from earth2studio.models.dx import OrbitGlobalPrecip
     >>> from earth2studio.utils.time import to_time_array
+    >>> from earth2studio.utils.coords import coord_array_like
+    >>> from earth2studio.utils.cupy import from_torch
     >>>
     >>> package = OrbitGlobalPrecip.load_default_package()
     >>> orbit = OrbitGlobalPrecip.load_model(package)
@@ -186,7 +187,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     >>> time = to_time_array([np.datetime64("2023-06-01")])
     >>>
     >>> # Fetch base variables (all except tp24, t2m_max, t2m_min)
-    >>> base_vars = orbit.input_coords()["variable"][:-3]
+    >>> base_vars = orbit.input_coords()["variable"].values[:-3]
     >>> x, coords = prep_data_array(data(time, base_vars), device="cuda")
     >>>
     >>> # Build past 24-hour precipitation accumulation and t2 max/min.
@@ -203,12 +204,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     >>> t2_min = t2_sst_combined.min(dim=1).values.unsqueeze(1)
     >>> x = torch.cat((x, total_p_24hr, t2_max, t2_min), dim=1)
     >>>
-    >>> input_coords = OrderedDict(
-    ...     {k: v for k, v in orbit.input_coords().items() if k != "batch"}
-    ... )
-    >>> input_coords["time"] = time
-    >>> input_coords.move_to_end("time", last=False)
-    >>> output, output_coords = orbit(x, input_coords)
+    >>> signature = orbit.input_coords().rename(batch="time")
+    >>> signature.attrs["earth2studio_dynamic_dims"] = ("time",)
+    >>> signature = coord_array_like(signature, {"time": time})
+    >>> output = orbit(from_torch(x, signature))
 
     Badges
     ------
@@ -303,53 +302,71 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.div = div
         self.overlap = overlap
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free input coordinate signature
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+                "variable": np.array(
+                    [
+                        {
+                            "tp24": "tp:sum:24h",
+                            "t2m_max": "t2m:max:24h",
+                            "t2m_min": "t2m:min:24h",
+                        }.get(v, v)
+                        for v in VARIABLES
+                    ]
+                )
+            },
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free output coordinate signature
         """
-        output_coords = OrderedDict(
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
+        leading = input_coords.dims[:-3]
+        return coord_array(
+            (*leading, "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "variable": np.array(["tp24"]),
-                "lat": np.linspace(90, -90, OUT_HEIGHT),
-                "lon": np.linspace(0, 360, OUT_WIDTH, endpoint=False),
-            }
+                **{
+                    k: v.variable
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
+                "variable": ["tp:sum:24h"],
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=LatLonGrid(
+                np.linspace(90, -90, OUT_HEIGHT),
+                np.linspace(0, 360, OUT_WIDTH, endpoint=False),
+            ),
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v for k, v in input_coords.attrs.items() if k not in signature.attrs
+            },
         )
-
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key != "batch":
-                handshake_dim(input_coords, key, i)
-                handshake_coords(input_coords, target_input_coords, key)
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -720,14 +737,13 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Downscale a labelled field to 24-hour precipitation in meters."""
 
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
 
         with torch.no_grad():
-            out = self._forward(x)
+            out = self._forward(x.e2s.to_torch()[0].to(self.norm_mean.device).clone())
 
-        return out, output_coords
+        return from_torch(out, output_coords)

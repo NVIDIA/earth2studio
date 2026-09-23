@@ -15,15 +15,47 @@
 # limitations under the License.
 
 import io
-from collections import OrderedDict
 
 import numpy as np
 import pytest
 import torch
 
+import earth2studio.models.dx.orbit2_precip as orbit_module
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import OrbitGlobalPrecip
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def offline_backend(monkeypatch):
+    if orbit_module.LogTransform is not None:
+        return
+    monkeypatch.delitem(
+        OptionalDependencyFailure.failures, orbit_module.__file__, raising=False
+    )
+    monkeypatch.setattr(orbit_module, "PRECIP_VARIABLES", ["total_precipitation_24hr"])
+
+    class LogTransform:
+        def __init__(self, **kwargs):
+            pass
+
+        def __call__(self, x):
+            return torch.log1p(torch.clamp(x * 1000, min=0))
+
+    monkeypatch.setattr(orbit_module, "LogTransform", LogTransform)
+    # Exercise preprocessing, the mock network, and physical-unit postprocessing
+    # without the optional backend's tile scheduler.
+    original = OrbitGlobalPrecip.__init__
+
+    def initialize(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        self.do_tiling = False
+        self.model.lat_out = 2880
+        self.model.lon_out = 5760
+
+    monkeypatch.setattr(OrbitGlobalPrecip, "__init__", initialize)
 
 
 class PhooORBIT2Precip(torch.nn.Module):
@@ -152,23 +184,14 @@ def test_orbit2_precip(x, device):
         overlap,
     ).to(device)
 
-    coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-
-    out, out_coords = dx(x, coords)
+    coords = coord_array_like(dx.input_coords(), {"batch": np.arange(x.shape[0])})
+    assert coords.data.nbytes == 0
+    out = dx(from_torch(x, coords))
+    out_coords = out.coords
 
     assert out.shape == torch.Size([x.shape[0], 1, 2880, 5760])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    handshake_dim(out_coords, "lon", 3)
-    handshake_dim(out_coords, "lat", 2)
-    handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "variable", "lat", "lon")
 
 
 @pytest.mark.package
@@ -180,22 +203,12 @@ def test_orbit2_precip_package(device, model_size):
         package, "global", model_size, "precipitation"
     ).to(device)
     x = torch.randn(1, 20, 721, 1440).to(device)
-    coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-
-    out, out_coords = dx(x, coords)
+    coords = coord_array_like(dx.input_coords(), {"batch": np.arange(x.shape[0])})
+    out = dx(from_torch(x, coords))
+    out_coords = out.coords
     assert out.shape == torch.Size([x.shape[0], 1, 2880, 5760])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    handshake_dim(out_coords, "lon", 3)
-    handshake_dim(out_coords, "lat", 2)
-    handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "variable", "lat", "lon")
 
 
 def test_orbitglobalprecip_conformance():
@@ -400,37 +413,11 @@ def test_orbit2_precip_exceptions():
         overlap,
     )
 
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "wrong": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-
-    with pytest.raises((KeyError, ValueError)):
-        dx(x, wrong_coords)
-
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lon": dx.input_coords()["lon"],
-            "lat": dx.input_coords()["lat"],
-        }
-    )
-
+    signature = coord_array_like(dx.input_coords(), {"batch": [0]})
+    field = from_torch(torch.zeros(signature.shape), signature)
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
-
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lat": np.linspace(-90, 90, 721),
-            "lon": dx.input_coords()["lon"],
-        }
-    )
+        dx(field.rename(variable="wrong"))
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(field.transpose("batch", "variable", "lon", "lat"))
+    with pytest.raises(ValueError):
+        dx(field.isel(lat=slice(None, None, -1)))

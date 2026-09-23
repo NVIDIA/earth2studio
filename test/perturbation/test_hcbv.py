@@ -22,14 +22,14 @@ import pytest
 import torch
 
 from earth2studio.data import Constant, Random
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.perturbation import (
     Brown,
     Gaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array, coord_array_like
 
 
 # Fake PX model
@@ -45,16 +45,15 @@ def model():
         def input_coords(self):
             return self._input_coords
 
-        @batch_coords()
-        def output_coords(self, input_coords: CoordSystem):
-            output_coords = input_coords.copy()
-            output_coords["lead_time"] = np.array([np.timedelta64(1, "s")])
-            return output_coords
+        def output_coords(self, input_coords):
+            return coord_array_like(
+                input_coords, {"lead_time": np.array([np.timedelta64(1, "s")])}
+            )
 
         @batch_func()
-        def forward(self, x, coords):
+        def forward(self, x):
             self.index += 1
-            return self.scale * x, coords
+            return x * self.scale.item()
 
     return FooModel()
 
@@ -108,7 +107,7 @@ def test_hem_centered_bred(
         ]
     )
     fc.update(dc)
-    model._input_coords = fc
+    model._input_coords = coord_array(tuple(fc), fc, dynamic=("batch",))
     model = model.to(device)
     model.index = 0
 

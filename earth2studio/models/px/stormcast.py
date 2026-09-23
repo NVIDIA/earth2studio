@@ -15,31 +15,36 @@
 # limitations under the License.
 
 import warnings
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
+from copy import deepcopy
 from itertools import product
+from typing import cast
 
 import numpy as np
 import torch
 import xarray as xr
 import zarr
 
-from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.data import GFS_FX, DataSource, ForecastSource, fetch_data
+from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    handshake_size,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
 )
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.interp import LatLonInterpolation
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from omegaconf import OmegaConf
@@ -179,16 +184,15 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if sampler_args is not None:
             self.sampler_args.update(sampler_args)
 
-        hrrr_lat, hrrr_lon = HRRR.grid()
-        self.lat = hrrr_lat[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.lon = hrrr_lon[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-
-        self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
-        self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
+        parent = cast(ProjectedGrid, resolve_grid("hrrr"))
+        self.grid = ProjectedGrid(
+            parent.y[slice(*hrrr_lat_lim)], parent.x[slice(*hrrr_lon_lim)], parent.crs
+        )
+        self.lat = np.asarray(self.grid.coords()["lat"])
+        self.lon = np.asarray(self.grid.coords()["lon"])
+        self.hrrr_x, self.hrrr_y = self.grid.x, self.grid.y
+        self._conditioning_grid: tuple[np.ndarray, np.ndarray] | None = None
+        self._conditioning_interp: LatLonInterpolation | None = None
 
         self.variables = variables
 
@@ -207,62 +211,29 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning_stds is not None:
             self.register_buffer("conditioning_stds", conditioning_stds)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system"""
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=self.grid,
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
-                "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate the input and declare the next hourly forecast without allocation."""
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-
-        target_input_coords = self.input_coords()
-
-        handshake_dim(input_coords, "hrrr_x", 5)
-        handshake_dim(input_coords, "hrrr_y", 4)
-        handshake_dim(input_coords, "variable", 3)
-        # Index coords are arbitrary as long its on the HRRR grid, so just check size
-        handshake_size(input_coords, "hrrr_y", self.lat.shape[0])
-        handshake_size(input_coords, "hrrr_x", self.lat.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(1, "h")}
         )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -423,22 +394,19 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field on the declared projected grid.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
+        xr.DataArray
+            Hourly forecast field.
 
         Raises
         ------
@@ -451,41 +419,38 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "StormCast has been called without initializing the model's conditioning_data_source"
             )
 
-        # TODO: Eventually pull out interpolation into model and remove it from fetch
-        # data potentially
-        conditioning, conditioning_coords = fetch_data(
+        output_coords = self.output_coords(x)
+        encoding = deepcopy(x.encoding)
+        x, coords = x.e2s.to_torch()
+        x = x.to(self.means.device)
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
             lead_time=coords["lead_time"],
             device=x.device,
-            target_grid=coords | {"_lat": self.lat, "_lon": self.lon},
+            target_grid=self.grid,
             regridder="linear",
         )
-        # ensure data dimensions in the expected order
-        conditioning_coords_ordered = OrderedDict(
-            {
-                k: conditioning_coords[k]
-                for k in ["time", "lead_time", "variable", "lat", "lon"]
-            }
+        conditioning = conditioning.transpose(
+            "time", "lead_time", "variable", "lat", "lon"
         )
-        conditioning, conditioning_coords = map_coords(
-            conditioning, conditioning_coords, conditioning_coords_ordered
-        )
+        source = (conditioning.lat.values, conditioning.lon.values)
+        if self._conditioning_grid is None or any(
+            not np.array_equal(a, b) for a, b in zip(source, self._conditioning_grid)
+        ):
+            lat, lon = np.meshgrid(*source, indexing="ij")
+            self._conditioning_interp = LatLonInterpolation(
+                lat, lon, self.lat, self.lon
+            )
+            self._conditioning_grid = tuple(a.copy() for a in source)
+        conditioning, _ = conditioning.e2s.to_torch()
+        conditioning = cast(LatLonInterpolation, self._conditioning_interp).to(
+            device=x.device, dtype=conditioning.dtype
+        )(conditioning)
 
         # Add a batch dim
         conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
-        conditioning_coords.update({"batch": np.empty(0)})
-        conditioning_coords.move_to_end("batch", last=False)
-
-        # Handshake conditioning coords
-        # TODO: ugh the interp... have to deal with this for now, no solution
-        # handshake_coords(conditioning_coords, coords, "hrrr_x")
-        # handshake_coords(conditioning_coords, coords, "hrrr_y")
-        handshake_coords(conditioning_coords, coords, "lead_time")
-        handshake_coords(conditioning_coords, coords, "time")
-
-        output_coords = self.output_coords(coords)
 
         x = x.clone()  # prevent editing of argument
         for i, _ in enumerate(coords["batch"]):
@@ -495,18 +460,21 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                         x[i, j, k : k + 1], conditioning[i, j, k : k + 1]
                     )
 
-        return x, output_coords
+        out = from_torch(x, output_coords)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return out
 
-    @batch_func()
     def _default_generator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        x: xr.DataArray,
+    ) -> Generator[xr.DataArray, None, None]:
 
-        coords = coords.copy()
-        self.output_coords(coords)
-        yield x, coords
+        handshake_nonempty(x)
+        handshake_time(x)
+        self.output_coords(x)
+        x = x.copy(deep=True)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
         if self.conditioning_data_source is None:
             raise ValueError(
@@ -515,30 +483,25 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         while True:
             # Front hook
-            x, coords = self.front_hook(x, coords)
+            x = self.front_hook(x.copy(deep=True))
             # Forward
-            x, coords = self.__call__(x, coords)
+            x = self(x)
             # Rear hook
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
+            x = self.rear_hook(x)
+            yield x.copy(deep=True)
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial field.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        Iterator[xr.DataArray]
+            Initial field followed by hourly forecasts.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_generator(x)

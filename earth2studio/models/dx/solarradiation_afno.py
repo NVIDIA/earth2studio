@@ -14,25 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
-    handshake_coords,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
     handshake_dim,
+    handshake_time,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
@@ -124,52 +128,36 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("landsea_mask", landsea_mask)
         self.register_buffer("sincos_latlon", sincos_latlon)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free atmospheric signature on the ERA5 grid."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch", "time", "lead_time"),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Plan accumulated solar radiation for the configured frequency.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input signature or field with datetime time and timedelta lead labels.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free signature preserving input metadata and grid.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 5)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "time", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["ssrd"])
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        handshake_dim(input_coords, "time", -5)
+        handshake_dim(input_coords, "lead_time", -4)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time", allow_dynamic=True)
+        output = coord_array_like(input_coords, {"variable": [f"ssrd:sum:{self.freq}"]})
+        output.encoding = input_coords.encoding.copy()
+        return output
 
     def __str__(self) -> str:
         return "SolarRadiationNet"
@@ -272,12 +260,12 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         grid = np.meshgrid(lon, lat)
         return (grid[0].reshape(-1), grid[1].reshape(-1))
 
-    def compute_sza(self, output_coords: CoordSystem) -> torch.Tensor:
+    def compute_sza(self, output_coords: CoordinateSystem) -> torch.Tensor:
         """Compute solar zenith angle for given coordinates.
 
         Parameters
         ----------
-        output_coords : CoordSystem
+        output_coords : CoordinateSystem
             Output coordinate system
 
         Returns
@@ -285,8 +273,13 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         torch.Tensor
             Solar zenith angle tensor
         """
-        lon, lat = self.get_sza_lonlat(output_coords["lon"], output_coords["lat"])
-        t = output_coords["time"] + output_coords["lead_time"]
+        lon, lat = self.get_sza_lonlat(
+            output_coords.coords["lon"].values, output_coords.coords["lat"].values
+        )
+        t = (
+            output_coords.coords["time"].values
+            + output_coords.coords["lead_time"].values
+        )
         t = datetime.fromtimestamp(
             t.astype("datetime64[s]").astype("int")[0], tz=timezone.utc
         )
@@ -296,35 +289,31 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
+        output_coords = self.output_coords(x)
+        coords = x.coords
+        encoding = x.encoding.copy()
+        x, _ = x.e2s.to_torch()
         # Normalize input
         x = (x - self.era5_mean) / self.era5_std
-        output_coords = self.output_coords(coords)
 
         # Initialize output tensor
         out = torch.zeros_like(x[..., :1, :, :])
 
-        # Get lon/lat grid for SZA computation
-        grid_x, grid_y = torch.meshgrid(
-            torch.tensor(coords["lat"]), torch.tensor(coords["lon"])
-        )
-
-        for j, _ in enumerate(coords["batch"]):
-            for k, t in enumerate(coords["time"]):
-                for lt, dt in enumerate(coords["lead_time"]):
+        for j in range(x.shape[0]):
+            for k, t in enumerate(coords["time"].values):
+                for lt, dt in enumerate(coords["lead_time"].values):
                     # Compute SZA for this specific time and lead time
                     sza = (
                         self.compute_sza(
-                            OrderedDict(
+                            coord_array_like(
+                                output_coords,
                                 {
                                     "time": np.array([t]),
                                     "lead_time": np.array([dt]),
-                                    "lat": coords["lat"],
-                                    "lon": coords["lon"],
-                                }
+                                },
                             )
                         )
                         .reshape((1, 1, *x.shape[4:]))
@@ -354,7 +343,9 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         # filter out negative values
         out = torch.clamp(out, min=0)
 
-        return out, output_coords
+        output = from_torch(out, output_coords)
+        output.encoding = encoding
+        return output
 
 
 class SolarRadiationAFNO1H(SolarRadiationAFNO):

@@ -18,10 +18,34 @@
 import numpy as np
 import pytest
 import torch
+import xarray as xr
+from test_dlesym import optional_backend as grid_backend  # noqa: F401
 
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+import earth2studio.models.px.dlesym as dlesym_src
+import earth2studio.models.px.dlesym_v0_isccp_era5 as v0_src
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5, DLESyMv0_ISCCP_ERA5LatLon
-from earth2studio.utils import handshake_coords
+from earth2studio.utils.coords import coord_array_like, handshake_metadata
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    request.getfixturevalue("grid_backend")
+    if v0_src.__file__ in OptionalDependencyFailure.failures:
+        for module in (dlesym_src, v0_src):
+            monkeypatch.delitem(
+                OptionalDependencyFailure.failures, module.__file__, raising=False
+            )
+        monkeypatch.setattr(
+            dlesym_src,
+            "insolation",
+            lambda times, lat, lon: np.zeros(
+                (len(times), *lat.shape), dtype=np.float32
+            ),
+        )
+
 
 # Upstream-DLESyM variable layout (model space). The wrapper swaps ``rlut`` ->
 # ``ttr`` in input_coords when use_ttr=True.
@@ -214,10 +238,19 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
         device=device,
     )
 
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    out, out_coords = model(x, in_coords)
+    field = from_torch(x, in_coords)
+    with pytest.raises(ValueError, match="metadata"):
+        handshake_metadata(
+            field.assign_attrs(origin="south", clockwise=False),
+            in_coords,
+            ("origin", "clockwise"),
+        )
+    out = model(field)
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     # Output should always be in model variable space (rlut), regardless of
@@ -234,7 +267,7 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
         nside,
     )
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -247,8 +280,10 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
     model = _build_model(device, nside=nside, use_ttr=True)
 
     in_coords = model.input_coords()
-    in_coords["batch"] = np.array([0])
-    in_coords["time"] = np.array([np.datetime64("2020-07-15T00:00")])
+    in_coords = coord_array_like(
+        in_coords,
+        {"batch": np.array([0]), "time": np.array([np.datetime64("2020-07-15T00:00")])},
+    )
 
     x_input = torch.zeros(
         1,
@@ -260,7 +295,9 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
         nside,
         device=device,
     )
-    x_transformed = model._apply_ttr_to_olr(x_input, in_coords)
+    x_transformed = model._apply_ttr_to_olr(
+        x_input, {k: v.values for k, v in in_coords.coords.items()}
+    )
 
     # Find the ttr channel and confirm the transform pulled values away from zero.
     ttr_idx = list(in_coords["variable"]).index("ttr")
@@ -276,6 +313,12 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
         transformed_channel, torch.zeros_like(transformed_channel)
     )
     assert torch.allclose(other_channels, torch.zeros_like(other_channels))
+    # Climate years must retain the same day-of-year lookup without ns overflow.
+    climate_coords = {k: v.values for k, v in in_coords.coords.items()}
+    climate_coords["time"] = np.array(["3020-07-15T00:00:00"], dtype="datetime64[s]")
+    torch.testing.assert_close(
+        model._apply_ttr_to_olr(x_input, climate_coords), x_transformed
+    )
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -300,18 +343,20 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
         nside,
         device=device,
     )
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    iterator = model.create_iterator(x, in_coords)
+    field = from_torch(x, in_coords)
+    iterator = model.create_iterator(field)
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
-    initial_x, initial_coords = next(iterator)
-    # Initial yield is in model variable space (post-transform).
-    assert "rlut" in list(initial_coords["variable"])
+    initial_x = next(iterator)
+    xr.testing.assert_identical(initial_x, field.isel(lead_time=slice(-1, None)))
 
     for i in range(2):
-        out, coords = next(iterator)
+        out = next(iterator)
+        coords = out.coords
         assert out.shape == (
             batch_size,
             len(time),
@@ -394,12 +439,14 @@ def test_dlesym_v0_isccp_era5_latlon_input_coords(use_ttr):
     """LatLon variant advertises lat/lon dims and base (non-derived) variables."""
     model = _build_latlon_model("cpu", nside=16, use_ttr=use_ttr)
     in_coords = model.input_coords()
+    assert in_coords.data.nbytes == 0
+    assert in_coords.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
 
     # Lat/lon dims present, HEALPix dims absent.
     for dim in ["lat", "lon"]:
-        assert dim in in_coords
+        assert dim in in_coords.dims
     for dim in ["face", "height", "width"]:
-        assert dim not in in_coords
+        assert dim not in in_coords.dims
 
     variables = list(in_coords["variable"])
     # Derived variables are replaced by their base inputs.
@@ -441,11 +488,17 @@ def test_dlesym_v0_isccp_era5_latlon_forward(device, use_ttr, batch_size):
         1440,
         device=device,
     )
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    out, out_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    field = from_torch(x, in_coords).assign_coords(
+        terrain=(("lat", "lon"), np.ones((721, 1440)))
+    )
+    out = model(field)
+    xr.testing.assert_identical(out.terrain, field.terrain)
+    out_coords = out.coords
+    expected_coords = model.output_coords(field)
 
     # Output is on the lat/lon grid and in model variable space (rlut).
     assert "rlut" in list(out_coords["variable"])
@@ -459,7 +512,7 @@ def test_dlesym_v0_isccp_era5_latlon_forward(device, use_ttr, batch_size):
         1440,
     )
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])
@@ -483,16 +536,22 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
         1440,
         device=device,
     )
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    iterator = model.create_iterator(x, in_coords)
+    field = from_torch(x, in_coords).assign_coords(
+        terrain=(("lat", "lon"), np.ones((721, 1440)))
+    )
+    iterator = model.create_iterator(field)
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
     next(iterator)  # initial condition
 
     for i in range(2):
-        out, coords = next(iterator)
+        out = next(iterator)
+        xr.testing.assert_identical(out.terrain, field.terrain)
+        coords = out.coords
         assert out.shape == (
             batch_size,
             len(time),
@@ -506,42 +565,13 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
 
 
 def test_dlesym_v0_isccp_era5_conformance():
-    """Check the mock HEALPix DLESyMv0_ISCCP_ERA5 model against the contract.
-
-    This is a genuine, verified violation (not a mock artifact), inherited
-    from the shared DLESyM rollout logic — see
-    test_dlesym.py::test_dlesym_conformance for the full explanation and the
-    confirmed root causes: P7 is a structural, always-reproducible failure;
-    P13 and P16 trace to two independent, confirmed bugs in
-    DLESyM.prepare_output_data() (a `torch.empty`-allocated tensor left
-    partially uninitialized, and a separate aliasing bug that mutates a
-    yielded tensor's storage after the fact) whose combination varies by run.
-    Asserted as a bounded set rather than pinned exactly for that reason.
-    """
     model = _build_model("cpu", nside=8, use_ttr=True)
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    codes = {v.split(":")[0] for v in exc_info.value.violations}
-    assert "P7" in codes
-    assert codes <= {"P7", "P13", "P16"}
+    check_prognostic_contract(model)
 
 
 def test_dlesym_v0_isccp_era5_latlon_conformance():
-    """Check the mock lat/lon DLESyMv0_ISCCP_ERA5LatLon model against the contract.
-
-    Not independently executable here: earth2grid's CPU regridder segfaults
-    in this sandbox regardless of device (see test_dlesym.py's identical
-    note). DLESyMv0_ISCCP_ERA5LatLon shares the same rollout logic confirmed
-    non-conformant above.
-    """
-    pytest.skip(
-        "earth2grid's CPU regridder segfaults in this sandbox; "
-        "DLESyMv0_ISCCP_ERA5LatLon shares DLESyMv0_ISCCP_ERA5's rollout "
-        "logic, which is confirmed non-conformant by "
-        "test_dlesym_v0_isccp_era5_conformance (P7, plus P13 and/or P16)"
-    )
     model = _build_latlon_model("cpu", nside=8, use_ttr=True)
-    assert check_prognostic_contract(model) == []
+    check_prognostic_contract(model)
 
 
 @pytest.mark.package
@@ -556,8 +586,9 @@ def test_dlesym_v0_isccp_era5_package(device):
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
     x = torch.randn(
         batch_size,
@@ -570,7 +601,8 @@ def test_dlesym_v0_isccp_era5_package(device):
         device=device,
     )
 
-    out, out_coords = model(x, in_coords)
+    out = model(from_torch(x, in_coords))
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     n_vars = len(in_coords["variable"])
@@ -586,7 +618,7 @@ def test_dlesym_v0_isccp_era5_package(device):
     assert "rlut" in list(out_coords["variable"])
     assert "ttr" not in list(out_coords["variable"])
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])
 
 
 @pytest.mark.package
@@ -600,8 +632,9 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
     nlat = len(in_coords["lat"])
     nlon = len(in_coords["lon"])
@@ -615,7 +648,8 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
         device=device,
     )
 
-    out, out_coords = model(x, in_coords)
+    out = model(from_torch(x, in_coords))
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     n_out_vars = len(out_coords["variable"])
@@ -630,4 +664,4 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
     assert "rlut" in list(out_coords["variable"])
     assert "ttr" not in list(out_coords["variable"])
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])

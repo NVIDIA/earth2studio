@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -25,14 +24,20 @@ import xarray as xr
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, VariableArray
+from earth2studio.utils.type import VariableArray
 
 try:
     import earth2grid
@@ -150,7 +155,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
         # Set up regridder for input
         grid = earth2grid.latlon.LatLonGrid(
-            self.input_coords()["lat"].tolist(), self.input_coords()["lon"].tolist()
+            self.input_coords()["lat"].values.tolist(),
+            self.input_coords()["lon"].values.tolist(),
         )
         self.input_regridder = grid.get_bilinear_regridder_to(
             self._core_model.domain._grid.lat, lon=self._core_model.domain._grid.lon
@@ -202,53 +208,43 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             varidx.append(idx[0])
         return np.array(varidx)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free input coordinate signature
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
                 "variable": np.array(self.input_variables),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch", "time", "lead_time"),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free output coordinate signature
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", -1)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lead_time", -4)
-        handshake_dim(input_coords, "time", -5)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.output_variables)
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time", allow_dynamic=True)
+        return coord_array_like(
+            input_coords, {"variable": np.array(self.output_variables)}
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -323,15 +319,15 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Infill labelled conditioning channels at their validity times."""
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 
-        time = output_coords["time"][:, None]
-        lead = output_coords["lead_time"][None, :]
-        time = [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
+        time = output_coords["time"].values[:, None]
+        lead = output_coords["lead_time"].values[None, :]
+        time = x.shape[0] * [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
         x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])
 
         input_batch = self.get_cbottle_input(time, x)
@@ -394,7 +390,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             output_coords["lon"].shape[0],
         )
 
-        return output, output_coords
+        return from_torch(output, output_coords)
 
     def get_cbottle_input(
         self,
@@ -516,13 +512,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         times : list[datetime]
             list of date times of input data
         """
-        for time in times:
-            if time < datetime(year=1940, month=1, day=1):
-                raise ValueError(
-                    f"Input data at {time} needs to be after January 1st, 1940 for CBottle infill if no input SST fields are provided"
-                )
-
-            if time >= datetime(year=2022, month=12, day=16, hour=12):
-                raise ValueError(
-                    f"Input data at {time} needs to be before December 16th, 2022 for CBottle infill if no input SST fields are provided"
-                )
+        handshake_time(
+            {"time": np.asarray(times, dtype="datetime64[us]")},
+            minimum=np.datetime64("1940-01-01"),
+            maximum=np.datetime64("2022-12-16T12:00"),
+        )

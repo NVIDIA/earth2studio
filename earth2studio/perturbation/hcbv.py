@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Callable, Generator
-from typing import cast
+from collections.abc import Generator
 
 import numpy as np
 import torch
@@ -26,7 +24,7 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 from earth2studio.utils.type import CoordSystem, TimeArray
 
@@ -78,7 +76,7 @@ class HemisphericCentredBredVector:
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor(
-                [noise_amplitude] * len(self.model.input_coords()["variable"])
+                [noise_amplitude] * self.model.input_coords().sizes["variable"]
             )[:, None, None]
         )
         self.integration_steps = integration_steps
@@ -91,6 +89,8 @@ class HemisphericCentredBredVector:
         self, time: TimeArray, generator_size: int = 1, device: torch.device = "cpu"
     ) -> Generator[torch.Tensor, None, None]:
         """Creates and initializes the perturbation generator"""
+        from earth2studio.run import _map_field
+
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
         input_coords = self.model.input_coords()
@@ -99,40 +99,40 @@ class HemisphericCentredBredVector:
         warmup_times = (
             time
             + np.arange(-self.integration_steps, 1)
-            * self.model.output_coords(input_coords)["lead_time"]
+            * self.model.output_coords(input_coords).coords["lead_time"].values
         )
-        input_data, data_coords = fetch_data(
+        input_data = fetch_data(
             source=self.data,
             time=warmup_times,
-            variable=input_coords["variable"],
-            lead_time=input_coords["lead_time"],
-            device="cpu",
+            variable=input_coords.coords["variable"].values,
+            lead_time=input_coords.coords["lead_time"].values,
+            device=device,
         )
-        input_coords["time"] = to_time_array(warmup_times)
-        input_data, data_coords = map_coords(input_data, data_coords, input_coords)
+        input_data = _map_field(input_data, input_coords)
 
-        coords = OrderedDict(
-            [("batch", np.arange(batch_size))] + list(data_coords.items())
-        )
-
-        if input_coords["lead_time"].shape[0] > 1:
+        if input_coords.sizes["lead_time"] > 1:
             logger.warning(
                 "Input data / models that require multiple lead times may lead to unexpected behavior"
             )
 
         # get unperturbed intital state, assuming tensor always has 6 dims
-        xunp = input_data[:1].repeat(batch_size, 1, 1, 1, 1, 1).to(device)
+        state = (
+            input_data.isel(time=slice(0, 1))
+            .expand_dims(batch=np.arange(batch_size))
+            .copy(deep=True)
+        )
+        xunp, coords = state.e2s.to_torch()
         # Commenting here, not tested for when multiple lead times are needed
         # May work...
-        coords["time"] = data_coords["time"][:1]
 
         # generate perturbed initial state
         xper, coords = self.seeding_perturbation_method(xunp, coords)
 
         for ii in range(self.integration_steps):
-            # Breeding still uses the legacy tensor/coordinate model API.
-            xunp, _ = cast(Callable, self.model)(xunp, coords)
-            xper, _ = cast(Callable, self.model)(xper, coords)
+            xunp = self.model(from_torch(xunp, state)).e2s.to_torch()[0]
+            xper = self.model(
+                from_torch(xper, state.assign_coords(coords))
+            ).e2s.to_torch()[0]
             dx = xper - xunp
 
             hem_norm = self.hemispheric_norm(dx, device)
@@ -141,13 +141,12 @@ class HemisphericCentredBredVector:
             hem_norm[hem_norm == 0] = 1
 
             dx = self.noise_amplitude * (dx / hem_norm)
-            xunp = (
-                input_data[ii + 1]
-                .unsqueeze(dim=0)
-                .repeat(batch_size, 1, 1, 1, 1, 1)
-                .to(device)
+            state = (
+                input_data.isel(time=slice(ii + 1, ii + 2))
+                .expand_dims(batch=np.arange(batch_size))
+                .copy(deep=True)
             )
-            coords["time"] = data_coords["time"][ii + 1 : ii + 2]
+            xunp, coords = state.e2s.to_torch()
             xper = xunp + dx
             # self.force_non_neg(xper[i : i + 1])
 
@@ -159,7 +158,8 @@ class HemisphericCentredBredVector:
     def set_clip_indices(self) -> None:
         """If humidity and tcwv in variable set, add to list of variables to clip"""
         self.clip_idcs = []
-        for ii, var in enumerate(self.model.input_coords()["variable"]):
+        for ii, var in enumerate(self.model.input_coords().coords["variable"].values):
+            var = str(var).split(":", 1)[0]
             if var[0] == "q" or var == "tcwv" or var[0] == "r" or var[:2] == "tp":
                 self.clip_idcs.append(ii)
         return

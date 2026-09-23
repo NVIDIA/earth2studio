@@ -15,24 +15,31 @@
 # limitations under the License.
 import fnmatch
 import os
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from makani.models import model_registry
@@ -133,7 +140,7 @@ VARIABLES = [
 class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Spherical Fourier Operator Network global prognostic model.
     Consists of a single model with a time-step size of 6 hours.
-    FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding)
+    FourCastNet operates on 0.25 degree lat-lon grid (south-pole including)
     equirectangular grid with 73 variables.
 
     Note
@@ -165,71 +172,37 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ):
         super().__init__()
         self.model = core_model
-        self.variables = variables
+        self.variables = np.array(variables, copy=True)
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
+        self.register_buffer("device_buffer", torch.empty(0))
 
     def __str__(self) -> str:
         return "sfno_73ch_small"
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free input signature on the checkpoint grid."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "lat": np.linspace(90.0, -90.0, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(self.variables),
-                "lat": np.linspace(90.0, -90.0, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate input coordinates and advance the final lead by six hours."""
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        if input_coords is None:
-            return output_coords
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
-        )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -333,77 +306,46 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords(coords)
+        coords: CoordinateSystem,
+    ) -> torch.Tensor:
         x = x.clone().squeeze(2)
-        for j, _ in enumerate(coords["batch"]):
-            for i, t in enumerate(coords["time"]):
+        for j in range(x.shape[0]):
+            for i, t in enumerate(coords["time"].values):
                 # https://github.com/NVIDIA/modulus-makani/blob/933b17d5a1ebfdb0e16e2ebbd7ee78cfccfda9e1/makani/third_party/climt/zenith_angle.py#L197
                 # Requires time zone data
                 t = [
                     datetime.fromisoformat(dt.isoformat() + "+00:00")
-                    for dt in timearray_to_datetime(t + coords["lead_time"])
+                    for dt in timearray_to_datetime(t + coords["lead_time"].values)
                 ]
                 x[j, i : i + 1] = self.model(x[j, i : i + 1], t, normalized_data=False)
         x = x.unsqueeze(2)
-        return x, output_coords
+        return x
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict a six-hour DataArray on the model device, without iterator hooks."""
+        signature = self.output_coords(x)
+        handshake_time(x)
+        tensor, _ = x.e2s.to_torch()
+        out = from_torch(
+            self._forward(tensor.to(self.device_buffer.device), x),
+            signature,
+            name=x.name,
+        )
+        out.encoding = x.encoding.copy()
+        return out
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
-        """
-        return self._forward(x, coords)
-
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-        self.output_coords(coords)
-        yield x, coords
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        handshake_nonempty(x)
+        handshake_time(x)
+        self.output_coords(x)
+        yield x.copy(deep=False)
         while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            # Forward is identity operator
-            x, coords = self._forward(x, coords)
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
+            x = self.rear_hook(self(self.front_hook(x.copy(deep=True))))
+            yield x.copy(deep=False)
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
-        """
-        yield from self._default_generator(x, coords)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the initial field then forecasts at six-hour intervals."""
+        yield from self._default_generator(x)

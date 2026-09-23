@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dataclasses
 import functools
-from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
 
 import numpy as np
@@ -25,15 +23,23 @@ import xarray as xr
 
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.graphcast_operational import (
+    _add_tisr_batched,
+    _jax_inputs,
+    _jax_iterator,
+    _jax_output_coords,
+    _jax_signature,
+)
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import handshake_size, handshake_time
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import chex
@@ -235,32 +241,10 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.run_forward = self._load_run_forward_from_checkpoint()
 
-        self._input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array(
-                    [
-                        np.timedelta64(-6, "h"),
-                        np.timedelta64(0, "h"),
-                    ]
-                ),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 181, endpoint=True),
-                "lon": np.linspace(0, 360, 360, endpoint=False),
-            }
-        )
+        self.register_buffer("device_buffer", torch.empty(0))
 
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 181, endpoint=True),
-                "lon": np.linspace(0, 360, 360, endpoint=False),
-            }
-        )
+    def _next_rng(self, time_index: int) -> "chex.PRNGKey":
+        return self.prng_key
 
     def _load_run_forward_from_checkpoint(self) -> "autoregressive.Predictor":
         """This function is mostly copied from
@@ -351,7 +335,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         targets_template: xr.Dataset,
         batch: xr.Dataset,
         forcings: xr.Dataset,
-    ) -> Generator[xr.Dataset, None, None]:
+    ) -> Generator[xr.Dataset, tuple | None, None]:
         """This is used to construct the iterator for the prognostic model.
 
         This function is mostly copied from
@@ -421,7 +405,11 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             predictions = predictions.assign_coords(
                 time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
             )
-            yield predictions
+            replacement = yield predictions
+            if replacement is not None:
+                batch, current_inputs, forcings = replacement
+                index += 1
+                continue
             del predictions
 
             # Update batch time 6 hours and rename time to datetime
@@ -439,7 +427,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Compute forcings
             data_utils.add_derived_vars(batch)
-            data_utils.add_tisr_var(batch)
+            _add_tisr_batched(batch, data_utils)
 
             # Compute batch
             batch = batch.compute()
@@ -452,99 +440,9 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Increment index
             index += 1
 
-    @batch_func()
-    def _default_generator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        # Get device
-        device = x.device
-
-        # first batch has 2 times (lead_times)
-        coords_out = coords.copy()
-        coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:, ...], coords_out
-
-        while True:
-
-            # Forward is identity operator
-            coords = self.output_coords(coords)
-
-            # Get next prediction from all time iterators
-            results = [
-                self.iterator_result_to_tensor(next(it)) for it in self.iterators
-            ]
-            x = torch.cat(results, dim=1) if len(results) > 1 else results[0]
-
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-
-            # Convert to device
-            x = x.to(device)
-
-            coords = coords.copy()
-            yield x, coords
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
-        """
-
-        with jax.default_device(self.get_jax_device_from_tensor(x)):
-            # Create a separate JAX iterator for each init time
-            # (rollout._get_next_inputs only supports single time)
-            time_dim = list(coords.keys()).index("time")
-            n_times = len(coords["time"])
-            self.iterators = []
-
-            for t in range(n_times):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
-
-                batch, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
-
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    batch,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.ckpt.task_config),
-                )
-
-                self.iterators.append(
-                    self._chunked_prediction_generator(
-                        predictor_fn=self.run_forward,
-                        rng=self.prng_key,
-                        inputs=inputs,
-                        targets_template=targets * np.nan,
-                        batch=batch,
-                        forcings=forcings,
-                    )
-                )
-
-            yield from self._default_generator(x, coords)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the final input then native six-hour rollout predictions."""
+        yield from _jax_iterator(self, x, 6, jax, data_utils)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         """Convert a iterator result to a tensor"""
@@ -598,49 +496,16 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return device
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
-        # Get device
-        device = x.device
-
-        with jax.default_device(self.get_jax_device_from_tensor(x)):
-            # Map lat and lon if needed
-            x, coords = map_coords(x, coords, self.input_coords())
-
-            # Loop over time dimension (JAX model supports single init time only)
-            time_dim = list(coords.keys()).index("time")
-            n_times = len(coords["time"])
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict a six-hour DataArray without hooks."""
+        signature = self.output_coords(x)
+        handshake_time(x)
+        device = self.device_buffer.device
+        with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
             results = []
-            for t in range(n_times):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
-
-                data, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
-
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    data,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.ckpt.task_config),
+            for t in range(x.sizes["time"]):
+                _, inputs, targets, forcings = _jax_inputs(
+                    self, x.isel(time=slice(t, t + 1)), 6, data_utils
                 )
 
                 predictions = rollout.chunked_prediction(
@@ -652,20 +517,18 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 )
                 results.append(self.iterator_result_to_tensor(predictions))
 
-            out = torch.cat(results, dim=1) if n_times > 1 else results[0]
-            output_coords = self.output_coords(coords)
-
-            # Convert to device
-            out = out.to(device)
-
-            return out, output_coords
+            out = from_torch(
+                torch.cat(results, dim=1).to(device), signature, name=x.name
+            )
+            out.encoding = x.encoding.copy()
+            return out
 
     def from_dataarray_to_dataset(
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> xr.Dataset:
         """From a datarray get a dataset"""
-        if len(data.time.values) > 1:
-            raise TypeError("GraphCast model only supports 1 init_time.")
+        handshake_time(data)
+        handshake_size(data, "time", 1)
         # time
         if "lead_time" in data.dims:
             data["lead_time"] = [
@@ -678,7 +541,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         target_lead_times = [f"{h}h" for h in lead_times]
         time_deltas = np.concatenate(
             (
-                self._input_coords["lead_time"],
+                self.input_coords().lead_time.values,
                 [np.timedelta64(h, "h") for h in lead_times],
             )
         )
@@ -724,7 +587,8 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             datetime=all_datetimes[: len(out_data.time.values)]
         )
         out_data = out_data.assign_coords(time=time_deltas[: len(out_data.time.values)])
-        out_data["datetime"] = out_data.datetime.expand_dims(dict(batch=1))
+        batch_size = out_data.sizes.get("batch", 1)
+        out_data["datetime"] = out_data.datetime.expand_dims(dict(batch=batch_size))
 
         # add batch dimension
         for var in out_data.data_vars:
@@ -734,7 +598,10 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # pad times for target
         out_data = out_data.pad(pad_width=dict(time=(0, len(lead_times))))
         out_data = out_data.assign_coords(
-            coords=dict(time=time_deltas, datetime=(("batch", "time"), [all_datetimes]))
+            coords=dict(
+                time=time_deltas,
+                datetime=(("batch", "time"), np.tile(all_datetimes, (batch_size, 1))),
+            )
         )
         # make sure lat is -90 to 90
         out_data = out_data.reindex(lat=sorted(out_data.lat.values))
@@ -754,43 +621,13 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out_data, target_lead_times
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def input_coords(self) -> CoordinateSystem:
+        """Declare the pole-inclusive one-degree input grid and history."""
+        return _jax_signature(VARIABLES, 6, (181, 360))
 
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return self._input_coords.copy()
-
-    @batch_coords()
-    def output_coords(
-        self,
-        input_coords: CoordSystem,
-    ) -> CoordSystem:
-        """Output coordinate system of the prognostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        output_coords = self._output_coords.copy()
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
-        )
-
-        return output_coords
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Plan six-hour output including accumulated precipitation."""
+        return _jax_output_coords(self, input_coords, VARIABLES, 6)
 
     @classmethod
     def load_default_package(cls) -> Package:

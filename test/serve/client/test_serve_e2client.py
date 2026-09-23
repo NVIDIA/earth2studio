@@ -25,6 +25,8 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.data import InferenceOutputSource
+from earth2studio.io import XarrayBackend
 from earth2studio.serve.client.e2client import (
     InferenceOutputModel,
     RemoteEarth2Workflow,
@@ -38,6 +40,7 @@ from earth2studio.serve.client.models import (
     OutputFile,
     RequestStatus,
 )
+from earth2studio.utils.coords import split_coords
 
 
 class TestRemoteEarth2WorkflowInitialization:
@@ -342,7 +345,10 @@ class TestConvertTimeToLeadTime:
             }
         )
 
-        x_new, coords_new = _convert_time_to_lead_time(x, coords, start_time)
+        field = xr.DataArray(x.numpy(), dims=tuple(coords), coords=coords)
+        x_new = _convert_time_to_lead_time(field, start_time)
+        coords_new = x_new.coords
+        np.testing.assert_array_equal(x_new.values, x.numpy().transpose(1, 0, 2, 3, 4))
 
         # Verify transformation
         assert coords_new["time"].shape == (1,)
@@ -374,7 +380,8 @@ class TestConvertTimeToLeadTime:
             }
         )
 
-        _, coords_new = _convert_time_to_lead_time(x, coords, start_time)
+        field = xr.DataArray(x.numpy(), dims=tuple(coords), coords=coords)
+        coords_new = _convert_time_to_lead_time(field, start_time).coords
 
         # Verify other coordinates are unchanged
         np.testing.assert_array_equal(coords_new["variable"], coords["variable"])
@@ -401,28 +408,14 @@ class TestInferenceOutputModel:
         lats = np.arange(10)
         lons = np.arange(20)
 
-        # Create mock coordinate objects that support slicing
-        mock_time_coord = Mock()
-        mock_time_coord.values = times
-        mock_time_coord.__getitem__ = Mock(
-            side_effect=lambda key: Mock(values=times[key])
+        mock_ds.da = xr.DataArray(
+            np.arange(1200, dtype=np.float32).reshape(2, 3, 10, 20),
+            dims=("time", "variable", "lat", "lon"),
+            coords={"time": times, "variable": variables, "lat": lats, "lon": lons},
         )
-
-        mock_lat_coord = Mock()
-        mock_lat_coord.values = lats
-
-        mock_lon_coord = Mock()
-        mock_lon_coord.values = lons
-
-        mock_da = Mock()
-        mock_da.coords = {
-            "time": mock_time_coord,
-            "variable": variables,
-            "lat": mock_lat_coord,
-            "lon": mock_lon_coord,
-        }
-
-        mock_ds.da = mock_da
+        mock_ds.side_effect = lambda time, variable: mock_ds.da.sel(
+            time=time, variable=variable
+        )
         return mock_ds
 
     def test_initialization(self, mock_data_source: Any) -> None:
@@ -457,13 +450,14 @@ class TestInferenceOutputModel:
 
         # Test input_coords
         input_coords = model.input_coords()
-        assert isinstance(input_coords, OrderedDict)
+        assert isinstance(input_coords, xr.DataArray)
         assert len(input_coords["time"]) == 0
-        assert len(input_coords["variable"]) == 0
+        assert len(input_coords["variable"]) == 3
+        assert input_coords.data.nbytes == 0
 
         # Test output_coords
-        output_coords = model.output_coords(OrderedDict())
-        assert isinstance(output_coords, OrderedDict)
+        output_coords = model.output_coords(input_coords)
+        assert isinstance(output_coords, xr.DataArray)
         np.testing.assert_array_equal(
             output_coords["variable"], np.array(["u10m", "v10m", "t2m"])
         )
@@ -499,7 +493,16 @@ class TestInferenceOutputModel:
             "lat": mock_lat_coord,
             "lon": mock_lon_coord,
         }
-        mock_ds.da = mock_da
+        mock_ds.da = xr.DataArray(
+            np.zeros((1, 1, 10, 20), dtype=np.float32),
+            dims=("time", "variable", "lat", "lon"),
+            coords={
+                "time": times,
+                "variable": ["u10m"],
+                "lat": np.arange(10),
+                "lon": np.arange(20),
+            },
+        )
 
         model = InferenceOutputModel(
             data_source=mock_ds,
@@ -507,7 +510,7 @@ class TestInferenceOutputModel:
             device="cpu",
         )
 
-        output_coords = model.output_coords(OrderedDict())
+        output_coords = model.output_coords(model.input_coords())
 
         # Should use default placeholder of 6 hours
         assert output_coords["lead_time"][0] == np.timedelta64(6, "h")
@@ -532,15 +535,60 @@ class TestInferenceOutputModel:
             device="cpu",
         )
 
-        mock_tensor = torch.randn(1, 1, 3, 10, 20)
-        mock_coords = OrderedDict({"time": np.array([np.datetime64("2024-01-01")])})
+        x = model()
+        assert isinstance(x, xr.DataArray)
+        xr.testing.assert_equal(x, next(model.create_iterator()))
 
-        with patch.object(
-            model, "create_iterator", return_value=iter([(mock_tensor, mock_coords)])
-        ):
-            x, coords = model()
-            assert torch.is_tensor(x)
-            assert isinstance(coords, OrderedDict)
+        # Stored statistics are already reduced: replay their exact labels/values.
+        mock_data_source.da = mock_data_source.da.assign_coords(
+            variable=["u10m", "v10m", "tp:sum:6h"]
+        )
+        mock_data_source.da.attrs = {
+            "earth2studio_crs": "EPSG:4326",
+            "description": "stored forecast",
+        }
+        stored = mock_data_source.da.expand_dims(ensemble=["member-a", "member-b"])
+        stored = stored.assign_coords(seed=("ensemble", [17, 29]))
+        stored.coords["ensemble"].attrs["description"] = "stored members"
+        stored = stored.expand_dims(lead_time=np.array([0], dtype="timedelta64[h]"))
+        backend = XarrayBackend(attrs=stored.attrs.copy())
+        tensors, coords, names = split_coords(*stored.e2s.to_torch())
+        backend.add_array(coords, names, data=tensors)
+        backend.root = backend.root.assign_coords(seed=stored.seed)
+        backend.root.ensemble.attrs = stored.ensemble.attrs.copy()
+        assert "earth2studio_statistics" not in backend.root.attrs
+        source = InferenceOutputSource(backend.root)
+        source.da = source.da.transpose("ensemble", "time", "variable", "lat", "lon")
+        model = InferenceOutputModel(source, variables=["tp:sum:6h"])
+        expected = source.da.sel(variable=["tp:sum:6h"]).transpose(
+            "time", "variable", "ensemble", "lat", "lon"
+        )
+        for device in ("cpu", "cuda:0") if torch.cuda.is_available() else ("cpu",):
+            model.to(device)
+            first = model()
+            model.output_coords(first)
+            results = list(model.create_iterator())
+            xr.testing.assert_identical(first.e2s.as_numpy(), results[0].e2s.as_numpy())
+            for index, result in enumerate(results):
+                model.output_coords(result)
+                assert result.e2s.is_cupy == device.startswith("cuda")
+                assert result.dims == model.input_coords().dims[1:]
+                xr.testing.assert_identical(result.ensemble, expected.ensemble)
+                xr.testing.assert_identical(result.seed, expected.seed)
+                np.testing.assert_array_equal(
+                    result.e2s.as_numpy().values[:, 0],
+                    expected.values[index : index + 1],
+                )
+                assert result.attrs == {
+                    **expected.attrs,
+                    "earth2studio_statistics": model.input_coords().attrs[
+                        "earth2studio_statistics"
+                    ],
+                }
+                assert set(result.attrs["earth2studio_statistics"]) == {"tp:sum:6h"}
+                assert result.lead_time.values[0] == np.timedelta64(index * 6, "h")
+                assert result.time.values[0] == expected.time.values[0]
+        assert "earth2studio_statistics" not in source.da.attrs
 
     def test_create_iterator(self, mock_data_source: Any) -> None:
         """Test create_iterator with and without lead_time conversion"""
@@ -550,33 +598,14 @@ class TestInferenceOutputModel:
             device="cpu",
         )
 
-        # Mock fetch_data to return different data for each time
-        def mock_fetch_data(
-            source: Any, time: Any, variable: Any, device: Any
-        ) -> tuple[Any, Any]:
-            tensor = torch.randn(1, 3, 10, 20)
-            coords = OrderedDict(
-                {
-                    "time": time,
-                    "variable": variable,
-                    "lat": np.arange(10),
-                    "lon": np.arange(20),
-                }
+        results = list(model.create_iterator())
+        assert len(results) == 2
+        for index, x in enumerate(results):
+            assert x.dims == ("time", "lead_time", "variable", "lat", "lon")
+            xr.testing.assert_identical(
+                x.isel(lead_time=0, drop=True),
+                mock_data_source.da.isel(time=slice(index, index + 1)),
             )
-            return (tensor, coords)
-
-        with patch(
-            "earth2studio.serve.client.e2client.fetch_data",
-            side_effect=mock_fetch_data,
-        ):
-            iterator = model.create_iterator()
-            results = list(iterator)
-
-            # Should yield data for both time steps
-            assert len(results) == 2
-            for x, coords in results:
-                assert torch.is_tensor(x)
-                assert isinstance(coords, OrderedDict)
 
     def test_create_iterator_with_lead_time_conversion(
         self, mock_data_source: Any
@@ -588,32 +617,15 @@ class TestInferenceOutputModel:
             device="cpu",
         )
 
-        mock_tensor = torch.randn(1, 3, 10, 20)
-        mock_coords = OrderedDict(
-            {
-                "time": np.array([np.datetime64("2024-01-01T00:00:00")]),
-                "variable": np.array(["u10m", "v10m", "t2m"]),
-                "lat": np.arange(10),
-                "lon": np.arange(20),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-            }
-        )
-
-        with (
-            patch(
-                "earth2studio.serve.client.e2client.fetch_data",
-                return_value=(mock_tensor, mock_coords),
-            ),
-            patch(
-                "earth2studio.serve.client.e2client._convert_time_to_lead_time",
-                return_value=(mock_tensor, mock_coords),
-            ) as mock_convert,
-        ):
-            iterator = model.create_iterator()
-            next(iterator)
-
-            # Verify conversion was called
-            mock_convert.assert_called_once()
+        results = list(model.create_iterator())
+        for index, field in enumerate(results):
+            np.testing.assert_array_equal(
+                field.time.values + field.lead_time.values,
+                mock_data_source.da.time.values[index : index + 1],
+            )
+            np.testing.assert_array_equal(
+                field.values[:, 0], mock_data_source.da.values[index : index + 1]
+            )
 
 
 class TestInferenceOutputModelIntegration:
@@ -645,7 +657,16 @@ class TestInferenceOutputModelIntegration:
             "lat": mock_lat_coord,
             "lon": mock_lon_coord,
         }
-        mock_ds.da = mock_da
+        mock_ds.da = xr.DataArray(
+            np.zeros((1, 1, 10, 20), dtype=np.float32),
+            dims=("time", "variable", "lat", "lon"),
+            coords={
+                "time": times,
+                "variable": ["u10m"],
+                "lat": np.arange(10),
+                "lon": np.arange(20),
+            },
+        )
 
         model = InferenceOutputModel(
             data_source=mock_ds,
@@ -659,5 +680,5 @@ class TestInferenceOutputModelIntegration:
         assert hasattr(model, "to")
         assert hasattr(model, "create_iterator")
         assert callable(model)
-        assert isinstance(model.input_coords(), OrderedDict)
-        assert isinstance(model.output_coords(OrderedDict()), OrderedDict)
+        assert isinstance(model.input_coords(), xr.DataArray)
+        assert isinstance(model.output_coords(model.input_coords()), xr.DataArray)

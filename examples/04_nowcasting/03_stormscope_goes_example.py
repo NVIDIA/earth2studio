@@ -143,7 +143,7 @@ start_date = [np.datetime64(datetime(2024, 1, 8, 18, 0, 0))]
 goes_satellite = "goes16"
 scan_mode = "C"
 
-variables = model.input_coords()["variable"]
+variables = model.input_coords().coords["variable"].values
 lat_out = model.latitudes.detach().cpu().numpy()
 lon_out = model.longitudes.detach().cpu().numpy()
 
@@ -157,11 +157,11 @@ model.build_input_interpolator(goes_lat, goes_lon)
 in_coords = model.input_coords()
 
 # Fetch GOES data (left on the native GOES grid; the model regrids internally)
-x, x_coords = fetch_data(
+x = fetch_data(
     goes,
     time=start_date,
     variable=np.array(variables),
-    lead_time=in_coords["lead_time"],
+    lead_time=in_coords.coords["lead_time"].values,
     device=device,
 )
 
@@ -188,39 +188,51 @@ mrms_in_coords = model_mrms.input_coords()
 radar_vars = np.array(
     [v for v in model_mrms.variables if v not in set(model_mrms.glm_variables)]
 )
-x_radar, x_coords_radar = fetch_data(
+x_radar = fetch_data(
     mrms,
     time=start_date,
     variable=radar_vars,
-    lead_time=mrms_in_coords["lead_time"],
+    lead_time=mrms_in_coords.coords["lead_time"].values,
     device=device,
 )
 
 # Interpolators: radar/GOES use nearest-neighbor; GLM is built lazily (bilinear)
 # inside fetch_glm.
-model_mrms.build_input_interpolator(x_coords_radar["lat"], x_coords_radar["lon"])
+model_mrms.build_input_interpolator(
+    x_radar.coords["lat"].values, x_radar.coords["lon"].values
+)
 model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 # Regrid the radar channels onto the model grid (nearest-neighbor).
-x_radar = model_mrms.input_interp(x_radar)
+from earth2studio.run import _dimension_coords
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+radar_tensor = model_mrms.input_interp(x_radar.e2s.to_torch()[0])
 
 # Fetch + bilinearly regrid the GLM observation window onto the model grid. The
 # returned counts are physical (the model applies log1p internally).
-glm_coords = mrms_in_coords.copy()
+glm_coords = _dimension_coords(mrms_in_coords)
 glm_coords["time"] = np.array(start_date)
 x_glm, _ = model_mrms.fetch_glm(glm_coords, device=device)
 
 # Stack into the full MRMS+GLM state on the model grid, matching `variables` order
 # ([refc, refc_base, glm_density]); the variable axis is dim 2 of [T, L, C, H, W].
-x_mrms = torch.cat([x_radar, x_glm], dim=2).to(dtype=torch.float32)
+x_mrms = torch.cat([radar_tensor, x_glm], dim=2).to(dtype=torch.float32)
 
 # Coords now describe the model grid (y/x) with the full variable list. Start from
 # the fetched radar coords so the dim order matches, then swap in y/x and variables.
-x_coords_mrms = x_coords_radar.copy()
-x_coords_mrms["variable"] = np.array(model_mrms.variables)
-del x_coords_mrms["lat"], x_coords_mrms["lon"]
-x_coords_mrms["y"] = model_mrms.y
-x_coords_mrms["x"] = model_mrms.x
+mrms_signature = coord_array_like(
+    mrms_in_coords, {"batch": np.array([0]), "time": np.array(start_date)}
+)
+x_mrms = from_torch(x_mrms.unsqueeze(0), mrms_signature)
+
+# Regrid the GOES initial history once onto the declared native grid.
+goes_tensor = model.input_interp(x.e2s.to_torch()[0])
+goes_signature = coord_array_like(
+    in_coords, {"batch": np.array([0]), "time": np.array(start_date)}
+)
+x = from_torch(goes_tensor.unsqueeze(0), goes_signature)
 
 # %%
 # Add Batch Dimension
@@ -230,17 +242,16 @@ x_coords_mrms["x"] = model_mrms.x
 
 # %%
 batch_size = 1
-if x.dim() == 5:
-    x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
-    x_coords["batch"] = np.arange(batch_size)
-    x_coords.move_to_end("batch", last=False)
-if x_mrms.dim() == 5:
-    x_mrms = x_mrms.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
-    x_coords_mrms["batch"] = np.arange(batch_size)
-    x_coords_mrms.move_to_end("batch", last=False)
-
-x = x.to(dtype=torch.float32)
-x_mrms = x_mrms.to(dtype=torch.float32)
+x = (
+    x.isel(batch=0, drop=True)
+    .expand_dims(batch=np.arange(batch_size))
+    .astype(np.float32)
+)
+x_mrms = (
+    x_mrms.isel(batch=0, drop=True)
+    .expand_dims(batch=np.arange(batch_size))
+    .astype(np.float32)
+)
 
 # %%
 # Execute the Workflow
@@ -252,27 +263,23 @@ x_mrms = x_mrms.to(dtype=torch.float32)
 # forecasted GOES imagery) via ``call_with_conditioning``.
 
 # %%
-y, y_coords = x, x_coords
-y_mrms, y_coords_mrms = x_mrms, x_coords_mrms
+y = x
+y_mrms = x_mrms
 
 n_steps = 2
 for step_idx in trange(n_steps, desc="Forecast steps"):
     # Run one prognostic step with the GOES model
-    y_pred, y_pred_coords = model(y, y_coords)
+    y_pred = model(y)
 
     # Run one prognostic step with the MRMS model conditioned on GOES
-    y_mrms_pred, y_coords_mrms_pred = model_mrms.call_with_conditioning(
-        y_mrms, y_coords_mrms, conditioning=y, conditioning_coords=y_coords
-    )
+    y_mrms_pred = model_mrms.call_with_conditioning(y_mrms, conditioning=y)
 
     # Advance the sliding window for the next step: drop the oldest input frame
     # and append the new prediction. We assign directly into the loop carry
     # variables (y/y_mrms) and keep y_pred/y_mrms_pred pointing at the single
     # latest prediction (lead time +step), which is what we plot below.
-    y, y_coords = model.next_input(y_pred, y_pred_coords, y, y_coords)
-    y_mrms, y_coords_mrms = model_mrms.next_input(
-        y_mrms_pred, y_coords_mrms_pred, y_mrms, y_coords_mrms
-    )
+    y = model.next_input(y_pred, y)
+    y_mrms = model_mrms.next_input(y_mrms_pred, y_mrms)
 # %%
 # Post Processing
 # ---------------
@@ -285,6 +292,8 @@ goes_ch_idx = list(model.variables).index(goes_channel)
 mrms_ch_idx = list(model_mrms.variables).index("refc")
 
 # Nan-fill invalid gridpoints
+y_pred, y_pred_coords = y_pred.e2s.to_torch()
+y_mrms_pred, _ = y_mrms_pred.e2s.to_torch()
 y_pred = torch.where(model.valid_mask, y_pred, torch.nan)
 y_mrms_pred = torch.where(model_mrms.valid_mask, y_mrms_pred, torch.nan)
 
