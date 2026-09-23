@@ -1,0 +1,43 @@
+# SFNO global medium-range forecast configuration
+#
+# Run with:
+#   python main.py --config cfg/dsx-connector.sfno.yaml
+workflow: sfno
+
+model:
+  id: sfno
+  # path: /path/to/checkpoint                  # Optional. Omit to download and cache the model
+                                               #   from NGC on the first run.
+  device: cuda                                 # GPU to use, for example cuda or cuda:0
+
+run:
+  init_time: latest                            # Use the newest GFS cycle. An ISO timestamp such as
+                                               #   "2026-07-05T12:00:00" runs a specific cycle.
+  nsteps: 56                                   # 56 six-hour steps produce 57 values, from the
+                                               #   initial state through day 14.
+  poll_interval_seconds: 900                   # how often to check for a new GFS cycle
+  max_lookback_hours: 24                       # how far back to search when the latest cycle is absent
+  max_consecutive_failures: 5                  # stop after this many failures in a row; must be >= 1
+  cache_retention_hours: 48                    # delete GFS files older than this after a successful
+                                               #   cycle; 0 keeps all files
+
+# Included in published Metadata. This does not configure data loading.
+inputs:
+  - {source: GFS, role: initialCondition}
+
+bus:
+  broker_host: "CHANGE-ME"                     # DSX MQTT broker address
+  broker_port: 1883                            # use the TLS port provided by DSX for oauth2
+  auth: "noauth"                               # noauth or oauth2
+  qos: 0                                       # 0 per the DSX contract; 1 waits for broker confirmation
+  heartbeat_seconds: 90                        # resend Metadata and latest Forecasts; must be <= 100
+  client_id: "dsx-connector-sfno"              # must be unique for each running connector
+
+topics:
+  forecast_prefix: "Weather/v1/PUB"            # DSX topic prefix
+  product: "global-medium-range-weather"       # lowercase letters, digits, single hyphens
+
+sites:
+  - id: dc-site-1                              # site name used in DSX topics
+    lat: 40.0
+    lon: -100.0

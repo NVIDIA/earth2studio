@@ -1,0 +1,73 @@
+# StormCast CONUS forecast configuration
+#
+# Run with:
+#   python main.py --config cfg/dsx-connector.stormcast.yaml
+workflow: stormcast-conus
+
+model:
+  id: stormcast-conus
+  # path: /path/to/checkpoint                  # Optional. Omit to download and cache the model
+                                               #   from Hugging Face on the first run.
+  device: cuda                                 # GPU to use, for example cuda or cuda:0
+
+run:
+  init_time: latest                            # Use the newest hourly HRRR analysis. An ISO timestamp
+                                               #   such as "2026-07-05T14:00:00" runs a specific cycle.
+  nsteps: 24                                   # forecast length in hours; each step is one hour
+  poll_interval_seconds: 600                   # how often to check for a new HRRR analysis
+  max_consecutive_failures: 5                  # stop after this many failures in a row; must be >= 1
+  cache_retention_hours: 48                    # delete HRRR/GFS files older than this after a
+                                               #   successful cycle; 0 keeps all files. Each running
+                                               #   connector should use a separate data cache.
+
+# StormCast uses a global forecast for large-scale weather context. This lets each forecast start
+# from the newest hourly HRRR analysis. See docs/stormcast-environment.md for installation.
+conditioning:
+  model: sfno                                  # sfno is the supported default; fcn3 needs more memory
+  device: cuda:0                               # use model.device to run both models on the same GPU
+  max_lookback_hours: 12                       # how far back to search for an available GFS cycle
+  # scratch_dir: /path/on/disk                 # Stores one multi-GB temporary NetCDF file. Use a
+                                               #   disk-backed directory, not a RAM-backed /tmp.
+                                               #   Give each connector its own directory.
+
+# Included in published Metadata. This does not configure data loading.
+inputs:
+  - {source: HRRR, role: initialCondition}
+  - {source: GFS,  role: conditioning}
+
+subregion:
+  # Optional. The default full domain covers any site within StormCast CONUS. Cropping has model
+  # limits; read docs/stormcast-subregion.md before enabling it.
+  enabled: false
+  center: {lat: 40.0, lon: -100.0}             # omit to center the crop on the configured sites
+  size_cells: [512, 640]                       # crop height and width in grid cells
+  # Advanced: use explicit grid limits instead of center and size_cells.
+  # hrrr_lat_lim: [273, 785]
+  # hrrr_lon_lim: [579, 1219]
+
+performance:
+  num_diffusion_steps: null                  # default: 18. Lower values are faster but may reduce
+                                             #   forecast quality; grid resolution does not change
+
+bus:
+  broker_host: "CHANGE-ME"                     # DSX MQTT broker address
+  broker_port: 1883                            # use the TLS port provided by DSX for oauth2
+  auth: "noauth"                               # noauth or oauth2
+  # For oauth2, enable TLS and provide a token file or the DSX_OAUTH_TOKEN environment variable.
+  # tls: true
+  # ca_certs: "/path/to/ca.pem"                # needed when the broker uses a private CA
+  # token_file: "/var/run/secrets/dsx/token"   # preferred location for a mounted token
+  client_id: "dsx-connector-stormcast"         # must be unique for each running connector
+  # connect_timeout: 10                        # seconds to wait for a connection
+  # publish_timeout: 10                        # seconds to wait for broker confirmation (qos 1)
+  qos: 0                                       # 0 per the DSX contract; 1 waits for broker confirmation
+  heartbeat_seconds: 90                        # resend Metadata and latest Forecasts; must be <= 100
+
+topics:
+  forecast_prefix: "Weather/v1/PUB"            # DSX topic prefix
+  product: "conus-site-weather"                # lowercase letters, digits, single hyphens
+
+sites:
+  - id: dc-site-1                              # site name used in DSX topics
+    lat: 40.0
+    lon: -100.0

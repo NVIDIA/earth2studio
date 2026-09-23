@@ -1,0 +1,39 @@
+[project]
+name = "earth2studio.recipe.dsx-connector"
+version = "0.1.0"
+description = "DSX Exchange connector recipe (StormCast CONUS -> DSX Exchange MQTT bus)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name="NVIDIA Earth-2 Team" },
+]
+dependencies = [
+    # StormCast CONUS (the producer) + SFNO (the conditioning model). These extras pull the model
+    # deps: [stormcast-conus] -> natten, nvidia-physicsnemo, nvtx, omegaconf, scipy; [sfno] ->
+    # makani, torch-harmonics, scipy, pynvml, ruamel-yaml. A runnable GPU install still needs a
+    # torch/NATTEN build matching your CUDA (not fully pip-resolvable); see
+    # docs/stormcast-environment.md.
+    "earth2studio[stormcast-conus,sfno]>=0.9.0",
+    "paho-mqtt>=1.6",
+    "jsonschema>=4.18",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "scipy>=1.15",
+]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/earth2studio/recipes/dsx-connector"
+Documentation = "https://github.com/NVIDIA/earth2studio/recipes/dsx-connector/README.md"
+Issues = "https://github.com/NVIDIA/earth2studio/issues"
+Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
+
+# In-repo recipe: earth2studio resolves to this repository (editable) via [tool.uv.sources], like
+# the other recipes. Install the GPU stack using docs/stormcast-environment.md. For the lightweight
+# test-only environment, use requirements-test.txt instead of resolving this project's model
+# dependencies.
+[tool.uv.sources]
+earth2studio = { path = "../../", editable = true }
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**/*.py"]
+exclude = []

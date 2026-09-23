@@ -1,0 +1,8 @@
+# Lightweight dependencies for running the test suite without the GPU/model stack.
+pytest>=8.0
+loguru>=0.7
+paho-mqtt>=1.6
+jsonschema>=4.18
+pyyaml>=6.0
+scipy>=1.15
+numpy>=1.24

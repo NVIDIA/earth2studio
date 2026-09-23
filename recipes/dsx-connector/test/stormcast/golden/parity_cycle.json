@@ -1,0 +1,412 @@
+[
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        32.55
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-dallas-1/RelativeHumidity"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        305.0
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-dallas-1/Temperature"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        292.825
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-dallas-1/WetBulb"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        3.03
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-dallas-1/WindU"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        3.977
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-dallas-1/WindV"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0,
+        3,
+        6
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        43.441,
+        58.616,
+        null
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-omaha-1/RelativeHumidity"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0,
+        3,
+        6
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        300.0,
+        295.0,
+        null
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-omaha-1/Temperature"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0,
+        3,
+        6
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        291.261,
+        289.599,
+        null
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-omaha-1/WetBulb"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0,
+        3,
+        6
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        3.067,
+        3.067,
+        3.067
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-omaha-1/WindU"
+  },
+  {
+    "payload": {
+      "initTime": 1000,
+      "leadSeconds": [
+        0,
+        3,
+        6
+      ],
+      "memberCount": 1,
+      "model": "test-model",
+      "publicationTime": 9999000,
+      "values": [
+        3.949,
+        3.949,
+        3.949
+      ]
+    },
+    "retain": false,
+    "topic": "Weather/v1/PUB/Forecast/conus-site-weather/dc-omaha-1/WindV"
+  },
+  {
+    "payload": {
+      "description": "RelativeHumidity forecast for dc-dallas-1 from test-model.",
+      "heightMeters": 2,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 32.78,
+      "lon": -96.8,
+      "model": "test-model",
+      "site": "dc-dallas-1",
+      "standardName": "relative_humidity",
+      "unit": "percent",
+      "variable": "RelativeHumidity"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-dallas-1/RelativeHumidity"
+  },
+  {
+    "payload": {
+      "description": "Temperature forecast for dc-dallas-1 from test-model.",
+      "heightMeters": 2,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 32.78,
+      "lon": -96.8,
+      "model": "test-model",
+      "site": "dc-dallas-1",
+      "standardName": "air_temperature",
+      "unit": "K",
+      "variable": "Temperature"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-dallas-1/Temperature"
+  },
+  {
+    "payload": {
+      "description": "WetBulb forecast for dc-dallas-1 from test-model.",
+      "heightMeters": 2,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 32.78,
+      "lon": -96.8,
+      "model": "test-model",
+      "site": "dc-dallas-1",
+      "standardName": "wet_bulb_temperature",
+      "unit": "K",
+      "variable": "WetBulb"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-dallas-1/WetBulb"
+  },
+  {
+    "payload": {
+      "description": "WindU forecast for dc-dallas-1 from test-model.",
+      "heightMeters": 10,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 32.78,
+      "lon": -96.8,
+      "model": "test-model",
+      "site": "dc-dallas-1",
+      "standardName": "eastward_wind",
+      "unit": "m s-1",
+      "variable": "WindU"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-dallas-1/WindU"
+  },
+  {
+    "payload": {
+      "description": "WindV forecast for dc-dallas-1 from test-model.",
+      "heightMeters": 10,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 32.78,
+      "lon": -96.8,
+      "model": "test-model",
+      "site": "dc-dallas-1",
+      "standardName": "northward_wind",
+      "unit": "m s-1",
+      "variable": "WindV"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-dallas-1/WindV"
+  },
+  {
+    "payload": {
+      "description": "RelativeHumidity forecast for dc-omaha-1 from test-model.",
+      "heightMeters": 2,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 41.26,
+      "lon": -95.94,
+      "model": "test-model",
+      "site": "dc-omaha-1",
+      "standardName": "relative_humidity",
+      "unit": "percent",
+      "variable": "RelativeHumidity"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-omaha-1/RelativeHumidity"
+  },
+  {
+    "payload": {
+      "description": "Temperature forecast for dc-omaha-1 from test-model.",
+      "heightMeters": 2,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 41.26,
+      "lon": -95.94,
+      "model": "test-model",
+      "site": "dc-omaha-1",
+      "standardName": "air_temperature",
+      "unit": "K",
+      "variable": "Temperature"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-omaha-1/Temperature"
+  },
+  {
+    "payload": {
+      "description": "WetBulb forecast for dc-omaha-1 from test-model.",
+      "heightMeters": 2,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 41.26,
+      "lon": -95.94,
+      "model": "test-model",
+      "site": "dc-omaha-1",
+      "standardName": "wet_bulb_temperature",
+      "unit": "K",
+      "variable": "WetBulb"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-omaha-1/WetBulb"
+  },
+  {
+    "payload": {
+      "description": "WindU forecast for dc-omaha-1 from test-model.",
+      "heightMeters": 10,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 41.26,
+      "lon": -95.94,
+      "model": "test-model",
+      "site": "dc-omaha-1",
+      "standardName": "eastward_wind",
+      "unit": "m s-1",
+      "variable": "WindU"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-omaha-1/WindU"
+  },
+  {
+    "payload": {
+      "description": "WindV forecast for dc-omaha-1 from test-model.",
+      "heightMeters": 10,
+      "horizonSeconds": 6,
+      "inputs": [
+        {
+          "role": "initialCondition",
+          "source": "HRRR"
+        }
+      ],
+      "issueCadenceSeconds": 3600,
+      "lat": 41.26,
+      "lon": -95.94,
+      "model": "test-model",
+      "site": "dc-omaha-1",
+      "standardName": "northward_wind",
+      "unit": "m s-1",
+      "variable": "WindV"
+    },
+    "retain": true,
+    "topic": "Weather/v1/PUB/Metadata/conus-site-weather/dc-omaha-1/WindV"
+  }
+]

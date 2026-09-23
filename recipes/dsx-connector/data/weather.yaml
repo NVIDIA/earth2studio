@@ -1,0 +1,325 @@
+# Copyright 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+asyncapi: 3.1.0
+info:
+  title: DSX Exchange Weather Forecast Contract
+  version: 0.1.0
+  description: |
+    AsyncAPI contract for weather forecasts published to DSX Exchange.
+
+    ## Topic namespace
+
+    `Weather/v1/PUB/{Forecast|Metadata}/{product}/{site}/{variable}`.
+
+    The message type comes immediately after `PUB`, matching the DSX Exchange BMS
+    convention `BMS/v1/PUB/{Value|Metadata}/{objectType}/{pointType}/{tagPath}`
+    (docs.nvidia.com/dsx-exchange). This lets subscriptions and access rules use the same
+    message-type pattern, such as `+/v1/PUB/Metadata/#`. `Forecast` corresponds to the BMS
+    `Value` channel, but carries a time series instead of one value. Forecast messages are
+    not retained.
+
+    `{product}` separates forecast streams that publish the same site and variable.
+
+    ## Forecast / Metadata pattern
+    - **Forecast** (not retained): one bundle per site and variable containing the initialization
+      time, lead times, values, publication time, and optional ensemble and source details. The
+      latest bundle is republished periodically until the next cycle replaces it. A republished
+      bundle is identical to the original, including `initTime` and `publicationTime`. Consumers
+      use the bundle with the latest `initTime`.
+    - **Metadata** (published at startup and republished periodically, typically every
+      100 seconds as in the BMS contract): stable information such as units, location, model,
+      horizon, cadence, and input data sources. Read Metadata before interpreting Forecast values.
+
+    ## Time fields
+    - `initTime` is the analysis cycle time in Unix epoch milliseconds. It corresponds to
+      `forecast_reference_time` in the
+      [Climate and Forecast (CF) metadata conventions](https://cfconventions.org/cf-conventions/cf-conventions.html).
+    - `leadSeconds` contains the number of seconds after `initTime` for each value. It corresponds
+      to CF `forecast_period`.
+    - Consumers calculate each valid time as
+      `validTimeMs = initTime + leadSeconds * 1000`. It corresponds to CF `time`.
+    - `publicationTime` is when the bundle was first published, in Unix epoch milliseconds.
+
+    ## Deterministic vs probabilistic (one contract)
+
+    A deterministic forecast has one run. A probabilistic forecast uses an ensemble of multiple
+    runs, called members, to represent uncertainty.
+
+    `memberCount` is always present: 1 means deterministic and a larger value means ensemble.
+    `values` is always present and contains either the deterministic forecast or the ensemble mean.
+    An ensemble can also include summary statistics across its members: `standardDeviation`,
+    `minimum`, `maximum`, and `percentiles`. Raw `members` may also be included.
+    Deterministic forecasts omit these fields; an omitted field means "not provided," not zero.
+
+    Raw `members` may be included directly in the message for small ensembles. For large ensembles,
+    use summary statistics to avoid oversized messages.
+
+    ## Provenance
+    The optional `provenance` object stores model-specific information that can change each run,
+    such as StormCast's GFS `conditioningTime`. Metadata `inputs` stores the stable names and roles
+    of input data sources.
+
+    ## Notes
+    - `{variable}` is the shared list of physical weather quantities. New quantities can be added
+      without changing existing names, and adding a model does not require a contract change.
+    - `leadSeconds`, `values`, and all summary arrays must have equal lengths. JSON Schema cannot
+      compare array lengths, so producers and consumers must validate this rule separately.
+
+servers:
+  production:
+    host: broker.example.com
+    protocol: mqtt
+    description: MQTT broker for weather forecast events
+
+channels:
+  forecast:
+    address: 'Weather/v1/PUB/Forecast/{product}/{site}/{variable}'
+    parameters:
+      product:
+        $ref: '#/components/parameters/product'
+      site:
+        $ref: '#/components/parameters/site'
+      variable:
+        $ref: '#/components/parameters/variable'
+    messages:
+      forecast:
+        $ref: '#/components/messages/ForecastBundleMessage'
+
+  metadata:
+    address: 'Weather/v1/PUB/Metadata/{product}/{site}/{variable}'
+    parameters:
+      product:
+        $ref: '#/components/parameters/product'
+      site:
+        $ref: '#/components/parameters/site'
+      variable:
+        $ref: '#/components/parameters/variable'
+    messages:
+      metadata:
+        $ref: '#/components/messages/ForecastMetadataMessage'
+
+operations:
+  publishForecast:
+    action: send
+    channel: {$ref: '#/channels/forecast'}
+    messages: [{$ref: '#/channels/forecast/messages/forecast'}]
+    description: >
+      Publish one forecast bundle per site and variable for each cycle, and republish the latest
+      bundle periodically.
+    bindings:
+      mqtt:
+        qos: 0
+  subscribeForecast:
+    action: receive
+    channel: {$ref: '#/channels/forecast'}
+    messages: [{$ref: '#/channels/forecast/messages/forecast'}]
+    description: Subscribe to forecast bundles.
+  publishMetadata:
+    action: send
+    channel: {$ref: '#/channels/metadata'}
+    messages: [{$ref: '#/channels/metadata/messages/metadata'}]
+    description: Publish units, location, and input metadata at startup and periodically.
+    bindings:
+      mqtt:
+        qos: 0
+  subscribeMetadata:
+    action: receive
+    channel: {$ref: '#/channels/metadata'}
+    messages: [{$ref: '#/channels/metadata/messages/metadata'}]
+    description: Subscribe to forecast metadata.
+
+components:
+  parameters:
+    product:
+      description: >
+        Stable identifier for a forecast stream, shared by its Forecast and Metadata messages.
+        The publisher must have permission to use this product name. In this Weather contract,
+        product names are limited to 63 characters and use lowercase letters and numbers with
+        single hyphens as separators.
+      examples: [conus-site-weather]
+      x-pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      x-maxLength: 63
+    site:
+      description: >
+        Provisional site identifier, such as a data center location ID. Limited to 63 characters
+        of lowercase letters and numbers with single hyphens as separators, so it forms one topic
+        level.
+      examples: [dc-site-1]
+      x-pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      x-maxLength: 63
+    variable:
+      enum: [Temperature, RelativeHumidity, WetBulb, WindU, WindV]
+      description: Physical weather quantity being forecast.
+
+  messages:
+    ForecastBundleMessage:
+      name: ForecastBundleMessage
+      title: Weather Forecast Bundle
+      contentType: application/json
+      description: |
+        Forecast values from one cycle for one site and variable. The corresponding Metadata
+        message provides the units and location.
+      payload:
+        type: object
+        required: [initTime, leadSeconds, values, publicationTime, memberCount, model]
+        properties:
+          initTime:
+            type: integer
+            description: Analysis cycle time in Unix epoch milliseconds (CF forecast_reference_time).
+            examples: [1751299200000]
+          leadSeconds:
+            type: array
+            items: {type: integer, minimum: 0}
+            description: >
+              Seconds after initTime, one per value (CF forecast_period). Integers preserve
+              sub-hourly and irregular intervals exactly; for example, 600 means 10 minutes.
+            examples: [[0, 600, 1200, 3600, 21600]]
+          values:
+            type: array
+            items: {oneOf: [{type: number}, {type: 'null'}]}
+            description: >
+              Deterministic forecast or ensemble mean, with one entry per leadSeconds entry.
+              null means that the value is unavailable.
+          publicationTime:
+            type: integer
+            description: >
+              Time when this bundle was first published, in Unix epoch milliseconds. Republished
+              copies keep the original value.
+          model:
+            type: string
+            minLength: 1
+            description: Identifier of the model that produced the forecast.
+            examples: [stormcast-conus]
+          standardDeviation:
+            type: array
+            items: {oneOf: [{type: number}, {type: 'null'}]}
+            description: >
+              Optional standard deviation across all ensemble members (ddof=0), with one entry per
+              lead time. Used only when memberCount is greater than 1.
+          minimum:
+            type: array
+            items: {oneOf: [{type: number}, {type: 'null'}]}
+            description: >
+              Optional minimum across ensemble members, with one entry per lead time. Used only
+              when memberCount is greater than 1.
+          maximum:
+            type: array
+            items: {oneOf: [{type: number}, {type: 'null'}]}
+            description: >
+              Optional maximum across ensemble members, with one entry per lead time. Used only
+              when memberCount is greater than 1.
+          percentiles:
+            type: object
+            description: >
+              Optional ensemble percentiles calculated by linear interpolation. Each percentile
+              array has one entry per lead time. Keys from p0 through p100 are valid.
+            propertyNames: {pattern: '^p([0-9]|[1-9][0-9]|100)$'}
+            additionalProperties:
+              type: array
+              items: {oneOf: [{type: number}, {type: 'null'}]}
+          memberCount:
+            type: integer
+            minimum: 1
+            description: >
+              Number of forecast members. A value of 1 means deterministic; a larger value means
+              ensemble and allows summary fields and optional raw members.
+          members:
+            type: array
+            description: >
+              Optional raw ensemble values. The outer array contains members, and each member array
+              has one entry per lead time. Prefer summary fields for large ensembles.
+            items:
+              type: array
+              items: {oneOf: [{type: number}, {type: 'null'}]}
+          provenance:
+            type: object
+            description: >
+              Optional model-specific source information, such as StormCast conditioningTime
+              (the GFS cycle in Unix epoch milliseconds). Additional fields are allowed.
+            additionalProperties: true
+        additionalProperties: false
+
+    ForecastMetadataMessage:
+      name: ForecastMetadataMessage
+      title: Forecast Metadata
+      contentType: application/json
+      description: >
+        Time-invariant descriptor for a {product}/{site}/{variable} forecast point. Published at
+        startup and republished periodically. Defines the units and location for the Forecast
+        values; standardName/heightMeters anchor the wire {variable} to CF Conventions.
+      payload:
+        type: object
+        required: [site, variable, unit, model]
+        properties:
+          site:
+            type: string
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+            maxLength: 63
+            description: "Provisional site identifier; must match {site} in the topic."
+          variable:
+            type: string
+            enum: [Temperature, RelativeHumidity, WetBulb, WindU, WindV]
+            description: "Forecast variable; must match {variable} in the topic."
+          unit:
+            type: string
+            description: >
+              Unit of the forecast values, using
+              [CF-compatible notation](https://cfconventions.org/cf-conventions/cf-conventions.html#units),
+              such as K, percent, or m s-1.
+            examples: [K]
+          standardName:
+            type: string
+            description: >
+              Optional name from the
+              [CF Standard Name Table](https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html),
+              such as air_temperature, wet_bulb_temperature, or eastward_wind. It maps the display
+              variable to a standard physical quantity.
+            examples: [air_temperature]
+          heightMeters:
+            type: number
+            minimum: 0
+            description: >
+              Optional nominal height above ground in meters, such as 2 for near-surface
+              temperature or 10 for wind.
+            examples: [2]
+          model:
+            type: string
+            minLength: 1
+            description: Identifier of the model that produced the forecast.
+          lat:
+            type: number
+            minimum: -90
+            maximum: 90
+            description: Site latitude in degrees north, from -90 to 90.
+          lon:
+            type: number
+            minimum: -180
+            exclusiveMaximum: 180
+            description: Site longitude in degrees east, from -180 inclusive to 180 exclusive.
+          horizonSeconds:
+            type: integer
+            minimum: 0
+            description: Maximum supported leadSeconds value for this forecast stream.
+          issueCadenceSeconds:
+            type: integer
+            minimum: 1
+            description: Nominal number of seconds between forecast cycles.
+          inputs:
+            type: array
+            description: "Input data sources used by the model and the role of each source."
+            items:
+              type: object
+              required: [source, role]
+              properties:
+                source:
+                  type: string
+                  description: "Data source name, such as HRRR or GFS."
+                role:
+                  type: string
+                  description: "How the source is used, such as initialCondition or conditioning."
+              additionalProperties: false
+          description:
+            type: string
+            description: Short human-readable description of the forecast.
+        additionalProperties: false
