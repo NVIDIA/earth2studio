@@ -102,10 +102,6 @@ require_predownload: false   # IC is BYO and verification is the shared store
 # shared ARCO-derived store (the r levels are not scored).
 ic_source:
     _target_: src.data.CompositeSource
-    # Qualified precipitation uses hourly ARCO samples; NCAR serves only r levels.
-    time_step:
-        _target_: numpy.timedelta64
-        _args_: [1, h]
     sources:
         arco:
             _target_: earth2studio.data.ARCO_ERA5
@@ -172,7 +168,7 @@ ic_source:
         u10m: arco
         v10m: arco
         msl: arco
-        tp: arco
+        tp06: arco
         r50: ncar
         r100: ncar
         r150: ncar
@@ -202,7 +198,7 @@ output:
     variables:
     - msl
     - t2m
-    - tp:sum:6h
+    - tp06
     - u10m
     - v10m
     - z50

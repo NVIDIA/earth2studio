@@ -30,7 +30,7 @@ data_source:
 
 file_output:
     path: '${output_path}/${project}_${run_id}'  # directory to which outfiles are written
-    output_vars: ['tp:sum:6h', 'tcwv']  # Variables to be saved
+    output_vars: ['tp', 'tcwv']  # Variables to be saved
     thread_io: True
     overwrite_store: True # Whether or not to overwrite an existing output file
     format:               # io backend class

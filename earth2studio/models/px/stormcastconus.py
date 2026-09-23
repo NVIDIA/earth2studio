@@ -18,7 +18,6 @@ import types
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
-from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
 from itertools import product
@@ -187,8 +186,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     provider:nvidia backend:pytorch
     """
 
-    stochastic = True
-
     def __init__(
         self,
         diffusion_model: torch.nn.Module,
@@ -331,29 +328,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self.use_amp = use_amp
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
-        self._seed: int | None = None
-        self._rng_step = 0
         self._conditioning_grid: tuple[np.ndarray, np.ndarray] | None = None
         self._conditioning_interp: LatLonInterpolation | None = None
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed isolated diffusion sampling, optionally retaining the current stream."""
-        if reset or self._seed is None:
-            self._seed, self._rng_step = seed, 0
-
-    @contextmanager
-    def _rng_context(self) -> Iterator[None]:
-        if self._seed is None:
-            yield
-            return
-        device = self.means.device
-        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
-            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
-            if device.type == "cuda":
-                with torch.cuda.device(device):
-                    torch.cuda.manual_seed(self._seed + self._rng_step)
-            yield
-        self._rng_step += 1
 
     @property
     def hrrr_x(self) -> np.ndarray:
@@ -656,14 +632,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
                 for i0 in range(0, len(coords["batch"]), self.batch_size):
                     i1 = i0 + self.batch_size
-                    with self._rng_context():
-                        x[i0:i1, j, k] = self._forward(
-                            x[i0:i1, j, k],
-                            conditioning[i0:i1, j, k],
-                            t,
-                            y_obs=y_obs,
-                            mask=mask,
-                        )
+                    x[i0:i1, j, k] = self._forward(
+                        x[i0:i1, j, k],
+                        conditioning[i0:i1, j, k],
+                        t,
+                        y_obs=y_obs,
+                        mask=mask,
+                    )
 
         out = from_torch(x, output_coords)
         out.attrs = deepcopy(out.attrs)

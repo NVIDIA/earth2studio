@@ -61,7 +61,9 @@ def test_model_exceptions(model):
 def test_model_conformance(model):
     skipped = check_diagnostic_contract(model)
     assert skipped == (
-        [] if model.stochastic else ["D10: model does not declare itself stochastic"]
+        []
+        if getattr(model, "stochastic", False)
+        else ["D10: model does not declare itself stochastic"]
     )
 
 

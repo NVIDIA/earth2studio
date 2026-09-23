@@ -17,7 +17,6 @@
 import json
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
-from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Literal, cast
@@ -162,7 +161,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
-    stochastic = True
 
     def __init__(
         self,
@@ -203,8 +201,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
         self.input_times = input_times
         self.output_times = output_times
-        self._seed: int | None = None
-        self._rng_step = 0
         self.sliding_window = len(input_times) > len(output_times)
 
         self.register_buffer("latitudes", latitudes)
@@ -721,25 +717,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 self._lat_cpu_copy, self._lon_cpu_copy, self.y, self.x
             ),
         )
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed isolated diffusion sampling, optionally retaining the current stream."""
-        if reset or self._seed is None:
-            self._seed, self._rng_step = seed, 0
-
-    @contextmanager
-    def _rng_context(self) -> Iterator[None]:
-        if self._seed is None:
-            yield
-            return
-        device = self.means.device
-        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
-            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
-            if device.type == "cuda":
-                with torch.cuda.device(device):
-                    torch.cuda.manual_seed(self._seed + self._rng_step)
-            yield
-        self._rng_step += 1
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return an allocation-free signature for the next forecast window.
@@ -1446,13 +1423,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             conditioning = None
             conditioning_coords = None
 
-        with self._rng_context():
-            x = self._forward(
-                x,
-                x_coords,
-                conditioning=conditioning,
-                conditioning_coords=conditioning_coords,
-            )
+        x = self._forward(
+            x,
+            x_coords,
+            conditioning=conditioning,
+            conditioning_coords=conditioning_coords,
+        )
         out = from_torch(x, output_coords)
         out.attrs = deepcopy(out.attrs)
         out.encoding = encoding
@@ -1532,13 +1508,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             conditioning, conditioning_coords, conditioning=True
         )
 
-        with self._rng_context():
-            x = self._forward(
-                x,
-                x_coords,
-                conditioning=conditioning,
-                conditioning_coords=conditioning_coords,
-            )
+        x = self._forward(
+            x,
+            x_coords,
+            conditioning=conditioning,
+            conditioning_coords=conditioning_coords,
+        )
         out = from_torch(x, output_coords)
         out.attrs = deepcopy(out.attrs)
         out.encoding = deepcopy(packed.encoding)

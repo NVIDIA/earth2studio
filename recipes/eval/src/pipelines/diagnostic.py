@@ -19,27 +19,24 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Callable, Iterator
+from typing import Any, cast
 
 import numpy as np
 import torch
-import xarray as xr
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
+from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
-from earth2studio.run import _dimension_coords, _map_field
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
-from ..data import fetch_input_data
 from ..models import load_diagnostics
 from ..output import build_diagnostic_coords
 from ..work import WorkItem
 from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
-def _spatial_ref_from_output_coords(coords: xr.DataArray) -> CoordSystem:
+def _spatial_ref_from_output_coords(coords: CoordSystem) -> CoordSystem:
     """Strip a generative model's own ``sample`` axis from a coords reference.
 
     ``src/output.py`` and ``src/online.py`` classify any dim outside
@@ -53,9 +50,7 @@ def _spatial_ref_from_output_coords(coords: xr.DataArray) -> CoordSystem:
     filter, predownload grids), so ``sample`` never leaks in as a bogus
     spatial dimension.
     """
-    return OrderedDict(
-        (d, v) for d, v in _dimension_coords(coords).items() if d != "sample"
-    )
+    return OrderedDict((d, v) for d, v in coords.items() if d != "sample")
 
 
 def _rename_sample_axis(
@@ -135,7 +130,7 @@ class DiagnosticPipeline(Pipeline):
     supports_online_scoring = True
 
     diagnostics: list[DiagnosticModel]
-    _dx_input_coords: dict[int, xr.DataArray]
+    _dx_input_coords: dict[int, CoordSystem]
     _all_input_vars: list[str]
     _zero_lead: np.ndarray
 
@@ -152,7 +147,7 @@ class DiagnosticPipeline(Pipeline):
         all_input_vars: list[str] = []
         seen: set[str] = set()
         for dx in self.diagnostics:
-            for v in self._dx_input_coords[id(dx)].coords["variable"].values:
+            for v in self._dx_input_coords[id(dx)]["variable"]:
                 if v not in seen:
                     all_input_vars.append(str(v))
                     seen.add(str(v))
@@ -199,10 +194,7 @@ class DiagnosticPipeline(Pipeline):
             )
 
         input_variables = union_variables(
-            *(
-                [str(v) for v in dx.input_coords().coords["variable"].values]
-                for dx in diagnostics
-            )
+            *([str(v) for v in dx.input_coords()["variable"]] for dx in diagnostics)
         )
 
         all_items = build_work_items(cfg)
@@ -228,7 +220,8 @@ class DiagnosticPipeline(Pipeline):
 
     def _run_diagnostics(
         self,
-        x: xr.DataArray,
+        x: torch.Tensor,
+        coords: CoordSystem,
         member_ids: np.ndarray,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Run every diagnostic and accumulate outputs onto the raw input.
@@ -240,27 +233,26 @@ class DiagnosticPipeline(Pipeline):
         since :func:`~earth2studio.utils.coords.cat_coords` requires
         identical dim names/order across all its operands.
         """
-        x_combined = x
+        x_combined, coords_combined = x, coords
         for dx in self.diagnostics:
             dx_ic = self._dx_input_coords[id(dx)]
-            y = dx(_map_field(x, dx_ic))
-            if "sample" in y.dims:
-                if y.sizes["sample"] != len(member_ids):
-                    raise ValueError(
-                        "Diagnostic sample count must equal the member block size"
+            x_in, coords_in = map_coords(x, coords, dx_ic)
+            # This pipeline still uses the legacy tensor/coordinate model API.
+            y, y_coords = cast(Callable, dx)(x_in, coords_in)
+            y, y_coords = _rename_sample_axis(y, y_coords, member_ids)
+
+            if "ensemble" in y_coords or "ensemble" in coords_combined:
+                if "ensemble" not in coords_combined:
+                    x_combined, coords_combined = _broadcast_ensemble(
+                        x_combined, coords_combined, member_ids
                     )
-                y = y.rename(sample="ensemble").assign_coords(ensemble=member_ids)
-            if "ensemble" in y.dims or "ensemble" in x_combined.dims:
-                if "ensemble" not in x_combined.dims:
-                    x_combined = x_combined.expand_dims(
-                        ensemble=member_ids, axis=x_combined.get_axis_num("variable")
-                    )
-                if "ensemble" not in y.dims:
-                    y = y.expand_dims(
-                        ensemble=member_ids, axis=y.get_axis_num("variable")
-                    )
-            x_combined = xr.concat((x_combined, y), dim="variable", join="exact")
-        return x_combined.e2s.to_torch()
+                if "ensemble" not in y_coords:
+                    y, y_coords = _broadcast_ensemble(y, y_coords, member_ids)
+
+            x_combined, coords_combined = cat_coords(
+                (x_combined, y), (coords_combined, y_coords), "variable"
+            )
+        return x_combined, coords_combined
 
     def run_item(
         self,
@@ -270,7 +262,7 @@ class DiagnosticPipeline(Pipeline):
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         self.seed_member(item)
 
-        x = fetch_input_data(
+        x, coords = fetch_data(
             source=data_source,
             time=[item.time],
             variable=self._all_input_vars,
@@ -278,7 +270,7 @@ class DiagnosticPipeline(Pipeline):
             device=device,
         )
 
-        yield self._run_diagnostics(x, np.array([item.ensemble_id]))
+        yield self._run_diagnostics(x, coords, np.array([item.ensemble_id]))
 
     def run_item_batched(
         self,
@@ -307,7 +299,7 @@ class DiagnosticPipeline(Pipeline):
 
         self.seed_member(items[0])
 
-        x = fetch_input_data(
+        x, coords = fetch_data(
             source=data_source,
             time=[items[0].time],
             variable=self._all_input_vars,
@@ -316,4 +308,4 @@ class DiagnosticPipeline(Pipeline):
         )
 
         member_ids = np.array([item.ensemble_id for item in items])
-        yield self._run_diagnostics(x, member_ids)
+        yield self._run_diagnostics(x, coords, member_ids)

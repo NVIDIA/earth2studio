@@ -24,7 +24,7 @@ import xarray as xr
 
 import earth2studio.models.px.stormcastconus as conus_module
 from earth2studio.data import Random, Random_FX, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils.coords import coord_array
@@ -206,7 +206,11 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
         assert dit.detokenizer.input_size == (16, 16)
         assert dit.detokenizer.h_patches == 2
         assert dit.detokenizer.w_patches == 2
-    assert check_prognostic_contract(model) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.mark.parametrize(

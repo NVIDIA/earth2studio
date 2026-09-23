@@ -451,7 +451,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         y_out = prep_output(y.isel(lead_time=slice(-1, None)))
         io.write(*split_coords(*y_out.e2s.to_torch()))
 
-        self.stormscope.set_rng(seed_stormscope)
+        # Cannot use seeded Generator before torch==2.10
+        torch.manual_seed(seed_stormscope)
 
         for step in range(1, n_steps):
             y_pred = self.stormscope(y)

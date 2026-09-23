@@ -23,7 +23,7 @@ import torch
 import xarray as xr
 
 import earth2studio.models.dx.stormscope_dx_nsrdb as stormscope_module
-from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import StormScopeDxNSRDB
 from earth2studio.utils import coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
@@ -216,10 +216,8 @@ def test_stormscope_dx_nsrdb_seed_and_samples():
     first_coords = first.coords
 
     xr.testing.assert_identical(first, second)
-    assert torch.equal(rng, torch.get_rng_state())
-    model.set_rng(43, reset=False)
-    xr.testing.assert_identical(first, model(input_tensor))
-    model.set_rng(43)
+    assert not torch.equal(rng, torch.get_rng_state())
+    model.seed = 43
     assert not np.array_equal(first.values, model(input_tensor).values)
     assert first.shape == (1, 1, 2, 1, 32, 64)
     np.testing.assert_array_equal(first_coords["sample"], np.arange(2))
@@ -235,7 +233,7 @@ def test_stormscope_dx_nsrdb_seed_and_samples():
         time=input_tensor.time + np.timedelta64(3, "h")
     )
     expected = model(observed)
-    model.set_rng(43)
+    model.seed = 43
     one = model(
         forecast.isel(member=0, lead_time=0, drop=True).assign_coords(
             time=observed.time
@@ -459,7 +457,11 @@ def test_stormscope_dx_nsrdb_constructor_exceptions(kwargs, match):
 
 def test_stormscope_dx_nsrdb_conformance():
     model = create_model()
-    check_diagnostic_contract(model)
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(model)
+    assert exc_info.value.violations == [
+        "D9: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.mark.package

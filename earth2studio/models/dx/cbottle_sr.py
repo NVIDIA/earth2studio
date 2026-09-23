@@ -346,14 +346,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         )
         return _replace_grid(input_coords, grid, VARIABLES)
 
-    stochastic = True
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Reset or initialize the isolated per-sample random stream."""
-        if reset or self.seed is None:
-            self.seed = seed
-            self._sample_index = 0
-
     @classmethod
     def load_default_package(cls) -> Package:
         """Default pre-trained cBottle model package from Nvidia model registry"""
@@ -469,10 +461,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
             with torch.random.fork_rng(devices=rng_devices, enabled=True):
                 seed = self.seed + self._sample_index
-                torch.random.default_generator.manual_seed(seed)
+                torch.manual_seed(seed)
                 if self.device.type == "cuda":
-                    with torch.cuda.device(self.device):
-                        torch.cuda.manual_seed(seed)
+                    torch.cuda.manual_seed_all(seed)
                 out, _ = self.sr_model(
                     x,
                     coords=replace(self._coords),

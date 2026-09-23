@@ -204,14 +204,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             varidx.append(idx[0])
         return np.array(varidx)
 
-    stochastic = True
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set an isolated stream for the backend's global-RNG infill sampler."""
-        if reset or self.seed is None:
-            self.seed = seed
-            self._sample_index = 0
-
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of diagnostic model
 
@@ -380,16 +372,10 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             }
 
             # Use CBottle3d infill method
-            devices = [device] if device.type == "cuda" else []
-            with torch.random.fork_rng(devices=devices, enabled=self.seed is not None):
-                if self.seed is not None:
-                    seed = self.seed + getattr(self, "_sample_index", 0)
-                    torch.random.default_generator.manual_seed(seed)
-                    if device.type == "cuda":
-                        with torch.cuda.device(device):
-                            torch.cuda.manual_seed(seed)
-                infilled_data, _ = self.core_model.infill(batch_slice)
-            self._sample_index = getattr(self, "_sample_index", 0) + 1
+            infilled_data, _ = self.core_model.infill(
+                batch_slice,
+                # seed=None if self.seed is None else self.seed + i, # NO SEED SUPPORT!
+            )
 
             outputs.append(infilled_data)
 

@@ -25,7 +25,7 @@ import xarray as xr
 
 import earth2studio.models.px.stormscope_meteosat as meteosat_module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
 from earth2studio.utils import coord_array_like
 from earth2studio.utils.cupy import from_torch
@@ -749,7 +749,11 @@ def test_stormscope_meteosat_exceptions():
 def test_stormscope_meteosat_conformance():
     model = create_spoof_model()
 
-    assert check_prognostic_contract(model) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.mark.package

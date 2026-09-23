@@ -654,16 +654,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
-    @property
-    def stochastic(self) -> bool:
-        """Whether diffusion samples are generated."""
-        return self.inference_mode != "regression"
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the isolated sampling seed."""
-        if reset or self.seed is None:
-            self.seed = seed
-
     def input_coords(self) -> CoordinateSystem:
         """Declare the configured input variables and actual geographic grid."""
         grid = _geographic_grid(self.lat_input_numpy, self.lon_input_numpy)
@@ -1377,13 +1367,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.solver = solver
         self.seed = seed
         self.output_variables = OUT_VARIABLES  # Default set of output variables
-
-    stochastic = True
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the isolated diffusion seed."""
-        if reset or self.seed is None:
-            self.seed = seed
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system"""

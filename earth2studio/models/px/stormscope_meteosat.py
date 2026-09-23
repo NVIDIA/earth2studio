@@ -16,7 +16,6 @@
 
 import types
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
 from math import prod
@@ -184,7 +183,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
         (4320, 5440),
         (1856, 4288),
     )
-    stochastic = True
 
     def __init__(
         self,
@@ -277,8 +275,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
         self.grid = CurvilinearGrid(
             self.lat.cpu().numpy(), self.lon.cpu().numpy(), self.mtg_y, self.mtg_x
         )
-        self._seed: int | None = None
-        self._rng_step = 0
 
         self.variables = variables
 
@@ -362,25 +358,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
         return coord_array_like(
             input_coords, {"lead_time": self.output_times + lead[-1]}
         )
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed isolated diffusion sampling, optionally retaining the current stream."""
-        if reset or self._seed is None:
-            self._seed, self._rng_step = seed, 0
-
-    @contextmanager
-    def _rng_context(self) -> Generator[None, None, None]:
-        if self._seed is None:
-            yield
-            return
-        device = self.means.device
-        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
-            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
-            if device.type == "cuda":
-                with torch.cuda.device(device):
-                    torch.cuda.manual_seed(self._seed + self._rng_step)
-            yield
-        self._rng_step += 1
 
     def compile_model(self) -> None:
         """Compile each denoising expert with ``torch.compile``."""
@@ -663,8 +640,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
 
             for i0 in range(0, B, self.batch_size):
                 i1 = i0 + self.batch_size
-                with self._rng_context():
-                    x[i0:i1, j, -1] = self._forward(x[i0:i1, j], zen_azi)
+                x[i0:i1, j, -1] = self._forward(x[i0:i1, j], zen_azi)
 
         out = from_torch(self.denormalize(x[:, :, -1:]), output_coords)
         out.attrs = deepcopy(out.attrs)
@@ -735,8 +711,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
                 for j, time in enumerate(coords["time"]):
                     for i0 in range(0, B, self.batch_size):
                         i1 = i0 + self.batch_size
-                        with self._rng_context():
-                            x_next = self._forward(tensor[i0:i1, j], zen_azi[j])
+                        x_next = self._forward(tensor[i0:i1, j], zen_azi[j])
                         x_next.masked_fill_(self.off_earth_mask_tensor, 0)
                         for k in range(L - 1):  # copyless roll of tensor
                             tensor[i0:i1, j, k] = tensor[i0:i1, j, k + 1]

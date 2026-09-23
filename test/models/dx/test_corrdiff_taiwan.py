@@ -22,7 +22,7 @@ import torch
 from test_corrdiff import _input_field
 from test_corrdiff import offline_corrdiff as offline_corrdiff
 
-from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffTaiwan
 
 
@@ -220,7 +220,11 @@ def test_corrdiff_taiwan_conformance():
         out_lat,
         out_lon,
     )
-    assert check_diagnostic_contract(dx) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(dx)
+    assert exc_info.value.violations == [
+        "D9: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.mark.package

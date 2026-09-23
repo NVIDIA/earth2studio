@@ -40,7 +40,7 @@ from test_graphcast import (
 
 import earth2studio.models.px.weathernext2_cyclones as module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.weathernext2_cyclones import (
     OUTPUT_VARIABLES,
     WeatherNext2Cyclones,
@@ -88,7 +88,7 @@ def mock_weathernext2_model(request, monkeypatch):
         noise = (
             float(module.jax.random.uniform(kwargs["rng"])) / 100
             if module.hk is not None
-            else float(kwargs["rng"][0]) / 100
+            else float(np.random.default_rng(np.asarray(kwargs["rng"])).random()) / 100
         )
         return _prediction(**kwargs) + noise
 
@@ -195,17 +195,28 @@ def test_weathernext2_rng_advances(monkeypatch, mock_weathernext2_model):
     mock_weathernext2_model(x)
     mock_weathernext2_model(x)
     assert len(rngs) == 2 and not np.array_equal(*rngs)
+    key = np.asarray(mock_weathernext2_model.prng_key).copy()
+    iterator = mock_weathernext2_model.create_iterator(x)
+    next(iterator)
+    expected, _ = module.jax.random.split(key)
+    np.testing.assert_array_equal(mock_weathernext2_model.prng_key, expected)
+    iterator.close()
 
 
 def test_weathernext2_conformance(mock_weathernext2_model):
     model = mock_weathernext2_model
-    check_prognostic_contract(model)
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 def test_weathernext2_set_rng(mock_weathernext2_model):
     mock_weathernext2_model.set_rng(123)
     key = np.asarray(mock_weathernext2_model.prng_key)
     mock_weathernext2_model.set_rng(456, reset=False)
+    assert mock_weathernext2_model.seed == 456
     np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
     mock_weathernext2_model.set_rng(456)
     assert not np.array_equal(key, mock_weathernext2_model.prng_key)

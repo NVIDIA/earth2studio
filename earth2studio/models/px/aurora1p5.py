@@ -16,7 +16,6 @@
 
 import pickle
 from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import numpy as np
@@ -462,10 +461,9 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         packed, restore = batch_func()._compress_array(self, x)
         signature = self.output_coords(packed)
         tensor, coords = packed.e2s.to_torch()
-        with self._rng_context():
-            predictions = self._forward_sub_steps(
-                tensor.to(self.device_buffer.device).clone(), coords, hours
-            )
+        predictions = self._forward_sub_steps(
+            tensor.to(self.device_buffer.device).clone(), coords, hours
+        )
         results = []
         for h, prediction in zip(hours, predictions):
             out_signature = coord_array_like(
@@ -476,10 +474,6 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             out.encoding = x.encoding.copy()
             results.append(restore(out))
         return results
-
-    @contextmanager
-    def _rng_context(self) -> Iterator[None]:
-        yield
 
     @staticmethod
     def _clip_ar_input(x: torch.Tensor) -> torch.Tensor:
@@ -551,8 +545,8 @@ class Aurora1p5Ensemble(Aurora1p5):
         Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
     seed : int | None, optional
-        If specified, initializes the isolated stream via :meth:`set_rng`.
-        Later calls to :meth:`set_rng` take precedence.
+        If specified, sets the random seed via :meth:`set_rng` at the start of
+        each :meth:`create_iterator` call for reproducible stochastic noise.
         By default None (non-reproducible).
 
     Badges
@@ -568,47 +562,21 @@ class Aurora1p5Ensemble(Aurora1p5):
         seed: int | None = None,
     ) -> None:
         super().__init__(core_model, static_vars)
-        self._rng_state = None
-        self._cuda_rng_state = None
-        if seed is not None:
-            self.set_rng(seed)
+        self.seed = seed
 
     stochastic = True
 
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed an isolated stream and reset the backend noise cache."""
-        if not reset and self.seed is not None:
-            return
-        self.seed = seed
-        self._rng_state = None
-        self._cuda_rng_state = None
-        with self._rng_context():
-            self.model.reset_noise()
+    def set_rng(self, seed: int | None) -> None:
+        """Seed the global RNG and reset the model's internal noise cache.
 
-    @contextmanager
-    def _rng_context(self) -> Iterator[None]:
-        if self.seed is None:
-            yield
-            return
-        device = self.device_buffer.device
-        devices = [device.index] if device.type == "cuda" else []
-        with torch.random.fork_rng(devices=devices):
-            if self._rng_state is None:
-                torch.random.default_generator.manual_seed(self.seed)
-            else:
-                torch.set_rng_state(self._rng_state)
-            if devices:
-                if self._cuda_rng_state is None:
-                    with torch.cuda.device(device):
-                        torch.cuda.manual_seed(self.seed)
-                else:
-                    torch.cuda.set_rng_state(self._cuda_rng_state, device)
-            try:
-                yield
-            finally:
-                self._rng_state = torch.get_rng_state()
-                if devices:
-                    self._cuda_rng_state = torch.cuda.get_rng_state(device)
+        Parameters
+        ----------
+        seed : int | None
+            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
+        """
+        if seed is not None:
+            torch.manual_seed(seed)
+        self.model.reset_noise()
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -634,9 +602,6 @@ class Aurora1p5Ensemble(Aurora1p5):
         return cls(model, static_vars)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Reset cached noise while retaining the caller-selected RNG stream."""
-        iterator = super().create_iterator(x)
-        yield next(iterator)
-        with self._rng_context():
-            self.model.reset_noise()
-        yield from iterator
+        """Reset the global seed and cached noise, then yield forecast fields."""
+        self.set_rng(self.seed)
+        yield from super().create_iterator(x)

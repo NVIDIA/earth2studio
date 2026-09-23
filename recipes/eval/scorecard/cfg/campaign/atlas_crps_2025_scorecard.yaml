@@ -210,7 +210,7 @@ output:
         - q925
         - q1000
         - sst
-        - tp:sum:6h
+        - tp06
 
 scoring:
     mode: online

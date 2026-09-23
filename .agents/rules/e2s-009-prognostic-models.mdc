@@ -5,7 +5,7 @@ description: Earth2Studio native DataArray prognostic model implementation guide
 
 # Earth2Studio Prognostic Models
 
-The authoritative execution, metadata, hook, ownership and RNG requirements are
+The authoritative execution, metadata, hook and ownership requirements are
 in `dev/spec/MODEL_CONTRACT_SPEC.md`. Activate `earth2studio-create-prognostic`
 before implementing a new wrapper; its reference skeleton is native DataArray code.
 
@@ -43,9 +43,9 @@ than adding generic compatibility frameworks.
 - Hooks take and return one DataArray in original leading dimensions, only during
   iteration. Declare `front_hook_interval` for multi-output core cadence.
 - Preserve hook-updated recurrent values and metadata, and stable earlier yields.
-- Declare boolean `stochastic`. Stochastic wrappers implement
-  `set_rng(seed, reset=True)` using local or isolated RNG state; explicit reseeding
-  takes precedence over constructor defaults.
+- Preserve each existing wrapper's seeding API, defaults, stream ownership and
+  stochastic declarations during the DataArray migration. Existing RNG contract
+  deviations remain explicitly documented follow-up work.
 
 ## Loading, tests and documentation
 

@@ -423,9 +423,8 @@ def initialise(
 
     model_dict, model_packages = get_model(cfg)
     default_model = update_model_dict(model_dict, model_packages[0])["model"]
-    signature = default_model.output_coords(default_model.input_coords())
-    lon_coords = signature.coords["lon"].values
-    lat_coords = signature.coords["lat"].values
+    lon_coords = default_model.output_coords(default_model.input_coords())["lon"]
+    lat_coords = default_model.output_coords(default_model.input_coords())["lat"]
 
     coords_dict = initialize_cropbox(
         cfg=cfg, lon_coords=lon_coords, lat_coords=lat_coords
@@ -1031,20 +1030,50 @@ def save_corrdiff_output(cd_output_dict: dict, save_path: str) -> None:
     Parameters
     ----------
     cd_output_dict : dict
-        Dictionary containing 'output', a list of native CorrDiff DataArrays.
+        Dictionary containing 'coords' and 'output' (list of tensors) for the CorrDiff model.
     save_path : str
         Path to save the NetCDF file.
     """
-    field = xr.concat(
-        cd_output_dict["output"], dim="lead_time", join="exact"
-    ).e2s.as_numpy()
-    ds = field.to_dataset(dim="variable")
-    # NetCDF attributes cannot contain the nested model/grid metadata dictionaries.
-    import json
+    cd_coords = cd_output_dict["coords"]
+    cd_tensor = torch.cat(cd_output_dict["output"], dim=2).cpu().numpy()
 
-    for variable in [ds, *ds.variables.values()]:
-        variable.attrs = {
-            key: json.dumps(value) if isinstance(value, dict) else value
-            for key, value in variable.attrs.items()
-        }
+    lat = cd_coords["lat"]
+    lon = cd_coords["lon"]
+
+    # Use lead_time from coords if present, else fallback to range
+    lead_time = cd_coords.get("lead_time", np.arange(cd_tensor.shape[2]))
+
+    # Handle both 1D and 2D lat/lon
+    if lat.ndim == 2 and lon.ndim == 2:
+        spatial_dims = ("y", "x")
+        lat_coord = (spatial_dims, lat)  # type: ignore
+        lon_coord = (spatial_dims, lon)  # type: ignore
+        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
+    elif lat.ndim == 1 and lon.ndim == 1:
+        lat_coord = ("y", lat)  # type: ignore
+        lon_coord = ("x", lon)  # type: ignore
+        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
+    else:
+        raise ValueError("lat/lon must both be 1D or both be 2D arrays.")
+
+    # Remove the variable dimension and create a Dataset with one variable per CorrDiff output
+    variables = cd_coords["variable"]
+    dataset_vars = {}
+    for i, var in enumerate(variables):
+        # Select only the i-th variable from the variable dimension (axis 4)
+        var_tensor = cd_tensor[..., i, :, :]
+        dataset_vars[str(var)] = (dims, var_tensor)
+
+    # Build coordinates dict (excluding 'variable')
+    coords = {
+        "ensemble": ("ensemble", cd_coords["ensemble"]),
+        "time": ("time", cd_coords["time"]),
+        "lead_time": ("lead_time", lead_time),
+        "sample": ("sample", cd_coords["sample"]),
+        "lat": lat_coord,
+        "lon": lon_coord,
+    }
+
+    ds = xr.Dataset(data_vars=dataset_vars, coords=coords)
+
     ds.to_netcdf(save_path)

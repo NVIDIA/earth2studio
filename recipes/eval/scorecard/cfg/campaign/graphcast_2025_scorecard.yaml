@@ -189,7 +189,7 @@ output:
     - q850
     - q925
     - q1000
-    - tp:sum:6h
+    - tp06
 scoring:
     mode: online
     variables: ${output.variables}

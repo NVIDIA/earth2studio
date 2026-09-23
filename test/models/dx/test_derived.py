@@ -793,7 +793,6 @@ def test_derived_tcwv_invalid_coords(invalid_coords):
 
 def test_derivedws_conformance():
     model = DerivedWS([100], grid=_grid())
-    assert model.stochastic is False
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
@@ -803,7 +802,6 @@ def test_derivedrh_conformance():
     # Native equality treats identical NaN locations as deterministic. Numerical
     # behavior at unphysical temperatures is covered separately below.
     model = DerivedRH([100], grid=_grid())
-    assert model.stochastic is False
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
@@ -811,7 +809,6 @@ def test_derivedrh_conformance():
 
 def test_derivedrhdewpoint_conformance():
     model = DerivedRHDewpoint(grid=_grid())
-    assert model.stochastic is False
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
@@ -819,7 +816,6 @@ def test_derivedrhdewpoint_conformance():
 
 def test_derivedvpd_conformance():
     model = DerivedVPD([100], grid=_grid())
-    assert model.stochastic is False
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
@@ -836,7 +832,6 @@ def test_derivedsurfacepressure_conformance():
         surface_geopotential=z_surface,
         surface_geopotential_coords=z_surf_coords,
     )
-    assert model.stochastic is False
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
@@ -844,7 +839,6 @@ def test_derivedsurfacepressure_conformance():
 
 def test_derivedtcwv_conformance():
     model = DerivedTCWV([1000, 850, 500], grid=_grid())
-    assert model.stochastic is False
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]

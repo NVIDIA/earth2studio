@@ -98,14 +98,16 @@ def extract_from_historic_data(
     times = np.arange(n_steps) * time_step
     data_source = data_source_mngr.select_data_source(ic + times)
 
-    field = fetch_data(
+    xx, coords = fetch_data(
         data_source,
         time=[ic],
         lead_time=times,
         variable=variables,
         device="cpu",
     )
-    xx, coords = field.expand_dims(ensemble=[0]).e2s.to_torch()
+    xx = xx.unsqueeze(0)
+    coords["ensemble"] = np.array([0])
+    coords.move_to_end("ensemble", last=False)
 
     heights, height_coords = (
         load_heights(cfg.cyclone_tracking.orography_path)

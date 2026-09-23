@@ -34,6 +34,7 @@ from types import SimpleNamespace
 from test_cbottle_infill import _field
 
 from earth2studio.models.conformance import (
+    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleTCGuidance
@@ -467,9 +468,13 @@ class TestCBottleTCMock:
             "cuda:0"
         )
         dx.sampler_steps = 2  # Speed up sampler
-        check_diagnostic_contract(
-            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
-        )
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(
+                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+            )
+        assert exc_info.value.violations == [
+            "D9: repeated runs with the same input and seed disagree"
+        ]
 
 
 @pytest.mark.package

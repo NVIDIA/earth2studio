@@ -70,18 +70,6 @@ The recipe drives your model via the standard earth2studio iterator
 (`create_iterator` for prognostics; `__call__` for diagnostics), so no
 Python changes are needed as long as the class honours that contract.
 
-Prognostic and diagnostic model calls accept and return one `xr.DataArray`.
-`input_coords()` and `output_coords()` return allocation-free coordinate signatures:
-read their `.dims`, `.sizes`, and `.coords`, never their field `.values`.
-`fetch_data` already returns a field DataArray. Keep it labelled through model
-calls and iteration; convert with `.e2s.to_torch()` at the recipe's existing
-perturbation, scoring, or IO boundary. The assimilation protocol is unchanged.
-
-For a StormScope-to-NSRDB diagnostic chain, configure the interpolator with
-`nsrdb.build_input_interpolator(source.lat, source.lon, input_grid=source)`, where
-`source` is the StormScope output signature. Passing that signature preserves
-the native `y/x` labels as well as the geographic coordinates.
-
 If your model has non-standard behavior (extra inputs, coupled model
 components, a different iteration pattern) and you need to add
 recipe-side logic to accommodate it, skip to the pipeline section

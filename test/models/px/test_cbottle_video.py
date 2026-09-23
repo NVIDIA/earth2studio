@@ -30,6 +30,7 @@ except ImportError:
     cbottle = None
 
 from earth2studio.models.conformance import (
+    ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import CBottleVideo
@@ -311,7 +312,11 @@ class TestCBottleVideoMock:
         """
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
         px.sampler_steps = 2  # Speed up sampler
-        check_prognostic_contract(px, nsteps=1, device=device)
+        with pytest.raises(ContractException) as exc_info:
+            check_prognostic_contract(px, nsteps=1, device=device)
+        assert exc_info.value.violations == [
+            "P13: repeated runs with the same input and seed disagree"
+        ]
 
 
 @pytest.mark.package

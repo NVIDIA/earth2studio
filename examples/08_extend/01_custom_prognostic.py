@@ -79,14 +79,6 @@ class CustomPrognostic(torch.nn.Module, DataArrayPrognosticMixin):
     def __init__(self, noise_amplitude: float = 0.1):
         super().__init__()
         self.amp = noise_amplitude
-        self._generator = None
-
-    stochastic = True
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed local CPU noise without modifying the global random stream."""
-        if reset or self._generator is None:
-            self._generator = torch.Generator().manual_seed(seed)
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the prognostic model
@@ -147,9 +139,7 @@ class CustomPrognostic(torch.nn.Module, DataArrayPrognosticMixin):
         """
         out_coords = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
-        noise = torch.randn(
-            tensor.shape, generator=self._generator, dtype=tensor.dtype
-        ).to(tensor.device)
+        noise = torch.rand_like(tensor)
         return from_torch(tensor + self.amp * noise, out_coords)
 
     def _default_generator(
@@ -161,7 +151,12 @@ class CustomPrognostic(torch.nn.Module, DataArrayPrognosticMixin):
         yield x
 
         while True:
-            x = self.rear_hook(self(self.front_hook(x)))
+            x = self.front_hook(x)
+            out_coords = self.output_coords(x)
+            tensor, _ = x.e2s.to_torch()
+            x = self.rear_hook(
+                from_torch(tensor + self.amp * torch.randn_like(tensor), out_coords)
+            )
             yield x
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:

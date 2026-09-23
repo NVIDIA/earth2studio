@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import json
-from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -153,7 +152,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     _MODEL_DTYPE = torch.float32
     _CLEARNESS_INDEX_EPS = 10.0
     _SOLAR_CONSTANT = 1361.0
-    stochastic = True
 
     def __init__(
         self,
@@ -236,11 +234,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         return CurvilinearGrid(
             self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
         )
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the isolated sampling seed, retaining constructor seed semantics."""
-        if reset or self.seed is None:
-            self.seed = seed
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system.
@@ -740,26 +733,17 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         # The numerical kernel retains its [batch, time, channel, y, x] layout.
         tensor = tensor.reshape(1, -1, *tensor.shape[-3:])
         samples = []
-        devices = [tensor.device] if tensor.is_cuda else []
-        with (
-            torch.random.fork_rng(devices=devices)
-            if self.seed is not None
-            else nullcontext()
-        ):
-            for sample_index in range(self.number_of_samples):
-                if self.seed is not None:
-                    torch.random.default_generator.manual_seed(self.seed + sample_index)
-                    if tensor.is_cuda:
-                        with torch.cuda.device(tensor.device):
-                            torch.cuda.manual_seed(self.seed + sample_index)
-                samples.append(
-                    self._forward_sample(tensor, times).reshape(
-                        *[x.sizes[d] for d in leading],
-                        len(self.output_variables),
-                        len(self.y),
-                        len(self.x),
-                    )
+        for sample_index in range(self.number_of_samples):
+            if self.seed is not None:
+                torch.manual_seed(self.seed + sample_index)
+            samples.append(
+                self._forward_sample(tensor, times).reshape(
+                    *[x.sizes[d] for d in leading],
+                    len(self.output_variables),
+                    len(self.y),
+                    len(self.x),
                 )
+            )
         position = output_coords.dims.index("sample")
         result = from_torch(torch.stack(samples, dim=position), output_coords)
         result.encoding = deepcopy(x.encoding)

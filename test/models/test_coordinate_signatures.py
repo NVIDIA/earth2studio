@@ -309,8 +309,6 @@ def test_precipitation_array_call():
 def test_regional_array_rollout(regional_model):
     model = regional_model
     model.means = torch.tensor(0.0)
-    model._seed = None
-    model._rng_step = 0
     coords = coord_array_like(
         model.input_coords(),
         {"batch": [0, 1], "time": np.array(["2026-09-17"], dtype="datetime64[ns]")},

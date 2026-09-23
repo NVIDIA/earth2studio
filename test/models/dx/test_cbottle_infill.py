@@ -32,6 +32,7 @@ except ImportError:
 from types import SimpleNamespace
 
 from earth2studio.models.conformance import (
+    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleInfill
@@ -383,9 +384,13 @@ class TestCBottleMock:
         input_variables = np.array(["u10m", "v10m"])
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to("cuda:0")
         dx.sampler_steps = 2  # Speed up sampler
-        check_diagnostic_contract(
-            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
-        )
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(
+                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+            )
+        assert exc_info.value.violations == [
+            "D9: repeated runs with the same input and seed disagree"
+        ]
 
 
 @pytest.mark.package

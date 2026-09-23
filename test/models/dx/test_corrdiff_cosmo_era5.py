@@ -42,6 +42,7 @@ from test_corrdiff import _input_field
 import earth2studio.models.dx.corrdiff_cosmo_era5 as cosmo_module
 from earth2studio.models.auto import Package
 from earth2studio.models.conformance import (
+    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
@@ -332,7 +333,11 @@ def test_corrdiff_cosmo_era5_conformance():
         channel_transforms={},
         constraints={},
     )
-    assert check_diagnostic_contract(dx) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_diagnostic_contract(dx)
+    assert exc_info.value.violations == [
+        "D9: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.mark.parametrize("number_of_samples", [1, 3])

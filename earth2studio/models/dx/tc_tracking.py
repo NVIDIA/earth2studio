@@ -77,7 +77,6 @@ OUT_VARIABLES = ["tclat", "tclon", "tcmsl", "tcw10m"]
 class _TCTrackerBase:
 
     PATH_FILL_VALUE = -9999  # Should not be in lat/lon range for safety
-    stochastic = False
 
     def _track_coords(
         self, x: CoordinateSystem, paths: int = 0, steps: int = 0

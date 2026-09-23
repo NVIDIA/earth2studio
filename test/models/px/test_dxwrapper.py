@@ -446,6 +446,19 @@ def test_diagnosticwrapper_conformance(tmp_path):
     iterator.close()
     wrapped_model.clear_hooks()
 
+    class SamplingWind(DerivedWS):
+        def __call__(self, x):
+            result = super().__call__(x)
+            result.data += torch.randn(result.shape).numpy()
+            return result
+
+    sampled = DiagnosticWrapper(px_model, SamplingWind(["10m"], grid=grid))
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(sampled)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
+
     from earth2studio.utils.checkpoint import Checkpoint
 
     checkpoint = Checkpoint("wrapper", path=tmp_path, mode="append", level=2)

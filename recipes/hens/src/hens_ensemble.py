@@ -19,6 +19,7 @@ from collections import OrderedDict
 from collections.abc import Iterator
 from datetime import datetime
 from math import ceil
+from typing import Any
 
 import numpy as np
 import torch
@@ -32,9 +33,7 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.run import _dimension_coords, _map_field
-from earth2studio.utils.coords import CoordSystem, split_coords
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 from .hens_utilities import (
@@ -126,8 +125,8 @@ class EnsembleBase:
         self.prognostic = prognostic
         self.prognositc_ic = None
         self.dx_model_dict = dx_model_dict
-        self.dx_ic_dict: dict[str, xr.DataArray] = {}
-        self.cd_ic_dict: dict[str, xr.DataArray] = {}
+        self.dx_ic_dict: dict[str, OrderedDict[str, Any]] = {}
+        self.cd_ic_dict: dict[str, OrderedDict[str, Any]] = {}
         self.cyclone_tracking = cyclone_tracking
         self.cyclone_tracking_ic = None
 
@@ -191,7 +190,7 @@ class EnsembleBase:
 
         logger.info(f"Inference device: {self.device}")
         self.prognostic.to(self.device)
-        self.prognositc_ic = self.prognostic.input_coords()
+        self.prognositc_ic: OrderedDict[str, Any] = self.prognostic.input_coords()
 
         for k, dx_model in self.dx_model_dict.items():
             dx_model.to(self.device)
@@ -220,15 +219,13 @@ class EnsembleBase:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0 = fetch_data(
+        self.x0, self.coords0 = fetch_data(
             source=data,
             time=time,
-            variable=self.prognositc_ic.coords["variable"].values,
-            lead_time=self.prognositc_ic.coords["lead_time"].values,
-            device=self.device,
+            variable=self.prognositc_ic["variable"],
+            lead_time=self.prognositc_ic["lead_time"],
+            device="cpu",
         )
-        self.x0 = _map_field(self.x0, self.prognositc_ic)
-        self.coords0 = _dimension_coords(self.x0)
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         return
@@ -289,7 +286,7 @@ class EnsembleBase:
         self.batch_size = min(self.nensemble, batch_size)
         self.number_of_batches = ceil(self.nensemble / self.batch_size)
 
-    def prep_loop(self, batch_id: int) -> tuple[Iterator[xr.DataArray], int, str, int]:
+    def prep_loop(self, batch_id: int) -> tuple[Iterator[tuple], int, str, int]:
         """Preparing mini batch for inference by setting ensemble IDs, perturbing
         ICs and creating the inference iterator of the prognostic model.
 
@@ -306,7 +303,7 @@ class EnsembleBase:
         """
 
         # Get fresh batch data
-        xx = self.x0
+        xx = self.x0.to(self.device)
 
         # calculate mini batch size and define coords for ensemble
         num_batches_per_ic = int(np.ceil(self.nensemble / self.batch_size))
@@ -328,10 +325,10 @@ class EnsembleBase:
         } | self.coords0.copy()
 
         # Unsqueeze xx for batching ensemble
-        xx = xx.expand_dims(ensemble=coords["ensemble"]).copy(deep=True)
+        xx = xx.unsqueeze(0).repeat(mini_batch_size, *([1] * xx.ndim))
 
         # Map lat and lon if needed
-        xx = _map_field(xx, self.prognositc_ic)
+        xx, coords = map_coords(xx, coords, self.prognositc_ic)
 
         # set torch random seed for reproducibility
         # every batch gets different random seed by concatenating base string with batch id and using hash algortihm
@@ -340,11 +337,10 @@ class EnsembleBase:
         torch.manual_seed(torch_seed)
 
         # Perturb ensemble
-        tensor, coords = self.perturbation(*xx.e2s.to_torch())
-        xx = from_torch(tensor, xx.assign_coords(coords))
+        xx, coords = self.perturbation(xx, coords)
 
         # Create prognostic iterator
-        model = self.prognostic.create_iterator(xx)
+        model = self.prognostic.create_iterator(xx, coords)
 
         return model, mini_batch_size, full_seed_string, torch_seed
 
@@ -376,7 +372,8 @@ class EnsembleBase:
 
             if self.cd_model_dict:
                 cd_output_dict = {
-                    cd_name: {"output": []} for cd_name in self.cd_model_dict
+                    cd_name: {"coords": None, "output": []}
+                    for cd_name in self.cd_model_dict
                 }
 
             with tqdm(
@@ -384,45 +381,64 @@ class EnsembleBase:
                 desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
                 leave=False,
             ) as pbar:
-                for step, xx in enumerate(model):
+                for step, (xx, coords) in enumerate(model):
 
                     for dx_name, dx_model in self.dx_model_dict.items():
                         # select input vars, remove lead time dim and apply diagnostic model
-                        yy = dx_model(_map_field(xx, self.dx_ic_dict[dx_name]))
+                        yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
+                        yy, codib = dx_model(yy, codia)
 
                         # map lat/lon of diagnostic model to forecast model (often there is difference in lat)
                         _codib = OrderedDict(
-                            {_dim: xx.coords[_dim].values for _dim in ["lat", "lon"]}
+                            {_dim: coords[_dim] for _dim in ["lat", "lon"]}
                         )
-                        yy = _map_field(yy, _codib)
+                        yy, codib = map_coords(yy, codib, _codib)
 
                         # concatenate tensors along variable dimension
-                        xx = xr.concat((xx, yy), dim="variable", join="exact")
+                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
 
                     # --- CorrDiff models (run after each step, separately) ---
                     # For each CorrDiff model, run the downscaling, collect outputs and coordinates,
                     # and after the batch, save the results to NetCDF using the configured output path.
                     for cd_name, cd_model in self.cd_model_dict.items():
-                        yy = cd_model(_map_field(xx, self.cd_ic_dict[cd_name]))
+                        yy, codia = map_coords(xx, coords, self.cd_ic_dict[cd_name])
+                        yy, codib = cd_model(yy, codia)
 
                         # Online concat for output (along lead_time axis=2)
                         cd_output_dict[cd_name]["output"].append(yy)
 
+                        # Online concat for coords: only 'lead_time' is concatenated, others are kept from first step
+                        if cd_output_dict[cd_name]["coords"] is None:
+                            cd_output_dict[cd_name]["coords"] = {
+                                k: v for k, v in codib.items()
+                            }
+                        else:
+                            # Only concatenate 'lead_time'
+                            cd_output_dict[cd_name]["coords"]["lead_time"] = (
+                                np.concatenate(
+                                    [
+                                        cd_output_dict[cd_name]["coords"]["lead_time"],
+                                        codib["lead_time"],
+                                    ]
+                                )
+                            )
+
                     if self.cyclone_tracking:
                         # Delete lead_time, no need for it in the tc tracks since
                         # steps are present in the tracks
-                        xx_tc = xx.isel(lead_time=0, drop=True)
+                        xx_tc = xx[:, :, 0]
+                        coords_tc = coords.copy()
+                        del coords_tc["lead_time"]
                         # get and collect track elements for each time step
-                        tracks_da = self.cyclone_tracking(
-                            _map_field(xx_tc, self.cyclone_tracking_ic)
+                        tracks_tensor, track_coords = self.cyclone_tracking(
+                            *map_coords(xx_tc, coords_tc, self.cyclone_tracking_ic)
                         )
 
                     # pass output variables to io backend
                     for k in self.io_dict.keys():
                         output_coords = self.output_coords_dict[k]
-                        self.io_dict[k].write(
-                            *split_coords(*_map_field(xx, output_coords).e2s.to_torch())
-                        )
+                        xx_sub, coords_sub = map_coords(xx, coords, output_coords)
+                        self.io_dict[k].write(*split_coords(xx_sub, coords_sub))
 
                     pbar.update(1)
                     if step == self.nsteps:
@@ -431,7 +447,11 @@ class EnsembleBase:
             # If cyclone tracks add to list of data arrays
             if self.cyclone_tracking:
                 # Create DataArray for the tracks
-                tracks_da = tracks_da.e2s.as_numpy()
+                tracks_da = xr.DataArray(
+                    data=tracks_tensor.cpu().numpy(),
+                    coords=track_coords,
+                    dims=list(track_coords.keys()),
+                )
                 os.makedirs(self.cyclone_tracking_out_path, exist_ok=True)
                 file_name = np.datetime_as_string(self.ic, unit="s")
                 file_name = f"tracks_pkg_{self.pkg}_{file_name}_batch_{batch_id}.nc"

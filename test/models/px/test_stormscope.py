@@ -25,7 +25,7 @@ import xarray as xr
 import earth2studio.models.px.stormscope as scope_module
 import earth2studio.utils.interp as interp_module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
@@ -402,7 +402,11 @@ def test_stormscope_iter(batch, device):
         if i > 3:
             break
     model.clear_hooks()
-    assert check_prognostic_contract(model) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(model)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -592,9 +596,9 @@ def test_stormscope_call_with_conditioning(device):
     result = model.call_with_conditioning(state, condition)
     assert result.dims == state.dims
     np.testing.assert_array_equal(result.ensemble, [7, 9])
-    model.set_rng(41)
+    torch.manual_seed(41)
     baseline = model.call_with_conditioning(state, condition)
-    model.set_rng(41)
+    torch.manual_seed(41)
     annotated = model.call_with_conditioning(
         state,
         condition.assign_coords(
@@ -604,7 +608,7 @@ def test_stormscope_call_with_conditioning(device):
     np.testing.assert_array_equal(baseline.e2s.as_numpy(), annotated.e2s.as_numpy())
     state = state.assign_coords(batch=7)
     condition = condition.assign_coords(batch=7)
-    model.set_rng(41)
+    torch.manual_seed(41)
     scalar_batch = model.call_with_conditioning(state, condition)
     xr.testing.assert_identical(scalar_batch, baseline.assign_coords(batch=7))
     assert state.batch.item() == condition.batch.item() == 7

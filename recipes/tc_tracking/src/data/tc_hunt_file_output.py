@@ -54,9 +54,18 @@ def initialise_output_coords(
         Output coordinate mapping with keys *time*, *lead_time*,
         *variable*, and the spatial dimensions from the model.
     """
-    from earth2studio.run import _output_dimensions
+    out_coords = OrderedDict(
+        {
+            k: v
+            for k, v in model.output_coords(model.input_coords()).items()
+            if (k != "batch") and (v.shape != 0)
+        }
+    )
 
-    out_coords = _output_dimensions(model, ics, cfg.n_steps)
+    out_coords["time"] = ics
+    out_coords["lead_time"] = np.asarray(
+        [out_coords["lead_time"] * i for i in range(cfg.n_steps + 1)]
+    ).flatten()
     out_coords["variable"] = np.array(out_vars)
 
     out_coords.move_to_end("lead_time", last=False)

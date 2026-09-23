@@ -142,79 +142,6 @@ def _create_yx_zarr_store(path, times, variables):
 
 
 class TestCompositeSource:
-    def test_fuxi_campaign_config_supplies_hourly_cadence(self):
-        from pathlib import Path
-        from unittest.mock import patch
-
-        import hydra
-        from omegaconf import OmegaConf
-        from src.data import fetch_input_data
-        from src.predownload_utils import _RegriddedDataSource
-
-        from earth2studio.data import ARCO_ERA5, NCAR_ERA5, fetch_data
-
-        cfg = OmegaConf.load(
-            Path(__file__).parents[1]
-            / "scorecard/cfg/campaign/fuxi_2025_scorecard.yaml"
-        )
-        source = hydra.utils.instantiate(cfg.ic_source)
-        assert isinstance(source._sources["arco"], ARCO_ERA5)
-        assert isinstance(source._sources["ncar"], NCAR_ERA5)
-        assert source.time_step == np.timedelta64(1, "h")
-
-        def hourly_fields(self, time, variable):
-            return xr.DataArray(
-                np.full((len(time), len(variable), 2, 2), 2.0),
-                dims=("time", "variable", "lat", "lon"),
-                coords={
-                    "time": np.asarray(time, dtype="datetime64[ns]"),
-                    "variable": variable,
-                    "lat": [0.0, 1.0],
-                    "lon": [0.0, 1.0],
-                },
-            )
-
-        times = np.array([np.datetime64("2024-01-01")])
-        variables = np.array(["r500", "tp:sum:6h"])
-        # Only remote retrieval is replaced; instantiate the actual campaign source
-        # and exercise the real fetch/reduction and predownload regrid paths.
-        with (
-            patch.object(ARCO_ERA5, "__call__", hourly_fields),
-            patch.object(NCAR_ERA5, "__call__", hourly_fields),
-        ):
-            field = fetch_input_data(
-                source, times, variables, np.array([0], dtype="timedelta64[h]")
-            )
-            np.testing.assert_array_equal(field.sel(variable="tp:sum:6h"), 12)
-            np.testing.assert_array_equal(field.sel(variable="r500"), 2)
-            wrapped = _RegriddedDataSource(
-                source, np.array([0.0, 0.5, 1.0]), np.array([0.0, 1.0])
-            )
-            cached = fetch_data(wrapped, times, variables)
-            np.testing.assert_array_equal(cached.sel(variable="tp:sum:6h"), 12)
-
-    def test_cached_qualified_inputs_are_not_reduced_again(self, tmp_path):
-        from src.data import fetch_input_data
-
-        times = np.array(
-            [np.datetime64("2024-01-01T00"), np.datetime64("2024-01-01T06")]
-        )
-        ds = xr.Dataset(
-            {"tp:sum:6h": (("time", "lat", "lon"), np.full((2, 2, 3), 12.0))},
-            coords={"time": times, "lat": np.arange(2), "lon": np.arange(3)},
-        )
-        path = tmp_path / "qualified.zarr"
-        ds.to_zarr(path)
-        result = fetch_input_data(
-            PredownloadedSource(str(path)),
-            times[-1:],
-            np.array(["tp:sum:6h"]),
-            np.array([-6, 0], dtype="timedelta64[h]"),
-        )
-        assert result.dims == ("time", "lead_time", "variable", "lat", "lon")
-        np.testing.assert_array_equal(result.values, 12)
-        assert "tp:sum:6h" in result.attrs["earth2studio_statistics"]
-
     """CompositeSource dispatches variable requests across multiple sources.
 
     Fixtures create two small zarrs on a shared ``(time, y, x)`` grid but
@@ -268,22 +195,6 @@ class TestCompositeSource:
         src = PredownloadedSource(str(path))
         with pytest.raises(ValueError, match="unknown sources"):
             CompositeSource({"goes": src}, variable_index={"abi01c": "typo"})
-
-    def test_temporal_statistics_use_component_cadence(self):
-        from collections import OrderedDict
-
-        from earth2studio.data import Constant, fetch_data
-
-        domain = OrderedDict(lat=np.arange(2), lon=np.arange(3))
-        source = Constant(domain, 2)
-        source.time_step = np.timedelta64(1, "h")
-        composite = CompositeSource({"hourly": source}, {"tp": "hourly"})
-        field = fetch_data(
-            composite, np.array([np.datetime64("2024-01-01")]), np.array(["tp:sum:6h"])
-        )
-        np.testing.assert_array_equal(field.values, 12)
-        assert list(field.coords["variable"].values) == ["tp:sum:6h"]
-        assert "tp:sum:6h" in field.attrs["earth2studio_statistics"]
 
 
 # ---------------------------------------------------------------------------

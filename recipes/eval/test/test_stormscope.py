@@ -111,7 +111,7 @@ class _StubStormScope:
     # --- coords ------------------------------------------------------------
 
     def input_coords(self) -> CoordSystem:
-        coords = OrderedDict(
+        return OrderedDict(
             [
                 ("batch", np.empty(0)),
                 ("time", np.empty(0)),
@@ -121,15 +121,19 @@ class _StubStormScope:
                 ("x", self.x.numpy()),
             ]
         )
-        from earth2studio.utils.coords import coord_array
-
-        return coord_array(tuple(coords), coords, dynamic=("batch", "time"))
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        from earth2studio.utils.coords import coord_array_like
-
-        out_lt = np.array([_hours_td(60)]) + input_coords.coords["lead_time"].values[-1]
-        return coord_array_like(input_coords, {"lead_time": out_lt})
+        out_lt = np.array([_hours_td(60)]) + input_coords["lead_time"][-1]
+        return OrderedDict(
+            [
+                ("batch", input_coords["batch"]),
+                ("time", input_coords["time"]),
+                ("lead_time", out_lt),
+                ("variable", np.array(self.variables)),
+                ("y", self.y.numpy()),
+                ("x", self.x.numpy()),
+            ]
+        )
 
     # --- interpolators -----------------------------------------------------
 
@@ -158,21 +162,23 @@ class _StubStormScope:
             len(self.x),
         )
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+    def __call__(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
         self.call_count += 1
-        from earth2studio.utils.cupy import from_torch
-
-        out_coords = self.output_coords(x)
-        return from_torch(torch.zeros(out_coords.shape), out_coords)
+        out_coords = self.output_coords(coords)
+        return torch.zeros(self._forward_shape(coords, out_coords)), out_coords
 
     def next_input(
         self,
-        pred: xr.DataArray,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
+        pred: torch.Tensor,
+        pred_coords: CoordSystem,
+        x: torch.Tensor,
+        x_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         # Non-sliding (60-min model): pred becomes the next input directly.
         self.next_input_calls += 1
-        return pred
+        return pred, pred_coords.copy()
 
     # --- misc --------------------------------------------------------------
 
@@ -197,12 +203,14 @@ class _StubStormScopeMRMS(_StubStormScope):
 
     def call_with_conditioning(
         self,
-        x: xr.DataArray,
-        conditioning: xr.DataArray,
-    ) -> xr.DataArray:
+        x: torch.Tensor,
+        coords: CoordSystem,
+        conditioning: torch.Tensor,
+        conditioning_coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
         self.cond_call_count += 1
         self.last_conditioning = conditioning
-        return self.__call__(x)
+        return self.__call__(x, coords)
 
 
 # ---------------------------------------------------------------------------
@@ -315,12 +323,10 @@ class TestBuildTotalCoords:
 
         # Monkey-patch MRMS stub to advertise a 10-minute stride.
         def _mrms_output_coords(input_coords):
-            from earth2studio.utils.coords import coord_array_like
-
-            out_lt = (
-                np.array([_hours_td(10)]) + input_coords.coords["lead_time"].values[-1]
-            )
-            return coord_array_like(input_coords, {"lead_time": out_lt})
+            out_lt = np.array([_hours_td(10)]) + input_coords["lead_time"][-1]
+            oc = input_coords.copy()
+            oc["lead_time"] = out_lt
+            return oc
 
         pipeline.model_mrms.output_coords = _mrms_output_coords  # type: ignore[method-assign]
         times = np.array([np.datetime64("2023-12-05T12:00:00")])

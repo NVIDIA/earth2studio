@@ -33,9 +33,8 @@ Use `torch.nn.Module` and, for packaged weights, `AutoModelMixin`.
   `.e2s.to_torch()` at the core boundary and `from_torch(output, signature)` on return.
   CPU fields are NumPy-backed; CUDA fields are CuPy-backed.
 - Never mutate borrowed input values or metadata. Clone before in-place kernels.
-- Declare `stochastic`; stochastic diagnostics implement
-  `set_rng(seed, reset=True)` with local or isolated RNG state. Preserve unseeded
-  nondeterministic defaults and do not override explicit seeds with constructor state.
+- Preserve existing seed attributes, sampler progression, global or local RNG
+  ownership and stochastic declarations during the DataArray migration.
 
 ## Loading and verification
 

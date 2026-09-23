@@ -146,7 +146,7 @@ class CorrDiffCMIP6(CorrDiff):
     ...     CorrDiffCMIP6.load_default_package(),
     ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
     ... )
-    >>> model.set_rng(1) # Set seed for reproducibility
+    >>> model.seed = 1 # Set seed for reprod
     >>> model.number_of_samples = 1 # Modify number of samples if needed
     >>> model = model.to(device)
     >>>

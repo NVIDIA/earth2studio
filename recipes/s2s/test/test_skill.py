@@ -84,17 +84,20 @@ def main() -> None:
                     "_lon": fcst.lon.values,
                 }
             )
-            verif = fetch_data(
+            verif, verif_coords = fetch_data(
                 source=data_source,
-                variable=[var],
+                variable=var,
                 time=ds.time.values,
                 lead_time=verif_lead_times,
                 target_grid=interp_coords,
             )
-            if "_lat" in verif.dims:
-                verif = verif.rename(_lat="lat", _lon="lon")
-            verif = verif.sel(lat=fcst.lat, lon=fcst.lon).squeeze("variable", drop=True)
-            verif, verif_coords = verif.e2s.to_torch()
+            verif = verif[:, :, 0, :, :]
+            verif_coords.pop("variable")
+            verif_coords["lat"], verif_coords["lon"] = (
+                verif_coords["_lat"],
+                verif_coords["_lon"],
+            )
+            del verif_coords["_lat"], verif_coords["_lon"]
 
             # Check within 5% of expected scores
             scores, score_coords = metric(

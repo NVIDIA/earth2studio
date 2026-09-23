@@ -39,11 +39,8 @@ from typing import Any
 
 import numpy as np
 import torch
-import xarray as xr
 
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.run import _map_field
-from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.coords import CoordSystem
 
 # The shared verification grid: ERA5 0.25°, latitude 90 -> -90.
 ERA5_LAT = np.linspace(90.0, -90.0, 721)
@@ -82,7 +79,7 @@ class PersistenceBaseline:
         )
 
 
-class ClimatologyForecast(torch.nn.Module, DataArrayPrognosticMixin):
+class ClimatologyForecast(torch.nn.Module):
     """Prognostic-protocol baseline that forecasts the climatology.
 
     At every lead time the "forecast" is the climatological field for the
@@ -131,42 +128,38 @@ class ClimatologyForecast(torch.nn.Module, DataArrayPrognosticMixin):
         """Attach the (local) climatology ``DataSource`` to read from."""
         self._source = source
 
-    def input_coords(self) -> xr.DataArray:
+    def input_coords(self) -> CoordSystem:
         """Initial-condition coordinate system (single analysis frame)."""
-        return coord_array(
-            ("batch", "lead_time", "variable", "lat", "lon"),
+        return OrderedDict(
             {
+                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self._variable),
-            },
-            dynamic=("batch",),
-            grid="latlon-0.25deg",
+                "lat": ERA5_LAT.copy(),
+                "lon": ERA5_LON.copy(),
+            }
         )
 
-    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
         """Output coordinate system: one step of ``dt`` past the input."""
-        return coord_array_like(
-            input_coords,
-            {"lead_time": input_coords.coords["lead_time"].values[-1:] + self._dt},
+        out: CoordSystem = OrderedDict(
+            {
+                "batch": np.empty(0),
+                "lead_time": np.array([self._dt]),
+                "variable": np.array(self._variable),
+                "lat": ERA5_LAT.copy(),
+                "lon": ERA5_LON.copy(),
+            }
         )
+        if input_coords is not None and "lead_time" in input_coords:
+            out["lead_time"] = out["lead_time"] + input_coords["lead_time"][-1]
+            if "batch" in input_coords:
+                out["batch"] = input_coords["batch"]
+        return out
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Fetch climatology at the next valid time in the input field's layout."""
-        signature = self.output_coords(x)
-        lead = signature.coords["lead_time"].values
-        da = self._source(x.coords["time"].values + lead[-1], self._variable)
-        da = da.assign_coords(time=x.coords["time"]).expand_dims(lead_time=lead, axis=1)
-        da = _map_field(da, self.input_coords())
-        if x.e2s.is_cupy:
-            da = da.e2s.as_cupy(device=x.data.device.id)
-        else:
-            da = da.e2s.as_numpy()
-        for dim in x.dims:
-            if dim not in da.dims:
-                da = da.expand_dims({dim: x.coords[dim]})
-        return da.transpose(*x.dims)
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
         """Yield the analysis at lead 0, then climatology at each lead.
 
         The climatology field is re-indexed onto the model's own lat/lon
@@ -179,7 +172,29 @@ class ClimatologyForecast(torch.nn.Module, DataArrayPrognosticMixin):
                 "scorecard.utils.pipelines.ClimatologyPipeline, which "
                 "predownloads the climatology store and injects it."
             )
-        yield x
+        base: CoordSystem = OrderedDict(
+            (k, v.copy() if isinstance(v, np.ndarray) else v) for k, v in coords.items()
+        )
+        time0 = np.datetime64(np.asarray(coords["time"]).ravel()[0], "ns")
+        yield x, base
+
+        step = 0
         while True:
-            x = self.rear_hook(self(self.front_hook(x)))
-            yield x
+            step += 1
+            lead = self._dt * step
+            da = self._source([time0 + lead], self._variable)
+            da = da.reindex(lat=ERA5_LAT, lon=ERA5_LON)
+            field = torch.from_numpy(
+                np.ascontiguousarray(
+                    da.transpose("time", "variable", "lat", "lon").values[0],
+                    dtype=np.float32,
+                )
+            ).to(x.device)
+            # Broadcast the [variable, lat, lon] field into x's layout
+            # (leading singleton axes, e.g. time and lead_time).
+            out = torch.broadcast_to(
+                field.reshape((1,) * (x.ndim - 3) + field.shape), x.shape
+            )
+            out_coords = base.copy()
+            out_coords["lead_time"] = np.array([lead])
+            yield out, out_coords

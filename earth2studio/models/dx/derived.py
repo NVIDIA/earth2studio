@@ -31,8 +31,6 @@ from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
 class _DerivedDiagnostic(torch.nn.Module):
-    stochastic = False
-
     def __init__(self, grid: str | GridDefinition) -> None:
         super().__init__()
         definition = resolve_grid(grid) if isinstance(grid, str) else grid

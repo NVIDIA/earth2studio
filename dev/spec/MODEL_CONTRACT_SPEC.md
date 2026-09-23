@@ -293,29 +293,35 @@ streams reset. Reproducibility checks alone cannot catch this interference: a mo
 may reproduce perfectly in isolation while destroying independence in a cascade.
 The rule constrains the observable effect, not the isolation mechanism.
 
-**Known deviation:** `fcn3` fails `P14` because core noise-state refresh draws
-globally. `dlesym` uses a local generator. Migrated `Aurora1p5Ensemble` isolates
-seeded execution and preserves the caller's CPU and model-device CUDA RNG states.
+**Known deviations:** `dlesym` uses a local generator and conforms; `fcn3` fails
+`P14` because core noise-state refresh draws globally; `aurora1p5` fails through
+bare `torch.manual_seed(seed)`. `Aurora1p5Ensemble` is exempt in
+`test/models/test_model_conformance.py` pending a follow-up wrapper fix.
 
 ### Seeding is the only entry point
 
 A constructor `seed` must not override later `set_rng()` calls.
-`Aurora1p5Ensemble` initializes its isolated stream from the constructor seed once;
-later explicit seeding takes precedence. Iterator creation continues that stream;
-repeat a rollout by explicitly resetting to the same seed. Removing constructor
+`Aurora1p5Ensemble` violates this by reapplying `self.set_rng(self.seed)` in
+`create_iterator()`; its exemption also covers this pending fix. Removing constructor
 seeds remains open, including the `load_model(seed=...)` APIs of `corrdiff`,
 `cbottle_sr`, and `stormscope_dx_nsrdb`.
 
 ### Current wrappers
 
-Stochastic wrappers expose `set_rng(seed, reset=True)` through their local generator,
-functional PRNG key, core seed, or forked global-RNG implementation. DLESyM declares
-stochasticity conditionally on `use_cln`; composition wrappers forward seeding to
-their stochastic components. Unseeded nondeterministic defaults remain supported.
-The pinned remaining exceptions are FCN3's core refresh (`P14`), FuXi-S2S's
-unseedable ONNX perturbations (`P13`), and DataReplay configured with an uncached
-random data source (`P13`). See the exact inventory and existing regression tests
-in `test/models/test_model_conformance.py`.
+The DataArray protocol migration preserves existing model randomness. The RNG
+rules above remain targets for separate follow-up work, not changes in this PR.
+`fcn3` and `dlesym` retain `(seed, reset)` controls; `Aurora1p5Ensemble` retains
+`set_rng(seed: int | None)` and global seeding. WeatherNext retains its existing
+functional-key `set_rng`, including updating `seed` with `reset=False` while
+leaving the key unchanged. GenCast retains per-time functional keys and its seed
+attribute. Composition wrappers do not add seeding dispatch.
+
+CorrDiff and cBottle retain their existing constructor/attribute seed controls.
+CBottleSR retains its pre-existing fork and per-sample seed progression; infill
+retains its backend's lack of seed support. StormScopeDxNSRDB still globally seeds
+each sample. StormCast, StormCastCONUS, StormScope and UCast retain their global
+diffusion/dropout draws. Existing undeclared-randomness exceptions remain pinned
+in `test/models/test_model_conformance.py` and the corresponding model tests.
 
 ## Conformance
 

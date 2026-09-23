@@ -553,68 +553,6 @@ def _make_da_forecast_pipeline(
 
 
 class TestAssimilationForecastPipeline:
-    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-    def test_cuda_analysis_and_fill_interpolate_on_host(self):
-        from earth2studio.data import Constant
-
-        source_domain = OrderedDict(lat=np.array([0.0, 1.0]), lon=np.array([0.0, 1.0]))
-        target_domain = OrderedDict(
-            lat=np.array([0.0, 0.5, 1.0]), lon=np.array([0.0, 1.0])
-        )
-        pipeline = _make_da_forecast_pipeline(
-            ["t2m"], fill_source=Constant(source_domain, 7)
-        )
-        pipeline.da_model.lat = source_domain["lat"]
-        pipeline.da_model.lon = source_domain["lon"]
-        pipeline.prognostic = Persistence(DA_VARIABLES, target_domain).to("cuda:0")
-        pipeline._prognostic_ic = pipeline.prognostic.input_coords()
-        item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)
-        field = pipeline._fetch_initial_state(item, None, torch.device("cuda:0"))
-        assert field.e2s.to_torch()[0].device == torch.device("cuda:0")
-        np.testing.assert_array_equal(field.lat, [0.0, 0.5, 1.0])
-        host = field.e2s.as_numpy()
-        np.testing.assert_allclose(
-            host.sel(variable="t2m").isel(lat=1),
-            (
-                host.sel(variable="t2m").isel(lat=0)
-                + host.sel(variable="t2m").isel(lat=2)
-            )
-            / 2,
-        )
-        np.testing.assert_array_equal(host.sel(variable="z500"), 7)
-        output = next(pipeline.prognostic.create_iterator(field))
-        assert output.dims == ("time", "lead_time", "variable", "lat", "lon")
-
-    def test_run_item_fills_cached_qualified_variable(self, tmp_path):
-        from src.data import PredownloadedSource
-
-        label = "tp:sum:6h"
-        times = np.array([np.datetime64("2024-01-01")])
-        path = tmp_path / "fill.zarr"
-        xr.Dataset(
-            {
-                label: (
-                    ("time", "lat", "lon"),
-                    np.full((1, len(SMALL_LAT), len(SMALL_LON)), 12.0),
-                )
-            },
-            coords={"time": times, "lat": SMALL_LAT, "lon": SMALL_LON},
-        ).to_zarr(path)
-        pipeline = _make_da_forecast_pipeline(
-            ["t2m"], fill_source=PredownloadedSource(str(path))
-        )
-        pipeline.prognostic = Persistence(
-            ["t2m", label], OrderedDict(lat=SMALL_LAT, lon=SMALL_LON)
-        )
-        pipeline._prognostic_ic = pipeline.prognostic.input_coords()
-        pipeline._missing_vars = [label]
-        item = WorkItem(time=times[0], ensemble_id=0, seed=0)
-        field = pipeline._fetch_initial_state(item, None, torch.device("cpu"))
-        assert label in field.attrs["earth2studio_statistics"]
-        for tensor, coords in pipeline.run_item(item, None, torch.device("cpu")):
-            assert list(coords["variable"]) == ["t2m", label]
-            np.testing.assert_array_equal(tensor[:, :, 1].numpy(), 12)
-
     def test_run_item_full_da_coverage(self):
         pipeline = _make_da_forecast_pipeline(da_variables=DA_VARIABLES)
         item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)
@@ -787,7 +725,7 @@ class TestObsFrameStoreDeclaration:
 
         domain = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
         prognostic = Persistence(variable=DA_VARIABLES, domain_coords=domain)
-        ic_leads = prognostic.input_coords().coords["lead_time"].values
+        ic_leads = prognostic.input_coords()["lead_time"]
         ic_time = np.datetime64("2024-01-01T00:00:00")
         expected_times = sorted({ic_time + lt for lt in ic_leads})
 

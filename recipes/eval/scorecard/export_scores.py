@@ -132,7 +132,7 @@ _UNITS_EXACT = {
     "hcc": "fraction",
     "sic": "fraction",
     "sd": "m",
-    "tp:sum:6h": "m",
+    "tp06": "m",
     "cp06": "m",
     "sf06": "m",
     "ro06": "m",

@@ -31,7 +31,7 @@ from test_graphcast import (
 )
 
 import earth2studio.models.px.gencast_mini as module
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px.gencast_mini import (
     ATMOS_VARIABLES,
     INPUT_VARIABLES,
@@ -188,7 +188,12 @@ def test_gencast_mini_exceptions(mock_GenCastMini_model):
 
 
 def test_gencast_mini_conformance(mock_GenCastMini_model):
-    check_prognostic_contract(mock_GenCastMini_model)
+    mock_GenCastMini_model.seed = None
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(mock_GenCastMini_model)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 def test_gencast_mini_variables(mock_GenCastMini_model):

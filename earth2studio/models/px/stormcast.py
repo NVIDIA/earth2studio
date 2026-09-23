@@ -16,7 +16,6 @@
 
 import warnings
 from collections.abc import Generator, Iterator
-from contextlib import contextmanager
 from copy import deepcopy
 from itertools import product
 from typing import cast
@@ -147,8 +146,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     provider:nvidia backend:pytorch
     """
 
-    stochastic = True
-
     def __init__(
         self,
         regression_model: torch.nn.Module,
@@ -192,8 +189,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self.lat = np.asarray(self.grid.coords()["lat"])
         self.lon = np.asarray(self.grid.coords()["lon"])
         self.hrrr_x, self.hrrr_y = self.grid.x, self.grid.y
-        self._seed: int | None = None
-        self._rng_step = 0
         self._conditioning_grid: tuple[np.ndarray, np.ndarray] | None = None
         self._conditioning_interp: LatLonInterpolation | None = None
 
@@ -244,25 +239,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(1, "h")}
         )
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed isolated diffusion sampling, optionally retaining the current stream."""
-        if reset or self._seed is None:
-            self._seed, self._rng_step = seed, 0
-
-    @contextmanager
-    def _rng_context(self) -> Iterator[None]:
-        if self._seed is None:
-            yield
-            return
-        device = self.means.device
-        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
-            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
-            if device.type == "cuda":
-                with torch.cuda.device(device):
-                    torch.cuda.manual_seed(self._seed + self._rng_step)
-            yield
-        self._rng_step += 1
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -485,10 +461,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         for i, _ in enumerate(coords["batch"]):
             for j, _ in enumerate(coords["time"]):
                 for k, _ in enumerate(coords["lead_time"]):
-                    with self._rng_context():
-                        x[i, j, k : k + 1] = self._forward(
-                            x[i, j, k : k + 1], conditioning[i, j, k : k + 1]
-                        )
+                    x[i, j, k : k + 1] = self._forward(
+                        x[i, j, k : k + 1], conditioning[i, j, k : k + 1]
+                    )
 
         out = from_torch(x, output_coords)
         out.attrs = deepcopy(out.attrs)

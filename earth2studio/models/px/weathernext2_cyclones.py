@@ -111,7 +111,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixi
     MODEL_NAME: str
     PARAMS_PATH: str
     SAMPLE_PATH: str
-    stochastic = True
 
     def __init__(
         self,
@@ -154,8 +153,8 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixi
         reset : bool, optional
             Reset the generator state from ``seed``, by default True.
         """
-        if reset or not hasattr(self, "prng_key"):
-            self.seed = seed
+        self.seed = seed
+        if reset:
             self.prng_key = jax.random.PRNGKey(seed)
 
     def _next_rng(self, time_index: int) -> "chex.PRNGKey":

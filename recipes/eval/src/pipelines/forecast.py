@@ -18,8 +18,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
+from collections import OrderedDict
+from collections.abc import Callable, Iterator
+from typing import Any, cast
 
 import hydra
 import numpy as np
@@ -29,15 +30,12 @@ from loguru import logger
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from earth2studio.data import DataSource
+from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.run import _dimension_coords, _map_field
-from earth2studio.utils.coords import CoordSystem
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
-from ..data import fetch_input_data
 from ..distributed import get_rank
 from ..models import load_diagnostics, load_prognostic
 from ..output import build_forecast_coords
@@ -45,21 +43,46 @@ from ..work import WorkItem
 from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
-def _align_to_grid(x: xr.DataArray, target: xr.DataArray) -> xr.DataArray:
-    """Interpolate regular grids on CPU and restore the original field device."""
-    if not all(d in x.dims and d in target.dims for d in ("lat", "lon")) or all(
-        np.array_equal(x.coords[d], target.coords[d]) for d in ("lat", "lon")
+def _align_to_grid(
+    x: torch.Tensor,
+    coords: CoordSystem,
+    target: CoordSystem,
+    method: str = "linear",
+) -> tuple[torch.Tensor, CoordSystem]:
+    """Regrid a fetched tensor to the target's lat/lon if they don't match.
+
+    No-op when the source's spatial coords already equal the model's
+    native grid — the common case when the data source is configured
+    to match the model.  Otherwise runs an xarray interpolation (linear
+    by default) so that models whose native resolution differs from the
+    underlying source (e.g. 1° GraphCast/GenCast on top of a 0.25° ARCO_ERA5
+    store) can still be driven by the standard pipeline.
+    """
+    src_lat = coords.get("lat")
+    src_lon = coords.get("lon")
+    tgt_lat = target.get("lat")
+    tgt_lon = target.get("lon")
+    if src_lat is None or src_lon is None or tgt_lat is None or tgt_lon is None:
+        return x, coords
+    if (
+        src_lat.shape == tgt_lat.shape
+        and src_lon.shape == tgt_lon.shape
+        and np.allclose(src_lat, tgt_lat)
+        and np.allclose(src_lon, tgt_lon)
     ):
-        return x
-    cuda_device = x.data.device.id if x.e2s.is_cupy else None
-    result = x.e2s.as_numpy().interp(
-        lat=target.coords["lat"], lon=target.coords["lon"], method="linear"
+        return x, coords
+
+    dims = list(coords.keys())
+    da = xr.DataArray(
+        x.detach().cpu().numpy(),
+        dims=dims,
+        coords={d: np.asarray(coords[d]) for d in dims},
     )
-    result.attrs = dict(x.attrs)
-    result.encoding = dict(x.encoding)
-    if cuda_device is not None:
-        result = result.e2s.as_cupy(device=cuda_device)
-    return result
+    da = da.interp(lat=tgt_lat, lon=tgt_lon, method=method)
+    new_coords = OrderedDict(coords)
+    new_coords["lat"] = np.asarray(tgt_lat)
+    new_coords["lon"] = np.asarray(tgt_lon)
+    return torch.from_numpy(np.asarray(da.values)).to(x.device), new_coords
 
 
 class ForecastPipeline(Pipeline):
@@ -75,8 +98,8 @@ class ForecastPipeline(Pipeline):
     diagnostics: list[DiagnosticModel]
     perturbation: Perturbation | None
     nsteps: int
-    _prognostic_ic: xr.DataArray
-    _dx_input_coords: dict[int, xr.DataArray]
+    _prognostic_ic: CoordSystem
+    _dx_input_coords: dict[int, CoordSystem]
 
     @staticmethod
     def _model_node(cfg: DictConfig) -> DictConfig:
@@ -101,9 +124,7 @@ class ForecastPipeline(Pipeline):
             self.perturbation = hydra.utils.instantiate(cfg.perturbation)
 
         self._prognostic_ic = self.prognostic.input_coords()
-        self._spatial_ref = _dimension_coords(
-            self.prognostic.output_coords(self._prognostic_ic)
-        )
+        self._spatial_ref = self.prognostic.output_coords(self._prognostic_ic)
         self._dx_input_coords = {id(dx): dx.input_coords() for dx in self.diagnostics}
 
     def build_total_coords(
@@ -143,13 +164,13 @@ class ForecastPipeline(Pipeline):
         # IC lead_times, variables, and step stride.
         model = load_prognostic(cfg, self._model_node(cfg))
         ic_coords = model.input_coords()
-        spatial_ref = _dimension_coords(model.output_coords(ic_coords))
+        spatial_ref = model.output_coords(ic_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})
 
-        ic_variables = list(ic_coords.coords["variable"].values)
-        ic_lead_times = ic_coords.coords["lead_time"].values
+        ic_variables = list(ic_coords["variable"])
+        ic_lead_times = ic_coords["lead_time"]
         ic_fetch_times: list[np.datetime64] = sorted(
             {t + lt for t in unique_ic_times for lt in ic_lead_times}
         )
@@ -173,7 +194,7 @@ class ForecastPipeline(Pipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> xr.DataArray:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Assemble the prognostic's initial state for one work item.
 
         Default: fetch from the resolved ``DataSource``, align to the
@@ -182,14 +203,16 @@ class ForecastPipeline(Pipeline):
         data-assimilation analysis) override this — the perturbation /
         RNG / rollout machinery in :meth:`run_item` is shared.
         """
-        x = fetch_input_data(
+        x, coords = fetch_data(
             source=data_source,
             time=[item.time],
-            variable=self._prognostic_ic.coords["variable"].values,
-            lead_time=self._prognostic_ic.coords["lead_time"].values,
+            variable=self._prognostic_ic["variable"],
+            lead_time=self._prognostic_ic["lead_time"],
             device=device,
         )
-        return _map_field(_align_to_grid(x, self._prognostic_ic), self._prognostic_ic)
+        x, coords = _align_to_grid(x, coords, self._prognostic_ic)
+        x, coords = map_coords(x, coords, self._prognostic_ic)
+        return x, coords
 
     def explicit_rng_components(self) -> list[Any]:
         return [
@@ -204,14 +227,13 @@ class ForecastPipeline(Pipeline):
         data_source: DataSource,
         device: torch.device,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        x = self._fetch_initial_state(item, data_source, device)
+        x, coords = self._fetch_initial_state(item, data_source, device)
 
         if self.perturbation is not None:
             torch.manual_seed(item.seed)
-            tensor, coords = self.perturbation(*x.e2s.to_torch())
-            x = from_torch(tensor, x.assign_coords(coords))
+            x, coords = self.perturbation(x, coords)
 
-        yield from self._rollout(x, item, f"IC {item.time}")
+        yield from self._rollout(x, coords, item, f"IC {item.time}")
 
     def run_item_batched(
         self,
@@ -248,17 +270,20 @@ class ForecastPipeline(Pipeline):
                 f"got {sorted(str(t) for t in times)}."
             )
 
-        x0 = self._fetch_initial_state(items[0], data_source, device)
+        x0, coords0 = self._fetch_initial_state(items[0], data_source, device)
         member_ids = np.array([item.ensemble_id for item in items])
 
-        x = x0.expand_dims(ensemble=member_ids).copy(deep=True)
+        x = x0.unsqueeze(0).repeat(len(items), *([1] * x0.ndim))
+        coords = CoordSystem({"ensemble": member_ids} | dict(coords0))
 
         if self.perturbation is not None:
             for m, item in enumerate(items):
+                member_coords = CoordSystem(
+                    {"ensemble": member_ids[m : m + 1]} | dict(coords0)
+                )
                 torch.manual_seed(item.seed)
-                member = x.isel(ensemble=slice(m, m + 1))
-                x_m, coords_m = self.perturbation(*member.e2s.to_torch())
-                x.data[m : m + 1] = from_torch(x_m, member.assign_coords(coords_m)).data
+                x_m, _ = self.perturbation(x[m : m + 1], member_coords)
+                x[m] = x_m[0]
 
         if len(items) > 1 and is_explicit_rng_component(self.prognostic):
             logger.warning(
@@ -268,11 +293,14 @@ class ForecastPipeline(Pipeline):
                 "members_per_rank=1 run (the ensemble is still a valid draw)."
             )
 
-        yield from self._rollout(x, items[0], f"IC {items[0].time} x{len(items)}")
+        yield from self._rollout(
+            x, coords, items[0], f"IC {items[0].time} x{len(items)}"
+        )
 
     def _rollout(
         self,
-        x: xr.DataArray,
+        x: torch.Tensor,
+        coords: CoordSystem,
         item: WorkItem,
         label: str,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
@@ -286,12 +314,13 @@ class ForecastPipeline(Pipeline):
         """
         self.seed_member(item)
 
-        model_iter = self.prognostic.create_iterator(x)
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        model_iter = cast(Callable, self.prognostic.create_iterator)(x, coords)
 
         # Rank only gates tqdm output below.
         rank = get_rank()
 
-        for step, x_step in enumerate(
+        for step, (x_step, coords_step) in enumerate(
             tqdm(
                 model_iter,
                 total=self.nsteps + 1,
@@ -303,10 +332,13 @@ class ForecastPipeline(Pipeline):
         ):
             for dx in self.diagnostics:
                 dx_ic = self._dx_input_coords[id(dx)]
-                y = dx(_map_field(x_step, dx_ic))
-                x_step = xr.concat((x_step, y), dim="variable", join="exact")
+                y, y_coords = map_coords(x_step, coords_step, dx_ic)
+                y, y_coords = cast(Callable, dx)(y, y_coords)
+                x_step, coords_step = cat_coords(
+                    (x_step, y), (coords_step, y_coords), "variable"
+                )
 
-            yield x_step.e2s.to_torch()
+            yield x_step, coords_step
 
             if step >= self.nsteps:
                 break

@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import math
 from collections.abc import Generator, Iterator
-from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import TypedDict
@@ -724,8 +723,6 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 np.linspace(90, -90, 121), np.linspace(0, 360, 240, endpoint=False)
             ),
         )
-        self._seed: int | None = None
-        self._rng_step = 0
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model."""
@@ -764,25 +761,6 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 "variable": np.array(VARIABLES),
             },
         )
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed an isolated dropout stream; optionally retain an existing stream."""
-        if reset or self._seed is None:
-            self._seed, self._rng_step = seed, 0
-
-    @contextmanager
-    def _rng_context(self) -> Iterator[None]:
-        if self._seed is None:
-            yield
-            return
-        device = self.center.device
-        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
-            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
-            if device.type == "cuda":
-                with torch.cuda.device(device):
-                    torch.cuda.manual_seed(self._seed + self._rng_step)
-            yield
-        self._rng_step += 1
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -1015,8 +993,7 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             x = x[:, :, :, : len(VARIABLES)]
             coords = coords.copy()
             coords["variable"] = np.array(VARIABLES)
-        with self._rng_context():
-            out = from_torch(self._forward(x, coords, static_condition), out_coords)
+        out = from_torch(self._forward(x, coords, static_condition), out_coords)
         out.attrs = deepcopy(out.attrs)
         out.encoding = encoding
         return out
@@ -1113,15 +1090,14 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             packed, restore = batch_func()._compress_array(self, x)
             tensor, coords = packed.e2s.to_torch()
             tensor = tensor.to(self.center.device)
-            with self._rng_context():
-                out, x_norm, sst_mask = self._forward(
-                    tensor,
-                    coords,
-                    x_norm=x_norm,
-                    sst_mask=sst_mask,
-                    static_condition=static_condition,
-                    return_state=True,
-                )
+            out, x_norm, sst_mask = self._forward(
+                tensor,
+                coords,
+                x_norm=x_norm,
+                sst_mask=sst_mask,
+                static_condition=static_condition,
+                return_state=True,
+            )
             prediction = from_torch(out, self.output_coords(packed))
             prediction.encoding = x.encoding.copy()
             prediction = restore(prediction)

@@ -150,14 +150,15 @@ def _download_to_store(
 
     for t in my_times:
         logger.info(f"Rank {dist.rank}: fetching {store.name} {t}")
-        x = fetch_data(
+        x, coords = fetch_data(
             source=store.source,
             time=[t],
             variable=list(store.variables),
             lead_time=zero_lead,
             device=torch.device("cpu"),
         )
-        output_mgr.write(*x.squeeze("lead_time", drop=True).e2s.to_torch())
+        x, coords = squeeze_lead_time(x, coords)
+        output_mgr.write(x, coords)
         output_mgr.flush()
         write_predownload_marker(t, cfg, store.name)
 

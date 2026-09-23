@@ -43,16 +43,13 @@ from typing import Any
 
 import numpy as np
 import torch
-import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
+from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.run import _dimension_coords, _map_field
-from earth2studio.utils.coords import CoordSystem
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
 
 from ..assimilation import (
     AssimilationRunner,
@@ -64,7 +61,6 @@ from ..assimilation import (
     insert_zero_lead_time,
     load_assimilation,
 )
-from ..data import fetch_input_data
 from ..output import build_analysis_coords
 from ..work import WorkItem
 from .base import (
@@ -298,7 +294,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
         )
 
         da_vars = set(analysis_variables(self.da_model))
-        prognostic_vars = list(self._prognostic_ic.coords["variable"].values)
+        prognostic_vars = [str(v) for v in self._prognostic_ic["variable"]]
         self._missing_vars = [v for v in prognostic_vars if v not in da_vars]
 
         self._fill_source = None
@@ -327,10 +323,8 @@ class AssimilationForecastPipeline(ForecastPipeline):
         item: WorkItem,
         data_source: DataSource,
         device: torch.device,
-    ) -> xr.DataArray:
-        ic_leads = self._prognostic_ic.coords["lead_time"].values.astype(
-            "timedelta64[ns]"
-        )
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        ic_leads = np.asarray(self._prognostic_ic["lead_time"])
 
         # One analysis per input lead offset (offsets are <= 0 for
         # history models, so these are analyses at or before item.time).
@@ -354,34 +348,28 @@ class AssimilationForecastPipeline(ForecastPipeline):
         coords["time"] = np.array([item.time], dtype="datetime64[ns]")
         coords["lead_time"] = ic_leads
         for dim, values in analysis_coords.items():
-            if dim not in ("time", "lead_time"):
+            if dim != "time":
                 coords[dim] = values
 
-        # The assimilation protocol remains tensor/dictionary based. Its analysis
-        # becomes a labelled field at the forecast initial-condition boundary.
-        field = from_torch(x, coords)
-        target = self._prognostic_ic
-        field = _align_to_grid(field, target)
+        x, coords = _align_to_grid(x, coords, self._prognostic_ic)
 
         if self._fill_source is not None:
-            fill = fetch_input_data(
+            x_fill, coords_fill = fetch_data(
                 source=self._fill_source,
                 time=[item.time],
                 variable=np.array(self._missing_vars),
                 lead_time=ic_leads,
                 device=device,
             )
-            fill = _align_to_grid(fill, target)
-            fill = fill.assign_coords(time=field.coords["time"])
-            statistics = {
-                **field.attrs.get("earth2studio_statistics", {}),
-                **fill.attrs.get("earth2studio_statistics", {}),
-            }
-            field = xr.concat((field, fill), dim="variable", join="exact")
-            if statistics:
-                field.attrs["earth2studio_statistics"] = statistics
+            x_fill, coords_fill = _align_to_grid(
+                x_fill, coords_fill, self._prognostic_ic
+            )
+            coords_fill = OrderedDict(coords_fill)
+            coords_fill["time"] = coords["time"]
+            x, coords = cat_coords((x, x_fill), (coords, coords_fill), "variable")
 
-        return _map_field(field, self._prognostic_ic)
+        x, coords = map_coords(x, coords, self._prognostic_ic)
+        return x, coords
 
     # Memoized across predownload_stores + predownload_frame_stores — both need
     # input_coords() and loading a large model twice per predownload run is wasteful.
@@ -409,7 +397,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
             return []
 
         model = self._load_prognostic_for_predownload(cfg)
-        ic_lead_times = model.input_coords().coords["lead_time"].values
+        ic_lead_times = model.input_coords()["lead_time"]
         unique_ic_times = sorted({i.time for i in build_work_items(cfg)})
         times: list[np.datetime64] = sorted(
             {t + lt for t in unique_ic_times for lt in ic_lead_times}
@@ -437,7 +425,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
 
         model = self._load_prognostic_for_predownload(cfg)
         ic_coords = model.input_coords()
-        spatial_ref = _dimension_coords(model.output_coords(ic_coords))
+        spatial_ref = model.output_coords(ic_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})
@@ -448,9 +436,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
 
         da_model = load_assimilation(cfg.model.da)
         da_vars = set(analysis_variables(da_model))
-        missing = [
-            str(v) for v in ic_coords.coords["variable"].values if str(v) not in da_vars
-        ]
+        missing = [str(v) for v in ic_coords["variable"] if str(v) not in da_vars]
 
         if not missing:
             return declare_verification_only_store(
@@ -460,7 +446,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
                 spatial_ref=spatial_ref,
             )
 
-        ic_lead_times = ic_coords.coords["lead_time"].values
+        ic_lead_times = ic_coords["lead_time"]
         # Fill data is fetched at every analysis time the IC assembly
         # touches (IC time + each input lead offset).
         ic_fetch_times: list[np.datetime64] = sorted(

@@ -130,7 +130,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
     torch_compile = False
-    stochastic = True
     front_hook_interval = 11
 
     def __init__(
@@ -188,11 +187,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the seed passed to the core's isolated random generator."""
-        if reset or self.seed is None:
-            self.seed = seed
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of prognostic model
@@ -288,16 +282,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        with torch.random.fork_rng(
-            devices=[device] if device.type == "cuda" else [],
-            enabled=self.seed is not None,
-        ):
-            if self.seed is not None:
-                torch.random.default_generator.manual_seed(self.seed)
-                if device.type == "cuda":
-                    with torch.cuda.device(device):
-                        torch.cuda.manual_seed(self.seed)
-            out, _ = self.core_model.sample(input_batch, seed=self.seed)
+        out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())

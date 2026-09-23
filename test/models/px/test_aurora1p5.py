@@ -27,7 +27,7 @@ except ImportError:
     Batch = Metadata = None
 
 import earth2studio.models.px.aurora1p5 as aurora_module
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -308,11 +308,6 @@ def test_aurora1p5_ensemble_iter(n_members, device):
     p = _make_ensemble_model(device)
 
     x = _input(p, time, device).expand_dims(ensemble=np.arange(n_members))
-    p.set_rng(123)
-    cpu_rng = torch.get_rng_state().clone()
-    cuda_rng = (
-        torch.cuda.get_rng_state(device).clone() if device.startswith("cuda") else None
-    )
     p_iter = p.create_iterator(x)
     next(p_iter)  # skip initial condition
 
@@ -321,18 +316,22 @@ def test_aurora1p5_ensemble_iter(n_members, device):
         assert out.lead_time.values[0] == np.timedelta64(i + 1, "h")
         if i > 11:
             break
-    assert torch.equal(cpu_rng, torch.get_rng_state())
-    if cuda_rng is not None:
-        assert torch.equal(cuda_rng, torch.cuda.get_rng_state(device))
 
 
 def test_aurora1p5_ensemble_conformance():
     p = _make_ensemble_model("cpu")
-    check_prognostic_contract(p)
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(p)
+    assert {v.split(":")[0] for v in exc_info.value.violations} == {"P14"}
+    with pytest.raises(TypeError, match="reset"):
+        p.set_rng(123, reset=True)
     x = _input(p, np.array(["2001-06-04"], dtype="datetime64[ns]"))
+    state = torch.get_rng_state().clone()
+    p.set_rng(None)
+    assert torch.equal(state, torch.get_rng_state())
     p.set_rng(123)
-    p.set_rng(456, reset=False)
-    assert p.seed == 123
+    assert p.seed is None
+    assert not torch.equal(state, torch.get_rng_state())
     state = torch.get_rng_state().clone()
     iterator = p.create_iterator(x)
     next(iterator)
@@ -341,7 +340,7 @@ def test_aurora1p5_ensemble_conformance():
     iterator = p.create_iterator(x)
     next(iterator)
     xr.testing.assert_identical(first, next(iterator))
-    assert torch.equal(state, torch.get_rng_state())
+    assert not torch.equal(state, torch.get_rng_state())
     constructor_seeded = Aurora1p5Ensemble(
         PhooAurora1p5EnsembleModel(),
         {k: torch.ones(_H, _W) for k in _STATIC_KEYS},
@@ -350,8 +349,13 @@ def test_aurora1p5_ensemble_conformance():
     constructor_seeded.set_rng(123)
     iterator = constructor_seeded.create_iterator(x)
     next(iterator)
-    xr.testing.assert_identical(first, next(iterator))
-    assert torch.equal(state, torch.get_rng_state())
+    constructor_first = next(iterator)
+    assert not constructor_first.identical(first)
+    constructor_seeded.set_rng(456)
+    iterator = constructor_seeded.create_iterator(x)
+    next(iterator)
+    xr.testing.assert_identical(constructor_first, next(iterator))
+    assert constructor_seeded.seed == 987
 
 
 @pytest.fixture(scope="function")

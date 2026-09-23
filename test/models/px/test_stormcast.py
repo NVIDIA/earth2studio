@@ -24,7 +24,7 @@ import xarray as xr
 
 import earth2studio.models.px.stormcast as stormcast_module
 from earth2studio.data import HRRR, Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import StormCast
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -378,7 +378,11 @@ def test_stormcast_conformance():
         sampler_steps=2,
     )
 
-    assert check_prognostic_contract(p) == []
+    with pytest.raises(ContractException) as exc_info:
+        check_prognostic_contract(p)
+    assert exc_info.value.violations == [
+        "P13: repeated runs with the same input and seed disagree"
+    ]
 
 
 @pytest.fixture(scope="function")

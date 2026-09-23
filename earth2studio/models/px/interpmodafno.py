@@ -192,17 +192,8 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self.register_buffer("lsm", lsm)
 
     @property
-    def stochastic(self) -> bool:  # type: ignore[override]
-        return bool(getattr(self.px_model, "stochastic", False))
-
-    @property
     def front_hook_interval(self) -> int:  # type: ignore[override]
         return self.num_interp_steps * getattr(self.px_model, "front_hook_interval", 1)
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed the nested forecast model, retaining its RNG ownership."""
-        if self.stochastic and self.px_model is not None:
-            getattr(self.px_model, "set_rng")(seed, reset=reset)
 
     @staticmethod
     def _load_feature_from_file(fn: str, var: str) -> torch.Tensor:

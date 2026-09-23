@@ -28,15 +28,12 @@ import hydra
 import numpy as np
 import pandas as pd
 import torch
-import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.run import _map_field
-from earth2studio.utils.coords import CoordSystem, coord_array_like
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import CoordSystem, cat_coords
 
 from ..data import (
     CadenceRoundedSource,
@@ -154,8 +151,8 @@ class StormScopePipeline(Pipeline):
     nsteps: int
     _goes_ic_source: Any
     _mrms_ic_source: Any
-    _goes_ic_coords: xr.DataArray
-    _mrms_ic_coords: xr.DataArray
+    _goes_ic_coords: CoordSystem
+    _mrms_ic_coords: CoordSystem
 
     # ------------------------------------------------------------------
     # Setup
@@ -231,8 +228,8 @@ class StormScopePipeline(Pipeline):
         # Spatial reference = HRRR grid, with the unified output variable list
         # so that build_output_coords filters correctly against yielded tensors.
         output_vars = _concat_var_lists(
-            list(self._goes_ic_coords.coords["variable"].values),
-            list(self._mrms_ic_coords.coords["variable"].values),
+            list(self._goes_ic_coords["variable"]),
+            list(self._mrms_ic_coords["variable"]),
         )
         self._spatial_ref = OrderedDict(
             [
@@ -288,8 +285,12 @@ class StormScopePipeline(Pipeline):
         # ``data_source`` is ignored — StormScope uses the two IC sources
         # cached during setup.
 
-        y = self._fetch_ic(self._goes_ic_source, self._goes_ic_coords, item, device)
-        y_m = self._fetch_ic(self._mrms_ic_source, self._mrms_ic_coords, item, device)
+        y, y_coords = self._fetch_ic(
+            self._goes_ic_source, self._goes_ic_coords, item, device
+        )
+        y_m, y_m_coords = self._fetch_ic(
+            self._mrms_ic_source, self._mrms_ic_coords, item, device
+        )
 
         # Seed torch's global RNG so the diffusion sampler's per-member
         # noise is deterministic across runs.  StormScope models don't
@@ -308,22 +309,35 @@ class StormScopePipeline(Pipeline):
             leave=False,
             disable=rank != 0,
         ):
-            pred_goes = self.model_goes(y)
-            pred_mrms = self.model_mrms.call_with_conditioning(y_m, conditioning=y)
+            pred_goes, pred_goes_coords = self.model_goes(y, y_coords)
+            pred_mrms, pred_mrms_coords = self.model_mrms.call_with_conditioning(
+                y_m,
+                y_m_coords,
+                conditioning=y,
+                conditioning_coords=y_coords,
+            )
 
             # Concat predictions along the variable axis.  Both tensors
             # are on the HRRR grid after prep_input, so spatial dims
             # line up; cat_coords handles coord-system merging.
             # The model-internal batch dim (size 1) is squeezed out by
             # Pipeline.run because _run_item_includes_batch_dim is True.
-            combined = xr.concat((pred_goes, pred_mrms), dim="variable", join="exact")
+            combined, combined_coords = cat_coords(
+                (pred_goes, pred_mrms),
+                (pred_goes_coords, pred_mrms_coords),
+                "variable",
+            )
 
-            yield combined.e2s.to_torch()
+            yield combined, combined_coords
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).
-            y = self.model_goes.next_input(pred_goes, y)
-            y_m = self.model_mrms.next_input(pred_mrms, y_m)
+            y, y_coords = self.model_goes.next_input(
+                pred_goes, pred_goes_coords, y, y_coords
+            )
+            y_m, y_m_coords = self.model_mrms.next_input(
+                pred_mrms, pred_mrms_coords, y_m, y_m_coords
+            )
 
     def run_item_batched(
         self,
@@ -360,14 +374,14 @@ class StormScopePipeline(Pipeline):
         k = len(items)
         member_ids = np.array([item.ensemble_id for item in items])
 
-        y = self._fetch_ic(self._goes_ic_source, self._goes_ic_coords, items[0], device)
-        y_m = self._fetch_ic(
+        y, y_coords = self._fetch_ic(
+            self._goes_ic_source, self._goes_ic_coords, items[0], device
+        )
+        y_m, y_m_coords = self._fetch_ic(
             self._mrms_ic_source, self._mrms_ic_coords, items[0], device
         )
-        y = y.isel(batch=0, drop=True).expand_dims(batch=np.arange(k)).copy(deep=True)
-        y_m = (
-            y_m.isel(batch=0, drop=True).expand_dims(batch=np.arange(k)).copy(deep=True)
-        )
+        y, y_coords = _repeat_batch(y, y_coords, k)
+        y_m, y_m_coords = _repeat_batch(y_m, y_m_coords, k)
 
         self.seed_member(items[0])
         if k > 1:
@@ -389,18 +403,29 @@ class StormScopePipeline(Pipeline):
             leave=False,
             disable=rank != 0,
         ):
-            pred_goes = self.model_goes(y)
-            pred_mrms = self.model_mrms.call_with_conditioning(y_m, conditioning=y)
+            pred_goes, pred_goes_coords = self.model_goes(y, y_coords)
+            pred_mrms, pred_mrms_coords = self.model_mrms.call_with_conditioning(
+                y_m,
+                y_m_coords,
+                conditioning=y,
+                conditioning_coords=y_coords,
+            )
 
-            combined = xr.concat((pred_goes, pred_mrms), dim="variable", join="exact")
-            yield combined.rename(batch="ensemble").assign_coords(
-                ensemble=member_ids
-            ).e2s.to_torch()
+            combined, combined_coords = cat_coords(
+                (pred_goes, pred_mrms),
+                (pred_goes_coords, pred_mrms_coords),
+                "variable",
+            )
+            yield _rename_batch_to_ensemble(combined, combined_coords, member_ids)
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).
-            y = self.model_goes.next_input(pred_goes, y)
-            y_m = self.model_mrms.next_input(pred_mrms, y_m)
+            y, y_coords = self.model_goes.next_input(
+                pred_goes, pred_goes_coords, y, y_coords
+            )
+            y_m, y_m_coords = self.model_mrms.next_input(
+                pred_mrms, pred_mrms_coords, y_m, y_m_coords
+            )
 
     # ------------------------------------------------------------------
     # Predownload
@@ -477,9 +502,7 @@ class StormScopePipeline(Pipeline):
 
             # Offsets covering both the IC input window and every forecast
             # valid time.  Cast to ns for datetime64 arithmetic.
-            input_offsets = list(
-                ic_coords.coords["lead_time"].values.astype("timedelta64[ns]")
-            )
+            input_offsets = [np.timedelta64(lt, "ns") for lt in ic_coords["lead_time"]]
             forecast_offsets = [stride * (k + 1) for k in range(cfg.nsteps)]
             fetch_times = sorted(
                 {
@@ -503,9 +526,7 @@ class StormScopePipeline(Pipeline):
             # inference the two are recombined via a CompositeSource.
             glm_vars = {str(v) for v in getattr(model, "glm_variables", [])}
             radar_vars = [
-                str(v)
-                for v in ic_coords.coords["variable"].values
-                if str(v) not in glm_vars
+                str(v) for v in ic_coords["variable"] if str(v) not in glm_vars
             ]
             stores.append(
                 PredownloadStore(
@@ -919,42 +940,25 @@ class StormScopePipeline(Pipeline):
     def _fetch_ic(
         self,
         source: DataSource,
-        ic_coords: xr.DataArray,
+        ic_coords: CoordSystem,
         item: WorkItem,
         device: torch.device,
-    ) -> xr.DataArray:
+    ) -> tuple[torch.Tensor, CoordSystem]:
         """Fetch IC data for one of the two StormScope models.
 
         The returned ``(x, coords)`` has a ``batch`` dim prepended —
         required by :meth:`StormScopeMRMS.call_with_conditioning`.
         """
-        x = fetch_data(
+        x, coords = fetch_data(
             source=source,
             time=[item.time],
-            variable=ic_coords.coords["variable"].values,
-            lead_time=ic_coords.coords["lead_time"].values,
+            variable=ic_coords["variable"],
+            lead_time=ic_coords["lead_time"],
             device=device,
         )
-        model = (
-            self.model_goes if ic_coords is self._goes_ic_coords else self.model_mrms
-        )
-        native = all(
-            d in x.dims and np.array_equal(x.coords[d], ic_coords.coords[d])
-            for d in ("y", "x")
-        )
-        if not native:
-            tensor = model.input_interp(x.e2s.to_torch()[0])
-            signature = coord_array_like(
-                ic_coords, {"batch": np.array([0]), "time": x.coords["time"].values}
-            )
-            return from_torch(tensor.unsqueeze(0), signature)
-        # Predownloaded stores retain the native axes. Attach geographic auxiliaries
-        # from the same configured grid when legacy stores only contain y/x labels.
-        x = x.expand_dims(batch=[0])
-        for name in ("lat", "lon"):
-            if name in ic_coords.coords and name not in x.coords:
-                x = x.assign_coords({name: ic_coords.coords[name]})
-        return _map_field(x, ic_coords)
+        x = x.unsqueeze(0)
+        coords = OrderedDict([("batch", np.arange(1))] + list(coords.items()))
+        return x, coords
 
 
 # ------------------------------------------------------------------
@@ -1043,7 +1047,7 @@ def _infer_step_delta(model: Any) -> np.timedelta64:
     """
     ic = model.input_coords()
     out = model.output_coords(ic)
-    delta = out.coords["lead_time"].values[-1] - ic.coords["lead_time"].values[-1]
+    delta = out["lead_time"][-1] - ic["lead_time"][-1]
     return np.timedelta64(delta, "ns")
 
 

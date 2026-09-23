@@ -215,13 +215,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
         self.register_buffer("device_buffer", torch.empty(0))
 
-    stochastic = True
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Select the seed for the existing per-time functional PRNG streams."""
-        if reset or self.seed is None:
-            self.seed = seed
-
     def _next_rng(self, time_index: int) -> "chex.PRNGKey":
         if self.seed is not None:
             return jax.random.fold_in(jax.random.PRNGKey(self.seed), time_index)

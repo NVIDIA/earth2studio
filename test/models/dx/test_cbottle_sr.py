@@ -30,6 +30,7 @@ from types import SimpleNamespace
 from test_cbottle_infill import _field
 
 from earth2studio.models.conformance import (
+    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleSR
@@ -330,7 +331,11 @@ class TestCBottleSRMock:
             return out
 
         monkeypatch.setattr(dx, "_forward", finite_forward)
-        assert check_diagnostic_contract(dx) == []
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(dx)
+        assert exc_info.value.violations == [
+            "D9: repeated runs with the same input and seed disagree"
+        ]
 
 
 @pytest.mark.package

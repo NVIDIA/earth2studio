@@ -312,20 +312,8 @@ class DiagnosticWrapper(torch.nn.Module, DataArrayPrognosticMixin):
         )
 
     @property
-    def stochastic(self) -> bool:  # type: ignore[override]
-        return any(
-            getattr(m, "stochastic", False) for m in (self.px_model, *self.dx_model)
-        )
-
-    @property
     def front_hook_interval(self) -> int:  # type: ignore[override]
         return getattr(self.px_model, "front_hook_interval", 1)
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed every stochastic component without changing its stream semantics."""
-        for model in (self.px_model, *self.dx_model):
-            if getattr(model, "stochastic", False):
-                model.set_rng(seed, reset=reset)
 
     def input_coords(self) -> CoordinateSystem:
         """Return the nested prognostic's allocation-free input declaration."""

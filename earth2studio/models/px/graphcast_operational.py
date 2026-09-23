@@ -264,6 +264,12 @@ def _jax_iterator(
     generated_forcings: bool = False,
 ) -> Iterator[xr.DataArray]:
     model.output_coords(x)
+    # Reserve per-time streams before the initial yield, as the original
+    # iterators did. Hooks may replace fields without restarting these streams.
+    with backend_jax.default_device(
+        model.get_jax_device_from_tensor(model.device_buffer)
+    ):
+        rngs = [model._next_rng(t) for t in range(x.sizes["time"])]
     yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
     _validate_aurora_time(x)
     iterators: list[Generator[xr.Dataset, Any, None]] = []
@@ -303,7 +309,7 @@ def _jax_iterator(
                         iterators.append(
                             model._chunked_prediction_generator(
                                 predictor_fn=model.run_forward,
-                                rng=model._next_rng(t),
+                                rng=rngs[t],
                                 inputs=inputs,
                                 targets_template=targets * np.nan,
                                 forcings=forcings,

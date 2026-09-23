@@ -46,30 +46,24 @@ def _make_model(input_lead_times_h: list[int], output_lead_times_h: list[int]):
     """Return a minimal duck-typed model with controlled coordinate methods."""
 
     class _FakeModel:
-        def input_coords(self):
-            from earth2studio.utils.coords import coord_array
-
-            return coord_array(
-                ("variable", "lead_time"),
+        def input_coords(self) -> OrderedDict:
+            return OrderedDict(
                 {
                     "variable": np.array(["t2m", "z500"]),
                     "lead_time": np.array(
                         [np.timedelta64(h, "h") for h in input_lead_times_h]
                     ),
-                },
+                }
             )
 
-        def output_coords(self, input_coords):
-            from earth2studio.utils.coords import coord_array
-
-            return coord_array(
-                ("variable", "lead_time"),
+        def output_coords(self, input_coords: OrderedDict) -> OrderedDict:
+            return OrderedDict(
                 {
                     "variable": np.array(["t2m", "z500"]),
                     "lead_time": np.array(
                         [np.timedelta64(h, "h") for h in output_lead_times_h]
                     ),
-                },
+                }
             )
 
     return _FakeModel()

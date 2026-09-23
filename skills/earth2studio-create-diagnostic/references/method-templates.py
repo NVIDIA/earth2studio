@@ -17,9 +17,9 @@
 """Native packaged diagnostic methods; see skeleton-template.py for a simple model.
 
 Generative outputs must declare their sample axis and output grid explicitly; use
-CorrDiff's native implementation as the reference. A stochastic wrapper declares
-stochastic=True and implements set_rng(seed, reset=True) with isolated randomness.
-Do not introduce a constructor seed that overrides subsequent explicit seeding.
+CorrDiff's native implementation as the reference. When migrating an existing
+wrapper, retain its seed API, sampler progression and RNG ownership; RNG contract
+changes are separate follow-up work.
 """
 
 import torch

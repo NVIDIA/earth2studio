@@ -35,8 +35,6 @@ from earth2studio.utils.type import CoordinateSystem
 class SimpleDiagnostic(torch.nn.Module):
     """Compute wind speed on a configured grid without model weights."""
 
-    stochastic = False
-
     def __init__(self, grid: GridDefinition | str = "latlon-0.25deg") -> None:
         super().__init__()
         self.grid = grid

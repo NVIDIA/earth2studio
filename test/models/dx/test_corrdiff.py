@@ -28,7 +28,7 @@ import xarray as xr
 
 import earth2studio.models.dx.corrdiff as corrdiff_module
 from earth2studio.models.auto import Package
-from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.conformance import ContractException, check_diagnostic_contract
 from earth2studio.models.dx import CorrDiff
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -819,7 +819,18 @@ class TestCorrDiffForward:
             regression_model=mock_regression_model,
             **sample_model_params,
         )
-        assert check_diagnostic_contract(model) == []
+        if corrdiff_module.PhysicsNemoModule is None:
+            # The offline sampler returns seeded latents. With seed=None these
+            # differ, unlike the real sampler's zero-returning mock denoiser.
+            with pytest.raises(ContractException) as exc_info:
+                check_diagnostic_contract(model)
+            assert exc_info.value.violations == [
+                "D9: repeated runs with the same input and seed disagree"
+            ]
+        else:
+            assert check_diagnostic_contract(model) == [
+                "D10: model does not declare itself stochastic"
+            ]
 
     def test_corrdiff_seed_reproducibility(
         self, mock_residual_model, mock_regression_model, sample_model_params

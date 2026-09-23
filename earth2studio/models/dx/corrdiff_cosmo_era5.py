@@ -807,16 +807,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
-    @property
-    def stochastic(self) -> bool:
-        """Whether this instance uses diffusion sampling."""
-        return self.mode != "mean"
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the isolated diffusion seed."""
-        if reset or self.seed is None:
-            self.seed = seed
-
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
         are the native ERA5 footprint (regrid the ERA5 input onto this grid)."""

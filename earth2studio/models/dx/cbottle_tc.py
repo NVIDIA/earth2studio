@@ -179,13 +179,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
-    stochastic = True
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the seed used by the guided sampler."""
-        if reset or self.seed is None:
-            self.seed = seed
-
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of diagnostic model
 
@@ -440,18 +433,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         return guidance_data
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Generate labelled fields from cyclone guidance, with isolated seeding."""
-        device = self.device_buffer.device
-        with torch.random.fork_rng(
-            devices=[device] if device.type == "cuda" else [],
-            enabled=self.seed is not None,
-        ):
-            if self.seed is not None:
-                torch.random.default_generator.manual_seed(self.seed)
-                if device.type == "cuda":
-                    with torch.cuda.device(device):
-                        torch.cuda.manual_seed(self.seed)
-            return _own_metadata(self._call(x))
+        """Generate labelled fields from cyclone guidance."""
+        return _own_metadata(self._call(x))
 
     @batch_func()
     def _call(
