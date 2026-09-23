@@ -29,10 +29,12 @@ except ImportError:
     pytest.importorskip("weathernext")
 
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.weathernext2_cyclones_mini import (
+from earth2studio.models.px.weathernext2_cyclones import (
     OUTPUT_VARIABLES,
+    WeatherNext2Cyclones,
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
+    _add_tisr_batched,
 )
 
 TEST_TIME = np.array([np.datetime64("2025-01-01T00:00")])
@@ -42,9 +44,10 @@ def mocked_chunked_prediction(*args, targets_template, **kwargs):
     return targets_template
 
 
-def mocked_chunked_prediction_generator(self, *args, targets_template, **kwargs):
+def mocked_chunked_prediction_generator(self, *args, targets_template, batch, **kwargs):
+    value = float(batch["2m_temperature"].isel(time=-1).mean())
     while True:
-        yield targets_template.isel(time=[0])
+        yield targets_template.isel(time=[0]).fillna(value)
 
 
 @pytest.fixture
@@ -119,6 +122,19 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
     assert out_coords["lead_time"] == np.timedelta64(6, "h")
 
 
+@mock.patch.object(
+    WeatherNext2CyclonesMini,
+    "_chunked_prediction_generator",
+    mocked_chunked_prediction_generator,
+)
+def test_weathernext2_concurrent_iterators(mock_weathernext2_model):
+    x, coords = fetch_random_input(mock_weathernext2_model)
+    first = mock_weathernext2_model.create_iterator(x, coords)
+    second = mock_weathernext2_model.create_iterator(x + 1, coords)
+    next(first), next(second)
+    assert not torch.equal(next(first)[0], next(second)[0])
+
+
 @mock.patch("weathernext.utils.rollout.chunked_prediction")
 def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
     rngs = []
@@ -134,6 +150,17 @@ def test_weathernext2_rng_advances(prediction, mock_weathernext2_model):
     assert len(rngs) == 2 and not np.array_equal(*rngs)
 
 
+def test_weathernext2_set_rng(mock_weathernext2_model):
+    mock_weathernext2_model.set_rng(123)
+    key = np.asarray(mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(456, reset=False)
+    np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(456)
+    assert not np.array_equal(key, mock_weathernext2_model.prng_key)
+    mock_weathernext2_model.set_rng(123)
+    np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
+
+
 def test_weathernext2_target_order(mock_weathernext2_model):
     targets = fiddle_config_io.get_fiddle_config_by_name(
         "weathernext2/configs/WeatherNextCyclones_Mini"
@@ -146,7 +173,7 @@ def test_weathernext2_target_order(mock_weathernext2_model):
 
 def test_weathernext2_cyclone_tracks_inactive(mock_weathernext2_model):
     with mock.patch(
-        "earth2studio.models.px.weathernext2_cyclones_mini.logger.warning"
+        "earth2studio.models.px.weathernext2_cyclones.logger.warning"
     ) as warning:
         assert mock_weathernext2_model.cyclone_tracks.empty
     warning.assert_called_once()
@@ -198,6 +225,24 @@ def test_weathernext2_exceptions(coords, device, mock_weathernext2_model):
         model(x, coords)
 
 
+def test_weathernext2_operational_checkpoint():
+    assert WeatherNext2Cyclones._params_path(1).endswith("_<2025_model1.npz")
+    assert WeatherNext2Cyclones._params_path(4).endswith("_<2025_model4.npz")
+    with pytest.raises(ValueError, match="1 through 4"):
+        WeatherNext2Cyclones._params_path(0)
+
+
+@pytest.mark.package
+def test_weathernext2_operational_package():
+    model = WeatherNext2Cyclones.load_model(
+        WeatherNext2Cyclones.load_default_package(), jit_compile=False
+    )
+    assert tuple(len(model.input_coords()[dim]) for dim in ("lat", "lon")) == (
+        721,
+        1440,
+    )
+
+
 @pytest.mark.package
 def test_weathernext2_package():
     torch.cuda.empty_cache()
@@ -209,3 +254,68 @@ def test_weathernext2_package():
         len(model.input_coords()["lon"]),
         len(model.output_coords(model.input_coords())["variable"]),
     ) == (181, 360, 84)
+
+
+@pytest.mark.parametrize("n_batch", [1, 4])
+def test_weathernext2_tisr_batched(n_batch):
+    """TISR is broadcast across members and matches the single-member value."""
+    import xarray as xr
+    from weathernext.utils import data_utils
+
+    lat = np.linspace(-90.0, 90.0, 9)
+    lon = np.linspace(0.0, 330.0, 12)
+    start = np.datetime64("2025-01-01T00:00")
+    stamps = np.array([start, start + np.timedelta64(6, "h")])
+
+    def make(n):
+        return xr.Dataset(
+            {
+                "x": (
+                    ("batch", "time", "lat", "lon"),
+                    np.zeros((n, 2, lat.size, lon.size), dtype=np.float32),
+                )
+            },
+            coords={
+                "batch": np.arange(n),
+                "time": np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")]),
+                "lat": lat,
+                "lon": lon,
+                "datetime": (("batch", "time"), np.tile(stamps, (n, 1))),
+            },
+        )
+
+    tisr = getattr(data_utils, "TISR", "toa_incident_solar_radiation")
+    reference = make(1)
+    data_utils.add_tisr_var(reference)
+    expected = reference[tisr].isel(batch=0).values
+
+    data = make(n_batch)
+    _add_tisr_batched(data)
+
+    assert data.sizes["batch"] == n_batch
+    for member in range(n_batch):
+        np.testing.assert_allclose(data[tisr].isel(batch=member).values, expected)
+
+
+@pytest.mark.parametrize("n_batch", [1, 4])
+def test_weathernext2_from_dataarray_batched(n_batch, mock_weathernext2_model):
+    """Converted datasets keep the caller's batch width on data and datetime."""
+    import xarray as xr
+
+    model = mock_weathernext2_model
+    coords = model.input_coords()
+    coords["batch"] = np.arange(n_batch)
+    coords["time"] = TEST_TIME
+    shape = tuple(len(v) for v in coords.values())
+    data = xr.DataArray(torch.randn(*shape, dtype=torch.float32).numpy(), coords=coords)
+
+    out, _ = model.from_dataarray_to_dataset(data, 6)
+
+    assert out.sizes["batch"] == n_batch
+    assert out["datetime"].sizes["batch"] == n_batch
+    batched = [n for n in out.data_vars if "batch" in out[n].dims]
+    assert batched, "no data variable carried a batch dimension"
+    for name in batched:
+        assert out[name].sizes["batch"] == n_batch, name
+    # Static fields are shared across members and stay unbatched.
+    assert "batch" not in out["land_sea_mask"].dims

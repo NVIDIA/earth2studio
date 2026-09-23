@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added WeatherNext 2 Cyclones Mini prognostic model wrapper (`WeatherNext2CyclonesMini`)
+- Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
+  (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
+  source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
+  artifact filter applied at inference.
+- Added Aurora 1.5 Ensemble, SFNO, Pangu, FengWu, FuXi, DLWP, and FCN to the
+  docs scorecard
+- Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
+- Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
+  (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
 - Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event
@@ -74,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`chunked=True`) written atomically, so large aggregates no longer exceed the
   object store's per-request timeout and an interrupted download cannot leave a
   truncated cache file
+- Eval recipe: per-member seeding now works for models whose `set_rng` has no
+  `reset` argument (for example `Aurora1p5Ensemble`)
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
   `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
   analysis stable (the old defaults could diverge to non-finite output).
