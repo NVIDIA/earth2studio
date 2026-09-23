@@ -30,7 +30,12 @@ from earth2studio.data import HRRR
 from earth2studio.grids import CurvilinearGrid, GridDefinition, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import coord_array, handshake_dataarray, handshake_time
+from earth2studio.utils import (
+    coord_array,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -715,11 +720,12 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Generate labelled GHI samples at each input validity time on the model device."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         output_coords = self.output_coords(x)
         handshake_time(x, dimension=False)
         valid = x.coords["time"]
         if "lead_time" in x.coords:
+            handshake_time(x, "lead_time", dimension="lead_time" in x.dims)
             valid = valid + x.coords["lead_time"]
         leading = x.dims[:-3]
         template = xr.DataArray(

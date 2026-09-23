@@ -471,8 +471,13 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinate system dictionary
         """
 
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
+            self.input_coords(),
+        )
         return coord_array_like(
             input_coords,
             {

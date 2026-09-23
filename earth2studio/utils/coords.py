@@ -357,9 +357,7 @@ def coord_array_like(
 
 def handshake_dataarray(
     array: xr.DataArray,
-    signature: xr.DataArray | None = None,
-    relative_lead_time: bool = False,
-    runtime: bool = False,
+    signature: xr.DataArray,
 ) -> None:
     """Validate input coordinates without accessing field data.
 
@@ -367,46 +365,18 @@ def handshake_dataarray(
     ----------
     array : xr.DataArray
         Input field or allocation-free coordinate declaration.
-    signature : xr.DataArray, optional
+    signature : xr.DataArray
         Required fixed trailing dimensions, coordinates and grid metadata.
-        Omit to check only input structure and temporal coordinates.
-    relative_lead_time : bool, optional
-        Compare lead times relative to their final value, by default False
-    runtime : bool, optional
-        Require concrete nonempty axes before execution, by default False
 
     Notes
     -----
-    Leading axes need not have labels. Temporal axes require explicit finite,
-    one-dimensional labels, except declared zero-sized dynamic planning axes.
+    Declared dynamic leading axes are wildcards; fixed trailing axes and labels
+    must match. Validate temporal labels with ``handshake_time`` and normalize
+    relative lead times at the call site before comparing.
     Comparisons ignore auxiliaries attached to individual coordinate DataArrays.
     """
     if not isinstance(array, xr.DataArray):
         raise TypeError("Expected a DataArray")
-    runtime = runtime or not isinstance(array.data, _CoordinateArray)
-    declared = tuple(
-        dim
-        for dim in array.attrs.get(E2S_DYNAMIC_DIMS, ())
-        if array.sizes.get(dim) == 0
-    )
-    if array.dims[: len(declared)] != declared:
-        raise ValueError("Input dynamic dimensions must be a leading prefix")
-    for dim, size in array.sizes.items():
-        if size == 0 and (runtime or dim not in declared):
-            raise ValueError(f"Dimension '{dim}' must be nonempty")
-    temporal = {dim for dim in ("time", "lead_time") if dim in array.coords}
-    if signature is not None:
-        temporal.update(
-            dim
-            for dim in ("time", "lead_time")
-            if dim in signature.dims and dim in array.dims
-        )
-    for dim in temporal:
-        handshake_time(
-            array, dim, allow_dynamic=not runtime, dimension=dim in array.dims
-        )
-    if signature is None:
-        return
     dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
     if tuple(signature.dims[: len(dynamic)]) != dynamic:
         raise ValueError("Dynamic dimensions must lead the coordinate signature")
@@ -417,42 +387,32 @@ def handshake_dataarray(
     for index, dimension in enumerate(fixed, start=-len(fixed)):
         handshake_dim(array, dimension, index)
         handshake_size(array, dimension, signature.sizes[dimension])
-    lead = None
-    if relative_lead_time:
-        handshake_time(array, "lead_time")
-        lead = np.asarray(array.coords["lead_time"])
     for name, coordinate in signature.coords.items():
         if set(coordinate.dims).intersection(dynamic):
             continue
-        actual = array
-        if name == "lead_time" and lead is not None:
-            actual = array.assign_coords(lead_time=lead - lead[-1])
         try:
-            handshake_coords(actual, signature, name)
+            handshake_coords(array, signature, name)
         except KeyError as error:
             raise ValueError(str(error)) from error
     keys = [
         key for key in (E2S_GRID_ID, E2S_CRS, E2S_STATISTICS) if key in signature.attrs
     ]
-    if signature.attrs.get("type") == "HEALPixGrid":
-        keys.extend(
-            (
-                "type",
-                "topology",
-                "dims",
-                "shape",
-                "level",
-                "nside",
-                "ordering",
-                "layout",
-                "origin",
-                "clockwise",
-                "crs",
-                E2S_CRS,
-                E2S_GRID_ID,
-            )
-        )
     handshake_metadata(array, signature, keys)
+
+
+def handshake_nonempty(array: xr.DataArray) -> None:
+    """Require nonempty axes before executing on a DataArray.
+
+    Parameters
+    ----------
+    array : xr.DataArray
+        Input field. Only dimension sizes are inspected.
+    """
+    if not isinstance(array, xr.DataArray):
+        raise TypeError("Expected a DataArray")
+    for dim, size in array.sizes.items():
+        if size == 0:
+            raise ValueError(f"Dimension '{dim}' must be nonempty")
 
 
 def handshake_metadata(

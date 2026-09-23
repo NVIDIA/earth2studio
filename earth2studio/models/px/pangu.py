@@ -37,7 +37,13 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -167,8 +173,11 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the input signature and advance by this variant's time step."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(input_coords, {"lead_time": lead + self._time_step})
 
     def _restore_checkpoint_state(
@@ -348,7 +357,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Advance one DataArray using this variant's shortest-step model."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         states, _, _ = self._restore_checkpoint_state(x)
         out = self._step(states["current"], self.ort)
         self._save_checkpoint_state({"current": out}, 0)
@@ -357,9 +366,9 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         states, step, restored = self._restore_checkpoint_state(x)
-        handshake_dataarray(states["current"], runtime=True)
+        handshake_nonempty(states["current"])
         self.output_coords(states["current"])
         hours = int(self._time_step / np.timedelta64(1, "h"))
         if hours < 24 and "day" not in states:

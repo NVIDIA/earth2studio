@@ -37,7 +37,9 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
@@ -730,7 +732,8 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _check_input_coords(self, input_coords: CoordinateSystem) -> None:
         """Validate input coordinates against the public U-CAST coordinate system."""
-        handshake_dataarray(input_coords)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         target_input_coords = self.input_coords()
         input_variables = np.asarray(input_coords.coords.get("variable", []))
         if not self.preload_static_fields and input_variables.shape[0] == len(
@@ -739,7 +742,10 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             target_input_coords = coord_array_like(
                 target_input_coords, {"variable": np.array(VARIABLES)}
             )
-        handshake_dataarray(input_coords, target_input_coords, relative_lead_time=True)
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), target_input_coords
+        )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model."""
@@ -1043,7 +1049,8 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x_norm, sst_mask
 
     def _default_generator(self, x: xr.DataArray) -> Generator[xr.DataArray]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None), variable=slice(0, len(VARIABLES))).copy(
             deep=True

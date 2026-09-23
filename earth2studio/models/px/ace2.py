@@ -43,6 +43,7 @@ from earth2studio.utils.coords import (
     handshake_coords,
     handshake_dataarray,
     handshake_dim,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )
@@ -294,8 +295,13 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
+            self.input_coords(),
+        )
         return coord_array_like(
             input_coords,
             {
@@ -656,7 +662,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Iterator[xr.DataArray]
             Initial state followed by forecasts.
         """
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)

@@ -24,6 +24,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -610,7 +611,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         coords = coord_array_like(x).copy(deep=True)
         coords.encoding = deepcopy(x.encoding)
@@ -978,7 +979,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         coords = coord_array_like(x).copy(deep=True)
         coords.encoding = deepcopy(x.encoding)

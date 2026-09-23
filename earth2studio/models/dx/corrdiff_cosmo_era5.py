@@ -62,7 +62,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import interp
-from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -826,6 +826,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         """
         signature = self.input_coords()
         handshake_dataarray(input_coords, signature)
+        handshake_time(input_coords, allow_dynamic=True)
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
         top, bot, left, right = self._halo

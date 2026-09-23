@@ -28,6 +28,8 @@ from earth2studio.utils import (
     handshake_dataarray,
     handshake_dataarrays,
     handshake_dim,
+    handshake_metadata,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )
@@ -109,7 +111,10 @@ def test_handshake_relative_history_and_runtime():
         {"lead_time": np.array([-6, 0], dtype="timedelta64[h]"), "variable": ["t2m"]},
         dynamic=("batch", "time"),
     )
-    handshake_dataarray(declaration, declaration, relative_lead_time=True)
+    handshake_dataarray(declaration, declaration)
+    handshake_time(declaration, allow_dynamic=True)
+    with pytest.raises(ValueError, match="nonempty"):
+        handshake_nonempty(declaration)
     actual = coord_array(
         ("member", "time", "lead_time", "variable"),
         {
@@ -119,11 +124,14 @@ def test_handshake_relative_history_and_runtime():
         },
         sizes={"member": 2},
     )
-    handshake_dataarray(actual, declaration, relative_lead_time=True, runtime=True)
+    handshake_time(actual)
+    handshake_nonempty(actual)
+    handshake_time(actual, "lead_time")
+    lead = actual.lead_time.values
+    relative = actual.assign_coords(lead_time=lead - lead[-1])
+    handshake_dataarray(relative, declaration)
     with pytest.raises(ValueError):
-        handshake_dataarray(
-            declaration, declaration, relative_lead_time=True, runtime=True
-        )
+        handshake_time(declaration)
     for bad in (
         np.array([0, 6]),
         np.array(["NaT", "2020-01-01"], dtype="datetime64[D]"),
@@ -131,15 +139,13 @@ def test_handshake_relative_history_and_runtime():
         np.array([0, 3], dtype="timedelta64[h]"),
     ):
         with pytest.raises(ValueError):
+            changed = actual.assign_coords(lead_time=bad)
+            handshake_time(changed, "lead_time")
             handshake_dataarray(
-                actual.assign_coords(lead_time=bad),
-                declaration,
-                relative_lead_time=True,
+                changed.assign_coords(lead_time=bad - bad[-1]), declaration
             )
     with pytest.raises(ValueError):
-        handshake_dataarray(
-            actual.assign_coords(time=[0]), declaration, relative_lead_time=True
-        )
+        handshake_time(actual.assign_coords(time=[0]))
     handshake_time(
         actual, "lead_time", step=np.timedelta64(6, "h"), minimum=np.timedelta64(0, "h")
     )
@@ -165,8 +171,9 @@ def test_handshake_healpix_metadata():
     handshake_dataarray(signature, signature)
     changed = signature.copy(deep=False)
     changed.attrs = {**signature.attrs, "ordering": "ring"}
+    handshake_dataarray(changed, signature)
     with pytest.raises(ValueError, match="metadata"):
-        handshake_dataarray(changed, signature)
+        handshake_metadata(changed, signature, ("ordering",))
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

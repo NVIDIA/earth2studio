@@ -29,8 +29,8 @@ from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     handshake_coords,
-    handshake_dataarray,
     handshake_dim,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
@@ -536,7 +536,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Return the first interpolated forecast from a labelled history, without hooks."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
@@ -565,7 +565,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "Base forecast model, px_model, must be set before executing the model."
             )
 
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         iterator = self.px_model.create_iterator(x.copy(deep=True))
         try:

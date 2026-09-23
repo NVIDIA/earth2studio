@@ -42,7 +42,9 @@ from earth2studio.utils import (
     handshake_coords,
     handshake_dataarray,
     handshake_dim,
+    handshake_nonempty,
     handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -734,10 +736,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordinateSystem
             Output signature with the configured output lead-time window.
         """
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
-        last_time = np.asarray(input_coords.coords["lead_time"])[-1]
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(
-            input_coords, {"lead_time": self.output_times + last_time}
+            input_coords, {"lead_time": self.output_times + lead[-1]}
         )
 
     def fetch_conditioning(
@@ -1439,7 +1445,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         self.output_coords(x)
-        handshake_dataarray(conditioning, runtime=True)
+        handshake_nonempty(conditioning)
+        handshake_time(conditioning)
+        handshake_time(conditioning, "lead_time")
         if (
             conditioning.dims[-2:] == ("y", "x")
             and np.array_equal(conditioning.y, self.y)
@@ -1501,7 +1509,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: xr.DataArray,
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         x = x.copy(deep=True)

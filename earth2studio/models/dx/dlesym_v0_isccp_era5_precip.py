@@ -24,7 +24,12 @@ from earth2studio.grids import HEALPixGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -343,8 +348,13 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         CoordSystem
             Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
         """
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
+            self.input_coords(),
+        )
         return coord_array_like(
             input_coords,
             {

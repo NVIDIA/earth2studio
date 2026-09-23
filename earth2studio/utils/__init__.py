@@ -23,6 +23,7 @@ from .coords import (
     handshake_dataarrays,
     handshake_dim,
     handshake_metadata,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )

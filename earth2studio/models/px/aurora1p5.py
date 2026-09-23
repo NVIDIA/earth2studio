@@ -31,6 +31,7 @@ from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
@@ -273,7 +274,12 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Plan the next hourly output, including trailing one-hour diagnostics."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(
             input_coords,
             {
@@ -486,7 +492,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the final input, then six hourly queries per AR cycle."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         self.preds_idx = 0

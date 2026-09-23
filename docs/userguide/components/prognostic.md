@@ -63,7 +63,7 @@ The function takes a field DataArray with labelled coordinates (refer to
 returns the predicted output.
 
 ```python
-from earth2studio.utils import handshake_dataarray
+from earth2studio.utils import handshake_dataarray, handshake_time
 
 # Assume model is an instance of a PrognosticModel
 signature = model.input_coords()
@@ -72,7 +72,10 @@ x = fetch_data(source, time, signature["variable"].values, signature.lead_time.v
 # Regrid incompatible source geometry before validation; target_grid is currently
 # a pass-through, not a regridding operation.
 x = x.sel(lat=signature.lat.values, lon=signature.lon.values)
-handshake_dataarray(x, signature, relative_lead_time=True, runtime=True)
+handshake_time(x)
+handshake_time(x, "lead_time")
+lead = x.lead_time.values
+handshake_dataarray(x.assign_coords(lead_time=lead - lead[-1]), signature)
 x = model(x)  # Predict a single time-step
 ```
 
@@ -80,9 +83,10 @@ The standard `handshake_dim`, `handshake_coords`, and `handshake_size` utilities
 accept DataArrays as well as legacy coordinate dictionaries. They inspect dimension
 order, labels and sizes without reading field values. `handshake_time` validates
 finite datetime/timedelta labels; `handshake_metadata` compares named attributes.
-The combined `handshake_dataarray` validates declared grid metadata and relative
-history. Use `runtime=True` before execution to reject unresolved dynamic axes;
-`output_coords()` also accepts allocation-free declarations for planning.
+The two-argument `handshake_dataarray` compares dimensions, labels, and declared
+grid ID, CRS, and statistics metadata. Normalize relative history explicitly before
+comparing, as above. `handshake_nonempty` rejects unresolved axes at execution
+boundaries; `output_coords()` accepts dynamic coordinate declarations for planning.
 
 ### Time-series Prediction
 

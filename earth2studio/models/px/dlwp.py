@@ -35,6 +35,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.checkpoint import bind_checkpoint_state
@@ -170,8 +171,12 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate relative history and advance the final lead by six hours."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(
             input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
         )
@@ -510,7 +515,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict the next six-hour DataArray without iterator hooks."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         restored = self._restore_checkpoint_state()
         if restored is None:
@@ -536,7 +541,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         restored = self._restore_checkpoint_state()
         if restored is None:

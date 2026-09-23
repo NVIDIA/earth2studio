@@ -38,7 +38,7 @@ from earth2studio.models.conformance import (
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleTCGuidance
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import handshake_dim, handshake_metadata
 
 
 @pytest.fixture(autouse=True)
@@ -325,7 +325,7 @@ class TestCBottleTCMock:
         bad_grid = field.copy(deep=False)
         bad_grid.attrs = {**field.attrs, "ordering": "nested"}
         with pytest.raises(ValueError):
-            dx.output_coords(bad_grid)
+            handshake_metadata(bad_grid, dx.input_coords(), ("ordering",))
         output = dx(field)
         np.testing.assert_array_equal(output.lead_time, field.lead_time)
         out_coords = {k: output.coords[k].values for k in output.dims}

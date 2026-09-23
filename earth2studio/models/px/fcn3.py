@@ -30,6 +30,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
@@ -218,8 +219,12 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the input signature and declare the next six-hour forecast."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
@@ -381,7 +386,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         yield x.copy(deep=True)

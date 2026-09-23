@@ -36,7 +36,12 @@ Coordinate arrays occupy memory; the field backing array stores only shape/dtype
 import numpy as np
 
 from earth2studio.grids import CurvilinearGrid, ProjectedGrid, infer_grid, resolve_grid
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 
 # %%
 # Declare Regional Geometry
@@ -77,6 +82,8 @@ concrete = coord_array_like(
         "lead_time": np.array([5, 6, 7], dtype="timedelta64[h]"),
     },
 )
+handshake_time(concrete)
+handshake_time(concrete, "lead_time")
 handshake_dataarray(
     concrete.assign_coords(lead_time=concrete.lead_time - concrete.lead_time[-1]),
     regional,

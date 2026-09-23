@@ -35,6 +35,7 @@ from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )
@@ -197,7 +198,12 @@ def _jax_variables(variables: list[str]) -> list[str]:
 def _jax_output_coords(
     model: torch.nn.Module, x: CoordinateSystem, variables: list[str], hours: int
 ) -> CoordinateSystem:
-    handshake_dataarray(x, model.input_coords(), relative_lead_time=True)
+    handshake_time(x, allow_dynamic=True)
+    handshake_time(x, "lead_time")
+    lead = x.lead_time.values
+    handshake_dataarray(
+        x.assign_coords(lead_time=lead - lead[-1]), model.input_coords()
+    )
     replacements: dict[Hashable, np.ndarray | list[str]] = {
         "lead_time": x.lead_time.values[-1:] + np.timedelta64(hours, "h")
     }
@@ -262,7 +268,7 @@ def _jax_iterator(
     *,
     generated_forcings: bool = False,
 ) -> Iterator[xr.DataArray]:
-    handshake_dataarray(x, runtime=True)
+    handshake_nonempty(x)
     handshake_time(x)
     model.output_coords(x)
     # Reserve per-time streams before the initial yield, as the original

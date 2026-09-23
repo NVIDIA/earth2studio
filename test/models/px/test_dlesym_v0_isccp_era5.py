@@ -25,7 +25,7 @@ import earth2studio.models.px.dlesym as dlesym_src
 import earth2studio.models.px.dlesym_v0_isccp_era5 as v0_src
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5, DLESyMv0_ISCCP_ERA5LatLon
-from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.coords import coord_array_like, handshake_metadata
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -244,7 +244,11 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
 
     field = from_torch(x, in_coords)
     with pytest.raises(ValueError, match="metadata"):
-        model.output_coords(field.assign_attrs(origin="south", clockwise=False))
+        handshake_metadata(
+            field.assign_attrs(origin="south", clockwise=False),
+            in_coords,
+            ("origin", "clockwise"),
+        )
     out = model(field)
     out_coords = out.coords
     expected_coords = model.output_coords(in_coords)

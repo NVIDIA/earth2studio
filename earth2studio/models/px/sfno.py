@@ -16,10 +16,7 @@
 import fnmatch
 import os
 from collections.abc import Generator, Iterator
-from copy import deepcopy
-from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 import numpy as np
 import torch
@@ -33,9 +30,9 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
-from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -139,12 +136,6 @@ VARIABLES = [
 ]
 
 
-@dataclass
-class _SFNOCheckpointState:
-    x: torch.Tensor | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
 @check_optional_dependencies()
 class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Spherical Fourier Operator Network global prognostic model.
@@ -185,7 +176,6 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
         self.register_buffer("device_buffer", torch.empty(0))
-        self.checkpoint = bind_checkpoint_state(_SFNOCheckpointState())
 
     def __str__(self) -> str:
         return "sfno_73ch_small"
@@ -204,60 +194,15 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate input coordinates and advance the final lead by six hours."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
-
-    def _restore_checkpoint_state(self, x: xr.DataArray) -> tuple[xr.DataArray, bool]:
-        if (
-            self.checkpoint.checkpoint_level == 2
-            and self.checkpoint.checkpoint_state_loaded
-            and self.checkpoint.x is not None
-            and self.checkpoint.metadata
-        ):
-            metadata = deepcopy(self.checkpoint.metadata)
-            signature = coord_array(
-                metadata["dims"],
-                metadata["coords"],
-                sizes=metadata["sizes"],
-                attrs=metadata["attrs"],
-            )
-            restored = from_torch(
-                self.checkpoint.x.to(self.device_buffer.device),
-                signature,
-                name=metadata["name"],
-                attrs=metadata["attrs"],
-            )
-            restored.encoding = metadata["encoding"]
-            return restored, True
-        return x, False
-
-    def _save_checkpoint_state(self, x: xr.DataArray) -> None:
-        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
-            tensor, _ = x.e2s.to_torch()
-            self.checkpoint.x = tensor.detach().clone().to(self.checkpoint.device)
-            self.checkpoint.metadata = deepcopy(
-                {
-                    "dims": tuple(x.dims),
-                    "sizes": dict(x.sizes),
-                    "name": x.name,
-                    "coords": {
-                        name: (
-                            tuple(value.dims),
-                            value.values.copy(),
-                            dict(value.attrs),
-                        )
-                        for name, value in x.coords.items()
-                    },
-                    "attrs": dict(x.attrs),
-                    "encoding": dict(x.encoding),
-                }
-            )
-        else:
-            self.checkpoint.x = None
-            self.checkpoint.metadata = {}
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -377,7 +322,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @batch_func()
-    def _step(self, x: xr.DataArray) -> xr.DataArray:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict a six-hour DataArray on the model device, without iterator hooks."""
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, _ = x.e2s.to_torch()
@@ -389,28 +335,17 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out.encoding = x.encoding.copy()
         return out
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict a six-hour DataArray on the model device, without iterator hooks."""
-        x, _ = self._restore_checkpoint_state(x)
-        out = self._step(x)
-        self._save_checkpoint_state(out)
-        return out
-
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        x, restored = self._restore_checkpoint_state(x)
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
-        if not restored:
-            self._save_checkpoint_state(x)
-            yield x.copy(deep=False)
+        yield x.copy(deep=False)
         while True:
-            x = self.rear_hook(self._step(self.front_hook(x.copy(deep=True))))
-            self._save_checkpoint_state(x)
+            x = self.rear_hook(self(self.front_hook(x.copy(deep=True))))
             yield x.copy(deep=False)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial field then forecasts; checkpoints resume next step."""
+        """Yield the initial field then forecasts at six-hour intervals."""
         yield from self._default_generator(x)

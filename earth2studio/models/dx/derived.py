@@ -85,7 +85,6 @@ class _DerivedDiagnostic(torch.nn.Module):
         xr.DataArray
             Derived fields with the input name, encoding and unaffected metadata.
         """
-        handshake_dataarray(x, runtime=True)
         output_coords = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         output = from_torch(self._compute(tensor), output_coords)

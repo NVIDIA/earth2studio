@@ -26,7 +26,13 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -182,8 +188,11 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate relative history and advance the final lead by six hours."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(
             input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
         )
@@ -317,7 +326,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
         while True:

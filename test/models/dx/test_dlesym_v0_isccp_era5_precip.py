@@ -23,7 +23,7 @@ import xarray as xr
 import earth2studio.models.dx.dlesym_v0_isccp_era5_precip as precip_src
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
-from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.coords import coord_array_like, handshake_metadata
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -173,11 +173,11 @@ def test_dlesym_v0_isccp_era5_precip_forward(device, use_ttr, batch_size):
         "shape": [12 * nside**2],
     }.items():
         with pytest.raises(ValueError, match="metadata"):
-            model.output_coords(field.assign_attrs({key: value}))
+            handshake_metadata(field.assign_attrs({key: value}), in_coords, (key,))
     bad = field.copy(deep=False)
     bad.attrs.pop("clockwise")
     with pytest.raises(ValueError, match="metadata"):
-        model(bad)
+        handshake_metadata(bad, in_coords, ("clockwise",))
     out = model(field)
     out_coords = out.coords
     expected = model.output_coords(in_coords)

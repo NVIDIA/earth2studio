@@ -28,9 +28,10 @@ import xarray as xr
 from earth2studio.utils.coords import (
     coord_array,
     handshake_coords,
-    handshake_dataarray,
     handshake_dim,
+    handshake_nonempty,
     handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.cupy import _BATCH_METADATA_KEY
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
@@ -110,7 +111,10 @@ class batch_func:
         self, model: Any, x: xr.DataArray
     ) -> tuple[xr.DataArray, Callable[[xr.DataArray], xr.DataArray]]:
         signature = model.input_coords()
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
+        for dim in ("time", "lead_time"):
+            if dim in x.coords:
+                handshake_time(x, dim, dimension=dim in x.dims)
         handshake_dim(signature, "batch", 0)
         fixed = signature.dims[1:]
         count = x.ndim - len(fixed)

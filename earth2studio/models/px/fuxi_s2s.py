@@ -35,6 +35,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
@@ -272,8 +273,12 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output coordinates for the daily mean one day after the latest
             input.
         """
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         self._initial_step(input_coords)
         return coord_array_like(
             input_coords, {"lead_time": lead[-1:] + self._time_step}
@@ -503,7 +508,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def _step(self, x: xr.DataArray) -> xr.DataArray:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, _ = x.e2s.to_torch()
@@ -534,7 +539,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: xr.DataArray,
     ) -> Generator[xr.DataArray, None, None]:
         """Advance FuXi-S2S while retaining its two-day rolling state."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         tensor, _ = x.e2s.to_torch()

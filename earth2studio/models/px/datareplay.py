@@ -28,6 +28,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
@@ -92,14 +93,18 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the domain and return the signature one source step ahead."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
+            self.input_coords(),
+        )
         return coord_array_like(input_coords, {"lead_time": lead.values + self.step})
 
     @torch.inference_mode()
     def _forward(self, x: xr.DataArray) -> xr.DataArray:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         signature = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
@@ -137,7 +142,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         yield x.copy(deep=True)

@@ -33,6 +33,7 @@ from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )
@@ -224,6 +225,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         xr.DataArray
             Allocation-free output coordinate signature
         """
+        handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = input_coords.coords["lead_time"]
         # Each guidance frame is independent, conditioned at time + lead_time.
@@ -559,7 +561,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampling and fails for odds-ratio computations.
         """
 
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
+        handshake_time(x)
         for dim in x.dims[: -(3 if self.lat_lon else 2)]:
             handshake_size(x, dim, 1)
         output_coords = self.output_coords(x)

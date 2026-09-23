@@ -33,6 +33,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )
@@ -167,8 +168,12 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             - 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
             - 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
         """
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         return coord_array_like(input_coords, {"lead_time": lead[-1:] + self.DT})
 
     def prep_next_input(
@@ -333,7 +338,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)

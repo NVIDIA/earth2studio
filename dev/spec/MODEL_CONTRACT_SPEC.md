@@ -91,19 +91,21 @@ These three APIs also accept legacy coordinate dictionaries. A tuple passed to
 `handshake_dim` checks the complete ordered dimensions; `handshake_coords(...,
 subset=True)` checks labels before an explicit model-specific selection.
 
-`handshake_dataarray(input, signature, relative_lead_time=True)` composes those
-checks with temporal and grid-metadata validation. `handshake_time` checks explicit,
+`handshake_dataarray(input, signature)` composes dimension, size, and label checks
+with generic grid ID, CRS, and statistics metadata comparisons. Relative-history
+models explicitly normalize lead-time coordinates before calling it.
+`handshake_time` checks explicit,
 nonempty finite datetime/timedelta labels and optionally interval alignment or a
 minimum offset. Auxiliary/scalar validity times use `dimension=False`.
-`handshake_metadata` compares explicitly named attributes; HEALPix signatures
-require matching level, ordering, layout, origin and winding, including absent
-CRS/registry attributes. None of these checks materializes field values.
+`handshake_metadata` compares explicitly named attributes. Grid-type-specific
+attributes are not part of the generic DataArray handshake. None of these checks
+materializes field values.
 
-Use `handshake_dataarray(input, runtime=True)` at execution boundaries to reject
-unresolved zero-sized axes. Concrete field arrays are always checked as runtime
-inputs, even when passed to `output_coords`; only explicitly declared dynamic
-zero-sized signature axes are accepted for planning. Generic leading axes need
-no labels; temporal labels are checked when present or required by the model.
+Use `handshake_nonempty(input)` at execution boundaries to reject unresolved
+zero-sized axes. The generic comparison does not infer execution mode from field
+storage. Dynamic leading signature axes remain wildcards for planning. Generic
+leading axes need no labels; models validate temporal labels explicitly with
+`handshake_time`, using `allow_dynamic=True` for dynamic planning axes.
 Model methods retain their history/output transformations and invoke standard
 handshakes for validation.
 

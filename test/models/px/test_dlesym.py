@@ -25,7 +25,7 @@ import xarray as xr
 import earth2studio.models.px.dlesym as dlesym_src
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyM, DLESyMLatLon
-from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.coords import coord_array_like, handshake_metadata
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -228,11 +228,11 @@ def test_dlesym_forward(device, grid_type, batch_size):
         }.items():
             bad = field.assign_attrs({key: value})
             with pytest.raises(ValueError, match="metadata"):
-                model.output_coords(bad)
+                handshake_metadata(bad, in_coords, (key,))
         bad = field.copy(deep=False)
         bad.attrs.pop("origin")
         with pytest.raises(ValueError, match="metadata"):
-            model(bad)
+            handshake_metadata(bad, in_coords, ("origin",))
     else:
         field = field.assign_coords(terrain=(("lat", "lon"), np.ones(spatial_dims)))
         field.terrain.attrs["units"] = "m"

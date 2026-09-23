@@ -26,7 +26,13 @@ from earth2studio.models._array_utils import _resolve_domain
 
 from earth2studio.grids import GridDefinition
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
@@ -101,8 +107,11 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the relative history and advance its final lead by one step."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         final = input_coords.isel(lead_time=slice(-1, None))
         return coord_array_like(
             final.assign_coords(
@@ -162,7 +171,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: xr.DataArray) -> xr.DataArray:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         signature = self.output_coords(x)
         result = x.isel(lead_time=slice(-1, None)).assign_coords(signature.coords)
         result.attrs = dict(signature.attrs)
@@ -191,7 +200,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
         x, restored = self._restore_checkpoint_state(x)
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         if not restored:
             self._save_checkpoint_state(x)

@@ -32,6 +32,7 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_nonempty,
     handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
@@ -360,7 +361,12 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the input signature and declare the next six-hour forecast."""
-        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
         variables = [self.VARIABLES[i] for i in self.output_ids]
         accumulated = {"cp06", "ro06", "sf06", "ssrd06", "strd06"}
         variables = [f"{v[:-2]}:sum:6h" if v in accumulated else v for v in variables]
@@ -1015,7 +1021,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)

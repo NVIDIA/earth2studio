@@ -31,8 +31,8 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_coords,
-    handshake_dataarray,
     handshake_dim,
+    handshake_nonempty,
     handshake_size,
 )
 from earth2studio.utils.cupy import from_torch
@@ -355,14 +355,14 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Advance the nested model once, then diagnose its labelled output."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         return self._diagnose(self.px_model(x.copy(deep=True)))
 
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         self.output_coords(x)
         iterator = self.px_model.create_iterator(x.copy(deep=True))
         try:

@@ -17,7 +17,7 @@
 import torch
 import xarray as xr
 
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import coord_array, coord_array_like, handshake_nonempty
 from earth2studio.utils.type import CoordinateSystem
 
 
@@ -41,11 +41,10 @@ class Identity(torch.nn.Module):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return the input coordinates without allocating field storage."""
-        handshake_dataarray(input_coords)
         return coord_array_like(input_coords)
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Return the labelled field, preserving its device and metadata."""
-        handshake_dataarray(x, runtime=True)
+        handshake_nonempty(x)
         return x.copy(deep=False)

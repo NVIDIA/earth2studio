@@ -240,6 +240,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             Allocation-free output coordinate signature
         """
         handshake_dataarray(input_coords, self.input_coords())
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time", allow_dynamic=True)
         return coord_array_like(
             input_coords, {"variable": np.array(self.output_variables)}
         )

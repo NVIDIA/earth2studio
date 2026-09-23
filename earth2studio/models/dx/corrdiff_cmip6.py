@@ -30,7 +30,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.corrdiff import CorrDiff
-from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -381,6 +381,8 @@ class CorrDiffCMIP6(CorrDiff):
         """
         signature = self.input_coords()
         handshake_dataarray(input_coords, signature)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         grid = (
             LatLonGrid(self.lat_output_numpy, self.lon_output_numpy)
             if self.lat_output_numpy.ndim == 1
