@@ -2146,8 +2146,14 @@ def open_stats_store(
     superset, groups = stats_array_groups(
         statistics, variables, times, lead_times, ensemble_size, region_names
     )
+    # Only the group root writes this store, and it writes every member of an
+    # IC at once. OutputManager otherwise gives each member its own chunk,
+    # which forecast.zarr needs because there each member has its own writer.
     mgr = OutputManager(
-        cfg, store_name=settings.stats_store, chunks={"time": 1}, io_backend="zarr"
+        cfg,
+        store_name=settings.stats_store,
+        chunks={"time": 1, "ensemble": ensemble_size},
+        io_backend="zarr",
     )
     mgr.validate_output_store(superset, [])
     run_on_rank0_first(add_stats_arrays, mgr.io, groups, region_names)
@@ -2833,6 +2839,98 @@ def finalize_stats(cfg: DictConfig) -> str:
         f"→ {scores_path}"
     )
     return scores_path
+
+
+def _count_files(path: str) -> int:
+    """Total file count under a directory tree."""
+    return sum(len(files) for _, _, files in os.walk(path))
+
+
+def compact_stats_store(cfg: DictConfig) -> tuple[int, int] | None:
+    """Rewrite a finished ``stats.zarr`` with one chunk per array.
+
+    The store is chunked one IC per chunk so that a crash costs only the IC in
+    flight. That matters while a run is in progress. Once every IC has been
+    scored nothing appends to the store again, and :func:`finalize_stats` reads
+    it whole, so the fine chunking only leaves one small file per IC per array
+    behind. A store holding a few hundred KB per IC can reach tens of thousands
+    of files that way.
+
+    The rewrite is written to a sibling directory and compared array by array
+    against the original before it replaces it. The original is kept under a
+    ``.bak`` suffix until the new store has been reopened and checked. Each
+    rename is atomic, so an interrupted run leaves both directories in place
+    rather than one half-written store.
+
+    Call this only once the whole campaign is complete, which
+    :func:`filter_online_completed` reports. A store missing some ICs is normal
+    mid-campaign, and this function cannot tell that apart from a store another
+    job is still writing to.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full Hydra config.
+
+    Returns
+    -------
+    tuple[int, int] | None
+        File count before and after, or None if the store does not exist.
+    """
+    settings = parse_online_settings(cfg)
+    stats_path = os.path.join(cfg.output.path, settings.stats_store)
+    if not os.path.exists(stats_path):
+        return None
+
+    tmp_path = stats_path.rstrip("/") + ".compacting"
+    backup_path = stats_path.rstrip("/") + ".bak"
+    for path in (tmp_path, backup_path):
+        if os.path.exists(path):
+            shutil.rmtree(path)
+
+    files_before = _count_files(stats_path)
+    with xr.open_zarr(stats_path) as ds:
+        # The source chunking rides along in each variable's encoding and wins
+        # over any rechunking, so it has to be dropped explicitly.
+        encoding = {}
+        for name, var in ds.variables.items():
+            var.encoding = {}
+            encoding[name] = {"chunks": var.shape}
+        ds.chunk({dim: -1 for dim in ds.sizes}).to_zarr(
+            tmp_path, mode="w", consolidated=True, encoding=encoding
+        )
+
+    with xr.open_zarr(stats_path) as original, xr.open_zarr(tmp_path) as compacted:
+        mismatch = original.sizes != compacted.sizes or any(
+            not np.array_equal(
+                original[name].values, compacted[name].values, equal_nan=True
+            )
+            for name in original.data_vars
+        )
+        expected = compacted.sizes
+    if mismatch:
+        shutil.rmtree(tmp_path)
+        raise RuntimeError(
+            f"Compacted copy of '{stats_path}' does not match the original; "
+            "left the original store untouched."
+        )
+
+    os.rename(stats_path, backup_path)
+    os.rename(tmp_path, stats_path)
+    with xr.open_zarr(stats_path) as reopened:
+        swapped_ok = reopened.sizes == expected
+    if not swapped_ok:
+        shutil.rmtree(stats_path)
+        os.rename(backup_path, stats_path)
+        raise RuntimeError(
+            f"Post-swap check of '{stats_path}' failed; restored the "
+            "pre-compaction store from its backup."
+        )
+
+    files_after = _count_files(stats_path)
+    shutil.rmtree(backup_path)
+    logger.success(f"Compacted {stats_path}: {files_before} -> {files_after} files")
+    return files_before, files_after
 
 
 # ---------------------------------------------------------------------------

@@ -29,6 +29,7 @@ from src.online import (
     build_online_scorer,
     build_statistics,
     check_verification_coverage,
+    compact_stats_store,
     finalize_stats,
     online_enabled,
     open_stats_store,
@@ -208,6 +209,7 @@ def _run_online(
                 torch.distributed.barrier()
             if dist.rank == 0:
                 finalize_stats(cfg)
+                compact_stats_store(cfg)
             return
     else:
         remaining_times = list(all_times)
@@ -309,6 +311,10 @@ def _run_online(
     # it is correct after a resumed or multi-job campaign too.
     if dist.rank == 0:
         finalize_stats(cfg)
+        # A multi-job campaign shares this store, so this job finishing its
+        # own slice does not mean the campaign is done; re-check all_times.
+        if not filter_online_completed(list(all_times), cfg):
+            compact_stats_store(cfg)
 
 
 if __name__ == "__main__":
