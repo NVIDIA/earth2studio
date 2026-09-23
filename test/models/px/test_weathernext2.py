@@ -295,3 +295,29 @@ def test_weathernext2_tisr_batched(n_batch):
     assert data.sizes["batch"] == n_batch
     for member in range(n_batch):
         np.testing.assert_allclose(data[tisr].isel(batch=member).values, expected)
+
+
+@pytest.mark.parametrize("n_batch", [1, 4])
+def test_weathernext2_from_dataarray_batched(n_batch, mock_weathernext2_model):
+    """Converted datasets keep the caller's batch width on data and datetime."""
+    import xarray as xr
+
+    model = mock_weathernext2_model
+    coords = model.input_coords()
+    coords["batch"] = np.arange(n_batch)
+    coords["time"] = TEST_TIME
+    shape = tuple(len(v) for v in coords.values())
+    data = xr.DataArray(
+        torch.randn(*shape, dtype=torch.float32).numpy(), coords=coords
+    )
+
+    out, _ = model.from_dataarray_to_dataset(data, 6)
+
+    assert out.sizes["batch"] == n_batch
+    assert out["datetime"].sizes["batch"] == n_batch
+    batched = [n for n in out.data_vars if "batch" in out[n].dims]
+    assert batched, "no data variable carried a batch dimension"
+    for name in batched:
+        assert out[name].sizes["batch"] == n_batch, name
+    # Static fields are shared across members and stay unbatched.
+    assert "batch" not in out["land_sea_mask"].dims
