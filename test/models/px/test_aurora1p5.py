@@ -27,7 +27,9 @@ except ImportError:
     pytest.importorskip("aurora")
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models import px
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
+from earth2studio.models.px import aurora1p5 as aurora_module
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
 from earth2studio.utils import handshake_dim
 
@@ -67,10 +69,17 @@ class PhooAurora1p5Model(torch.nn.Module):
 
 
 class PhooAurora1p5EnsembleModel(PhooAurora1p5Model):
-    """Dummy ensemble model: same echo logic, adds reset_noise() stub."""
+    """Dummy ensemble model: same echo logic, adds noise-cache stubs."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.noise_accumulation_calls: list[int] = []
 
     def reset_noise(self) -> None:
         pass
+
+    def set_noise_accumulation(self, n: int = 0) -> None:
+        self.noise_accumulation_calls.append(n)
 
 
 def _make_model(device: str = "cpu") -> Aurora1p5:
@@ -292,6 +301,78 @@ def test_aurora1p5_ensemble_iter(n_members, device):
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
         if i > 11:
             break
+
+
+@pytest.mark.parametrize(
+    "model_name,step,ensemble",
+    [
+        ("Aurora1p5", 1, False),
+        ("Aurora1p5Ensemble", 1, True),
+        ("Aurora1p5_6h", 6, False),
+        ("Aurora1p5Ensemble_6h", 6, True),
+    ],
+)
+def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
+    model_cls = getattr(px, model_name)
+    assert model_cls.__bases__ == (aurora_module._Aurora,)
+    core = PhooAurora1p5EnsembleModel() if ensemble else PhooAurora1p5Model()
+
+    def load(package, aurora_cls, checkpoint):
+        suffix = "-ensemble" if ensemble else ""
+        expected_core = (
+            aurora_module.Aurora1p5Ensemble_model
+            if ensemble
+            else aurora_module.Aurora1p5_model
+        )
+        assert aurora_cls is expected_core
+        assert checkpoint == f"aurora-0.25-v1.5{suffix}.ckpt"
+        return core, {}
+
+    monkeypatch.setattr(aurora_module, "_load_aurora1p5_from_package", load)
+    p = model_cls.load_model(object())
+    assert type(p) is model_cls
+    for target in (p._input_coords, p._output_coords):
+        target["lat"] = np.linspace(90, -90, 4, endpoint=False)
+        target["lon"] = np.linspace(0, 360, 8, endpoint=False)
+    coords = p.input_coords()
+    coords["batch"] = np.arange(2)
+    coords["time"] = np.array([np.datetime64("2023-01-01T00:00")])
+    coords["lead_time"] = np.array([6, 12], dtype="timedelta64[h]")
+    x = torch.zeros(2, 1, 2, 83, 4, 8)
+    calls = []
+
+    original_forward = core.forward
+
+    def forward(batch, lead_times):
+        calls.append((batch.metadata.rollout_step, lead_times[0].item()))
+        return original_forward(batch, lead_times)
+
+    monkeypatch.setattr(core, "forward", forward)
+    out, out_coords = p(x, coords)
+    assert out.shape == (2, 1, 1, 90, 4, 8)
+    assert out_coords["lead_time"][0] == np.timedelta64(12 + step, "h")
+    assert calls == [(0, step)]
+    calls.clear()
+
+    iterator = p.create_iterator(x, coords)
+    initial, initial_coords = next(iterator)
+    assert initial_coords["lead_time"][0] == np.timedelta64(12, "h")
+    assert torch.isnan(initial[..., 83:, :, :]).all()
+    for i in range(12 // step):
+        out, out_coords = next(iterator)
+        assert out_coords["lead_time"][0] == np.timedelta64(12 + (i + 1) * step, "h")
+        assert out.shape == (2, 1, 1, 90, 4, 8)
+    iterator.close()
+    assert calls == [(cycle, h) for cycle in range(2) for h in range(step, 7, step)]
+    if ensemble:
+        assert core.noise_accumulation_calls == [6 // step, 0]
+    np.testing.assert_array_equal(
+        coords["lead_time"], np.array([6, 12], dtype="timedelta64[h]")
+    )
+    with pytest.raises(TypeError):
+        model_cls(core, {}, lead_time_stride_hours=step)
+    with pytest.raises(TypeError):
+        model_cls.load_model(object(), lead_time_stride_hours=step)
 
 
 @pytest.fixture(scope="function")
