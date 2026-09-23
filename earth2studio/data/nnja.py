@@ -358,6 +358,8 @@ class NNJAObsConv:
                 key,
                 self.cache,
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
+                chunked=True,
+                atomic=True,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -885,6 +887,8 @@ class NNJAObsSat:
                 key,
                 self.cache,
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
+                chunked=True,
+                atomic=True,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -920,8 +924,12 @@ class NNJAObsSat:
         raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
 
     def _handle_missing_file(self, path: str) -> None:
-        """Fail a request when an aggregate cycle file is absent."""
-        raise _NNJAObsSatIncompleteError("remote_file_missing", uri=path)
+        """Warn and skip an absent aggregate cycle file.
+
+        Archive gaps are expected (instrument outages, retired platforms), so one
+        missing cycle should not fail a multi-cycle request.
+        """
+        logger.warning(f"NNJA file {path} not found, skipping")
 
     def local_path(self, uri: str) -> str:
         """Return the deterministic cache path for an S3 URI."""

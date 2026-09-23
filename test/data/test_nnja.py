@@ -1104,12 +1104,8 @@ async def test_nnja_obs_sat_fetch_and_task_failures_are_structured(
         "cause_type": "OSError",
         "cause_message": "fetch failed",
     }
-    with pytest.raises(nnja._NNJAObsSatIncompleteError) as missing_error:
-        source._handle_missing_file(requested_uri)
-    assert missing_error.value.context == {
-        "reason": "remote_file_missing",
-        "uri": requested_uri,
-    }
+    # A missing cycle file is an archive gap: warned and skipped, not fatal.
+    source._handle_missing_file(requested_uri)
 
     local_path = tmp_path / "atms.bufr"
     local_path.write_bytes(b"fixture")

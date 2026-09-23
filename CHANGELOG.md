@@ -68,6 +68,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
+  the whole request, matching `NNJAObsConv` and the UFS sources
+- `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges
+  (`chunked=True`) written atomically, so large aggregates no longer exceed the
+  object store's per-request timeout and an interrupted download cannot leave a
+  truncated cache file
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
   `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
   analysis stable (the old defaults could diverge to non-finite output).
