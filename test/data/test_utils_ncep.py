@@ -759,3 +759,50 @@ def test_finalize_rows_adds_missing_columns():
     assert pd.isna(result["elev"].iloc[0])
     assert result["station"].iloc[0] is None
     assert pd.isna(result["station_elev"].iloc[0])
+
+
+def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
+    local_path = tmp_path / "amv.prepbufr.nr"
+    local_path.write_bytes(b"amv-prepbufr")
+    message_bytes = b"prepbufr-satwnd-message"
+    decoded = _message(
+        [
+            (utils_ncep.HDR_SID, b"72469   "),
+            (utils_ncep.HDR_XOB, -105.25),
+            (utils_ncep.HDR_YOB, 39.75),
+            (utils_ncep.HDR_DHR, 0.25),
+            (utils_ncep.HDR_ELV, 1_655.0),
+            (utils_ncep.HDR_TYP, 120),
+            (utils_ncep.OBS_CAT, 1),
+            (utils_ncep.OBS_POB, 850.0),
+            (utils_ncep.OBS_PQM, 4),
+            (utils_ncep.OBS_ZOB, 1_500.0),
+            (OBS_TOB, 5.5),
+            (OBS_TQM, 2),
+        ]
+    )
+    table_b = {utils_ncep.HDR_DHR: ("DHR", "HR", 5, 0, 0)}
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda data, *, silence_noise: (table_b, {}, [(message_bytes, 105)]),
+    )
+    monkeypatch.setattr(
+        utils_ncep, "_create_decoder", lambda tb, td: _Decoder(message_bytes, decoded)
+    )
+    bounds = (datetime(2024, 1, 1), datetime(2024, 1, 1, 1))
+    plan = _prepbufr_plan(NNJAObsConvLexicon, "t")
+    kept = utils_ncep.decode_prepbufr(str(local_path), plan, *bounds, decode_workers=1)
+    assert kept["class"].tolist() == ["SATWND"]
+    skipped = utils_ncep.decode_prepbufr(
+        str(local_path),
+        plan,
+        *bounds,
+        decode_workers=1,
+        exclude_message_types={"SATWND"},
+    )
+    assert skipped.empty
+
+    NNJAObsConv(cache=False, verbose=False, exclude_message_types=("SATWND",))
+    with pytest.raises(ValueError, match="Unknown PrepBUFR message types"):
+        NNJAObsConv(cache=False, verbose=False, exclude_message_types=("AMV",))

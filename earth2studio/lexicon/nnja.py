@@ -183,6 +183,48 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         return get_ncep_conventional_item(val, route_prefix=True)
 
 
+class NNJAObsSatwndLexicon(metaclass=LexiconType):
+    """NNJA lexicon for the raw NCEP ``satwnd`` atmospheric-motion-vector dump.
+
+    ``u``/``v`` are decomposed from the dump's ``WDIR``/``WSPD`` (m s-1, no unit
+    conversion). Both components share one AMV row set; the ``SDMEDIT`` wind
+    quality mark is in ``quality`` and producer metadata (satellite, subset,
+    computation method, zenith angle, quality indicators) in the extra
+    ``NNJAObsSatwnd`` columns.
+
+    Note
+    ----
+    Additional resources:
+
+    - https://psl.noaa.gov/data/nnja_obs/
+    """
+
+    VOCAB: dict[str, str] = {
+        "u": "satwnd::u",
+        "v": "satwnd::v",
+    }
+
+    @classmethod
+    def get_item(cls, val: str) -> tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]:
+        """Get item from the NNJA SATWND vocabulary.
+
+        Parameters
+        ----------
+        val : str
+            Variable id (``"u"`` or ``"v"``).
+
+        Returns
+        -------
+        tuple[str, Callable]
+            Route-prefixed source key and an identity modifier.
+        """
+
+        def modifier(frame: pd.DataFrame) -> pd.DataFrame:
+            return frame
+
+        return cls.VOCAB[val], modifier
+
+
 class NNJAObsSatLexicon(metaclass=LexiconType):
     """NNJA aggregate satellite observation lexicon.
 
