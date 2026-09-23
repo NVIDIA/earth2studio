@@ -953,7 +953,7 @@ class NNJAObsSat:
     ) -> list[_NNJASatTask]:
         variables_by_sensor: dict[str, dict[str, str]] = {}
         for variable_name in variable:
-            source_key, _modifier = self.LEXICON[variable_name]
+            source_key, _modifier = self.LEXICON.get_item(variable_name)
             sensor, separator, source_field = source_key.partition("::")
             if not separator or sensor not in _NNJA_SAT_PRODUCTS or not source_field:
                 raise ValueError(f"Invalid NNJA satellite lexicon key: {source_key}")

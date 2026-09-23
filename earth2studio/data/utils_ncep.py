@@ -2229,6 +2229,7 @@ def decode_ir_sounder(
     # with one dtype contract (uint16 scan_position, uint32 scan_line, ...)
     return _table_to_dataframe(result_table)
 
+
 # ─────────────────────────────────────────────────────────────────────
 # SATWND (atmospheric motion vector) dumps
 # ─────────────────────────────────────────────────────────────────────
