@@ -34,6 +34,7 @@ from earth2studio.models.px.weathernext2_cyclones import (
     WeatherNext2Cyclones,
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
+    _add_tisr_batched,
 )
 
 TEST_TIME = np.array([np.datetime64("2025-01-01T00:00")])
@@ -253,3 +254,46 @@ def test_weathernext2_package():
         len(model.input_coords()["lon"]),
         len(model.output_coords(model.input_coords())["variable"]),
     ) == (181, 360, 84)
+
+
+@pytest.mark.parametrize("n_batch", [1, 4])
+def test_weathernext2_tisr_batched(n_batch):
+    """TISR is broadcast across members and matches the single-member value."""
+    import xarray as xr
+    from weathernext.utils import data_utils
+
+    lat = np.linspace(-90.0, 90.0, 9)
+    lon = np.linspace(0.0, 330.0, 12)
+    start = np.datetime64("2025-01-01T00:00")
+    stamps = np.array([start, start + np.timedelta64(6, "h")])
+
+    def make(n):
+        return xr.Dataset(
+            {
+                "x": (
+                    ("batch", "time", "lat", "lon"),
+                    np.zeros((n, 2, lat.size, lon.size), dtype=np.float32),
+                )
+            },
+            coords={
+                "batch": np.arange(n),
+                "time": np.array(
+                    [np.timedelta64(0, "h"), np.timedelta64(6, "h")]
+                ),
+                "lat": lat,
+                "lon": lon,
+                "datetime": (("batch", "time"), np.tile(stamps, (n, 1))),
+            },
+        )
+
+    tisr = getattr(data_utils, "TISR", "toa_incident_solar_radiation")
+    reference = make(1)
+    data_utils.add_tisr_var(reference)
+    expected = reference[tisr].isel(batch=0).values
+
+    data = make(n_batch)
+    _add_tisr_batched(data)
+
+    assert data.sizes["batch"] == n_batch
+    for member in range(n_batch):
+        np.testing.assert_allclose(data[tisr].isel(batch=member).values, expected)
