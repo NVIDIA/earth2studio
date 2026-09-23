@@ -76,6 +76,8 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
             "pressure_quality": [1, 1],
+            "radius_curvature": [np.nan, np.nan],
+            "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
         }
@@ -225,6 +227,8 @@ def test_nnja_obs_conv_mock_fetch():
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
             "pressure_quality": [1, 1],
+            "radius_curvature": [np.nan, np.nan],
+            "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
         }
