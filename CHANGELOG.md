@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the ERA5 -> HRRR CONUS generative downscaling model
+  (`CorrDiffEra5Hrrr`). It uses a DiT trained with an x-prediction
+  flow-matching loss.
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
   source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind

@@ -360,6 +360,20 @@ categories:
         api_refs:
           - earth2studio.models.dx.CorrDiffCMIP6
           - earth2studio.models.dx.CorrDiffTaiwan
+      - id: corrdiff-era5-hrrr
+        label: CorrDiff ERA5-HRRR (StormCast-CONUS downscaler)
+        extra: corrdiff-era5-hrrr
+        summary: ERA5 -> HRRR CONUS generative downscaler dependencies.
+        api_refs:
+          - earth2studio.models.dx.CorrDiffEra5Hrrr
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
+        warnings:
+          - Depends on natten for Python versions before 3.14.
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo

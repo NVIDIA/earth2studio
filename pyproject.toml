@@ -274,6 +274,11 @@ cosmo = [
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
+corrdiff-era5-hrrr = [
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2.0a0", # TODO >=2.3 once the flow-matching release (PhysicsNeMo #1931) ships on PyPI
+    "nvtx>=0.2.11",
+]
 cyclone = [
     "cucim-cu13>=25.4.0",
     "cupy-cuda13x",
@@ -324,7 +329,7 @@ da-stormcast = [
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
-    "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[cbottle,climatenet,corrdiff,cosmo,corrdiff-era5-hrrr,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
 ]
 
@@ -416,6 +421,7 @@ nvidia-physicsnemo = [
   { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "cosmo"},
   { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "stormcast-conus"},
   { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "dlesym"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "426f7552da4b4fa675e404e8a4f437e27681b668", extra = "corrdiff-era5-hrrr"},
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
