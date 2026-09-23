@@ -98,7 +98,7 @@ def test_fcn_call(time, device):
     # Keep field values in the tensor and attach the public coordinate signature.
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     array = from_torch(x, coords, attrs=signature.attrs)
@@ -135,7 +135,7 @@ def test_fcn_iter(ensemble, device):
     # Get field values and dimension labels.
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
@@ -249,7 +249,7 @@ def test_fcn_exceptions(dc, device):
     signature = p.input_coords()
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     with pytest.raises((KeyError, ValueError)):
@@ -278,7 +278,7 @@ def test_fcn_package(model, device):
     # Keep field values in the tensor and attach the public coordinate signature.
     lead_time = signature["lead_time"].values
     variable = signature["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     result = p(from_torch(x, coords, attrs=signature.attrs))

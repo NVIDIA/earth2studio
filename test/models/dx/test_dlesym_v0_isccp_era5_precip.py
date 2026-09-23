@@ -18,10 +18,30 @@
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.dx.dlesym_v0_isccp_era5_precip as precip_src
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
-from earth2studio.utils import handshake_coords
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch):
+    if precip_src.insolation is None:
+        monkeypatch.delitem(
+            OptionalDependencyFailure.failures, precip_src.__file__, raising=False
+        )
+        monkeypatch.setattr(
+            precip_src,
+            "insolation",
+            lambda times, lat, lon: np.zeros(
+                (len(times), *lat.shape), dtype=np.float32
+            ),
+        )
+
 
 _PRECIP_VARIABLES = [
     "z500",
@@ -106,11 +126,18 @@ def test_dlesym_v0_isccp_era5_precip_forward(device, use_ttr, batch_size):
     nside = 16
     model = _build_model(device, nside=nside, use_ttr=use_ttr)
     in_coords = model.input_coords()
+    assert isinstance(in_coords, xr.DataArray)
+    assert in_coords.data.nbytes == 0
     # Input variable should be ``ttr`` when use_ttr=True, else ``rlut``.
     expected_input_var = "ttr" if use_ttr else "rlut"
     assert expected_input_var in list(in_coords["variable"])
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = np.array([np.datetime64("2020-01-01T00:00")])
+    in_coords = coord_array_like(
+        in_coords,
+        {
+            "batch": np.arange(batch_size),
+            "time": np.array([np.datetime64("2020-01-01T00:00")]),
+        },
+    )
 
     x = torch.randn(
         batch_size,
@@ -123,15 +150,51 @@ def test_dlesym_v0_isccp_era5_precip_forward(device, use_ttr, batch_size):
         device=device,
     )
 
-    out, out_coords = model(x, in_coords)
+    field = from_torch(x, in_coords, name="climate")
+    field.encoding = {"test": "precip"}
+    field = field.assign_coords(
+        terrain=(("face", "height", "width"), np.zeros((12, nside, nside))),
+        valid_time=(
+            ("time", "lead_time"),
+            field.time.values[:, None] + field.lead_time.values[None, :],
+        ),
+    )
+    field = field.rename(batch="member").drop_vars("member")
+    for key, value in {
+        "origin": "south",
+        "clockwise": False,
+        "ordering": "nested",
+        "layout": "flat",
+        "level": 0,
+        "nside": 1,
+        "type": "LatLonGrid",
+        "topology": "rectilinear",
+        "dims": ["hpx"],
+        "shape": [12 * nside**2],
+    }.items():
+        with pytest.raises(ValueError, match="HEALPix"):
+            model.output_coords(field.assign_attrs({key: value}))
+    bad = field.copy(deep=False)
+    bad.attrs.pop("clockwise")
+    with pytest.raises(ValueError, match="HEALPix"):
+        model(bad)
+    out = model(field)
+    out_coords = out.coords
     expected = model.output_coords(in_coords)
 
     assert out.shape == (batch_size, 1, 1, 1, 12, nside, nside)
-    assert list(out_coords["variable"]) == ["tp06"]
+    assert list(out_coords["variable"].values) == ["tp:sum:6h"]
+    assert out.name == field.name and out.encoding == field.encoding
+    assert out.dims[0] == "member" and "member" not in out.coords
+    assert "terrain" in out.coords and "valid_time" not in out.coords
+    assert out.attrs["ordering"] == "xy"
+    assert out.attrs["origin"] == "north"
+    assert out.attrs["clockwise"] is True
     assert len(out_coords["lead_time"]) == 1
     assert out_coords["lead_time"][0] == in_coords["lead_time"][-1]
     for key in out_coords:
-        handshake_coords(out_coords, expected, key)
+        if key in expected.coords:
+            np.testing.assert_array_equal(out_coords[key], expected[key])
 
 
 @pytest.mark.parametrize("device", ["cpu"])
@@ -145,8 +208,10 @@ def test_dlesym_v0_isccp_era5_precip_log_epsilon_inverse(device):
     nside = 16
     model = _build_model(device, nside=nside)
     in_coords = model.input_coords()
-    in_coords["batch"] = np.array([0])
-    in_coords["time"] = np.array([np.datetime64("2020-06-15T12:00")])
+    in_coords = coord_array_like(
+        in_coords,
+        {"batch": np.array([0]), "time": np.array([np.datetime64("2020-06-15T12:00")])},
+    )
 
     x = torch.randn(
         1,
@@ -158,7 +223,7 @@ def test_dlesym_v0_isccp_era5_precip_log_epsilon_inverse(device):
         nside,
         device=device,
     )
-    out, _ = model(x, in_coords)
+    out = model(from_torch(x, in_coords)).e2s.to_torch()[0]
     assert torch.allclose(out, torch.zeros_like(out), atol=1e-6)
 
 
@@ -186,8 +251,9 @@ def test_dlesym_v0_isccp_era5_precip_package(device):
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
     x = torch.randn(
         batch_size,
@@ -200,12 +266,13 @@ def test_dlesym_v0_isccp_era5_precip_package(device):
         device=device,
     )
 
-    out, out_coords = model(x, in_coords)
+    out = model(from_torch(x, in_coords))
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     assert out.shape == (batch_size, len(time), 1, 1, 12, nside, nside)
-    assert list(out_coords["variable"]) == [model.output_variable]
+    assert list(out_coords["variable"].values) == ["tp:sum:6h"]
     assert len(out_coords["lead_time"]) == 1
     assert out_coords["lead_time"][0] == in_coords["lead_time"][-1]
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])

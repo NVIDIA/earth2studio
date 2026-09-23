@@ -43,7 +43,10 @@ _requires_2_gpus = pytest.mark.skipif(
 def _run_worker(
     test_name: str, nproc: int, output_dir: str, timeout: int = 120
 ) -> subprocess.CompletedProcess:
-    env = {**os.environ, "PYTHONPATH": _RECIPE_ROOT}
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join((_RECIPE_ROOT, os.environ.get("PYTHONPATH", ""))),
+    }
     cmd = [
         sys.executable,
         "-m",

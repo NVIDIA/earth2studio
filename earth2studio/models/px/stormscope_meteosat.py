@@ -15,8 +15,9 @@
 # limitations under the License.
 
 import types
-from collections import OrderedDict
 from collections.abc import Callable, Generator
+from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 from math import prod
 from typing import Any
@@ -25,20 +26,22 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    handshake_size,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -73,8 +76,16 @@ VARIABLES = (
 )
 
 
+def _same_state(left: xr.DataArray, right: xr.DataArray) -> bool:
+    return left.variable.equals(right.variable) and all(
+        left.coords[d].variable.equals(right.coords[d].variable)
+        for d in left.dims
+        if d in left.coords
+    )
+
+
 @check_optional_dependencies()
-class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.
 
     Predicts MTG Full Combined Imager (FCI) frames from ``len(input_times)``
@@ -173,6 +184,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         (4320, 5440),
         (1856, 4288),
     )
+    stochastic = True
 
     def __init__(
         self,
@@ -262,6 +274,11 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.earth_mask = earth_mask[self._yi0 : self._yi1, self._xi0 : self._xi1]
         self.mtg_y = mtg_y[self._yi0 : self._yi1]
         self.mtg_x = mtg_x[self._xi0 : self._xi1]
+        self.grid = CurvilinearGrid(
+            self.lat.cpu().numpy(), self.lon.cpu().numpy(), self.mtg_y, self.mtg_x
+        )
+        self._seed: int | None = None
+        self._rng_step = 0
 
         self.variables = variables
 
@@ -315,60 +332,55 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_times = input_times
         self.output_times = output_times
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system"""
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": self.input_times,
                 "variable": np.array(self.variables),
-                "y": self.mtg_y,
-                "x": self.mtg_x,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=self.grid,
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model.
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Output coordinate system with ``lead_time`` advanced by one step.
-        """
-
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": self.output_times,
-                "variable": np.array(self.variables),
-                "y": self.mtg_y,
-                "x": self.mtg_x,
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate history and declare the forecast on the checkpoint pixel grid."""
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords.lead_time)
+        if (
+            input_coords.lead_time.dims != ("lead_time",)
+            or not lead.size
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain finite timedeltas")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
+        return coord_array_like(
+            input_coords, {"lead_time": self.output_times + lead[-1]}
         )
 
-        target_input_coords = self.input_coords()
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed isolated diffusion sampling, optionally retaining the current stream."""
+        if reset or self._seed is None:
+            self._seed, self._rng_step = seed, 0
 
-        handshake_dim(input_coords, "x", 5)
-        handshake_dim(input_coords, "y", 4)
-        handshake_dim(input_coords, "variable", 3)
-        # Index coords are arbitrary as long as they are on the MTG grid, so just check size
-        handshake_size(input_coords, "y", self.lat.shape[0])
-        handshake_size(input_coords, "x", self.lat.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = self.output_times + input_coords["lead_time"][-1]
-        return output_coords
+    @contextmanager
+    def _rng_context(self) -> Generator[None, None, None]:
+        if self._seed is None:
+            yield
+            return
+        device = self.means.device
+        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
+            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
+            if device.type == "cuda":
+                with torch.cuda.device(device):
+                    torch.cuda.manual_seed(self._seed + self._rng_step)
+            yield
+        self._rng_step += 1
 
     def compile_model(self) -> None:
         """Compile each denoising expert with ``torch.compile``."""
@@ -613,31 +625,30 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Run the prognostic model one step forward.
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : xr.DataArray
             Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
             containing ``L = len(self.input_times)`` consecutive raw MTG frames per
             ``(batch, time)`` entry, ordered oldest first along the ``lead_time``
             dimension.
-        coords : CoordSystem
-            Input coordinate system.  ``coords["lead_time"]`` must equal
-            ``self.input_times``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        xr.DataArray
             Predicted next frame as a denormalised tensor of shape
             ``(batch, time, 1, variable, y, x)`` and the corresponding output
             coordinate system.
         """
 
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        encoding = deepcopy(x.encoding)
+        x, coords = x.e2s.to_torch()
+        x = x.to(self.means.device)
 
         # x: (batch, time, n_input_times, C, H, W)
         B, T, L, C, H, W = x.shape
@@ -645,21 +656,26 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         for j, time in enumerate(coords["time"]):
             # all_times: N input times + 1 output time (N+1 entries for solar angles)
-            all_times = list(time + self.input_times) + [time + self.output_times[0]]
+            all_times = list(time + coords["lead_time"]) + [
+                time + coords["lead_time"][-1] + self.output_times[0]
+            ]
             zen_azi = self._azimuth_zenith(all_times)
 
             for i0 in range(0, B, self.batch_size):
                 i1 = i0 + self.batch_size
-                x[i0:i1, j, -1] = self._forward(x[i0:i1, j], zen_azi)
+                with self._rng_context():
+                    x[i0:i1, j, -1] = self._forward(x[i0:i1, j], zen_azi)
 
-        return self.denormalize(x[:, :, -1:]), output_coords
+        out = from_torch(self.denormalize(x[:, :, -1:]), output_coords)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return out
 
     @torch.no_grad()
     def create_generator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        x: xr.DataArray,
+    ) -> Generator[xr.DataArray, None, None]:
         """Create a generator for autoregressive rollout.
 
         The first ``next()`` call yields the initial condition unchanged.
@@ -668,44 +684,119 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : xr.DataArray
             Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
             containing raw MTG frames; must conform to ``self.input_coords()``.
-        coords : CoordSystem
-            Input coordinate system; must conform to ``self.input_coords()``.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        xr.DataArray
             Predicted frame tensor of shape ``(batch, time, 1, variable, y, x)``
             (denormalised) and its output coordinate system.
         """
-        yield x, coords
-
-        B, T, L, C, H, W = x.shape
-        x = self.normalize(x)
+        self.output_coords(x)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        x = x.copy(deep=True)
+        packed, restore = batch_func()._compress_array(self, x)
+        tensor, coords = packed.e2s.to_torch()
+        B, T, L, C, H, W = tensor.shape
+        tensor = self.normalize(tensor.to(self.means.device))
         times = coords["time"].copy()
         time_step = self.output_times[0]
-        time_offsets = np.concatenate([self.input_times, self.output_times])
+        time_offsets = np.concatenate(
+            [coords["lead_time"], coords["lead_time"][-1] + self.output_times]
+        )
         zen_azi = torch.stack(
             [self._azimuth_zenith(time + time_offsets) for time in times], dim=0
         )
 
         try:
             while True:
+                if self.front_hook is not self._default_hook:
+                    before = x
+                    x = self.front_hook(x.copy(deep=True))
+                    self.output_coords(x)
+                    if not _same_state(x, before):
+                        packed, restore = batch_func()._compress_array(self, x)
+                        values, coords = packed.e2s.to_torch()
+                        tensor = self.normalize(values.to(self.means.device))
+                        offsets = np.concatenate(
+                            [
+                                coords["lead_time"],
+                                coords["lead_time"][-1] + self.output_times,
+                            ]
+                        )
+                        zen_azi = torch.stack(
+                            [
+                                self._azimuth_zenith(time + offsets)
+                                for time in coords["time"]
+                            ]
+                        )
                 for j, time in enumerate(coords["time"]):
                     for i0 in range(0, B, self.batch_size):
                         i1 = i0 + self.batch_size
-                        x_next = self._forward(x[i0:i1, j], zen_azi[j])
+                        with self._rng_context():
+                            x_next = self._forward(tensor[i0:i1, j], zen_azi[j])
                         x_next.masked_fill_(self.off_earth_mask_tensor, 0)
                         for k in range(L - 1):  # copyless roll of tensor
-                            x[i0:i1, j, k] = x[i0:i1, j, k + 1]
-                        x[i0:i1, j, -1] = x_next
+                            tensor[i0:i1, j, k] = tensor[i0:i1, j, k + 1]
+                        tensor[i0:i1, j, -1] = x_next
 
-                yield (self.denormalize(x[:, :, -1:]), self.output_coords(coords))
+                packed, restore = batch_func()._compress_array(self, x)
+                prediction = from_torch(
+                    self.denormalize(tensor[:, :, -1:]), self.output_coords(packed)
+                )
+                prediction.encoding = x.encoding.copy()
+                prediction = restore(prediction)
+                if self.rear_hook is not self._default_hook:
+                    before = prediction
+                    prediction = self.rear_hook(prediction.copy(deep=True))
+                    if not _same_state(prediction, before):
+                        new, _ = batch_func()._compress_array(self, prediction)
+                        values, _ = new.e2s.to_torch()
+                        tensor[:, :, -1:] = self.normalize(values.to(self.means.device))
+                previous, _ = x.isel(lead_time=slice(1, None)).e2s.to_torch()
+                predicted, _ = prediction.e2s.to_torch()
+                state = torch.cat(
+                    [previous.to(predicted.device), predicted],
+                    dim=x.get_axis_num("lead_time"),
+                )
+                x = from_torch(
+                    state,
+                    coord_array_like(
+                        prediction,
+                        {
+                            "lead_time": np.asarray(prediction.lead_time)[-1]
+                            + self.input_times
+                        },
+                    ),
+                )
+                x.encoding = prediction.encoding.copy()
+                yield prediction.copy(deep=True)
 
                 # roll time step
-                coords["lead_time"] = coords["lead_time"] + time_step
+                next_coords = {d: np.asarray(x[d]) for d in ("time", "lead_time")}
+                if not (
+                    np.array_equal(next_coords["time"], coords["time"])
+                    and np.array_equal(
+                        next_coords["lead_time"], coords["lead_time"] + time_step
+                    )
+                ):
+                    offsets = np.concatenate(
+                        [
+                            next_coords["lead_time"],
+                            next_coords["lead_time"][-1] + self.output_times,
+                        ]
+                    )
+                    zen_azi = torch.stack(
+                        [
+                            self._azimuth_zenith(time + offsets)
+                            for time in next_coords["time"]
+                        ]
+                    )
+                    coords.update(next_coords)
+                    continue
+                coords.update(next_coords)
                 for k in range(L):
                     zen_azi[:, :, k] = zen_azi[:, :, k + 1]
                 for j, time in enumerate(coords["time"]):
@@ -718,33 +809,28 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def create_iterator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        x: xr.DataArray,
+    ) -> Generator[xr.DataArray, None, None]:
         """Create an iterator for autoregressive rollout.
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : xr.DataArray
             Input tensor; must conform to ``self.input_coords()``.
-        coords : CoordSystem
-            Input coordinate system; must conform to ``self.input_coords()``.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
+        xr.DataArray
             Predicted frame tensor and output coordinate system after each step.
         """
-        yield from self.create_generator(x, coords)
+        yield from self.create_generator(x)
 
     @classmethod
     def combine_1km_2km_inputs(
         cls,
-        x_1km: torch.Tensor,
-        coords_1km: CoordSystem,
-        x_2km: torch.Tensor,
-        coords_2km: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x_1km: xr.DataArray,
+        x_2km: xr.DataArray,
+    ) -> xr.DataArray:
         """Combine 1 km and 2 km resolution FCI channels onto the model 2 km grid.
 
         MTG FCI visible and NIR channels are natively provided at 1 km resolution
@@ -755,37 +841,51 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        x_1km : torch.Tensor
+        x_1km : xr.DataArray
             Input tensor of 1 km resolution channels, shape ``(..., C_1km, 2*H, 2*W)``
             where ``H`` and ``W`` are the 2 km grid dimensions.
-        coords_1km : CoordSystem
-            Coordinate system for ``x_1km``.
-        x_2km : torch.Tensor
+        x_2km : xr.DataArray
             Input tensor of 2 km resolution channels, shape ``(..., C_2km, H, W)``.
-        coords_2km : CoordSystem
-            Coordinate system for ``x_2km``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
+        xr.DataArray
             Combined tensor and coordinate system on the common 2 km grid, with
             shape ``(..., C_1km+C_2km, H, W)`` and variables ordered as 1 km
             variables first followed by 2 km variables.
         """
         # 2x downsample 1km data to common 2km grid
-        batch_dims = x_1km.shape[:-3]
-        x_1km = torch.nn.functional.avg_pool2d(
-            x_1km.reshape(prod(batch_dims), *x_1km.shape[-3:]), 2
+        signature = coord_array_like(
+            x_2km,
+            {
+                "variable": np.concatenate(
+                    [x_1km["variable"].values, x_2km["variable"].values]
+                )
+            },
         )
-        x_1km = x_1km.reshape(*batch_dims, *x_1km.shape[-3:])
+        encoding = deepcopy(x_2km.encoding)
+        if x_1km.dims[:-3] != x_2km.dims[:-3]:
+            raise ValueError("Input leading dimensions must match at both resolutions")
+        for dim in x_1km.dims[:-3]:
+            if x_1km[dim].dims != x_2km[dim].dims or not np.array_equal(
+                np.asarray(x_1km[dim]), np.asarray(x_2km[dim])
+            ):
+                raise ValueError(
+                    f"Input coordinate {dim} must match at both resolutions"
+                )
+        fine, _ = x_1km.e2s.to_torch()
+        coarse, _ = x_2km.e2s.to_torch()
+        batch_dims = fine.shape[:-3]
+        fine = torch.nn.functional.avg_pool2d(
+            fine.reshape(prod(batch_dims), *fine.shape[-3:]), 2
+        )
+        fine = fine.reshape(*batch_dims, *fine.shape[-3:])
 
         # merge downsampled and native 2km data
-        x = torch.concat([x_1km, x_2km], dim=-3)
-        coords = coords_2km.copy()
-        coords["variable"] = np.concatenate(
-            [coords_1km["variable"], coords_2km["variable"]]
-        )
-        return (x, coords)
+        out = from_torch(torch.cat([fine.to(coarse.device), coarse], dim=-3), signature)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return out
 
     @classmethod
     def load_default_package(cls) -> Package:

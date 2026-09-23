@@ -15,17 +15,46 @@
 # limitations under the License.
 
 import json
-from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 import earth2studio.models.dx.stormscope_dx_nsrdb as stormscope_module
-from earth2studio.models.conformance import ContractException, check_diagnostic_contract
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import StormScopeDxNSRDB
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(request, monkeypatch):
+    if (
+        stormscope_module.Module is None
+        and request.node.get_closest_marker("package") is None
+    ):
+        monkeypatch.delitem(
+            OptionalDependencyFailure.failures,
+            stormscope_module.__file__,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            stormscope_module,
+            "pnm_insolation",
+            lambda dates, lat, lon, scale, **kw: np.ones(
+                (len(dates), *lat.shape), dtype=np.float32
+            )
+            * scale,
+        )
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
 
 
 class PhooDiffusionModel(torch.nn.Module):
@@ -113,7 +142,7 @@ def make_input(
     batch: int = 1,
     time: int = 1,
     device: str = "cpu",
-) -> tuple[torch.Tensor, OrderedDict]:
+) -> xr.DataArray:
     input_coords = model.input_coords()
     tensor = torch.linspace(
         0,
@@ -131,52 +160,92 @@ def make_input(
         len(input_coords["y"]),
         len(input_coords["x"]),
     )
-    coords = OrderedDict(
+    coords = coord_array_like(
+        input_coords,
         {
             "batch": np.arange(batch),
             "time": np.array([np.datetime64("2024-07-15T18:00")] * time),
-            "variable": input_coords["variable"],
-            "y": input_coords["y"],
-            "x": input_coords["x"],
-        }
+        },
     )
-    return tensor, coords
+    return from_torch(tensor, coords)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_dx_nsrdb_call(device):
     model = create_model(device=device, partial_mask=True)
-    input_tensor, input_coords = make_input(model, batch=2, device=device)
+    input_tensor = make_input(model, batch=2)
+    input_tensor.name = "imagery"
+    input_tensor.attrs["nested"] = {"owner": ["caller"]}
+    input_tensor.encoding = {"nested": {"owner": ["caller"]}}
+    input_tensor = input_tensor.assign_coords(
+        units=("variable", ["input"] * 8), auxiliary=("batch", [4, 5])
+    )
+    before = input_tensor.copy(deep=True)
+    input_coords = input_tensor.coords
 
-    output, output_coords = model(input_tensor, input_coords)
+    output = model(input_tensor)
+    output_coords = output.coords
+    handshake_dataarray(output, model.output_coords(input_tensor))
 
     assert output.shape == (2, 1, 1, 1, 32, 64)
-    assert output_coords["variable"].tolist() == ["ghi"]
+    assert output_coords["variable"].values.tolist() == ["ghi"]
     assert "lead_time" not in input_coords
     assert "lead_time" not in output_coords
-    handshake_dim(output_coords, "batch", 0)
-    handshake_dim(output_coords, "sample", 1)
-    handshake_dim(output_coords, "time", 2)
-    handshake_dim(output_coords, "variable", 3)
-    handshake_dim(output_coords, "y", 4)
-    handshake_dim(output_coords, "x", 5)
+    assert output.dims == ("batch", "time", "sample", "variable", "y", "x")
     valid = model.valid_mask.cpu().numpy()
-    output_numpy = output.detach().cpu().numpy()
+    output_numpy = output.e2s.to_torch()[0].cpu().numpy()
     assert np.isnan(output_numpy[..., ~valid]).all()
     assert np.isfinite(output_numpy[..., valid]).all()
     assert (output_numpy[..., valid] >= 0).all()
+    assert output.name == "imagery" and output.encoding == input_tensor.encoding
+    assert "units" not in output.coords
+    np.testing.assert_array_equal(output.auxiliary, input_tensor.auxiliary)
+    output.attrs["nested"]["owner"].append("output")
+    output.encoding["nested"]["owner"].append("output")
+    xr.testing.assert_identical(input_tensor, before)
+    assert input_tensor.encoding == before.encoding
 
 
 def test_stormscope_dx_nsrdb_seed_and_samples():
     model = create_model(number_of_samples=2, seed=42)
-    input_tensor, input_coords = make_input(model)
+    input_tensor = make_input(model)
 
-    first, first_coords = model(input_tensor, input_coords)
-    second, _ = model(input_tensor, input_coords)
+    rng = torch.get_rng_state().clone()
+    first = model(input_tensor)
+    second = model(input_tensor)
+    first_coords = first.coords
 
-    torch.testing.assert_close(first, second, equal_nan=True)
-    assert first.shape == (1, 2, 1, 1, 32, 64)
+    xr.testing.assert_identical(first, second)
+    assert torch.equal(rng, torch.get_rng_state())
+    model.set_rng(43, reset=False)
+    xr.testing.assert_identical(first, model(input_tensor))
+    model.set_rng(43)
+    assert not np.array_equal(first.values, model(input_tensor).values)
+    assert first.shape == (1, 1, 2, 1, 32, 64)
     np.testing.assert_array_equal(first_coords["sample"], np.arange(2))
+    forecast = (
+        input_tensor.expand_dims(member=["a", "b"], lead_time=[np.timedelta64(3, "h")])
+        .transpose("member", "batch", "time", "lead_time", "variable", "y", "x")
+        .copy(deep=True)
+    )
+    forecast = forecast.assign_coords(valid_time=forecast.time + forecast.lead_time)
+    result = model(forecast)
+    np.testing.assert_array_equal(result.valid_time, forecast.valid_time)
+    observed = input_tensor.assign_coords(
+        time=input_tensor.time + np.timedelta64(3, "h")
+    )
+    expected = model(observed)
+    model.set_rng(43)
+    one = model(
+        forecast.isel(member=0, lead_time=0, drop=True).assign_coords(
+            time=observed.time
+        )
+    )
+    np.testing.assert_array_equal(one.values, expected.values)
+    assert result.dims == (*forecast.dims[:-3], "sample", "variable", "y", "x")
+    assert model.output_coords(model.input_coords()).attrs[
+        "earth2studio_dynamic_dims"
+    ] == ("batch", "time")
 
 
 def test_stormscope_dx_nsrdb_defaults_and_name():
@@ -204,22 +273,74 @@ def test_stormscope_dx_nsrdb_defaults_and_name():
     assert default_model.load_default_package() is not None
 
 
-def test_stormscope_dx_nsrdb_input_interpolation():
-    model = create_model()
-    model.build_input_interpolator(model.latitudes, model.longitudes)
-    input_tensor, input_coords = make_input(model)
-    input_coords["latitude"] = input_coords.pop("y")
-    input_coords["longitude"] = input_coords.pop("x")
+def test_stormscope_dx_nsrdb_input_interpolation(monkeypatch):
+    import importlib.util
 
-    output, output_coords = model(input_tensor, input_coords)
+    if importlib.util.find_spec("earth2grid") is None:
+
+        class OfflineNearest(torch.nn.Module):
+            def __init__(
+                self, source_lats, source_lons, target_lats, target_lons, max_dist_km
+            ):
+                super().__init__()
+                self.register_buffer(
+                    "valid_mask", torch.ones_like(target_lats, dtype=torch.bool)
+                )
+
+            def forward(self, x):
+                return x[..., ::2, ::2]
+
+        monkeypatch.setattr(
+            stormscope_module, "NearestNeighborInterpolator", OfflineNearest
+        )
+    model = create_model()
+    source_lat = model.latitudes.repeat_interleave(2, 0).repeat_interleave(2, 1)
+    source_lon = model.longitudes.repeat_interleave(2, 0).repeat_interleave(2, 1)
+    model.build_input_interpolator(source_lat, source_lon)
+    from earth2studio.grids import CurvilinearGrid
+
+    source_grid = CurvilinearGrid(
+        source_lat.numpy(),
+        source_lon.numpy(),
+        y=3000 * np.arange(source_lat.shape[0]) - 1587306,
+        x=3000 * np.arange(source_lat.shape[1]) - 2697520,
+    )
+    model.build_input_interpolator(source_lat, source_lon, input_grid=source_grid)
+    np.testing.assert_array_equal(model.input_coords().y, source_grid.y)
+    np.testing.assert_array_equal(model.input_coords().x, source_grid.x)
+    source_signature = model.input_coords()
+    model.build_input_interpolator(source_lat, source_lon, input_grid=source_signature)
+    xr.testing.assert_identical(
+        model.input_coords().coords.to_dataset(), source_signature.coords.to_dataset()
+    )
+    assert model.input_coords().attrs == source_signature.attrs
+    with pytest.raises(ValueError, match="input_grid"):
+        model.build_input_interpolator(
+            source_lat + 1, source_lon, input_grid=source_grid
+        )
+    xr.testing.assert_identical(
+        model.input_coords().coords.to_dataset(), source_signature.coords.to_dataset()
+    )
+    assert model.input_coords().attrs == source_signature.attrs
+    input_tensor = make_input(model)
+    input_tensor.attrs["earth2studio_grid_id"] = "source-only"
+    input_tensor = input_tensor.assign_coords(
+        source_aux=(("y", "x"), np.zeros(source_lat.shape))
+    )
+
+    output = model(input_tensor)
 
     assert output.shape == (1, 1, 1, 1, 32, 64)
-    assert list(output_coords) == ["batch", "sample", "time", "variable", "y", "x"]
+    assert list(output.dims) == ["batch", "time", "sample", "variable", "y", "x"]
+    assert "source_aux" not in output.coords
+    assert "earth2studio_grid_id" not in output.attrs
+    np.testing.assert_array_equal(output.lat, model.latitudes.cpu())
+    np.testing.assert_array_equal(output.lon, model.longitudes.cpu())
 
 
 def test_stormscope_dx_nsrdb_invalid_tensor_rank():
     model = create_model()
-    _, input_coords = make_input(model)
+    input_coords = make_input(model)
 
     with pytest.raises(ValueError, match=r"\[batch, time, variable, y, x\]"):
         model._forward_sample(torch.zeros(1, 8, 32, 64), input_coords)
@@ -303,11 +424,10 @@ def test_stormscope_dx_nsrdb_local_package(tmp_path, monkeypatch):
 )
 def test_stormscope_dx_nsrdb_exceptions(coordinate, value):
     model = create_model()
-    input_tensor, input_coords = make_input(model)
-    input_coords[coordinate] = value
+    input_tensor = make_input(model)
 
     with pytest.raises((KeyError, ValueError)):
-        model(input_tensor, input_coords)
+        model.output_coords(coord_array_like(input_tensor, {coordinate: value}))
 
 
 @pytest.mark.parametrize(
@@ -338,21 +458,8 @@ def test_stormscope_dx_nsrdb_constructor_exceptions(kwargs, match):
 
 
 def test_stormscope_dx_nsrdb_conformance():
-    """StormScopeDxNSRDB does not yet declare `stochastic`/`set_rng` (see the
-    Migration table in dev/spec/MODEL_CONTRACT_SPEC.md: it uses a Global
-    `torch.manual_seed` mechanism today and needs its RNG forked). Absent that
-    declaration, the checker treats it as deterministic, so its unseeded
-    per-call noise trips D9. This is a known, tracked gap fixed by a follow-up
-    wrapper change (fork the RNG + declare `stochastic`/`set_rng`), not
-    something to patch here.
-    """
     model = create_model()
-    with pytest.raises(ContractException) as exc_info:
-        check_diagnostic_contract(model)
-    assert exc_info.value.violations == [
-        "D9: model declares stochastic=False but two calls on one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_diagnostic_contract(model)
 
 
 @pytest.mark.package
@@ -363,11 +470,11 @@ def test_stormscope_dx_nsrdb_package():
         seed=42,
     ).to("cuda:0")
     model.num_steps = 2
-    input_tensor, input_coords = make_input(model, device="cuda:0")
+    input_tensor = make_input(model, device="cuda:0")
 
-    output, output_coords = model(input_tensor, input_coords)
+    output = model(input_tensor)
 
     assert output.shape[0] == 1
     assert output.shape[1] == 1
-    assert output_coords["variable"].tolist() == ["ghi"]
-    assert torch.isfinite(output[..., model.valid_mask]).all()
+    assert output.coords["variable"].values.tolist() == ["ghi"]
+    assert torch.isfinite(output.e2s.to_torch()[0][..., model.valid_mask]).all()

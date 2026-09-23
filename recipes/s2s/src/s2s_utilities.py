@@ -262,21 +262,10 @@ def initialize_output(
 
     # Populate with expected coords, dims
     ens_members = np.array(np.arange(cfg.nperturbed * cfg.ncheckpoints))
-    total_coords = (
-        OrderedDict({"ensemble": ens_members}) | model_dict["model"].input_coords()
-    )
-    total_coords.pop("batch")  # batch dimension not needed for output zarr
-    total_coords["time"] = times
+    from earth2studio.run import _output_dimensions
 
-    input_coords = model_dict["model"].input_coords()
-    output_coords = model_dict["model"].output_coords(total_coords)
-    inp_lead_time = input_coords["lead_time"]
-    out_lead_times = [
-        output_coords["lead_time"] + output_coords["lead_time"][-1] * i
-        for i in range(cfg.nsteps)
-    ]
-    total_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times]).astype(
-        "timedelta64[ns]"
+    total_coords = OrderedDict({"ensemble": ens_members}) | _output_dimensions(
+        model_dict["model"], times, cfg.nsteps
     )
 
     for i, (k, oc) in enumerate(output_coords_dict.items()):
@@ -500,8 +489,9 @@ def initialize(
 
     model_dict, model_packages = get_model(cfg)
     default_model = update_model_dict(model_dict, model_packages[0])["model"]
-    lon_coords = default_model.output_coords(default_model.input_coords())["lon"]
-    lat_coords = default_model.output_coords(default_model.input_coords())["lat"]
+    signature = default_model.output_coords(default_model.input_coords())
+    lon_coords = signature.coords["lon"].values
+    lat_coords = signature.coords["lat"].values
 
     coords_dict = initialize_cropbox(
         cfg=cfg, lon_coords=lon_coords, lat_coords=lat_coords

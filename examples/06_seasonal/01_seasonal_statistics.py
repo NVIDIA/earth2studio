@@ -130,21 +130,19 @@ def run_stats(
     prognostic = prognostic.to(device)
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    x, coords = fetch_data(
+    from earth2studio.run import _map_field, _output_dimensions
+
+    x = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords()["lead_time"],
-        variable=prognostic.input_coords()["variable"],
+        lead_time=prognostic.input_coords().coords["lead_time"].values,
+        variable=prognostic.input_coords().coords["variable"].values,
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend
-    total_coords = coords.copy()
-    output_coords = prognostic.output_coords(prognostic.input_coords())
-    total_coords["lead_time"] = np.asarray(
-        [output_coords["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
+    total_coords = _output_dimensions(prognostic, time, nsteps)
     # Remove reduced dimensions from statistic
     for d in statistic.reduction_dimensions:
         total_coords.pop(d, None)
@@ -152,15 +150,15 @@ def run_stats(
     io.add_array(total_coords, str(statistic))
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords())
+    x = _map_field(x, prognostic.input_coords())
 
     # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
+    model = prognostic.create_iterator(x)
 
     logger.info("Inference starting!")
     with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, (x, coords) in enumerate(model):
-            s, coords = statistic(x, coords)
+        for step, x in enumerate(model):
+            s, coords = statistic(*x.e2s.to_torch())
             io.write(s, coords, str(statistic))
             pbar.update(1)
             if step == nsteps:

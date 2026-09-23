@@ -18,9 +18,7 @@ import os
 import random
 import sys
 from collections import OrderedDict
-from collections.abc import Callable
 from copy import deepcopy
-from typing import cast
 
 import numpy as np
 import torch
@@ -172,11 +170,13 @@ def run_inference(
     # Per-IC caches: avoid re-creating NetCDF stores or re-fetching data when
     # the same IC is encountered again (e.g. after stability re-queuing).
     nc_stores: dict[np.datetime64, NetCDF4Backend] = {}
-    ic_data_cache: dict[np.datetime64, tuple[torch.Tensor, OrderedDict]] = {}
+    ic_data_cache = {}
 
     cyclone_tracking = None
     if "cyclone_tracking" in cfg:
-        oco = model.output_coords(model.input_coords())
+        from earth2studio.run import _dimension_coords, _map_field
+
+        oco = _dimension_coords(model.output_coords(model.input_coords()))
 
         heights, height_coords = (
             load_heights(cfg.cyclone_tracking.orography_path)
@@ -226,19 +226,25 @@ def run_inference(
             store = nc_stores[ic]
 
         if ic not in ic_data_cache:
-            x0, coords0 = fetch_data(
+            x0 = fetch_data(
                 data_source,
                 time=[np.datetime64(ic)],
-                lead_time=model.input_coords()["lead_time"],
-                variable=model.input_coords()["variable"],
+                lead_time=model.input_coords().coords["lead_time"].values,
+                variable=model.input_coords().coords["variable"].values,
                 device=dist.device,
             )
-            ic_data_cache[ic] = (x0, coords0)
+            ic_data_cache[ic] = x0
         else:
-            x0, coords0 = ic_data_cache[ic]
+            x0 = ic_data_cache[ic]
 
-        coords = {"ensemble": np.array(mems)} | coords0.copy()
-        xx = x0.unsqueeze(0).repeat(mini_batch_size, *([1] * x0.ndim))
+        from earth2studio.run import _dimension_coords, _map_field
+
+        xx = (
+            _map_field(x0, model.input_coords())
+            .expand_dims(ensemble=np.array(mems))
+            .copy(deep=True)
+        )
+        coords = _dimension_coords(xx)
 
         if stability_check:
             stability_check.reset(deepcopy(coords))
@@ -249,14 +255,14 @@ def run_inference(
         if hasattr(model, "set_rng"):
             model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
-        # This pipeline still uses the legacy tensor/coordinate model API.
-        iterator = cast(Callable, model.create_iterator)(xx, CoordSystem(coords))
+        iterator = model.create_iterator(xx)
         stab = torch.ones(mini_batch_size)
 
         # roll out the model and record data as desired
-        for _, (xx, coords) in tqdm(
+        for _, field in tqdm(
             zip(range(cfg.n_steps + 1), iterator), total=cfg.n_steps + 1
         ):
+            xx, coords = field.e2s.to_torch()
             write_to_store(store, xx, coords, out_coords)
             if cyclone_tracking:
                 cyclone_tracking.record_state(xx, coords)

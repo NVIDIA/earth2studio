@@ -26,11 +26,16 @@ from earth2studio.utils.cupy import from_torch
 
 
 @pytest.fixture(autouse=True)
-def cupy_for_cuda(request):
+def cupy_for_cuda(request, monkeypatch):
     if hasattr(request.node, "callspec") and request.node.callspec.params.get(
         "device", "cpu"
     ).startswith("cuda"):
         pytest.importorskip("cupy")
+    if "package" not in request.node.keywords:
+        # These tests supply the complete Torch core; package imports are unused.
+        monkeypatch.setattr(
+            PrecipitationAFNO, "__init__", PrecipitationAFNO.__init__.__wrapped__
+        )
 
 
 class PhooAFNOPrecip(torch.nn.Module):

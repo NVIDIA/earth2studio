@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
+from copy import deepcopy
 from datetime import datetime, timezone
 from enum import IntEnum, StrEnum
 
@@ -27,15 +27,16 @@ from loguru import logger
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
+from earth2studio.models.dx.corrdiff import _field, _own_metadata, _validate_grid
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import CoordinateSystem, TimeArray
 
 try:
     import earth2grid
@@ -69,7 +70,7 @@ class TimeStepperFunction(StrEnum):
 
 
 @check_optional_dependencies()
-class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """Climate in a bottle video prognostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle video
@@ -129,6 +130,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
     torch_compile = False
+    stochastic = True
+    front_hook_interval = 11
 
     def __init__(
         self,
@@ -186,70 +189,71 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the seed passed to the core's isolated random generator."""
+        if reset or self.seed is None:
+            self.seed = seed
+
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of prognostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free input coordinate signature
         """
-        if self.lat_lon:
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(self.VARIABLES),
-                    "lat": np.linspace(90, -90, 721),
-                    "lon": np.linspace(0, 360, 1440, endpoint=False),
-                }
-            )
-        else:
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(self.VARIABLES),
-                    "hpx": np.arange(4**HPX_LEVEL * 12),
-                }
-            )
+        return coord_array(
+            (
+                "batch",
+                "time",
+                "lead_time",
+                "variable",
+                *(("lat", "lon") if self.lat_lon else ("hpx",)),
+            ),
+            {
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": self.VARIABLES,
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg" if self.lat_lon else "healpix-l6-nested",
+        )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free output coordinate signature
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "time", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        if self.lat_lon:
-            handshake_dim(input_coords, "lon", -1)
-            handshake_dim(input_coords, "lat", -2)
-            handshake_coords(input_coords, target_input_coords, "lon")
-            handshake_coords(input_coords, target_input_coords, "lat")
-        else:
-            handshake_dim(input_coords, "hpx", -1)
-            handshake_coords(input_coords, target_input_coords, "hpx")
-
-        output_coords = input_coords.copy()
-        output_coords["lead_time"] = input_coords["lead_time"] + np.array(
-            [self._time_step]
+        if not isinstance(input_coords, xr.DataArray):
+            raise TypeError("Expected a DataArray")
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("lead_time is required")
+        lead = input_coords.lead_time
+        if (
+            lead.dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead.values).any()
+        ):
+            raise ValueError("lead_time must contain one finite timedelta")
+        _validate_grid(
+            coord_array_like(
+                input_coords, {"lead_time": lead.values - lead.values[-1]}
+            ),
+            self.input_coords(),
         )
-        return output_coords
+        result = coord_array_like(
+            input_coords, {"lead_time": lead.values + self._time_step}
+        )
+        result.encoding = deepcopy(input_coords.encoding)
+        return _own_metadata(result)
 
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array
@@ -284,7 +288,16 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        out, _ = self.core_model.sample(input_batch, seed=self.seed)
+        with torch.random.fork_rng(
+            devices=[device] if device.type == "cuda" else [],
+            enabled=self.seed is not None,
+        ):
+            if self.seed is not None:
+                torch.random.default_generator.manual_seed(self.seed)
+                if device.type == "cuda":
+                    with torch.cuda.device(device):
+                        torch.cuda.manual_seed(self.seed)
+            out, _ = self.core_model.sample(input_batch, seed=self.seed)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())
@@ -504,92 +517,49 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input conditional tensor for first frame, if all NaNs model will not use
-            any conditioning.
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
-
-        output_coords = self.output_coords(coords)
-
-        times = coords["time"].repeat(coords["batch"].shape[0])
-
-        domain_shape = list(x.shape)[3:]  # Auto handle lat/lon vs healpix
-        x = x.reshape(-1, coords["lead_time"].shape[0], *domain_shape)
-        x = self._forward(x, times)
-        x = x.reshape(
-            coords["batch"].shape[0], coords["time"].shape[0], -1, *domain_shape
+    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+        self.output_coords(x)
+        times = np.tile(x.time.values + x.lead_time.values[-1], x.sizes["batch"])
+        tensor = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
+        domain = tensor.shape[3:]
+        out = self._forward(tensor.reshape(-1, 1, *domain), times)
+        out = out.reshape(x.sizes["batch"], x.sizes["time"], self._time_length, *domain)
+        signature = coord_array_like(
+            x,
+            {
+                "lead_time": x.lead_time.values[-1]
+                + np.arange(1, self._time_length) * self._time_step
+            },
         )
-        return x[:, :, 1:2], output_coords
+        signature.encoding = deepcopy(x.encoding)
+        return _field(out[:, :, 1:].clone(), signature)
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict the next six-hour field from labelled conditioning data."""
+        return self._advance(x).isel(lead_time=slice(0, 1)).copy(deep=True)
 
-        times = coords["time"].repeat(coords["batch"].shape[0])
-        coords = self.output_coords(coords)
-        domain_shape = list(x.shape)[3:]  # Auto handle lat/lon vs healpix
-        start_frame = True
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the initial condition, then eleven forecasts per video advance."""
+        self.output_coords(x)
+        state = x.copy(deep=True)
+        yield state.copy(deep=True)
         while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            x = x.reshape(-1, 1, *domain_shape)
-            x = self._forward(x, times)
-            x = x.reshape(
-                coords["batch"].shape[0], coords["time"].shape[0], -1, *domain_shape
-            )
-            # Note that the input just conditions the model, so we need to run forward
-            # even for the initial time step unlike the auto regressive models
-            if start_frame:
-                start_frame = False
-                coords["lead_time"] = np.array([np.timedelta64(0)])
-                output_tensor, coords_out = self.rear_hook(x[:, :, 0:1], coords)
-                yield output_tensor, coords_out
-
-            # Yield the 12 generated frames
-            for i in range(1, self._time_length):
-                coords["lead_time"] = coords["lead_time"] + np.array([self._time_step])
-                # Rear hook
-                output_tensor, coords_out = self.rear_hook(x[:, :, i : i + 1], coords)
-                yield output_tensor, coords_out
-
-            # Use last generated frame as the first input one (has not been formally verified for accuracy)
-            times = times + 11 * np.array([self._time_step])
-            x = x[:, :, -1:, ...]
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
-        """
-        yield from self._default_generator(x, coords)
+            state = self.front_hook(state.copy(deep=True))
+            frames = self._advance(state)
+            for i in range(self._time_length - 1):
+                frame = frames.isel(lead_time=slice(i, i + 1)).copy(deep=True)
+                signature = coord_array_like(
+                    state, {"lead_time": frame.lead_time.values}
+                )
+                # Rebuild from current hook metadata so deleted auxiliaries cannot
+                # reappear from the cached video on the next yield.
+                frame = xr.DataArray(
+                    frame.data,
+                    dims=signature.dims,
+                    coords=deepcopy(signature.coords),
+                    name=state.name,
+                    attrs=deepcopy(state.attrs),
+                )
+                frame.encoding = deepcopy(state.encoding)
+                state = self.rear_hook(frame).copy(deep=True)
+                yield state.copy(deep=True)

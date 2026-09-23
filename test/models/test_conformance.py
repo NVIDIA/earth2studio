@@ -20,6 +20,7 @@ from collections.abc import Generator, Iterator
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.conformance import (
@@ -33,8 +34,16 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
+from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_dim,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordSystem
 
 DOMAIN = OrderedDict(
@@ -112,10 +121,29 @@ def _violations(model, **kwargs) -> set[str]:
     return {violation.split(":")[0] for violation in error.value.violations}
 
 
-def test_conformance_reference_model():
-    assert check_prognostic_contract(ToyPrognostic()) == [
+def native_model():
+    model = FCN(torch.nn.Identity(), torch.zeros(1, 1, 1), torch.ones(1, 1, 1))
+    model.input_coords = lambda: coord_array(
+        ("batch", "lead_time", "variable", "lat", "lon"),
+        {
+            "lead_time": np.array([0], dtype="timedelta64[h]"),
+            "variable": ["t2m"],
+            "lat": [1, 0],
+            "lon": [0, 1, 2],
+        },
+        dynamic=("batch",),
+    )
+    return model
+
+
+@pytest.mark.parametrize("factory", [ToyPrognostic, native_model])
+def test_conformance_reference_model(factory):
+    model = factory()
+    original = model.front_hook, model.rear_hook
+    assert check_prognostic_contract(model) == [
         "P14: model does not declare itself stochastic"
     ]
+    assert (model.front_hook, model.rear_hook) == original
 
 
 def test_conformance_diagnostic():
@@ -123,6 +151,22 @@ def test_conformance_diagnostic():
         "D4: model declares fewer than three dimensions",
         "D10: model does not declare itself stochastic",
     ]
+
+    class InvalidMetadata(Identity):
+        def __call__(self, x):
+            output = super().__call__(x)
+            output.attrs[key] = value
+            return output
+
+    for key, value in (
+        ("earth2studio_crs", "invalid"),
+        ("earth2studio_grid_id", "wrong-grid"),
+        ("earth2studio_statistics", {"t2m": "sum:6h"}),
+        ("earth2studio_kind", "coordinate_array"),
+        ("earth2studio_schema_version", 1),
+        ("earth2studio_dynamic_dims", ()),
+    ):
+        assert "D5" in _diagnostic_violations(InvalidMetadata())
 
 
 class StochasticIdentity(Identity):
@@ -139,12 +183,10 @@ class StochasticIdentity(Identity):
         if reset or self.generator is None:
             self.generator = torch.Generator().manual_seed(seed)
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        tensor, _ = x.e2s.to_torch()
         noise = torch.randn(x.shape, generator=self.generator)
-        return x + noise, self.output_coords(coords)
+        return from_torch(tensor + noise, self.output_coords(x))
 
 
 def _diagnostic_violations(model, **kwargs) -> set[str]:
@@ -183,14 +225,15 @@ def test_conformance_detects_diagnostic_unreached_randomness():
     assert _diagnostic_violations(Unseeded()) == {"D9"}
 
 
-def test_conformance_detects_diagnostic_input_mutation():
+@pytest.mark.parametrize("metadata", [False, True])
+def test_conformance_detects_diagnostic_input_mutation(metadata):
     class MutatingIdentity(Identity):
-        @batch_func()
-        def __call__(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            x.add_(1)
-            return x, self.output_coords(coords)
+        def __call__(self, x: xr.DataArray) -> xr.DataArray:
+            if metadata:
+                x.attrs["changed"] = True
+            else:
+                x.data += 1
+            return x
 
     with pytest.raises(ContractException) as error:
         check_diagnostic_contract(MutatingIdentity())
@@ -247,7 +290,8 @@ def test_conformance_detects_input_mutation():
     assert "P15" in _violations(MutatesInput())
 
 
-def test_conformance_detects_aliased_yields():
+@pytest.mark.parametrize("native", [False, True])
+def test_conformance_detects_aliased_yields(native):
     """Yields that share one buffer read stale under a deferred write."""
 
     class AliasedYields(ToyPrognostic):
@@ -265,7 +309,20 @@ def test_conformance_detects_aliased_yields():
                 buffer, coords = self.rear_hook(buffer, coords)
                 yield buffer, coords.copy()
 
-    assert "P16" in _violations(AliasedYields())
+    model = AliasedYields()
+    if native:
+        model = native_model()
+
+        def iterator(x):
+            state = x.copy(deep=True)
+            yield state
+            while True:
+                state.data += 1
+                state = state.assign_coords(lead_time=state.lead_time + DT)
+                yield state
+
+        model.create_iterator = iterator
+    assert "P16" in _violations(model)
 
 
 @pytest.mark.parametrize("history", [1, 2])
@@ -290,7 +347,7 @@ def test_conformance_curvilinear_coords():
     """A 2D lat/lon pair spans two tensor dimensions, not two sizes of one."""
     lat, lon = np.meshgrid(np.linspace(0, 1, 4), np.linspace(0, 1, 6), indexing="ij")
     model = Persistence("t2m", OrderedDict({"lat": lat, "lon": lon}))
-    assert _expected_shape(model.input_coords()) == (0, 1, 1, 4, 6)
+    assert model.input_coords().shape == (0, 1, 1, 4, 6)
     assert check_prognostic_contract(model) == [
         "P14: model does not declare itself stochastic"
     ]
@@ -341,7 +398,8 @@ def test_conformance_detects_broken_rebasing():
     assert "P6" in _violations(Unrebased(), rollout=False)
 
 
-def test_conformance_detects_missing_zeroth_yield():
+@pytest.mark.parametrize("native", [False, True])
+def test_conformance_detects_missing_zeroth_yield(native):
     class NoInitialCondition(ToyPrognostic):
         @batch_func()
         def _default_generator(
@@ -352,7 +410,18 @@ def test_conformance_detects_missing_zeroth_yield():
                 x, coords = self._step(x, coords)
                 yield x, coords.copy()
 
-    assert "P7" in _violations(NoInitialCondition())
+    model = NoInitialCondition()
+    if native:
+        model = native_model()
+
+        def iterator(x):
+            yield x + 1
+            while True:
+                x = model(x)
+                yield x
+
+        model.create_iterator = iterator
+    assert "P7" in _violations(model)
 
 
 def test_conformance_detects_shape_mismatch():
@@ -364,8 +433,59 @@ def test_conformance_detects_shape_mismatch():
 
     assert "P9" in _violations(Ragged())
 
+    model = native_model()
+    original_iterator = model.create_iterator
 
-def test_conformance_detects_dropped_hook():
+    def broken_later_coordinates(x):
+        for index, field in enumerate(original_iterator(x)):
+            if index >= 2:
+                field = field.assign_coords(lat=field.lat + 100)
+            yield field
+
+    model.create_iterator = broken_later_coordinates
+    assert _violations(model) == {"P9"}
+
+    def broken_later_metadata(x):
+        for index, field in enumerate(original_iterator(x)):
+            if index >= 2:
+                field = field.copy(deep=True)
+                field.attrs[key] = value
+            yield field
+
+    key, value = "user_note", "hook metadata remains flexible"
+    model.create_iterator = broken_later_metadata
+    assert check_prognostic_contract(model) == [
+        "P14: model does not declare itself stochastic"
+    ]
+
+    for key, value in (
+        ("earth2studio_crs", "invalid"),
+        ("earth2studio_kind", "coordinate_array"),
+    ):
+        model.create_iterator = broken_later_metadata
+        assert _violations(model) == {"P9"}
+
+    original_forward = model._step
+
+    def broken_call(x):
+        output = original_forward(x)
+        output.attrs[key] = value
+        return output
+
+    model.create_iterator = original_iterator
+    model._step = broken_call
+    for key, value in (
+        ("earth2studio_crs", "invalid"),
+        ("earth2studio_kind", "coordinate_array"),
+    ):
+        assert "P9" in _violations(model)
+
+
+@pytest.mark.parametrize(
+    "native,interval,missing",
+    [(False, 1, "front"), (True, 1, "front"), (True, 2, "rear"), (True, 2, None)],
+)
+def test_conformance_detects_dropped_hook(native, interval, missing):
     """The real bug class: a generator that applies only one of the two hooks.
 
     Three in-repo wrappers apply ``rear_hook`` and never ``front_hook``, so a front
@@ -384,7 +504,101 @@ def test_conformance_detects_dropped_hook():
                 x, coords = self.rear_hook(x, coords)
                 yield x, coords.copy()
 
-    assert _violations(RearHookOnly()) == {"P10"}
+    if not native:
+        assert _violations(RearHookOnly()) == {"P10"}
+        return
+    model = native_model()
+    model.front_hook_interval = interval
+    original = model.front_hook, model.rear_hook
+
+    def iterator(x):
+        yield x
+        cycle = 0
+        while True:
+            if not (cycle == 1 and missing == "front"):
+                x = model.front_hook(x)
+            for output in range(interval):
+                x = model(x)
+                if not (cycle == 1 and output == interval - 1 and missing == "rear"):
+                    x = model.rear_hook(x)
+                yield x
+            cycle += 1
+
+    model.create_iterator = iterator
+    if missing is None:
+        assert check_prognostic_contract(model, nsteps=1) == [
+            "P14: model does not declare itself stochastic"
+        ]
+    else:
+        assert _violations(model, nsteps=1) == {"P10"}
+    assert (model.front_hook, model.rear_hook) == original
+
+
+@pytest.mark.parametrize("interval", [0, True, 1.5])
+def test_conformance_invalid_hook_interval(interval):
+    model = native_model()
+    model.front_hook_interval = interval
+    original = model.front_hook, model.rear_hook
+    assert _violations(model) == {"P10"}
+    assert (model.front_hook, model.rear_hook) == original
+
+
+@pytest.mark.parametrize(
+    "temporal_dims,unit",
+    [
+        (("time", "lead_time"), None),
+        (("time", "lead_time"), "ms"),
+        (("analysis_time", "forecast_offset"), "us"),
+    ],
+)
+def test_conformance_temporal_declarations(temporal_dims, unit):
+    time_dim, lead_dim = temporal_dims
+    timestamp = np.datetime64("2025-03-04T06:07:08.123456", "us")
+    temporal = (
+        {
+            time_dim: np.array([], dtype=f"datetime64[{unit}]"),
+            lead_dim: np.array([], dtype=f"timedelta64[{unit}]"),
+        }
+        if unit
+        else {}
+    )
+    signature = coord_array(
+        ("member", time_dim, lead_dim, "variable", "lat", "lon"),
+        {**temporal, "variable": ["t2m"], "lat": [1, 0], "lon": [0, 1, 2]},
+        dynamic=("member", time_dim, lead_dim),
+    )
+    original = signature.copy(deep=True)
+    probes = []
+
+    class TemporalDiagnostic(Identity):
+        def input_coords(self):
+            return signature
+
+        def output_coords(self, x):
+            handshake_dataarray(x, signature)
+            for dim, kind in ((time_dim, "M"), (lead_dim, "m")):
+                assert x.coords[dim].dtype.kind == kind
+                if unit:
+                    assert x.coords[dim].dtype == signature.coords[dim].dtype
+            probes.append(x)
+            return coord_array_like(x)
+
+    assert check_diagnostic_contract(TemporalDiagnostic(), time=timestamp) == [
+        "D10: model does not declare itself stochastic"
+    ]
+    assert len(probes) == 1
+    probe = probes[0]
+    assert probe.data.nbytes == 0 and probe.attrs["earth2studio_dynamic_dims"] == ()
+    np.testing.assert_array_equal(probe.member, [0])
+    np.testing.assert_array_equal(
+        probe.coords[time_dim],
+        np.array([timestamp], dtype=f"datetime64[{unit}]" if unit else None),
+    )
+    np.testing.assert_array_equal(probe.coords[lead_dim], [np.timedelta64(0, "ns")])
+    assert signature.sizes == original.sizes and signature.attrs == original.attrs
+    xr.testing.assert_identical(
+        signature.coords.to_dataset(), original.coords.to_dataset()
+    )
 
 
 def test_conformance_detects_hooks_on_call():

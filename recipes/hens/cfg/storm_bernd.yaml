@@ -30,7 +30,7 @@ data_source:
 
 file_output:
     path: '/outputs'       # directory to which outfiles are written
-    output_vars: ['t2m','u10m','r500','tp']
+    output_vars: ['t2m','u10m','r500','tp:sum:6h']
     thread_io: False      # write out in seperate thread (needs further testing)
     format:               # io backend class
         _target_: earth2studio.io.ZarrBackend

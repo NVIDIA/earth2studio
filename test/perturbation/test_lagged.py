@@ -147,7 +147,7 @@ def test_lagged_accuracy(device):
     gfs = GFS()
     x0, c = fetch_data(
         source=GFS(), time=time, variable=variable, lead_time=lead_time, device=device
-    )
+    ).e2s.to_torch()
     x = x0.clone().unsqueeze(0).repeat(len(lags), 1, 1, 1, 1, 1)
 
     # Initialize Lagged Ensemble

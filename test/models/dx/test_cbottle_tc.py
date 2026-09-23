@@ -27,14 +27,85 @@ try:
     from cbottle.datasets import base
     from cbottle.inference import MixtureOfExpertsDenoiser
 except ImportError:
-    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
+    cbottle = None
+
+from types import SimpleNamespace
+
+from test_cbottle_infill import _field
 
 from earth2studio.models.conformance import (
-    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleTCGuidance
 from earth2studio.utils import handshake_dim
+
+
+@pytest.fixture(autouse=True)
+def offline_tc(monkeypatch):
+    if cbottle is not None:
+        return
+
+    def initialize(
+        self, core_model, classifier, sst, lat_lon=True, seed=None, **kwargs
+    ):
+        torch.nn.Module.__init__(self)
+        self.sst = sst
+        self.lat_lon = lat_lon
+        self.seed = seed
+        self.sigma_max = 200
+        self.sampler_steps = 2
+        self.batch_size = 2
+        self.guidance_scale = 1
+        self.dataset_modality = 1
+        self.register_buffer("device_buffer", torch.empty(0))
+        self.register_buffer(
+            "lat_grid", torch.linspace(90, -90, 721, dtype=torch.float64)
+        )
+        self.register_buffer("lon_grid", torch.arange(1440, dtype=torch.float64) / 4)
+        grid = SimpleNamespace(
+            shape=(768,), ang2pix=lambda lon, lat: (lon.abs().long() % 768)
+        )
+
+        def sample(batch, seed=None, **kwargs):
+            target = batch["target"]
+            gen = (
+                torch.Generator(device=target.device).manual_seed(seed)
+                if seed is not None
+                else None
+            )
+            return torch.randn(
+                target.shape, device=target.device, generator=gen
+            ), SimpleNamespace(grid=grid)
+
+        self.core_model = SimpleNamespace(
+            sample=sample,
+            classifier_grid=grid,
+            net=SimpleNamespace(domain=SimpleNamespace(_grid=grid)),
+            _normalize=lambda x: x,
+            _reorder=lambda x: x,
+            translate=lambda batch, **kw: (batch["target"], None),
+        )
+
+    def prepare(self, times, **kwargs):
+        self._validate_sst_time(times)
+        x = torch.zeros(len(times), 45, 1, 49152, device=self.device_buffer.device)
+        return {
+            "target": x,
+            "labels": x[:, :1, 0, :1],
+            "condition": x[:, :1],
+            "second_of_day": x[:, 0, 0, :1],
+            "day_of_year": x[:, 0, 0, :1],
+        }
+
+    monkeypatch.setattr(CBottleTCGuidance, "__init__", initialize)
+    monkeypatch.setattr(CBottleTCGuidance, "get_cbottle_input", prepare)
+    monkeypatch.setattr(
+        CBottleTCGuidance,
+        "regrid_hpx_to_latlon",
+        lambda self, x, grid: x.mean(-1, keepdim=True)
+        .unsqueeze(-1)
+        .expand(-1, -1, -1, 721, 1440),
+    )
 
 
 @pytest.fixture(scope="class")
@@ -56,6 +127,8 @@ def mock_sst_ds() -> torch.nn.Module:
 
 @pytest.fixture(scope="class")
 def mock_core_model() -> torch.nn.Module:
+    if cbottle is None:
+        return torch.nn.Identity()
     # Real model checkpoint has
     # {"model_channels": 192, "label_dim": 1024, "out_channels": 45, "condition_channels": 1}
     model_config = cbottle.config.models.ModelConfigV1()
@@ -75,6 +148,8 @@ def mock_core_model() -> torch.nn.Module:
 
 @pytest.fixture(scope="class")
 def mock_classifier_model() -> torch.nn.Module:
+    if cbottle is None:
+        return torch.nn.Identity()
     # Real model checkpoint has
     # {"model_channels": 192, "label_dim": 1024, "out_channels": 45, "condition_channels": 1}
     model_config = cbottle.config.models.ModelConfigV1()
@@ -110,7 +185,9 @@ class TestCBottleTCMock:
     ):
         """Test guidance tensor creation with different coordinate combinations"""
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds)
-        guidance, coords = dx.create_guidance_tensor(lat_coords, lon_coords, times)
+        field = dx.create_guidance_tensor(lat_coords, lon_coords, times)
+        coords = {k: v.values for k, v in field.coords.items()}
+        guidance = field.e2s.to_torch()[0]
 
         assert guidance.shape == (len(times), 1, 1, 721, 1440)
         assert guidance.dtype == torch.float32
@@ -151,6 +228,7 @@ class TestCBottleTCMock:
         mock_core_model,
         mock_classifier_model,
         mock_sst_ds,
+        monkeypatch,
     ):
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
             device
@@ -163,19 +241,43 @@ class TestCBottleTCMock:
             {
                 "batch": np.arange(x.shape[0]),
                 "time": time,
-                "lead_time": np.array([timedelta(hours=0)]),
+                "lead_time": np.array([timedelta(hours=6)]),
                 "variable": dx.input_coords()["variable"],
                 "lat": dx.input_coords()["lat"],
                 "lon": dx.input_coords()["lon"],
             }
         )
         x = x.to(device)
-        out, out_coords = dx(x, coords)
+        field = _field(dx, x, coords)
+        seen_times = []
+        with pytest.raises(ValueError, match="finite one-dimensional timedeltas"):
+            dx.output_coords(field.assign_coords(lead_time=[6]))
+        with pytest.raises(ValueError, match="finite one-dimensional timedeltas"):
+            dx.output_coords(
+                field.assign_coords(lead_time=np.array(["NaT"], dtype="timedelta64[h]"))
+            )
+        with pytest.raises(ValueError, match="finite one-dimensional timedeltas"):
+            dx.output_coords(field.isel(lead_time=slice(0, 0)))
+        prepare = dx.get_cbottle_input
+
+        def record_times(times, *args, **kwargs):
+            seen_times.extend(times)
+            return prepare(times, *args, **kwargs)
+
+        monkeypatch.setattr(dx, "get_cbottle_input", record_times)
+        output = dx(field)
+        np.testing.assert_array_equal(output.lead_time, field.lead_time)
+        np.testing.assert_array_equal(
+            np.asarray(seen_times, dtype="datetime64[ns]"),
+            np.tile(field.time.values + np.timedelta64(6, "h"), x.shape[0]),
+        )
+        out_coords = {k: output.coords[k].values for k in output.dims}
+        out = output.e2s.to_torch()[0]
 
         assert out.shape == torch.Size(
             [x.shape[0], x.shape[1], x.shape[2], 45, 721, 1440]
         )
-        assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        assert np.all(out_coords["variable"] == dx.output_coords(field)["variable"])
         handshake_dim(out_coords, "lon", 5)
         handshake_dim(out_coords, "lat", 4)
         handshake_dim(out_coords, "variable", 3)
@@ -202,16 +304,28 @@ class TestCBottleTCMock:
         coords = OrderedDict(
             {
                 "time": time,
-                "lead_time": np.array([timedelta(hours=0)]),
+                "lead_time": np.array([timedelta(hours=6), timedelta(hours=12)]),
                 "variable": dx.input_coords()["variable"],
                 "hpx": np.arange(x.shape[-1]),
             }
         )
-        x = x.to(device)
-        out, out_coords = dx(x, coords)
+        x = x.to(device).repeat(1, 2, 1, 1)
+        field = _field(dx, x, coords)
+        assert field.attrs["ordering"] == "xy"
+        assert field.attrs["layout"] == "flat"
+        assert field.attrs["origin"] == "north"
+        assert field.attrs["clockwise"] is True
+        bad_grid = field.copy(deep=False)
+        bad_grid.attrs = {**field.attrs, "ordering": "nested"}
+        with pytest.raises(ValueError):
+            dx.output_coords(bad_grid)
+        output = dx(field)
+        np.testing.assert_array_equal(output.lead_time, field.lead_time)
+        out_coords = {k: output.coords[k].values for k in output.dims}
+        out = output.e2s.to_torch()[0]
 
         assert out.shape == torch.Size([x.shape[0], x.shape[1], 45, 49152])
-        assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+        assert np.all(out_coords["variable"] == dx.output_coords(field)["variable"])
         handshake_dim(out_coords, "hpx", 3)
         handshake_dim(out_coords, "variable", 2)
         handshake_dim(out_coords, "lead_time", 1)
@@ -224,7 +338,7 @@ class TestCBottleTCMock:
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
             "cpu"
         )
-        guidance, coords = dx.create_guidance_tensor(
+        guidance = dx.create_guidance_tensor(
             torch.tensor([30.0]),
             torch.tensor([120.0]),
             [datetime(2000, 1, 1)],
@@ -250,10 +364,8 @@ class TestCBottleTCMock:
         )
         monkeypatch.setattr(dx, "regrid_hpx_to_latlon", _fake_regrid)
 
-        log_odds_ratio, forward_latents, latent_coords = dx.calculate_odds_ratio(
-            guidance,
-            coords,
-        )
+        log_odds_ratio, forward_latents = dx.calculate_odds_ratio(guidance)
+        latent_coords = forward_latents.coords
 
         assert log_odds_ratio == pytest.approx(1.5)
         assert isinstance(called["batch"], dict)
@@ -273,14 +385,14 @@ class TestCBottleTCMock:
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
             "cpu"
         )
-        guidance, coords = dx.create_guidance_tensor(
+        guidance = dx.create_guidance_tensor(
             torch.tensor([30.0]),
             torch.tensor([120.0]),
             [datetime(2000, 1, 1), datetime(2000, 1, 2)],
         )
 
         with pytest.raises(ValueError, match="exactly one sample"):
-            dx.calculate_odds_ratio(guidance, coords)
+            dx.calculate_odds_ratio(guidance)
 
     def test_calculate_odds_ratio_rejects_empty_guidance(
         self, mock_core_model, mock_classifier_model, mock_sst_ds, monkeypatch
@@ -289,7 +401,7 @@ class TestCBottleTCMock:
         dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
             "cpu"
         )
-        guidance, coords = dx.create_guidance_tensor(
+        guidance = dx.create_guidance_tensor(
             torch.tensor([30.0]),
             torch.tensor([120.0]),
             [datetime(2000, 1, 1)],
@@ -307,7 +419,7 @@ class TestCBottleTCMock:
         )
 
         with pytest.raises(ValueError, match="No guidance pixels set"):
-            dx.calculate_odds_ratio(guidance, coords)
+            dx.calculate_odds_ratio(guidance)
 
     def test_validate_sst_time_valid(
         self, mock_core_model, mock_classifier_model, mock_sst_ds
@@ -355,11 +467,9 @@ class TestCBottleTCMock:
             "cuda:0"
         )
         dx.sampler_steps = 2  # Speed up sampler
-        with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(
-                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
-            )
-        assert {v.split(":")[0] for v in exc_info.value.violations} == {"D9"}
+        check_diagnostic_contract(
+            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+        )
 
 
 @pytest.mark.package
@@ -375,14 +485,16 @@ def test_cbottle_tc_package(device):
     time = np.array(
         [datetime(2000, 8, 9, 10), datetime(2005, 10, 11, 12)], dtype=np.datetime64
     )
-    guidance, coords = dx.create_guidance_tensor(
+    guidance = dx.create_guidance_tensor(
         torch.tensor([lat]),
         torch.tensor([lon]),
         time,
     )
-    guidance = guidance.to(device)
+    guidance = guidance.e2s.as_cupy(0)
 
-    out, out_coords = dx(guidance, coords)
+    output = dx(guidance)
+    out_coords = {k: output.coords[k].values for k in output.dims}
+    out = output.e2s.to_torch()[0]
     assert out.shape == torch.Size(
         [
             out_coords["time"].shape[0],
@@ -392,7 +504,7 @@ def test_cbottle_tc_package(device):
             1440,
         ]
     )
-    assert np.all(out_coords["variable"] == dx.output_coords(coords)["variable"])
+    assert np.all(out_coords["variable"] == dx.output_coords(guidance)["variable"])
     assert np.all(out_coords["time"] == time)
     handshake_dim(out_coords, "lon", -1)
     handshake_dim(out_coords, "lat", -2)

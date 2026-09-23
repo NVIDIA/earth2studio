@@ -20,12 +20,38 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.px.stormcastconus as conus_module
 from earth2studio.data import Random, Random_FX, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils.coords import coord_array
-from earth2studio.utils.type import CoordinateSystem, CoordSystem
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    if conus_module.__file__ not in OptionalDependencyFailure.failures:
+        return
+    if request.node.get_closest_marker("package"):
+        pytest.skip("PhysicsNeMo is unavailable")
+    monkeypatch.delitem(OptionalDependencyFailure.failures, conus_module.__file__)
+
+    class Scheduler:
+        def __init__(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(conus_module, "EDMNoiseScheduler", Scheduler, raising=False)
+    # Exercise public batching/conditioning/ownership when the sampler dependency
+    # is absent. Installed backends continue through the actual diffusion path.
+    monkeypatch.setattr(
+        StormCastCONUS,
+        "_forward",
+        lambda self, x, conditioning, time, **kw: x + torch.randn_like(x),
+    )
+
 
 # Small subdomain aligned to the mock patch size (8, 8) so that crop_model
 # validation passes.  Must satisfy:
@@ -36,16 +62,6 @@ LON_START, LON_END = 3, 19  # width  = 16
 
 NVAR = 4  # must include "refc" – it is always indexed in __init__
 NVAR_COND = 5
-
-
-def _public_coords(model: StormCastCONUS, coords: CoordSystem) -> CoordinateSystem:
-    signature = model.input_coords()
-    auxiliary = {
-        name: value
-        for name, value in signature.coords.items()
-        if name not in signature.dims
-    }
-    return coord_array(tuple(coords), {**auxiliary, **coords}, attrs=signature.attrs)
 
 
 class _Tokenizer(torch.nn.Module):
@@ -172,6 +188,12 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
     diffusion_model = model.diffusion_model
 
     assert isinstance(diffusion_model, PhooStormCastCONUSDiffusionModel)
+    signature = model.input_coords()
+    assert signature.data.nbytes == 0
+    assert "earth2studio_grid_id" not in signature.attrs
+    assert signature.attrs["earth2studio_crs"] == model.grid.crs
+    np.testing.assert_array_equal(signature.lat, model.lat)
+    np.testing.assert_array_equal(signature.lon, model.lon)
     expected_pos_embed = torch.tensor([[0.0], [1.0], [4.0], [5.0]])
     assert diffusion_model.grid_shape == (16, 16)
     for submodel in diffusion_model.models.values():
@@ -184,6 +206,7 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
         assert dit.detokenizer.input_size == (16, 16)
         assert dit.detokenizer.h_patches == 2
         assert dit.detokenizer.w_patches == 2
+    assert check_prognostic_contract(model) == []
 
 
 @pytest.mark.parametrize(
@@ -232,17 +255,26 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
 
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    coords = _public_coords(p, coords)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(r, time, variable, lead_time, target_grid=p.grid)
+    x = x.assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    x.attrs["nested"] = {"items": [1]}
+    x.encoding["nested"] = {"items": [2]}
+    original = x.copy(deep=True)
+    out = p(x)
+    out.attrs["nested"].clear()
+    out.encoding["nested"].clear()
+    assert x.attrs["nested"] == {"items": [1]}
+    assert x.encoding["nested"] == {"items": [2]}
+    out_coords = p.output_coords(x)
+    xr.testing.assert_identical(x, original)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
     assert out.shape == torch.Size([len(time), 1, NVAR, ny, nx])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(x)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
     assert out_coords.data.nbytes == 0
@@ -266,23 +298,50 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
 
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, variable, lead_time, target_grid=p.grid)
+    x = x.assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    x = x.expand_dims(ensemble=np.arange(ensemble)).copy(deep=True)
+    x.name = "conus"
+    x.attrs["removed"] = True
+    x.encoding = {"removed": True}
+    x = x.assign_coords(member=("ensemble", np.arange(ensemble)))
+    original = x.copy(deep=True)
+    events = []
 
-    # Prepend ensemble dimension
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-    coords = _public_coords(p, coords)
+    def front(field):
+        assert field.dims == x.dims
+        events.append("front")
+        return field
 
-    p_iter = p.create_iterator(x, coords)
+    def rear(field):
+        events.append("rear")
+        field.attrs.pop("removed", None)
+        field.encoding.clear()
+        return field.drop_vars("member", errors="ignore")
+
+    p.front_hook, p.rear_hook = front, rear
+    coords = x
+    p_iter = p.create_iterator(x)
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
 
-    initial, initial_coords = next(p_iter)
+    initial = next(p_iter)
+    retained = initial.copy(deep=True)
+    assert events == []
+    initial_coords = coord_array(
+        initial.dims, dict(initial.coords), attrs=initial.attrs
+    )
     assert initial.shape == x.shape
     assert initial_coords.dims == coords.dims
     assert initial_coords.data.nbytes == 0
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, out in enumerate(p_iter):
+        xr.testing.assert_identical(x, original)
+        xr.testing.assert_identical(initial, retained)
+        assert out.name == x.name and "removed" not in out.attrs
+        assert out.encoding == {} and "member" not in out.coords
+        assert events == ["front", "rear"] * (i + 1)
+        out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
         assert out_coords.dims == coords.dims
         assert out_coords.data.nbytes == 0
         assert len(out.shape) == 6
@@ -336,20 +395,24 @@ def test_stormcastconus_exceptions(device):
     r = Random(dc)
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x, coords = fetch_data(
+    x = fetch_data(
         r,
         np.array([np.datetime64("2020-04-05T00:00")]),
         variable,
         lead_time,
         device=device,
+        target_grid=p.grid,
     )
-    coords = _public_coords(p, coords)
+    x = x.assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
 
     with pytest.raises(RuntimeError):
-        p(x, coords)
+        p(x)
 
+    iterator = p.create_iterator(x)
+    xr.testing.assert_identical(next(iterator), x)
     with pytest.raises(RuntimeError):
-        next(p.create_iterator(x, coords))
+        next(iterator)
 
 
 def test_stormcastconus_conditioning_init_time():
@@ -443,15 +506,16 @@ def test_stormcastconus_package(cond_dims, device, model):
 
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    coords = _public_coords(p, coords)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(r, time, variable, lead_time, device=device, target_grid=p.grid)
+    x = x.assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    out = p(x)
+    out_coords = p.output_coords(x)
 
     assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(coords)["variable"]), 1024, 1792]
+        [len(time), 1, len(p.output_coords(x)["variable"]), 1024, 1792]
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (out_coords["variable"] == p.output_coords(x)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
     assert out_coords.data.nbytes == 0

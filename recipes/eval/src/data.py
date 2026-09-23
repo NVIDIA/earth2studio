@@ -26,12 +26,50 @@ from typing import Any
 import hydra
 import numpy as np
 import pandas as pd
+import torch
 import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
+from earth2studio.data import DataSource, fetch_data
+from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.type import TimeArray, VariableArray
+
+
+def fetch_input_data(
+    source: DataSource,
+    time: TimeArray,
+    variable: VariableArray,
+    lead_time: np.ndarray,
+    device: torch.device | str = "cpu",
+) -> xr.DataArray:
+    """Fetch model inputs, reading already-reduced cached quantities directly.
+
+    Predownload stores contain the requested qualified variables, rather than
+    the raw hourly samples. Reapplying fetch_data's reductions would both request
+    absent base variables and aggregate those quantities a second time.
+    """
+    variables = np.asarray(variable)
+    if isinstance(source, PredownloadedSource) and any(
+        ":" in str(v) for v in variables
+    ):
+        times = np.asarray(time, dtype="datetime64[ns]")
+        leads = np.asarray(lead_time, dtype="timedelta64[ns]")
+        pieces = []
+        for lead in leads:
+            piece = source(times + lead, variables).assign_coords(time=times)
+            pieces.append(piece.expand_dims(lead_time=np.array([lead]), axis=1))
+        field = xr.concat(pieces, dim="lead_time", join="exact").load()
+        metadata = coord_array_like(field).attrs
+        if "earth2studio_statistics" in metadata:
+            field.attrs["earth2studio_statistics"] = metadata["earth2studio_statistics"]
+        target = torch.device(device)
+        return (
+            field.e2s.as_cupy(device=target.index) if target.type == "cuda" else field
+        )
+    return fetch_data(
+        source, time=time, variable=variable, lead_time=lead_time, device=device
+    )
 
 
 def resolve_ic_source(
@@ -292,18 +330,26 @@ class CompositeSource:
         Mapping from variable name to the component source name that
         should handle it.  Typically built by inspecting each zarr's
         array list — see :meth:`from_predownloaded_stores`.
+    time_step : np.timedelta64 | None, optional
+        Sampling cadence for temporal-statistic fetches. If omitted, infer it
+        only when every component advertises the same cadence.
     """
 
     def __init__(
         self,
         sources: Mapping[str, DataSource],
         variable_index: dict[str, str],
+        time_step: np.timedelta64 | None = None,
     ) -> None:
         unknown = sorted(set(variable_index.values()) - set(sources))
         if unknown:
             raise ValueError(f"variable_index references unknown sources: {unknown}")
         self._sources = dict(sources)
         self._var_index = dict(variable_index)
+        cadences = [getattr(source, "time_step", None) for source in sources.values()]
+        self.time_step = time_step
+        if time_step is None and cadences and all(c == cadences[0] for c in cadences):
+            self.time_step = cadences[0]
 
     @classmethod
     def from_predownloaded_stores(cls, stores: dict[str, str]) -> CompositeSource:

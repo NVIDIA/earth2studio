@@ -60,6 +60,7 @@ class _RegriddedDataSource:
         target_lon: np.ndarray,
     ) -> None:
         self._source = source
+        self.time_step = getattr(source, "time_step", None)
         self._lat = xr.DataArray(np.asarray(target_lat), dims="lat")
         self._lon = xr.DataArray(np.asarray(target_lon), dims="lon")
 
@@ -92,7 +93,7 @@ def _align_source_to_spatial_ref(
     if tgt_lat is None or tgt_lon is None:
         return source
 
-    _, probe = fetch_data(
+    probe = fetch_data(
         source=source,  # type: ignore[arg-type]
         time=[probe_time],
         variable=[probe_variable],
@@ -100,7 +101,7 @@ def _align_source_to_spatial_ref(
         device=torch.device("cpu"),
     )
 
-    src_lat = probe.get("lat")
+    src_lat = probe.coords.get("lat")
     if src_lat is None:
         return source
 
@@ -108,7 +109,7 @@ def _align_source_to_spatial_ref(
     if src_lat.shape == tgt_lat.shape and np.allclose(src_lat, tgt_lat, atol=1e-5):
         return source  # grids already match
 
-    src_shape = (src_lat.shape[0], probe.get("lon", np.array([])).shape[0])
+    src_shape = (src_lat.shape[0], probe.coords.get("lon", np.array([])).shape[0])
     tgt_shape = (tgt_lat.shape[0], np.asarray(tgt_lon).shape[0])
     logger.info(
         f"Predownload: source grid {src_shape} ≠ target {tgt_shape}; "
@@ -125,7 +126,10 @@ def infer_step_hours(model: object) -> int:
     """
     ic_coords = model.input_coords()  # type: ignore[attr-defined]
     out_coords = model.output_coords(ic_coords)  # type: ignore[attr-defined]
-    delta = out_coords["lead_time"][0] - ic_coords["lead_time"][-1]
+    delta = (
+        out_coords.coords["lead_time"].values[0]
+        - ic_coords.coords["lead_time"].values[-1]
+    )
     return int(delta / np.timedelta64(1, "h"))
 
 

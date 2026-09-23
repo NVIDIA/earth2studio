@@ -62,128 +62,119 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
-from earth2studio.utils.type import CoordSystem
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
-class CustomPrognostic(torch.nn.Module):
+class CustomPrognostic(torch.nn.Module, DataArrayPrognosticMixin):
     """Custom prognostic model"""
 
     def __init__(self, noise_amplitude: float = 0.1):
         super().__init__()
         self.amp = noise_amplitude
+        self._generator = None
 
-    def input_coords(self) -> CoordSystem:
+    stochastic = True
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed local CPU noise without modifying the global random stream."""
+        if reset or self._generator is None:
+            self._generator = torch.Generator().manual_seed(seed)
+
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free coordinate signature
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(["u10m", "v10m"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free coordinate signature
         """
         # Check input coordinates are valid
-        target_input_coords = self.input_coords()
-        handshake_size(input_coords, "lead_time", 1)
-        for i, (key, value) in enumerate(target_input_coords.items()):
-            handshake_dim(input_coords, key, i)
-            if key not in ["batch", "lead_time"]:
-                handshake_coords(input_coords, target_input_coords, key)
-        # Build output coordinates
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
-                "variable": np.array(["u10m", "v10m"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        lead = input_coords.coords["lead_time"].values
+        if (
+            lead.shape != (1,)
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("Expected one finite timedelta lead time")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(1, "h")}
         )
-        return output_coords
 
-    @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Runs prognostic model 1 step.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field carrying its coordinates and grid metadata
         """
-        out_coords = self.output_coords(coords)
-        out = x + self.amp * torch.rand_like(x)
+        out_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        noise = torch.randn(
+            tensor.shape, generator=self._generator, dtype=tensor.dtype
+        ).to(tensor.device)
+        return from_torch(tensor + self.amp * noise, out_coords)
 
-        return out, out_coords
-
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
         """Create prognostic generator"""
-        self.output_coords(coords)
+        self.output_coords(x)
         # First time-step should always be the initial state
-        yield x, coords
+        yield x
 
         while True:
-            coords = self.output_coords(coords)
-            x = x + self.amp * torch.randn_like(x)
-            yield x, coords
+            x = self.rear_hook(self(self.front_hook(x)))
+            yield x
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field carrying its coordinates and grid metadata
         """
 
-        yield from self._default_generator(x, coords)
+        yield from self._default_generator(x)
 
 
 # %%
@@ -199,20 +190,18 @@ class CustomPrognostic(torch.nn.Module):
 # `output_coords` :
 #
 # * `input_coords` : A function that returns the expected input coordinate
-#   system of the model. A new dictionary should be returned every time.
+#   signature of the model, without allocating field values.
 #
 # * `output_coords` : A function that returns the expected output coordinate
 #   system of the model *given* an input coordinate system. This function should also
-#   validate the input coordinate dictionary.
+#   validate the input dimensions, labels, and metadata.
 #
 # Here, we define the input output coords to be the surface winds and give the model a
 # time-step size of 1 hour. Thus `output_coords` updates the lead time by one
 # hour.
 #
-# !!! note
-#     Note the `batch_coords` decorator which automates the handling of
-#     batched coordinate systems. For more details about this refer to the [Batch Dimension](../../userguide/advanced/batch.md#batch_function_userguide)
-#     section of the user guide.
+# Leading dimensions are preserved by `coord_array_like`; only the fixed
+# trailing dimensions declared by the model are validated.
 
 # %%
 # `__call__` API
@@ -222,10 +211,8 @@ class CustomPrognostic(torch.nn.Module):
 # what the model expects. Next, we execute the forward pass of our model (apply noise)
 # and then update the output coordinate system.
 #
-# !!! note
-#     Note the `batch_func` decorator, which is used to make batched
-#     operations easier. For more details about this refer to the [Batch Dimension](../../userguide/advanced/batch.md#batch_function_userguide)
-#     section of the user guide.
+# This elementwise model naturally handles arbitrary leading dimensions.
+# Models with fixed-rank numerical kernels can use `batch_func` to pack them.
 
 # %%
 # `create_iterator` API

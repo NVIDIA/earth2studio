@@ -36,6 +36,7 @@ from typing import Any
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 from src.pipelines import DLESyMPipeline
 from src.pipelines.dlesym import _unique_forecast_valid_times
 from src.work import WorkItem
@@ -104,7 +105,7 @@ class _StubDLESyM:
     * ``input_coords()`` — 9 input lead_times, base variables, lat/lon grid.
     * ``output_coords(input_coords)`` — 16 output lead_times, base + derived
       variables, same spatial dims.
-    * ``create_iterator(x, coords)`` — yields the IC first (negative lead
+    * ``create_iterator(x)`` — yields the IC first (negative lead
       times), then ``nmax`` forward steps with shifted absolute lead times.
     * ``ocean_variables`` — list of variables for which only a subset of
       output lead times is valid.
@@ -131,7 +132,7 @@ class _StubDLESyM:
         self._all_vars = self.atmos_variables + self.ocean_variables
 
     def input_coords(self) -> CoordSystem:
-        return OrderedDict(
+        coords = OrderedDict(
             [
                 ("batch", np.empty(0)),
                 ("time", np.empty(0)),
@@ -141,34 +142,24 @@ class _StubDLESyM:
                 ("lon", self._lon),
             ]
         )
+        from earth2studio.utils.coords import coord_array
+
+        return coord_array(tuple(coords), coords, dynamic=("batch", "time"))
 
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         # Shift lead_time by the last input lead_time, exactly like DLESyM does.
-        anchor = input_coords["lead_time"][-1]
-        return OrderedDict(
-            [
-                ("batch", input_coords["batch"]),
-                ("time", input_coords["time"]),
-                ("lead_time", self._output_lead + anchor),
-                ("variable", np.array(self._all_vars)),
-                ("lat", self._lat),
-                ("lon", self._lon),
-            ]
-        )
+        from earth2studio.utils.coords import coord_array_like
 
-    def retrieve_valid_ocean_outputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        anchor = input_coords.coords["lead_time"].values[-1]
+        return coord_array_like(input_coords, {"lead_time": self._output_lead + anchor})
+
+    def retrieve_valid_ocean_outputs(self, x: xr.DataArray) -> xr.DataArray:
         valid_lt = np.array(
-            [lt for lt in coords["lead_time"] if lt % self._ocean_lead[0] == 0]
+            [lt for lt in x.coords["lead_time"].values if lt % self._ocean_lead[0] == 0]
         )
-        out_coords = coords.copy()
-        out_coords["lead_time"] = valid_lt
-        out_coords["variable"] = np.array(self.ocean_variables)
-        # The tensor value isn't inspected by the pipeline — just return something.
-        return x[..., :1, :, :], out_coords
+        return x.sel(lead_time=valid_lt, variable=self.ocean_variables)
 
-    def create_iterator(self, x: torch.Tensor, coords: CoordSystem):
+    def create_iterator(self, x: xr.DataArray):
         """Yields IC first, then ``inf`` forward steps.
 
         Output tensor dimensionality mirrors the caller-provided ``x``:
@@ -179,7 +170,11 @@ class _StubDLESyM:
         """
         # Step 0: IC window, with input lead_times.  Pass through exactly
         # what the caller gave us.
-        yield x, coords
+        from earth2studio.run import _dimension_coords
+        from earth2studio.utils.cupy import from_torch
+
+        yield x
+        coords = _dimension_coords(x)
 
         # Subsequent steps: shift anchor forward by 96h each time and
         # resize the lead_time / variable axes to the output shape.
@@ -200,7 +195,7 @@ class _StubDLESyM:
             new_shape[var_axis] = len(new_coords["variable"])
 
             t = torch.arange(float(np.prod(new_shape))).reshape(new_shape)
-            yield t, new_coords
+            yield from_torch(t, new_coords)
 
     # DLESyMPipeline never mutates the model, so to() is a no-op.
     def to(self, device: Any) -> _StubDLESyM:
@@ -216,7 +211,13 @@ def _make_stub_pipeline() -> DLESyMPipeline:
     pipeline.perturbation = None
     pipeline.nsteps = 3
     pipeline._prognostic_ic = model.input_coords()
-    pipeline._spatial_ref = model.output_coords(pipeline._prognostic_ic)
+    from earth2studio.run import _dimension_coords
+
+    pipeline._spatial_ref = _dimension_coords(
+        model.output_coords(pipeline._prognostic_ic)
+    )
+    pipeline._spatial_ref["batch"] = np.array([0])
+    pipeline._spatial_ref["time"] = np.array([np.datetime64("2024-01-01")])
     pipeline._dx_input_coords = {}
     pipeline._ocean_variables = list(model.ocean_variables)
     return pipeline
@@ -296,6 +297,40 @@ class TestDLESyMRunItem:
 
 
 class TestMaskInvalidOcean:
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_cuda_mask_keeps_fields_on_device(self):
+        from unittest.mock import patch
+
+        from earth2studio.utils.cupy import Earth2StudioAccessor, from_torch
+
+        pipeline = _make_stub_pipeline()
+        coords = pipeline._spatial_ref.copy()
+        tensor = torch.ones(tuple(len(v) for v in coords.values()), device="cuda:0")
+        field = from_torch(tensor, coords, name="coupled", attrs={"source": "test"})
+        with patch.object(
+            Earth2StudioAccessor,
+            "as_numpy",
+            side_effect=AssertionError("field CPU roundtrip"),
+        ):
+            result = pipeline._mask_invalid_ocean(field)
+        assert result.e2s.to_torch()[0].device == tensor.device
+        assert result.name == field.name
+        assert result.attrs == field.attrs
+        assert (
+            result.sel(variable="sst", lead_time=np.timedelta64(48, "h"))
+            .notnull()
+            .all()
+            .data.item()
+        )
+        assert (
+            result.sel(variable="sst", lead_time=np.timedelta64(6, "h"))
+            .isnull()
+            .all()
+            .data.item()
+        )
+        assert (result.sel(variable="t2m") == 1).all().data.item()
+        assert torch.all(field.e2s.to_torch()[0] == 1)
+
     def test_masks_ocean_at_invalid_lead_times(self):
         pipeline = _make_stub_pipeline()
 
@@ -312,7 +347,9 @@ class TestMaskInvalidOcean:
             len(coords["lon"]),
         )
 
-        masked = pipeline._mask_invalid_ocean(x, coords)
+        from earth2studio.utils.cupy import from_torch
+
+        masked = pipeline._mask_invalid_ocean(from_torch(x, coords)).e2s.to_torch()[0]
 
         var_idx = list(coords.keys()).index("variable")
         lead_idx = list(coords.keys()).index("lead_time")
@@ -347,7 +384,9 @@ class TestMaskInvalidOcean:
             len(coords["lon"]),
         )
 
-        masked = pipeline._mask_invalid_ocean(x, coords)
+        from earth2studio.utils.cupy import from_torch
+
+        masked = pipeline._mask_invalid_ocean(from_torch(x, coords)).e2s.to_torch()[0]
 
         var_idx = list(coords.keys()).index("variable")
         var_names = list(coords["variable"])
@@ -372,5 +411,7 @@ class TestMaskInvalidOcean:
             len(coords["lat"]),
             len(coords["lon"]),
         )
-        out = pipeline._mask_invalid_ocean(x, coords)
+        from earth2studio.utils.cupy import from_torch
+
+        out = pipeline._mask_invalid_ocean(from_torch(x, coords)).e2s.to_torch()[0]
         assert torch.equal(out, x)

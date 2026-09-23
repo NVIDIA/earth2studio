@@ -20,11 +20,25 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.px.stormcast as stormcast_module
 from earth2studio.data import HRRR, Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    if stormcast_module.__file__ not in OptionalDependencyFailure.failures:
+        return
+    if request.node.get_closest_marker("package"):
+        pytest.skip("PhysicsNeMo is unavailable")
+    monkeypatch.delitem(OptionalDependencyFailure.failures, stormcast_module.__file__)
+    monkeypatch.setattr(
+        StormCast, "_forward", lambda self, x, conditioning: x + torch.randn_like(x)
+    )
 
 
 # Spoof models with same call signature
@@ -118,9 +132,18 @@ def test_stormcast_call(time, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time))
+    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    x.attrs["nested"] = {"items": [1]}
+    x.encoding["nested"] = {"items": [2]}
+    out = p(x)
+    out.attrs["nested"].clear()
+    out.encoding["nested"].clear()
+    assert x.attrs["nested"] == {"items": [1]}
+    assert x.encoding["nested"] == {"items": [2]}
+    out_coords = out
+    coords = x
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -128,11 +151,7 @@ def test_stormcast_call(time, device):
     assert out.shape == torch.Size([len(time), 1, nvar, lat.shape[0], lat.shape[1]])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "hrrr_x", 4)
-    handshake_dim(out_coords, "hrrr_y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "y", "x")
 
 
 @pytest.mark.parametrize(
@@ -197,21 +216,45 @@ def test_stormcast_iter(ensemble, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time))
+    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    x = x.expand_dims(ensemble=np.arange(ensemble)).copy(deep=True)
+    x = x.assign_coords(member=("ensemble", np.arange(ensemble) + 10))
+    x.name = "stormcast"
+    x.attrs["removed"] = True
+    x.encoding = {"removed": True}
+    original = x.copy(deep=True)
+    events = []
 
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
+    def front(field):
+        assert field.dims == x.dims
+        events.append("front")
+        return field
 
-    p_iter = p.create_iterator(x, coords)
+    def rear(field):
+        events.append("rear")
+        field.attrs.pop("removed", None)
+        field.encoding.clear()
+        return field.drop_vars("member", errors="ignore")
+
+    p.front_hook, p.rear_hook = front, rear
+    p_iter = p.create_iterator(x)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
+    initial = next(p_iter)
+    assert events == []
+    retained = initial.copy(deep=True)
+    for i, out in enumerate(p_iter):
+        out_coords = out
+        xr.testing.assert_identical(x, original)
+        xr.testing.assert_identical(initial, retained)
+        assert out.name == x.name and "removed" not in out.attrs
+        assert out.encoding == {} and "member" not in out.coords
+        assert events == ["front", "rear"] * (i + 1)
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
             [ensemble, len(time), 1, nvar, lat.shape[0], lat.shape[1]]
@@ -270,14 +313,16 @@ def test_stormcast_exceptions(dc, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time))
+    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
 
     with pytest.raises(RuntimeError):
         # Calling with no conditioning info should fail
-        p(x, coords)
+        p(x)
 
     # Create iterator and consume first batch (initial condition)
-    p_iter = p.create_iterator(x, coords)
+    p_iter = p.create_iterator(x)
     next(p_iter)
     with pytest.raises(ValueError):
         # Using the generator with no built-in conditioning should fail
@@ -333,18 +378,7 @@ def test_stormcast_conformance():
         sampler_steps=2,
     )
 
-    # StormCast draws its diffusion latents from the global RNG
-    # (`torch.randn_like`) without declaring itself stochastic or
-    # implementing set_rng, so this is a real P13 violation rather than a
-    # checker skip. Tracked as a follow-up to declare `stochastic = True`
-    # and add a seeded `set_rng`; asserting on the exception here documents
-    # the known-bad state without leaving a permanently red test.
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one "
-        "input disagree; declare stochastic=True and implement set_rng()"
-    ]
+    assert check_prognostic_contract(p) == []
 
 
 @pytest.fixture(scope="function")
@@ -400,9 +434,12 @@ def test_stormcast_package(cond_dims, device, model):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time), device=device)
+    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    out = p(x)
+    out_coords = out
+    coords = x
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -410,8 +447,4 @@ def test_stormcast_package(cond_dims, device, model):
     assert out.shape == torch.Size([len(time), 1, 99, 512, 640])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "hrrr_x", 4)
-    handshake_dim(out_coords, "hrrr_y", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "y", "x")

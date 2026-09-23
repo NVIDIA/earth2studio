@@ -58,15 +58,22 @@ from loguru import logger
 
 from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim, interp
+from earth2studio.models.dx.corrdiff import (
+    _field,
+    _geographic_grid,
+    _own_metadata,
+    _replace_grid,
+    _validate_grid,
+)
+from earth2studio.utils import interp
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
@@ -800,41 +807,39 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
-    def input_coords(self) -> CoordSystem:
+    @property
+    def stochastic(self) -> bool:
+        """Whether this instance uses diffusion sampling."""
+        return self.mode != "mean"
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the isolated diffusion seed."""
+        if reset or self.seed is None:
+            self.seed = seed
+
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
         are the native ERA5 footprint (regrid the ERA5 input onto this grid)."""
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "variable": np.array(self.era5_variables),
-                "lat": self.lat_input_numpy,
-                "lon": self.lon_input_numpy,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=_geographic_grid(self.lat_input_numpy, self.lon_input_numpy),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system on the rotated-pole target grid.
+
+        Samples follow time: ``[..., time, sample, variable, y, x]``. Batch and
+        time remain a leading dynamic prefix when planning from input_coords().
 
         The input must be on the native ERA5 grid (:meth:`input_coords`); for a
         sub-region use :meth:`set_domain` (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
         """
-        target = self.input_coords()
-        handshake_dim(input_coords, "time", 1)
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "lon", -1)
-        handshake_coords(input_coords, target, "variable")
-        if not self._is_native_input(
-            np.asarray(input_coords["lat"]), np.asarray(input_coords["lon"])
-        ):
-            raise ValueError(
-                "CorrDiffCosmoEra5 requires the native input grid from "
-                "input_coords() (regrid your ERA5 onto it). For a sub-region use "
-                "set_domain(); arbitrary/flexible domains are not supported."
-            )
+        _validate_grid(input_coords, self.input_coords())
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
         top, bot, left, right = self._halo
@@ -843,17 +848,13 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             lat_out = lat_out[top : H - bot, left : W - right]
             lon_out = lon_out[top : H - bot, left : W - right]
 
-        output_coords = OrderedDict(
-            {
-                "batch": input_coords["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "time": input_coords["time"],
-                "variable": self._output_coord_variables,
-                "lat": lat_out,
-                "lon": lon_out,
-            }
+        return _replace_grid(
+            input_coords,
+            _geographic_grid(lat_out, lon_out),
+            self._output_coord_variables,
+            sample=self.number_of_samples,
+            sample_after_time=True,
         )
-        return output_coords
 
     def _is_native_input(self, lat: np.ndarray, lon: np.ndarray) -> bool:
         """True iff lat/lon match the native ERA5 input grid (within tolerance)."""
@@ -1382,13 +1383,21 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             out = out[..., top : out.shape[-2] - bot, left : out.shape[-1] - right]
         return out
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Downscale labelled ERA5 frames on the configured domain."""
+        signature = self.output_coords(x)
+        return _own_metadata(self._call(x).transpose(*signature.dims))
+
     @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def _call(self, x: xr.DataArray) -> xr.DataArray:
         """Run the model. ``x`` is [batch, time, variable, lat, lon]; ``coords``
         carries a ``time`` axis (validity times) driving the solar-zenith channel."""
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        # Assemble in the numerical kernel's order; __call__ restores public order.
+        output_coords = output_coords.transpose(
+            "batch", "sample", "time", "variable", "y", "x"
+        )
+        x = x.e2s.to_torch()[0].to(self.era5_center.device).clone()
 
         lat2d_np = np.asarray(output_coords["lat"])
         lon2d_np = np.asarray(output_coords["lon"])
@@ -1416,7 +1425,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         for b in range(out.shape[0]):
             for t in range(out.shape[2]):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t], lat2d, lon2d)
-        return out, output_coords
+        return _field(out, output_coords)
 
     def to(self, device: torch.device) -> "CorrDiffCosmoEra5":
         """Move the model to a device (the active regression/diffusion sub-network

@@ -1,309 +1,287 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from collections import OrderedDict
-from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLWP
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 
-class PhooDLWPModel(torch.nn.Module):
-    """Dummy DLWP model, adds time-step"""
-
-    def __init__(self, delta_t: int = 6):
-        super().__init__()
-        self.delta_t = delta_t
-
-    def forward(self, x):
-        # 8:15 because field 7 is cosine zenith of first timestep
-        x[:, :7] = x[:, 8:15] + self.delta_t
-        x[:, 7:14] = x[:, 8:15] + 2 * self.delta_t
-        return x[:, :14].contiguous()
-
-
-@pytest.fixture()
-def dlwp_phoo_cs_transform():
-    er_num = 721 * 1440
-    cs_num = 6 * 64 * 64
-    values = np.ones(cs_num)
-    indices = np.stack([np.arange(cs_num), np.arange(cs_num)], axis=0)
-    return torch.sparse_coo_tensor(
-        indices, values, size=(cs_num, er_num), dtype=torch.float
+def make_model(name, monkeypatch):
+    model = DLWP.__new__(DLWP)
+    static = torch.zeros(6, 2, 2)
+    DLWP.__init__.__wrapped__(
+        model,
+        torch.nn.Identity(),
+        static,
+        static,
+        static,
+        static,
+        torch.eye(24),
+        torch.eye(24),
+        torch.zeros(1, 7, 1, 1),
+        torch.ones(1, 7, 1, 1),
     )
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        np.array([np.datetime64("1993-04-05T00:00")]),
-        np.array(
-            [
-                np.datetime64("1999-10-11T12:00"),
-                np.datetime64("2001-06-04T00:00"),
-            ]
-        ),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_dlwp_call(time, dlwp_phoo_cs_transform, device):
-    model = PhooDLWPModel()
-    landsea_mask = torch.ones(6, 64, 64)
-    orography = torch.ones(6, 64, 64)
-    latgrid = torch.ones(6, 64, 64)
-    longrid = torch.ones(6, 64, 64)
-    center = torch.zeros(1, 7, 1, 1)
-    scale = torch.ones(1, 7, 1, 1)
-    p = DLWP(
-        model,
-        landsea_mask=landsea_mask,
-        orography=orography,
-        latgrid=latgrid,
-        longrid=longrid,
-        cubed_sphere_transform=dlwp_phoo_cs_transform,
-        cubed_sphere_inverse=dlwp_phoo_cs_transform.T,
-        center=center,
-        scale=scale,
-    ).to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size(
-        [len(time), 1, len(p.output_coords(p.input_coords())["variable"]), 721, 1440]
+    signature = model.input_coords()
+    assert signature.data.nbytes == 0
+    assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    signature = coord_array(
+        signature.dims,
+        {"lead_time": signature.lead_time, "variable": signature.coords["variable"]},
+        dynamic=("batch", "time"),
+        grid=LatLonGrid(np.linspace(90, -90, 4), np.arange(6) * 60),
     )
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    assert torch.allclose(
-        out, p.to_equirectangular(p.to_cubedsphere(x[:, 1:] + 6))
-    )  # Need to cs transform here to get right values
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-
-
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda"])
-def test_dlwp_iter(ensemble, dlwp_phoo_cs_transform, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Use dummy model
-    model = PhooDLWPModel()
-    landsea_mask = torch.ones(6, 64, 64)
-    orography = torch.ones(6, 64, 64)
-    latgrid = torch.ones(6, 64, 64)
-    longrid = torch.ones(6, 64, 64)
-    center = torch.zeros(1, 7, 1, 1)
-    scale = torch.ones(1, 7, 1, 1)
-    p = DLWP(
-        model,
-        landsea_mask=landsea_mask,
-        orography=orography,
-        latgrid=latgrid,
-        longrid=longrid,
-        cubed_sphere_transform=dlwp_phoo_cs_transform,
-        cubed_sphere_inverse=dlwp_phoo_cs_transform.T,
-        center=center,
-        scale=scale,
-    ).to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    # Get generator
-    out, out_coords = next(p_iter)  # Skip first which should return the input
-    assert torch.allclose(out, x[:, :, 1:])
-
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
-        assert out.shape[0] == ensemble
-        assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-        ).all()
-        assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
-        assert torch.allclose(
-            out, p.to_equirectangular(p.to_cubedsphere(x[:, :, 1:] + 6 * (i + 1)))
-        )  # Need to cs transform here to get right values
-
-        handshake_dim(out_coords, "lon", 5)
-        handshake_dim(out_coords, "lat", 4)
-        handshake_dim(out_coords, "variable", 3)
-        handshake_dim(out_coords, "lead_time", 2)
-        handshake_dim(out_coords, "time", 1)
-        handshake_dim(out_coords, "ensemble", 0)
-
-        if i > 5:
-            break
-
-
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(720)}),
-        OrderedDict({"lat": np.random.randn(720), "phoo": np.random.randn(1440)}),
-        OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1)}),
-    ],
-)
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_dlwp_exceptions(dc, dlwp_phoo_cs_transform, device):
-    # Test invalid coordinates error
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Use dummy model
-    model = PhooDLWPModel()
-    landsea_mask = torch.ones(6, 64, 64)
-    orography = torch.ones(6, 64, 64)
-    latgrid = torch.ones(6, 64, 64)
-    longrid = torch.ones(6, 64, 64)
-    center = torch.zeros(1, 7, 1, 1)
-    scale = torch.ones(1, 7, 1, 1)
-    p = DLWP(
-        model,
-        landsea_mask=landsea_mask,
-        orography=orography,
-        latgrid=latgrid,
-        longrid=longrid,
-        cubed_sphere_transform=dlwp_phoo_cs_transform,
-        cubed_sphere_inverse=dlwp_phoo_cs_transform.T,
-        center=center,
-        scale=scale,
-    ).to(device)
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
-
-
-def test_dlwp_conformance(dlwp_phoo_cs_transform):
-    model = PhooDLWPModel()
-    landsea_mask = torch.ones(6, 64, 64)
-    orography = torch.ones(6, 64, 64)
-    latgrid = torch.ones(6, 64, 64)
-    longrid = torch.ones(6, 64, 64)
-    center = torch.zeros(1, 7, 1, 1)
-    scale = torch.ones(1, 7, 1, 1)
-    p = DLWP(
-        model,
-        landsea_mask=landsea_mask,
-        orography=orography,
-        latgrid=latgrid,
-        longrid=longrid,
-        cubed_sphere_transform=dlwp_phoo_cs_transform,
-        cubed_sphere_inverse=dlwp_phoo_cs_transform.T,
-        center=center,
-        scale=scale,
+    monkeypatch.setattr(model, "input_coords", lambda: signature.copy())
+    monkeypatch.setattr(
+        model, "to_cubedsphere", lambda x: x.reshape(*x.shape[:-2], 6, 2, 2)
     )
-    # DLWP is deterministic (stochastic=False via PrognosticMixin's default), so
-    # P14 is reported as an informational skip rather than evaluated; that is
-    # expected and not a contract violation.
-    assert check_prognostic_contract(p) == [
+    monkeypatch.setattr(
+        model, "to_equirectangular", lambda x: x.reshape(*x.shape[:-3], 4, 6)
+    )
+    monkeypatch.setattr(
+        model,
+        "_forward",
+        lambda x, coords: torch.cat((x[:, :, -1:] + 6, x[:, :, -1:] + 12), dim=2),
+    )
+    return model
+
+
+def make_input(model):
+    coords = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": [0, 1],
+            "time": np.array(["2000-01-01", "2001-02-03"], dtype="datetime64[ns]"),
+            "lead_time": np.array([6, 12], dtype="timedelta64[h]"),
+        },
+    )
+    x = from_torch(torch.randn(coords.shape), coords, name="weather").rename(
+        batch="member"
+    )
+    x = x.expand_dims(sample=1, axis=1).assign_coords(
+        experiment=("member", [7, 8]),
+        terrain=(("lat", "lon"), np.arange(24).reshape(4, 6)),
+    )
+    x.attrs["source"] = "fixture"
+    x.encoding = {"source": "fixture"}
+    return x
+
+
+def test_dlwp_declares_core_hook_cadence(monkeypatch):
+    model = make_model("DLWP", monkeypatch)
+    assert model.front_hook_interval == 2
+    calls = []
+    model.front_hook = lambda x: calls.append("front") or x
+    model.rear_hook = lambda x: calls.append("rear") or x
+    iterator = model.create_iterator(make_input(model))
+    next(iterator)
+    for _ in range(4):
+        next(iterator)
+    assert calls == ["front", "rear", "rear", "front", "rear", "rear"]
+    assert check_prognostic_contract(model) == [
         "P14: model does not declare itself stochastic"
     ]
 
 
-@pytest.fixture(scope="function")
-def model() -> DLWP:
-    package = DLWP.load_default_package()
-    p = DLWP.load_model(package)
-    return p
+def test_dlwp_core_prescriptive_fields_and_history(monkeypatch):
+    model = make_model("DLWP", monkeypatch)
+    monkeypatch.delattr(model, "_forward")
+    times = []
+
+    def zenith(time_array, lead_time, device):
+        times.append(time_array + np.timedelta64(lead_time))
+        return torch.zeros(len(time_array), 6, 2, 2, device=device)
+
+    monkeypatch.setattr(model, "get_cosine_zenith_fields", zenith)
+
+    class Net(torch.nn.Module):
+        def forward(self, x):
+            assert x.shape[1:] == (18, 6, 2, 2)
+            return torch.cat((x[:, 8:15] + 6, x[:, 8:15] + 12), dim=1)
+
+    model.model = Net()
+    x = make_input(model)
+    iterator = model.create_iterator(x)
+    initial = next(iterator)
+    for i in range(1, 5):
+        out = next(iterator)
+        np.testing.assert_allclose(out.data, initial.data + 6 * i, rtol=1e-5)
+    np.testing.assert_array_equal(
+        times[0], np.tile(x.time.values + np.timedelta64(6, "h"), 2)
+    )
+    np.testing.assert_array_equal(
+        times[1], np.tile(x.time.values + np.timedelta64(12, "h"), 2)
+    )
+    np.testing.assert_array_equal(times[2], times[0] + np.timedelta64(12, "h"))
+
+
+def test_dlwp_leading_x(monkeypatch):
+    model = make_model("DLWP", monkeypatch)
+    x = make_input(model).rename(member="x")
+    out = model(x)
+    assert out.dims == x.dims
+    assert "sample" not in out.coords and out.sizes["sample"] == 1
+    xr.testing.assert_identical(out.x, x.x)
+    iterator = model.create_iterator(x)
+    next(iterator)
+    assert next(iterator).dims == x.dims
+
+
+def test_dlwp_initial_yield_does_not_transform(monkeypatch):
+    model = make_model("DLWP", monkeypatch)
+    x = make_input(model)
+
+    def fail(*args):
+        raise AssertionError("initial yield must not process fields")
+
+    monkeypatch.setattr(model, "to_cubedsphere", fail)
+    xr.testing.assert_identical(
+        next(model.create_iterator(x)), x.isel(lead_time=slice(-1, None))
+    )
+
+
+@pytest.mark.parametrize("hook_slot", ["front_hook", "rear_hook"])
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="CUDA unavailable"
+            ),
+        ),
+    ],
+)
+def test_dlwp_latest_hook_metadata(monkeypatch, hook_slot, device):
+    model = make_model("DLWP", monkeypatch).to(device)
+    x = make_input(model)
+    if device != "cpu":
+        x = x.e2s.as_cupy()
+    count = 0
+    front_seen = []
+    original = x.copy(deep=True)
+
+    def front(field):
+        front_seen.append(field.copy(deep=True))
+        return rear(field) if hook_slot == "front_hook" else field
+
+    def rear(field):
+        nonlocal count
+        count += 1
+        field.data += 1
+        field = field.rename(None).drop_vars("experiment", errors="ignore")
+        field.attrs.pop("source", None)
+        field.encoding.clear()
+        return field
+
+    model.front_hook = front
+    if hook_slot == "rear_hook":
+        model.rear_hook = rear
+    direct = model(x)
+    assert count == 0 and direct.name == x.name
+    iterator = model.create_iterator(x)
+    initial = next(iterator)
+    retained = []
+    for i in range(1, 4):
+        out = next(iterator)
+        retained.append((out, out.copy(deep=True)))
+        assert out.name is None and "source" not in out.attrs
+        assert out.encoding == {} and "experiment" not in out.coords
+        assert "sample" not in out.coords and out.dims == x.dims
+        assert out.e2s.to_torch()[0].device == torch.device(device)
+        xr.testing.assert_identical(out.terrain, x.terrain)
+    assert count == (2 if hook_slot == "front_hook" else 3)
+    assert front_seen[1].name is None
+    assert "experiment" not in front_seen[1].coords
+    for out, saved in retained:
+        xr.testing.assert_identical(out, saved)
+    xr.testing.assert_identical(x, original)
+    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+
+
+class PhooDLWPModel(torch.nn.Module):
+    def forward(self, x):
+        # Preserve the original mock's two predictions without overlapping writes.
+        latest = x[:, 8:15].clone()
+        return torch.cat((latest + 6, latest + 12), dim=1)
+
+
+@pytest.fixture
+def dlwp_phoo_cs_transform():
+    cs_num = 6 * 64 * 64
+    indices = np.stack([np.arange(cs_num), np.arange(cs_num)], axis=0)
+    return torch.sparse_coo_tensor(
+        indices, np.ones(cs_num), size=(cs_num, 721 * 1440), dtype=torch.float32
+    )
+
+
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="CUDA unavailable"
+            ),
+        ),
+    ],
+)
+def test_dlwp_sparse_integration(device, dlwp_phoo_cs_transform):
+    pytest.importorskip("physicsnemo.utils.zenith_angle")
+    static = torch.ones(6, 64, 64)
+    model = DLWP(
+        PhooDLWPModel(),
+        static,
+        static,
+        static,
+        static,
+        dlwp_phoo_cs_transform,
+        dlwp_phoo_cs_transform.T,
+        torch.zeros(1, 7, 1, 1),
+        torch.ones(1, 7, 1, 1),
+    ).to(device)
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array(["1993-04-05"], dtype="datetime64[ns]")},
+    )
+    x = from_torch(torch.rand(signature.shape, device=device), signature)
+    out = model(x)
+    initial = x.e2s.to_torch()[0][:, :, -1:]
+    expected = model.to_equirectangular(model.to_cubedsphere(initial + 6))
+    assert torch.allclose(out.e2s.to_torch()[0], expected)
+    assert out.shape == (1, 1, 1, 7, 721, 1440)
+    iterator = model.create_iterator(x)
+    xr.testing.assert_identical(
+        next(iterator).e2s.as_numpy(), x.isel(lead_time=slice(-1, None)).e2s.as_numpy()
+    )
+    for step in range(1, 8):
+        out = next(iterator)
+        expected = model.to_equirectangular(model.to_cubedsphere(initial + 6 * step))
+        assert torch.allclose(out.e2s.to_torch()[0], expected)
+        assert out.lead_time.values[0] == np.timedelta64(6 * step, "h")
+        assert out.dims == x.dims
 
 
 @pytest.mark.package
-@pytest.mark.parametrize("device", ["cuda:0"])
-def test_dlwp_package(device, model):
-    torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Test the cached model package DLWP
-    p = model.to(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, 7, 721, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
+def test_dlwp_package():
+    model = DLWP.load_model(DLWP.load_default_package()).to("cuda:0")
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array(["2000-01-01"], dtype="datetime64[ns]")},
+    )
+    x = from_torch(torch.zeros(signature.shape, device="cuda:0"), signature)
+    out = model(x)
+    assert out.dims == x.dims
+    assert out.shape == (1, 1, 1, 7, 721, 1440)
+    np.testing.assert_array_equal(out.lead_time, model.output_coords(x).lead_time)
+    np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])

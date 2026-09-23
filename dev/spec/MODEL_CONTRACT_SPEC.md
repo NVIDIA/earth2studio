@@ -5,9 +5,9 @@
 Define prognostic and diagnostic iterator, coordinate, hook, ownership, and RNG
 semantics for model-independent execution, codifying existing correct behavior.
 
-The legacy tensor contract is enforced by `earth2studio.models.conformance`, which
-reports the rule identifiers used below. DataArray execution is covered by focused
-model, batching, metadata, hook and checkpoint tests during incremental migration.
+The native DataArray contract is enforced by `earth2studio.models.conformance`,
+which reports the rule identifiers used below. Existing model tests exercise
+execution, batching, metadata, hooks, ownership and checkpoint continuation.
 
 `AssimilationModel` is out of scope; unresolved differences appear in Open Questions.
 
@@ -83,7 +83,7 @@ nonempty one-dimensional timedelta coordinate with no `NaT` entries; datetime
 and numeric labels are rejected. Output planning accepts both dynamic declarations and
 concrete DataArrays without mutating either.
 
-### Migration boundary
+### Execution boundary
 
 The public `PrognosticModel` and `DiagnosticModel` protocols use DataArrays:
 
@@ -95,8 +95,9 @@ def output_coords(self, x: CoordinateSystem) -> CoordinateSystem: ...
 def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]: ...
 ```
 
-**FCN, FuXiS2S, and PrecipitationAFNO implement this execution API.** Inputs are NumPy-backed
-on CPU or CuPy-backed on CUDA and must reside on the model's device. Conversion at
+**All exported prognostic and diagnostic wrappers implement this execution API.**
+Fields are NumPy-backed on CPU or CuPy-backed on CUDA. Wrappers document whether
+they require matching input/model devices or move fields at the core boundary. Conversion at
 the Torch boundary uses `.e2s.to_torch()` and `from_torch(tensor, signature)`; the
 latter preserves all coordinates and output metadata without materializing the
 signature. Real outputs omit signature kind/schema/dynamic attributes and preserve
@@ -112,7 +113,7 @@ and output variable counts may change. Mixed batch/fixed auxiliary coordinates
 are unsupported. The core must retain the packed batch dimension, size, and labels
 in their original order; reordering is rejected to prevent mislabeled output.
 
-FCN's `DataArrayPrognosticMixin` hooks take and return one DataArray in the original
+`DataArrayPrognosticMixin` hooks take and return one DataArray in the original
 leading dimensions, and run only during iteration. `clear_hooks()` restores identity
 hooks. Level-two checkpoints store the field tensor separately from dimensions,
 coordinate values/attrs, name, attrs and encoding. Restarts yield the next forecast
@@ -127,20 +128,22 @@ predictions feed the next rolling state. Hooks use original leading dimensions.
 Field values move to the model device at the Torch/ONNX boundary. Input preparation
 and units follow `TIME_STATISTICS_SPEC.md`'s calendar-day means section.
 
-The legacy `CoordSystem` remains `OrderedDict[str, np.ndarray]`. Other wrappers,
-including Random/Random_FX, and existing inference drivers retain their tensor
-execution API. StormCastCONUS and StormScopeGOES/MRMS accept and return
-`(torch.Tensor, CoordinateSystem)` pairs: field tensors remain separate from
-allocation-free signatures, whose concrete shapes must match the tensors. Shared
-batching preserves their leading labels, auxiliaries, and output metadata.
-These regional wrappers reject dictionary coordinate arguments. StormCastCONUS
-derives geographic auxiliaries through its cropped projected grid declaration.
+The legacy `CoordSystem` remains `OrderedDict[str, np.ndarray]` for tensor-based
+IO, statistics, perturbations and private numerical helpers. Convert explicitly
+at these boundaries with `.e2s.to_torch()` and `from_torch()`. `fetch_data()` returns
+one field DataArray; unpacking it as a tensor/coordinate pair is invalid.
+Random/Random_FX retain their existing data-source API. Assimilation protocols
+are outside this migration. Regional prognostic wrappers also use native field
+DataArrays. StormCastCONUS derives geographic auxiliaries through its cropped
+projected grid declaration.
 Its stored `ProjectedGrid` is the geometry source of truth; native axes come from
 `input_coords()["y"]` and `input_coords()["x"]`. Read-only `hrrr_y` and `hrrr_x`
 properties derive their values from those coordinates.
 Runtime protocol membership checks method presence, not call signatures, so it is
-not an execution-API detector. `models.conformance` and the rules/examples below
-still test the legacy tensor contract; do not pass migrated models to that checker.
+not an execution-API detector. `models.conformance` dispatches to native DataArray
+checks for DataArray signatures and retains legacy checks for dictionary signatures.
+The rule identifiers below apply to both paths; native signatures are allocation-free
+coordinate DataArrays rather than ordered dictionaries, and fields carry their coordinates.
 See `dev/examples/03_coordinate_signatures.py` for signature planning and
 `dev/examples/04_xarray_model_execution.py` for runnable DataArray execution.
 
@@ -148,20 +151,20 @@ See `dev/examples/03_coordinate_signatures.py` for signature planning and
 
 ### Prognostic
 
-These rule tables describe the legacy conformance checker. The DataArray protocol
-and current coverage are specified in the migration section above.
+These rules apply to native DataArray execution. The checker retains a separate
+legacy path for dictionary-signature test fixtures.
 
 | Rule | Requirement |
 | --- | --- |
 | `P1` | Structurally satisfies `PrognosticModel` |
-| `P2` | `input_coords()` and `output_coords()` return ordered dicts of arrays led by `batch` |
+| `P2` | Allocation-free DataArray declarations with explicit dynamic leading dimensions |
 | `P3` | `input_coords()["lead_time"]` is relative, strictly increasing, and ends at zero |
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
 | `P7` | `create_iterator()` yields the initial condition as its 0th step |
 | `P8` | The 1st yield matches the coordinate system `output_coords()` declared |
-| `P9` | Every yielded tensor shape matches its coordinate system |
+| `P9` | Every forecast matches its planned coordinates and structural metadata |
 | `P10` | `create_iterator()` applies both hooks; `__call__` applies neither |
 | `P11` | The model declares a boolean `stochastic` attribute |
 | `P12` | A stochastic model implements `set_rng(seed, reset=True)` |
@@ -175,10 +178,10 @@ and current coverage are specified in the migration section above.
 | Rule | Requirement |
 | --- | --- |
 | `D1` | Structurally satisfies `DiagnosticModel` |
-| `D2` | Coordinate systems are ordered dicts of arrays led by `batch` |
+| `D2` | Allocation-free DataArray declarations with explicit dynamic leading dimensions |
 | `D3` | `output_coords()` treats its argument as read-only |
 | `D4` | `output_coords()` raises `ValueError` for an invalid coordinate system |
-| `D5` | `__call__` returns the coordinate system `output_coords()` declared |
+| `D5` | `__call__` matches declared coordinates and structural metadata |
 | `D6` | `__call__` does not modify its input tensor or coordinate system |
 | `D7` | The model declares a boolean `stochastic` attribute |
 | `D8` | A stochastic model implements `set_rng(seed, reset=True)` |
@@ -201,9 +204,15 @@ consume its input before the 0th yield or emit partial steps.
 
 ## Hooks
 
-**Hooks belong to the iterator (`P10`).** Every forecast step applies `front_hook`
-immediately before advancing and `rear_hook` immediately after; `__call__` applies
-neither. `PrognosticMixin` hooks transform `(tensor, coords)` pairs;
+**Hooks belong to the iterator (`P10`).** Every core advance applies `front_hook`
+immediately before advancing; every forecast output applies `rear_hook` before it is
+yielded. `__call__` applies neither. Native models declare `front_hook_interval`, the
+positive number of forecast outputs per core advance (default 1). Multi-output cores
+preserve their numerical cadence: DLWP declares 2 because one twelve-hour core call
+produces two six-hour forecasts. Its hook order is front, rear, rear, then repeats;
+the second output is already computed and does not invoke another front hook.
+Conformance checks two complete declared cycles without model-name exceptions.
+`PrognosticMixin` hooks transform `(tensor, coords)` pairs;
 `DataArrayPrognosticMixin` hooks transform a single `xr.DataArray`.
 The front hook reaches recurrent state otherwise inaccessible between
 steps; see `examples/02_medium_range/02_model_perturbation_hook.py`.
@@ -216,8 +225,10 @@ add access to internal history buffers and coupled recurrent state. Explicit
 composition keeps ordering at the assignment site and avoids drivers silently
 interleaving transformations with caller-configured hooks.
 
-**Known deviation:** `gencast_mini`, `graphcast_small`, `graphcast_operational`, and
-`weathernext2_cyclones_mini` apply only `rear_hook`, failing `P10`.
+The migrated GraphCast, GenCast, and WeatherNext wrappers apply both hooks to
+public DataArrays while preserving native recurrence when numerical inputs are
+unchanged. Aurora1p5 declares six hourly outputs per core advance; its front hook
+runs once per six-hour cycle and its rear hook runs on every hourly output.
 
 ## Ownership of Tensors
 
@@ -282,54 +293,54 @@ streams reset. Reproducibility checks alone cannot catch this interference: a mo
 may reproduce perfectly in isolation while destroying independence in a cascade.
 The rule constrains the observable effect, not the isolation mechanism.
 
-**Known deviations:** `dlesym` uses a local generator and conforms; `fcn3` fails
-`P14` because core noise-state refresh draws globally; `aurora1p5` fails through
-bare `torch.manual_seed(seed)`. `Aurora1p5Ensemble` is exempt in
-`test/models/test_model_conformance.py` pending a follow-up wrapper fix.
+**Known deviation:** `fcn3` fails `P14` because core noise-state refresh draws
+globally. `dlesym` uses a local generator. Migrated `Aurora1p5Ensemble` isolates
+seeded execution and preserves the caller's CPU and model-device CUDA RNG states.
 
 ### Seeding is the only entry point
 
 A constructor `seed` must not override later `set_rng()` calls.
-`Aurora1p5Ensemble` violates this by reapplying `self.set_rng(self.seed)` in
-`create_iterator()`; its exemption also covers this pending fix. Removing constructor
+`Aurora1p5Ensemble` initializes its isolated stream from the constructor seed once;
+later explicit seeding takes precedence. Iterator creation continues that stream;
+repeat a rollout by explicitly resetting to the same seed. Removing constructor
 seeds remains open, including the `load_model(seed=...)` APIs of `corrdiff`,
 `cbottle_sr`, and `stormscope_dx_nsrdb`.
 
-### Migration
+### Current wrappers
 
-Current `set_rng` implementations differ: `fcn3`/`dlesym` take `(seed, reset)`,
-`aurora1p5` takes `(seed)`, and callers use `hasattr`. All three declare `stochastic`;
-`dlesym` uses a property conditional on `use_cln`. Remaining declarations and seeding
-implementations belong to wrapper owners, with this migration work:
-
-| Mechanism today | Wrappers | Work |
-| --- | --- | --- |
-| Functional PRNG key | `gencast_mini`, `weathernext2_cyclones_mini` | declare and wrap |
-| Local `torch.Generator` | `corrdiff` | declare and wrap |
-| Seed passed to core model | `cbottle_video` | declare and wrap |
-| Global `torch.manual_seed` | `aifs2ens`, `cbottle_sr`, `stormscope_dx_nsrdb` | fork the RNG |
-| None at all | `atlas_crps`, `stormscope` | add seeding, forked |
-
-"Declare and wrap" adds `stochastic`/`set_rng` around already-isolated randomness;
-"fork" confines existing global seeding to `torch.random.fork_rng()`. No upstream
-package changes are needed. Diagnostics currently use `seed=None` for a fresh seed
-per call. Migration represents this as "never called `set_rng`" and must preserve
-unseeded nondeterministic defaults.
+Stochastic wrappers expose `set_rng(seed, reset=True)` through their local generator,
+functional PRNG key, core seed, or forked global-RNG implementation. DLESyM declares
+stochasticity conditionally on `use_cln`; composition wrappers forward seeding to
+their stochastic components. Unseeded nondeterministic defaults remain supported.
+The pinned remaining exceptions are FCN3's core refresh (`P14`), FuXi-S2S's
+unseedable ONNX perturbations (`P13`), and DataReplay configured with an uncached
+random data source (`P13`). See the exact inventory and existing regression tests
+in `test/models/test_model_conformance.py`.
 
 ## Conformance
 
 `earth2studio.models.conformance.check_prognostic_contract(model)` evaluates every
-legacy rule before failing, reporting all violations and returning unevaluated
+applicable rule before failing, reporting all violations and returning unevaluated
 rules with reasons. `rollout=False` runs only `P1`–`P6`, `P11`, `P12`, and the
 seeding half of `P14`. `check_diagnostic_contract(model, forward=False)` similarly
 runs `D1`–`D4`, `D7`, `D8`, and the seeding half of `D10`. RNG seeding and stepping
 are checked separately so seeding violations need no forward pass.
 
-Probe shapes follow `convert_multidim_to_singledim`: a 1-D coordinate contributes
+Native probes concretize dynamic dimensions and use the signature's `.shape`,
+including its auxiliary coordinates and grid/statistics metadata. Legacy probe
+shapes follow `convert_multidim_to_singledim`: a 1-D coordinate contributes
 its length; an n-D entry requires n−1 following partners of identical shape, with
 the group contributing that shape once. Invalid groupings prevent probe creation
 and skip `P7`–`P10` and `P13`–`P16`. Pseudo-random probes expose input mutation;
 models rejecting unphysical data need realistic initial-condition fixtures.
+
+Every forecast in the probed rollout is checked against independently planned
+coordinates. The checker rebases the original declared input history at the
+previous planned output's final lead before planning the next forecast, so it
+supports multi-frame histories and multi-output steps without trusting corrupted
+yielded coordinates. Calls and forecast yields must preserve declared grid, CRS,
+and statistics metadata and must omit signature kind/schema/dynamic attributes.
+User attributes remain free to change through hooks.
 
 ### Enforcement
 
@@ -337,8 +348,8 @@ Model creation skills produce `test_<model>_conformance` using existing mock-wei
 fixtures, without real weights or network access. `test/models/test_conformance.py`
 tests the checker; `test/models/test_model_conformance.py` introspects
 `earth2studio.models.px`/`dx` and requires every class to be conformant or explicitly
-exempt with a reason. All three run in every PR's CI. Pre-spec models are currently
-exempt pending incremental test backfill.
+exempt with a pinned reason. Backend-dependent execution requires its optional
+dependencies; a dependency skip is not evidence that a model passes conformance.
 
 ## Open Questions
 
@@ -366,7 +377,3 @@ exempt pending incremental test backfill.
 - Keep constructor `seed=` as a construction-time `set_rng` convenience or remove
   it? Account for loading APIs, Aurora's override bug, and preserving diagnostics'
   fresh-seed default (or communicating a breaking change).
-- Should this effort migrate other seed-attribute/global-RNG wrappers too:
-  `aifs2ens`, `gencast_mini`, `cbottle_video`, `weathernext2_cyclones_mini`,
-  `atlas_crps`, `stormscope`, `corrdiff`, `corrdiff_cosmo_era5`, `cbottle_sr`, and
-  `stormscope_dx_nsrdb`?

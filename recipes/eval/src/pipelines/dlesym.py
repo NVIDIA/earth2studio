@@ -18,17 +18,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from typing import cast
+from collections.abc import Iterator
 
 import numpy as np
 import torch
+import xarray as xr
 from omegaconf import DictConfig
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.data import DataSource
+from earth2studio.run import _dimension_coords, _map_field
+from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils.cupy import from_torch
 
+from ..data import fetch_input_data
 from ..distributed import get_rank
 from ..models import load_prognostic
 from ..work import WorkItem
@@ -127,13 +130,13 @@ class DLESyMPipeline(ForecastPipeline):
         model = load_prognostic(cfg)
         ic_coords = model.input_coords()
         out_coords = model.output_coords(ic_coords)
-        spatial_ref = out_coords  # lat/lon (LatLon) or face/height/width (raw)
+        spatial_ref = _dimension_coords(out_coords)
 
         all_items = build_work_items(cfg)
         unique_ic_times: list[np.datetime64] = sorted({i.time for i in all_items})
 
-        ic_variables = list(ic_coords["variable"])
-        ic_lead_times = ic_coords["lead_time"]
+        ic_variables = list(ic_coords.coords["variable"].values)
+        ic_lead_times = ic_coords.coords["lead_time"].values
         ic_fetch_times: list[np.datetime64] = sorted(
             {t + lt for t in unique_ic_times for lt in ic_lead_times}
         )
@@ -141,7 +144,7 @@ class DLESyMPipeline(ForecastPipeline):
         # All unique forecast valid times across the full nsteps rollout.
         # Flattens per-step output lead times so every 6h tick is covered.
         verif_times = _unique_forecast_valid_times(
-            unique_ic_times, out_coords["lead_time"], cfg.nsteps
+            unique_ic_times, out_coords.coords["lead_time"].values, cfg.nsteps
         )
 
         return declare_single_source_stores(
@@ -159,22 +162,22 @@ class DLESyMPipeline(ForecastPipeline):
         data_source: DataSource,
         device: torch.device,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        x, coords = fetch_data(
+        x = fetch_input_data(
             source=data_source,
             time=[item.time],
-            variable=self._prognostic_ic["variable"],
-            lead_time=self._prognostic_ic["lead_time"],
+            variable=self._prognostic_ic.coords["variable"].values,
+            lead_time=self._prognostic_ic.coords["lead_time"].values,
             device=device,
         )
-        x, coords = map_coords(x, coords, self._prognostic_ic)
+        x = _map_field(x, self._prognostic_ic)
 
         self.seed_member(item)
 
         if self.perturbation is not None:
-            x, coords = self.perturbation(x, coords)
+            tensor, coords = self.perturbation(*x.e2s.to_torch())
+            x = from_torch(tensor, x.assign_coords(coords))
 
-        # This pipeline still uses the legacy tensor/coordinate model API.
-        model_iter = cast(Callable, self.prognostic.create_iterator)(x, coords)
+        model_iter = self.prognostic.create_iterator(x)
 
         # Skip the IC yield — its lead_times are in the input window
         # ([-48h..0h] for DLESyM), outside the output zarr schema.
@@ -183,7 +186,7 @@ class DLESyMPipeline(ForecastPipeline):
         # Rank only gates tqdm output below.
         rank = get_rank()
 
-        for step, (x_step, coords_step) in enumerate(
+        for step, x_step in enumerate(
             tqdm(
                 model_iter,
                 total=self.nsteps,
@@ -193,8 +196,8 @@ class DLESyMPipeline(ForecastPipeline):
                 disable=rank != 0,
             )
         ):
-            x_step = self._mask_invalid_ocean(x_step, coords_step)
-            yield x_step, coords_step
+            x_step = self._mask_invalid_ocean(x_step)
+            yield x_step.e2s.to_torch()
 
             if step + 1 >= self.nsteps:
                 break
@@ -205,9 +208,8 @@ class DLESyMPipeline(ForecastPipeline):
 
     def _mask_invalid_ocean(
         self,
-        x_step: torch.Tensor,
-        coords_step: CoordSystem,
-    ) -> torch.Tensor:
+        x_step: xr.DataArray,
+    ) -> xr.DataArray:
         """Replace ocean-variable values at non-valid lead times with NaN.
 
         DLESyM's ocean component predicts only at a subset of the atmos
@@ -229,36 +231,13 @@ class DLESyMPipeline(ForecastPipeline):
                 "retrieve_valid_ocean_outputs (as DLESyM / DLESyMLatLon do); "
                 f"Got: {type(self.prognostic).__name__}"
             )
-        _, valid_coords = self.prognostic.retrieve_valid_ocean_outputs(
-            x_step, coords_step
+        valid = self.prognostic.retrieve_valid_ocean_outputs(x_step)
+        mask = ~x_step.lead_time.isin(valid.lead_time) & x_step.coords["variable"].isin(
+            self._ocean_variables
         )
-        valid_lt = set(valid_coords["lead_time"].tolist())
-        all_lt = list(coords_step["lead_time"].tolist())
-        all_vars = list(coords_step["variable"])
-        ocean_set = set(self._ocean_variables)
-
-        lt_invalid = torch.tensor(
-            [lt not in valid_lt for lt in all_lt],
-            device=x_step.device,
-        )
-        var_ocean = torch.tensor(
-            [v in ocean_set for v in all_vars],
-            device=x_step.device,
-        )
-        if not lt_invalid.any() or not var_ocean.any():
-            return x_step
-
-        lt_axis = list(coords_step.keys()).index("lead_time")
-        var_axis = list(coords_step.keys()).index("variable")
-
-        lt_shape = [1] * x_step.ndim
-        lt_shape[lt_axis] = -1
-        var_shape = [1] * x_step.ndim
-        var_shape[var_axis] = -1
-
-        mask = lt_invalid.view(lt_shape) & var_ocean.view(var_shape)
-        nan = torch.full_like(x_step, float("nan"))
-        return torch.where(mask, nan, x_step)
+        if x_step.e2s.is_cupy:
+            mask = mask.e2s.as_cupy(device=x_step.data.device.id)
+        return x_step.where(~mask)
 
 
 def _unique_forecast_valid_times(

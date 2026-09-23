@@ -14,21 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+from copy import deepcopy
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import cupy as cp
@@ -75,6 +77,47 @@ OUT_VARIABLES = ["tclat", "tclon", "tcmsl", "tcw10m"]
 class _TCTrackerBase:
 
     PATH_FILL_VALUE = -9999  # Should not be in lat/lon range for safety
+    stochastic = False
+
+    def _track_coords(
+        self, x: CoordinateSystem, paths: int = 0, steps: int = 0
+    ) -> CoordinateSystem:
+        leading = x.dims[:-3]
+        removed = set(x.dims[-3:])
+        attrs = deepcopy(x.attrs)
+        for key in (
+            "type",
+            "crs",
+            "earth2studio_grid_id",
+            "earth2studio_crs",
+            "dims",
+            "shape",
+            "topology",
+        ):
+            attrs.pop(key, None)
+        coords = {
+            k: v.variable.copy(deep=True)
+            for k, v in x.coords.items()
+            if not removed.intersection(v.dims)
+        }
+        coords.update(
+            path_id=np.arange(paths),
+            step=np.arange(steps),
+            variable=np.array(OUT_VARIABLES),
+        )
+        result = coord_array(
+            (*leading, "path_id", "step", "variable"),
+            coords,
+            sizes={d: x.sizes[d] for d in leading},
+            dynamic=tuple(
+                d for d in x.attrs.get("earth2studio_dynamic_dims", ()) if d in leading
+            ),
+            dtype=x.dtype,
+            name=x.name,
+            attrs=attrs,
+        )
+        result.encoding = deepcopy(x.encoding)
+        return result
 
     @classmethod
     def vorticity(
@@ -367,8 +410,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     >>> # Process each timestep
     >>> for time in [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(3)]:
     ...     da = data_source(time, tracker.input_coords()["variable"])
-    ...     input, input_coords = prep_data_array(da, device=device)
-    ...     output, output_coords = model(input, input_coords)
+    ...     output = model(da)
     >>> # Final path_buffer shape: [batch, path_id, steps, variable]
     >>> output.shape  # torch.Size([1, 6, 3, 4])
     >>> model.path_buffer.shape  # torch.Size([1, 6, 3, 4])
@@ -392,9 +434,9 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
 
     def reset_path_buffer(self) -> None:
         """Resets the internal"""
-        self.path_buffer = torch.empty(0)
+        self.path_buffer = torch.empty(0, device=self.get_buffer("path_buffer").device)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of diagnostic model
 
         Returns
@@ -402,17 +444,14 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES_TCWD),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES_TCWD)},
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -426,24 +465,8 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         CoordSystem
             Coordinate system dictionary
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        # [batch, path_id, step, variable]
-        output_coords = OrderedDict(
-            [
-                ("batch", input_coords["batch"]),
-                ("path_id", np.empty(0)),
-                ("step", np.empty(0)),
-                ("variable", np.array(OUT_VARIABLES)),
-            ]
-        )
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        return self._track_coords(input_coords)
 
     def _find_centers(
         self,
@@ -585,18 +608,17 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
             return x
 
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
-        output_coords = self.output_coords(coords)
+        self.output_coords(x)
+        coords = coord_array_like(x).copy(deep=True)
+        coords.encoding = deepcopy(x.encoding)
+        x = x.e2s.to_torch()[0].to(self.path_buffer.device)
+        x = x.reshape(-1, *x.shape[-3:])
 
-        lat = torch.as_tensor(self.input_coords()["lat"], device=x.device)
-        lon = torch.as_tensor(self.input_coords()["lon"], device=x.device)
+        lat = torch.as_tensor(coords["lat"].values, device=x.device)
+        lon = torch.as_tensor(coords["lon"].values, device=x.device)
 
         def get_variable(x: torch.Tensor, var: str) -> torch.Tensor:
             index = VARIABLES_TCWD.index(var)
@@ -641,11 +663,12 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
             self.path_buffer == self.PATH_FILL_VALUE, torch.nan, self.path_buffer
         )
 
-        output_coords = self.output_coords(coords)
-        output_coords["path_id"] = np.arange(self.path_buffer.shape[1])
-        output_coords["step"] = np.arange(self.path_buffer.shape[2])
-
-        return out, output_coords
+        output_coords = self._track_coords(
+            coords, self.path_buffer.shape[1], self.path_buffer.shape[2]
+        )
+        result = from_torch(out.reshape(output_coords.shape), output_coords)
+        result.encoding = deepcopy(coords.encoding)
+        return result
 
 
 @check_optional_dependencies()
@@ -702,8 +725,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     >>> # Process each timestep
     >>> for time in [datetime(2017, 8, 25) + timedelta(hours=6 * i) for i in range(3)]:
     ...     da = data_source(time, tracker.input_coords()["variable"])
-    ...     input, input_coords = prep_data_array(da, device=device)
-    ...     output, output_coords = model(input, input_coords)
+    ...     output = model(da)
     >>> # Final path_buffer shape: [batch, path_id, steps, variable]
     >>> output.shape  # torch.Size([1, 6, 3, 4])
     >>> model.path_buffer.shape  # torch.Size([1, 6, 3, 4])
@@ -741,9 +763,9 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
 
     def reset_path_buffer(self) -> None:
         """Resets the internal"""
-        self.path_buffer = torch.empty(0)
+        self.path_buffer = torch.empty(0, device=self.get_buffer("path_buffer").device)
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of diagnostic model
 
         Returns
@@ -751,17 +773,14 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES_TCV),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES_TCV)},
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
@@ -775,22 +794,8 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         CoordSystem
             Coordinate system dictionary
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        # [batch, path_id, step, variable]
-        output_coords = OrderedDict(
-            [
-                ("batch", input_coords["batch"]),
-                ("path_id", np.empty(0)),
-                ("step", np.empty(0)),
-                ("variable", np.array(OUT_VARIABLES)),
-            ]
-        )
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        return self._track_coords(input_coords)
 
     def _find_centers(
         self,
@@ -970,18 +975,17 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
             return x
 
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
-        output_coords = self.output_coords(coords)
+        self.output_coords(x)
+        coords = coord_array_like(x).copy(deep=True)
+        coords.encoding = deepcopy(x.encoding)
+        x = x.e2s.to_torch()[0].to(self.path_buffer.device)
+        x = x.reshape(-1, *x.shape[-3:])
 
-        lat = torch.as_tensor(coords["lat"], device=x.device)
-        lon = torch.as_tensor(coords["lon"], device=x.device)
+        lat = torch.as_tensor(coords["lat"].values, device=x.device)
+        lon = torch.as_tensor(coords["lon"].values, device=x.device)
 
         if lat.ndim != lon.ndim:
             raise ValueError(
@@ -1074,8 +1078,9 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
             self.path_buffer == self.PATH_FILL_VALUE, torch.nan, self.path_buffer
         )
 
-        output_coords = self.output_coords(coords)
-        output_coords["path_id"] = np.arange(self.path_buffer.shape[1])
-        output_coords["step"] = np.arange(self.path_buffer.shape[2])
-
-        return out, output_coords
+        output_coords = self._track_coords(
+            coords, self.path_buffer.shape[1], self.path_buffer.shape[2]
+        )
+        result = from_torch(out.reshape(output_coords.shape), output_coords)
+        result.encoding = deepcopy(coords.encoding)
+        return result

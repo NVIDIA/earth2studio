@@ -14,24 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from dataclasses import replace
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.grids import HEALPixGrid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+from earth2studio.models.dx.corrdiff import (
+    _field,
+    _geographic_grid,
+    _grid_dims,
+    _own_metadata,
+    _replace_grid,
+    _validate_grid,
 )
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import earth2grid
@@ -282,6 +287,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                     includes_south_pole=False,
                 )
 
+            # Public axes describe the actual interpolation target.
+            self.output_lat = np.asarray(self.output_grid.lat).ravel()
+            self.output_lon = np.asarray(self.output_grid.lon).ravel()
+
             # Update regridder for high-res HEALPix to output
             self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
                 self.hpx_high_res_grid, self.output_grid
@@ -295,82 +304,55 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system"""
-        if self.input_type == "latlon":
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "lat": np.linspace(90, -90, 721),
-                    "lon": np.linspace(0, 360, 1440, endpoint=False),
-                }
+        grid = (
+            _geographic_grid(
+                np.asarray(self.input_grid.lat).ravel(),
+                np.asarray(self.input_grid.lon).ravel(),
             )
-        else:  # healpix
-            # HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels
-            nside = 2**HPX_LEVEL_LR
-            npix = nside**2 * 12
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "hpx": np.arange(npix),
-                }
-            )
+            if self.input_type == "latlon"
+            else "healpix-l6-nested"
+        )
+        return coord_array(
+            ("batch", "variable", *_grid_dims(grid)),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid=grid,
+        )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free output coordinate signature
         """
-        # Validate input coordinates against expected input coords
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        if self.input_type == "latlon":
-            handshake_dim(input_coords, "lon", 3)
-            handshake_dim(input_coords, "lat", 2)
-            handshake_coords(input_coords, target_input_coords, "lon")
-            handshake_coords(input_coords, target_input_coords, "lat")
-        else:  # healpix input
-            handshake_dim(input_coords, "hpx", 2)
-            handshake_coords(input_coords, target_input_coords, "hpx")
-
-        # Build output coordinate system based on output type
-        if self.output_type == "latlon":
-            output_coords = OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "lat": self.output_lat,
-                    "lon": self.output_lon,
-                }
+        _validate_grid(input_coords, self.input_coords())
+        grid = (
+            _geographic_grid(
+                np.asarray(self.output_grid.lat).ravel(),
+                np.asarray(self.output_grid.lon).ravel(),
             )
-        else:  # healpix output
-            # HEALPix level 10: nside = 2^10 = 1024, npix = 1024^2 * 12 = 12,582,912 pixels
-            nside = 2**HPX_LEVEL_HR
-            npix = nside**2 * 12
-            output_coords = OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "hpx": np.arange(npix),
-                }
-            )
+            if self.output_type == "latlon"
+            else HEALPixGrid(HPX_LEVEL_HR, ordering="nested", layout="flat")
+        )
+        return _replace_grid(input_coords, grid, VARIABLES)
 
-        output_coords["batch"] = input_coords["batch"]
-        return output_coords
+    stochastic = True
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Reset or initialize the isolated per-sample random stream."""
+        if reset or self.seed is None:
+            self.seed = seed
+            self._sample_index = 0
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -487,9 +469,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
             with torch.random.fork_rng(devices=rng_devices, enabled=True):
                 seed = self.seed + self._sample_index
-                torch.manual_seed(seed)
+                torch.random.default_generator.manual_seed(seed)
                 if self.device.type == "cuda":
-                    torch.cuda.manual_seed_all(seed)
+                    with torch.cuda.device(self.device):
+                        torch.cuda.manual_seed(seed)
                 out, _ = self.sr_model(
                     x,
                     coords=replace(self._coords),
@@ -512,21 +495,25 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         out = self.regrid_hpx_high_res_to_output(out).to(torch.float32)
         return out[0]
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Super-resolve a labelled field on the configured output domain."""
+        return _own_metadata(self._call(x))
+
     @batch_func()
-    def __call__(
+    def _call(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.device).clone()
 
         out = torch.zeros(
-            [len(v) for v in output_coords.values()],
+            output_coords.shape,
             device=x.device,
             dtype=torch.float32,
         )
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i])
-        return out, output_coords
+        return _field(out, output_coords)

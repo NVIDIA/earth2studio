@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
+from copy import deepcopy
 from typing import Any
 
 import cftime
@@ -29,18 +29,26 @@ from earth2studio.data import ACE2ERA5Data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
 from earth2studio.data.base import DataSource
 from earth2studio.data.utils import fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.ace import ACELexicon
+from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dataarray,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.interp import LatLonInterpolation
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     # Optional dependency: FME
@@ -106,7 +114,7 @@ def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
 
 
 @check_optional_dependencies()
-class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """ACE2-ERA5 prognostic model wrapper.
 
     ACE2 (Ai2 Climate Emulator v2) is a 450M-parameter autoregressive emulator
@@ -171,6 +179,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Load fme stepper and cache useful metadata
         self.stepper = stepper
+        self.register_buffer("device_buffer", torch.empty(0))
 
         # timestep (lead time increment)
         self._dt = dt
@@ -246,7 +255,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         else:
             self.needs_regrid = False
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -254,22 +263,20 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        coords = CoordSystem(
+        coords = coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [np.timedelta64(0, "h")], dtype="timedelta64[ns]"
                 ),
                 "variable": np.array(self._prog_vars_e2s, dtype=object),
-                "lat": self.lat,
-                "lon": self.lon,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=_registered_grid(LatLonGrid(self.lat, self.lon)),
         )
         return coords
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -283,36 +290,31 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        output_coords = OrderedDict(
+        if not isinstance(input_coords, xr.DataArray):
+            raise TypeError("Expected a DataArray")
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("lead_time is required")
+        lead = input_coords.lead_time
+        if (
+            lead.dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead.values).any()
+        ):
+            raise ValueError("lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            coord_array_like(
+                input_coords, {"lead_time": lead.values - lead.values[-1]}
+            ),
+            self.input_coords(),
+        )
+        return coord_array_like(
+            input_coords,
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([self._dt]),
+                "lead_time": lead.values + self._dt,
                 "variable": np.array(self._all_out_variables_e2s),
-                "lat": self.lat,
-                "lon": self.lon,
-            }
+            },
         )
-        if input_coords is None:
-            return output_coords
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][0]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][0] + output_coords["lead_time"]
-        )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -423,12 +425,12 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 state_data[fme_name] = x[:, :, j, ...]
 
         # Pass a time array and hc_dims to initialize BatchData on device
-        times_forcing = np.stack(
-            [coords["time"] + forcing_coords["lead_time"]] * b, axis=0
-        )  # includes both time steps
-        times_state = np.stack(
-            [coords["time"] + coords["lead_time"]] * b, axis=0
-        )  # only includes current (init) time
+        times_forcing = np.tile(
+            coords["time"][:, None] + forcing_coords["lead_time"][None, :], (b, 1)
+        )
+        times_state = np.tile(
+            coords["time"][:, None] + coords["lead_time"][None, :], (b, 1)
+        )
         time_da_forcing = xr.DataArray(
             _npdatetime64_to_cftime(times_forcing), dims=["sample", "time"]
         )
@@ -493,13 +495,14 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         year_times = np.arange(start, end, self._dt, dtype="datetime64[ns]")
         lead_time = np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]")
 
-        forcing_x, year_coords = fetch_data(
+        forcing = fetch_data(
             self.forcing_data_source,
             time=year_times,
             lead_time=lead_time,
             variable=self._forcing_vars_e2s,
             device=device,
         )
+        forcing_x, year_coords = forcing.e2s.to_torch()
         self._forcing_cache.clear()
         self._forcing_cache[cache_key] = (forcing_x, year_coords)
         return self._forcing_cache[cache_key]
@@ -536,13 +539,14 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             int(valid_time.astype("datetime64[ns]").astype(np.int64)),
         )
         if cache_key not in self._forcing_cache:
-            self._forcing_cache[cache_key] = fetch_data(
+            forcing = fetch_data(
                 self.forcing_data_source,
                 time=np.array([valid_time], dtype="datetime64[ns]"),
                 lead_time=np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]"),
                 variable=self._forcing_vars_e2s,
                 device=device,
             )
+            self._forcing_cache[cache_key] = forcing.e2s.to_torch()
         forcing_x, forcing_coords = self._forcing_cache[cache_key]
         return forcing_x, forcing_coords.copy()
 
@@ -622,148 +626,79 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Predict one step forward
         paired, _ = self.stepper.predict_paired(ic, forcing_batch)
         y = self._batch_data_to_tensor(paired.prediction)
-        out_coords = self.output_coords(coords)
+        y = y.reshape(
+            x.shape[0], x.shape[1], 1, len(self._all_out_variables_e2s), *x.shape[-2:]
+        )
+        out_coords = coords.copy()
+        out_coords["lead_time"] = coords["lead_time"] + self._dt
+        out_coords["variable"] = np.array(self._all_out_variables_e2s)
         return y, out_coords
 
-    def _build_initial_output(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Construct an initial-condition output tensor matching model output schema.
-
-        Fills output-only variables with NaN and copies prognostic variables from the
-        provided initial condition tensor so that variable set and tensor shape match
-        subsequent forecast steps in iterator mode.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Initial condition output tensor and coordinate system
-        """
-
-        # Prepare coords: keep time and lead_time (0h) from input, but use output variables
-        ic_coords = coords.copy()
-        ic_coords["variable"] = np.array(self._all_out_variables_e2s, dtype=object)
-
-        # Allocate output filled with NaNs [batch, time, lead_time=1, variable_out, lat, lon]
-        b, t, _, _, lat, lon = x.shape
-        v_out = len(self._all_out_variables_e2s)
-        y0 = torch.full(
-            (b, t, 1, v_out, lat, lon),
-            float("nan"),
-            device=x.device,
-            dtype=x.dtype,
-        )
-
-        # Map prognostic variables from input into output variable positions
-        var_to_idx_out = {v: i for i, v in enumerate(self._all_out_variables_e2s)}
-        var_to_idx_in = {v: i for i, v in enumerate(self._prog_vars_e2s)}
-        for v in self._prog_vars_e2s:
-            if v in var_to_idx_out:
-                y0[:, :, 0, var_to_idx_out[v], ...] = x[:, :, 0, var_to_idx_in[v], ...]
-
-        return y0, ic_coords
-
     @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Runs one prognostic step using fme predict_paired API.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Prognostic state on the declared grid, with arbitrary leading dimensions.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
+        xr.DataArray
+            Prognostic and diagnostic fields one timestep in the future.
         """
-        return self._forward(x, coords)
+        signature = self.output_coords(x)
+        if (
+            "time" not in x.coords
+            or x.time.dims != ("time",)
+            or not np.issubdtype(x.time.dtype, np.datetime64)
+            or np.isnat(x.time.values).any()
+        ):
+            raise ValueError("time must contain finite datetimes")
+        tensor, coords = x.e2s.to_torch()
+        out, _ = self._forward(tensor.to(self.device_buffer.device).clone(), coords)
+        result = from_torch(out, signature)
+        result.encoding = x.encoding.copy()
+        return result
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        """Generator to perform time-integration of ACE2ERA5.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        Generator[tuple[torch.Tensor, CoordSystem]]
-            Generator of output tensors and coordinate systems
-        """
-        coords = coords.copy()
-
-        # Yield the initial condition (t=0 step) in output schema
-        # Output-only variables will be NaN-filled for this step
-        ic_tensor, ic_coords = self._build_initial_output(x, coords)
-        yield ic_tensor, ic_coords
-
-        # Setup rolling state for subsequent steps: x at next init lead_time uses previous out as state
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-
-            # Forward one step from current state
-            out, out_coords = self._forward(x, coords)
-
-            # Rear hook
-            out, out_coords = self.rear_hook(out, out_coords)
-
-            yield out, out_coords.copy()
-
-            # Build next input by replacing the prognostic slice in x with the previous output
-            # x shape: [batch, time, lead_time=1, variable, lat, lon]
-            x_next = x.clone()
-            var_to_idx_out = {v: i for i, v in enumerate(self._all_out_variables_e2s)}
-            var_to_idx_in = {v: i for i, v in enumerate(self._prog_vars_e2s)}
-            for v in self._prog_vars_e2s:
-                if v in var_to_idx_out:
-                    x_next[:, :, 0, var_to_idx_in[v], ...] = out[
-                        :, :, 0, var_to_idx_out[v], ...
-                    ]
-
-            x = x_next
-
-            # Advance base time for next step; keep lead_time at [0h]
-            coords = coords.copy()
-            coords["lead_time"] = coords["lead_time"] + self._dt
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Creates an iterator to perform time-integration of ACE2ERA5.
 
-        Yields the first forecast step, then continues autoregressively by feeding
+        Yields the initial state, then continues autoregressively by feeding
         previous outputs as the next prognostic state while fetching/using external
         forcings under the hood via _forward.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial state; hooks receive owned arrays in original leading dimensions.
 
         Returns
         -------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator of output tensors and coordinate systems
+        Iterator[xr.DataArray]
+            Initial state followed by forecasts.
         """
-        yield from self._default_generator(x, coords)
+        self.output_coords(x)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        while True:
+            history = self.front_hook(x.copy(deep=True))
+            out = self.rear_hook(self(history))
+            # Preserve prognostics absent from the checkpoint's output list.
+            tensor, _ = history.e2s.to_torch()
+            predicted, _ = out.e2s.to_torch()
+            tensor = tensor.to(predicted.device).clone()
+            axis = history.get_axis_num("variable")
+            for i, name in enumerate(self._prog_vars_e2s):
+                if name in self._all_out_variables_e2s:
+                    tensor.select(axis, i).copy_(
+                        predicted.select(axis, self._all_out_variables_e2s.index(name))
+                    )
+            x = from_torch(
+                tensor,
+                coord_array_like(out, {"variable": history["variable"].values}).copy(
+                    deep=True
+                ),
+            )
+            x.encoding = deepcopy(out.encoding)
+            yield out

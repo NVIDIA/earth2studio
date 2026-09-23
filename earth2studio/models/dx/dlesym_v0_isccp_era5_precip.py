@@ -14,22 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.grids import HEALPixGrid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from omegaconf import OmegaConf
@@ -93,8 +94,8 @@ def apply_ttr_to_olr(
     """
     ttr = x[:, :, :, ttr_idx, :, :, :]  # (B, T, LT, F, H, W)
 
-    times = np.asarray(coords["time"], dtype="datetime64[ns]")
-    leads = np.asarray(coords["lead_time"], dtype="timedelta64[ns]")
+    times = np.asarray(coords["time"], dtype="datetime64[s]")
+    leads = np.asarray(coords["lead_time"], dtype="timedelta64[s]")
     valid_times = times[:, None] + leads[None, :]  # (T, LT)
     doy = (
         valid_times.astype("datetime64[D]") - valid_times.astype("datetime64[Y]")
@@ -299,7 +300,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
                 "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
             )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of diagnostic model.
 
         Returns
@@ -313,20 +314,23 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         variables = list(self.variables)
         if getattr(self, "use_ttr", False) and "rlut" in variables:
             variables[variables.index("rlut")] = "ttr"
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "face", "height", "width"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": self.input_times,
                 "variable": np.array(variables),
-                "face": np.arange(12),
-                "height": np.arange(self.nside),
-                "width": np.arange(self.nside),
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=HEALPixGrid(
+                int(np.log2(self.nside)),
+                ordering="xy",
+                layout="face",
+                xy_origin="north",
+                xy_clockwise=True,
+            ),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of diagnostic model.
 
         Parameters
@@ -339,22 +343,57 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         CoordSystem
             Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
         """
-        target_input_coords = self.input_coords()
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        if not isinstance(input_coords, xr.DataArray):
+            raise TypeError("Expected a DataArray")
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("lead_time is required")
+        lead = input_coords.lead_time
+        if (
+            lead.dims != ("lead_time",)
+            or not lead.size
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead.values).any()
+        ):
+            raise ValueError("lead_time must contain finite timedeltas")
+        # HEALPix indices do not encode their ordering, layout or orientation.
+        grid = HEALPixGrid(
+            int(np.log2(self.nside)),
+            ordering="xy",
+            layout="face",
+            xy_origin="north",
+            xy_clockwise=True,
         )
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        out_coords = input_coords.copy()
-        out_coords["lead_time"] = np.array(
-            [input_coords["lead_time"][-1]], dtype=input_coords["lead_time"].dtype
+        for key, value in {
+            **grid.attrs,
+            "crs": None,
+            "earth2studio_crs": None,
+            "earth2studio_grid_id": None,
+        }.items():
+            if not np.array_equal(input_coords.attrs.get(key), value):
+                raise ValueError(
+                    f"HEALPix representation metadata {key!r} does not match"
+                )
+        handshake_dataarray(
+            coord_array_like(
+                input_coords, {"lead_time": lead.values - lead.values[-1]}
+            ),
+            self.input_coords(),
         )
-        out_coords["variable"] = np.array([self.output_variable])
-        return out_coords
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": lead.values[-1:],
+                "variable": np.array(
+                    [
+                        (
+                            "tp:sum:6h"
+                            if self.output_variable == "tp06"
+                            else self.output_variable
+                        )
+                    ]
+                ),
+            },
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -484,26 +523,25 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Run the precip diagnostic forward.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input of shape ``(B, T, LT, V, F, H, W)`` with ``LT = input_time_dim``
-            history timesteps and ``V = len(variables)`` channels on HEALPix.
-        coords : CoordSystem
-            Input coordinates.
+        x : xr.DataArray
+            HEALPix history with arbitrary leading dimensions, followed by
+            ``time, lead_time, variable, face, height, width``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor of shape ``(B, T, 1, 1, F, H, W)`` and the
-            corresponding output coords with ``variable = [tp06]``.
+        xr.DataArray
+            Precipitation at the final input lead, labelled ``tp:sum:6h``.
         """
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        encoding = x.encoding.copy()
+        x, coords = x.e2s.to_torch()
+        x = x.to(self.center.device).clone()
 
         if self.use_ttr:
             variables = list(coords["variable"])
@@ -548,4 +586,6 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
             eps = self.log_epsilon
             out = torch.exp(out + np.log(eps)) - eps
 
-        return out, output_coords
+        result = from_torch(out, output_coords)
+        result.encoding = encoding
+        return result

@@ -19,6 +19,7 @@ import zipfile
 from collections import Counter, OrderedDict
 from collections.abc import Callable, Sequence
 from contextlib import nullcontext
+from copy import deepcopy
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -29,20 +30,145 @@ import torch
 import xarray as xr
 import zarr
 
+from earth2studio.grids import CurvilinearGrid, GridDefinition, LatLonGrid, resolve_grid
+from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    interp,
-)
+from earth2studio.utils import interp
+from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
+
+
+def _geographic_grid(lat: np.ndarray, lon: np.ndarray) -> str | GridDefinition:
+    grid = LatLonGrid(lat, lon) if lat.ndim == 1 else CurvilinearGrid(lat, lon)
+    return _registered_grid(grid)
+
+
+def _grid_dims(grid: str | GridDefinition) -> tuple[str, ...]:
+    return (resolve_grid(grid) if isinstance(grid, str) else grid).dims
+
+
+def _field(tensor: torch.Tensor, signature: CoordinateSystem) -> xr.DataArray:
+    out = from_torch(tensor, deepcopy(signature))
+    out.attrs = deepcopy(out.attrs)
+    out.encoding = deepcopy(signature.encoding)
+    for key in out.coords:
+        out.coords[key].attrs = deepcopy(signature.coords[key].attrs)
+        out.coords[key].encoding = deepcopy(signature.coords[key].encoding)
+    return out
+
+
+def _own_metadata(x: xr.DataArray) -> xr.DataArray:
+    out = x.assign_coords({k: deepcopy(v.variable) for k, v in x.coords.items()})
+    out.attrs = deepcopy(x.attrs)
+    out.encoding = deepcopy(x.encoding)
+    return out
+
+
+def _validate_grid(x: xr.DataArray, target: CoordinateSystem) -> None:
+    if not isinstance(x, xr.DataArray):
+        raise TypeError("Expected a DataArray")
+    handshake_dataarray(x, target)
+    # Validate the complete representation, including absent CRS/registry IDs.
+    keys = set(target.attrs) - {
+        "earth2studio_kind",
+        "earth2studio_schema_version",
+        "earth2studio_dynamic_dims",
+    }
+    keys.update(
+        ("crs", "earth2studio_crs", "earth2studio_grid_id", "origin", "clockwise")
+    )
+    for key in keys:
+        if not np.array_equal(x.attrs.get(key), target.attrs.get(key)):
+            raise ValueError(f"Grid representation metadata {key!r} does not match")
+
+
+def _replace_grid(
+    x: xr.DataArray,
+    grid: str | GridDefinition,
+    variables: Sequence[str],
+    *,
+    sample: int | None = None,
+    lead_time: np.ndarray | None = None,
+    sample_after_time: bool = False,
+) -> CoordinateSystem:
+    spatial = tuple(x.attrs["dims"])
+    definition = resolve_grid(grid) if isinstance(grid, str) else grid
+    grid_coords = definition.coords(only_index=definition.topology == "healpix")
+    same_grid = spatial == definition.dims and all(
+        k in x.coords and np.array_equal(x.coords[k], v) for k, v in grid_coords.items()
+    )
+    removed = set() if same_grid else set(spatial)
+    if not np.array_equal(x.coords["variable"].values, variables):
+        removed.add("variable")
+    if lead_time is not None:
+        removed.add("lead_time")
+    dims = list(x.dims[: -len(spatial)])
+    if sample is not None:
+        # Keep declared dynamic time in the leading prefix in both planning and
+        # execution. Fixed samples follow time, before any conditioning history.
+        index = dims.index("time") + 1 if sample_after_time else dims.index("variable")
+        dims.insert(index, "sample")
+    dims.extend(_grid_dims(grid))
+    coords = {
+        k: deepcopy(v.variable)
+        for k, v in x.coords.items()
+        if not removed.intersection(v.dims)
+    }
+    if "variable" not in coords:
+        coords["variable"] = np.asarray(variables)
+    if sample is not None:
+        coords["sample"] = np.arange(sample)
+    if lead_time is not None:
+        coords["lead_time"] = lead_time
+    grid_keys = {
+        "type",
+        "dims",
+        "shape",
+        "topology",
+        "crs",
+        "earth2studio_crs",
+        "earth2studio_grid_id",
+        "level",
+        "ordering",
+        "layout",
+        "xy_origin",
+        "xy_clockwise",
+        "origin",
+        "clockwise",
+        "nside",
+        "earth2studio_kind",
+        "earth2studio_schema_version",
+        "earth2studio_dynamic_dims",
+    }
+    attrs = {k: deepcopy(v) for k, v in x.attrs.items() if k not in grid_keys}
+    dynamic = tuple(
+        d for d in x.attrs.get("earth2studio_dynamic_dims", ()) if d in dims
+    )
+    result = coord_array(
+        dims,
+        coords,
+        grid=grid,
+        dynamic=dynamic,
+        sizes={
+            d: x.sizes[d]
+            for d in dims
+            if d in x.sizes and d not in removed and d not in spatial
+        },
+        dtype=x.dtype,
+        name=x.name,
+        attrs=attrs,
+    )
+    result.encoding = deepcopy(x.encoding)
+    return result
+
 
 try:
     from physicsnemo import Module as PhysicsNemoModule
@@ -528,59 +654,35 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
-    def input_coords(self) -> CoordSystem:
-        """Get the input coordinate system for the model.
+    @property
+    def stochastic(self) -> bool:
+        """Whether diffusion samples are generated."""
+        return self.inference_mode != "regression"
 
-        Returns
-        -------
-        CoordSystem
-            Dictionary containing the input coordinate system
-        """
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the isolated sampling seed."""
+        if reset or self.seed is None:
+            self.seed = seed
 
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self.input_variables),
-                "lat": self.lat_input_numpy,
-                "lon": self.lon_input_numpy,
-            }
+    def input_coords(self) -> CoordinateSystem:
+        """Declare the configured input variables and actual geographic grid."""
+        grid = _geographic_grid(self.lat_input_numpy, self.lon_input_numpy)
+        return coord_array(
+            ("batch", "variable", *_grid_dims(grid)),
+            {"variable": np.asarray(self.input_variables)},
+            dynamic=("batch",),
+            grid=grid,
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Get the output coordinate system for the model.
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Dictionary containing the output coordinate system
-        """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(self.output_variables),
-                "lat": self.lat_output_numpy,
-                "lon": self.lon_output_numpy,
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate input and plan samples on the configured output grid."""
+        _validate_grid(input_coords, self.input_coords())
+        return _replace_grid(
+            input_coords,
+            _geographic_grid(self.lat_output_numpy, self.lon_output_numpy),
+            self.output_variables,
+            sample=self.number_of_samples,
         )
-
-        # Validate input coordinates
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords["batch"] = input_coords["batch"]
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -1104,114 +1206,52 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
         return image_out
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Downscale a labelled field, retaining optional per-sample validity time."""
+        signature = self.output_coords(x)
+        time = x.coords.get("time")
+        if time is not None:
+            if (
+                not np.issubdtype(time.dtype, np.datetime64)
+                or np.isnat(time.values).any()
+            ):
+                raise TypeError("time must contain finite datetime64 values")
+            leading = x.dims[: -len(self.input_coords().dims[1:])]
+            template = x.isel({d: 0 for d in x.dims if d not in leading}, drop=True)
+            time = (
+                xr.broadcast(time, template)[0].transpose(*leading).values.reshape(-1)
+            )
+        return _own_metadata(self._call(x, valid_times=time).transpose(*signature.dims))
+
     @batch_func()
-    def __call__(
+    def _call(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Execute the model on input data.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system. May optionally contain a ``"time"`` key with an
-            array-like of numpy datetime64 values (or a ``list[datetime]``) representing
-            the validity time of each sample (i.e., when the atmospheric state is
-            valid, not the forecast initialization time). If present, each value is
-            passed to ``preprocess_input`` as ``valid_time`` for time-dependent
-            preprocessing (e.g., computing solar zenith angle). If absent, ``None`` is
-            passed.
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
-
-        Notes
-        -----
-        Subclass usage: The base class passes ``valid_time`` to ``preprocess_input``
-        but does not use it. Subclasses can override ``preprocess_input`` to compute
-        time-dependent features like solar zenith angle (SZA). The ``coords["time"]``
-        array must have length equal to the batch size (first dimension of x).
-        """
-
-        # Pull optional time metadata before any coordinate validation.
-        #
-        # Design note: CoordSystem was designed for dimensional coords (batch, variable,
-        # lat, lon) where each key maps to a tensor axis. "time" here is per-sample
-        # metadata (validity timestamp), not a tensor dimension.
-        #
-        # This method strips "time" before calling:
-        # - earth2studio.models.batch.batch_func._compress_batch (enforces len(coords) == x.ndim)
-        # - earth2studio.utils.coords.handshake_dim / handshake_coords (assume only dimensional keys)
-        #
-        # If more models need per-sample metadata, the proper fix is to teach the batching /
-        # handshake utilities to ignore or explicitly allow metadata keys (e.g. via a
-        # `metadata_keys={"time"}` allowlist on @batch_func), rather than repeating this
-        # local workaround in each model.
-        time_array = coords.get("time", None)
-        coords_no_time = coords
-        if time_array is not None:
-            coords_no_time = coords.copy()
-            del coords_no_time["time"]
-
-        output_coords = self.output_coords(coords_no_time)
+        x: xr.DataArray,
+        valid_times: np.ndarray | None = None,
+    ) -> xr.DataArray:
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
 
         out = torch.zeros(
-            [len(v) for v in output_coords.values()],
+            output_coords.shape,
             device=x.device,
             dtype=torch.float32,
         )
 
-        # Extract and validate time information if present in coords
-        #
-        # Note: we intentionally keep the public coord key as "time" (consistent with
-        # earth2studio conventions), but internally treat it as a validity timestamp
-        # and pass it to subclasses as `valid_time`.
         valid_time_list: list[datetime | None]
-        if time_array is not None:
-            # Disallow scalar timestamps: we require one entry per batch element
-            if isinstance(time_array, (datetime, np.datetime64)):
-                raise TypeError(
-                    'coords["time"] must be an array-like of timestamps (one per batch element), '
-                    f"but got a scalar {type(time_array)!r}"
-                )
-
-            # Validate time array length matches batch size
-            if not hasattr(time_array, "__len__"):
-                raise TypeError(
-                    'coords["time"] must be an array-like of timestamps (supports len()), '
-                    f"but got {type(time_array)!r}"
-                )
-            if len(time_array) != x.shape[0]:
+        if valid_times is not None:
+            if len(valid_times) != x.shape[0]:
                 raise ValueError(
-                    f"time array length ({len(time_array)}) must match batch size ({x.shape[0]})"
+                    f"time array length ({len(valid_times)}) must match batch size ({x.shape[0]})"
                 )
-
-            # Accept list[datetime] directly (already the desired type for subclasses)
-            if isinstance(time_array, (list, tuple)) and all(
-                isinstance(t, datetime) for t in time_array
-            ):
-                valid_time_list = list(time_array)
-            else:
-                # Normalize to numpy array and require datetime64 dtype
-                time_np = np.asarray(time_array)
-                if not np.issubdtype(time_np.dtype, np.datetime64):
-                    raise TypeError(
-                        'coords["time"] must be array-like of numpy datetime64 (e.g., dtype="datetime64[ns]") '
-                        f"or a list[datetime], but got {type(time_array)!r}"
-                    )
-                valid_time_list = list(timearray_to_datetime(time_np))
+            valid_time_list = list(timearray_to_datetime(valid_times))
         else:
             valid_time_list = [None] * out.shape[0]
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i], valid_time_list[i])
 
-        return out, output_coords
+        return _field(out, output_coords)
 
     def to(self, device: torch.device) -> "CorrDiff":
         """Move the model to a device.
@@ -1338,53 +1378,49 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.seed = seed
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
-    def input_coords(self) -> CoordSystem:
+    stochastic = True
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the isolated diffusion seed."""
+        if reset or self.seed is None:
+            self.seed = seed
+
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(19.25, 28, 36, endpoint=True),
-                "lon": np.linspace(116, 126, 40, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid=_geographic_grid(
+                np.linspace(19.25, 28, 36), np.linspace(116, 126, 40, endpoint=False)
+            ),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free output coordinate signature
         """
 
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(OUT_VARIABLES),
-                "lat": self.out_lat.cpu().numpy(),
-                "lon": self.out_lon.cpu().numpy(),
-            }
+        _validate_grid(input_coords, self.input_coords())
+        return _replace_grid(
+            input_coords,
+            _geographic_grid(
+                self.out_lat.cpu().numpy(),
+                self.out_lon.cpu().numpy(),
+            ),
+            self.output_variables,
+            sample=self.number_of_samples,
         )
-
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords["batch"] = input_coords["batch"]
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -1518,8 +1554,12 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         input_coords = self.input_coords()
         return interp.latlon_interpolation_regular(
             x,
-            torch.as_tensor(input_coords["lat"], device=x.device, dtype=torch.float32),
-            torch.as_tensor(input_coords["lon"], device=x.device, dtype=torch.float32),
+            torch.as_tensor(
+                input_coords["lat"].values, device=x.device, dtype=torch.float32
+            ),
+            torch.as_tensor(
+                input_coords["lon"].values, device=x.device, dtype=torch.float32
+            ),
             self.out_lat_full,
             self.out_lon_full,
         )[..., 1:-1, 1:-1]
@@ -1606,24 +1646,29 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         x_hr = self.out_scale * x_hr + self.out_center
         return x_hr
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Downscale a labelled field to the checkpoint's curvilinear grid."""
+        signature = self.output_coords(x)
+        return _own_metadata(self._call(x).transpose(*signature.dims))
+
     @batch_func()
-    def __call__(
+    def _call(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
 
         out = torch.zeros(
-            [len(v) for v in output_coords.values()],
+            output_coords.shape,
             device=x.device,
             dtype=torch.float32,
         )
         for i in range(x.shape[0]):
             out[i] = self._forward(x[i])
 
-        return out, output_coords
+        return _field(out, output_coords)
 
     @staticmethod
     def unet_regression(

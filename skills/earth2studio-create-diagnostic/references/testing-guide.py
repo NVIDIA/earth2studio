@@ -14,247 +14,62 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Testing guide for diagnostic model wrappers.
+"""Native diagnostic cases to adapt in test/models/dx/test_<model>.py.
 
-Copy the relevant patterns into `test/models/dx/test_<model_name>.py` and
-replace helper placeholders before running tests. Generated tests should be
-executable: do not leave skipped, placeholder, or NotImplementedError tests.
-
-Required standard tests:
-1. `test_<model>_call` for a mock or simple forward pass.
-2. `test_<model>_exceptions` for invalid coordinates.
-3. `test_<model>_conformance` for `check_diagnostic_contract()` against the mock
-   model, asserting `[]` (or the specific skipped rules, if any are
-   structurally inapplicable to this model).
-4. `test_<model>_package` with `@pytest.mark.package` for AutoModel and
-   generative diagnostics.
-
-Generative diagnostics also need sample-count and deterministic-seed coverage.
-Run tests with `uv run pytest`.
+Use the existing fixture's mock weights; retain numerical, coordinate, invalid
+input and conformance assertions. Preserve marked package tests for explicit
+real-weight validation. Configure domains and variables before signature lookup.
+For generative models, retain sample-count and seed reproducibility assertions in
+the existing cases, and make the mock exercise the actual sampler RNG path.
 """
-
-from collections import OrderedDict
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.models.auto import Package
 from earth2studio.models.conformance import check_diagnostic_contract
-from earth2studio.models.dx import ModelName  # TODO: replace with the real model
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
-class PhooModelName(torch.nn.Module):
-    """Dummy core model matching the real model interface."""
-
-    def __init__(self, out_channels: int = 1) -> None:
-        super().__init__()
-        self.out_channels = out_channels
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x[:, : self.out_channels]
+def make_input(model, device: str = "cpu") -> xr.DataArray:
+    """Build a concrete field retaining configured geometry and metadata."""
+    signature = coord_array_like(model.input_coords(), {"batch": [0]})
+    return from_torch(torch.randn(signature.shape, device=device), signature)
 
 
-def make_coords(model: ModelName, batch: int) -> OrderedDict:
-    """Build valid diagnostic coordinates from the model's public input coords."""
-    input_coords = model.input_coords()
-    return OrderedDict(
-        {
-            "batch": np.arange(batch),
-            "variable": input_coords["variable"],
-            "lat": input_coords["lat"],
-            "lon": input_coords["lon"],
-        }
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_model_call(model, device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA unavailable")
+    model.to(device)
+    x = make_input(model, device)
+    before = x.copy(deep=True)
+    result = model(x)
+    handshake_dataarray(result, model.output_coords(x))
+    xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
+    # Preserve the model-specific expected numerical output assertion here.
+
+
+def test_model_exceptions(model):
+    x = make_input(model)
+    with pytest.raises(ValueError):
+        model(x.transpose(*reversed(x.dims)))
+
+
+def test_model_conformance(model):
+    skipped = check_diagnostic_contract(model)
+    assert skipped == (
+        [] if model.stochastic else ["D10: model does not declare itself stochastic"]
     )
 
 
-def make_input(model: ModelName, batch: int, device: str) -> torch.Tensor:
-    """Create random input matching model.input_coords()."""
-    input_coords = model.input_coords()
-    shape = [
-        batch,
-        len(input_coords["variable"]),
-        len(input_coords["lat"]),
-        len(input_coords["lon"]),
-    ]
-    return torch.randn(*shape, device=device)
-
-
-def assert_diagnostic_coord_order(coords: OrderedDict) -> None:
-    """Assert standard diagnostic coordinate order."""
-    handshake_dim(coords, "batch", 0)
-    handshake_dim(coords, "variable", 1)
-    handshake_dim(coords, "lat", 2)
-    handshake_dim(coords, "lon", 3)
-
-
-def assert_generative_coord_order(coords: OrderedDict) -> None:
-    """Assert generative diagnostic output coordinate order."""
-    handshake_dim(coords, "batch", 0)
-    handshake_dim(coords, "sample", 1)
-    handshake_dim(coords, "variable", 2)
-    handshake_dim(coords, "lat", 3)
-    handshake_dim(coords, "lon", 4)
-
-
-@pytest.fixture(scope="class")
-def test_package(tmp_path_factory) -> Package:
-    """Create a package for load_model tests.
-
-    Adapt filenames and metadata to match the real `load_model` implementation.
-    """
-    tmp_path = tmp_path_factory.mktemp("model_data")
-    torch.save(PhooModelName(out_channels=1), tmp_path / "model.pt")
-    np.save(tmp_path / "center.npy", np.zeros((4, 1, 1), dtype=np.float32))
-    np.save(tmp_path / "scale.npy", np.ones((4, 1, 1), dtype=np.float32))
-    return Package(str(tmp_path))
-
-
-def load_mock_model(test_package: Package) -> ModelName:
-    """Return the wrapper under test with mock weights.
-
-    Replace this helper with the real constructor or `ModelName.load_model` call.
-    """
-    raise NotImplementedError("Replace load_mock_model with model-specific setup")
-
-
-@pytest.mark.parametrize("batch", [1, 2])
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_model_call(test_package, batch, device):
-    """Forward pass with mock weights."""
-    if device == "cuda:0" and not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
-    model = load_mock_model(test_package).to(device)
-    x = make_input(model, batch=batch, device=device)
-    coords = make_coords(model, batch=batch)
-
-    out, out_coords = model(x, coords)
-
-    assert out.shape[0] == batch
-    assert out.shape[-2:] == (len(out_coords["lat"]), len(out_coords["lon"]))
-    if "sample" in out_coords:
-        assert_generative_coord_order(out_coords)
-        assert out.shape[1] == len(out_coords["sample"])
-        assert out.shape[2] == len(out_coords["variable"])
-    else:
-        assert_diagnostic_coord_order(out_coords)
-        assert out.shape[1] == len(out_coords["variable"])
-
-
-@pytest.mark.parametrize(
-    "bad_coords_builder",
-    [
-        lambda model, batch: OrderedDict(
-            {
-                "batch": np.arange(batch),
-                "variable": np.array(["wrong_var"]),
-                "lat": model.input_coords()["lat"],
-                "lon": model.input_coords()["lon"],
-            }
-        ),
-        lambda model, batch: OrderedDict(
-            {
-                "batch": np.arange(batch),
-                "variable": model.input_coords()["variable"],
-                "lon": model.input_coords()["lon"],
-                "lat": model.input_coords()["lat"],
-            }
-        ),
-        lambda model, batch: OrderedDict(
-            {
-                "batch": np.arange(batch),
-                "variable": model.input_coords()["variable"],
-                "lat": model.input_coords()["lat"][::-1],
-                "lon": model.input_coords()["lon"],
-            }
-        ),
-    ],
-)
-def test_model_exceptions(test_package, bad_coords_builder):
-    """Invalid variables, coordinate order, or coordinate values should raise."""
-    model = load_mock_model(test_package)
-    x = make_input(model, batch=1, device="cpu")
-    with pytest.raises((KeyError, ValueError)):
-        model(x, bad_coords_builder(model, 1))
-
-
-def test_model_conformance(test_package):
-    """Check the mock model against the Earth2Studio model contract.
-
-    If the model declares `stochastic = True`, PhooModelName.forward() must
-    be non-deterministic too (e.g. `return x + torch.randn_like(x)`), or the
-    reproducibility rule (D9) fails: a fixed forward pass cannot show that
-    different seeds give different output.
-
-    If a rule is structurally inapplicable to this model (rare), assert it
-    appears in the skip list returned by check_diagnostic_contract instead of
-    omitting this test.
-    """
-    model = load_mock_model(test_package)
-    assert check_diagnostic_contract(model) == []
-
-
-@pytest.mark.package
-def test_model_package():
-    """Real-weight package test for AutoModel and generative diagnostics.
-
-    Run with:
-    `uv run pytest test/models/dx/test_<model_name>.py::test_<model>_package --package -v`
-    """
-    model = ModelName.load_model(ModelName.load_default_package())
-    x = make_input(model, batch=1, device="cpu")
-    coords = make_coords(model, batch=1)
-    out, out_coords = model(x, coords)
-
-    assert torch.isfinite(out).all()
-    assert out.shape[0] == 1
-    if "sample" in out_coords:
-        assert out.shape[1] == len(out_coords["sample"])
-        assert_generative_coord_order(out_coords)
-    else:
-        assert_diagnostic_coord_order(out_coords)
-
-
-@pytest.mark.parametrize("number_of_samples", [1, 3])
-def test_model_samples(test_package, number_of_samples):
-    """Generative diagnostics should expose and size the sample dimension."""
-    model = load_mock_model(test_package)
-    model.number_of_samples = number_of_samples
-    x = make_input(model, batch=1, device="cpu")
-    coords = make_coords(model, batch=1)
-
-    out, out_coords = model(x, coords)
-
-    assert "sample" in out_coords
-    assert len(out_coords["sample"]) == number_of_samples
-    assert out.shape[1] == number_of_samples
-    assert_generative_coord_order(out_coords)
-
-
-def test_model_deterministic_seed(test_package):
-    """Seeding determines the output; different seeds give different output.
-
-    This is the D9 rule (see dev/spec/MODEL_CONTRACT_SPEC.md), also checked by
-    test_<model>_conformance below — keep this test anyway, since it pins the
-    public seeding API a caller actually uses.
-
-    set_rng(seed, reset=True) is the single seeding entry point for a model that
-    declares `stochastic = True`; do not seed by assigning a `.seed` attribute
-    directly, which bypasses set_rng and is not part of the contract.
-    """
-    model_a = load_mock_model(test_package)
-    model_b = load_mock_model(test_package)
-    model_a.set_rng(42)
-    model_b.set_rng(42)
-
-    x = make_input(model_a, batch=1, device="cpu")
-    coords = make_coords(model_a, batch=1)
-    out_a, _ = model_a(x, coords)
-    out_b, _ = model_b(x, coords)
-    torch.testing.assert_close(out_a, out_b)
-
-    model_b.set_rng(43)
-    out_c, _ = model_b(x, coords)
-    assert not torch.allclose(out_a, out_c)
+def test_model_deterministic_seed(model):
+    x = make_input(model)
+    model.set_rng(42)
+    first = model(x).e2s.as_numpy()
+    model.set_rng(42)
+    xr.testing.assert_identical(first, model(x).e2s.as_numpy())
+    model.set_rng(43)
+    assert not np.array_equal(first.values, model(x).e2s.as_numpy().values)

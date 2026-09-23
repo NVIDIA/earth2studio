@@ -100,7 +100,7 @@ io = ZarrBackend()
 # %% tags=["e2sg-profile:setup"]
 sample = data(
     to_time_array(["2024-01-01"]),
-    prognostic_model.input_coords()["variable"],
+    prognostic_model.input_coords().coords["variable"].values,
 )
 print(sample)
 
@@ -143,7 +143,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 forecast = datetime(2024, 1, 1)
-variable = "tp"
+variable = "tp:sum:6h"
 step = 8  # lead time = 48 hrs
 
 plt.close("all")

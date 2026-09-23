@@ -271,7 +271,7 @@ def test_out_idx_excludes_derived_hub_wind():
         number_of_samples=1,
         sampler_steps=2,
     )
-    coord_vars = list(model.output_coords(model.input_coords())["variable"])
+    coord_vars = model.output_coords(model.input_coords())["variable"].values.tolist()
     derived = coord_vars[len(model.output_variables) :]
     assert derived  # the model really does append derived hub-height winds
     # the obs->channel map wires each trained wind to its ACTUAL index (a permuted

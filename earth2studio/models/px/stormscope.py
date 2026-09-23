@@ -17,12 +17,15 @@
 import json
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Literal, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
+import xarray as xr
 from loguru import logger
 from numpy.typing import ArrayLike
 
@@ -33,12 +36,13 @@ from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -59,7 +63,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """StormScope diffusion prognostic base model with staged denoising.
 
     Variants should subclass to define dataset/resolution specifics (e.g., grids,
@@ -158,6 +162,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     # Constant to fill invalid gridpoints in the input after normalization
     _INPUT_INVALID_FILL_CONSTANT = 0.0
+    stochastic = True
 
     def __init__(
         self,
@@ -198,6 +203,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.input_times = input_times
         self.output_times = output_times
+        self._seed: int | None = None
+        self._rng_step = 0
         self.sliding_window = len(input_times) > len(output_times)
 
         self.register_buffer("latitudes", latitudes)
@@ -714,6 +721,25 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 self._lat_cpu_copy, self._lon_cpu_copy, self.y, self.x
             ),
         )
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed isolated diffusion sampling, optionally retaining the current stream."""
+        if reset or self._seed is None:
+            self._seed, self._rng_step = seed, 0
+
+    @contextmanager
+    def _rng_context(self) -> Iterator[None]:
+        if self._seed is None:
+            yield
+            return
+        device = self.means.device
+        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
+            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
+            if device.type == "cuda":
+                with torch.cuda.device(device):
+                    torch.cuda.manual_seed(self._seed + self._rng_step)
+            yield
+        self._rng_step += 1
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return an allocation-free signature for the next forecast window.
@@ -1330,43 +1356,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x, x_coords
 
-    def _prep_coordinate_input(
-        self, x: torch.Tensor, coords: CoordinateSystem
-    ) -> tuple[torch.Tensor, CoordinateSystem]:
-        tensor_coords = OrderedDict((d, np.asarray(coords[d])) for d in coords.dims)
-        x, prepared = self.prep_input(x, tensor_coords)
-        if tuple(prepared) != coords.dims or any(
-            not np.array_equal(prepared[d], coords[d]) for d in prepared
-        ):
-            spatial = coords.dims[-2:]
-            coordinates = {
-                name: value.variable
-                for name, value in coords.coords.items()
-                if not any(d in spatial for d in value.dims)
-            }
-            attrs = dict(coords.attrs)
-            for key in ("earth2studio_grid_id", "earth2studio_crs"):
-                attrs.pop(key, None)
-            coords = coord_array(
-                tuple(prepared),
-                coordinates,
-                grid=CurvilinearGrid(
-                    self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
-                ),
-                attrs=attrs,
-                name=coords.name,
-                dtype=coords.dtype,
-            )
-        return x, coords
-
-    @batch_func()
     def next_input(
         self,
-        pred: torch.Tensor,
-        pred_coords: CoordinateSystem,
-        x: torch.Tensor,
-        x_coords: CoordinateSystem,
-    ) -> tuple[torch.Tensor, CoordinateSystem]:
+        pred: xr.DataArray,
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Gets the inputs for the next step of the prognostic model given a pair
         of inputs and predictions that were just run. If the model uses a sliding
         window, the oldest lead time in the input is removed and the latest
@@ -1375,67 +1369,53 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        pred : torch.Tensor
-            Prediction tensor.
-        pred_coords : CoordSystem
-            Prediction coordinate system.
-        x : torch.Tensor
-            Input tensor.
-        x_coords : CoordSystem
-            Input coordinate system.
+        pred : xr.DataArray
+            Prediction field.
+        x : xr.DataArray
+            Previous history field.
         """
-        lt_dim = x_coords.dims.index("lead_time")
-        lt_dim_pred = pred_coords.dims.index("lead_time")
-        if lt_dim != lt_dim_pred or lt_dim != 2:
-            raise ValueError(
-                f"The lead time dimension must be in the 3rd position for the input and prediction, got {lt_dim} and {lt_dim_pred} respectively"
-            )
-
         if self.sliding_window:
-            x, x_coords = self._prep_coordinate_input(x, x_coords)
-            self.output_coords(x_coords)
-            n_in, n_out = len(self.input_times), len(self.output_times)
-            next_input = torch.zeros_like(x)
-            next_input[:, :, : n_in - n_out, ...] = x[:, :, n_out:, ...]
-            next_input[:, :, n_in - n_out :, ...] = pred[:, :, :, ...]
+            self.output_coords(x)
+            n_out = len(self.output_times)
+            previous, _ = x.isel(lead_time=slice(n_out, None)).e2s.to_torch()
+            prediction, _ = pred.e2s.to_torch()
+            next_input = torch.cat(
+                [previous.to(prediction.device), prediction],
+                dim=x.get_axis_num("lead_time"),
+            )
             next_input_coords = coord_array_like(
-                x_coords,
-                {
-                    "lead_time": self.input_times
-                    + np.asarray(pred_coords["lead_time"])[-1]
-                },
+                pred,
+                {"lead_time": self.input_times + np.asarray(pred["lead_time"])[-1]},
             )
         else:
-            next_input = pred
-            next_input_coords = pred_coords.copy()
-
-        return next_input, next_input_coords
+            return pred.copy(deep=True)
+        result = from_torch(next_input, next_input_coords)
+        result.encoding = pred.encoding.copy()
+        return result
 
     @torch.inference_mode()
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
-    ) -> tuple[torch.Tensor, CoordinateSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Input field on the declared checkpoint grid.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system.
+        xr.DataArray
+            Forecast field.
         """
 
-        x, coords = self._prep_coordinate_input(x, coords)
-        output_coords = self.output_coords(coords)
-        tensor_coords = OrderedDict((d, np.asarray(coords[d])) for d in coords.dims)
+        output_coords = self.output_coords(x)
+        encoding = deepcopy(x.encoding)
+        x, tensor_coords = x.e2s.to_torch()
+        x = x.to(self.means.device).clone()
         x, x_coords = self.prep_input(x, tensor_coords)
 
         # Auto-fetch hook for state observations that live on their own source
@@ -1459,124 +1439,139 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Broadcast to batch dimension if needed. Expect [B, T, L, C, H, W].
             if conditioning.dim() == x.dim() - 1:
                 conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
+                conditioning_coords = OrderedDict(
+                    batch=tensor_coords["batch"], **conditioning_coords
+                )
         else:
             conditioning = None
             conditioning_coords = None
 
-        x = self._forward(
-            x,
-            x_coords,
-            conditioning=conditioning,
-            conditioning_coords=conditioning_coords,
-        )
-
-        return x, output_coords
+        with self._rng_context():
+            x = self._forward(
+                x,
+                x_coords,
+                conditioning=conditioning,
+                conditioning_coords=conditioning_coords,
+            )
+        out = from_torch(x, output_coords)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return out
 
     @torch.inference_mode()
-    @batch_func()
     def call_with_conditioning(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
-        conditioning: torch.Tensor,
-        conditioning_coords: CoordinateSystem,
-    ) -> tuple[torch.Tensor, CoordinateSystem]:
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
+    ) -> xr.DataArray:
         """Calls the prognostic model with explicitly provided conditioning. Useful when
         combining multiple cross-conditioned models during rollout (does not require
         model to define a conditioning data source).
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
-        conditioning : torch.Tensor
-            Conditioning tensor.
-        conditioning_coords : CoordSystem
-            Conditioning coordinate system.
+        x : xr.DataArray
+            Input field.
+        conditioning : xr.DataArray
+            Explicit conditioning field with matching leading and temporal axes.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system.
+        xr.DataArray
+            Forecast field.
         """
 
+        self.output_coords(x)
         if (
-            "time" not in coords.dims
-            or "batch" not in coords.dims
-            or len(coords["time"]) == 0
-            or len(coords["batch"]) == 0
+            conditioning.dims[-2:] == ("y", "x")
+            and np.array_equal(conditioning.y, self.y)
+            and np.array_equal(conditioning.x, self.x)
         ):
-            raise ValueError(
-                "Invalid coordinates for call_with_conditioning: must contain 'time' and 'batch' dimensions with nonzero length"
+            handshake_dataarray(
+                conditioning,
+                coord_array_like(
+                    self.input_coords(),
+                    {
+                        "lead_time": np.asarray(x.lead_time),
+                        "variable": self.conditioning_variables,
+                    },
+                ),
             )
-
-        x, coords = self._prep_coordinate_input(x, coords)
-        output_coords = self.output_coords(coords)
-        tensor_coords = OrderedDict((d, np.asarray(coords[d])) for d in coords.dims)
-        conditioning_coords = OrderedDict(
-            (d, np.asarray(conditioning_coords[d])) for d in conditioning_coords.dims
-        )
+        for dim in x.dims[:-3]:
+            if (
+                dim not in conditioning.dims
+                or x[dim].dims != conditioning[dim].dims
+                or not np.array_equal(np.asarray(x[dim]), np.asarray(conditioning[dim]))
+            ):
+                raise ValueError(f"Conditioning coordinate {dim} must match input")
+        packed, restore = batch_func()._compress_array(self, x)
+        # Conditioning has its own spatial axes until prep_input interpolates it.
+        # Pack only its leading axes, in the same order as the state members.
+        if conditioning.dims[:-2] != x.dims[:-2]:
+            raise ValueError("Conditioning leading dimensions must match input order")
+        if "batch" in conditioning.coords and "batch" not in conditioning.dims:
+            # The conditioning kernel needs only dimension labels. The state
+            # restore callback retains its public scalar batch auxiliary.
+            conditioning = conditioning.drop_vars("batch")
+        leading = conditioning.dims[:-5]
+        if leading:
+            temporary = "_conditioning_batch"
+            while temporary in conditioning.dims or temporary in conditioning.coords:
+                temporary += "_"
+            condition = conditioning.e2s.batch(leading, batch_dim=temporary)
+            condition = condition.rename({temporary: "batch"})
+        else:
+            condition = conditioning.expand_dims(batch=[0])
+        output_coords = self.output_coords(packed)
+        x, tensor_coords = packed.e2s.to_torch()
+        conditioning, conditioning_coords = condition.e2s.to_torch()
+        x = x.to(self.means.device).clone()
+        conditioning = conditioning.to(self.means.device)
         x, x_coords = self.prep_input(x, tensor_coords)
         conditioning, conditioning_coords = self.prep_input(
             conditioning, conditioning_coords, conditioning=True
         )
 
-        x = self._forward(
-            x,
-            x_coords,
-            conditioning=conditioning,
-            conditioning_coords=conditioning_coords,
-        )
+        with self._rng_context():
+            x = self._forward(
+                x,
+                x_coords,
+                conditioning=conditioning,
+                conditioning_coords=conditioning_coords,
+            )
+        out = from_torch(x, output_coords)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = deepcopy(packed.encoding)
+        return restore(out)
 
-        return x, output_coords
-
-    @batch_func()
     def _default_generator(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordinateSystem], None, None]:
-
-        # Yield the initial condition, but use prep_input to regrid if needed
-        # Return the result with any invalid points set to nan
-        coords = coords.copy()
-        x, coords = self._prep_coordinate_input(x, coords)
-        self.output_coords(coords)
-        ic_coords = coord_array_like(
-            coords, {"lead_time": np.asarray(coords["lead_time"])[-1:]}
-        )
-        ic_x = x[:, :, -1:, ...]
-        yield torch.where(~self.valid_mask, torch.nan, ic_x), ic_coords
+        x: xr.DataArray,
+    ) -> Generator[xr.DataArray, None, None]:
+        self.output_coords(x)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        x = x.copy(deep=True)
 
         while True:
-            x, coords = self.front_hook(x, coords)
-            x_pred, coords_pred = self.__call__(x, coords)
-            x_pred, coords_pred = self.rear_hook(x_pred, coords_pred)
-            yield x_pred, coords_pred.copy()
+            x = self.front_hook(x.copy(deep=True))
+            prediction = self.rear_hook(self(x))
+            x = self.next_input(prediction, x)
+            yield prediction.copy(deep=True)
 
-            x, coords = self.next_input(x_pred, coords_pred, x, coords)
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordinateSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]:
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Creates an iterator to perform time-integration of the prognostic model.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Initial history field.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model containing the
-            output data tensor and coordinate system dictionary.
+        Iterator[xr.DataArray]
+            Initial condition followed by forecast fields.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_generator(x)
 
 
 class StormScopeGOES(StormScopeBase):
@@ -1746,7 +1741,7 @@ class StormScopeGOES(StormScopeBase):
                 "StormScopeGOES has been called without initializing the model's conditioning_data_source"
             )
 
-        conditioning, conditioning_coords = fetch_data(
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
@@ -1754,7 +1749,7 @@ class StormScopeGOES(StormScopeBase):
             device=device,
         )
 
-        return conditioning, conditioning_coords
+        return conditioning.e2s.to_torch()
 
     @classmethod
     def load_model(
@@ -2211,13 +2206,14 @@ class StormScopeMRMS(StormScopeBase):
                 "StormScopeMRMS.fetch_glm called without a glm_data_source; pass "
                 "one to load_model (e.g. earth2studio.data.GOESGLMGrid)."
             )
-        glm, glm_coords = fetch_data(
+        glm_field = fetch_data(
             self.glm_data_source,
             time=coords["time"],
             variable=np.asarray(self.glm_variables),
             lead_time=coords["lead_time"],
             device=device,
         )
+        glm, glm_coords = glm_field.e2s.to_torch()
         if self.glm_interp is None:
             self.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
         glm = self.interpolate_glm(glm)
@@ -2248,14 +2244,14 @@ class StormScopeMRMS(StormScopeBase):
                 "StormScopeMRMS has been called without initializing the model's conditioning_data_source"
             )
 
-        conditioning, conditioning_coords = fetch_data(
+        conditioning = fetch_data(
             self.conditioning_data_source,
             time=coords["time"],
             variable=self.conditioning_variables,
             lead_time=coords["lead_time"],
             device=device,
         )
-        return conditioning, conditioning_coords
+        return conditioning.e2s.to_torch()
 
     def build_input_interpolator(
         self,

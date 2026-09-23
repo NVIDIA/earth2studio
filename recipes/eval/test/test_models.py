@@ -107,6 +107,20 @@ class TestLoadPrognostic:
 
 
 class TestLoadDiagnostics:
+    def test_precipitation_recipe_output_labels(self):
+        from pathlib import Path
+
+        from earth2studio.models.dx import PrecipitationAFNO
+
+        # Signature planning needs no downloaded weights or numerical model.
+        model = PrecipitationAFNO.__new__(PrecipitationAFNO)
+        labels = model.output_coords(model.input_coords()).coords["variable"].values
+        recipes = Path(__file__).parents[2]
+        for relative in ("hens/cfg/storm_bernd.yaml", "s2s/cfg/pnw_sfno_precip.yaml"):
+            cfg = OmegaConf.load(recipes / relative)
+            assert "tp" not in cfg.file_output.output_vars
+            assert labels[0] in cfg.file_output.output_vars
+
     def test_no_diagnostics_returns_empty(self):
         cfg = OmegaConf.create({"model": {"architecture": "whatever"}})
         result = load_diagnostics(cfg)

@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -23,14 +22,15 @@ import torch
 import xarray as xr
 
 from earth2studio.models.auto import Package
-from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from omegaconf import OmegaConf
@@ -92,8 +92,8 @@ def apply_ttr_to_olr(
     """
     ttr = x[:, :, :, ttr_idx, :, :, :]  # (B, T, LT, F, H, W)
 
-    times = np.asarray(coords["time"], dtype="datetime64[ns]")
-    leads = np.asarray(coords["lead_time"], dtype="timedelta64[ns]")
+    times = np.asarray(coords["time"], dtype="datetime64[s]")
+    leads = np.asarray(coords["lead_time"], dtype="timedelta64[s]")
     valid_times = times[:, None] + leads[None, :]  # (T, LT)
     doy = (
         valid_times.astype("datetime64[D]") - valid_times.astype("datetime64[Y]")
@@ -209,7 +209,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
     ```python
     pkg = DLESyMv0_ISCCP_ERA5.load_default_package()
     model = DLESyMv0_ISCCP_ERA5.load_model(pkg, use_ttr=True)
-    for step, (x, coords) in enumerate(model.create_iterator(x0, coords0)):
+    for step, x in enumerate(model.create_iterator(x0)):
         ...
 
     ```
@@ -283,13 +283,13 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
                 "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
             )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model."""
         coords = super().input_coords()
         if self.use_ttr:
-            variables = list(coords["variable"])
+            variables = list(coords["variable"].values)
             variables[variables.index("rlut")] = "ttr"
-            coords["variable"] = np.array(variables)
+            coords = coord_array_like(coords, {"variable": np.array(variables)})
         return coords
 
     @classmethod
@@ -452,96 +452,20 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             olr_floor=self.olr_floor,
         )
 
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs upstream DLESyM forward 1 coupled step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor of shape ``(B, T, LT, V, F, H, W)``.
-        coords : CoordSystem
-            Input coordinate system (with ``ttr`` in ``variable`` when
-            ``use_ttr=True``).
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and output coordinates (in model variable space:
-            ``rlut`` rather than ``ttr``).
-        """
-        output_coords = self.output_coords(coords)
-
-        if self.use_ttr:
-            x = self._apply_ttr_to_olr(x, coords)
-            coords = coords.copy()
-            variables = list(coords["variable"])
-            if "ttr" in variables:
-                variables[variables.index("ttr")] = "rlut"
-                coords["variable"] = np.array(variables)
-
-        return self._forward(x, coords), output_coords
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
-        coords = coords.copy()
-        # Saved for output_coords validation after each forward step: the
-        # parent's output_coords validates `coords["variable"]` against
-        # `self.input_coords()` (which advertises ``ttr`` in user-space).
-        base_vars = coords["variable"]
-
-        if self.use_ttr:
-            x = self._apply_ttr_to_olr(x, coords)
-            variables = list(coords["variable"])
-            if "ttr" in variables:
-                variables[variables.index("ttr")] = "rlut"
-                coords["variable"] = np.array(variables)
-
-        yield x, coords
-
-        while True:
-            x, coords = self.front_hook(x, coords)
-
-            x = self._forward(x, coords)
-
-            # output_coords expects the user-space variable list (``ttr``) for
-            # validation; restore it from base_vars.
-            base_coords = coords.copy()
-            base_coords["variable"] = base_vars
-            coords = self.output_coords(base_coords)
-
-            x, coords = self.rear_hook(x, coords)
-
-            yield x, coords.copy()
-
-            x, coords = self._next_step_inputs(x, coords)
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create a time-integration iterator (yields initial condition first).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            ``(x, coords)`` at each step. The first yield is the initial
-            condition in model variable space (``rlut``, post-transform).
-        """
-        yield from self._default_generator(x, coords)
+    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
+        if not self.use_ttr:
+            return super()._initial_state(x)
+        tensor, coords = x.e2s.to_torch()
+        shape = tensor.shape
+        tensor = tensor.to(self.center.device).reshape(-1, *shape[-6:])
+        tensor = self._apply_ttr_to_olr(tensor, coords).reshape(shape)
+        variables = list(x["variable"].values)
+        variables[variables.index("ttr")] = "rlut"
+        result = from_torch(
+            tensor, coord_array_like(x, {"variable": np.array(variables)})
+        )
+        result.encoding = x.encoding.copy()
+        return result
 
 
 @check_optional_dependencies()
@@ -585,7 +509,7 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
 
     See [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] and
     [`DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon] for details. Model
-    hooks applied during iteration operate on the HEALPix grid, as with
+    hooks applied during iteration receive public lat/lon DataArrays, as with
     [`DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon].
 
     Example
@@ -594,12 +518,12 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
     pkg = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
     model = DLESyMv0_ISCCP_ERA5LatLon.load_model(pkg, use_ttr=True)
 
-    # x, coords come straight from an ERA5 data source on the lat/lon grid
-    x, coords = fetch_data(...)
-    y, y_coords = model(x, coords)
+    # x comes from an ERA5 data source on the configured lat/lon grid
+    x = fetch_data(...)
+    y = model(x)
 
-    atmos, atmos_coords = model.retrieve_valid_atmos_outputs(y, y_coords)
-    ocean, ocean_coords = model.retrieve_valid_ocean_outputs(y, y_coords)
+    atmos = model.retrieve_valid_atmos_outputs(y)
+    ocean = model.retrieve_valid_ocean_outputs(y)
 
     ```
     Badges
@@ -627,97 +551,19 @@ class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
             olr_floor=self.olr_floor,
         )
 
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs upstream DLESyM forward 1 coupled step, regridding to/from HEALPix.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor on the lat/lon grid, with ``ttr`` in ``variable`` when
-            ``use_ttr=True``.
-        coords : CoordSystem
-            Input coordinate system (lat/lon).
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinates on the lat/lon grid (in model variable
-            space: ``rlut`` rather than ``ttr``).
-        """
-        # Validate + build output coords against the user-space (``ttr``) input.
-        output_coords = self.output_coords(coords)
-
-        coords = coords.copy()
+    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
+        variables = list(x["variable"].values)
         if self.use_ttr:
-            # Rename ``ttr`` -> ``rlut`` so derived-variable prep passes the
-            # radiation channel through unchanged; the values are still raw ERA5
-            # TTR and get transformed once we are on the HEALPix grid.
-            variables = list(coords["variable"])
-            if "ttr" in variables:
-                variables[variables.index("ttr")] = "rlut"
-                coords["variable"] = np.array(variables)
-
-        x, coords = self._prepare_derived_variables(x, coords)
-
-        x = self.to_hpx(x)
-        coords_hpx = self.coords_to_hpx(coords)
+            variables[variables.index("ttr")] = "rlut"
+            x = x.assign_coords(variable=variables)
+        state = DLESyMLatLon._initial_state(self, x)
         if self.use_ttr:
-            x = self._ttr_to_olr_hpx(x, coords_hpx)
-
-        x = self._forward(x, coords_hpx)
-        x = self.to_ll(x)
-        return x, output_coords
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
-        coords = coords.copy()
-        # Preserve the user-space variable list (``ttr``) for output_coords
-        # validation after each forward step.
-        base_vars = coords["variable"]
-
-        if self.use_ttr:
-            variables = list(coords["variable"])
-            if "ttr" in variables:
-                variables[variables.index("ttr")] = "rlut"
-                coords["variable"] = np.array(variables)
-
-        x, coords = self._prepare_derived_variables(x, coords)
-
-        # Regrid to HEALPix and apply the TTR -> OLR transform once, on the
-        # initial condition. Subsequent rollout steps reuse the model's own OLR
-        # (``rlut``) output, so the transform is not reapplied. We keep ``x`` on
-        # the HEALPix grid for the rollout but yield the initial condition back
-        # on the lat/lon grid, in model variable space (post-transform) to match
-        # :class:`DLESyMv0_ISCCP_ERA5`.
-        x = self.to_hpx(x)
-        if self.use_ttr:
-            x = self._ttr_to_olr_hpx(x, self.coords_to_hpx(coords))
-
-        yield self.to_ll(x), coords
-
-        while True:
-            # Front hook (operates on the HEALPix grid)
-            x, coords = self.front_hook(x, coords)
-
-            x = self._forward(x, self.coords_to_hpx(coords))
-
-            # output_coords expects the user-space variable list (``ttr``) for
-            # validation; restore it from base_vars.
-            base_coords = coords.copy()
-            base_coords["variable"] = base_vars
-            coords = self.output_coords(base_coords)
-
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-
-            yield self.to_ll(x), coords.copy()
-
-            x, coords = self._next_step_inputs(x, coords)
+            tensor, coords = state.e2s.to_torch()
+            shape = tensor.shape
+            tensor = self._ttr_to_olr_hpx(
+                tensor.reshape(-1, *shape[-6:]), coords
+            ).reshape(shape)
+            result = from_torch(tensor, coord_array_like(state))
+            result.encoding = state.encoding.copy()
+            state = result
+        return state

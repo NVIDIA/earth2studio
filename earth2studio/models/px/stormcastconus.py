@@ -18,9 +18,11 @@ import types
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 from itertools import product
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -31,18 +33,19 @@ from earth2studio.data import GFS_FX, DataSource, ForecastSource, fetch_data
 from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_coords,
     handshake_dataarray,
 )
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.obs import ObsGridMapping
 from earth2studio.utils.type import CoordinateSystem, CoordSystem, TimeArray
 
@@ -92,7 +95,7 @@ FULL_MODEL_HRRR_BBOX = ((17, 1041), (3, 1795))
 
 
 @check_optional_dependencies()
-class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """StormCast-CONUS generative convection-allowing model for the full CONUS domain.
 
     - High-resolution (3km) HRRR state over the Continental United States (99 vars)
@@ -183,6 +186,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     region:na class:nowcasting product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
     provider:nvidia backend:pytorch
     """
+
+    stochastic = True
 
     def __init__(
         self,
@@ -326,6 +331,29 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.use_amp = use_amp
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
+        self._seed: int | None = None
+        self._rng_step = 0
+        self._conditioning_grid: tuple[np.ndarray, np.ndarray] | None = None
+        self._conditioning_interp: LatLonInterpolation | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed isolated diffusion sampling, optionally retaining the current stream."""
+        if reset or self._seed is None:
+            self._seed, self._rng_step = seed, 0
+
+    @contextmanager
+    def _rng_context(self) -> Iterator[None]:
+        if self._seed is None:
+            yield
+            return
+        device = self.means.device
+        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
+            torch.random.default_generator.manual_seed(self._seed + self._rng_step)
+            if device.type == "cuda":
+                with torch.cuda.device(device):
+                    torch.cuda.manual_seed(self._seed + self._rng_step)
+            yield
+        self._rng_step += 1
 
     @property
     def hrrr_x(self) -> np.ndarray:
@@ -575,18 +603,15 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
+        x: xr.DataArray,
         obs: pd.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None,
-    ) -> tuple[torch.Tensor, CoordinateSystem]:
+    ) -> xr.DataArray:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field on the declared projected grid.
         obs : pd.DataFrame, tuple[torch.Tensor, torch.Tensor], or None, optional
             Observations for SDA guidance. Either a dataframe with columns
             ``variable``, ``lat``, ``lon``, ``observation``, ``time``, or a
@@ -595,8 +620,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
+        xr.DataArray
+            Forecast field one hour after the input.
 
         Raises
         ------
@@ -605,7 +630,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        encoding = deepcopy(x.encoding)
+        x, coords = x.e2s.to_torch()
+        x = x.to(self.means.device)
         conditioning = self._get_conditioning(
             OrderedDict((d, np.asarray(output_coords[d])) for d in output_coords.dims),
             x.shape[0],
@@ -628,35 +656,35 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
                 for i0 in range(0, len(coords["batch"]), self.batch_size):
                     i1 = i0 + self.batch_size
-                    x[i0:i1, j, k] = self._forward(
-                        x[i0:i1, j, k],
-                        conditioning[i0:i1, j, k],
-                        t,
-                        y_obs=y_obs,
-                        mask=mask,
-                    )
+                    with self._rng_context():
+                        x[i0:i1, j, k] = self._forward(
+                            x[i0:i1, j, k],
+                            conditioning[i0:i1, j, k],
+                            t,
+                            y_obs=y_obs,
+                            mask=mask,
+                        )
 
-        return x, output_coords
+        out = from_torch(x, output_coords)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return out
 
-    @batch_func()
     def create_generator(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordinateSystem], pd.DataFrame | None, None]:
+        x: xr.DataArray,
+    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
         """Create a generator for autoregressive rollout.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial field.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system after each time step
+        xr.DataArray
+            Initial field followed by hourly forecasts.
 
         Receives
         --------
@@ -669,31 +697,25 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         RuntimeError
             If conditioning data source is not initialized
         """
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCastCONUS has been called without initializing the model's "
-                "conditioning_data_source"
-            )
-
-        self.output_coords(coords)
-        obs = yield x, coords.copy()
+        self.output_coords(x)
+        x = x.copy(deep=True)
+        obs = yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
         try:
             while True:
-                x, coords = self.front_hook(x, coords)
-                x, coords = self(x, coords, obs=obs)
-                x, coords = self.rear_hook(x, coords)
-                obs = yield x, coords
+                x = self.front_hook(x.copy(deep=True))
+                x = self(x, obs=obs)
+                x = self.rear_hook(x)
+                obs = yield x.copy(deep=True)
         except GeneratorExit:
             pass
 
     def create_iterator(
         self,
-        x: torch.Tensor,
-        coords: CoordinateSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordinateSystem]]:
+        x: xr.DataArray,
+    ) -> Iterator[xr.DataArray]:
         """Iterator wrapper around ``create_generator`` without observation input."""
-        yield from self.create_generator(x, coords)
+        yield from self.create_generator(x)
 
     def _get_conditioning(
         self,
@@ -754,25 +776,29 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             init_time = coords["time"]
             lead_time = coords["lead_time"]
 
-        conditioning, conditioning_coords = fetch_data(
+        field = fetch_data(
             self.conditioning_data_source,
             time=init_time,
             variable=self.conditioning_variables,
             lead_time=lead_time,
             device=device,
-            target_grid=coords | {"_lat": self.lat, "_lon": self.lon},
+            target_grid=self.grid,
             regridder="linear",
         )
-        # ensure data dimensions in the expected order
-        conditioning_coords_ordered = OrderedDict(
-            {
-                k: conditioning_coords[k]
-                for k in ["time", "lead_time", "variable", "lat", "lon"]
-            }
-        )
-        conditioning, conditioning_coords = map_coords(
-            conditioning, conditioning_coords, conditioning_coords_ordered
-        )
+        field = field.transpose("time", "lead_time", "variable", "lat", "lon")
+        source = (field.lat.values, field.lon.values)
+        if self._conditioning_grid is None or any(
+            not np.array_equal(a, b) for a, b in zip(source, self._conditioning_grid)
+        ):
+            lat, lon = np.meshgrid(*source, indexing="ij")
+            self._conditioning_interp = LatLonInterpolation(
+                lat, lon, self.lat, self.lon
+            )
+            self._conditioning_grid = tuple(a.copy() for a in source)
+        conditioning, conditioning_coords = field.e2s.to_torch()
+        conditioning = cast(LatLonInterpolation, self._conditioning_interp).to(
+            device=device, dtype=conditioning.dtype
+        )(conditioning)
 
         # Add a batch dim
         conditioning = conditioning.repeat(batch_size, 1, 1, 1, 1, 1)

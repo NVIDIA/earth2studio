@@ -83,7 +83,6 @@ from earth2studio.data.meteosat_fci import (
     MeteosatFCI,
 )
 from earth2studio.models.px.stormscope_meteosat import StormScopeMeteosatEU
-from earth2studio.utils.coords import map_coords
 
 # %%
 # Load Model
@@ -145,7 +144,7 @@ fci = {
 # should generally be outside that period.
 start_time = np.datetime64(datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
-variables = in_coords["variable"]
+variables = in_coords.coords["variable"].values
 
 with torch.no_grad():
     x_res = {}
@@ -159,17 +158,17 @@ with torch.no_grad():
             fci[res],
             time=np.array([start_time]),
             variable=variables_res,
-            lead_time=in_coords["lead_time"],
+            lead_time=in_coords.coords["lead_time"].values,
             device=device,
         )
 
     # 2x downsample 1km data to common 2km grid
-    x, coords = StormScopeMeteosatEU.combine_1km_2km_inputs(
-        *x_res["1km"], *x_res["2km"]
-    )
+    x = StormScopeMeteosatEU.combine_1km_2km_inputs(x_res["1km"], x_res["2km"])
     del x_res
     # ensure data is on model grid (reorders variables if needed)
-    x, coords = map_coords(x, coords, in_coords)
+    from earth2studio.run import _map_field
+
+    x = _map_field(x, in_coords)
 
 # %%
 # Add Ensemble Dimension
@@ -180,9 +179,7 @@ with torch.no_grad():
 
 # %% tags=["e2sg-profile:setup"]
 ensemble_size = 1
-x = x.expand(ensemble_size, -1, -1, -1, -1, -1)
-coords["ensemble"] = np.arange(ensemble_size)
-coords.move_to_end("ensemble", last=False)
+x = x.expand_dims(ensemble=np.arange(ensemble_size)).copy(deep=True)
 
 # %%
 # Execute the Nowcast
@@ -194,9 +191,7 @@ coords.move_to_end("ensemble", last=False)
 # %% tags=["e2sg-profile:inference"]
 n_steps = 12  # 2 hours of 10-minute forecast steps
 
-for step, (x_pred, coords_pred) in enumerate(
-    tqdm(model.create_iterator(x, coords), total=n_steps + 1)
-):
+for step, x_pred in enumerate(tqdm(model.create_iterator(x), total=n_steps + 1)):
     if step == n_steps:
         break
 
@@ -213,8 +208,8 @@ ch_idx = [list(model.variables).index(ch) for ch in rgb_channels]
 
 # x_pred has shape (batch, time, 1, variable, y, x)
 # here we approximately replicate EUMETSAT's recipe for "true-colour" RGB
-rgb = (x_pred[0, 0, 0, ch_idx] / 24.0).clamp(min=0, max=1) * 255
-rgb = rgb.permute(1, 2, 0).cpu().numpy()
+rgb = (x_pred[0, 0, 0, ch_idx] / 24.0).clip(min=0, max=1) * 255
+rgb = rgb.transpose("y", "x", "variable").e2s.as_numpy().values
 rgb = np.interp(rgb, [0, 30, 60, 120, 190, 255], [0, 110, 160, 210, 240, 255]) / 255.0
 
 proj = ccrs.Geostationary(
@@ -235,10 +230,9 @@ ax.coastlines(color="white", linewidth=0.8)
 
 im = ax.imshow(rgb, transform=proj, extent=extent, origin="lower")
 
-valid_time = coords_pred["time"][0]
+valid_time = x_pred.coords["time"].values[0]
 valid_time = datetime.fromisoformat(str(valid_time)).strftime("%Y-%m-%d %H:%M")
-lead_min = coords_pred["lead_time"][0].astype("timedelta64[m]").item()
-lead_min = int(lead_min / np.timedelta64(1, "m"))
+lead_min = int(x_pred.coords["lead_time"].values[0] / np.timedelta64(1, "m"))
 ax.set_title(
     f"StormScopeMeteosatEU — RGB\n" f"Valid {valid_time} UTC  (+{lead_min} min)"
 )

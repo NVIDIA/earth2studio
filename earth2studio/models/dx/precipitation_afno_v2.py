@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import warnings
-from collections import OrderedDict
 from datetime import datetime, timezone
 
 import numpy as np
@@ -23,17 +22,19 @@ import torch
 import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
@@ -129,51 +130,45 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             (orography),
         )
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free atmospheric signature on the FCN grid."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch", "time", "lead_time"),
+            grid="latlon-0.25deg-south-pole-excluded",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Plan precipitation accumulated over the next six hours.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input signature or field with datetime time and timedelta lead labels.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free signature preserving input metadata and grid.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 5)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["tp06"])
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        if input_coords.dims[-5:] != ("time", "lead_time", "variable", "lat", "lon"):
+            raise ValueError("Expected trailing time, lead_time, variable, lat, lon")
+        for dim, kind in (("time", "M"), ("lead_time", "m")):
+            if dim in input_coords.attrs.get("earth2studio_dynamic_dims", ()):
+                continue
+            if (
+                dim not in input_coords.coords
+                or input_coords.coords[dim].dims != (dim,)
+                or input_coords.coords[dim].dtype.kind != kind
+                or input_coords.sizes[dim] == 0
+                or np.isnat(input_coords.coords[dim].values).any()
+            ):
+                raise ValueError(f"{dim} requires nonempty finite temporal labels")
+        output = coord_array_like(input_coords, {"variable": ["tp:sum:0h:6h"]})
+        output.encoding = input_coords.encoding.copy()
+        return output
 
     def __str__(self) -> str:
         return "PrecipNet"
@@ -239,23 +234,25 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        coords = x.coords
+        encoding = x.encoding.copy()
+        x, _ = x.e2s.to_torch()
         out = torch.zeros_like(x[..., :1, :, :])
         x = (x - self.center) / self.scale
 
         lat_grid, lon_grid = torch.meshgrid(
-            torch.tensor(coords["lat"]),
-            torch.tensor(coords["lon"]),
+            torch.tensor(coords["lat"].values),
+            torch.tensor(coords["lon"].values),
             indexing="ij",
         )
 
-        for j, _ in enumerate(coords["batch"]):
-            for k, t in enumerate(coords["time"]):
-                for lt, dt in enumerate(coords["lead_time"]):
+        for j in range(x.shape[0]):
+            for k, t in enumerate(coords["time"].values):
+                for lt, dt in enumerate(coords["lead_time"].values):
                     sza = (
                         self._compute_sza(lon_grid, lat_grid, t, dt)
                         .unsqueeze(0)
@@ -272,4 +269,6 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         # convert from mm to m
         out = out / 1000.0
         out[out < 0] = 0
-        return out, output_coords
+        output = from_torch(out, output_coords)
+        output.encoding = encoding
+        return output

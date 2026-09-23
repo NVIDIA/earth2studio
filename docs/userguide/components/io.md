@@ -91,8 +91,9 @@ Here is a robust example of such a use-case:
 # Copy prognostic model output coordinates
 total_coords = OrderedDict(
     {
-        k: v for k, v in prognostic.output_coords(prognostic.input_coords()).items() if
-        (k != "batch") and (v.shape != 0)
+        str(k): v.values
+        for k, v in prognostic.output_coords(prognostic.input_coords()).coords.items()
+        if v.dims == (k,) and v.size > 0
     }
 )
 total_coords["time"] = time
@@ -124,15 +125,16 @@ After the data arrays have been initialized in the backend, writing to those arr
 is a single line of code.
 
 ```python
-x, coords = model(x, coords)
-io.write(x, coords, array_name)
+x = model(x)
+tensor, coords = x.e2s.to_torch()  # Convert only at the tensor-based IO boundary
+io.write(tensor, coords, array_name)
 ```
 
 If, as above, you are extracting a dimension of the tensor to use as array names
 then you can make use of `earth2studio.utils.coords.split_coords`:
 
 ```python
-io.write(*split_coords(x, coords, dim="variable"))
+io.write(*split_coords(*x.e2s.to_torch(), dim="variable"))
 ```
 
 For a complete workflow that uses IO backends, refer to `earth2studio.run.deterministic`

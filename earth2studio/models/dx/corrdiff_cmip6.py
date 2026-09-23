@@ -26,15 +26,23 @@ import torch.nn.functional as F
 import xarray as xr
 
 from earth2studio.models.auto import Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import CorrDiff
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.dx.corrdiff import (
+    CorrDiff,
+    _field,
+    _geographic_grid,
+    _grid_dims,
+    _own_metadata,
+    _replace_grid,
+    _validate_grid,
+)
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, LeadTimeArray
+from earth2studio.utils.type import LeadTimeArray
 
 try:
     from physicsnemo.diffusion.generate.legacy_generate import (
@@ -138,7 +146,7 @@ class CorrDiffCMIP6(CorrDiff):
     ...     CorrDiffCMIP6.load_default_package(),
     ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
     ... )
-    >>> model.seed = 1 # Set seed for reprod
+    >>> model.set_rng(1) # Set seed for reproducibility
     >>> model.number_of_samples = 1 # Modify number of samples if needed
     >>> model = model.to(device)
     >>>
@@ -151,17 +159,17 @@ class CorrDiffCMIP6(CorrDiff):
     ... )
     >>> data = CMIP6MultiRealm([CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")])
     >>>
-    >>> x, coords = fetch_data(
+    >>> x = fetch_data(
     ...     source=data,
     ...     time=np.array([np.datetime64("2037-09-06T12:00")]), # Time must be 12:00 UTC
-    ...     lead_time=model.input_coords()["lead_time"],
-    ...     variable=model.input_coords()["variable"],
+    ...     variable=model.input_coords()["variable"].values,
     ...     device=device,
     ... )
     >>>
     >>> # Run model forward pass
-    >>> out, out_coords = model(x, coords)
-    >>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
+    >>> x = x.sel(lat=model.input_coords().lat.values, lon=model.input_coords().lon.values)
+    >>> out = model(x)
+    >>> da = out.e2s.as_numpy()
 
     Badges
     ------
@@ -338,12 +346,12 @@ class CorrDiffCMIP6(CorrDiff):
             if v in self._NONNEGATIVE_VARS
         ]
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system"""
-        return OrderedDict(
+        grid = _geographic_grid(self.lat_input_numpy, self.lon_input_numpy)
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", *_grid_dims(grid)),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [
                         np.timedelta64(-24, "h"),
@@ -352,47 +360,36 @@ class CorrDiffCMIP6(CorrDiff):
                     ]
                 ),
                 "variable": np.array(self.input_variables),
-                "lat": self.lat_input_numpy,
-                "lon": self.lon_input_numpy,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=grid,
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of diagnostic model
+
+        Samples follow time: ``[..., time, sample, lead_time, variable, ...]``.
+        This keeps unresolved batch/time dimensions in a leading dynamic prefix.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free output coordinate signature
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "time", 1)
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "lon", 5)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = OrderedDict(
-            {
-                "batch": input_coords["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "time": input_coords["time"],
-                "lead_time": self.output_lead_times,
-                "variable": np.array(self.output_variables),
-                "lat": self.lat_output_numpy,
-                "lon": self.lon_output_numpy,
-            }
+        _validate_grid(input_coords, self.input_coords())
+        return _replace_grid(
+            input_coords,
+            _geographic_grid(self.lat_output_numpy, self.lon_output_numpy),
+            self.output_variables,
+            sample=self.number_of_samples,
+            lead_time=self.output_lead_times,
+            sample_after_time=True,
         )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -584,24 +581,35 @@ class CorrDiffCMIP6(CorrDiff):
             output_lead_times=output_lead_times,
         )
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Downscale the three-day labelled conditioning history."""
+        signature = self.output_coords(x)
+        return _own_metadata(self._call(x).transpose(*signature.dims))
+
     @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def _call(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
-        output_coords = self.output_coords(coords)
-        out_shape = tuple(len(v) for v in output_coords.values())
+        output_coords = self.output_coords(x)
+        # Preserve the numerical kernel's [batch, sample, time, lead, ...] order.
+        output_coords = output_coords.transpose(
+            "batch", "sample", "time", "lead_time", "variable", *output_coords.dims[-2:]
+        )
+        x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
+        out_shape = output_coords.shape
         out = torch.empty(out_shape, device=x.device, dtype=torch.float32)
         # Iterate of different time-stamps and lead time
         for i in range(out.shape[2]):
             for j in range(out.shape[3]):
-                valid_time = output_coords["time"][i] + output_coords["lead_time"][j]
+                valid_time = (
+                    output_coords["time"].values[i]
+                    + output_coords["lead_time"].values[j]
+                )
                 # Input to forward should be [b, l, c, h, w]
                 out[:, :, i, j] = self._forward(
                     x[:, i, :], pd.to_datetime(valid_time).to_pydatetime()
                 )
-        return out, output_coords
+        return _field(out, output_coords)
 
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
         """Cached lon/lat meshgrid on the output grid (numpy arrays)."""

@@ -20,14 +20,63 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.px.stormscope as scope_module
+import earth2studio.utils.interp as interp_module
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
 )
 from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    if interp_module.ang2vec is None:
+        from scipy.spatial import KDTree
+
+        monkeypatch.delitem(OptionalDependencyFailure.failures, interp_module.__file__)
+        monkeypatch.setattr(interp_module, "KDTree", KDTree)
+        monkeypatch.setattr(
+            interp_module,
+            "ang2vec",
+            lambda lon, lat: (
+                torch.cos(lat) * torch.cos(lon),
+                torch.cos(lat) * torch.sin(lon),
+                torch.sin(lat),
+            ),
+        )
+        monkeypatch.setattr(
+            interp_module,
+            "haversine_distance",
+            lambda lon1, lat1, lon2, lat2: 2
+            * torch.asin(
+                torch.sqrt(
+                    torch.clamp(
+                        torch.sin((lat2 - lat1) / 2) ** 2
+                        + torch.cos(lat1)
+                        * torch.cos(lat2)
+                        * torch.sin((lon2 - lon1) / 2) ** 2,
+                        0,
+                        1,
+                    )
+                )
+            ),
+        )
+    if scope_module.__file__ not in OptionalDependencyFailure.failures:
+        return
+    if request.node.get_closest_marker("package"):
+        pytest.skip("PhysicsNeMo is unavailable")
+    monkeypatch.delitem(OptionalDependencyFailure.failures, scope_module.__file__)
+    monkeypatch.setattr(
+        scope_module, "cos_zenith_angle", lambda t, lon, lat: np.zeros_like(lat)
+    )
 
 
 def _public_coords(
@@ -170,6 +219,11 @@ def test_stormscope_call(time, device, batch):
     h, w = 64, 128
 
     model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
+    signature = model.input_coords()
+    assert signature.data.nbytes == 0
+    assert "earth2studio_grid_id" not in signature.attrs
+    np.testing.assert_array_equal(signature.lat, model._lat_cpu_copy)
+    np.testing.assert_array_equal(signature.lon, model._lon_cpu_copy)
 
     # Create random data source matching model grid
     dc = OrderedDict([("y", model.y), ("x", model.x)])
@@ -178,7 +232,7 @@ def test_stormscope_call(time, device, batch):
     # Get Data and convert to tensor, coords
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add batch dimension
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
@@ -187,7 +241,15 @@ def test_stormscope_call(time, device, batch):
 
     # Test forward pass
     coords = _public_coords(model, coords)
-    out, out_coords = model(x, coords)
+    field = from_torch(x, coords)
+    field.attrs["nested"] = {"items": [1]}
+    field.encoding["nested"] = {"items": [2]}
+    out = model(field)
+    out.attrs["nested"].clear()
+    out.encoding["nested"].clear()
+    assert field.attrs["nested"] == {"items": [1]}
+    assert field.encoding["nested"] == {"items": [2]}
+    out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -234,18 +296,19 @@ def test_stormscope_amp_compile(amp, compile, device):
     r = Random(dc)
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
 
     coords = _public_coords(model, coords)
-    out, out_coords = model(x, coords)
+    out = model(from_torch(x, coords))
+    out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
 
     # Output is unchanged in shape/dtype and finite regardless of the flags.
     assert out.shape == torch.Size([1, len(time), 1, nvar, h, w])
-    assert out.dtype == x.dtype
-    assert torch.isfinite(out).all()
+    assert out.dtype == x.cpu().numpy().dtype
+    assert np.isfinite(out.e2s.as_numpy()).all()
     assert out_coords.dims == coords.dims
     assert out_coords.data.nbytes == 0
 
@@ -262,7 +325,9 @@ def test_stormscope_iter(batch, device):
     nvar_cond = 1
     h, w = 32, 64
 
-    model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
+    model = create_spoof_model(
+        nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device, sliding_window=True
+    )
 
     # Create random data source
     dc = OrderedDict([("y", model.y), ("x", model.x)])
@@ -271,7 +336,7 @@ def test_stormscope_iter(batch, device):
     # Get Data
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add batch dimension
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
@@ -279,21 +344,51 @@ def test_stormscope_iter(batch, device):
     coords.move_to_end("batch", last=False)
 
     coords = _public_coords(model, coords)
-    p_iter = model.create_iterator(x, coords)
+    field = from_torch(x.cpu(), coords).rename(batch="ensemble")
+    field.name = "scope"
+    field.attrs["removed"] = True
+    field.encoding = {"removed": True}
+    field = field.assign_coords(member=("ensemble", np.arange(batch)))
+    original = field.copy(deep=True)
+    events = []
+
+    def front(value):
+        assert value.dims == field.dims
+        assert value.sizes["lead_time"] == 3
+        events.append("front")
+        return value
+
+    def rear(value):
+        events.append("rear")
+        value.attrs.pop("removed", None)
+        value.encoding.clear()
+        return value.drop_vars("member", errors="ignore")
+
+    model.front_hook, model.rear_hook = front, rear
+    p_iter = model.create_iterator(field)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
-    ic_x, ic_coords = next(p_iter)  # First yield should return the initial condition
+    ic_x = next(p_iter)
+    retained = ic_x.copy(deep=True)
+    assert events == []
+    ic_coords = coord_array(ic_x.dims, dict(ic_x.coords), attrs=ic_x.attrs)
     assert ic_x.shape == torch.Size([batch, len(time), 1, nvar, h, w])
     assert ic_coords["lead_time"].shape == (1,)
     assert ic_coords["lead_time"][0] == lead_time[-1]
-    assert ic_coords.dims == coords.dims
+    assert ic_coords.dims == field.dims
     assert ic_coords.data.nbytes == 0
 
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert out_coords.dims == coords.dims
+    for i, out in enumerate(p_iter):
+        xr.testing.assert_identical(field, original)
+        xr.testing.assert_identical(ic_x, retained)
+        assert out.name == field.name and "removed" not in out.attrs
+        assert out.encoding == {} and "member" not in out.coords
+        assert events == ["front", "rear"] * (i + 1)
+        out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
+        assert out_coords.dims == field.dims
         assert out_coords.data.nbytes == 0
         assert len(out.shape) == 6
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
@@ -301,11 +396,13 @@ def test_stormscope_iter(batch, device):
             out_coords["variable"]
             == model.output_coords(model.input_coords())["variable"]
         ).all()
-        assert (out_coords["batch"] == np.arange(batch)).all()
+        assert (out_coords["ensemble"] == np.arange(batch)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
 
         if i > 3:
             break
+    model.clear_hooks()
+    assert check_prognostic_contract(model) == []
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -334,7 +431,7 @@ def test_stormscope_interpolation(device):
 
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Test that prep_input can handle the different grid
     x_prep, x_prep_coords = model.prep_input(x, coords)
@@ -377,7 +474,7 @@ def test_stormscope_next_input(sliding_window, device, batch):
 
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
@@ -396,7 +493,8 @@ def test_stormscope_next_input(sliding_window, device, batch):
     )
 
     # Get next input
-    next_x, next_coords = model.next_input(pred, pred_coords, x, coords)
+    next_x = model.next_input(from_torch(pred, pred_coords), from_torch(x, coords))
+    next_coords = coord_array(next_x.dims, dict(next_x.coords), attrs=next_x.attrs)
     assert next_coords.dims == coords.dims
     assert next_coords.data.nbytes == 0
 
@@ -410,7 +508,7 @@ def test_stormscope_next_input(sliding_window, device, batch):
         assert next_x.shape[2] == len(next_coords["lead_time"])
     else:
         # Without sliding window, next input is just the prediction
-        assert torch.allclose(next_x, pred)
+        torch.testing.assert_close(next_x.e2s.to_torch()[0], pred)
         assert next_coords["lead_time"][0] == pred_coords["lead_time"][0]
 
 
@@ -432,7 +530,7 @@ def test_stormscope_call_with_conditioning(device):
     # Get input data
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Manually create conditioning data
     conditioning = torch.randn(
@@ -461,15 +559,74 @@ def test_stormscope_call_with_conditioning(device):
     # Test call_with_conditioning
     coords = _public_coords(model, coords)
     conditioning_coords = _public_coords(model, conditioning_coords)
-    out, out_coords = model.call_with_conditioning(
-        x, coords, conditioning, conditioning_coords
+    state = from_torch(x, coords)
+    state.attrs["nested"] = {"items": [1]}
+    state.encoding["nested"] = {"items": [2]}
+    out = model.call_with_conditioning(
+        state, from_torch(conditioning, conditioning_coords)
     )
+    out.attrs["nested"].clear()
+    out.encoding["nested"].clear()
+    assert state.attrs["nested"] == {"items": [1]}
+    assert state.encoding["nested"] == {"items": [2]}
+    out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
 
     # Check output shape
     assert out.shape == torch.Size([batch_size, len(time), 1, nvar, h, w])
     assert (out_coords["variable"] == variable).all()
     assert out_coords.dims == coords.dims
     assert out_coords.data.nbytes == 0
+
+    # Explicit conditioning retains its source grid until the configured
+    # interpolator runs, while leading member labels stay aligned with state.
+    state = (
+        from_torch(x, coords).rename(batch="ensemble").assign_coords(ensemble=[7, 9])
+    )
+    source = Random(
+        OrderedDict(lat=np.linspace(90, -90, 181), lon=np.linspace(0, 360, 360))
+    )
+    condition = fetch_data(
+        source, time, model.conditioning_variables, lead_time, device=device
+    )
+    condition = condition.expand_dims(ensemble=[7, 9])
+    result = model.call_with_conditioning(state, condition)
+    assert result.dims == state.dims
+    np.testing.assert_array_equal(result.ensemble, [7, 9])
+    model.set_rng(41)
+    baseline = model.call_with_conditioning(state, condition)
+    model.set_rng(41)
+    annotated = model.call_with_conditioning(
+        state,
+        condition.assign_coords(
+            note="conditioning", lead_time=lead_time.astype("timedelta64[s]")
+        ),
+    )
+    np.testing.assert_array_equal(baseline.e2s.as_numpy(), annotated.e2s.as_numpy())
+    state = state.assign_coords(batch=7)
+    condition = condition.assign_coords(batch=7)
+    model.set_rng(41)
+    scalar_batch = model.call_with_conditioning(state, condition)
+    xr.testing.assert_identical(scalar_batch, baseline.assign_coords(batch=7))
+    assert state.batch.item() == condition.batch.item() == 7
+    # A singleton or multiple leading axes use the same interpolation path.
+    unbatched = model.call_with_conditioning(
+        state.isel(ensemble=0, drop=True), condition.isel(ensemble=0, drop=True)
+    )
+    assert unbatched.dims == state.dims[1:]
+    assert unbatched.batch.item() == 7
+    multiple = model.call_with_conditioning(
+        state.expand_dims(run=["a", "b"]), condition.expand_dims(run=["a", "b"])
+    )
+    assert multiple.dims == ("run", *state.dims)
+    np.testing.assert_array_equal(multiple.run, ["a", "b"])
+    np.testing.assert_array_equal(multiple.ensemble, [7, 9])
+    assert multiple.batch.item() == 7
+    with pytest.raises(ValueError, match="ensemble"):
+        model.call_with_conditioning(state, condition.assign_coords(ensemble=[9, 7]))
+    with pytest.raises(ValueError, match="lead_time"):
+        model.call_with_conditioning(
+            state, condition.assign_coords(lead_time=lead_time + np.timedelta64(1, "h"))
+        )
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -490,7 +647,7 @@ def test_stormscope_conditioning_nan_check(device):
 
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     conditioning = torch.randn(
         len(time), len(lead_time), nvar_cond, h, w, device=device
@@ -521,8 +678,12 @@ def test_stormscope_conditioning_nan_check(device):
 
     coords = _public_coords(model, coords)
     conditioning_coords = _public_coords(model, conditioning_coords)
+    condition = from_torch(conditioning, conditioning_coords).assign_coords(
+        note="conditioning",
+        lead_time=np.asarray(coords.lead_time).astype("timedelta64[s]"),
+    )
     with pytest.raises(ValueError, match="not sanitized") as excinfo:
-        model.call_with_conditioning(x, coords, conditioning, conditioning_coords)
+        model.call_with_conditioning(from_torch(x, coords), condition)
 
     # Error should name the offending tensor and variable, not a bare channel index
     assert "conditioning" in str(excinfo.value)
@@ -578,7 +739,7 @@ def test_stormscope_mrms(device):
 
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Set some values to very low reflectivity
     x[:, :, :, :, :] = -25.0  # Should be imputed to -10
@@ -590,7 +751,8 @@ def test_stormscope_mrms(device):
 
     # Test forward pass
     coords = _public_coords(model, coords)
-    out, out_coords = model(x, coords)
+    out = model(from_torch(x, coords))
+    out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
     assert out.shape == torch.Size([1, 1, 1, h, w])
     assert out_coords.dims == coords.dims
     assert out_coords.data.nbytes == 0
@@ -612,12 +774,12 @@ def test_stormscope_exceptions(device):
 
     lead_time = model.input_coords()["lead_time"].values
     variable = model.input_coords()["variable"].values
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Should raise error when trying to fetch conditioning without data source
     coords = _public_coords(model, coords)
     with pytest.raises(RuntimeError):
-        model(x, coords)
+        model(from_torch(x, coords))
 
     # Test 2: Using non-native grid without interpolator should fail
     model2 = create_spoof_model(nvar=nvar, nvar_cond=0, h=h, w=w, device=device)
@@ -625,7 +787,9 @@ def test_stormscope_exceptions(device):
     h_input, w_input = 16, 32
     dc2 = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
     r2 = Random(dc2)
-    x2, coords2 = fetch_data(r2, time, variable, lead_time, device=device)
+    x2, coords2 = fetch_data(
+        r2, time, variable, lead_time, device=device
+    ).e2s.to_torch()
 
     with pytest.raises(ValueError):
         # Should fail because we're passing data on wrong grid without interpolator
@@ -654,7 +818,8 @@ def test_stormscope_exceptions(device):
     conditioning_coords = _public_coords(model3, conditioning_coords)
     with pytest.raises(ValueError):
         model3.call_with_conditioning(
-            x_test, bad_coords, conditioning_test, conditioning_coords
+            from_torch(x_test.squeeze(0).squeeze(0), bad_coords),
+            from_torch(conditioning_test, conditioning_coords),
         )
 
 
@@ -771,11 +936,12 @@ def test_stormscope_package_loading():
         conditioning_coords.move_to_end("batch", last=False)
         conditioning_coords = _public_coords(model, conditioning_coords)
 
-        out, out_coords = model.call_with_conditioning(
-            x, coords, conditioning, conditioning_coords
+        out = model.call_with_conditioning(
+            from_torch(x, coords), from_torch(conditioning, conditioning_coords)
         )
     else:
-        out, out_coords = model(x, coords)
+        out = model(from_torch(x, coords))
+    out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
 
     expected_coords = model.output_coords(coords)
     expected_shape = (

@@ -63,6 +63,82 @@ def _make_forecast_pipeline(prognostic, diagnostics=None, perturbation=None, nst
 
 
 class TestForecastPipeline:
+    def test_climatology_cached_cpu_rollout_materializes_fields(self, tmp_path):
+        import xarray as xr
+        from scorecard.utils.baselines import ClimatologyForecast
+        from src.data import PredownloadedSource
+
+        from earth2studio.utils.coords import coord_array_like
+        from earth2studio.utils.cupy import from_torch
+
+        model = ClimatologyForecast(["t2m"])
+        signature = coord_array_like(model.input_coords(), {"batch": [0]}).isel(
+            batch=0, drop=True
+        )
+        initial = from_torch(torch.ones(signature.shape), signature).expand_dims(
+            time=[np.datetime64("2024-01-01")]
+        )
+        times = np.array(["2024-01-01T06", "2024-01-01T12"], dtype="datetime64[ns]")
+        path = tmp_path / "climatology.zarr"
+        xr.Dataset(
+            {
+                "t2m": (
+                    ("time", "lat", "lon"),
+                    np.full(
+                        (2, signature.sizes["lat"], signature.sizes["lon"]),
+                        7,
+                        dtype=np.float32,
+                    ),
+                )
+            },
+            coords={"time": times, "lat": signature.lat, "lon": signature.lon},
+        ).to_zarr(path)
+        source = PredownloadedSource(str(path))
+        assert source._da.chunks is not None
+        model.set_source(source)
+        iterator = model.create_iterator(initial)
+        next(iterator)
+        for hours in (6, 12):
+            field = next(iterator)
+            tensor, coords = field.e2s.to_torch()
+            assert tensor.device.type == "cpu"
+            assert coords["lead_time"][0] == np.timedelta64(hours, "h")
+            assert torch.all(tensor == 7)
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_cuda_initial_state_interpolates_on_host(self):
+        from collections import OrderedDict
+
+        from earth2studio.data import Constant
+        from earth2studio.models.px import Persistence
+
+        class NamedConstant(Constant):
+            def __call__(self, time, variable):
+                field = super().__call__(time, variable)
+                field.name = "initial"
+                field.attrs["source"] = "constant"
+                return field
+
+        source = NamedConstant(
+            OrderedDict(lat=np.array([0.0, 1.0]), lon=np.array([0.0, 1.0])), 7
+        )
+        model = Persistence(
+            ["t2m"],
+            OrderedDict(lat=np.array([0.0, 0.5, 1.0]), lon=np.array([0.0, 1.0])),
+        )
+        pipeline = _make_forecast_pipeline(model)
+        device = torch.device("cuda:0")
+        pipeline.prognostic.to(device)
+        item = WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=0, seed=0)
+        field = pipeline._fetch_initial_state(item, source, device)
+        assert field.e2s.to_torch()[0].device == device
+        assert field.name == "initial"
+        assert field.attrs["source"] == "constant"
+        np.testing.assert_array_equal(field.lat, [0.0, 0.5, 1.0])
+        np.testing.assert_array_equal(field.e2s.as_numpy(), 7)
+        output = next(pipeline.prognostic.create_iterator(field))
+        assert output.dims == ("time", "lead_time", "variable", "lat", "lon")
+
     @pytest.fixture()
     def work_items(self):
         return [

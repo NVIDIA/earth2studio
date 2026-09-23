@@ -15,21 +15,23 @@
 # limitations under the License.
 
 import zipfile
-from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.nn.climatenet_conv import CGNetModule
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 VARIABLES = [
     "tcwv",
@@ -86,49 +88,32 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free atmospheric signature on the ERA5 grid."""
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input signature or atmospheric field.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free classification signature preserving metadata and grid.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(OUT_VARIABLES)
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        output = coord_array_like(input_coords, {"variable": np.array(OUT_VARIABLES)})
+        output.encoding = input_coords.encoding.copy()
+        return output
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -167,14 +152,15 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = (tensor - self.center) / self.scale
+        out = torch.softmax(self.core_model(tensor), 1)
 
-        x = (x - self.center) / self.scale
-        out = torch.softmax(self.core_model(x), 1)
-
-        return out, output_coords
+        output = from_torch(out, output_coords)
+        output.encoding = x.encoding.copy()
+        return output

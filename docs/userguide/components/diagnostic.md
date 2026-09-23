@@ -1,6 +1,6 @@
 # Diagnostic Models { #diagnostic_model_userguide }
 
-Diagnostic models in Earth2Studio provide a set of models that are independent of time,
+Diagnostic models in Earth2Studio provide single-call transformations,
 focused on predicting new or modified values.
 For example, given an instantaneous set of atmospheric fields, a diagnostic model can
 predict a new field, such as precipitation.
@@ -54,15 +54,13 @@ model = DiagnosticModel.load_model(model_package)
 ### Prediction
 
 The main work of diagnostic models is the `__call__` function, which takes in
-a data tensor and coordinate system (refer to
+a field DataArray with labelled coordinates (refer to
 [Data Movement](../about/overview.md#data_userguide) for the structure) and
 returns the primary output.
 
 ```python
 # Assume model is an instance of a DiagnosticModel
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-x, coords = model(x, coords)  # Predict a single time-step
+x = model(x)  # Input and output are field DataArrays
 ```
 
 ## Custom Diagnostic Models

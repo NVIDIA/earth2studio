@@ -14,17 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from collections import OrderedDict
 from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-try:
+from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
+from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.px import AIFSENS
+from earth2studio.models.px.aifsens import VARIABLES
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture
+def backend():
     from importlib.metadata import version
 
-    import anemoi.models  # noqa: F401
+    pytest.importorskip("anemoi.models")
 
     anemoi_version = version("anemoi-models")
     # AIFSENS requires anemoi-models version specified by pyproject.toml.
@@ -34,16 +46,17 @@ try:
                 f"anemoi-models {anemoi_version} not compatible with AIFSENS "
                 "(requires 0.5.1)"
             ),
-            allow_module_level=True,
         )
-except ImportError:
-    pytest.skip("anemoi-models not installed", allow_module_level=True)
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
-from earth2studio.models.px import AIFSENS
-from earth2studio.models.px.aifsens import VARIABLES
-from earth2studio.utils import handshake_dim
+
+@pytest.fixture(autouse=True)
+def optional_device(request):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -134,7 +147,7 @@ EXPECTED_INPUT_VARIABLES = 88
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifsens_call(time, device):
+def test_aifsens_call(time, device, backend):
     model = PhooAIFSENSModel()
 
     latitudes = torch.randn(1, 1, 542080, 1, device=device)
@@ -170,9 +183,13 @@ def test_aifsens_call(time, device):
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -180,16 +197,12 @@ def test_aifsens_call(time, device):
     assert out.shape == torch.Size([len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifsens_iter(ensemble, device):
+def test_aifsens_iter(ensemble, device, backend):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     model = PhooAIFSENSModel()
 
@@ -226,18 +239,20 @@ def test_aifsens_iter(ensemble, device):
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    x = x.expand_dims(ensemble=np.arange(ensemble))
+    p_iter = p.create_iterator(x)
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    for i, (out, out_coords) in enumerate(p_iter):
+    initial = next(p_iter)
+    assert initial.equals(x.isel(lead_time=slice(-1, None)))
+    for i, out in enumerate(p_iter):
+        out_coords = out.coords
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
             [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
@@ -246,7 +261,7 @@ def test_aifsens_iter(ensemble, device):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i), "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
         if i > 5:
             break
@@ -261,7 +276,7 @@ def test_aifsens_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifsens_exceptions(dc, device):
+def test_aifsens_exceptions(dc, device, backend):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     model = PhooAIFSENSModel()
 
@@ -296,62 +311,87 @@ def test_aifsens_exceptions(dc, device):
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(x)
 
 
-def test_aifsens_conformance():
-    """Check the mock AIFSENS model against the Earth2Studio model contract.
-
-    AIFSENS does not currently declare `stochastic` or implement `set_rng()`, so
-    it is checked as a deterministic model against the deterministic mock.
-
-    Note: `flash-attn` (required by the `aifsens` extra) cannot be built without
-    CUDA, so this assertion could not be executed against real dependencies in
-    every environment; it is expected to hold based on static review of AIFSENS's
-    hook wiring and the deterministic Phoo forward pass above.
-    """
+def test_aifsens_conformance(monkeypatch):
     device = "cpu"
     model = PhooAIFSENSModel()
 
-    latitudes = torch.randn(1, 1, 542080, 1, device=device)
-    longitudes = torch.randn(1, 1, 542080, 1, device=device)
+    latitudes = torch.tensor([45, 45, -45, -45]).reshape(1, 1, 4, 1).float()
+    longitudes = torch.tensor([0, 180, 0, 180]).reshape(1, 1, 4, 1).float()
+    interpolation_matrix = torch.eye(4, dtype=torch.float64).to_sparse_csr()
+    inverse_interpolation_matrix = interpolation_matrix
+    invariants = torch.zeros(4, 2, 2)
 
-    interpolation_matrix = make_two_nnz_per_first_row_csr(
-        n_rows=542_080, n_cols=1_038_240, device=device
-    ).to(torch.float64)
-    inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
-        n_rows=1_038_240, n_cols=542_080, device=device
-    ).to(torch.float64)
-    invariants = torch.randn(4, 721, 1440, device=device)
-
-    p = AIFSENS(
+    p = AIFSENS.__new__(AIFSENS)
+    inspect.unwrap(AIFSENS.__init__)(
+        p,
         model=model,
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=interpolation_matrix,
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
-    ).to(device)
+    )
+    p.to(device)
+    declared = p.input_coords()
+    assert (
+        declared.data.nbytes == 0
+        and declared.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    )
+    signature = coord_array(
+        declared.dims,
+        {"lead_time": declared.lead_time, "variable": declared.coords["variable"]},
+        dynamic=("batch", "time"),
+        grid=LatLonGrid([45, -45], [0, 180]),
+    )
+    monkeypatch.setattr(p, "input_coords", lambda: signature.copy())
 
     assert check_prognostic_contract(p) == [
         "P14: model does not declare itself stochastic"
     ]
+    coords = coord_array_like(
+        signature,
+        {"batch": [0, 1], "time": np.array(["2000-01-01"], dtype="datetime64[ns]")},
+    )
+    x = from_torch(torch.randn(coords.shape), coords, name="weather").rename(
+        batch="member"
+    )
+    original = x.copy(deep=True)
+    iterator = p.create_iterator(x)
+    initial = next(iterator)
+    retained = []
+    for step in range(1, 4):
+        out = next(iterator)
+        retained.append((out, out.copy(deep=True)))
+        torch.testing.assert_close(out.e2s.to_torch()[0], torch.ones(out.shape))
+        assert out.lead_time.values[0] == np.timedelta64(step * 6, "h")
+        assert out.name == x.name and out.dims == x.dims
+    for out, saved in retained:
+        xr.testing.assert_identical(out, saved)
+    xr.testing.assert_identical(x, original)
+    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
 
 
 @pytest.fixture(scope="function")
-def model() -> AIFSENS:
+def model(backend) -> AIFSENS:
     """Load real AIFSENS model from package, mocking IFS fetch if needed."""
     from unittest.mock import patch
 
     # Mock fetch_data to return fake invariants if IFS would be called
     def mock_fetch_data(source, time, variable, *args, **kwargs):
         # Return fake invariants tensor (4 variables: lsm, sdor, slor, z)
-        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
-        fake_coords = {"time": time, "variable": np.array(variable)}
-        return fake_invariants, fake_coords
+        return xr.DataArray(
+            np.zeros((len(variable), 721, 1440), dtype=np.float32),
+            dims=("variable", "lat", "lon"),
+            coords={"variable": variable},
+        )
 
     package = AIFSENS.load_default_package()
     with patch(
@@ -381,12 +421,14 @@ def test_aifsens_package(device, ensemble, model):
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    coords = {"ensemble": np.arange(ensemble, dtype=int)} | coords
-    x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    x = x.expand_dims(ensemble=np.arange(ensemble))
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -395,9 +437,4 @@ def test_aifsens_package(device, ensemble, model):
         [ensemble, len(time), 1, EXPECTED_OUTPUT_VARIABLES, 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 5)
-    handshake_dim(out_coords, "lat", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "ensemble", 0)
+    assert out.dims == ("ensemble", "time", "lead_time", "variable", "lat", "lon")

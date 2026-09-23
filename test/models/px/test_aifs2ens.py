@@ -14,34 +14,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from collections import OrderedDict
 from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-try:
+from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
+from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.px import AIFS2ENS
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture
+def backend():
     from importlib.metadata import version
 
-    import anemoi.models  # noqa: F401
-    import earthkit.regrid  # noqa: F401
-    import flash_attn  # noqa: F401
+    pytest.importorskip("anemoi.models")
+    pytest.importorskip("earthkit.regrid")
+    pytest.importorskip("flash_attn")
     from packaging.version import Version
 
     anemoi_version = version("anemoi-models")
     if Version(anemoi_version) != Version("0.11.2"):
         pytest.skip(
             f"anemoi-models {anemoi_version} not compatible with AIFS ENS 2.x (requires ==0.11.2)",
-            allow_module_level=True,
         )
-except ImportError as e:
-    pytest.skip(f"AIFS2ENS dependencies not installed: {e}", allow_module_level=True)
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import check_prognostic_contract
-from earth2studio.models.px import AIFS2ENS
-from earth2studio.utils import handshake_dim
+
+@pytest.fixture(autouse=True)
+def optional_device(request):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -615,25 +628,27 @@ class PhooAIFS2ENSModel(torch.nn.Module):
         return torch.ones(x.shape[0], 1, x.shape[2], n_output_vars, device=x.device)
 
 
-def test_aifs2ens_forcing_batch_time_order():
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
     # Regression: time-dependent forcings (solar insolation, Julian day, local
     # time) must be placed by the batch-major (batch*time) layout (slot =
     # b*n_time + t), in both _prepare_input and the _update_input rollout step.
     # A time-major write scatters each time's forcings to the wrong samples when
     # both batch and time exceed one.
-    device = "cpu"
     n_nodes = 4
     latitudes = torch.tensor([60.0, 30.0, -30.0, -60.0]).reshape(1, 1, n_nodes, 1)
     longitudes = torch.tensor([0.0, 90.0, 180.0, 270.0]).reshape(1, 1, n_nodes, 1)
     eye = torch.eye(n_nodes)
-    p = AIFS2ENS(
+    p = AIFS2ENS.__new__(AIFS2ENS)
+    inspect.unwrap(AIFS2ENS.__init__)(
+        p,
         model=PhooAIFS2ENSModel(),
         latitudes=latitudes,
         longitudes=longitudes,
         interpolation_matrix=eye,
         inverse_interpolation_matrix=eye,
         invariants=torch.zeros(5, 2, 2),
-    ).to(device)
+    )
 
     n_batch, n_time, n_lead = 2, 2, 2
     # Two very different times (season + hour) so their forcings clearly differ.
@@ -664,6 +679,78 @@ def test_aifs2ens_forcing_batch_time_order():
         assert torch.equal(out[1], out[3])  # same time (t1) -> identical
         assert not torch.allclose(out[0], out[1])  # different time -> differ
 
+    p.to(device)
+    eye = eye.to(device)
+
+    declared = p.input_coords()
+    assert (
+        declared.data.nbytes == 0
+        and declared.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    )
+    p.preload_invariants = False
+    signature = coord_array(
+        declared.dims,
+        {
+            "lead_time": declared.lead_time,
+            "variable": list(declared.coords["variable"].values)
+            + p.VARIABLE_INVARIANTS,
+        },
+        dynamic=("batch", "time"),
+        grid=LatLonGrid([45, -45], [0, 180]),
+    )
+    monkeypatch.setattr(p, "input_coords", lambda: signature.copy())
+    p.interpolation_matrix = eye.to_sparse_csr()
+    p.inverse_interpolation_matrix = eye.to_sparse_csr()
+    data = p.model.data_indices.data
+    indices = [
+        data.input.full.tolist().index(i) if i in data.input.full else 0
+        for i in data.output.full.tolist()
+    ]
+
+    def noisy(value, fcstep):
+        result = value[:, -1:, :, indices] + 1
+        return result + torch.randn_like(result)
+
+    monkeypatch.setattr(p.model, "predict_step", noisy)
+    coords = coord_array_like(signature, {"batch": [0, 1], "time": times[:1]})
+    field = from_torch(torch.randn(coords.shape), coords, name="weather").rename(
+        batch="member"
+    )
+    field.encoding = {"source": "fixture"}
+    original = field.copy(deep=True)
+    histories = []
+    p.front_hook = lambda value: histories.append(value.copy(deep=True)) or value
+
+    def rollout(seed):
+        p.seed = seed
+        iterator = p.create_iterator(field)
+        initial = next(iterator)
+        retained = [next(iterator) for _ in range(3)]
+        xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+        iterator.close()
+        return retained
+
+    a, b, c = rollout(17), rollout(17), rollout(18)
+    for first, repeated, different in zip(a, b, c):
+        torch.testing.assert_close(
+            first.e2s.to_torch()[0], repeated.e2s.to_torch()[0], rtol=0, atol=0
+        )
+        assert not torch.equal(first.e2s.to_torch()[0], different.e2s.to_torch()[0])
+        assert first.name == field.name and first.encoding == field.encoding
+        assert first.e2s.to_torch()[0].device == torch.device(device)
+        assert not np.isin(p.VARIABLE_INVARIANTS, first.coords["variable"]).any()
+    for history in histories:
+        torch.testing.assert_close(
+            history.sel(variable=p.VARIABLE_INVARIANTS)
+            .isel(lead_time=-1)
+            .e2s.to_torch()[0]
+            .cpu(),
+            original.sel(variable=p.VARIABLE_INVARIANTS)
+            .isel(lead_time=-1)
+            .e2s.to_torch()[0],
+        )
+    xr.testing.assert_identical(field, original)
+
 
 @pytest.mark.parametrize(
     "time",
@@ -678,7 +765,7 @@ def test_aifs2ens_forcing_batch_time_order():
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs2ens_call(time, device):
+def test_aifs2ens_call(time, device, backend):
     """Test AIFS2ENS single step forward pass."""
     # Spoof model
     model = PhooAIFS2ENSModel()
@@ -721,9 +808,13 @@ def test_aifs2ens_call(time, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -733,16 +824,12 @@ def test_aifs2ens_call(time, device):
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize("ensemble", [1])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs2ens_iter(ensemble, device):
+def test_aifs2ens_iter(ensemble, device, backend):
     """Test AIFS2ENS iterator produces correct sequence."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
@@ -781,21 +868,20 @@ def test_aifs2ens_iter(ensemble, device):
     # Get Data
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    x = x.expand_dims(ensemble=np.arange(ensemble))
+    p_iter = p.create_iterator(x)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
     next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, out in enumerate(p_iter):
+        out_coords = out.coords
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
             [ensemble, len(time), 1, out_coords["variable"].shape[0], 721, 1440]
@@ -819,7 +905,7 @@ def test_aifs2ens_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs2ens_exceptions(dc, device):
+def test_aifs2ens_exceptions(dc, device, backend):
     """Test AIFS2ENS raises on invalid coordinates."""
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
@@ -853,13 +939,15 @@ def test_aifs2ens_exceptions(dc, device):
     # Get Data
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(x)
 
 
-def test_aifs2ens_conformance():
+def test_aifs2ens_conformance(backend):
     """Check the mock AIFS2ENS model against the Earth2Studio model contract.
 
     AIFS2ENS does not currently declare `stochastic` or implement `set_rng()`
@@ -903,16 +991,18 @@ def test_aifs2ens_conformance():
 
 
 @pytest.fixture(scope="function")
-def model() -> AIFS2ENS:
+def model(backend) -> AIFS2ENS:
     """Load real AIFS2ENS model from package, mocking IFS fetch if needed."""
     from unittest.mock import patch
 
     # Mock fetch_data to return fake invariants if IFS would be called
     def mock_fetch_data(source, time, variable, *args, **kwargs):
         # Return fake invariants tensor (5 variables: lsm, sdor, slor, z, wmb)
-        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
-        fake_coords = {"time": time, "variable": np.array(variable)}
-        return fake_invariants, fake_coords
+        return xr.DataArray(
+            np.zeros((len(variable), 721, 1440), dtype=np.float32),
+            dims=("variable", "lat", "lon"),
+            coords={"variable": variable},
+        )
 
     package = AIFS2ENS.load_default_package()
     with patch(
@@ -941,9 +1031,13 @@ def test_aifs2ens_package(device, model):
     # Get Data
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -952,8 +1046,4 @@ def test_aifs2ens_package(device, model):
         [len(time), 1, out_coords["variable"].shape[0], 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")

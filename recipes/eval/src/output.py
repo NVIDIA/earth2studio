@@ -25,6 +25,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 import zarr
 from loguru import logger
 from omegaconf import DictConfig
@@ -33,6 +34,7 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.io import AsyncZarrBackend, ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
+from earth2studio.run import _dimension_coords
 from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
 
 from .distributed import run_on_rank0_first
@@ -44,14 +46,18 @@ _NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemb
 _ITERATION_DIMS = ("time", "lead_time", "ensemble")
 
 
-def _spatial_dims(coords: CoordSystem) -> list[str]:
+def _spatial_dims(coords: CoordSystem | xr.DataArray) -> list[str]:
     """Return dimension names from *coords* that are spatial (not structural).
 
     Structural dimensions (batch, time, lead_time, variable, ensemble) are
     excluded; everything else is treated as a spatial dimension whose values
     should be carried through to output stores.
     """
-    return [d for d in coords if d not in _NON_SPATIAL_DIMS]
+    return [
+        d
+        for d in (coords.dims if isinstance(coords, xr.DataArray) else coords)
+        if d not in _NON_SPATIAL_DIMS
+    ]
 
 
 def build_output_coords(
@@ -77,7 +83,7 @@ def build_output_coords(
     oc: CoordSystem = OrderedDict()
     oc["variable"] = np.array(output_variables)
     for dim in _spatial_dims(spatial_ref):
-        oc[dim] = spatial_ref[dim]
+        oc[dim] = np.asarray(spatial_ref[dim])
     return oc
 
 
@@ -140,7 +146,7 @@ def build_forecast_coords(
         :meth:`OutputManager.validate_output_store`.
     """
     input_c = prognostic.input_coords()
-    output_c = prognostic.output_coords(input_c)
+    output_c = _dimension_coords(prognostic.output_coords(input_c))
 
     total: CoordSystem = OrderedDict()
     if ensemble_size > 1:
@@ -161,7 +167,7 @@ def build_forecast_coords(
 
     ref = spatial_ref if spatial_ref is not None else output_c
     for dim in _spatial_dims(ref):
-        total[dim] = ref[dim]
+        total[dim] = np.asarray(ref[dim])
 
     return total
 
@@ -213,7 +219,7 @@ def build_diagnostic_coords(
     total["lead_time"] = np.array([np.timedelta64(0, "ns")])
 
     for dim in _spatial_dims(ref):
-        total[dim] = ref[dim]
+        total[dim] = np.asarray(ref[dim])
 
     return total
 

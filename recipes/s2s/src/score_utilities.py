@@ -348,7 +348,7 @@ def load_verification_data(
         "_lat": fcst_coords["lat"],
         "_lon": fcst_coords["lon"],
     }
-    read_data, read_coords = run_with_rank_ordered_execution(
+    field = run_with_rank_ordered_execution(
         fetch_data,
         data_source,
         time=np.array([ic]),
@@ -359,11 +359,12 @@ def load_verification_data(
     )
 
     # Pop out the singleton variable dimension, reset lat/lon
-    read_data = read_data[:, :, 0, ...]
-    read_coords.pop("variable")
-    lats, lons = read_coords.pop("_lat"), read_coords.pop("_lon")
-    read_coords["lat"] = lats
-    read_coords["lon"] = lons
+    if "_lat" in field.dims:
+        field = field.rename(_lat="lat", _lon="lon")
+    field = field.sel(lat=fcst_coords["lat"], lon=fcst_coords["lon"]).squeeze(
+        "variable", drop=True
+    )
+    read_data, read_coords = field.e2s.to_torch()
 
     # Apply temporal aggregation if specified
     if "temporal_aggregation" in cfg.scoring:

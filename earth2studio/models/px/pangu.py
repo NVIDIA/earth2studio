@@ -23,24 +23,28 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
-from typing import TypeVar
+from copy import deepcopy
+from dataclasses import dataclass, field
+from typing import Any, TypeVar
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.checkpoint import bind_checkpoint_state
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import onnxruntime as ort
@@ -123,8 +127,15 @@ VARIABLES = [
 ]
 
 
+@dataclass
+class _PanguCheckpointState:
+    tensors: dict[str, torch.Tensor] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    step: int = 0
+
+
 # Adapted from https://raw.githubusercontent.com/ecmwf-lab/ai-models-panguweather/main/ai_models_panguweather/model.py
-class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class PanguBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """Pangu base class"""
 
     def __init__(self) -> None:
@@ -135,73 +146,99 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Shape of surface variable fields
         self.surface_shape = (4, 721, 1440)
 
-        self._input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
+        self._time_step = np.timedelta64(6, "h")
+        self.checkpoint = bind_checkpoint_state(_PanguCheckpointState())
         self.device = torch.ones(1).device  # Hack to get default device
         self.ort = None
+        self._ort24_session: InferenceSession | None = None
+        self._ort6_session: InferenceSession | None = None
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return self._input_coords.copy()
-
-    @batch_coords()
-    def output_coords(
-        self,
-        input_coords: CoordSystem,
-    ) -> CoordSystem:
-        """Output coordinate system of the prognostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        output_coords = self._output_coords.copy()
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key != "batch":
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free Pangu input signature."""
+        return coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(VARIABLES),
+            },
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-        return output_coords
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate the input signature and advance by this variant's time step."""
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords.lead_time)
+        if (
+            input_coords.lead_time.dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
+        return coord_array_like(input_coords, {"lead_time": lead + self._time_step})
+
+    def _restore_checkpoint_state(
+        self, x: xr.DataArray
+    ) -> tuple[dict[str, xr.DataArray], int, bool]:
+        if (
+            self.checkpoint.checkpoint_level == 2
+            and self.checkpoint.checkpoint_state_loaded
+            and self.checkpoint.tensors
+        ):
+            states = {}
+            for key, tensor in self.checkpoint.tensors.items():
+                metadata = deepcopy(self.checkpoint.metadata[key])
+                signature = coord_array(
+                    metadata["dims"],
+                    metadata["coords"],
+                    sizes=metadata["sizes"],
+                    attrs=metadata["attrs"],
+                )
+                restored = from_torch(
+                    tensor.to(self.device),
+                    signature,
+                    name=metadata["name"],
+                    attrs=metadata["attrs"],
+                )
+                restored.encoding = metadata["encoding"]
+                states[key] = restored
+            return states, self.checkpoint.step, True
+        return {"current": x}, 0, False
+
+    def _save_checkpoint_state(
+        self, states: dict[str, xr.DataArray], step: int
+    ) -> None:
+        self.checkpoint.tensors = {}
+        self.checkpoint.metadata = {}
+        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
+            for key, x in states.items():
+                tensor, _ = x.e2s.to_torch()
+                self.checkpoint.tensors[key] = (
+                    tensor.detach().clone().to(self.checkpoint.device)
+                )
+                self.checkpoint.metadata[key] = deepcopy(
+                    {
+                        "dims": tuple(x.dims),
+                        "sizes": dict(x.sizes),
+                        "name": x.name,
+                        "coords": {
+                            name: (
+                                tuple(value.dims),
+                                value.values.copy(),
+                                dict(value.attrs),
+                            )
+                            for name, value in x.coords.items()
+                        },
+                        "attrs": dict(x.attrs),
+                        "encoding": dict(x.encoding),
+                    }
+                )
+            self.checkpoint.step = step
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -251,18 +288,8 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
         ort_session: InferenceSession,
-        lead_time: np.ndarray | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-
-        if lead_time is not None:
-            previous_lead_time = self._output_coords["lead_time"]
-            self._output_coords["lead_time"] = lead_time
-            output_coords = self.output_coords(coords)
-            self._output_coords["lead_time"] = previous_lead_time
-        else:
-            output_coords = self.output_coords(coords)
+    ) -> torch.Tensor:
 
         # Ref: https://onnxruntime.ai/docs/api/python/api_summary.html
         binding = ort_session.io_binding()
@@ -295,8 +322,8 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Process batches (model is single batch)
         for i in range(x.shape[0]):
             # Forward pass
-            fields_pl = x[i, : self.n_pres].resize(*self.pressure_shape)
-            fields_sfc = x[i, self.n_pres :]
+            fields_pl = x[i, : self.n_pres].reshape(*self.pressure_shape).contiguous()
+            fields_sfc = x[i, self.n_pres :].contiguous()
 
             bind_input("input", fields_pl)
             bind_input("input_surface", fields_sfc)
@@ -312,34 +339,72 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ).contiguous()
             batch_output[i, 0] = output_tensor
 
-        return batch_output, output_coords
+        return batch_output
+
+    @batch_func()
+    def _step(
+        self, x: xr.DataArray, session: InferenceSession, hours: int | None = None
+    ) -> xr.DataArray:
+        signature = self.output_coords(x)
+        if hours is not None:
+            signature = coord_array_like(
+                x, {"lead_time": x.lead_time.values + np.timedelta64(hours, "h")}
+            )
+        tensor, _ = x.e2s.to_torch()
+        out = from_torch(
+            self._forward(tensor.to(self.device), session), signature, name=x.name
+        )
+        out.encoding = x.encoding.copy()
+        return out
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Advance one DataArray using this variant's shortest-step model."""
+        states, _, _ = self._restore_checkpoint_state(x)
+        out = self._step(states["current"], self.ort)
+        self._save_checkpoint_state({"current": out}, 0)
+        return out
 
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        raise NotImplementedError
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        states, step, restored = self._restore_checkpoint_state(x)
+        self.output_coords(states["current"])
+        hours = int(self._time_step / np.timedelta64(1, "h"))
+        if hours < 24 and "day" not in states:
+            states["day"] = states["current"].copy(deep=True)
+        if hours == 3 and "six" not in states:
+            states["six"] = states["current"].copy(deep=True)
+        if not restored:
+            self._save_checkpoint_state(states, step)
+            yield states["current"].copy(deep=False)
+        while True:
+            step += 1
+            elapsed = step * hours
+            source = states["current"]
+            session = self.ort
+            stride = hours
+            if hours < 24 and elapsed % 24 == 0:
+                if self._ort24_session is None:
+                    self._ort24_session = create_ort_session(self.ort24, self.device)
+                source, session, stride = states["day"], self._ort24_session, 24
+            elif hours == 3 and elapsed % 6 == 0:
+                if self._ort6_session is None:
+                    self._ort6_session = create_ort_session(self.ort6, self.device)
+                source, session, stride = states["six"], self._ort6_session, 6
+            out = self.rear_hook(
+                self._step(self.front_hook(source.copy(deep=True)), session, stride)
+            )
+            states["current"] = out
+            if hours == 3 and elapsed % 6 == 0:
+                states["six"] = out.copy(deep=True)
+            if hours < 24 and elapsed % 24 == 0:
+                states["day"] = out.copy(deep=True)
+            self._save_checkpoint_state(states, step)
+            yield out.copy(deep=False)
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
-        """
-        yield from self._default_generator(x, coords)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the initial field and interleaved forecasts, resuming checkpoints next step."""
+        yield from self._default_generator(x)
 
 
 @check_optional_dependencies()
@@ -386,7 +451,7 @@ class Pangu24(PanguBase):
         super().__init__()
 
         self.ort: ort.InferenceSession = create_ort_session(ort_24hr, self.device)
-        self._output_coords["lead_time"] = np.array([np.timedelta64(24, "h")])
+        self._time_step = np.timedelta64(24, "h")
 
     @classmethod
     @check_optional_dependencies()
@@ -400,51 +465,6 @@ class Pangu24(PanguBase):
         # access the needed files.
         onnx_file = package.resolve("pangu_weather_24.onnx")
         return cls(onnx_file)
-
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs 24 hour prognostic model 1 step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 24 hours in the future
-        """
-
-        return self._forward(x, coords, self.ort)
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        yield x, coords
-
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-
-            # Forward is identity operator
-            x, coords = self._forward(x, coords, self.ort)
-
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-
-            yield x, coords.copy()
 
 
 @check_optional_dependencies()
@@ -504,7 +524,7 @@ class Pangu6(PanguBase):
         self._ort24_session: ort.InferenceSession | None = None
         if eager_sessions:
             self._ort24_session = create_ort_session(ort_24hr, self.device)
-        self._output_coords["lead_time"] = np.array([np.timedelta64(6, "h")])
+        self._time_step = np.timedelta64(6, "h")
 
     @classmethod
     @check_optional_dependencies()
@@ -520,60 +540,6 @@ class Pangu6(PanguBase):
         onnx_file_24 = package.resolve("pangu_weather_24.onnx")
         onnx_file_6 = package.resolve("pangu_weather_6.onnx")
         return cls(onnx_file_24, onnx_file_6, eager_sessions=eager_sessions)
-
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs 6 hour prognostic model 1 step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
-        return self._forward(x, coords, self.ort)
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        yield x, coords
-
-        while True:
-            x24 = x.clone()
-            coords24 = coords.copy()
-            # Three 6-hour steps
-            for i in range(3):
-                x, coords = self.front_hook(x, coords)
-                x, coords = self._forward(
-                    x,
-                    coords,
-                    self.ort,
-                )
-                x, coords = self.rear_hook(x, coords)
-                yield x, coords.copy()
-            if self._ort24_session is None:
-                self._ort24_session = create_ort_session(self.ort24, self.device)
-            x, coords = self.front_hook(x24, coords24)
-            x, coords = self._forward(
-                x, coords, self._ort24_session, np.array([np.timedelta64(24, "h")])
-            )
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
 
 
 @check_optional_dependencies()
@@ -641,7 +607,7 @@ class Pangu3(PanguBase):
         if eager_sessions:
             self._ort24_session = create_ort_session(ort_24hr, self.device)
             self._ort6_session = create_ort_session(ort_6hr, self.device)
-        self._output_coords["lead_time"] = np.array([np.timedelta64(3, "h")])
+        self._time_step = np.timedelta64(3, "h")
 
     @classmethod
     @check_optional_dependencies()
@@ -658,78 +624,3 @@ class Pangu3(PanguBase):
         onnx_file_6 = package.resolve("pangu_weather_6.onnx")
         onnx_file = package.resolve("pangu_weather_3.onnx")
         return cls(onnx_file_24, onnx_file_6, onnx_file, eager_sessions=eager_sessions)
-
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs 3 hour prognostic model 1 step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 3 hours in the future
-        """
-        return self._forward(x, coords, self.ort)
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        yield x, coords
-
-        while True:
-            x0 = x.clone()  # Used with 24 hour model
-            coord0 = coords.copy()
-
-            x1 = x.clone()  # Used with 6 hour model
-            coords1 = coords.copy()
-
-            # Single 3-hour step
-            x, coords = self.front_hook(x, coords)
-            x, coords = self._forward(x, coords, self.ort)
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
-
-            # Three 6-hour steps
-            if self._ort6_session is None:
-                self._ort6_session = create_ort_session(self.ort6, self.device)
-            for i in range(3):
-                x, coords = self.front_hook(x1, coords1)
-                x, coords = self._forward(
-                    x, coords, self._ort6_session, np.array([np.timedelta64(6, "h")])
-                )
-                x, coords = self.rear_hook(x, coords)
-                yield x, coords.copy()
-
-                x1 = x.clone()
-                coords1 = coords.copy()
-
-                # Single 3-hour step
-                x, coords = self.front_hook(x, coords)
-                x, coords = self._forward(x, coords, self.ort)
-                x, coords = self.rear_hook(x, coords)
-                yield x, coords.copy()
-
-            # 24 hour step
-            if self._ort24_session is None:
-                self._ort24_session = create_ort_session(self.ort24, self.device)
-            x, coords = self.front_hook(x0, coord0)
-            x, coords = self._forward(
-                x0, coords, self._ort24_session, np.array([np.timedelta64(24, "h")])
-            )
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()

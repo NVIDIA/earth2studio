@@ -14,24 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from typing import TypeVar
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import onnxruntime as ort
@@ -115,7 +116,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class FengWu(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """FengWu (operational) weather model consists of single auto-regressive model with
     a time-step size of 6 hours. FengWu operates on 0.25 degree lat-lon grid (south-pole
     including) equirectangular grid with 69 atmospheric/surface variables. This model
@@ -165,66 +166,38 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center.unsqueeze(-1).unsqueeze(-1))
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        return OrderedDict(
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free two-step input signature."""
+        return coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
                 "lead_time": np.array(
                     [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
                 ),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate relative history and advance the final lead by six hours."""
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = np.asarray(input_coords.lead_time)
+        if (
+            input_coords.lead_time.dims != ("lead_time",)
+            or lead.size != 2
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain two finite timedeltas")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        return coord_array_like(
+            input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key != "batch":
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][1:] + output_coords["lead_time"]
-        )
-
-        return output_coords
 
     def to(self, device: str | torch.device | int) -> PrognosticModel:
         """Move model (and default ORT session) to device"""
@@ -305,7 +278,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         x = (x - self.center) / self.scale  # Normalize
         # reshape, not view: x is the caller's tensor and may be non-contiguous
-        x = x.reshape(x.shape[0], -1, 721, 1440)  # Concat time-steps
+        x = x.reshape(x.shape[0], -1, *x.shape[-2:])  # Concat time-steps
         # Forward pass, fengwu onnx supports batched
         bind_input("input", x)
         output = bind_output("output", like=x)
@@ -319,76 +292,50 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs 6 hour prognostic model 1 step.
+    def _step(self, x: xr.DataArray) -> xr.DataArray:
+        signature = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        out = from_torch(
+            self._forward(tensor.to(self.device), self.ort), signature, name=x.name
+        )
+        out.encoding = x.encoding.copy()
+        return out
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+    def _advance_history(self, x: xr.DataArray, out: xr.DataArray) -> xr.DataArray:
+        previous, _ = x.isel(lead_time=slice(-1, None)).e2s.to_torch()
+        future, _ = out.e2s.to_torch()
+        signature = coord_array_like(
+            out,
+            {
+                "lead_time": np.concatenate(
+                    (x.lead_time.values[-1:], out.lead_time.values)
+                )
+            },
+        )
+        state = from_torch(
+            torch.cat(
+                (previous.to(future.device), future), dim=x.get_axis_num("lead_time")
+            ),
+            signature,
+        )
+        state.encoding = out.encoding.copy()
+        return state
 
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
-        """
-        return self._forward(x, self.ort), self.output_coords(coords)
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict one six-hour DataArray from two input fields."""
+        return self._step(x)
 
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        out = x[:, 1:]
-        out_coords = coords.copy()
-        out_coords["lead_time"] = out_coords["lead_time"][1:]
-        yield out, out_coords
-
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        self.output_coords(x)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
         while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
+            x = self.front_hook(x.copy(deep=True))
+            out = self.rear_hook(self._step(x))
+            x = self._advance_history(x, out)
+            yield out.copy(deep=False)
 
-            # Forward is identity operator
-            out = self._forward(x, self.ort)
-            out_coords = self.output_coords(coords)
-
-            # Rear hook
-            out, out_coords = self.rear_hook(out, out_coords)
-
-            # Update inputs for next time-step
-            x = torch.cat([x[:, 1:], out], dim=1)
-            coords["lead_time"] = np.array(
-                [coords["lead_time"][-1], out_coords["lead_time"][-1]]
-            )
-
-            yield out, out_coords.copy()
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
-        """
-        yield from self._default_generator(x, coords)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the latest input followed by six-hour forecasts."""
+        yield from self._default_generator(x)

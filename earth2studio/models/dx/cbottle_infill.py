@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+from copy import deepcopy
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -25,14 +25,15 @@ import xarray as xr
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.models.dx.corrdiff import _field, _own_metadata, _validate_grid
+from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, VariableArray
+from earth2studio.utils.type import VariableArray
 
 try:
     import earth2grid
@@ -150,7 +151,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
         # Set up regridder for input
         grid = earth2grid.latlon.LatLonGrid(
-            self.input_coords()["lat"].tolist(), self.input_coords()["lon"].tolist()
+            self.input_coords()["lat"].values.tolist(),
+            self.input_coords()["lon"].values.tolist(),
         )
         self.input_regridder = grid.get_bilinear_regridder_to(
             self._core_model.domain._grid.lat, lon=self._core_model.domain._grid.lon
@@ -202,53 +204,54 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             varidx.append(idx[0])
         return np.array(varidx)
 
-    def input_coords(self) -> CoordSystem:
+    stochastic = True
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set an isolated stream for the backend's global-RNG infill sampler."""
+        if reset or self.seed is None:
+            self.seed = seed
+            self._sample_index = 0
+
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free input coordinate signature
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
                 "variable": np.array(self.input_variables),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch", "time", "lead_time"),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of diagnostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free output coordinate signature
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", -1)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lead_time", -4)
-        handshake_dim(input_coords, "time", -5)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.output_variables)
-        return output_coords
+        _validate_grid(input_coords, self.input_coords())
+        output = _own_metadata(
+            coord_array_like(
+                input_coords, {"variable": np.array(self.output_variables)}
+            )
+        )
+        # coord_array_like does not propagate encoding; own it with the metadata.
+        output.encoding = deepcopy(input_coords.encoding)
+        return output
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -319,19 +322,23 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             sigma_max=sigma_max,
         )
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Infill labelled conditioning channels at their validity times."""
+        return _own_metadata(self._call(x))
+
     @torch.inference_mode()
     @batch_func()
-    def __call__(
+    def _call(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 
-        time = output_coords["time"][:, None]
-        lead = output_coords["lead_time"][None, :]
-        time = [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
+        time = output_coords["time"].values[:, None]
+        lead = output_coords["lead_time"].values[None, :]
+        time = x.shape[0] * [pd.to_datetime(t) for t in (time + lead).reshape(-1)]
         x = x.reshape(-1, x.shape[-3], x.shape[-2], x.shape[-1])
 
         input_batch = self.get_cbottle_input(time, x)
@@ -373,10 +380,16 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             }
 
             # Use CBottle3d infill method
-            infilled_data, _ = self.core_model.infill(
-                batch_slice,
-                # seed=None if self.seed is None else self.seed + i, # NO SEED SUPPORT!
-            )
+            devices = [device] if device.type == "cuda" else []
+            with torch.random.fork_rng(devices=devices, enabled=self.seed is not None):
+                if self.seed is not None:
+                    seed = self.seed + getattr(self, "_sample_index", 0)
+                    torch.random.default_generator.manual_seed(seed)
+                    if device.type == "cuda":
+                        with torch.cuda.device(device):
+                            torch.cuda.manual_seed(seed)
+                infilled_data, _ = self.core_model.infill(batch_slice)
+            self._sample_index = getattr(self, "_sample_index", 0) + 1
 
             outputs.append(infilled_data)
 
@@ -394,7 +407,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             output_coords["lon"].shape[0],
         )
 
-        return output, output_coords
+        return _field(output, output_coords)
 
     def get_cbottle_input(
         self,

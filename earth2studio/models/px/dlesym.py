@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 
@@ -24,16 +24,19 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.grids import HEALPixGrid, LatLonGrid
+from earth2studio.models._array_utils import _registered_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     import earth2grid
@@ -74,8 +77,13 @@ _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 _ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
 
 
+def _variable_labels(variables: list[str]) -> np.ndarray:
+    # ttr03 consists of the three hourly, interval-ending samples through T.
+    return np.array(["ttr:sum:-2h:1h" if v == "ttr03" else v for v in variables])
+
+
 @check_optional_dependencies()
-class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class DLESyM(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for
     global earth system modeling. This model includes an atmosphere and ocean
     component, using atmospheric variables as well as the sea-surface temperature
@@ -164,13 +172,13 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     model = DLESyM.load_model(pkg)
 
     # Create iterator
-    iterator = model.create_iterator(x, coords)
+    iterator = model.create_iterator(x)
 
-    for step, (x, coords) in enumerate(iterator):
+    for step, x in enumerate(iterator):
         if step > 0:
             # Valid atmos and ocean predictions with their respective coordinates extracted below
-            atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
-            ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+            atmos_outputs = model.retrieve_valid_atmos_outputs(x)
+            ocean_outputs = model.retrieve_valid_ocean_outputs(x)
             ...
 
     ```
@@ -296,8 +304,16 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ocean_coupling_times = self.atmos_output_times
 
         # Setup the lead time indices for [atmos, ocean] [input, coupled input, output]
-        in_coords = self.input_coords()
-        out_coords = self.output_coords(in_coords)
+        in_signature = self.input_coords()
+        out_signature = self.output_coords(in_signature)
+        in_coords = {k: v.values for k, v in in_signature.coords.items()}
+        out_coords = {k: v.values for k, v in out_signature.coords.items()}
+        out_coords["variable"] = np.array(
+            self.atmos_variables
+            + self.atmos_diagnostic_variables
+            + self.ocean_variables
+            + self.ocean_diagnostic_variables
+        )
         self.atmos_input_lt_idx = [
             list(in_coords["lead_time"]).index(t) for t in self.atmos_input_times
         ]
@@ -408,7 +424,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
         )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model
 
         Returns
@@ -416,20 +432,25 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "face", "height", "width"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": self.full_input_times,
-                "variable": np.array(self.atmos_variables + self.ocean_variables),
-                "face": np.arange(12),
-                "height": np.arange(self.nside),
-                "width": np.arange(self.nside),
-            }
+                "variable": _variable_labels(
+                    self.atmos_variables + self.ocean_variables
+                ),
+            },
+            dynamic=("batch", "time"),
+            grid=HEALPixGrid(
+                int(np.log2(self.nside)),
+                ordering="xy",
+                layout="face",
+                xy_origin="north",
+                xy_clockwise=True,
+            ),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -443,41 +464,56 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Coordinate system dictionary
         """
 
-        output_coords = OrderedDict(
+        if not isinstance(input_coords, xr.DataArray):
+            raise TypeError("Expected a DataArray")
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("lead_time is required")
+        lead = input_coords.lead_time
+        if (
+            lead.dims != ("lead_time",)
+            or not lead.size
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead.values).any()
+        ):
+            raise ValueError("lead_time must contain finite timedeltas")
+        target = self.input_coords()
+        if target.attrs.get("type") == "HEALPixGrid":
+            # Index coordinates alone cannot distinguish XY orientation/layout.
+            grid = HEALPixGrid(
+                int(np.log2(self.nside)),
+                ordering="xy",
+                layout="face",
+                xy_origin="north",
+                xy_clockwise=True,
+            )
+            for key, value in {
+                **grid.attrs,
+                "crs": None,
+                "earth2studio_crs": None,
+                "earth2studio_grid_id": None,
+            }.items():
+                if not np.array_equal(input_coords.attrs.get(key), value):
+                    raise ValueError(
+                        f"HEALPix representation metadata {key!r} does not match"
+                    )
+        handshake_dataarray(
+            coord_array_like(
+                input_coords, {"lead_time": lead.values - lead.values[-1]}
+            ),
+            target,
+        )
+        return coord_array_like(
+            input_coords,
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": self.atmos_output_times,  # atmos model has the finer temporal resolution over output lead times
-                "variable": np.array(
+                "lead_time": lead.values[-1] + self.atmos_output_times,
+                "variable": _variable_labels(
                     self.atmos_variables
                     + self.atmos_diagnostic_variables
                     + self.ocean_variables
                     + self.ocean_diagnostic_variables
                 ),
-                "face": np.arange(12),
-                "height": np.arange(self.nside),
-                "width": np.arange(self.nside),
-            }
+            },
         )
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
-
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
-        )
-
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -761,7 +797,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # `coords["variable"]` (the input, prognostic-only variable set)
         # whenever diagnostic output variables are configured.
         n_output_vars = len(self.atmos_output_var_idx) + len(self.ocean_output_var_idx)
-        output_data = torch.empty(
+        output_data = torch.full(
             (
                 len(coords["batch"]),
                 len(coords["time"]),
@@ -771,6 +807,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 len(coords["height"]),
                 len(coords["width"]),
             ),
+            float("nan"),
             device=atmos_outputs.device,
         )
 
@@ -893,9 +930,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x * self.scale + self.center
 
-    def retrieve_valid_ocean_outputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def retrieve_valid_ocean_outputs(self, x: xr.DataArray) -> xr.DataArray:
         """Retrieve the valid ocean model outputs from an output data tensor.
         Because we use a dense grid of output times for the coupled model, some of the output times
         for the ocean model may not be valid because it takes a coarser time-step.
@@ -916,27 +951,24 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output coordinates
         """
 
-        self._validate_output_coords(coords)
-
-        var_dim = list(coords.keys()).index("variable")
-        lead_dim = list(coords.keys()).index("lead_time")
-        out_coords = coords.copy()
-        out_coords["variable"] = np.array(
-            self.ocean_variables + self.ocean_diagnostic_variables
+        self._validate_output_coords(x)
+        result = x.isel(
+            variable=self.ocean_output_var_idx.cpu().numpy(),
+            lead_time=self.ocean_output_lt_idx.cpu().numpy(),
         )
-        out_coords["lead_time"] = np.array(
-            [t for t in coords["lead_time"] if t % self.ocean_output_times[0] == 0]
-        )
+        result.attrs = {
+            k: v
+            for k, v in coord_array_like(result).attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+        return result
 
-        ocean_outputs = x.index_select(dim=var_dim, index=self.ocean_output_var_idx)
-        ocean_outputs = ocean_outputs.index_select(
-            dim=lead_dim, index=self.ocean_output_lt_idx
-        )
-        return ocean_outputs, out_coords
-
-    def retrieve_valid_atmos_outputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def retrieve_valid_atmos_outputs(self, x: xr.DataArray) -> xr.DataArray:
         """Retrieve the valid atmospheric model outputs from an output data tensor.
         This function will retrieve the valid outputs and return them in a tensor of shape (batch, time, lead_time, variable, face, height, width).
 
@@ -955,20 +987,21 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Output coordinates
         """
 
-        self._validate_output_coords(coords)
+        self._validate_output_coords(x)
+        result = x.isel(variable=self.atmos_output_var_idx.cpu().numpy())
+        result.attrs = {
+            k: v
+            for k, v in coord_array_like(result).attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+        return result
 
-        var_dim = list(coords.keys()).index("variable")
-
-        out_coords = coords.copy()
-        out_coords["variable"] = np.array(
-            self.atmos_variables + self.atmos_diagnostic_variables
-        )
-
-        atmos_outputs = x.index_select(dim=var_dim, index=self.atmos_output_var_idx)
-
-        return atmos_outputs, out_coords
-
-    def _validate_output_coords(self, coords: CoordSystem) -> None:
+    def _validate_output_coords(self, coords: CoordinateSystem) -> None:
         """Validate the coordinates passed to the output subselection methods
 
         Parameters
@@ -981,7 +1014,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ValueError
             If the coordinates are invalid (missing or incorrect length lead_time dim)
         """
-        if "lead_time" not in coords:
+        if "lead_time" not in coords.coords:
             raise ValueError("Lead time is required in the output coordinates")
         if len(coords["lead_time"]) != len(self.atmos_output_times):
             raise ValueError(
@@ -1101,110 +1134,96 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output_data
 
-    def _next_step_inputs(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Get the inputs for the next step of the prognostic model,
-        to be used with the model iterator.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-        """
-
-        next_coords = coords.copy()
-        next_coords["lead_time"] = coords["lead_time"][-len(self.full_input_times) :]
-
-        next_x = x[:, :, -len(self.full_input_times) :, ...]
-
-        if self._has_diagnostic_variables:
-            # Diagnostic-only variables are real outputs but are not part
-            # of the model's input schema -- drop them before this tensor
-            # is fed back in as the next step's input.
-            var_dim = list(coords.keys()).index("variable")
-            next_x = next_x.index_select(dim=var_dim, index=self._prognostic_out_idx)
-            next_coords["variable"] = np.array(
-                self.atmos_variables + self.ocean_variables
-            )
-
-        return next_x, next_coords
-
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs coupled DLESyM model forward 1 step.
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Run one complete coupled cycle without iterator hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input history on the declared grid, with arbitrary leading dimensions.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system for the prediction
+        xr.DataArray
+            Complete coupled-cycle prediction. Invalid ocean times contain NaNs.
         """
 
-        output_coords = self.output_coords(coords)
+        self.output_coords(x)
+        return self._advance_array(self._initial_state(x))
 
-        return self._forward(x, coords), output_coords
+    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
+        return x.copy(deep=True)
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+    def _advance_array(self, x: xr.DataArray) -> xr.DataArray:
+        if (
+            "time" not in x.coords
+            or x.time.dims != ("time",)
+            or not np.issubdtype(x.time.dtype, np.datetime64)
+            or np.isnat(x.time.values).any()
+        ):
+            raise ValueError("time must contain finite datetimes")
+        tensor, _ = x.e2s.to_torch()
+        # Preserve arbitrary leading axes, including axes without labels.
+        leading = x.dims[:-6]
+        tensor = tensor.to(self.center.device).reshape(-1, *tensor.shape[-6:]).clone()
+        coords = OrderedDict(
+            batch=np.arange(tensor.shape[0]),
+            **{d: x.coords[d].values for d in x.dims[-6:]},
+        )
+        out = self._forward(tensor, coords)
+        signature = coord_array_like(
+            x,
+            {
+                "lead_time": x.lead_time.values[-1] + self.atmos_output_times,
+                "variable": _variable_labels(
+                    self.atmos_variables
+                    + self.atmos_diagnostic_variables
+                    + self.ocean_variables
+                    + self.ocean_diagnostic_variables
+                ),
+            },
+        )
+        out = out.reshape(*(x.sizes[d] for d in leading), *out.shape[1:])
+        result = from_torch(out, signature)
+        result.encoding = x.encoding.copy()
+        return result
 
-        coords = coords.copy()
-
-        yield x, coords
-
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-
-            x = self._forward(x, coords)
-            coords = self.output_coords(coords)
-
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-
-            yield x, coords.copy()
-
-            x, coords = self._next_step_inputs(x, coords)
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Creates a iterator which can be used to perform time-integration of the
         prognostic model. Will return the initial condition first (0th step).
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial history; hooks receive owned arrays in original dimensions.
 
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Final initial frame, then complete coupled cycles. Each cycle is one
+            output with one front/rear hook pair (``front_hook_interval = 1``).
         """
-        yield from self._default_generator(x, coords)
+        self.output_coords(x)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        state = self._initial_state(x)
+        while True:
+            state = self.front_hook(state.copy(deep=True))
+            out = self.rear_hook(self._advance_array(state))
+            state = (
+                out.isel(lead_time=slice(-len(self.full_input_times), None))
+                .sel(
+                    variable=_variable_labels(
+                        self.atmos_variables + self.ocean_variables
+                    )
+                )
+                .copy(deep=True)
+            )
+            yield out
 
 
 class DLESyMLatLon(DLESyM):
@@ -1271,7 +1290,7 @@ class DLESyMLatLon(DLESyM):
     Note
     ----
     See :class:`DLESyM` for more information about the prognostic model. Due to the internal
-    regridding, model hooks applied during iteration will need to operate on the HEALPix grid.
+    regridding, model hooks receive public lat/lon DataArrays during iteration.
 
     Example
     -------
@@ -1279,19 +1298,21 @@ class DLESyMLatLon(DLESyM):
     pkg = DLESyMLatLon.load_default_package()
     model = DLESyMLatLon.load_model(pkg)
 
-    # x and coords are data defined on appropriate lat/lon grid
-    x, coords = fetch_data(...)
+    # x is a field DataArray on the configured lat/lon grid
+    x = fetch_data(...)
 
     # Run model
-    x, coords = model(x, coords)
+    x = model(x)
 
     # Lat-lon outputs
-    atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
-    ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+    atmos_outputs = model.retrieve_valid_atmos_outputs(x)
+    ocean_outputs = model.retrieve_valid_ocean_outputs(x)
 
     # HEALPix outputs
-    atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
-    ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)
+    atmos_tensor, atmos_coords = atmos_outputs.e2s.to_torch()
+    atmos_outputs_hpx = model.to_hpx(atmos_tensor)
+    atmos_coords_hpx = model.coords_to_hpx(atmos_coords)
+    ```
 
     Badges
     ------
@@ -1365,7 +1386,7 @@ class DLESyMLatLon(DLESyM):
             torch.float32
         )
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of prognostic model
 
         Returns
@@ -1378,14 +1399,12 @@ class DLESyMLatLon(DLESyM):
 
         # Modify to use the base variables instead of the derived variables
         input_variables = [
-            v for v in list(coords["variable"]) if v not in ["tau300-700", "ws10m"]
+            v for v in coords["variable"].values if v not in ["tau300-700", "ws10m"]
         ]
         input_variables.extend(["u10m", "v10m", "z300", "z700"])
-        coords["variable"] = np.array(input_variables)
-        return coords
+        return coord_array_like(coords, {"variable": np.array(input_variables)})
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model
 
         Parameters
@@ -1398,9 +1417,7 @@ class DLESyMLatLon(DLESyM):
         CoordSystem
             Output coordinate system
         """
-        coords = super().output_coords(input_coords)
-        coords = self.coords_to_ll(coords)
-        return coords
+        return super().output_coords(input_coords)
 
     def to_hpx(self, x: torch.Tensor) -> torch.Tensor:
         """Regrid input data to HEALPix grid. Last 2 dimensions are assumed to be
@@ -1443,32 +1460,61 @@ class DLESyMLatLon(DLESyM):
         x = self.regrid_to_ll(x).reshape(*leading_dims, len(self.lat), len(self.lon))
         return x
 
-    def coords_to_hpx(self, coords: CoordSystem) -> CoordSystem:
+    def coords_to_hpx(self, coords: CoordinateSystem) -> CoordinateSystem:
         """Convenience method to pop out lat/lon dimensions from coords and replace with HEALPix"""
-        hpx_coords = coords.copy()
-        hpx_coords.pop("lat")
-        hpx_coords.pop("lon")
-        hpx_coords.update(
-            {
-                "face": np.arange(12),
-                "height": np.arange(self.nside),
-                "width": np.arange(self.nside),
-            }
+        return self._grid_signature(
+            coords,
+            ("lat", "lon"),
+            HEALPixGrid(
+                int(np.log2(self.nside)),
+                ordering="xy",
+                layout="face",
+                xy_origin="north",
+                xy_clockwise=True,
+            ),
         )
-        for dim in ["face", "height", "width"]:
-            hpx_coords.move_to_end(dim)
-        return hpx_coords
 
-    def coords_to_ll(self, coords: CoordSystem) -> CoordSystem:
+    def coords_to_ll(self, coords: CoordinateSystem) -> CoordinateSystem:
         """Convenience method to pop out HEALPix dimensions from coords and replace with lat/lon"""
-        ll_coords = coords.copy()
-        ll_coords.pop("face")
-        ll_coords.pop("height")
-        ll_coords.pop("width")
-        ll_coords.update({"lat": self.lat, "lon": self.lon})
-        for dim in ["lat", "lon"]:
-            ll_coords.move_to_end(dim)
-        return ll_coords
+        return self._grid_signature(
+            coords, ("face", "height", "width"), LatLonGrid(self.lat, self.lon)
+        )
+
+    def _grid_signature(
+        self, x: xr.DataArray, old_dims: tuple[str, ...], grid: HEALPixGrid | LatLonGrid
+    ) -> CoordinateSystem:
+        leading = tuple(d for d in x.dims if d not in old_dims)
+        grid_keys = {
+            "type",
+            "dims",
+            "shape",
+            "topology",
+            "crs",
+            "earth2studio_grid_id",
+            "earth2studio_crs",
+            "level",
+            "nside",
+            "ordering",
+            "layout",
+            "origin",
+            "clockwise",
+        }
+        return coord_array(
+            (*leading, *grid.dims),
+            {
+                k: v
+                for k, v in x.coords.items()
+                if not set(v.dims).intersection(old_dims)
+            },
+            sizes={d: x.sizes[d] for d in leading},
+            dynamic=tuple(
+                d for d in x.attrs.get("earth2studio_dynamic_dims", ()) if d in leading
+            ),
+            attrs={k: v for k, v in x.attrs.items() if k not in grid_keys},
+            name=x.name,
+            dtype=x.dtype,
+            grid=_registered_grid(grid),
+        )
 
     # Trailing window, in hours, over which the `ttr-3h` prognostic input
     # variable is accumulated. See `ttr_3h_query_times`/`compute_ttr_3h`
@@ -1619,7 +1665,9 @@ class DLESyMLatLon(DLESyM):
         prep_coords = coords.copy()
 
         # Fetch the base variables
-        base_vars = list(prep_coords["variable"])
+        base_vars = [
+            "ttr03" if v == "ttr:sum:-2h:1h" else v for v in prep_coords["variable"]
+        ]
         src_vars = {
             v: x[..., base_vars.index(v) : base_vars.index(v) + 1, :, :]
             for v in base_vars
@@ -1645,63 +1693,61 @@ class DLESyMLatLon(DLESyM):
 
         return x_out, prep_coords
 
+    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
+        tensor, coords = x.e2s.to_torch()
+        tensor, coords = self._prepare_derived_variables(
+            tensor.to(self.center.device).clone(), coords
+        )
+        signature = self.coords_to_hpx(
+            coord_array_like(
+                x, {"variable": _variable_labels(list(coords["variable"]))}
+            )
+        )
+        result = from_torch(self.to_hpx(tensor), signature)
+        result.encoding = x.encoding.copy()
+        return result
+
     @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs coupled DLESyM model forward 1 step, regridding to/from HEALPix grid
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Advance one coupled cycle, regridding only at the kernel boundary."""
+        signature = self.output_coords(x)
+        out = self._advance_array(self._initial_state(x))
+        tensor, _ = out.e2s.to_torch()
+        result = from_torch(self.to_ll(tensor), signature)
+        result.encoding = x.encoding.copy()
+        return result
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the input then coupled cycles, retaining HEALPix history.
 
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system for the prediction
+        Hooks see HEALPix fields with the caller's original leading dimensions.
+        One core advance emits one complete coupled-cycle DataArray.
+        Public-grid auxiliaries are retained separately; HEALPix hooks do not
+        receive them. Auxiliaries depending on replaced variables/leads are dropped.
         """
-        output_coords = self.output_coords(coords)
-
-        x, coords = self._prepare_derived_variables(x, coords)
-
-        x = self.to_hpx(x)
-        x = self._forward(x, self.coords_to_hpx(coords))
-        x = self.to_ll(x)
-        return x, output_coords
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
-        coords = coords.copy()
-
-        base_vars = coords["variable"]
-
-        x, coords = self._prepare_derived_variables(x, coords)
-
-        yield x, coords
-
-        x = self.to_hpx(x)
-
+        signature = self.output_coords(x)
+        spatial_coords = {
+            name: coord.variable.copy(deep=True)
+            for name, coord in signature.coords.items()
+            if name not in ("lat", "lon")
+            and set(coord.dims).intersection(("lat", "lon"))
+        }
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        state = self._initial_state(x)
         while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-
-            x = self._forward(x, self.coords_to_hpx(coords))
-
-            # Output coords expects the input variable set to include base variables,
-            # but will return the ouptut variables with the derived variables
-            base_coords = coords.copy()
-            base_coords["variable"] = base_vars
-            coords = self.output_coords(base_coords)
-
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-
-            yield self.to_ll(x), coords.copy()
-
-            x, coords = self._next_step_inputs(x, coords)
+            state = self.front_hook(state.copy(deep=True))
+            out = self.rear_hook(self._advance_array(state))
+            state = (
+                out.isel(lead_time=slice(-len(self.full_input_times), None))
+                .sel(
+                    variable=_variable_labels(
+                        self.atmos_variables + self.ocean_variables
+                    )
+                )
+                .copy(deep=True)
+            )
+            tensor, _ = out.e2s.to_torch()
+            signature = self.coords_to_ll(out).assign_coords(spatial_coords)
+            result = from_torch(self.to_ll(tensor), signature)
+            result.encoding = out.encoding.copy()
+            yield result

@@ -15,14 +15,68 @@
 # limitations under the License.
 
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 import earth2studio.models.px.dlesym as dlesym_src
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyM, DLESyMLatLon
-from earth2studio.utils import handshake_coords
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+EARTH2GRID_AVAILABLE = dlesym_src.earth2grid is not None
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch):
+    if dlesym_src.insolation is None:
+        monkeypatch.delitem(
+            OptionalDependencyFailure.failures, dlesym_src.__file__, raising=False
+        )
+        monkeypatch.setattr(
+            dlesym_src,
+            "insolation",
+            lambda times, lat, lon: np.zeros(
+                (len(times), *lat.shape), dtype=np.float32
+            ),
+        )
+
+    if not EARTH2GRID_AVAILABLE:
+
+        class Regrid(torch.nn.Module):
+            def __init__(self, source, target):
+                super().__init__()
+                self.target = target
+
+            def forward(self, x):
+                flat = x.flatten(1)
+                indexes = torch.linspace(
+                    0,
+                    flat.shape[1] - 1,
+                    int(np.prod(self.target.shape)),
+                    device=x.device,
+                ).long()
+                return flat[:, indexes].reshape(x.shape[0], *self.target.shape)
+
+        monkeypatch.setattr(
+            dlesym_src,
+            "earth2grid",
+            SimpleNamespace(
+                healpix=SimpleNamespace(
+                    HEALPIX_PAD_XY="xy",
+                    Grid=lambda level, **kw: SimpleNamespace(shape=(12 * 4**level,)),
+                ),
+                latlon=SimpleNamespace(
+                    equiangular_lat_lon_grid=lambda h, w: SimpleNamespace(shape=(h, w))
+                ),
+                get_regridder=Regrid,
+            ),
+        )
 
 
 class PhooAtmosModel(torch.nn.Module):
@@ -148,10 +202,46 @@ def test_dlesym_forward(device, grid_type, batch_size):
 
     # Test forward pass
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
-    output, output_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    assert isinstance(in_coords, xr.DataArray)
+    assert in_coords.data.nbytes == 0
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
+    field = from_torch(x, in_coords, name="state")
+    field.encoding = {"test": "dlesym"}
+    if grid_type == "hpx":
+        assert field.attrs["ordering"] == "xy"
+        assert field.attrs["origin"] == "north"
+        assert field.attrs["clockwise"] is True
+        assert "earth2studio_grid_id" not in field.attrs
+        for key, value in {
+            "origin": "south",
+            "clockwise": False,
+            "ordering": "nested",
+            "layout": "flat",
+            "level": 0,
+            "nside": 1,
+            "type": "LatLonGrid",
+            "topology": "rectilinear",
+            "dims": ["hpx"],
+            "shape": [12 * nside**2],
+        }.items():
+            bad = field.assign_attrs({key: value})
+            with pytest.raises(ValueError, match="HEALPix"):
+                model.output_coords(bad)
+        bad = field.copy(deep=False)
+        bad.attrs.pop("origin")
+        with pytest.raises(ValueError, match="HEALPix"):
+            model(bad)
+    else:
+        field = field.assign_coords(terrain=(("lat", "lon"), np.ones(spatial_dims)))
+        field.terrain.attrs["units"] = "m"
+    output = model(field)
+    output_coords = output.coords
+    assert output.name == field.name and output.encoding == field.encoding
+    expected_coords = model.output_coords(field)
+    if grid_type == "ll":
+        xr.testing.assert_identical(output.terrain, field.terrain)
     assert output.shape == (
         batch_size,
         len(time),
@@ -160,14 +250,13 @@ def test_dlesym_forward(device, grid_type, batch_size):
         *spatial_dims,
     )
     for key in output_coords:
-        handshake_coords(output_coords, expected_coords, key)
+        np.testing.assert_array_equal(output_coords[key], expected_coords[key])
     assert np.all(output_coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES)
 
     # Test retrieving valid outputs
-    atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(
-        output, output_coords
-    )
-    assert atmos_outputs.size() == (
+    atmos_outputs = model.retrieve_valid_atmos_outputs(output)
+    atmos_coords = atmos_outputs.coords
+    assert atmos_outputs.shape == (
         batch_size,
         len(time),
         len(dlesym_src._ATMOS_OUTPUT_TIMES),
@@ -176,9 +265,8 @@ def test_dlesym_forward(device, grid_type, batch_size):
     )
     assert np.all(atmos_coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES)
 
-    ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(
-        output, output_coords
-    )
+    ocean_outputs = model.retrieve_valid_ocean_outputs(output)
+    ocean_coords = ocean_outputs.coords
     assert ocean_outputs.shape == (
         batch_size,
         len(time),
@@ -193,6 +281,8 @@ def test_dlesym_forward(device, grid_type, batch_size):
 @pytest.mark.parametrize("batch_size", [1, 2])
 def test_dlesym_latlon_regridding(device, batch_size):
     """Test DLESyMLatLon regridding functionality."""
+    if not EARTH2GRID_AVAILABLE:
+        pytest.skip("Round-trip accuracy requires real Earth2Grid")
     nside = 64
     model = build_dlesym_model(device, type="ll")
 
@@ -200,11 +290,11 @@ def test_dlesym_latlon_regridding(device, batch_size):
     ll_coords = model.input_coords()
     hpx_coords = model.coords_to_hpx(ll_coords)
     for coord in ["lat", "lon"]:
-        assert coord not in hpx_coords
-        assert coord in ll_coords
+        assert coord not in hpx_coords.dims
+        assert coord in ll_coords.dims
     for coord in ["face", "height", "width"]:
-        assert coord in hpx_coords
-        assert coord not in ll_coords
+        assert coord in hpx_coords.dims
+        assert coord not in ll_coords.dims
 
     # Test regridding
     time = np.array([np.datetime64("2020-01-01T00:00")])
@@ -222,8 +312,9 @@ def test_dlesym_latlon_regridding(device, batch_size):
 
     # Test round-trip regridding
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
     x_hpx = model.to_hpx(x_ll)
     assert x_hpx.shape == (
         batch_size,
@@ -271,29 +362,52 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 
     # Test iterator
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
-    iterator = model.create_iterator(x, in_coords)
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
+    field = from_torch(x, in_coords)
+    field = field.rename(batch="member").drop_vars("member")
+    field.name = "history"
+    field.encoding = {"test": "history"}
+    if grid_type == "ll":
+        field = field.assign_coords(terrain=(("lat", "lon"), np.ones(spatial_dims)))
+        field.terrain.attrs["units"] = "m"
+    events = []
+
+    def front(state):
+        if grid_type == "ll":
+            assert "terrain" not in state.coords
+        assert state.dims[0] == "member" and "member" not in state.coords
+        events.append("front")
+        state.data[...] += 1
+        return state
+
+    def rear(state):
+        if grid_type == "ll":
+            assert "terrain" not in state.coords
+            state.attrs["rear"] = "retained"
+        assert state.dims[0] == "member"
+        events.append("rear")
+        return state
+
+    model.front_hook, model.rear_hook = front, rear
+    original = field.copy(deep=True)
+    iterator = model.create_iterator(field)
 
     # First yield should be initial condition
-    initial_x, initial_coords = next(iterator)
-    if grid_type == "hpx":
-        # Here we can check for identical match since input/output variables are the same
-        assert torch.allclose(initial_x, x)
-    else:
-        # Here just check shape
-        assert initial_x.shape == (
-            batch_size,
-            len(time),
-            len(lead_time),
-            len(output_vars),
-            *spatial_dims,
-        )
+    initial_x = next(iterator)
+    xr.testing.assert_identical(initial_x, field.isel(lead_time=slice(-1, None)))
+    saved = initial_x.copy(deep=True)
+    assert events == []
 
     # Test a few steps
     coupler_step = dlesym_src._ATMOS_OUTPUT_TIMES[-1]
     for i in range(3):
-        x, coords = next(iterator)
+        x = next(iterator)
+        if grid_type == "ll":
+            xr.testing.assert_identical(x.terrain, field.terrain)
+            assert x.attrs["rear"] == "retained"
+        coords = x.coords
         assert x.shape == (
             batch_size,
             len(time),
@@ -304,71 +418,25 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         assert np.all(
             coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES + coupler_step * i
         )
+    xr.testing.assert_identical(initial_x, saved)
+    xr.testing.assert_identical(field, original)
+    assert events == ["front", "rear"] * 3
 
 
 def test_dlesym_conformance():
-    """Check the mock HEALPix DLESyM model against the Earth2Studio model contract.
-
-    This is a genuine, verified violation (not a mock artifact), and P13/P16's
-    presence is now understood rather than just observed to vary — two
-    independent, confirmed bugs in DLESyM.prepare_output_data():
-
-    - P7 (always): the 0th yield's lead_time is wrong — it carries the
-      model's whole input history rather than just the analysis time.
-    - P13 (frequently, not always): prepare_output_data() allocates its
-      output tensor with `torch.empty` and only partially writes it — atmos
-      output covers every lead_time slot, but ocean output only covers
-      `ocean_output_lt_idx` (2 of this mock's 16 atmos_output_times), leaving
-      the rest of every ocean-variable column as uninitialized memory (~9.7%
-      of the tensor, confirmed by poisoning `torch.empty` and observing NaNs
-      in exactly that fraction). Two separate rollouts land on whatever
-      garbage the allocator hands back each time, which usually — but not
-      provably always — differs.
-    - P16 (frequently, not always): confirmed by direct inspection that a
-      yielded tensor's storage is genuinely mutated after being yielded and
-      cloned (not aliasing between consecutive yields — `yield 0` and
-      `yield 1` do not share storage — but `yield 1`'s own storage changes
-      between being produced and `yield 2` being produced). The likely site
-      is `_next_step_inputs`, which slices the just-yielded tensor
-      (`x[:, :, -len(self.full_input_times):, ...]`) and feeds that slice
-      back in as the next step's input; the exact downstream write has not
-      been pinned to one line.
-
-    P13 and P16 are independent failure modes (uninitialized memory vs. a
-    real aliasing bug) and have been observed in different combinations
-    across runs (this test, plus its DLESyMv0_ISCCP_ERA5 counterpart), so
-    still asserted as a bounded set rather than pinned exactly — this test
-    should not flake red/green over which combination shows up. Tracked in
-    test/models/test_model_conformance.py pending a wrapper fix to
-    prepare_output_data() (fill or explicitly mark the cells ocean doesn't
-    cover) and to whatever aliases into a yielded tensor's storage.
-    """
     model = build_dlesym_model("cpu", nside=8, type="hpx")
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    codes = {v.split(":")[0] for v in exc_info.value.violations}
-    assert "P7" in codes
-    assert codes <= {"P7", "P13", "P16"}
+    check_prognostic_contract(model)
+    model.atmos_variables = [
+        "ttr03" if v == "z500" else v for v in model.atmos_variables
+    ]
+    signature = model.input_coords()
+    assert signature["variable"].values[0] == "ttr:sum:-2h:1h"
+    assert "ttr:sum:-2h:1h" in signature.attrs["earth2studio_statistics"]
 
 
 def test_dlesym_latlon_conformance():
-    """Check the mock lat/lon DLESyM model against the Earth2Studio model contract.
-
-    Not independently executable here: earth2grid's CPU regridder
-    (get_bilinear_regridder_to -> get_interp_weights) segfaults on this
-    sandbox regardless of the requested device, unrelated to DLESyM's own
-    logic. DLESyMLatLon shares create_iterator()/rollout code with DLESyM
-    (see test_dlesym_conformance above), which is independently confirmed to
-    violate P7 (always) and, depending on uncontrolled state, P13 and/or P16,
-    so the same violations are expected here.
-    """
-    pytest.skip(
-        "earth2grid's CPU regridder segfaults in this sandbox; "
-        "DLESyMLatLon shares DLESyM's rollout logic, which is confirmed "
-        "non-conformant by test_dlesym_conformance (P7, plus P13 and/or P16)"
-    )
     model = build_dlesym_model("cpu", nside=8, type="ll")
-    assert check_prognostic_contract(model) == []
+    check_prognostic_contract(model)
 
 
 @pytest.mark.package
@@ -396,9 +464,11 @@ def test_dlesym_package(device):
 
     # Test forward pass
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
-    output, output_coords = model(x, in_coords)
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
+    output = model(from_torch(x, in_coords))
+    output_coords = output.coords
     expected_coords = model.output_coords(in_coords)
     assert output.shape == (
         batch_size,
@@ -408,5 +478,5 @@ def test_dlesym_package(device):
         *spatial_dims,
     )
     for key in output_coords:
-        handshake_coords(output_coords, expected_coords, key)
+        np.testing.assert_array_equal(output_coords[key], expected_coords[key])
     assert np.all(output_coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES)

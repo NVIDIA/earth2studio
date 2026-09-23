@@ -92,7 +92,7 @@ empty, and update the `all` aggregate.
 
 **Required inheritance (all three):**
 ```python
-class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class ModelName(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 ```
 
 **Required imports:**
@@ -100,9 +100,12 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 import numpy as np
 import torch
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.base import PrognosticMixin
-from earth2studio.models.utils import create_coords_from_lat_lon, handshake_dim
+import xarray as xr
+from earth2studio.models.batch import batch_func
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 from earth2studio.lexicon import E2STUDIO_VOCAB
 from earth2studio.utils import check_optional_dependencies
 from loguru import logger
@@ -115,7 +118,7 @@ from loguru import logger
 ```
 
 **Canonical method order:**
-1. `__init__` 2. `input_coords` 3. `output_coords` (@batch_coords)
+1. `__init__` 2. `input_coords` 3. `output_coords` (allocation-free)
 4. `load_default_package` 5. `load_model` 6. `to` (optional)
 7. Private methods 8. `__call__` (@batch_func) 9. `_default_generator`
 10. `create_iterator`
@@ -123,23 +126,30 @@ from loguru import logger
 ### Step 4 — Implement Coordinates
 
 **input_coords rules:**
-- `batch`: `np.empty(0)`
-- `time`: `np.empty(0)` (dynamic)
-- `lead_time`: starts at `np.timedelta64(0, "h")`
+- Return `coord_array(...)`, declaring dynamic leading axes explicitly with `dynamic=`.
+- Use `grid=` with the configured grid; never infer wildcard spatial axes from empty arrays.
+- `lead_time`: finite relative timedeltas, increasing and ending at zero.
 - `lat`: 90 to -90 (north to south); this is the public Earth2Studio convention even if the source model uses the opposite order
 - `lon`: 0 to 360
 - If a checkpoint/model core expects south-to-north latitude, flip tensors internally before/after the core model; do not expose flipped latitude in `input_coords` or `output_coords`
 - Map variables to `E2STUDIO_VOCAB` (282 entries in `earth2studio/lexicon/base.py`)
 
-**output_coords:** Use `handshake_dim`/`handshake_coords` for input validation, then increment `lead_time`. Prefer a shared coordinate-check helper and call it from `output_coords`, `__call__`, and iterator setup before model execution.
+**output_coords:** Validate finite timedelta history before subtracting its last entry.
+Use `handshake_dataarray` on that relative view, then `coord_array_like` to advance
+the final lead and retain metadata. Read labels via `.coords`, order via `.dims`,
+and shape via `.sizes`; never materialize signature `.values`.
 
 ### Step 5 — Implement Forward Pass
 
-**`__call__`:** @batch_func decorated, shape (batch, time, lead_time, var, lat, lon).
-Reshape to model format → call model → reshape back.
+**`__call__(x: xr.DataArray) -> xr.DataArray`:** use `@batch_func()` where the core
+needs packed leading dimensions. Convert with `.e2s.to_torch()` at the core boundary,
+reshape and compute, then `from_torch(output, output_signature)`. Clone borrowed
+storage before any in-place core operations. CPU fields use NumPy; CUDA uses CuPy.
 
 **`create_iterator`:** MUST yield initial condition first (step 0).
-Use `front_hook`/`rear_hook` for perturbation injection.
+Yield only the latest history entry initially. Hooks transform one DataArray in
+original leading dimensions and run only during iteration. Preserve cadence with
+`front_hook_interval` for multi-output cores. Earlier yields must remain unchanged.
 
 ### Step 6 — Implement Model Loading
 
@@ -264,34 +274,43 @@ Agent: [reads SKILL.md, fetches inference.py, creates pangu.py,
 
 ### Coordinate Template
 ```python
-@property
-def input_coords(self) -> CoordSystem:
-    return CoordSystem({
-        "batch": np.empty(0),
-        "time": np.empty(0),
-        "lead_time": np.array([np.timedelta64(0, "h")]),
-        "variable": np.array(["t2m", "u10m", ...]),
-        # Public Earth2Studio convention is north-to-south latitude.
-        "lat": np.linspace(90, -90, 181),
-        "lon": np.linspace(0, 359, 360),
-    })
+def input_coords(self) -> CoordinateSystem:
+    return coord_array(
+        ("batch", "lead_time", "variable", "lat", "lon"),
+        {"lead_time": np.array([0], dtype="timedelta64[h]"),
+         "variable": ["t2m", "u10m"]},
+        dynamic=("batch",), grid="latlon-0.25deg",
+    )
 
-@batch_coords()
-def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-    output = input_coords.copy()
-    output["lead_time"] = input_coords["lead_time"] + np.timedelta64(6, "h")
-    return output
+# See references/method-templates.py for relative-history validation and output planning.
 ```
 
 ### Iterator Template
 ```python
-def create_iterator(self, x, coords):
-    yield x, coords  # Initial condition (step 0)
+from copy import deepcopy
+
+def create_iterator(self, x: xr.DataArray):
+    self.output_coords(x)
+    x = x.copy(deep=True)
+    yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
     while True:
-        x, coords = self.front_hook(x, coords)
-        x, coords = self(x, coords)
-        x, coords = self.rear_hook(x, coords)
-        yield x, coords
+        x = self.front_hook(x.copy(deep=True))
+        output = self.rear_hook(self(x))
+        history = x.isel(lead_time=slice(1, None)).drop_vars(
+            [name for name in x.coords if name not in output.coords]
+        )
+        x = xr.concat([history, output], dim="lead_time", coords="minimal", compat="override")
+        x = x.assign_coords({
+            name: coord.variable.copy(deep=True)
+            for name, coord in output.coords.items() if "lead_time" not in coord.dims
+        })
+        x.name = output.name
+        for name, coord in output.coords.items():
+            if "lead_time" in coord.dims:
+                x.coords[name].attrs = deepcopy(coord.attrs)
+        x.attrs = deepcopy(output.attrs)
+        x.encoding = deepcopy(output.encoding)
+        yield output.copy(deep=True)
 ```
 
 ---
@@ -301,7 +320,7 @@ def create_iterator(self, x, coords):
 | Error | Solution |
 |-------|----------|
 | `OptionalDependencyFailure` | `uv add --optional <group> <pkg>` |
-| Coordinate handshake fails | Check `handshake_dim` indices match dim position |
+| Coordinate handshake fails | Check fixed `.dims`, labels, grid/CRS and qualified statistics |
 | Iterator wrong shapes | Debug reshape logic with random input |
 | `ModuleNotFoundError: pytest` | Use `uv run pytest` not `pytest` |
 
@@ -312,7 +331,7 @@ def create_iterator(self, x, coords):
 **DO:**
 - Use `uv run python` for ALL Python commands
 - Use `loguru.logger`, never `print()`
-- Inherit `torch.nn.Module + AutoModelMixin + PrognosticMixin`
+- Inherit `torch.nn.Module + AutoModelMixin + DataArrayPrognosticMixin`
 - Yield initial condition first in `create_iterator`
 - Use `front_hook()`/`rear_hook()` in `_default_generator`
 - Include SPDX header in every .py file

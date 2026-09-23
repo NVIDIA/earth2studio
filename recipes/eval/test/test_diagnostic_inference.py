@@ -60,7 +60,7 @@ def _make_diagnostic_pipeline(diagnostics):
     all_input_vars: list[str] = []
     seen: set[str] = set()
     for dx in pipeline.diagnostics:
-        for v in pipeline._dx_input_coords[id(dx)]["variable"]:
+        for v in pipeline._dx_input_coords[id(dx)].coords["variable"].values:
             if v not in seen:
                 all_input_vars.append(str(v))
                 seen.add(str(v))
@@ -75,6 +75,171 @@ def _make_diagnostic_pipeline(diagnostics):
 
 
 class TestBuildDiagnosticCoords:
+    def test_taiwan_example_writes_geographic_arrays(self):
+        import ast
+        from collections import OrderedDict
+        from datetime import datetime
+        from pathlib import Path
+
+        import xarray as xr
+        from loguru import logger
+
+        from earth2studio.data import Constant, DataSource
+        from earth2studio.grids import CurvilinearGrid
+        from earth2studio.io import IOBackend, ZarrBackend
+        from earth2studio.models.dx import CorrDiffTaiwan
+        from earth2studio.utils.coords import coord_array, split_coords
+        from earth2studio.utils.time import to_time_array
+
+        lat, lon = np.meshgrid([20.0, 21.0], [120.0, 121.0, 122.0], indexing="ij")
+
+        class RegionalDiagnostic:
+            number_of_samples = 1
+
+            def to(self, device):
+                return self
+
+            def input_coords(self):
+                return coord_array(
+                    ("batch", "variable", "lat", "lon"),
+                    {
+                        "variable": ["t2m"],
+                        "lat": [20.0, 21.0],
+                        "lon": [120.0, 121.0, 122.0],
+                    },
+                    dynamic=("batch",),
+                )
+
+            def output_coords(self, x):
+                return coord_array(
+                    ("time", "sample", "variable", "y", "x"),
+                    {"time": x.time, "sample": [0], "variable": ["t2m"]},
+                    grid=CurvilinearGrid(lat, lon),
+                )
+
+            def __call__(self, x):
+                signature = self.output_coords(x)
+                return xr.DataArray(
+                    np.full(signature.shape, 7.0),
+                    dims=signature.dims,
+                    coords=signature.coords,
+                )
+
+        path = (
+            Path(__file__).parents[3]
+            / "examples/03_downscaling/01_corrdiff_inference.py"
+        )
+        tree = ast.parse(path.read_text())
+        function = next(
+            n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "run"
+        )
+        namespace = dict(
+            np=np,
+            torch=torch,
+            datetime=datetime,
+            logger=logger,
+            DataSource=DataSource,
+            IOBackend=IOBackend,
+            CorrDiffTaiwan=CorrDiffTaiwan,
+            split_coords=split_coords,
+            to_time_array=to_time_array,
+        )
+        exec(  # noqa: S102 - execute the repository example without downloading weights
+            compile(ast.Module(body=[function], type_ignores=[]), str(path), "exec"),
+            namespace,
+        )
+        io = namespace["run"](
+            ["2024-01-01"],
+            RegionalDiagnostic(),
+            Constant(
+                OrderedDict(
+                    lat=np.array([20.0, 21.0]), lon=np.array([120.0, 121.0, 122.0])
+                ),
+                7,
+            ),
+            ZarrBackend(),
+        )
+        np.testing.assert_array_equal(io["lat"][:], lat)
+        np.testing.assert_array_equal(io["lon"][:], lon)
+        np.testing.assert_array_equal(io["t2m"][0, 0], 7)
+
+    def test_cosmo_example_rollout_skips_initial_and_selects_labels(self):
+        import ast
+        from collections import OrderedDict
+        from pathlib import Path
+
+        from earth2studio.models.px import DiagnosticWrapper, Persistence
+        from earth2studio.utils.coords import coord_array_like
+        from earth2studio.utils.cupy import from_torch
+
+        px = Persistence(
+            ["t2m", "u10m"], OrderedDict(lat=np.arange(2), lon=np.arange(3))
+        )
+        signature = coord_array_like(px.input_coords(), {"batch": [0]}).isel(
+            batch=0, drop=True
+        )
+        x = from_torch(torch.ones(signature.shape), signature).expand_dims(
+            time=[np.datetime64("2024-01-01")]
+        )
+
+        class Diagnostic(torch.nn.Module):
+            def input_coords(self):
+                return px.input_coords()
+
+            def __call__(self, field):
+                return (
+                    field.sel(variable=["t2m"])
+                    .isel(lead_time=0, drop=True)
+                    .assign_coords(time=field.time.values + field.lead_time.values[-1])
+                    .rename(lat="y", lon="x")
+                    .expand_dims(sample=[0])
+                    .transpose("variable", "sample", "time", "y", "x")
+                    + 280
+                )
+
+        wrapped = DiagnosticWrapper(
+            px,
+            Diagnostic(),
+            prepare_dx_input_tensor=lambda field, coords: field,
+            prepare_output_tensor=lambda field, outputs: outputs[0],
+        )
+        path = (
+            Path(__file__).parents[3]
+            / "examples/03_downscaling/04_cosmo_rea_downscaling.py"
+        )
+        nodes = ast.parse(path.read_text()).body
+        start = next(
+            i
+            for i, n in enumerate(nodes)
+            if isinstance(n, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "frames" for t in n.targets)
+        )
+        end = next(
+            i
+            for i, n in enumerate(nodes[start:], start)
+            if isinstance(n, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "leads" for t in n.targets)
+        )
+        namespace = dict(
+            wrapped=wrapped,
+            x=x,
+            np=np,
+            lead_hours=12,
+            dt_hours=6,
+            ov=["T_2M"],
+            init_time=np.datetime64("2024-01-01"),
+        )
+        exec(  # noqa: S102 - exercise the repository's rollout cell with real wrapper
+            compile(
+                ast.Module(body=nodes[start:end], type_ignores=[]), str(path), "exec"
+            ),
+            namespace,
+        )
+        assert list(namespace["frames"]) == [6, 12]
+        for frame in namespace["frames"].values():
+            assert frame.shape == (2, 3)
+            np.testing.assert_allclose(frame, 7.85, atol=1e-4)
+
     def test_single_diagnostic(self, fake_diagnostic):
         times = np.array([np.datetime64("2024-01-01")])
         coords = build_diagnostic_coords([fake_diagnostic], times)
@@ -281,7 +446,7 @@ class TestGenerativeDiagnosticSampleAxis:
         pipeline = _make_diagnostic_pipeline([fake_generative_diagnostic])
         items = [
             WorkItem(time=np.datetime64("2024-01-01"), ensemble_id=eid, seed=eid)
-            for eid in (2, 3, 4)
+            for eid in (2, 3, 4, 5)
         ]
         # Normally set by Pipeline.run() from its member_batch argument;
         # set directly here since the test drives run_item_batched itself.
@@ -291,11 +456,12 @@ class TestGenerativeDiagnosticSampleAxis:
             iter(pipeline.run_item_batched(items, data_source, torch.device("cpu")))
         )
 
-        assert fake_generative_diagnostic.number_of_samples == 3
+        assert fake_generative_diagnostic.rng_calls == [(2, True)]
+        assert fake_generative_diagnostic.number_of_samples == 4
         assert "sample" not in coords
         assert "ensemble" in coords
-        np.testing.assert_array_equal(coords["ensemble"], np.array([2, 3, 4]))
-        assert x.shape[list(coords).index("ensemble")] == 3
+        np.testing.assert_array_equal(coords["ensemble"], np.array([2, 3, 4, 5]))
+        assert x.shape[list(coords).index("ensemble")] == 4
 
     def test_deterministic_and_generative_diagnostics_align(
         self, fake_generative_diagnostic, fake_diagnostic, data_source

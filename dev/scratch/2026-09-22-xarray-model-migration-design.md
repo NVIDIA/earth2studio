@@ -40,6 +40,16 @@ Use `coord_array` and `coord_array_like`, registered grids, and concrete
 `GridDefinition` objects. Read dimensions through `.dims`/`.sizes` and labels
 through `.coords`; never materialize signature field storage.
 
+Every model must first check for a matching built-in registered grid and reuse
+it when available. Match coordinate values, axis order, pole inclusion, CRS,
+and, for HEALPix, ordering, layout, origin, and winding. Prefer existing grid
+classes for geometries without a registered match. Do not duplicate built-in
+axis definitions in model wrappers or attach a full-domain grid ID to a crop.
+Current registered choices include `latlon-0.25deg`,
+`latlon-0.25deg-south-pole-excluded`, `hrrr-conus-3km`, and
+`healpix-l6-nested`. A custom or cropped domain uses an appropriate concrete
+grid definition derived from its actual geometry.
+
 Dynamic axes form a leading prefix. Preserve arbitrary leading dimensions,
 coordinate ordering, supported auxiliary coordinates, CRS, grid identifiers,
 field name, and user metadata across model execution. Spatial changes construct

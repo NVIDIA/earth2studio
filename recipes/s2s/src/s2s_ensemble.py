@@ -14,23 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
-from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data, prep_data_array
+from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
+from earth2studio.run import _dimension_coords, _map_field
+from earth2studio.utils.coords import CoordSystem, split_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
 from .s2s_utilities import (
@@ -184,15 +186,15 @@ class S2SEnsembleRunner:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0, self.coords0 = prep_data_array(
-            fetch_data(
-                source=data,
-                time=self.time,
-                variable=self.prognostic_ic["variable"],
-                lead_time=self.prognostic_ic["lead_time"],
-                device="cpu",
-            ),
+        self.x0 = fetch_data(
+            source=data,
+            time=self.time,
+            variable=self.prognostic_ic.coords["variable"].values,
+            lead_time=self.prognostic_ic.coords["lead_time"].values,
+            device=self.device,
         )
+        self.x0 = _map_field(self.x0, self.prognostic_ic)
+        self.coords0 = _dimension_coords(self.x0)
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         return
@@ -254,7 +256,7 @@ class S2SEnsembleRunner:
         self.batch_size = min(self.nperturbed, batch_size)
         self.number_of_batches = ceil(self.nperturbed / self.batch_size)
 
-    def prep_loop(self, batch_id: int) -> tuple[Iterator[tuple], int, str, int]:
+    def prep_loop(self, batch_id: int) -> tuple[Iterator[xr.DataArray], int, str, int]:
         """Preparing mini batch for inference by setting ensemble IDs, perturbing
         ICs and creating the inference iterator of the prognostic model.
 
@@ -271,7 +273,7 @@ class S2SEnsembleRunner:
         """
 
         # Get fresh batch data
-        xx = self.x0.to(self.device)
+        xx = self.x0
 
         # calculate mini batch size and define coords for ensemble
         num_batches_per_ic = int(np.ceil(self.nperturbed / self.batch_size))
@@ -293,10 +295,10 @@ class S2SEnsembleRunner:
         } | self.coords0.copy()
 
         # Unsqueeze xx for batching ensemble
-        xx = xx.unsqueeze(0).repeat(mini_batch_size, *([1] * xx.ndim))
+        xx = xx.expand_dims(ensemble=coords["ensemble"]).copy(deep=True)
 
         # Map lat and lon if needed
-        xx, coords = map_coords(xx, coords, self.prognostic_ic)
+        xx = _map_field(xx, self.prognostic_ic)
 
         # set torch random seed for reproducibility
         # every batch gets different random seed by concatenating base string with batch id and using hash algortihm
@@ -306,11 +308,13 @@ class S2SEnsembleRunner:
 
         # Perturb ensemble
         # Use rank ordered execution to prevent race condition when using HENS perturbation
-        xx, coords = run_with_rank_ordered_execution(self.perturbation, xx, coords)
+        tensor, coords = run_with_rank_ordered_execution(
+            self.perturbation, *xx.e2s.to_torch()
+        )
+        xx = from_torch(tensor, xx.assign_coords(coords))
 
         # Create prognostic iterator
-        # This pipeline still uses the legacy tensor/coordinate model API.
-        model = cast(Callable, self.prognostic.create_iterator)(xx, coords)
+        model = self.prognostic.create_iterator(xx)
 
         return model, mini_batch_size, full_seed_string, torch_seed
 
@@ -366,21 +370,19 @@ class S2SEnsembleRunner:
                 desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
                 leave=False,
             ) as pbar:
-                for step, (xx, coords) in enumerate(model):
+                for step, xx in enumerate(model):
 
                     for dx_name, dx_model in self.dx_model_dict.items():
                         # select input vars, remove lead time dim and apply diagnostic model
-                        yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
-                        yy, codib = cast(Callable, dx_model)(yy, codia)
+                        yy = dx_model(_map_field(xx, self.dx_ic_dict[dx_name]))
 
                         # concatenate diagnostic variable to forecast vars
-                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
+                        xx = xr.concat((xx, yy), dim="variable", join="exact")
 
                     # pass output variables to io backend
                     for k in self.io_dict.keys():
                         output_coords = self.output_coords_dict[k]
-                        xx_sub, coords_sub = map_coords(xx, coords, output_coords)
-                        self.write(xx_sub, coords_sub)
+                        self.write(*_map_field(xx, output_coords).e2s.to_torch())
 
                     pbar.update(1)
                     if step == self.nsteps:

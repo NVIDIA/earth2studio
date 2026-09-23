@@ -14,20 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from collections.abc import Generator, Iterator
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.grids import GridDefinition
+from earth2studio.models._array_utils import _resolve_domain
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
-class DataReplay(torch.nn.Module, PrognosticMixin):
+class DataReplay(torch.nn.Module, DataArrayPrognosticMixin):
     """Replay a data source through the prognostic model interface.
 
     Data sources are queried at successive valid times. Forecast sources are queried
@@ -39,8 +40,8 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         Source to replay.
     variable : str | list[str]
         Variables to fetch.
-    domain_coords : CoordSystem
-        Spatial coordinates expected from the source.
+    domain_coords : CoordSystem | GridDefinition | str
+        Spatial coordinates, grid definition, or registered grid expected from the source.
     step : np.timedelta64, optional
         Time between frames, by default np.timedelta64(6, "h")
 
@@ -53,7 +54,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         self,
         source: DataSource | ForecastSource,
         variable: str | list[str],
-        domain_coords: CoordSystem,
+        domain_coords: CoordSystem | GridDefinition | str,
         step: np.timedelta64 = np.timedelta64(6, "h"),
     ) -> None:
         super().__init__()
@@ -68,144 +69,98 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         self.source = source
         self.step = step
         self._variable = np.asarray(variable).copy()
-        self._domain_coords = OrderedDict(
-            (key, np.asarray(value).copy()) for key, value in domain_coords.items()
-        )
-        self._input_coords = OrderedDict(
+        dims, coordinates, grid = _resolve_domain(domain_coords)
+        self._input_coords = coord_array(
+            ("batch", "time", "lead_time", "variable", *dims),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": self._variable,
-                **self._domain_coords,
-            }
+                **coordinates,
+            },
+            dynamic=("batch", "time"),
+            grid=grid,
         )
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model.
+    def input_coords(self) -> CoordinateSystem:
+        """Return the allocation-free signature with dynamic batch and time axes."""
+        return self._input_coords.copy(deep=True)
 
-        Returns
-        -------
-        CoordSystem
-            Input coordinate system.
-        """
-        return OrderedDict(
-            (key, np.asarray(value).copy()) for key, value in self._input_coords.items()
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate the domain and return the signature one source step ahead."""
+        self._require_time(input_coords)
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = input_coords.lead_time
+        if (
+            lead.dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("Input lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system one step ahead.
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system.
-
-        Returns
-        -------
-        CoordSystem
-            Output coordinate system.
-        """
-        target_coords = self.input_coords()
-        handshake_dim(input_coords, "lead_time", 2)
-        for index, key in enumerate(target_coords):
-            if key not in ("batch", "time", "lead_time"):
-                handshake_dim(input_coords, key, index)
-                handshake_coords(input_coords, target_coords, key)
-
-        output_coords = input_coords.copy()
-        output_coords["lead_time"] = input_coords["lead_time"][-1:] + self.step
-        return output_coords
+        return coord_array_like(input_coords, {"lead_time": lead.values + self.step})
 
     @staticmethod
-    def _require_time(coords: CoordSystem) -> None:
-        if "time" not in coords or len(coords["time"]) == 0:
+    def _require_time(coords: CoordinateSystem) -> None:
+        if "time" not in coords.coords or coords.sizes.get("time", 0) == 0:
             raise ValueError("DataReplay requires a non-empty time coordinate")
+        if (
+            coords.time.dims != ("time",)
+            or not np.issubdtype(coords.time.dtype, np.datetime64)
+            or np.isnat(coords.time).any()
+        ):
+            raise ValueError("DataReplay requires finite datetime time coordinates")
 
     @torch.inference_mode()
-    def _fetch(
-        self,
-        coords: CoordSystem,
-        batch_size: int,
-        device: torch.device,
-    ) -> torch.Tensor:
-        fetched, fetched_coords = fetch_data(
+    def _forward(self, x: xr.DataArray) -> xr.DataArray:
+        signature = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        fetched = fetch_data(
             self.source,
-            time=coords["time"],
+            time=signature.time,
             variable=self._variable,
-            lead_time=coords["lead_time"],
-            device=device,
+            lead_time=signature.lead_time,
+            device=tensor.device,
         )
-
-        for key in ("time", "lead_time", "variable", *self._domain_coords):
-            handshake_coords(fetched_coords, coords, key)
-        if not torch.isfinite(fetched).all():
+        # Validate the source domain before broadcasting over caller-owned axes.
+        source_signature = coord_array_like(
+            self.input_coords(),
+            {"time": signature.time, "lead_time": signature.lead_time},
+        )
+        handshake_dataarray(fetched, source_signature)
+        leading = signature.dims[: signature.dims.index("time")]
+        for dim in leading:
+            if dim not in fetched.dims:
+                fetched = fetched.expand_dims({dim: signature.coords[dim]})
+        fetched = fetched.transpose(*signature.dims)
+        if not torch.isfinite(fetched.e2s.to_torch()[0]).all():
             raise ValueError("DataReplay source returned non-finite values")
+        output = fetched.astype(x.dtype)
+        output = output.assign_coords(signature.coords)
+        output.name = x.name
+        output.attrs = {**x.attrs, **fetched.attrs}
+        output.encoding = x.encoding.copy()
+        return output
 
-        return fetched.unsqueeze(0).expand(batch_size, *fetched.shape).contiguous()
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Fetch the next source frame on the input device and with its dtype."""
+        return self._forward(x)
 
-    def _forward(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        self._require_time(coords)
-        output_coords = self.output_coords(coords)
-        output = self._fetch(output_coords, x.shape[0], x.device)
-        return output.to(x.dtype), output_coords
-
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Advance the source by one step.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Source data and coordinates one step ahead.
-        """
-        return self._forward(x, coords)
-
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        self._require_time(coords)
-        self.output_coords(coords)
-
-        coords = coords.copy()
-        coords["lead_time"] = coords["lead_time"][-1:]
-        x = x[:, :, -1:]
-        yield x, coords
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        self.output_coords(x)
+        yield x.copy(deep=True)
 
         while True:
-            x, coords = self.front_hook(x, coords)
-            x, coords = self._forward(x, coords)
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords
+            # Hooks may mutate fields and nested metadata in place.
+            x = self.front_hook(x.copy(deep=True))
+            x = self.rear_hook(self._forward(x))
+            yield x.copy(deep=False)
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create an iterator over source frames.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Initial condition tensor.
-        coords : CoordSystem
-            Initial condition coordinates.
-
-        Yields
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            Initial condition followed by source frames.
-        """
-        yield from self._default_generator(x, coords)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the initial field followed by successive source frames."""
+        yield from self._default_generator(x)

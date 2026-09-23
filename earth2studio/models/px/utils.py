@@ -27,13 +27,16 @@ ArrayHook = Callable[[xr.DataArray], xr.DataArray]
 
 
 class DataArrayPrognosticMixin:
-    """DataArray iterator hooks applied before and after each forecast step.
+    """DataArray iterator hooks around core advances and forecast outputs.
 
     Hooks receive the original leading dimensions and run only in iterators.
     Assign a callable to either slot, or use ``clear_hooks`` to reset both.
     """
 
     stochastic: bool = False
+    #: Number of forecast outputs produced by each front-hook/core advance.
+    #: Rear hooks run for every output; multi-output cores declare their cadence.
+    front_hook_interval: int = 1
 
     @staticmethod
     def _default_hook(x: xr.DataArray) -> xr.DataArray:

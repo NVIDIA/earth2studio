@@ -21,19 +21,21 @@ from collections.abc import Generator, Iterator
 import numpy as np
 import torch
 import torch.nn as nn
+import xarray as xr
 from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from physicsnemo import Module
@@ -43,7 +45,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     """Atlas CRPS ensemble prognostic model for ERA5 variables on a 0.25 degree global
     lat-lon grid.
 
@@ -111,8 +113,9 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model_processor = model_processor
         self.autoencoder = autoencoder
         self.autoencoder_processor = autoencoder_processor
+        self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system expected by AtlasCRPS.
 
         Notes
@@ -123,117 +126,93 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        CoordSystem
-            Ordered dictionary with keys:
+        CoordinateSystem
+            Allocation-free signature with coordinates:
             - 'lead_time' : np.ndarray[np.timedelta64] of shape (2,)
             - 'variable' : np.ndarray[str] of shape (n_variables,)
             - 'lat' : np.ndarray[float] of shape (721,)
             - 'lon' : np.ndarray[float] of shape (1440,)
         """
-        coords = CoordSystem(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
-                "lon": np.linspace(
-                    0.0,
-                    360.0,
-                    1440,
-                    dtype=np.float32,
-                    endpoint=False,
-                ),
-            }
+                "variable": ["tp:sum:6h" if v == "tp06" else v for v in VARIABLES],
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg",
         )
-        return coords
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system produced by a single AtlasCRPS step (t+6h).
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Coordinate system associated with the input to the forward pass.
 
         Returns
         -------
-        CoordSystem
-            Ordered dictionary with keys:
+        CoordinateSystem
+            Allocation-free output signature with coordinates:
             - 'time' : np.ndarray[np.datetime64] (copied from input if present)
             - 'lead_time' : np.timedelta64 set to +6h
             - 'variable' : np.ndarray[str] matching `VARIABLES`
             - 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
             - 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
         """
-        output_coords = CoordSystem(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([self.DT]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
-                "lon": np.linspace(
-                    0.0,
-                    360.0,
-                    1440,
-                    dtype=np.float32,
-                    endpoint=False,
-                ),
-            }
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("Input lead_time coordinate is required")
+        lead = input_coords.lead_time.values
+        if (
+            input_coords.lead_time.dims != ("lead_time",)
+            or lead.size != 2
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain two finite timedeltas")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
+        return coord_array_like(input_coords, {"lead_time": lead[-1:] + self.DT})
 
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
-        )
-
-        return output_coords
-
-    @batch_func()
     def prep_next_input(
         self,
-        x_pred: torch.Tensor,
-        coords_pred: CoordSystem,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x_pred: xr.DataArray,
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Prepare the next input for the AtlasCRPS model. Since the input requires two
         lead times but the model predicts one, we update a sliding window to make
         autoregressive predictions.
 
         Parameters
         ----------
-        x_pred : torch.Tensor
-            Predicted tensor from the previous step.
-        coords_pred : CoordSystem
-            Coordinates describing `x_pred`.
-        x : torch.Tensor
-            Input tensor from the previous step.
-        coords : CoordSystem
-            Coordinates describing `x`.
+        x_pred : xr.DataArray
+            Forecast from the previous step.
+        x : xr.DataArray
+            Previous two-frame history.
+
+        Returns
+        -------
+        xr.DataArray
+            Updated two-frame history, carrying prediction metadata.
         """
-        x_next = x.clone()
-        # Fill latest step with most recent prediction
-        x_next[:, :, 1:, :, :, :] = x_pred[:, :, :1, :, :, :]
-        # Shift the previous latest step to the earlier position
-        x_next[:, :, :1, :, :, :] = x[:, :, 1:, :, :, :]
-        coords_next = coords.copy()
-        coords_next["lead_time"] = coords_next["lead_time"] + self.DT
-        return x_next, coords_next
+        previous = x.isel(lead_time=slice(-1, None))
+        signature = coord_array_like(
+            x_pred,
+            {
+                "lead_time": np.concatenate(
+                    (previous.lead_time.values, x_pred.lead_time.values)
+                )
+            },
+        )
+        axis = x.get_axis_num("lead_time")
+        a, _ = previous.e2s.to_torch()
+        b, _ = x_pred.e2s.to_torch()
+        a = a.to(b.device)
+        result = from_torch(torch.cat((a, b), dim=axis), signature, name=x_pred.name)
+        result.encoding = x_pred.encoding.copy()
+        return result
 
     @torch.inference_mode()
     def _forward(
@@ -305,66 +284,41 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return pred, (low_res, state_latent)
 
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of the prognostic model, integrating a single 6h step.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict a six-hour DataArray from two input frames, without hooks."""
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor of shape (..., lead_time, variable, lat, lon) corresponding
-            to the coordinate system. Lead times expected: [-6h, 0h].
-        coords : CoordSystem
-            Coordinate dictionary describing `x`.
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor advanced to t+6h and its coordinate system.
-        """
-
-        # Sanitize NaNs in input sst
-        if torch.isnan(x).any():
-            logger.info("AtlasCRPS input contains NaNs, replacing with 0.0")
-            x = torch.nan_to_num(x, nan=0.0)
-
-        output_coords = self.output_coords(coords)
-        out = torch.empty_like(x[:, :, :1])
-
-        # Loop over init times
-        for i, _ in enumerate(coords["batch"]):
-            for j, _ in enumerate(coords["time"]):
-                slice_coords = coords.copy()
-                slice_coords["time"] = slice_coords["time"][j : j + 1]
-                pred, _ = self._forward(x[i, j, :], slice_coords)
-                out[i, j, :] = pred
-
-        return out, output_coords
+        out, _ = self._call_with_latents(x)
+        return out
 
     @torch.inference_mode()
     def _call_with_latents(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
+        x: xr.DataArray,
         prev_latents: (
             list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None
         ) = None,
     ) -> tuple[
-        torch.Tensor,
-        CoordSystem,
+        xr.DataArray,
         list[list[tuple[torch.Tensor, torch.Tensor] | None]],
     ]:
         """Internal helper that handles cached latents during autoregressive rollout."""
 
-        # Sanitize NaNs in input sst
-        if torch.isnan(x).any():
+        self.output_coords(x)
+        if (
+            "time" not in x.coords
+            or x.time.dims != ("time",)
+            or not np.issubdtype(x.time.dtype, np.datetime64)
+            or np.isnat(x.time.values).any()
+        ):
+            raise ValueError("time must contain finite datetimes")
+        packed, restore = batch_func()._compress_array(self, x)
+        signature = self.output_coords(packed)
+        tensor, coords = packed.e2s.to_torch()
+        tensor = tensor.to(self.device_buffer.device).clone()
+        if torch.isnan(tensor).any():
             logger.info("AtlasCRPS input contains NaNs, replacing with 0.0")
-            x = torch.nan_to_num(x, nan=0.0)
-
-        output_coords = self.output_coords(coords)
-        out = torch.empty_like(x[:, :, :1])
+            tensor = torch.nan_to_num(tensor, nan=0.0)
+        out = torch.empty_like(tensor[:, :, :1])
         latents_out: list[list[tuple[torch.Tensor, torch.Tensor] | None]] = [
             [None for _ in coords["time"]] for _ in coords["batch"]
         ]
@@ -376,64 +330,33 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 latents = None
                 if prev_latents is not None:
                     latents = prev_latents[i][j]
-                pred, pred_latents = self._forward(x[i, j, :], slice_coords, latents)
+                pred, pred_latents = self._forward(
+                    tensor[i, j, :], slice_coords, latents
+                )
                 out[i, j, :] = pred
                 latents_out[i][j] = pred_latents
 
-        return out, output_coords, latents_out
+        result = from_torch(out, signature, name=x.name)
+        result.encoding = x.encoding.copy()
+        return restore(result), latents_out
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create an iterator that yields the initial state then successive 6h steps.
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield the final input frame then six-hour forecasts with cached latents."""
+        yield from self._default_generator(x)
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            Initial data tensor on device representing the initial condition.
-        coords : CoordSystem
-            Coordinate system for the initial data tensor.
-
-        Yields
-        ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator yielding successive model outputs and their coordinates.
-        """
-        yield from self._default_generator(x, coords)
-
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        # Validate coords
-        _ = self.output_coords(coords)
-
-        # Sanitize NaNs in input sst
-        if torch.isnan(x).any():
-            logger.info("AtlasCRPS input contains NaNs, replacing with 0.0")
-            x = torch.nan_to_num(x, nan=0.0)
-
-        # Yield initial condition
-        ic_coords = coords.copy()
-        ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
-        yield x[:, :, -1:, :, :, :], ic_coords
-
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        self.output_coords(x)
+        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         latent_cache: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None
         while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            # Forward
-            x_pred, coords_pred, latent_cache = self._call_with_latents(
-                x, coords, prev_latents=latent_cache
-            )
-            # Rear hook
-            x_pred, coords_pred = self.rear_hook(x_pred, coords_pred)
-            yield x_pred, coords_pred.copy()
-
-            # Prepare next input
-            x, coords = self.prep_next_input(x_pred, coords_pred, x, coords)
+            if self.front_hook is not self._default_hook:
+                x = self.front_hook(x.copy(deep=True))
+            x_pred, latent_cache = self._call_with_latents(x, prev_latents=latent_cache)
+            x_pred = self.rear_hook(x_pred)
+            yield x_pred
+            x = self.prep_next_input(x_pred, x)
 
     @classmethod
     def load_default_package(cls) -> Package:

@@ -563,9 +563,10 @@ class Pipeline(ABC):
           or ``component.set_rng(seed=item.seed)`` when the hook takes no
           ``reset`` argument (e.g. Aurora 1.5, which always resets its
           noise cache).
-        * has ``number_of_samples`` and ``seed`` — sample-indexed draw;
-          ``component.seed = item.seed`` and ``component.number_of_samples``
-          is set from :attr:`_members_per_rank`.  Member ``m`` of IC ``t``
+        * otherwise has ``number_of_samples`` and ``seed`` — sample-indexed draw;
+          ``component.seed = item.seed``. Independently of the RNG mechanism,
+          ``component.number_of_samples`` is set from :attr:`_members_per_rank`
+          whenever that attribute is present. Member ``m`` of IC ``t``
           is then a reproducible, independent draw indexed by ``(t, m)`` —
           it is not required to equal the ``m``-th sample of a
           single-process, ``M``-sample call.
@@ -586,6 +587,7 @@ class Pipeline(ABC):
                     component.set_rng(seed=item.seed)
             elif hasattr(component, "number_of_samples") and hasattr(component, "seed"):
                 component.seed = item.seed
+            if hasattr(component, "number_of_samples"):
                 component.number_of_samples = self._members_per_rank
 
     def known_missing_leads(self) -> set[np.timedelta64]:

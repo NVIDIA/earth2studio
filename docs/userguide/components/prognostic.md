@@ -32,7 +32,7 @@ The full requirements for a standard prognostic model are defined explicitly in 
 
 Prognostic models also tend to extend two classes:
 
-- `earth2studio.models.px.utils.PrognosticMixin`: A utility class that
+- `earth2studio.models.px.utils.DataArrayPrognosticMixin`: A utility class that
 defines iterator hooks used in all the built-in models. These provide a finer level
 of control over the time-series prediction of models.
 - `earth2studio.models.auto.AutoModel`: Defines APIs for models that have
@@ -58,15 +58,20 @@ model = PrognosticModel.load_model(model_package)
 ### Single Step Prediction
 
 A prognostic model can be called for a single time-step using the call function.
-The function takes a data tensor and coordinate system (refer to
+The function takes a field DataArray with labelled coordinates (refer to
 [Data Movement](../about/overview.md#data_userguide) for the structure) and
 returns the predicted output.
 
 ```python
 # Assume model is an instance of a PrognosticModel
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-x, coords = model(x, coords)  # Predict a single time-step
+signature = model.input_coords()
+x = fetch_data(source, time, signature["variable"].values, signature.lead_time.values)
+# For a matching native lat/lon source, select the configured domain explicitly.
+# Regrid incompatible source geometry before validation; target_grid is currently
+# a pass-through, not a regridding operation.
+x = x.sel(lat=signature.lat.values, lon=signature.lon.values)
+handshake_dataarray(x, signature)
+x = model(x)  # Predict a single time-step
 ```
 
 ### Time-series Prediction
@@ -76,12 +81,11 @@ data source to generate time-series data as the model rolls out.
 
 ```python
 # Assume model is an instance of a PrognosticModel
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-model_iterator = model.create_iterator(x, coords)  # Create iterator for time integration
-for step, (x, coords) in enumerate(model_iterator):
+model_iterator = model.create_iterator(x)  # x is a field DataArray
+for step, x in enumerate(model_iterator):
     # Perform operations for each time-step
     # First output should always be time-step 0 (the input)
+    print(x.lead_time.values)
 ```
 
 ## Custom Prognostic Models

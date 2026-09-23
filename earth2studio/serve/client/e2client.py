@@ -15,7 +15,6 @@
 # limitations under the License.
 
 
-from collections import OrderedDict
 from collections.abc import Iterator
 from typing import Any, Literal
 from urllib.parse import urljoin
@@ -31,10 +30,9 @@ import xarray as xr
 
 from earth2studio.data import (  # type: ignore[import-untyped]
     InferenceOutputSource,
-    fetch_data,
 )
 from earth2studio.models.auto import AutoModelMixin  # type: ignore[import-untyped]
-from earth2studio.models.px.utils import PrognosticMixin  # type: ignore[import-untyped]
+from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.serve.client import fsspec_utils
 from earth2studio.serve.client.client import Earth2StudioClient
 from earth2studio.serve.client.exceptions import Earth2StudioAPIError
@@ -43,7 +41,8 @@ from earth2studio.serve.client.models import (
     InferenceRequestResults,
     StorageType,
 )
-from earth2studio.utils.type import CoordSystem  # type: ignore[import-untyped]
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.type import CoordinateSystem
 
 
 class RemoteEarth2Workflow:
@@ -263,7 +262,7 @@ class RemoteEarth2WorkflowResult:
         Returns
         -------
         InferenceOutputModel
-            Model that yields (tensor, coordinate_system) per time step.
+            Model that yields a field DataArray per time step.
         """
         data_source = self.as_data_source()
         return InferenceOutputModel(
@@ -272,46 +271,21 @@ class RemoteEarth2WorkflowResult:
 
 
 def _convert_time_to_lead_time(
-    x: torch.Tensor, coords: CoordSystem, start_time: np.datetime64
-) -> tuple[torch.Tensor, CoordSystem]:
-    """
-    Convert time coordinate to lead_time coordinate.
-
-    Transforms absolute time coordinates to lead times relative to start_time,
-    adding a time dimension with the start time.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input tensor.
-    coords : CoordSystem
-        Coordinate system containing time coordinates.
-    start_time : np.datetime64
-        Reference start time for lead time calculation.
-
-    Returns
-    -------
-    tuple[torch.Tensor, CoordSystem]
-        Transformed tensor and updated coordinate system.
-    """
-    coords = coords.copy()
-    time = coords["time"]
-    dims = list(coords.keys())
-    time_dim = dims.index("time")
-    if "lead_time" not in dims:
-        raise ValueError(
-            "Cannot convert to lead_time: 'lead_time' coordinate not found in "
-            f"fetch_data output. Available coords: {dims}"
-        )
-    lead_time_dim = dims.index("lead_time")
-    lead_time = time - start_time
-    coords["time"] = np.array([start_time])
-    coords["lead_time"] = lead_time
-    x = x.transpose(time_dim, lead_time_dim)
-    return (x, coords)
+    x: xr.DataArray, start_time: np.datetime64
+) -> xr.DataArray:
+    if x.sizes.get("lead_time") != 1:
+        raise ValueError("Time conversion requires a singleton lead_time dimension")
+    lead = x.time.values + x.lead_time.values[0] - start_time
+    dims = x.dims
+    result = x.isel(lead_time=0, drop=True).rename(time="lead_time")
+    return (
+        result.assign_coords(lead_time=lead)
+        .expand_dims(time=[start_time])
+        .transpose(*dims)
+    )
 
 
-class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
+class InferenceOutputModel(AutoModelMixin, DataArrayPrognosticMixin):
     """
     Prognostic model wrapper for inference output data sources.
 
@@ -345,45 +319,39 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         self.variables = np.array(variables)
         self.device = device
 
-    def input_coords(self) -> CoordSystem:
-        """
-        Return empty input coordinate system.
-
-        This model reads from a pre-computed data source and requires no input
-        coordinates.
-
-        Returns
-        -------
-        CoordSystem
-            Empty ordered dictionary of coordinates.
-        """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array([]),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
+    def input_coords(self) -> CoordinateSystem:
+        """Declare the selected variables and stored spatial coordinates."""
+        source = self.data_source.da.sel(variable=self.variables)
+        spatial = tuple(d for d in source.dims if d not in ("time", "variable"))
+        coordinates = {
+            name: value.variable
+            for name, value in source.coords.items()
+            if "time" not in value.dims and name != "time"
+        }
+        coordinates["lead_time"] = np.array([0], dtype="timedelta64[h]")
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", *spatial),
+            coordinates,
+            dynamic=("batch", "time"),
+            attrs=source.attrs,
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """
         Generate output coordinate system based on data source coordinates.
 
-        Constructs the coordinate system for output tensors. Time step is inferred
+        Constructs an allocation-free signature. Time step is inferred
         from the first two time coordinates if available, otherwise defaults to 6 hours.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system (unused; kept for interface compatibility).
+        input_coords : CoordinateSystem
+            Input declaration or field coordinates.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system with batch, time, lead_time, variable, lat, lon.
+        CoordinateSystem
+            Coordinate signature for the next stored step.
         """
         time_coord = self.data_source.da.coords["time"][:2].values
         if len(time_coord) >= 2:
@@ -391,17 +359,17 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         else:
             # use a placeholder if we only have one time step of data
             time_step = np.timedelta64(6, "h")
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([time_step]),
-                "variable": self.variables,
-                "lat": self.data_source.da.coords["lat"].values,
-                "lon": self.data_source.da.coords["lon"].values,
-            }
+        lead = input_coords.lead_time.values
+        if (
+            lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        return output_coords
+        return coord_array_like(input_coords, {"lead_time": lead + time_step})
 
     def to(self, device: torch.device | str) -> "InferenceOutputModel":
         """
@@ -420,9 +388,7 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
         self.device = device
         return self
 
-    def __call__(
-        self, x: torch.Tensor | None = None, coords: CoordSystem | None = None
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray | None = None) -> xr.DataArray:
         """
         Execute single time-step from the data source.
 
@@ -431,21 +397,43 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        x : torch.Tensor, optional
-            Input tensor (unused; kept for interface compatibility).
-        coords : CoordSystem, optional
-            Input coordinate system (unused; kept for interface compatibility).
+        x : xr.DataArray, optional
+            Input field (unused; stored results are read in their original order).
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system for the first time step.
+        xr.DataArray
+            Field for the first stored time step. Iterator hooks are not applied.
         """
-        return next(self.create_iterator(x, coords))
+        return self._read_step(self.data_source.da.time.values[0])
 
-    def create_iterator(
-        self, x: torch.Tensor | None = None, coords: CoordSystem | None = None
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+    def _read_step(self, time: np.datetime64) -> xr.DataArray:
+        # Stored labels already describe computed quantities; fetch_data would
+        # interpret qualified labels as requests for another temporal reduction.
+        field = self.data_source(np.array([time]), self.variables).copy(deep=True)
+        signature = self.input_coords()
+        # Derive only the selected labels' statistics, without reducing stored values
+        # or replacing the source's user/grid metadata with signature-only attrs.
+        field.attrs.pop("earth2studio_statistics", None)
+        if "earth2studio_statistics" in signature.attrs:
+            field.attrs["earth2studio_statistics"] = signature.attrs[
+                "earth2studio_statistics"
+            ]
+        field = field.expand_dims(
+            lead_time=np.array([0], dtype="timedelta64[h]")
+        ).transpose(*signature.dims[1:])
+        if self.iter_coord == "lead_time":
+            field = _convert_time_to_lead_time(
+                field, self.data_source.da.time.values[0]
+            )
+        device = torch.device(self.device)
+        if device.type == "cuda":
+            return field.e2s.as_cupy(device.index)
+        if device.type != "cpu":
+            raise ValueError("Stored output replay supports only CPU and CUDA")
+        return field.e2s.as_numpy()
+
+    def create_iterator(self, x: xr.DataArray | None = None) -> Iterator[xr.DataArray]:
         """
         Create iterator over time steps from the data source.
 
@@ -454,26 +442,14 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        x : torch.Tensor, optional
-            Input tensor (unused; kept for interface compatibility).
-        coords : CoordSystem, optional
-            Input coordinate system (unused; kept for interface compatibility).
+        x : xr.DataArray, optional
+            Input field (unused; stored results are read in their original order).
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
-            (tensor, coordinate_system) for each time step in the data source.
+        xr.DataArray
+            Field for each stored time step, on the selected device.
         """
         times = self.data_source.da.coords["time"].values
-        start_time = times[0]
         for time in times:
-            x, coords = fetch_data(
-                self.data_source,
-                time=np.array([time]),
-                variable=self.variables,
-                device=self.device,
-            )
-            if self.iter_coord == "lead_time":
-                x, coords = _convert_time_to_lead_time(x, coords, start_time)
-
-            yield (x, coords)
+            yield self._read_step(time)

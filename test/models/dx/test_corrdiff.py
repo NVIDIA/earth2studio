@@ -26,10 +26,77 @@ import pytest
 import torch
 import xarray as xr
 
+import earth2studio.models.dx.corrdiff as corrdiff_module
 from earth2studio.models.auto import Package
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiff
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+def _input_field(model, tensor, coordinates):
+    signature = model.input_coords()
+    spatial = tuple(signature.attrs["dims"])
+    labels = {k: np.asarray(v) for k, v in coordinates.items()}
+    if signature.lat.ndim == 2:
+        labels["lat"] = (spatial, labels["lat"])
+        labels["lon"] = (spatial, labels["lon"])
+        for dim in spatial:
+            labels[dim] = signature.coords[dim]
+    dims = tuple(k for k in coordinates if k not in ("lat", "lon", "hpx")) + spatial
+    if "time" in labels and "time" not in signature.dims:
+        dims = tuple(d for d in dims if d != "time")
+        labels["time"] = ("batch", labels["time"])
+    shape = tuple(tensor.shape)
+    # Keep invalid coordinate tests on the public DataArray path.
+    array = xr.DataArray(
+        tensor.cpu().numpy(), dims=dims, coords=labels, attrs=signature.attrs
+    )
+    array.attrs = {
+        k: v
+        for k, v in array.attrs.items()
+        if k
+        not in (
+            "earth2studio_kind",
+            "earth2studio_schema_version",
+            "earth2studio_dynamic_dims",
+        )
+    }
+    assert array.shape == shape
+    return array.e2s.as_cupy(tensor.device.index) if tensor.is_cuda else array
+
+
+@pytest.fixture(autouse=True)
+def offline_corrdiff(monkeypatch):
+    if corrdiff_module.PhysicsNemoModule is not None:
+        return
+    monkeypatch.delitem(
+        OptionalDependencyFailure.failures, corrdiff_module.__file__, raising=False
+    )
+    monkeypatch.setattr(corrdiff_module, "stochastic_sampler", lambda *a, **kw: None)
+    monkeypatch.setattr(corrdiff_module, "deterministic_sampler", lambda *a, **kw: None)
+
+    def regression_step(*, net, img_lr, latents_shape, **kwargs):
+        return net(torch.zeros(latents_shape, device=img_lr.device), img_lr=img_lr)
+
+    def diffusion_step(*, img_shape, img_out_channels, rank_batches, device, **kwargs):
+        return torch.stack(
+            [
+                torch.randn(
+                    (img_out_channels, *img_shape),
+                    device=device,
+                    generator=torch.Generator(device=device).manual_seed(int(seed)),
+                )
+                for seeds in rank_batches
+                for seed in seeds
+            ]
+        )
+
+    monkeypatch.setattr(
+        corrdiff_module, "regression_step", regression_step, raising=False
+    )
+    monkeypatch.setattr(
+        corrdiff_module, "diffusion_step", diffusion_step, raising=False
+    )
 
 
 class MockPhysicsNemoModule(torch.nn.Module):
@@ -392,7 +459,22 @@ class TestCorrDiffForward:
         )
 
         # Run model
-        out, out_coords = model(x, coords)
+        field = _input_field(model, x, coords)
+        field.name = "weather"
+        field.attrs["user"] = {"notes": ["input"]}
+        field.encoding["user"] = {"notes": ["input"]}
+        field.coords["batch"].attrs["user"] = {"notes": ["input"]}
+        out = model(field)
+        out_coords = out.coords
+        assert model.input_coords().data.nbytes == 0
+        assert out.name == field.name
+        assert out.encoding == field.encoding
+        out.attrs["user"]["notes"].append("output")
+        out.encoding["user"]["notes"].append("output")
+        out.coords["batch"].attrs["user"]["notes"].append("output")
+        assert field.attrs["user"]["notes"] == ["input"]
+        assert field.encoding["user"]["notes"] == ["input"]
+        assert field.coords["batch"].attrs["user"]["notes"] == ["input"]
 
         # Check output shape
         expected_shape = (
@@ -411,11 +493,7 @@ class TestCorrDiffForward:
         assert out_coords["lon"].shape == (320, 320)
 
         # Verify coordinate dimensions
-        handshake_dim(out_coords, "lon", 4)
-        handshake_dim(out_coords, "lat", 3)
-        handshake_dim(out_coords, "variable", 2)
-        handshake_dim(out_coords, "sample", 1)
-        handshake_dim(out_coords, "batch", 0)
+        assert out.dims == ("batch", "sample", "variable", "y", "x")
 
     @pytest.mark.parametrize(
         "invalid_coords",
@@ -445,7 +523,13 @@ class TestCorrDiffForward:
 
         x = torch.randn((1, len(invalid_coords["variable"]), 36, 40))
         with pytest.raises(ValueError):
-            model(x, invalid_coords)
+            model(
+                xr.DataArray(
+                    x.numpy(),
+                    dims=("batch", "variable", "lat", "lon"),
+                    coords=invalid_coords,
+                )
+            )
 
     def test_corrdiff_time_coord_type_validation(
         self,
@@ -488,12 +572,12 @@ class TestCorrDiffForward:
             # `len(coords)` matches `x.ndim`. Since "time" is an optional *metadata*
             # key (not a tensor dimension), we call the undecorated implementation
             # here to unit-test the time validation logic directly.
-            model.__call__.__wrapped__(model, x, bad_coords)
+            model(_input_field(model, x, bad_coords))
 
         # Accepted dtype: numpy datetime64 per batch element
         ok_coords = coords.copy()
         ok_coords["time"] = np.array(["2020-01-01T00:00:00"], dtype="datetime64[ns]")
-        out, _ = model.__call__.__wrapped__(model, x, ok_coords)
+        out = model(_input_field(model, x, ok_coords))
         assert out.shape[0] == 1
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -524,13 +608,13 @@ class TestCorrDiffForward:
         wrong_coords = coords.copy()
         wrong_coords["lat"] = np.linspace(90, -90, 720)  # Wrong lat dimension
         with pytest.raises(ValueError):
-            model(x, wrong_coords)
+            model(_input_field(model, x, wrong_coords))
 
         # Test missing required coordinates
         wrong_coords = coords.copy()
         del wrong_coords["lat"]
         with pytest.raises(ValueError):
-            model(x, wrong_coords)
+            model(_input_field(model, x, coords).drop_vars("lat"))
 
         # Test incorrect latlon_grid
         with pytest.raises(ValueError):
@@ -653,7 +737,7 @@ class TestCorrDiffForward:
             }
         )
 
-        out, out_coords = model(x, coords)
+        out = model(_input_field(model, x, coords))
 
         # Check that invariants are properly handled
         assert model.invariants is not None
@@ -697,21 +781,23 @@ class TestCorrDiffForward:
 
         # Test input coordinates
         input_coords = model.input_coords()
-        assert "batch" in input_coords
-        assert "variable" in input_coords
-        assert "lat" in input_coords
-        assert "lon" in input_coords
+        assert "batch" in input_coords.dims
+        assert "variable" in input_coords.coords
+        assert "lat" in input_coords.coords
+        assert "lon" in input_coords.coords
+        assert input_coords.data.nbytes == 0
         assert len(input_coords["variable"]) == len(
             sample_model_params["input_variables"]
         )
 
         # Test output coordinates
         output_coords = model.output_coords(input_coords)
-        assert "batch" in output_coords
-        assert "sample" in output_coords
-        assert "variable" in output_coords
-        assert "lat" in output_coords
-        assert "lon" in output_coords
+        assert "batch" in output_coords.dims
+        assert "sample" in output_coords.coords
+        assert "variable" in output_coords.coords
+        assert "lat" in output_coords.coords
+        assert "lon" in output_coords.coords
+        assert output_coords.data.nbytes == 0
         assert len(output_coords["variable"]) == len(
             sample_model_params["output_variables"]
         )
@@ -733,9 +819,7 @@ class TestCorrDiffForward:
             regression_model=mock_regression_model,
             **sample_model_params,
         )
-        assert check_diagnostic_contract(model) == [
-            "D10: model does not declare itself stochastic"
-        ]
+        assert check_diagnostic_contract(model) == []
 
     def test_corrdiff_seed_reproducibility(
         self, mock_residual_model, mock_regression_model, sample_model_params
@@ -770,12 +854,12 @@ class TestCorrDiffForward:
         )
 
         # Results should be identical with same seed
-        out1, _ = model1(x, coords)
-        out2, _ = model2(x, coords)
+        out1 = model1(_input_field(model1, x, coords))
+        out2 = model2(_input_field(model2, x, coords))
 
         # Note: This test might fail if the mock models have non-deterministic behavior
         # In practice, with real models, this should pass
-        torch.testing.assert_close(out1, out2)
+        xr.testing.assert_identical(out1, out2)
 
     def test_corrdiff_load_default_package(
         self,
@@ -864,7 +948,7 @@ class TestCorrDiffForward:
             inference_mode="regression",
             **sample_model_params,
         )
-        out_reg, _ = model_reg(x, coords)
+        out_reg = model_reg(_input_field(model_reg, x, coords))
         assert out_reg.shape == (1, 1, 4, 320, 320)
 
         # Test diffusion mode
@@ -874,7 +958,7 @@ class TestCorrDiffForward:
             inference_mode="diffusion",
             **sample_model_params,
         )
-        out_diff, _ = model_diff(x, coords)
+        out_diff = model_diff(_input_field(model_diff, x, coords))
         assert out_diff.shape == (1, 1, 4, 320, 320)
 
         # Test both mode
@@ -884,7 +968,7 @@ class TestCorrDiffForward:
             inference_mode="both",
             **sample_model_params,
         )
-        out_both, _ = model_both(x, coords)
+        out_both = model_both(_input_field(model_both, x, coords))
         assert out_both.shape == (1, 1, 4, 320, 320)
 
 

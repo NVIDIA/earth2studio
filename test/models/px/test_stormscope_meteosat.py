@@ -21,11 +21,54 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.px.stormscope_meteosat as meteosat_module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    if meteosat_module.__file__ not in OptionalDependencyFailure.failures:
+        return
+    if (
+        request.node.get_closest_marker("package")
+        or "azimuth_zenith" in request.node.name
+    ):
+        pytest.skip("PhysicsNeMo is unavailable")
+    monkeypatch.delitem(OptionalDependencyFailure.failures, meteosat_module.__file__)
+
+    class Scheduler:
+        def __init__(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(meteosat_module, "EDMNoiseScheduler", Scheduler, raising=False)
+    monkeypatch.setattr(
+        StormScopeMeteosatEU,
+        "_forward",
+        lambda self, x, zen_azi: torch.randn_like(x[:, -1]),
+    )
+    monkeypatch.setattr(
+        StormScopeMeteosatEU,
+        "_azimuth_zenith",
+        lambda self, times, zen_azi=None: (
+            torch.zeros(3, len(times), *self.lat.shape, device=self.means.device)
+            if zen_azi is None
+            else zen_azi.zero_()
+        ),
+    )
+
+
+def _field(model, x, coords):
+    signature = coord_array_like(
+        model.input_coords(), {"batch": coords["batch"], "time": coords["time"]}
+    )
+    return from_torch(x, signature)
 
 
 # Spoof diffusion model with the same call signature as an EDMPreconditioner-wrapped
@@ -160,7 +203,7 @@ def test_stormscope_meteosat_coords():
     model = create_spoof_model()
     in_coords = model.input_coords()
 
-    assert list(in_coords.keys()) == [
+    assert list(in_coords.dims) == [
         "batch",
         "time",
         "lead_time",
@@ -172,6 +215,54 @@ def test_stormscope_meteosat_coords():
     assert (in_coords["variable"] == model.variables).all()
     assert len(in_coords["y"]) == len(model.mtg_y)
     assert len(in_coords["x"]) == len(model.mtg_x)
+    assert in_coords.data.nbytes == 0
+    np.testing.assert_array_equal(in_coords.lat, model.lat)
+    np.testing.assert_array_equal(in_coords.lon, model.lon)
+    assert "earth2studio_grid_id" not in in_coords.attrs
+    # Pooling uses the actual coarse grid, including checkpoint geographic axes.
+    coarse = from_torch(
+        torch.ones(1, 1, 2, len(model.variables), *model.lat.shape),
+        coord_array_like(
+            in_coords, {"batch": [0], "time": [np.datetime64("2024-06-01")]}
+        ),
+    )
+    fine = xr.DataArray(
+        np.full(
+            (1, 1, 2, 1, model.lat.shape[0] * 2, model.lat.shape[1] * 2),
+            2.0,
+            dtype=np.float32,
+        ),
+        dims=coarse.dims,
+        coords={
+            "batch": [0],
+            "time": coarse.time,
+            "lead_time": coarse.lead_time,
+            "variable": ["fine"],
+            "y": np.arange(model.lat.shape[0] * 2),
+            "x": np.arange(model.lat.shape[1] * 2),
+        },
+    )
+    combined = model.combine_1km_2km_inputs(fine, coarse)
+    np.testing.assert_array_equal(combined.lat, coarse.lat)
+    np.testing.assert_array_equal(combined.lon, coarse.lon)
+    np.testing.assert_array_equal(combined.sel(variable="fine"), 2.0)
+    annotated = fine.assign_coords(
+        resolution="1km",
+        lead_time=fine.lead_time.values.astype("timedelta64[s]"),
+        time=fine.time.values.astype("datetime64[ns]"),
+    )
+    xr.testing.assert_identical(
+        model.combine_1km_2km_inputs(annotated, coarse), combined
+    )
+    with pytest.raises(ValueError, match="batch"):
+        model.combine_1km_2km_inputs(fine.assign_coords(batch=[1]), coarse)
+    with pytest.raises(ValueError, match="lead_time"):
+        model.combine_1km_2km_inputs(
+            fine.assign_coords(
+                lead_time=fine.lead_time.values + np.timedelta64(1, "m")
+            ),
+            coarse,
+        )
 
 
 @pytest.mark.parametrize(
@@ -205,28 +296,34 @@ def test_stormscope_meteosat_call(time, device, batch, model_batch_size):
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
-    out, out_coords = model(x, coords)
+    x = _field(model, x, coords)
+    x.attrs["nested"] = {"items": [1]}
+    x.encoding["nested"] = {"items": [2]}
+    out = model(x)
+    out.attrs["nested"].clear()
+    out.encoding["nested"].clear()
+    assert x.attrs["nested"] == {"items": [1]}
+    assert x.encoding["nested"] == {"items": [2]}
+    out_coords = out
+    coords = x
 
     if not isinstance(time, Iterable):
         time = [time]
 
     h, w = len(model.mtg_y), len(model.mtg_x)
     assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
-    assert torch.isfinite(out).all()
+    assert np.isfinite(out.e2s.as_numpy()).all()
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "x", 5)
-    handshake_dim(out_coords, "y", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "time", "lead_time", "variable", "y", "x")
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -275,16 +372,19 @@ def test_stormscope_meteosat_amp(use_amp, device):
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
 
-    out, _ = model(x, coords)
+    x = _field(model, x, coords)
+    out = model(x)
 
     assert model.use_amp == use_amp
     assert out.dtype == x.dtype
-    assert torch.isfinite(out).all()
+    assert np.isfinite(out.e2s.as_numpy()).all()
 
 
 @pytest.mark.parametrize(
@@ -312,24 +412,55 @@ def test_stormscope_meteosat_iter(time, batch, device):
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
-    p_iter = model.create_iterator(x, coords)
+    x = _field(model, x, coords)
+    original = x.copy(deep=True)
+    x = x.e2s.as_numpy()
+    x.name = "satellite"
+    x.attrs["removed"] = True
+    x.encoding = {"removed": True}
+    x = x.assign_coords(member=("batch", np.arange(batch)))
+    original = x.copy(deep=True)
+    events = []
+
+    def front(field):
+        assert field.dims == x.dims
+        events.append("front")
+        return field
+
+    def rear(field):
+        events.append("rear")
+        field.attrs.pop("removed", None)
+        field.encoding.clear()
+        return field.drop_vars("member", errors="ignore")
+
+    model.front_hook, model.rear_hook = front, rear
+    p_iter = model.create_iterator(x)
 
     # First value from the generator is the unchanged initial condition
-    x0, coords0 = next(p_iter)
-    assert torch.equal(x0, x)
-    assert np.array_equal(coords0["lead_time"], lead_time)
+    x0 = next(p_iter)
+    assert events == []
+    xr.testing.assert_identical(x0, x.isel(lead_time=slice(-1, None)))
+    retained = x0.copy(deep=True)
 
     h, w = len(model.mtg_y), len(model.mtg_x)
     time_step = model.output_times[0]
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, out in enumerate(p_iter):
+        out_coords = out
+        assert out.name == x.name and "removed" not in out.attrs
+        assert out.encoding == {} and "member" not in out.coords
+        assert events == ["front", "rear"] * (i + 1)
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
-        assert torch.isfinite(out).all()
+        assert np.isfinite(out.e2s.as_numpy()).all()
+        xr.testing.assert_identical(x, original)
+        xr.testing.assert_identical(x0, retained)
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert out_coords["lead_time"][0] == time_step * (i + 1)
 
@@ -604,64 +735,21 @@ def test_stormscope_meteosat_exceptions():
     model = create_spoof_model(nvar=nvar)
 
     in_coords = model.input_coords()
-    time = np.array([np.datetime64("2024-06-01T00:00")])
-
-    bad_variable_order = OrderedDict(
-        {
-            "batch": np.arange(1),
-            "time": time,
-            "lead_time": in_coords["lead_time"],
-            "variable": in_coords["variable"][::-1].copy(),
-            "y": model.mtg_y,
-            "x": model.mtg_x,
-        }
-    )
     with pytest.raises(ValueError):
-        model.output_coords(bad_variable_order)
+        model.output_coords(
+            coord_array_like(
+                in_coords, {"variable": np.asarray(in_coords["variable"])[::-1]}
+            )
+        )
 
-    bad_grid_size = OrderedDict(
-        {
-            "batch": np.arange(1),
-            "time": time,
-            "lead_time": in_coords["lead_time"],
-            "variable": in_coords["variable"],
-            "y": model.mtg_y[:-1],
-            "x": model.mtg_x,
-        }
-    )
     with pytest.raises(ValueError):
-        model.output_coords(bad_grid_size)
+        model.output_coords(in_coords.isel(y=slice(None, -1)))
 
 
 def test_stormscope_meteosat_conformance():
     model = create_spoof_model()
 
-    # StormScopeMeteosatEU fails four real rules, not checker skips. Tracked
-    # as follow-ups; asserting on the exception here documents the
-    # known-bad state without leaving a permanently red test:
-    #   - P15: create_iterator() mutates the caller's input coordinate
-    #     system in place (its own docstring/dev note is a separate
-    #     concern from the P15 contract guarantee).
-    #   - P7: the 0th (initial-condition) yield does not reduce lead_time
-    #     to the final input lead_time -- it still carries both input
-    #     lead times ([0, 10]) instead of just [10].
-    #   - P10: create_iterator() applies neither hook on forecast
-    #     steps, so a caller's front_hook/rear_hook is silently dropped.
-    #   - P13: the diffusion sampler draws its latents from the global RNG
-    #     (`torch.randn`) without declaring `stochastic = True` or
-    #     implementing `set_rng`.
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P15: create_iterator() modified the input coordinate system in place",
-        "P7: the 0th yield is the initial condition, so its lead_time must be "
-        "the final input lead_time [10], got [ 0 10]",
-        "P10: create_iterator() must apply both hooks on every forecast "
-        "step, applied neither; a hook a caller sets must not be silently "
-        "dropped",
-        "P13: model declares stochastic=False but two rollouts from one "
-        "input disagree; declare stochastic=True and implement set_rng()",
-    ]
+    assert check_prognostic_contract(model) == []
 
 
 @pytest.mark.package
@@ -687,7 +775,9 @@ def test_stormscope_meteosat_package():
 
     dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
     r = Random(dc)
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
@@ -697,21 +787,21 @@ def test_stormscope_meteosat_package():
     means = model.means.to(device=x.device, dtype=x.dtype).view(1, 1, 1, -1, 1, 1)
     x = means.expand_as(x).clone()
 
-    out, out_coords = model(x, coords)
+    x = _field(model, x, coords)
+    out = model(x)
+    out_coords = out
+    coords = x
 
     h, w = len(model.mtg_y), len(model.mtg_x)
     assert out.shape == torch.Size([1, len(time), 1, len(variable), h, w])
     # Off-Earth pixels are intentionally masked to NaN in denormalize(); only
     # on-Earth pixels are expected to be finite.
-    assert torch.isfinite(out[..., model.earth_mask]).all()
+    assert np.isfinite(
+        out.e2s.as_numpy().values[..., model.earth_mask.cpu().numpy()]
+    ).all()
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "x", 5)
-    handshake_dim(out_coords, "y", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "time", "lead_time", "variable", "y", "x")
 
     del model
     gc.collect()

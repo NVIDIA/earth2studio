@@ -21,12 +21,14 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 from omegaconf import OmegaConf
 
 from earth2studio.data import Random
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
@@ -54,8 +56,8 @@ class FakeDiagnostic(torch.nn.Module):
             {"lat": SMALL_LAT, "lon": SMALL_LON}
         )
 
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict(
+    def input_coords(self) -> xr.DataArray:
+        coords = OrderedDict(
             {
                 "batch": np.empty(0),
                 "variable": np.array(self._input_variables),
@@ -63,28 +65,28 @@ class FakeDiagnostic(torch.nn.Module):
                 "lon": self._domain["lon"],
             }
         )
+        return coord_array(tuple(coords), coords, dynamic=("batch",))
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        output = input_coords.copy()
-        output["variable"] = np.array(self._output_variables)
-        return output
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        return coord_array_like(
+            input_coords, {"variable": np.array(self._output_variables)}
+        )
 
     @torch.inference_mode()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         # Produce output with the correct number of channels.
         n_out = len(self._output_variables)
         out_shape = list(x.shape)
         # Variable dimension is typically index 2 in (batch, time, var, lat, lon)
         # but for diagnostics it depends on the coord layout.  Find it:
-        var_idx = list(coords.keys()).index("variable")
+        var_idx = x.get_axis_num("variable")
         out_shape[var_idx] = n_out
-        y = torch.zeros(out_shape, device=x.device, dtype=x.dtype)
-        out_coords = self.output_coords(coords)
-        return y, out_coords
+        tensor, _ = x.e2s.to_torch()
+        y = torch.zeros(out_shape, device=tensor.device, dtype=tensor.dtype)
+        return from_torch(y, self.output_coords(x))
 
 
 class FakeGenerativeDiagnostic(torch.nn.Module):
@@ -116,9 +118,14 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
         )
         self.number_of_samples = number_of_samples
         self.seed = seed
+        self.rng_calls = []
 
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict(
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        self.rng_calls.append((seed, reset))
+        self.seed = seed
+
+    def input_coords(self) -> xr.DataArray:
+        coords = OrderedDict(
             {
                 "batch": np.empty(0),
                 "variable": np.array(self._input_variables),
@@ -126,29 +133,31 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
                 "lon": self._domain["lon"],
             }
         )
+        return coord_array(tuple(coords), coords, dynamic=("batch",))
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(self._output_variables),
-                "lat": self._domain["lat"],
-                "lon": self._domain["lon"],
-            }
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        output = coord_array_like(
+            input_coords, {"variable": np.array(self._output_variables)}
+        )
+        dims = list(output.dims)
+        dims.insert(output.get_axis_num("variable"), "sample")
+        return coord_array(
+            dims,
+            {**dict(output.coords), "sample": np.arange(self.number_of_samples)},
+            dynamic=output.attrs.get("earth2studio_dynamic_dims", ()),
         )
 
     @batch_func()
     @torch.inference_mode()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         # `coords` here is already batch-compressed by @batch_func — any
         # pass-through dims (e.g. time, lead_time) the pipeline carried
         # have been flattened into `coords["batch"]`.
         batch = x.shape[0]
+        tensor, _ = x.e2s.to_torch()
         n_out = len(self._output_variables)
         y = torch.randn(
             batch,
@@ -156,19 +165,10 @@ class FakeGenerativeDiagnostic(torch.nn.Module):
             n_out,
             len(self._domain["lat"]),
             len(self._domain["lon"]),
-            device=x.device,
-            dtype=x.dtype,
+            device=tensor.device,
+            dtype=tensor.dtype,
         )
-        out_coords = OrderedDict(
-            {
-                "batch": coords["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(self._output_variables),
-                "lat": self._domain["lat"],
-                "lon": self._domain["lon"],
-            }
-        )
-        return y, out_coords
+        return from_torch(y, self.output_coords(x))
 
 
 @pytest.fixture()

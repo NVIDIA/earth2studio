@@ -35,6 +35,7 @@ from typing import Any, cast
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
@@ -407,6 +408,10 @@ def _evaluate_prognostic(
     )
 
     input_coords = model.input_coords()
+    if isinstance(input_coords, xr.DataArray):
+        from earth2studio.models._conformance_xarray import evaluate
+
+        return evaluate(model, True, rollout, nsteps, device, time)
     lead_time = input_coords.get("lead_time")
     if lead_time is None:
         report.require(
@@ -1095,6 +1100,10 @@ def _evaluate_diagnostic(
     )
 
     input_coords = model.input_coords()
+    if isinstance(input_coords, xr.DataArray):
+        from earth2studio.models._conformance_xarray import evaluate
+
+        return evaluate(model, False, forward, 2, device, time)
     output_coords = _check_coord_declaration(
         report,
         model,

@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from datetime import datetime, timedelta
 from enum import IntEnum
 
@@ -24,18 +23,27 @@ import pandas as pd
 import torch
 import xarray as xr
 
+from earth2studio.grids import HEALPixGrid
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.models.dx.corrdiff import (
+    _field,
+    _geographic_grid,
+    _grid_dims,
+    _own_metadata,
+    _replace_grid,
+    _validate_grid,
+)
+from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import to_time_array
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import TimeArray
 
 try:
     import earth2grid
@@ -92,7 +100,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Sea surface temperature xarray dataset
     lat_lon : bool, optional
         Lat/lon toggle, if true the model will return output on a 0.25 deg lat/lon
-        grid. If false, the native nested HealPix grid will be returned, by default True
+        grid. If false, guidance uses flat XY HEALPix (north origin, clockwise)
+        and generated fields use nested HEALPix, by default True
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : float, optional
@@ -170,71 +179,82 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
+    stochastic = True
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the seed used by the guided sampler."""
+        if reset or self.seed is None:
+            self.seed = seed
+
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system of diagnostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free input coordinate signature
         """
-        if self.lat_lon:
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(["tc_guidance"]),
-                    "lat": self.lat_grid.cpu().numpy(),
-                    "lon": self.lon_grid.cpu().numpy(),
-                }
+        grid = (
+            _geographic_grid(self.lat_grid.cpu().numpy(), self.lon_grid.cpu().numpy())
+            if self.lat_lon
+            else HEALPixGrid(
+                TC_HPX_LEVEL,
+                ordering="xy",
+                layout="flat",
+                xy_origin="north",
+                xy_clockwise=True,
             )
-        else:
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(["tc_guidance"]),
-                    "hpx": np.arange(4**TC_HPX_LEVEL * 12),
-                }
-            )
+        )
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", *_grid_dims(grid)),
+            {
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": ["tc_guidance"],
+            },
+            dynamic=("batch", "time"),
+            grid=grid,
+        )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of diagnostic model
+
+        Finite one-dimensional lead times are preserved. Each frame conditions
+        the model at its initialization time plus its lead time.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
             by default None, will use self.input_coords.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free output coordinate signature
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "time", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.output_variables)
-
-        if self.lat_lon:
-            handshake_dim(input_coords, "lon", -1)
-            handshake_dim(input_coords, "lat", -2)
-            handshake_coords(input_coords, target_input_coords, "lon")
-            handshake_coords(input_coords, target_input_coords, "lat")
-        else:
-            handshake_dim(input_coords, "hpx", -1)
-            handshake_coords(input_coords, target_input_coords, "hpx")
-            output_coords["hpx"] = np.arange(4**HPX_LEVEL * 12)
-
-        return output_coords
+        if not isinstance(input_coords, xr.DataArray):
+            raise TypeError("Expected a DataArray")
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("lead_time is required")
+        lead = input_coords.coords["lead_time"]
+        if (
+            lead.dims != ("lead_time",)
+            or not lead.size
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead.values).any()
+        ):
+            raise ValueError("lead_time must contain finite one-dimensional timedeltas")
+        # Each guidance frame is independent, conditioned at time + lead_time.
+        _validate_grid(
+            input_coords,
+            coord_array_like(self.input_coords(), {"lead_time": lead.values}),
+        )
+        grid = (
+            _geographic_grid(self.lat_grid.cpu().numpy(), self.lon_grid.cpu().numpy())
+            if self.lat_lon
+            else "healpix-l6-nested"
+        )
+        return _replace_grid(input_coords, grid, self.output_variables)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -331,7 +351,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_coords: torch.Tensor,
         lon_coords: torch.Tensor,
         times: list[datetime] | TimeArray,
-    ) -> tuple[torch.Tensor, OrderedDict]:
+    ) -> xr.DataArray:
         """Creates a TC guidance tensor from lat/lon coordinates.
 
         Parameters
@@ -346,11 +366,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        tuple[torch.Tensor, OrderedDict]
-            Tuple containing:
-            - Guidance tensor with shape (n,1,721,1440) or (n,1,hpx) where values are 1
-                at the specified coordinates
-            - OrderedDict with coordinate dimensions and values
+        xr.DataArray
+            Labelled guidance with time, lead_time, variable and spatial dimensions;
+            values are one at the specified coordinates and NaN elsewhere.
         """
         times = to_time_array(times)
         device = self.device_buffer.device
@@ -375,15 +393,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             lon_idx = torch.searchsorted(torch.tensor(lon_grid).to(device), lon_coords)
             guidance[:, :, :, lat_idx, lon_idx] = 1
 
-            coords = OrderedDict(
-                {
-                    "time": times,
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(["tc_guidance"]),
-                    "lat": lat_grid,
-                    "lon": lon_grid,
-                }
-            )
         else:
             guidance = torch.full(
                 (times.shape[0], 1, 1, *self.core_model.classifier_grid.shape),
@@ -392,16 +401,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             )
             idx = self.core_model.classifier_grid.ang2pix(lon_coords, lat_coords)
             guidance[:, :, :, idx] = 1
-            coords = OrderedDict(
-                {
-                    "time": times,
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(["tc_guidance"]),
-                    "hpx": np.arange(guidance.shape[-1]),
-                }
-            )
 
-        return guidance, coords
+        signature = coord_array_like(self.input_coords(), {"batch": [0], "time": times})
+        signature = signature.isel(batch=0, drop=True)
+        return _field(guidance, signature)
 
     def _prepare_guidance_tensor(self, x: torch.Tensor) -> torch.Tensor:
         """Preparies HPX guidance tensor for model. If inputs are lat lon, will convert
@@ -436,18 +439,32 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         return guidance_data
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Generate labelled fields from cyclone guidance, with isolated seeding."""
+        device = self.device_buffer.device
+        with torch.random.fork_rng(
+            devices=[device] if device.type == "cuda" else [],
+            enabled=self.seed is not None,
+        ):
+            if self.seed is not None:
+                torch.random.default_generator.manual_seed(self.seed)
+                if device.type == "cuda":
+                    with torch.cuda.device(device):
+                        torch.cuda.manual_seed(self.seed)
+            return _own_metadata(self._call(x))
+
     @batch_func()
-    def __call__(
+    def _call(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 
         n_batch = x.shape[0]
-        times = output_coords["time"][:, None]
-        leads = output_coords["lead_time"][None, :]
+        times = output_coords["time"].values[:, None]
+        leads = output_coords["lead_time"].values[None, :]
         times = n_batch * [pd.to_datetime(t) for t in (times + leads).reshape(-1)]
 
         domain_shape = list(x.shape)[3:]
@@ -522,23 +539,20 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 output_coords["hpx"].shape[0],
             )
 
-        return output, output_coords
+        return _field(output, output_coords)
 
     def calculate_odds_ratio(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
+        x: xr.DataArray,
         guidance_scale: float = 128,
         compute_forward_divergences: bool = False,
-    ) -> tuple[float | torch.Tensor, torch.Tensor, CoordSystem]:
+    ) -> tuple[float | torch.Tensor, xr.DataArray]:
         """Compute classifier-guided log-odds ratio for one guidance sample.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input guidance tensor with the same layout expected by :meth:`__call__`.
-        coords : CoordSystem
-            Coordinate system associated with ``x``.
+        x : xr.DataArray
+            Labelled guidance with the same layout expected by :meth:`__call__`.
         guidance_scale : float, optional
             Guidance scale forwarded to cBottle odds-ratio evaluation. Defaults to 128.
         compute_forward_divergences : bool, optional
@@ -547,8 +561,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        tuple[float | torch.Tensor, torch.Tensor, CoordSystem]
-            log_odds_ratio, forward_latents, latent_coords
+        tuple[float | torch.Tensor, xr.DataArray]
+            Log-odds ratio and labelled forward latents on the output grid.
 
         Note
         ----
@@ -558,25 +572,14 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampling and fails for odds-ratio computations.
         """
 
-        output_coords = self.output_coords(coords)
-
-        if x.ndim not in (5, 6):
-            raise ValueError(
-                "Expected guidance tensor with 5 dims [time, lead_time, variable, lat|hpx, lon?] "
-                "or 6 dims [batch, time, lead_time, variable, lat|hpx, lon?]."
-            )
-
-        times = output_coords["time"][:, None]
-        leads = output_coords["lead_time"][None, :]
+        output_coords = self.output_coords(x)
+        times = output_coords["time"].values[:, None]
+        leads = output_coords["lead_time"].values[None, :]
         sample_times = [pd.to_datetime(t) for t in (times + leads).reshape(-1)]
-
-        if x.ndim == 6:
-            n_batch = x.shape[0]
-            times = n_batch * sample_times
-            x = x.reshape(-1, *x.shape[3:])
-        else:
-            times = sample_times
-            x = x.reshape(-1, *x.shape[-3:])
+        spatial_rank = 2 if self.lat_lon else 1
+        tensor = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
+        x = tensor.reshape(-1, 1, *tensor.shape[-spatial_rank:])
+        times = sample_times * (x.shape[0] // len(sample_times))
 
         if x.shape[0] != len(times):
             raise ValueError(
@@ -621,25 +624,18 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             forward_latents = self.regrid_hpx_to_latlon(
                 forward_latents, domain_grid
             ).squeeze(2)
-            latent_coords = OrderedDict(
-                {
-                    "batch": np.arange(forward_latents.shape[0]),
-                    "variable": np.array(self.output_variables),
-                    "lat": self.lat_grid.cpu().numpy(),
-                    "lon": self.lon_grid.cpu().numpy(),
-                }
-            )
         else:
-            latent_coords = OrderedDict(
-                {
-                    "batch": np.arange(forward_latents.shape[0]),
-                    "variable": np.array(self.output_variables),
-                    "hpx": np.arange(4**HPX_LEVEL * 12),
-                }
+            domain_grid = getattr(
+                self.core_model.net.domain, "_grid", self.core_model.net.domain
+            )
+            forward_latents = domain_grid.reorder(
+                earth2grid.healpix.PixelOrder.NEST, forward_latents
             )
             forward_latents = forward_latents.squeeze(2)
 
-        return log_odds_ratio, forward_latents, latent_coords
+        return log_odds_ratio, _field(
+            forward_latents.reshape(output_coords.shape), output_coords
+        )
 
     def regrid_hpx_to_latlon(
         self,
