@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from earth2studio.data import NNJAObsSatwnd, utils_ncep, utils_satwnd
+from earth2studio.data import NNJAObsSatwnd, utils_ncep
 from earth2studio.lexicon import NNJAObsSatwndLexicon
 
 pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
@@ -37,7 +37,7 @@ TABLE_B = {
     33007: ("PCCF     PERCENT CONFIDENCE",),
     33216: ("SWQM     SDMEDIT SATELLITE WIND",),
 }
-IDS = utils_satwnd.resolve_mnemonics(TABLE_B)
+IDS = utils_ncep.resolve_mnemonics(TABLE_B)
 TABLE_IDS = {entry[0].split()[0]: key for key, entry in TABLE_B.items()}
 PLAN = {
     "u": ("u", NNJAObsSatwndLexicon.get_item("u")[1]),
@@ -150,13 +150,13 @@ def _message_bytes(subset: int) -> bytes:
 
 
 def test_resolve_mnemonics_prefers_file_table_over_wmo_fallbacks():
-    ids = utils_satwnd.resolve_mnemonics(
+    ids = utils_ncep.resolve_mnemonics(
         {33222: ("SWQM     QM",), 2250: ("CMCM     COMPUTATION METHOD",)}
     )
     assert ids["SWQM"] == 33222
     assert ids["CMCM"] == 2250
     assert ids["PRLC"] == 7004
-    fallback = utils_satwnd.resolve_mnemonics({})
+    fallback = utils_ncep.resolve_mnemonics({})
     assert fallback["SWQM"] == 33216
     assert "CMCM" not in fallback
 
@@ -166,18 +166,18 @@ def test_bufr_local_subcategory_by_edition():
     ed3[7] = 3
     ed3[16] = 5
     ed3[17] = 30
-    assert utils_satwnd.bufr_local_subcategory(bytes(ed3)) == 30
+    assert utils_ncep.bufr_local_subcategory(bytes(ed3)) == 30
     ed4 = bytearray(24)
     ed4[7] = 4
     ed4[18] = 5
     ed4[20] = 67
-    assert utils_satwnd.bufr_local_subcategory(bytes(ed4)) == 67
+    assert utils_ncep.bufr_local_subcategory(bytes(ed4)) == 67
 
 
 def _decode(subsets, subset_number, bounds=BOUNDS):
     message = _message_bytes(subset_number)
     decoder = _Decoder({message: _Message(subsets)})
-    return utils_satwnd._decode_satwnd_message(decoder, message, IDS, *bounds)
+    return utils_ncep._decode_satwnd_message(decoder, message, IDS, *bounds)
 
 
 def test_legacy_nesdis_wind_is_raw():
@@ -257,7 +257,7 @@ def test_decode_satwnd_end_to_end(tmp_path, monkeypatch):
     nesdis = _message_bytes(10)
     goes_r = _message_bytes(30)
     monkeypatch.setattr(
-        utils_satwnd,
+        utils_ncep,
         "_parse_prepbufr_messages",
         lambda data, *, silence_noise: (TABLE_B, {}, [(nesdis, 5), (goes_r, 5)]),
     )
@@ -267,12 +267,12 @@ def test_decode_satwnd_end_to_end(tmp_path, monkeypatch):
             goes_r: _Message([_goes_r()]),
         }
     )
-    monkeypatch.setattr(utils_satwnd, "init_decode_worker", lambda tb, td: None)
-    monkeypatch.setattr(utils_satwnd, "get_worker_decoder", lambda: decoder)
-    df = utils_satwnd.decode_satwnd(str(local), PLAN, *BOUNDS, decode_workers=1)
+    monkeypatch.setattr(utils_ncep, "_init_decode_worker", lambda tb, td: None)
+    monkeypatch.setattr(utils_ncep, "_worker_decoder", decoder)
+    df = utils_ncep.decode_satwnd(str(local), PLAN, *BOUNDS, decode_workers=1)
     # Three winds x (u, v), all u rows then all v rows, source order within each.
     assert len(df) == 6
-    assert list(df.columns) == utils_satwnd.NCEP_SATWND_PUBLIC_SCHEMA.names
+    assert list(df.columns) == utils_ncep.NCEP_SATWND_PUBLIC_SCHEMA.names
     assert df["variable"].tolist() == ["u", "u", "u", "v", "v", "v"]
     assert df["subset"].tolist()[:3] == ["NC005010", "NC005010", "NC005030"]
     assert df["wind_method"].tolist()[:3] == [1, 3, 1]

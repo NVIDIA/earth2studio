@@ -49,6 +49,7 @@ from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
+    NCEP_SATWND_PUBLIC_SCHEMA,
     NCEPObsTask,
     compile_dataframe,
     cycle_windows,
@@ -56,11 +57,11 @@ from earth2studio.data.utils_ncep import (
     decode_ir_sounder,
     decode_microwave,
     decode_prepbufr,
+    decode_satwnd,
     map_aircraft_profile_types,
     plan_conv_tasks,
     resolve_output_schema,
 )
-from earth2studio.data.utils_satwnd import NCEP_SATWND_PUBLIC_SCHEMA, decode_satwnd
 from earth2studio.lexicon import (
     NNJAObsConvLexicon,
     NNJAObsSatLexicon,
@@ -557,6 +558,7 @@ class NNJAObsSatwnd(NNJAObsConv):
     MIN_DATE = datetime(1979, 1, 1)
     # Last year of the reprocessed amv/merged product; the operational dump follows.
     MERGED_LAST_YEAR = 2019
+    VALID_SOURCES = frozenset(["satwnd"])
 
     def __init__(
         self,
@@ -569,7 +571,7 @@ class NNJAObsSatwnd(NNJAObsConv):
         retries: int = 3,
     ) -> None:
         super().__init__(
-            source="prepbufr",
+            source="satwnd",
             time_tolerance=time_tolerance,
             cache=cache,
             verbose=verbose,
