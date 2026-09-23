@@ -277,9 +277,7 @@ def test_weathernext2_tisr_batched(n_batch):
             },
             coords={
                 "batch": np.arange(n),
-                "time": np.array(
-                    [np.timedelta64(0, "h"), np.timedelta64(6, "h")]
-                ),
+                "time": np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")]),
                 "lat": lat,
                 "lon": lon,
                 "datetime": (("batch", "time"), np.tile(stamps, (n, 1))),
