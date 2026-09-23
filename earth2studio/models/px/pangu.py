@@ -35,7 +35,7 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.checkpoint import bind_checkpoint_state
@@ -135,7 +135,7 @@ class _PanguCheckpointState:
 
 
 # Adapted from https://raw.githubusercontent.com/ecmwf-lab/ai-models-panguweather/main/ai_models_panguweather/model.py
-class PanguBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Pangu base class"""
 
     def __init__(self) -> None:

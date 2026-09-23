@@ -29,7 +29,7 @@ from earth2studio.grids import HEALPixGrid, LatLonGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -90,7 +90,7 @@ def _variable_labels(variables: list[str]) -> np.ndarray:
 
 
 @check_optional_dependencies()
-class DLESyM(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for
     global earth system modeling. This model includes an atmosphere and ocean
     component, using atmospheric variables as well as the sea-surface temperature

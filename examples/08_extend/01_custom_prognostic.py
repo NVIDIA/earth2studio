@@ -68,12 +68,12 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 
 
-class CustomPrognostic(torch.nn.Module, DataArrayPrognosticMixin):
+class CustomPrognostic(torch.nn.Module, PrognosticMixin):
     """Custom prognostic model"""
 
     def __init__(self, noise_amplitude: float = 0.1):

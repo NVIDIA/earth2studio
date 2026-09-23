@@ -31,13 +31,13 @@ import xarray as xr
 from earth2studio.grids import GridDefinition
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
-class ModelName(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Forecast one configured field frame with a Torch core.
 
     Parameters

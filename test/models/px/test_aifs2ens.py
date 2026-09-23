@@ -630,6 +630,7 @@ class PhooAIFS2ENSModel(torch.nn.Module):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
+    assert "_fill_input" in AIFS2ENS.__dict__
     # Regression: time-dependent forcings (solar insolation, Julian day, local
     # time) must be placed by the batch-major (batch*time) layout (slot =
     # b*n_time + t), in both _prepare_input and the _update_input rollout step.
@@ -699,7 +700,7 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
         grid=LatLonGrid([45, -45], [0, 180]),
     )
     monkeypatch.setattr(p, "input_coords", lambda: signature.copy())
-    p.interpolation_matrix = eye.to_sparse_csr()
+    p.interpolation_matrix = ((eye + eye.roll(1, dims=1)) / 2).to_sparse_csr()
     p.inverse_interpolation_matrix = eye.to_sparse_csr()
     data = p.model.data_indices.data
     indices = [
@@ -731,6 +732,31 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
         return retained
 
     a, b, c = rollout(17), rollout(17), rollout(18)
+    # Preserve the original global seed + fcstep stream, including its final state.
+    p.seed = 17
+    torch.testing.assert_close(
+        p(field).e2s.to_torch()[0], a[0].e2s.to_torch()[0], rtol=0, atol=0
+    )
+    native_coords = {d: coords.coords[d].values for d in coords.dims}
+    state = p._prepare_input(field.e2s.to_torch()[0].to(device), native_coords)
+    for step, reference in enumerate(a):
+        state, output_coords = p._forward(
+            state,
+            coord_array_like(coords, {"lead_time": native_coords["lead_time"]}),
+            step,
+        )
+        tensor = p._prepare_output(
+            state, {d: output_coords.coords[d].values for d in output_coords.dims}
+        )
+        torch.testing.assert_close(tensor, reference.e2s.to_torch()[0], rtol=0, atol=0)
+        native_coords["lead_time"] = native_coords["lead_time"] + np.timedelta64(6, "h")
+        state = p._update_input(state, native_coords)
+    rng = torch.get_rng_state().clone()
+    cuda_rng = torch.cuda.get_rng_state().clone() if device.startswith("cuda") else None
+    rollout(17)
+    assert torch.equal(torch.get_rng_state(), rng)
+    if cuda_rng is not None:
+        assert torch.equal(torch.cuda.get_rng_state(), cuda_rng)
     for first, repeated, different in zip(a, b, c):
         torch.testing.assert_close(
             first.e2s.to_torch()[0], repeated.e2s.to_torch()[0], rtol=0, atol=0

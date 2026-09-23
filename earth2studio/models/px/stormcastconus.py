@@ -32,7 +32,7 @@ from earth2studio.data import GFS_FX, DataSource, ForecastSource, fetch_data
 from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -94,7 +94,7 @@ FULL_MODEL_HRRR_BBOX = ((17, 1041), (3, 1795))
 
 
 @check_optional_dependencies()
-class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast-CONUS generative convection-allowing model for the full CONUS domain.
 
     - High-resolution (3km) HRRR state over the Continental United States (99 vars)

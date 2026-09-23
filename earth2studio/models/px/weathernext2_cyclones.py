@@ -35,7 +35,7 @@ from earth2studio.models.px.graphcast_operational import (
     _jax_output_coords,
     _jax_signature,
 )
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import handshake_size, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -105,7 +105,7 @@ def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
     return tracks
 
 
-class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Shared implementation for WeatherNext 2 model variants."""
 
     MODEL_NAME: str

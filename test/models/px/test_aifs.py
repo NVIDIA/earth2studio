@@ -750,6 +750,7 @@ def test_aifs_call(time, device, backend):
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(device, small_model, monkeypatch):
     p = small_model.to(device)
+    assert "_fill_input" in type(p).__dict__
     coords = coord_array_like(
         p.input_coords(),
         {
@@ -767,10 +768,38 @@ def test_aifs_iter(device, small_model, monkeypatch):
     x.attrs["source"] = "fixture"
     x.encoding = {"source": "fixture"}
     original = x.copy(deep=True)
-    baseline = p.create_iterator(x)
-    next(baseline)
-    expected = [next(baseline).copy(deep=True) for _ in range(3)]
-    baseline.close()
+    # Compare against the original native-grid recurrence, without the iterator.
+    native_coords = {d: coords.coords[d].values for d in coords.dims}
+    preparation_coords = native_coords.copy()
+    preparation_coords["time"] = native_coords["time"] + native_coords["lead_time"][-1]
+    state = p._prepare_input(
+        x.e2s.to_torch()[0].reshape(coords.shape).to(device), preparation_coords
+    )
+    expected = []
+    for step in range(1, 4):
+        state, output_coords = p._forward(
+            state,
+            coord_array_like(coords, {"lead_time": native_coords["lead_time"]}),
+            step,
+        )
+        tensor = p._prepare_output(
+            state, {d: output_coords.coords[d].values for d in output_coords.dims}
+        )
+        expected.append(
+            from_torch(
+                tensor.unsqueeze(1),
+                coord_array_like(
+                    x,
+                    {
+                        "lead_time": output_coords.lead_time,
+                        "variable": output_coords.coords["variable"],
+                    },
+                ),
+            )
+        )
+        native_coords["lead_time"] = native_coords["lead_time"] + np.timedelta64(6, "h")
+        state = p._update_input(state, native_coords)
+    torch.testing.assert_close(p(x).e2s.to_torch()[0], expected[0].e2s.to_torch()[0])
     preparations = []
     prepare = p._prepare_input
 

@@ -349,15 +349,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
             input_coords,
             {
                 "lead_time": lead.values[-1:],
-                "variable": np.array(
-                    [
-                        (
-                            "tp:sum:6h"
-                            if self.output_variable == "tp06"
-                            else self.output_variable
-                        )
-                    ]
-                ),
+                "variable": np.array([self.output_variable]),
             },
         )
 
@@ -502,7 +494,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         xr.DataArray
-            Precipitation at the final input lead, labelled ``tp:sum:6h``.
+            Precipitation at the final input lead, labelled ``tp06`` by default.
         """
         output_coords = self.output_coords(x)
         encoding = x.encoding.copy()

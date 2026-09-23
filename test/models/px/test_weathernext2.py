@@ -104,10 +104,7 @@ def fetch_random_input(model, time=TEST_TIME, device="cpu"):
 def assert_output(out, time=TEST_TIME):
     assert out.shape == (len(time), 1, len(OUTPUT_VARIABLES), 9, 12)
     assert list(out.dims) == ["time", "lead_time", "variable", "lat", "lon"]
-    assert np.array_equal(
-        out.coords["variable"],
-        ["tp:sum:6h" if v == "tp06" else v for v in OUTPUT_VARIABLES],
-    )
+    assert np.array_equal(out.coords["variable"], OUTPUT_VARIABLES)
     assert np.array_equal(out.time, time)
 
 
@@ -305,7 +302,7 @@ def test_weathernext2_operational_checkpoint():
         assert signature.shape == (0, 0, 2, 83, *shape)
         if cls is WeatherNext2Cyclones:
             assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
-        assert "tp:sum:6h" in model.output_coords(signature).coords["variable"]
+        assert "tp06" in model.output_coords(signature).coords["variable"]
 
 
 @pytest.mark.package

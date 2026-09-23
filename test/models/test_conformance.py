@@ -39,12 +39,10 @@ from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
-    handshake_coords,
     handshake_dataarray,
-    handshake_dim,
 )
 from earth2studio.utils.cupy import from_torch
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 DOMAIN = OrderedDict(
     {
@@ -58,60 +56,46 @@ DT = np.timedelta64(6, "h")
 class ToyPrognostic(torch.nn.Module, PrognosticMixin):
     """A minimal, fully conformant prognostic model used as the contract reference."""
 
-    def input_coords(self) -> CoordSystem:
-        coords = OrderedDict(
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "lead_time", "variable", *DOMAIN),
             {
-                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(["t2m"]),
-            }
+                **DOMAIN,
+            },
+            dynamic=("batch",),
         )
-        coords.update(DOMAIN)
-        return coords
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        target = self.input_coords()
-        for index, key in enumerate(target):
-            if key == "batch":
-                continue
-            handshake_dim(input_coords, key, index)
-            if key != "lead_time":
-                handshake_coords(input_coords, target, key)
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        lead = input_coords.lead_time.values
+        if lead.dtype.kind != "m" or lead.size != 1 or np.isnat(lead).any():
+            raise ValueError("lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
+        return coord_array_like(input_coords, {"lead_time": lead + DT})
 
-        output_coords = target.copy()
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["lead_time"] = input_coords["lead_time"] + DT
-        return output_coords
+    def _step(self, x: xr.DataArray) -> xr.DataArray:
+        return from_torch(x.e2s.to_torch()[0] + 1, self.output_coords(x))
 
-    def _step(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        return x + 1, self.output_coords(coords)
-
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         # Hooks belong to the iterator; the single-step path deliberately skips them
-        return self._step(x, coords)
+        return self._step(x)
 
-    @batch_func()
     def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-        yield x, coords.copy()
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        x = x.copy(deep=True)
+        yield x.copy(deep=True)
         while True:
-            x, coords = self.front_hook(x, coords)
-            x, coords = self._step(x, coords)
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
+            x = self.front_hook(x)
+            x = self._step(x)
+            x = self.rear_hook(x)
+            yield x.copy(deep=True)
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        yield from self._default_generator(x, coords)
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        yield from self._default_generator(x)
 
 
 def _violations(model, **kwargs) -> set[str]:
@@ -281,11 +265,9 @@ def test_conformance_detects_input_mutation():
     """The StormCast v1 bug: writing results into the caller's initial condition."""
 
     class MutatesInput(ToyPrognostic):
-        def _step(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            x.add_(1)
-            return x, self.output_coords(coords)
+        def _step(self, x: xr.DataArray) -> xr.DataArray:
+            x.data += 1
+            return from_torch(x.e2s.to_torch()[0], self.output_coords(x))
 
     assert "P15" in _violations(MutatesInput())
 
@@ -295,19 +277,17 @@ def test_conformance_detects_aliased_yields(native):
     """Yields that share one buffer read stale under a deferred write."""
 
     class AliasedYields(ToyPrognostic):
-        @batch_func()
         def _default_generator(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-            coords = coords.copy()
-            buffer = x.clone()
-            yield buffer, coords.copy()
+            self, x: xr.DataArray
+        ) -> Generator[xr.DataArray, None, None]:
+            buffer = x.copy(deep=True)
+            yield buffer
             while True:
-                buffer.add_(1)
-                coords = self.output_coords(coords)
-                buffer, coords = self.front_hook(buffer, coords)
-                buffer, coords = self.rear_hook(buffer, coords)
-                yield buffer, coords.copy()
+                buffer.data += 1
+                buffer = buffer.assign_coords(lead_time=buffer.lead_time + DT)
+                buffer = self.front_hook(buffer)
+                buffer = self.rear_hook(buffer)
+                yield buffer
 
     model = AliasedYields()
     if native:
@@ -361,14 +341,8 @@ def test_expected_shape_rejects_inconsistent_groups():
 
 
 def test_conformance_detects_mutation():
-    """Detection requires an undecorated output_coords.
-
-    ``batch_coords`` copies before delegating, so a decorated implementation cannot
-    reach its caller's dictionary and satisfies this rule for free.
-    """
-
     class Mutating(ToyPrognostic):
-        def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
             input_coords["lead_time"] = input_coords["lead_time"] + DT
             return ToyPrognostic.output_coords(self, input_coords)
 
@@ -377,23 +351,20 @@ def test_conformance_detects_mutation():
 
 def test_conformance_detects_missing_validation():
     class Permissive(ToyPrognostic):
-        @batch_coords()
-        def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-            output_coords = self.input_coords()
-            output_coords["batch"] = input_coords["batch"]
-            output_coords["lead_time"] = input_coords["lead_time"] + DT
-            return output_coords
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            return coord_array_like(
+                input_coords, {"lead_time": input_coords.lead_time + DT}
+            )
 
     assert _violations(Permissive(), rollout=False) == {"P5"}
 
 
 def test_conformance_detects_broken_rebasing():
     class Unrebased(ToyPrognostic):
-        @batch_coords()
-        def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-            output_coords = ToyPrognostic.output_coords.__wrapped__(self, input_coords)
-            output_coords["lead_time"] = np.array([DT])
-            return output_coords
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            return ToyPrognostic.output_coords(self, input_coords).assign_coords(
+                lead_time=np.array([DT])
+            )
 
     assert "P6" in _violations(Unrebased(), rollout=False)
 
@@ -401,14 +372,12 @@ def test_conformance_detects_broken_rebasing():
 @pytest.mark.parametrize("native", [False, True])
 def test_conformance_detects_missing_zeroth_yield(native):
     class NoInitialCondition(ToyPrognostic):
-        @batch_func()
         def _default_generator(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-            coords = coords.copy()
+            self, x: xr.DataArray
+        ) -> Generator[xr.DataArray, None, None]:
             while True:
-                x, coords = self._step(x, coords)
-                yield x, coords.copy()
+                x = self._step(x)
+                yield x
 
     model = NoInitialCondition()
     if native:
@@ -426,10 +395,8 @@ def test_conformance_detects_missing_zeroth_yield(native):
 
 def test_conformance_detects_shape_mismatch():
     class Ragged(ToyPrognostic):
-        def _step(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            return x[..., :-1], self.output_coords(coords)
+        def _step(self, x: xr.DataArray) -> xr.DataArray:
+            return super()._step(x).isel(lon=slice(None, -1))
 
     assert "P9" in _violations(Ragged())
 
@@ -493,16 +460,14 @@ def test_conformance_detects_dropped_hook(native, interval, missing):
     """
 
     class RearHookOnly(ToyPrognostic):
-        @batch_func()
         def _default_generator(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-            coords = coords.copy()
-            yield x, coords.copy()
+            self, x: xr.DataArray
+        ) -> Generator[xr.DataArray, None, None]:
+            yield x
             while True:
-                x, coords = self._step(x, coords)
-                x, coords = self.rear_hook(x, coords)
-                yield x, coords.copy()
+                x = self._step(x)
+                x = self.rear_hook(x)
+                yield x
 
     if not native:
         assert _violations(RearHookOnly()) == {"P10"}
@@ -603,21 +568,17 @@ def test_conformance_temporal_declarations(temporal_dims, unit):
 
 def test_conformance_detects_hooks_on_call():
     class CallAppliesHooks(ToyPrognostic):
-        @batch_func()
-        def __call__(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            x, coords = self.front_hook(x, coords)
-            return self.rear_hook(*self._step(x, coords))
+        def __call__(self, x: xr.DataArray) -> xr.DataArray:
+            x = self.front_hook(x)
+            return self.rear_hook(self._step(x))
 
     assert _violations(CallAppliesHooks()) == {"P10"}
 
 
 def _step_once(model: ToyPrognostic) -> None:
     """Draw one forecast step, the only path that applies hooks."""
-    coords = model.input_coords()
-    coords["batch"] = np.arange(1)
-    iterator = model.create_iterator(torch.zeros(1, 1, 1, 8, 16), coords)
+    coords = coord_array_like(model.input_coords(), {"batch": np.arange(1)})
+    iterator = model.create_iterator(from_torch(torch.zeros(coords.shape), coords))
     next(iterator)
     next(iterator)
 
@@ -629,17 +590,16 @@ def test_hook_assignment_and_composition():
     model = ToyPrognostic()
     order: list[str] = []
 
-    def first(x, coords):
+    def first(x):
         order.append("first")
-        return x, coords
+        return x
 
-    def second(x, coords):
+    def second(x):
         order.append("second")
-        return x, coords
+        return x
 
-    def combined(x, coords):
-        x, coords = first(x, coords)
-        return second(x, coords)
+    def combined(x):
+        return second(first(x))
 
     model.front_hook = combined
     _step_once(model)
@@ -650,8 +610,21 @@ def test_clear_hooks_restores_default():
     model = ToyPrognostic()
     order: list[str] = []
 
-    model.rear_hook = lambda x, coords: (order.append("assigned"), (x, coords))[1]
+    x = xr.DataArray([1.0], dims="member", coords={"member": [7]})
+    assert model.front_hook(x) is x
+    assert model.rear_hook(x) is x
+    assert model.front_hook_interval == 1
+    assert model.stochastic is False
+    model.front_hook = model.rear_hook = lambda x: order.append("assigned") or x
+    model.front_hook(x)
+    model.rear_hook(x)
+    assert order == ["assigned", "assigned"]
+    order.clear()
     model.clear_hooks()
+    model.clear_hooks()
+    assert "front_hook" not in vars(model) and "rear_hook" not in vars(model)
+    assert model.front_hook(x) is x
+    assert model.rear_hook(x) is x
     _step_once(model)
     assert order == []
 
@@ -670,11 +643,9 @@ class StochasticToy(ToyPrognostic):
         if reset or self.generator is None:
             self.generator = torch.Generator().manual_seed(seed)
 
-    def _step(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def _step(self, x: xr.DataArray) -> xr.DataArray:
         noise = torch.randn(x.shape, generator=self.generator)
-        return x + noise, self.output_coords(coords)
+        return from_torch(x.e2s.to_torch()[0] + noise, self.output_coords(x))
 
 
 def test_conformance_stochastic_model():
@@ -730,10 +701,10 @@ def test_conformance_detects_global_seeding_in_set_rng():
             """Seed the global generator, reaching every other RNG consumer."""
             torch.manual_seed(seed)
 
-        def _step(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            return x + torch.randn(x.shape), self.output_coords(coords)
+        def _step(self, x: xr.DataArray) -> xr.DataArray:
+            return from_torch(
+                x.e2s.to_torch()[0] + torch.randn(x.shape), self.output_coords(x)
+            )
 
     # Caught without a rollout: the seeding half of P14 needs no forward pass
     assert "P14" in _violations(GlobalSeeder(), rollout=False)
@@ -743,11 +714,9 @@ def test_conformance_detects_global_seeding_mid_step():
     """A clean set_rng does not excuse reseeding the global RNG while stepping."""
 
     class ReseedsPerStep(StochasticToy):
-        def _step(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
+        def _step(self, x: xr.DataArray) -> xr.DataArray:
             torch.manual_seed(0)
-            return super()._step(x, coords)
+            return super()._step(x)
 
     violations = _violations(ReseedsPerStep())
     assert "P14" in violations
@@ -767,13 +736,11 @@ def test_conformance_accepts_forked_global_seeding():
             if reset or getattr(self, "_seed", None) is None:
                 self._seed = seed
 
-        def _step(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
+        def _step(self, x: xr.DataArray) -> xr.DataArray:
             with torch.random.fork_rng(devices=[]):
                 torch.manual_seed(self._seed)
                 noise = torch.randn(x.shape)
-            return x + noise, self.output_coords(coords)
+            return from_torch(x.e2s.to_torch()[0] + noise, self.output_coords(x))
 
     assert check_prognostic_contract(ForkedSeeder()) == []
 
@@ -797,10 +764,10 @@ def test_conformance_unseeded_global_draws_are_not_violations():
     """
 
     class GlobalDraws(ToyPrognostic):
-        def _step(
-            self, x: torch.Tensor, coords: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            return x + torch.randn(x.shape) * 0, self.output_coords(coords)
+        def _step(self, x: xr.DataArray) -> xr.DataArray:
+            return from_torch(
+                x.e2s.to_torch()[0] + torch.randn(x.shape) * 0, self.output_coords(x)
+            )
 
     assert check_prognostic_contract(GlobalDraws()) == [
         "P14: model does not declare itself stochastic"

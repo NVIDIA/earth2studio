@@ -29,7 +29,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -141,7 +141,7 @@ def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
 
 
 @check_optional_dependencies()
-class Atlas(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Atlas prognostic model for ERA5 variables on a 0.25° global lat-lon grid.
 
     Atlas consumes two input lead times (t-6h and t) and predicts a single step at
@@ -230,7 +230,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
                 "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
-                "variable": ["tp:sum:6h" if v == "tp06" else v for v in VARIABLES],
+                "variable": VARIABLES,
             },
             dynamic=("batch", "time"),
             grid="latlon-0.25deg",

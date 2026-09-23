@@ -604,12 +604,7 @@ class CorrDiffCMIP6(CorrDiff):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale the three-day labelled conditioning history."""
         signature = self.output_coords(x)
-        return self._call(x).transpose(*signature.dims)
-
-    @batch_func()
-    def _call(self, x: xr.DataArray) -> xr.DataArray:
-        """Forward pass of diagnostic"""
-
+        x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
         # Preserve the numerical kernel's [batch, sample, time, lead, ...] order.
         output_coords = output_coords.transpose(
@@ -629,7 +624,7 @@ class CorrDiffCMIP6(CorrDiff):
                 out[:, :, i, j] = self._forward(
                     x[:, i, :], pd.to_datetime(valid_time).to_pydatetime()
                 )
-        return from_torch(out, output_coords)
+        return restore(from_torch(out, output_coords)).transpose(*signature.dims)
 
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
         """Cached lon/lat meshgrid on the output grid (numpy arrays)."""

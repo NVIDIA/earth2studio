@@ -29,7 +29,7 @@ from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -87,7 +87,7 @@ def _same_state(left: xr.DataArray, right: xr.DataArray) -> bool:
 
 
 @check_optional_dependencies()
-class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.
 
     Predicts MTG Full Combined Imager (FCI) frames from ``len(input_times)``

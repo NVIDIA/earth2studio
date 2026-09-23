@@ -24,7 +24,7 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -145,7 +145,7 @@ def _aurora_history(previous: xr.DataArray, prediction: xr.DataArray) -> xr.Data
 
 # Adapted from https://microsoft.github.io/aurora/example_era5.html
 @check_optional_dependencies()
-class Aurora(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Aurora 0.25 degree global forecast model. This model consists of single
     auto-regressive model with a time-step size of 6 hours. This model operates on
     0.25 degree lat-lon grid (720, 1440) equirectangular grid with 4 surface-level

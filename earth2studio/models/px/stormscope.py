@@ -35,7 +35,7 @@ from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -65,7 +65,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormScope diffusion prognostic base model with staged denoising.
 
     Variants should subclass to define dataset/resolution specifics (e.g., grids,

@@ -707,6 +707,7 @@ def test_aifs2_call(time, device, backend):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs2_forcing_batch_time_order(monkeypatch, device):
+    assert "_fill_input" in AIFS2.__dict__
     # Regression: time-dependent forcings (solar insolation, Julian day, local
     # time) must be placed by the batch-major (batch*time) layout (slot =
     # b*n_time + t), in both _prepare_input and the _update_input rollout step.
@@ -797,10 +798,40 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
     field = field.assign_coords(experiment=("member", [7, 8]))
     field.encoding = {"source": "fixture"}
     original = field.copy(deep=True)
-    baseline = p.create_iterator(field)
-    next(baseline)
-    expected = [next(baseline).copy(deep=True) for _ in range(3)]
-    baseline.close()
+    # Reference the native recurrence rather than another migrated iterator.
+    native_coords = {d: coords.coords[d].values for d in coords.dims}
+    preparation_coords = native_coords.copy()
+    preparation_coords["time"] = times + np.timedelta64(18, "h")
+    state = p._prepare_input(
+        field.e2s.to_torch()[0].reshape(coords.shape).to(device), preparation_coords
+    )
+    expected = []
+    for step in range(3):
+        state, output_coords = p._forward(
+            state,
+            coord_array_like(coords, {"lead_time": native_coords["lead_time"]}),
+            step,
+        )
+        tensor = p._prepare_output(
+            state, {d: output_coords.coords[d].values for d in output_coords.dims}
+        )
+        expected.append(
+            from_torch(
+                tensor.unsqueeze(1),
+                coord_array_like(
+                    field,
+                    {
+                        "lead_time": output_coords.lead_time,
+                        "variable": output_coords.coords["variable"],
+                    },
+                ),
+            )
+        )
+        native_coords["lead_time"] = native_coords["lead_time"] + np.timedelta64(6, "h")
+        state = p._update_input(state, native_coords)
+    torch.testing.assert_close(
+        p(field).e2s.to_torch()[0], expected[0].e2s.to_torch()[0]
+    )
     preparations = []
     prepare = p._prepare_input
 

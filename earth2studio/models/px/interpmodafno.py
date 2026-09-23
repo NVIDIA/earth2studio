@@ -25,7 +25,7 @@ import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     handshake_coords,
@@ -127,7 +127,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ModAFNO interpolation for global prognostic models. Interpolates a forecast model
     to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree
     lat-lon equirectangular grid with 73 variables.

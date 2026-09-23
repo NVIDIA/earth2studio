@@ -28,7 +28,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -51,7 +51,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Atlas CRPS ensemble prognostic model for ERA5 variables on a 0.25 degree global
     lat-lon grid.
 
@@ -143,7 +143,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
                 "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
-                "variable": ["tp:sum:6h" if v == "tp06" else v for v in VARIABLES],
+                "variable": VARIABLES,
             },
             dynamic=("batch", "time"),
             grid="latlon-0.25deg",

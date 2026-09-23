@@ -28,7 +28,7 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -146,7 +146,7 @@ class _SFNOCheckpointState:
 
 
 @check_optional_dependencies()
-class SFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Spherical Fourier Operator Network global prognostic model.
     Consists of a single model with a time-step size of 6 hours.
     FourCastNet operates on 0.25 degree lat-lon grid (south-pole including)

@@ -358,7 +358,6 @@ def coord_array_like(
 def handshake_dataarray(
     array: xr.DataArray,
     signature: xr.DataArray | None = None,
-    *,
     relative_lead_time: bool = False,
     runtime: bool = False,
 ) -> None:

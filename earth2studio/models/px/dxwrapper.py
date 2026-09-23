@@ -26,7 +26,7 @@ from earth2studio.models._array_utils import _registered_grid
 from earth2studio.grids import infer_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -270,7 +270,7 @@ class PrepareOutputTensor(Protocol):
     ) -> xr.DataArray: ...
 
 
-class DiagnosticWrapper(torch.nn.Module, DataArrayPrognosticMixin):
+class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
     """Compose a native DataArray prognostic with one or more diagnostics.
 
     Preparation callables customize signature planning, interpolation and output

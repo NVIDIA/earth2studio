@@ -504,16 +504,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         out = self.regrid_hpx_high_res_to_output(out).to(torch.float32)
         return out[0]
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Super-resolve a labelled field on the configured output domain."""
-        return self._call(x)
-
     @batch_func()
-    def _call(
+    def __call__(
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Super-resolve a labelled field on the configured output domain."""
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device).clone()
 

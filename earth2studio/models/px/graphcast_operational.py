@@ -30,7 +30,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -191,7 +191,7 @@ def _jax_signature(
 
 
 def _jax_variables(variables: list[str]) -> list[str]:
-    return [{"tp06": "tp:sum:6h", "tp12": "tp:sum:12h"}.get(v, v) for v in variables]
+    return ["tp:sum:12h" if v == "tp12" else v for v in variables]
 
 
 def _jax_output_coords(
@@ -230,10 +230,7 @@ def _jax_inputs(
     # auxiliaries remain on the public array and are restored at the boundary.
     tensor, coords = x.e2s.to_torch()
     coords["variable"] = np.array(
-        [
-            {"tp:sum:6h": "tp06", "tp:sum:12h": "tp12"}.get(v, v)
-            for v in coords["variable"]
-        ]
+        ["tp12" if v == "tp:sum:12h" else v for v in coords["variable"]]
     )
     data, leads = model.from_dataarray_to_dataset(
         xr.DataArray(tensor.cpu().numpy().copy(), dims=x.dims, coords=coords), hours
@@ -360,7 +357,7 @@ def _jax_iterator(
 
 
 @check_optional_dependencies()
-class GraphCastOperational(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast operational model
 
     A high-resolution model (0.25 degree resolution, 13 pressure levels) pre-trained on ERA5 data

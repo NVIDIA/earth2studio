@@ -26,7 +26,7 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import (
     coord_array,
@@ -119,12 +119,12 @@ VARIABLES = [
     "u10m",
     "v10m",
     "msl",
-    "tp:sum:6h",
+    "tp06",
 ]
 
 
 @check_optional_dependencies()
-class FuXi(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FuXi weather model consists of three auto-regressive U-net transfomer models with
     a time-step size of 6 hours. The three models are trained to predict short (5days),
     medium (10 days) and longer (15 days) forecasts respectively. FuXi operates on
@@ -177,7 +177,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self.ort = create_ort_session(ort_short, self.device)
 
     def input_coords(self) -> CoordinateSystem:
-        """Return two six-hour inputs; precipitation is labelled ``tp:sum:6h``."""
+        """Return two six-hour inputs; precipitation is labelled ``tp06``."""
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
@@ -326,7 +326,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         # Convert tp06 to mm
         # https://github.com/tpys/FuXi/blob/9292fe0692156a01cd3d62bcb427cc3798cf8add/make_era5_input.py#L19-L22
         x = x.clone()
-        tp06_index = np.isin(coords["variable"].values, "tp:sum:6h")
+        tp06_index = np.isin(coords["variable"].values, "tp06")
         x[..., tp06_index, :, :] = torch.nan_to_num(x[..., tp06_index, :, :], nan=0)
         x[..., tp06_index, :, :] = torch.clip(
             x[..., tp06_index, :, :] * 1000, min=0, max=1000

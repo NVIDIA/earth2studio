@@ -734,16 +734,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             yhat = torch.flip(yhat, dims=(2,))
         return yhat
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale a labelled field to 24-hour precipitation in meters."""
-        return self._call(x)
-
     @batch_func()
-    def _call(
+    def __call__(
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Downscale a labelled field to 24-hour precipitation in meters."""
 
         output_coords = self.output_coords(x)
 

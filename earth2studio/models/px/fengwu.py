@@ -24,7 +24,7 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
@@ -116,7 +116,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class FengWu(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FengWu (operational) weather model consists of single auto-regressive model with
     a time-step size of 6 hours. FengWu operates on 0.25 degree lat-lon grid (south-pole
     including) equirectangular grid with 69 atmospheric/surface variables. This model

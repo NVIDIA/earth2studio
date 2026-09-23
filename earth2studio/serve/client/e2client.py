@@ -32,7 +32,7 @@ from earth2studio.data import (  # type: ignore[import-untyped]
     InferenceOutputSource,
 )
 from earth2studio.models.auto import AutoModelMixin  # type: ignore[import-untyped]
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.serve.client import fsspec_utils
 from earth2studio.serve.client.client import Earth2StudioClient
 from earth2studio.serve.client.exceptions import Earth2StudioAPIError
@@ -285,7 +285,7 @@ def _convert_time_to_lead_time(
     )
 
 
-class InferenceOutputModel(AutoModelMixin, DataArrayPrognosticMixin):
+class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
     """
     Prognostic model wrapper for inference output data sources.
 

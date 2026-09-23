@@ -1379,14 +1379,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale labelled ERA5 frames on the configured domain."""
         signature = self.output_coords(x)
-        return self._call(x).transpose(*signature.dims)
-
-    @batch_func()
-    def _call(self, x: xr.DataArray) -> xr.DataArray:
-        """Run the model. ``x`` is [batch, time, variable, lat, lon]; ``coords``
-        carries a ``time`` axis (validity times) driving the solar-zenith channel."""
+        x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
-        # Assemble in the numerical kernel's order; __call__ restores public order.
+        # Assemble in the numerical kernel's order, then restore public order.
         output_coords = output_coords.transpose(
             "batch", "sample", "time", "variable", "y", "x"
         )
@@ -1418,7 +1413,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         for b in range(out.shape[0]):
             for t in range(out.shape[2]):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t], lat2d, lon2d)
-        return from_torch(out, output_coords)
+        return restore(from_torch(out, output_coords)).transpose(*signature.dims)
 
     def to(self, device: torch.device) -> "CorrDiffCosmoEra5":
         """Move the model to a device (the active regression/diffusion sub-network

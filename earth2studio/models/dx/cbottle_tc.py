@@ -440,16 +440,12 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         return guidance_data
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Generate labelled fields from cyclone guidance."""
-        return self._call(x)
-
     @batch_func()
-    def _call(
+    def __call__(
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Generate labelled fields from cyclone guidance."""
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 

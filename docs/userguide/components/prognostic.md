@@ -32,7 +32,7 @@ The full requirements for a standard prognostic model are defined explicitly in 
 
 Prognostic models also tend to extend two classes:
 
-- `earth2studio.models.px.utils.DataArrayPrognosticMixin`: A utility class that
+- `earth2studio.models.px.utils.PrognosticMixin`: A utility class that
 defines iterator hooks used in all the built-in models. These provide a finer level
 of control over the time-series prediction of models.
 - `earth2studio.models.auto.AutoModel`: Defines APIs for models that have

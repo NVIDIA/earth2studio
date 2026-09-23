@@ -996,17 +996,13 @@ def _check_hook_scope(
 
     calls: list[str] = []
 
-    def front(
-        x: torch.Tensor, hook_coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def front(x: xr.DataArray) -> xr.DataArray:
         calls.append("front")
-        return x, hook_coords
+        return x
 
-    def rear(
-        x: torch.Tensor, hook_coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def rear(x: xr.DataArray) -> xr.DataArray:
         calls.append("rear")
-        return x, hook_coords
+        return x
 
     # Snapshot whatever was on the slots before the probes so a caller's own
     # hooks — pre-existing on the instance passed in — are restored afterward

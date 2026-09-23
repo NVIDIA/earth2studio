@@ -29,7 +29,7 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
 from earth2studio.utils import (
     coord_array,
@@ -157,7 +157,7 @@ def _resolve_model_assets(package: Package) -> Path:
 
 
 @check_optional_dependencies()
-class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FuXi-S2S global daily-mean prognostic model.
 
     FuXi-S2S consumes daily means from two consecutive UTC calendar days and

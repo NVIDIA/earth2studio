@@ -26,7 +26,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -183,7 +183,7 @@ def _load_aurora1p5_from_package(
 
 # Adapted from https://microsoft.github.io/aurora/example_v1p5.html
 @check_optional_dependencies()
-class Aurora1p5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Aurora v1.5 0.25 degree global forecast model. This model is the improved
     version of Aurora, featuring an expanded set of surface variables (18 vs 4)
     and a richer set of static fields. It consists of a single auto-regressive

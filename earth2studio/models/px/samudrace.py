@@ -30,7 +30,7 @@ from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -136,7 +136,7 @@ def _ensure_fme_distributed() -> None:
 
 
 @check_optional_dependencies()
-class SamudrACE(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """SamudrACE coupled climate emulator.
 
     Couples the ACE2 atmosphere emulator with the Samudra ocean emulator,
@@ -369,7 +369,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         package: Package,
         forcing_data_source: DataSource | None = None,
         scenario: str = "0311",
-    ) -> DataArrayPrognosticMixin:
+    ) -> PrognosticMixin:
         """Load SamudrACE prognostic from package.
 
         Parameters

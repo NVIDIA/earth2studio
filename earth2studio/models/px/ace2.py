@@ -36,7 +36,7 @@ from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -118,7 +118,7 @@ def _cftime_to_npdatetime64(cftime_array: np.ndarray) -> np.ndarray:
 
 
 @check_optional_dependencies()
-class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """ACE2-ERA5 prognostic model wrapper.
 
     ACE2 (Ai2 Climate Emulator v2) is a 450M-parameter autoregressive emulator

@@ -29,7 +29,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -75,7 +75,7 @@ class TimeStepperFunction(StrEnum):
 
 
 @check_optional_dependencies()
-class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Climate in a bottle video prognostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle video

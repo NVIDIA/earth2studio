@@ -17,7 +17,7 @@ before implementing a new wrapper; its reference skeleton is native DataArray co
 - `output_coords(input_coords: CoordinateSystem) -> CoordinateSystem`
 - `to(device) -> PrognosticModel`
 
-Use `torch.nn.Module`, `DataArrayPrognosticMixin` for iterator hooks, and
+Use `torch.nn.Module`, `PrognosticMixin` for iterator hooks, and
 `AutoModelMixin` for packaged weights. Keep wrappers checkpoint-specific rather
 than adding generic compatibility frameworks.
 

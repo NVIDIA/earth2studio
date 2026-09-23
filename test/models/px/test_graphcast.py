@@ -373,7 +373,7 @@ def test_graphcast_small_conformance(graphcast):
     assert signature.sizes["lat"] == (181 if isinstance(p, GraphCastSmall) else 721)
     if isinstance(p, GraphCastOperational):
         assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
-    assert "tp:sum:6h" in p.output_coords(signature).coords["variable"]
+    assert "tp06" in p.output_coords(signature).coords["variable"]
     shifted = coord_array_like(
         signature, {"lead_time": np.array([6, 12], dtype="timedelta64[h]")}
     )

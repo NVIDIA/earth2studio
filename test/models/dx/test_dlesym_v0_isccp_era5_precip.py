@@ -183,7 +183,7 @@ def test_dlesym_v0_isccp_era5_precip_forward(device, use_ttr, batch_size):
     expected = model.output_coords(in_coords)
 
     assert out.shape == (batch_size, 1, 1, 1, 12, nside, nside)
-    assert list(out_coords["variable"].values) == ["tp:sum:6h"]
+    assert list(out_coords["variable"].values) == ["tp06"]
     assert out.name == field.name and out.encoding == field.encoding
     assert out.dims[0] == "member" and "member" not in out.coords
     assert "terrain" in out.coords and "valid_time" not in out.coords
@@ -271,7 +271,7 @@ def test_dlesym_v0_isccp_era5_precip_package(device):
     expected_coords = model.output_coords(in_coords)
 
     assert out.shape == (batch_size, len(time), 1, 1, 12, nside, nside)
-    assert list(out_coords["variable"].values) == ["tp:sum:6h"]
+    assert list(out_coords["variable"].values) == ["tp06"]
     assert len(out_coords["lead_time"]) == 1
     assert out_coords["lead_time"][0] == in_coords["lead_time"][-1]
     for key in out_coords:

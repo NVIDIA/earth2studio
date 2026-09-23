@@ -1182,14 +1182,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             time = (
                 xr.broadcast(time, template)[0].transpose(*leading).values.reshape(-1)
             )
-        return self._call(x, valid_times=time).transpose(*signature.dims)
-
-    @batch_func()
-    def _call(
-        self,
-        x: xr.DataArray,
-        valid_times: np.ndarray | None = None,
-    ) -> xr.DataArray:
+        x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
 
@@ -1200,19 +1193,19 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         )
 
         valid_time_list: list[datetime | None]
-        if valid_times is not None:
-            if len(valid_times) != x.shape[0]:
+        if time is not None:
+            if len(time) != x.shape[0]:
                 raise ValueError(
-                    f"time array length ({len(valid_times)}) must match batch size ({x.shape[0]})"
+                    f"time array length ({len(time)}) must match batch size ({x.shape[0]})"
                 )
-            valid_time_list = list(timearray_to_datetime(valid_times))
+            valid_time_list = list(timearray_to_datetime(time))
         else:
             valid_time_list = [None] * out.shape[0]
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i], valid_time_list[i])
 
-        return _field(out, output_coords)
+        return restore(_field(out, output_coords)).transpose(*signature.dims)
 
     def to(self, device: torch.device) -> "CorrDiff":
         """Move the model to a device.
@@ -1603,14 +1596,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale a labelled field to the checkpoint's curvilinear grid."""
         signature = self.output_coords(x)
-        return self._call(x).transpose(*signature.dims)
-
-    @batch_func()
-    def _call(
-        self,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
 
@@ -1622,7 +1608,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         for i in range(x.shape[0]):
             out[i] = self._forward(x[i])
 
-        return _field(out, output_coords)
+        return restore(_field(out, output_coords)).transpose(*signature.dims)
 
     @staticmethod
     def unet_regression(

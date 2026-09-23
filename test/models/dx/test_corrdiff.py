@@ -566,11 +566,10 @@ class TestCorrDiffForward:
         # Wrong dtype: ints are not datetime-like
         bad_coords = coords.copy()
         bad_coords["time"] = np.array([0])
-        with pytest.raises(TypeError):
-            # `CorrDiff.__call__` is decorated with `@batch_func()`, which enforces that
-            # `len(coords)` matches `x.ndim`. Since "time" is an optional *metadata*
-            # key (not a tensor dimension), we call the undecorated implementation
-            # here to unit-test the time validation logic directly.
+        with pytest.raises(
+            ValueError, match="time must contain nonempty finite datetimes"
+        ):
+            # Validate auxiliary time through the public DataArray entry point.
             model(_input_field(model, x, bad_coords))
 
         # Accepted dtype: numpy datetime64 per batch element

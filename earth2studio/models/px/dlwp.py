@@ -30,7 +30,7 @@ import xarray as xr
 from earth2studio.grids import PointGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -66,7 +66,7 @@ class _DLWPCheckpointState:
 
 
 @check_optional_dependencies()
-class DLWP(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious
     global forecast model with a time-step size of 6 hours. The core model is a
     convolutional encoder-decoder trained on [64,64] cubed sphere data that has an input

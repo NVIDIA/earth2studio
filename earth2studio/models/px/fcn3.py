@@ -25,7 +25,7 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -136,7 +136,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class FCN3(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet 3 advances global weather modeling by implementing a scalable,
     geometric machine learning (ML) approach to probabilistic ensemble forecasting.
     The approach is designed to respect spherical geometry and to accurately model the

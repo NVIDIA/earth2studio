@@ -30,7 +30,7 @@ from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -87,7 +87,7 @@ INVARIANTS = ["lsm", "orography"]
 
 
 @check_optional_dependencies()
-class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast generative convection-allowing model for regional forecasts consists of
     two core models: a regression and diffusion model. Model time step size is 1 hour,
     taking as input:

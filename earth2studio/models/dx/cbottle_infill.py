@@ -313,17 +313,13 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             sigma_max=sigma_max,
         )
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Infill labelled conditioning channels at their validity times."""
-        return self._call(x)
-
     @torch.inference_mode()
     @batch_func()
-    def _call(
+    def __call__(
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Infill labelled conditioning channels at their validity times."""
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 

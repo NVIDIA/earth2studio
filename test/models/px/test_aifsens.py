@@ -319,8 +319,9 @@ def test_aifsens_exceptions(dc, device, backend):
         p(x)
 
 
-def test_aifsens_conformance(monkeypatch):
-    device = "cpu"
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_aifsens_conformance(monkeypatch, device):
+    assert "_fill_input" in AIFSENS.__dict__
     model = PhooAIFSENSModel()
 
     latitudes = torch.tensor([45, 45, -45, -45]).reshape(1, 1, 4, 1).float()
@@ -364,19 +365,71 @@ def test_aifsens_conformance(monkeypatch):
         batch="member"
     )
     original = x.copy(deep=True)
+    torch.testing.assert_close(
+        p(x).e2s.to_torch()[0], torch.ones(p.output_coords(x).shape, device=device)
+    )
     iterator = p.create_iterator(x)
     initial = next(iterator)
     retained = []
     for step in range(1, 4):
         out = next(iterator)
         retained.append((out, out.copy(deep=True)))
-        torch.testing.assert_close(out.e2s.to_torch()[0], torch.ones(out.shape))
+        torch.testing.assert_close(
+            out.e2s.to_torch()[0], torch.ones(out.shape, device=device)
+        )
         assert out.lead_time.values[0] == np.timedelta64(step * 6, "h")
         assert out.name == x.name and out.dims == x.dims
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(x, original)
     xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+
+    iterator.close()
+    # Non-identity interpolation exposes an accidental public-grid round trip.
+    eye = torch.eye(4, dtype=torch.float64, device=device)
+    p.interpolation_matrix = ((eye + eye.roll(1, dims=1)) / 2).to_sparse_csr()
+    data = p.model.data_indices.data
+    indices = [
+        data.input.full.tolist().index(i) if i in data.input.full else 0
+        for i in data.output.full.tolist()
+    ]
+    monkeypatch.setattr(
+        p.model, "predict_step", lambda value, fcstep: value[:, -1:, :, indices] + 1
+    )
+    native_coords = {d: coords.coords[d].values for d in coords.dims}
+    state = p._prepare_input(x.e2s.to_torch()[0].to(device), native_coords)
+    expected = []
+    for step in range(1, 4):
+        state, output_coords = p._forward(
+            state,
+            coord_array_like(coords, {"lead_time": native_coords["lead_time"]}),
+            step,
+        )
+        expected.append(
+            p._prepare_output(
+                state, {d: output_coords.coords[d].values for d in output_coords.dims}
+            ).clone()
+        )
+        native_coords["lead_time"] = native_coords["lead_time"] + np.timedelta64(6, "h")
+        state = p._update_input(state, native_coords)
+    preparations = []
+    prepare = p._prepare_input
+
+    def capture(value, coords):
+        preparations.append(1)
+        return prepare(value, coords)
+
+    monkeypatch.setattr(p, "_prepare_input", capture)
+    p.front_hook = lambda value: value.assign_attrs(source="front")
+    p.rear_hook = lambda value: value.rename(None)
+    iterator = p.create_iterator(x)
+    next(iterator)
+    for reference in expected:
+        out = next(iterator)
+        torch.testing.assert_close(out.e2s.to_torch()[0], reference)
+        assert out.name is None and out.attrs["source"] == "front"
+    assert len(preparations) == 1
+    iterator.close()
 
 
 @pytest.fixture(scope="function")

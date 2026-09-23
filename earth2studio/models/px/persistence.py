@@ -25,7 +25,7 @@ import xarray as xr
 from earth2studio.models._array_utils import _resolve_domain
 
 from earth2studio.grids import GridDefinition
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
@@ -38,7 +38,7 @@ class _PersistenceCheckpointState:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class Persistence(torch.nn.Module, DataArrayPrognosticMixin):
+class Persistence(torch.nn.Module, PrognosticMixin):
     """Persistence model that generates a forecast by applying the identity operator on
     the initial condition and indexing the lead time by 6 hours. Primarily used in
     testing.

@@ -23,7 +23,7 @@ from earth2studio.models._array_utils import _resolve_domain
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.grids import GridDefinition
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -33,7 +33,7 @@ from earth2studio.utils import (
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
-class DataReplay(torch.nn.Module, DataArrayPrognosticMixin):
+class DataReplay(torch.nn.Module, PrognosticMixin):
     """Replay a data source through the prognostic model interface.
 
     Data sources are queried at successive valid times. Forecast sources are queried

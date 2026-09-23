@@ -137,7 +137,7 @@ and output variable counts may change. Mixed batch/fixed auxiliary coordinates
 are unsupported. The core must retain the packed batch dimension, size, and labels
 in their original order; reordering is rejected to prevent mislabeled output.
 
-`DataArrayPrognosticMixin` hooks take and return one DataArray in the original
+`PrognosticMixin` hooks take and return one DataArray in the original
 leading dimensions, and run only during iteration. `clear_hooks()` restores identity
 hooks. Level-two checkpoints store the field tensor separately from dimensions,
 coordinate values/attrs, name, attrs and encoding. Restarts yield the next forecast
@@ -236,8 +236,7 @@ preserve their numerical cadence: DLWP declares 2 because one twelve-hour core c
 produces two six-hour forecasts. Its hook order is front, rear, rear, then repeats;
 the second output is already computed and does not invoke another front hook.
 Conformance checks two complete declared cycles without model-name exceptions.
-`PrognosticMixin` hooks transform `(tensor, coords)` pairs;
-`DataArrayPrognosticMixin` hooks transform a single `xr.DataArray`.
+`PrognosticMixin` hooks transform a single `xr.DataArray`.
 The front hook reaches recurrent state otherwise inaccessible between
 steps; see `examples/02_medium_range/02_model_perturbation_hook.py`.
 

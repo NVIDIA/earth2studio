@@ -92,7 +92,7 @@ empty, and update the `all` aggregate.
 
 **Required inheritance (all three):**
 ```python
-class ModelName(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 ```
 
 **Required imports:**
@@ -102,7 +102,7 @@ import torch
 from earth2studio.models.auto import AutoModelMixin, Package
 import xarray as xr
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
@@ -331,7 +331,7 @@ def create_iterator(self, x: xr.DataArray):
 **DO:**
 - Use `uv run python` for ALL Python commands
 - Use `loguru.logger`, never `print()`
-- Inherit `torch.nn.Module + AutoModelMixin + DataArrayPrognosticMixin`
+- Inherit `torch.nn.Module + AutoModelMixin + PrognosticMixin`
 - Yield initial condition first in `create_iterator`
 - Use `front_hook()`/`rear_hook()` in `_default_generator`
 - Include SPDX header in every .py file

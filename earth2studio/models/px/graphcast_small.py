@@ -32,7 +32,7 @@ from earth2studio.models.px.graphcast_operational import (
     _jax_output_coords,
     _jax_signature,
 )
-from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import handshake_size, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -169,7 +169,7 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 
 
 @check_optional_dependencies()
-class GraphCastSmall(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
+class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """GraphCast Small 1.0 degree model
 
     A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure

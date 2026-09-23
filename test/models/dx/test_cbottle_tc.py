@@ -251,13 +251,19 @@ class TestCBottleTCMock:
         x = x.to(device)
         field = _field(dx, x, coords)
         seen_times = []
-        with pytest.raises(ValueError, match="finite one-dimensional timedeltas"):
+        with pytest.raises(
+            ValueError, match="lead_time must contain nonempty finite timedeltas"
+        ):
             dx.output_coords(field.assign_coords(lead_time=[6]))
-        with pytest.raises(ValueError, match="finite one-dimensional timedeltas"):
+        with pytest.raises(
+            ValueError, match="lead_time must contain nonempty finite timedeltas"
+        ):
             dx.output_coords(
                 field.assign_coords(lead_time=np.array(["NaT"], dtype="timedelta64[h]"))
             )
-        with pytest.raises(ValueError, match="finite one-dimensional timedeltas"):
+        with pytest.raises(
+            ValueError, match="lead_time must contain nonempty finite timedeltas"
+        ):
             dx.output_coords(field.isel(lead_time=slice(0, 0)))
         prepare = dx.get_cbottle_input
 
@@ -392,7 +398,7 @@ class TestCBottleTCMock:
             [datetime(2000, 1, 1), datetime(2000, 1, 2)],
         )
 
-        with pytest.raises(ValueError, match="exactly one sample"):
+        with pytest.raises(ValueError, match="required dim time is not of size 1"):
             dx.calculate_odds_ratio(guidance)
 
     def test_calculate_odds_ratio_rejects_empty_guidance(
