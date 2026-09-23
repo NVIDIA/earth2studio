@@ -81,7 +81,14 @@ DERIVED_MODELS = [
     [
         ({}, torch.float32),
         ({"batch": [7, 3]}, torch.float64),
-        ({"member": [2, 5], "batch": [8, 4], "time": [0, 1]}, torch.float32),
+        (
+            {
+                "member": [2, 5],
+                "batch": [8, 4],
+                "time": np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[ns]"),
+            },
+            torch.float32,
+        ),
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -157,9 +164,17 @@ def test_derived_builtin_grid(kind, grid_name):
     grid = resolve_grid(grid_name)
     model = _model(kind, grid)
     signature = model.input_coords()
-    assert signature.attrs["earth2studio_grid_id"] == grid_name
+    assert "earth2studio_grid_id" not in signature.attrs
+    for coord in grid.coords():
+        xr.testing.assert_identical(signature.coords[coord], grid.coords()[coord])
     assert signature.data.nbytes == 0
     assert signature.shape[-2:] == grid.shape
+    if kind is not DerivedSurfacePressure:
+        named = kind(grid=grid_name).input_coords()
+        assert named.attrs["earth2studio_grid_id"] == grid_name
+        xr.testing.assert_identical(
+            named.coords.to_dataset(), signature.coords.to_dataset()
+        )
     if kind is not DerivedSurfacePressure and grid_name == "latlon-0.25deg":
         assert kind().input_coords().attrs["earth2studio_grid_id"] == grid_name
 
@@ -208,7 +223,7 @@ def test_derived_ws(levels, shape, device):
 
     coords = OrderedDict(
         {
-            "time": np.arange(1),
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
             "variable": input_coords["variable"],
             "lat": np.linspace(-90, 90, shape[-2]),
             "lon": np.linspace(0, 360, shape[-1]),
@@ -241,9 +256,13 @@ def test_derived_ws(levels, shape, device):
 @pytest.mark.parametrize(
     "invalid_coords",
     [
-        OrderedDict({"time": np.array([0]), "variable": np.array(["wrong_var"])}),
         OrderedDict(
-            {"time": np.array([0]), "variable": np.array(["u100"])}
+            time=np.array(["2024-01-01"], dtype="datetime64[ns]"),
+            variable=np.array(["wrong_var"]),
+        ),
+        OrderedDict(
+            time=np.array(["2024-01-01"], dtype="datetime64[ns]"),
+            variable=np.array(["u100"]),
         ),  # Missing v component
     ],
 )
@@ -925,9 +944,7 @@ def test_derived_registered_curvilinear_exact_coordinates(monkeypatch, shift_ind
     declared = model.input_coords()
     for coord in configured.coords():
         xr.testing.assert_identical(declared.coords[coord], configured.coords()[coord])
-    assert declared.attrs.get("earth2studio_grid_id") == (
-        None if shift_indexes else name
-    )
+    assert "earth2studio_grid_id" not in declared.attrs
     signature = coord_array(
         ("variable", "y", "x"),
         {"variable": ["u100", "v100"]},

@@ -29,7 +29,6 @@ import numpy as np
 import torch
 import xarray as xr
 import zarr
-from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.grids import CurvilinearGrid, GridDefinition, LatLonGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -46,9 +45,8 @@ from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordinateSystem
 
 
-def _geographic_grid(lat: np.ndarray, lon: np.ndarray) -> str | GridDefinition:
-    grid = LatLonGrid(lat, lon) if lat.ndim == 1 else CurvilinearGrid(lat, lon)
-    return _registered_grid(grid)
+def _geographic_grid(lat: np.ndarray, lon: np.ndarray) -> GridDefinition:
+    return LatLonGrid(lat, lon) if lat.ndim == 1 else CurvilinearGrid(lat, lon)
 
 
 def _grid_dims(grid: str | GridDefinition) -> tuple[str, ...]:

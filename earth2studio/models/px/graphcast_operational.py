@@ -22,7 +22,6 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.wb2 import WB2Lexicon
@@ -174,11 +173,9 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 def _jax_signature(
     variables: list[str], hours: int, shape: tuple[int, int]
 ) -> CoordinateSystem:
-    grid = _registered_grid(
-        LatLonGrid(
-            np.linspace(90, -90, shape[0], endpoint=True),
-            np.linspace(0, 360, shape[1], endpoint=False),
-        )
+    grid = LatLonGrid(
+        np.linspace(90, -90, shape[0], endpoint=True),
+        np.linspace(0, 360, shape[1], endpoint=False),
     )
     return coord_array(
         ("batch", "time", "lead_time", "variable", "lat", "lon"),

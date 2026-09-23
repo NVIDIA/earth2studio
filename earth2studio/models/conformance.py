@@ -19,16 +19,16 @@
 The rule identifiers reported here (``P1``-``P16``, ``D1``-``D10``) match the rule
 table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
 
-These checks exercise the legacy tensor/CoordSystem execution contract. DataArray
-execution models (currently FCN and PrecipitationAFNO) use dedicated execution,
-batching, metadata, hook and checkpoint tests until this checker is migrated.
-Runtime protocol membership alone does not distinguish the two calling conventions.
+Checks use native DataArray execution for coordinate signatures and retain the
+legacy tensor/CoordSystem path for dictionary declarations. Runtime protocol
+membership alone does not distinguish the two calling conventions.
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
+from contextlib import closing
 from inspect import Parameter, signature
 from itertools import islice
 from typing import Any, cast
@@ -40,6 +40,9 @@ import xarray as xr
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import coord_array_like, handshake_metadata
+from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, E2S_KIND, E2S_SCHEMA_VERSION
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordSystem
 
 # Distinct from any seed the checks pass to set_rng, so that a model reseeding the
@@ -53,7 +56,7 @@ _PROBE_TIME = np.datetime64("2024-01-01T00:00:00")
 
 _RULES = {
     "P1": "A prognostic model structurally satisfies the PrognosticModel protocol.",
-    "P2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
+    "P2": "Coordinate declarations are allocation-free signatures or legacy ordered dictionaries.",
     "P3": "Input lead_time is relative, strictly increasing, and ends at zero.",
     "P4": "output_coords() treats its argument as read-only.",
     "P5": "output_coords() raises ValueError for an invalid coordinate system.",
@@ -69,7 +72,7 @@ _RULES = {
     "P15": "Stepping the model does not modify its input tensor or coordinates.",
     "P16": "A yielded tensor does not change once a later step is produced.",
     "D1": "A diagnostic model structurally satisfies the DiagnosticModel protocol.",
-    "D2": "Coordinate systems are ordered dictionaries of arrays led by 'batch'.",
+    "D2": "Coordinate declarations are allocation-free signatures or legacy ordered dictionaries.",
     "D3": "output_coords() treats its argument as read-only.",
     "D4": "output_coords() raises ValueError for an invalid coordinate system.",
     "D5": "__call__ returns the coordinates declared by output_coords().",
@@ -149,7 +152,7 @@ class _Report:
             raise ContractException(self.model, self.violations)
 
 
-def _expected_shape(coords: CoordSystem) -> tuple[int, ...] | None:
+def _expected_shape(coords: CoordSystem | xr.DataArray) -> tuple[int, ...] | None:
     """Tensor shape implied by a coordinate system, or None if it is not derivable.
 
     A multidimensional coordinate spans several tensor dimensions at once, and by the
@@ -157,6 +160,8 @@ def _expected_shape(coords: CoordSystem) -> tuple[int, ...] | None:
     the following ``n - 1`` entries describe the same grid and carry the same shape.
     A group that does not satisfy that convention has no derivable shape.
     """
+    if isinstance(coords, xr.DataArray):
+        return coords.shape
     values = list(coords.values())
     shape: list[int] = []
     index = 0
@@ -180,10 +185,10 @@ def _expected_shape(coords: CoordSystem) -> tuple[int, ...] | None:
 
 
 def _concretize(
-    coords: CoordSystem,
+    coords: CoordSystem | xr.DataArray,
     batch_size: int = 1,
     time: np.datetime64 = _PROBE_TIME,
-) -> CoordSystem:
+) -> Any:
     """Replace the open-ended coordinates of a declaration with concrete values.
 
     Model declarations use zero-length arrays to mean "any size" on batch-like
@@ -205,6 +210,22 @@ def _concretize(
     CoordSystem
         Coordinate system with every dimension concretely sized
     """
+    if isinstance(coords, xr.DataArray):
+        replacements = {}
+        for dim in coords.attrs.get(E2S_DYNAMIC_DIMS, ()):
+            coordinate = coords.coords.get(dim)
+            dtype = coordinate.dtype if coordinate is not None else None
+            if dtype is not None and dtype.kind == "M":
+                replacements[dim] = np.full(batch_size, time, dtype=dtype)
+            elif dtype is not None and dtype.kind == "m":
+                replacements[dim] = np.zeros(batch_size, dtype=dtype)
+            elif dim == "time":
+                replacements[dim] = np.array([time] * batch_size)
+            elif dim == "lead_time":
+                replacements[dim] = np.zeros(batch_size, dtype="timedelta64[ns]")
+            else:
+                replacements[dim] = np.arange(batch_size)
+        return coord_array_like(coords, replacements)
     concrete = OrderedDict()
     for key, value in coords.items():
         if isinstance(value, np.ndarray) and value.size == 0:
@@ -217,7 +238,7 @@ def _concretize(
     return concrete
 
 
-def _sample_tensor(coords: CoordSystem, device: Any) -> torch.Tensor:
+def _sample_tensor(coords: CoordSystem | xr.DataArray, device: Any) -> Any:
     """Build a probe tensor matching a coordinate system.
 
     Values are pseudo-random rather than zero so that a model writing into its input
@@ -227,13 +248,16 @@ def _sample_tensor(coords: CoordSystem, device: Any) -> torch.Tensor:
     if shape is None:
         raise ValueError("Coordinate system does not imply a tensor shape")
     generator = torch.Generator().manual_seed(0)
-    return torch.randn(shape, generator=generator).to(device)
+    tensor = torch.randn(shape, generator=generator).to(device)
+    return from_torch(tensor, coords) if isinstance(coords, xr.DataArray) else tensor
 
 
-def _swap_last_dims(coords: CoordSystem) -> CoordSystem:
+def _swap_last_dims(coords: CoordSystem | xr.DataArray) -> Any:
     """Return a copy of a coordinate system with its final two dimensions swapped."""
-    keys = list(coords)
+    keys = list(coords.dims) if isinstance(coords, xr.DataArray) else list(coords)
     keys[-1], keys[-2] = keys[-2], keys[-1]
+    if isinstance(coords, xr.DataArray):
+        return coords.transpose(*keys)
     return OrderedDict((key, coords[key]) for key in keys)
 
 
@@ -244,11 +268,50 @@ _DECLARED_VALUE_KEYS = ("batch", "time", "variable")
 
 
 def _mismatched_coord_keys(
-    expected: CoordSystem,
-    actual: CoordSystem,
+    expected: CoordSystem | xr.DataArray,
+    actual: CoordSystem | xr.DataArray,
     keys: tuple[str, ...] = _DECLARED_VALUE_KEYS,
 ) -> list[str]:
     """Keys present in both coordinate systems whose values differ."""
+    if isinstance(expected, xr.DataArray):
+        if not isinstance(actual, xr.DataArray):
+            return ["DataArray type"]
+        mismatched = []
+        if expected.dims != actual.dims or expected.sizes != actual.sizes:
+            mismatched.append("dimensions")
+        if not expected.coords.to_dataset().identical(actual.coords.to_dataset()):
+            mismatched.append("coordinates")
+        if any(
+            key in actual.attrs
+            for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS)
+        ):
+            mismatched.append("signature metadata on field")
+        # Hook-owned user attributes are flexible; physical grid/statistic metadata
+        # must agree with the independently planned declaration, including absence.
+        try:
+            handshake_metadata(
+                actual,
+                expected,
+                (
+                    "earth2studio_grid_id",
+                    "earth2studio_crs",
+                    "earth2studio_statistics",
+                    "type",
+                    "dims",
+                    "shape",
+                    "topology",
+                    "crs",
+                    "level",
+                    "nside",
+                    "ordering",
+                    "layout",
+                    "origin",
+                    "clockwise",
+                ),
+            )
+        except ValueError:
+            mismatched.append("structural metadata")
+        return mismatched
     return [
         key
         for key in keys
@@ -261,18 +324,119 @@ def _mismatched_coord_keys(
 def _check_coord_declaration(
     report: _Report,
     model: Any,
-    input_coords: CoordSystem,
+    input_coords: CoordSystem | xr.DataArray,
     *,
     coords_rule: str,
     readonly_rule: str,
     invalid_rule: str,
     time: np.datetime64 = _PROBE_TIME,
-) -> CoordSystem | None:
+) -> Any:
     """Evaluate the declaration rules shared by prognostic and diagnostic models.
 
     The rule identifiers differ between the two protocols, so each caller supplies
     the identifier its spec section uses.
     """
+    native = isinstance(input_coords, xr.DataArray)
+    if isinstance(input_coords, xr.DataArray):
+        dynamic = tuple(input_coords.attrs.get(E2S_DYNAMIC_DIMS, ()))
+        report.require(
+            coords_rule,
+            input_coords.attrs.get(E2S_KIND) == "coordinate_array"
+            and input_coords.data.nbytes == 0,
+            "input_coords() must return an allocation-free coordinate signature",
+        )
+        report.require(
+            coords_rule,
+            input_coords.dims[: len(dynamic)] == dynamic
+            and all(input_coords.sizes.get(dim) == 0 for dim in dynamic),
+            "dynamic dimensions must be an empty leading prefix",
+        )
+    else:
+        _check_legacy_coord_declaration(report, input_coords, coords_rule)
+
+    concrete = _concretize(input_coords, time=time)
+    reference: Any = (
+        concrete.copy(deep=True)
+        if native
+        else OrderedDict((key, value.copy()) for key, value in concrete.items())
+    )
+    try:
+        output_coords = model.output_coords(concrete)
+    except Exception as error:  # noqa: BLE001 - reported as a violation
+        report.require(
+            readonly_rule,
+            False,
+            f"output_coords() raised on its own input_coords(): {error!r}",
+        )
+        return None
+
+    unchanged = (
+        (
+            concrete.dims == reference.dims
+            and concrete.coords.to_dataset().identical(reference.coords.to_dataset())
+            and concrete.attrs == reference.attrs
+            and concrete.encoding == reference.encoding
+        )
+        if native
+        else (
+            list(concrete) == list(reference)
+            and all(
+                np.array_equal(concrete[key], value) for key, value in reference.items()
+            )
+        )
+    )
+    report.require(
+        readonly_rule,
+        unchanged,
+        "output_coords() mutated its input coordinates or metadata",
+    )
+    if native:
+        if not report.require(
+            coords_rule,
+            isinstance(output_coords, xr.DataArray),
+            "output_coords() must return a DataArray",
+        ):
+            return None
+        report.require(
+            coords_rule,
+            output_coords.attrs.get(E2S_KIND) == "coordinate_array"
+            and output_coords.data.nbytes == 0,
+            "output_coords() must return an allocation-free coordinate signature",
+        )
+    ndim = (
+        input_coords.ndim
+        if isinstance(input_coords, xr.DataArray)
+        else len(input_coords)
+    )
+    fixed_ndim = ndim - len(dynamic) if native else ndim
+    if ndim >= 3 and fixed_ndim >= 2:
+        try:
+            model.output_coords(_swap_last_dims(concrete))
+        except (ValueError, KeyError) as error:
+            report.require(
+                invalid_rule,
+                not native or isinstance(error, ValueError),
+                "invalid coordinates must raise ValueError",
+            )
+        except Exception as error:  # noqa: BLE001 - reported as a violation
+            report.require(
+                invalid_rule,
+                False,
+                f"output_coords() raised {type(error).__name__} for a misordered coordinate system; it must raise ValueError",
+            )
+        else:
+            report.require(
+                invalid_rule, False, "output_coords() accepted swapped fixed dimensions"
+            )
+    else:
+        report.skip(invalid_rule, "model declares fewer than three dimensions")
+    return output_coords
+
+
+def _check_legacy_coord_declaration(
+    report: _Report, input_coords: CoordSystem, coords_rule: str
+) -> None:
+    """Validate the dictionary representation used by legacy protocol probes."""
     report.require(
         coords_rule,
         isinstance(input_coords, OrderedDict),
@@ -289,56 +453,6 @@ def _check_coord_declaration(
         next(iter(input_coords), None) == "batch",
         "the leading dimension of input_coords() must be 'batch'",
     )
-
-    concrete = _concretize(input_coords, time=time)
-    reference = OrderedDict((key, value.copy()) for key, value in concrete.items())
-    try:
-        output_coords = model.output_coords(concrete)
-    except Exception as error:  # noqa: BLE001 - reported as a violation
-        report.require(
-            readonly_rule,
-            False,
-            f"output_coords() raised on its own input_coords(): {error!r}",
-        )
-        return None
-
-    report.require(
-        readonly_rule,
-        list(concrete) == list(reference)
-        and all(
-            np.array_equal(concrete[key], value) for key, value in reference.items()
-        ),
-        "output_coords() mutated the coordinate system it was given; it must treat "
-        "its argument as read-only",
-    )
-
-    if len(input_coords) >= 3:
-        try:
-            model.output_coords(_swap_last_dims(concrete))
-        except (ValueError, KeyError):
-            # The conformant outcome. Still routed through require() (condition
-            # True, so the message is unused) rather than left as a silent
-            # `pass`, so this rule is recorded as evaluated even when the model
-            # gets it right.
-            report.require(invalid_rule, True, "unreachable")
-        except Exception as error:  # noqa: BLE001 - reported as a violation
-            report.require(
-                invalid_rule,
-                False,
-                f"output_coords() raised {type(error).__name__} for a misordered "
-                "coordinate system; it must raise ValueError",
-            )
-        else:
-            report.require(
-                invalid_rule,
-                False,
-                "output_coords() accepted a coordinate system whose final two "
-                "dimensions were swapped; invalid input must raise ValueError",
-            )
-    else:
-        report.skip(invalid_rule, "model declares fewer than three dimensions")
-
-    return output_coords
 
 
 def check_prognostic_contract(
@@ -408,30 +522,36 @@ def _evaluate_prognostic(
     )
 
     input_coords = model.input_coords()
-    if isinstance(input_coords, xr.DataArray):
-        from earth2studio.models._conformance_xarray import evaluate
-
-        return evaluate(model, True, rollout, nsteps, device, time)
-    lead_time = input_coords.get("lead_time")
+    native = isinstance(input_coords, xr.DataArray)
+    lead_time = (input_coords.coords if native else input_coords).get("lead_time")
+    if lead_time is not None:
+        lead_time = np.asarray(lead_time)
     if lead_time is None:
         report.require(
             "P3", False, "input_coords() must declare a 'lead_time' dimension"
         )
     else:
-        report.require(
+        valid_lead = report.require(
             "P3",
-            np.issubdtype(lead_time.dtype, np.timedelta64),
+            lead_time.ndim == 1 and np.issubdtype(lead_time.dtype, np.timedelta64),
             f"input_coords()['lead_time'] must hold timedeltas, got {lead_time.dtype}",
         )
         report.require(
             "P3",
-            lead_time.size > 0 and lead_time[-1] == np.timedelta64(0, "h"),
+            valid_lead
+            and lead_time.size > 0
+            and not np.isnat(lead_time).any()
+            and lead_time[-1] == np.timedelta64(0, "h"),
             "input_coords()['lead_time'] must be relative and end at zero, so that "
             f"the final entry is the analysis time, got {lead_time}",
         )
         report.require(
             "P3",
-            lead_time.size < 2 or bool(np.all(np.diff(lead_time) > np.timedelta64(0))),
+            valid_lead
+            and (
+                lead_time.size < 2
+                or bool(np.all(np.diff(lead_time) > np.timedelta64(0)))
+            ),
             f"input_coords()['lead_time'] must be strictly increasing, got {lead_time}",
         )
 
@@ -445,11 +565,12 @@ def _evaluate_prognostic(
         time=time,
     )
     if output_coords is not None:
-        report.require(
-            "P2",
-            next(iter(output_coords), None) == "batch",
-            "the leading dimension of output_coords() must be 'batch'",
-        )
+        if not native:
+            report.require(
+                "P2",
+                next(iter(output_coords), None) == "batch",
+                "the leading dimension of output_coords() must be 'batch'",
+            )
         _check_rebasing(report, model, input_coords, output_coords, time=time)
 
     stochastic = _check_stochasticity(report, model, device=device)
@@ -486,12 +607,20 @@ def _evaluate_prognostic(
 def _check_rebasing(
     report: _Report,
     model: PrognosticModel,
-    input_coords: CoordSystem,
-    output_coords: CoordSystem,
+    input_coords: CoordSystem | xr.DataArray,
+    output_coords: CoordSystem | xr.DataArray,
     time: np.datetime64 = _PROBE_TIME,
 ) -> None:
     """Evaluate the lead-time rebasing rule (``P6``)."""
-    if "lead_time" not in input_coords or "lead_time" not in output_coords:
+    inputs = (
+        input_coords.coords if isinstance(input_coords, xr.DataArray) else input_coords
+    )
+    outputs = (
+        output_coords.coords
+        if isinstance(output_coords, xr.DataArray)
+        else output_coords
+    )
+    if "lead_time" not in inputs or "lead_time" not in outputs:
         report.skip("P6", "model does not declare a lead_time dimension")
         return
 
@@ -519,14 +648,21 @@ def _check_rebasing(
 
 def _check_immutability(
     report: _Report,
-    x: torch.Tensor,
-    pristine_x: torch.Tensor,
-    coords: CoordSystem,
-    pristine_coords: CoordSystem,
+    x: Any,
+    pristine_x: Any,
+    coords: Any,
+    pristine_coords: Any,
     path: str,
     rule: str = "P15",
 ) -> None:
     """Evaluate the input immutability rule (``P15``, ``D6``) for one call path."""
+    if isinstance(x, xr.DataArray):
+        report.require(
+            rule,
+            _same_values(x, pristine_x),
+            f"{path} modified input values, coordinates, or metadata in place",
+        )
+        return
     report.require(
         rule,
         x.shape == pristine_x.shape and torch.equal(x, pristine_x),
@@ -545,10 +681,26 @@ def _check_immutability(
 
 
 def _check_call_immutability(
-    report: _Report, model: Any, coords: CoordSystem, device: Any, rule: str = "P15"
+    report: _Report,
+    model: Any,
+    coords: Any,
+    device: Any,
+    rule: str = "P15",
+    output_coords: Any = None,
 ) -> None:
     """Evaluate input immutability for the single-step ``__call__`` path."""
     x = _sample_tensor(coords, device)
+    if isinstance(x, xr.DataArray):
+        pristine = x.copy(deep=True)
+        output = model(x)
+        _check_immutability(report, x, pristine, coords, coords, "__call__", rule)
+        if output_coords is not None:
+            report.require(
+                "P9" if rule == "P15" else "D5",
+                not _mismatched_coord_keys(output_coords, output),
+                "__call__ returned coordinates or structural metadata differing from its declaration",
+            )
+        return
     pristine_x = x.clone()
     call_coords = OrderedDict((key, value.copy()) for key, value in coords.items())
     pristine_coords = OrderedDict((key, value.copy()) for key, value in coords.items())
@@ -561,8 +713,8 @@ def _check_call_immutability(
 def _check_rollout(
     report: _Report,
     model: PrognosticModel,
-    input_coords: CoordSystem,
-    output_coords: CoordSystem,
+    input_coords: Any,
+    output_coords: Any,
     nsteps: int,
     device: Any,
     stochastic: bool,
@@ -574,14 +726,110 @@ def _check_rollout(
     """
     coords = _concretize(input_coords, time=time)
     x = _sample_tensor(coords, device)
-    pristine_x = x.clone()
-    pristine_coords = OrderedDict((key, value.copy()) for key, value in coords.items())
+    native = isinstance(x, xr.DataArray)
+    pristine_x = x.copy(deep=True) if native else x.clone()
+    pristine_coords = (
+        coords.copy(deep=True)
+        if native
+        else OrderedDict((key, value.copy()) for key, value in coords.items())
+    )
 
     # Seed first: a stochastic model may require set_rng before it can be stepped,
     # and a caller driving a rollout would seed it too
     set_rng = getattr(model, "set_rng", None)
     if stochastic and callable(set_rng):
         set_rng(0)
+
+    if native:
+        steps_native = []
+        snapshots_native = []
+        expected = output_coords
+        with closing(cast(Callable, model.create_iterator)(x)) as iterator:
+            for index in range(nsteps + 1):
+                try:
+                    values = next(iterator)
+                except StopIteration:
+                    break
+                except Exception as error:  # noqa: BLE001 - reported as a violation
+                    report.require(
+                        "P9", False, f"iterator failed at yield {index}: {error!r}"
+                    )
+                    break
+                if not report.require(
+                    "P9",
+                    isinstance(values, xr.DataArray),
+                    "iterator must yield DataArrays",
+                ):
+                    break
+                if index:
+                    report.require(
+                        "P9",
+                        not _mismatched_coord_keys(expected, values),
+                        f"yield {index} differs from its independently planned coordinates or structural metadata",
+                    )
+                    if index < nsteps:
+                        history = coord_array_like(
+                            coords,
+                            {
+                                "lead_time": coords.lead_time.values
+                                - coords.lead_time.values[-1]
+                                + expected.lead_time.values[-1]
+                            },
+                        )
+                        expected = model.output_coords(history)
+                steps_native.append(values)
+                snapshots_native.append(values.copy(deep=True))
+        _check_immutability(
+            report, x, pristine_x, coords, pristine_coords, "create_iterator()"
+        )
+        report.require(
+            "P7",
+            bool(snapshots_native)
+            and _same_values(
+                snapshots_native[0], pristine_x.isel(lead_time=slice(-1, None))
+            ),
+            "initial yield must contain the final input history entry",
+        )
+        report.require(
+            "P8",
+            len(snapshots_native) > 1
+            and not _mismatched_coord_keys(output_coords, snapshots_native[1]),
+            "first forecast differs from output_coords()",
+        )
+        report.require(
+            "P16",
+            all(
+                _same_values(value, snapshot)
+                for value, snapshot in zip(steps_native, snapshots_native)
+            ),
+            "a retained yield changed after advancing the iterator",
+        )
+        _check_call_immutability(
+            report, model, coords, device, output_coords=output_coords
+        )
+        # A malformed forecast can make later probes raise too. Keep evaluating
+        # independent rules and report each execution failure under its own rule.
+        probes: tuple[tuple[str, Callable[[], None]], ...] = (
+            ("P10", lambda: _check_hook_scope(report, model, coords, device)),
+            (
+                "P13",
+                lambda: _check_reproducibility(
+                    report, model, coords, device, nsteps, stochastic
+                ),
+            ),
+            (
+                "P14",
+                lambda: _check_step_rng_isolation(
+                    report, model, coords, device, stochastic
+                ),
+            ),
+        )
+        for rule, check in probes:
+            try:
+                check()
+            except Exception as error:  # noqa: BLE001 - reported as a violation
+                report.require(rule, False, f"execution probe raised: {error!r}")
+        return
 
     # Snapshot during iteration, not after: yields that alias one buffer have already
     # converged on the final step's values by the time the rollout finishes
@@ -672,7 +920,7 @@ def _check_rollout(
     _check_step_rng_isolation(report, model, coords, device, stochastic)
 
 
-def _same_values(first: torch.Tensor, second: torch.Tensor) -> bool:
+def _same_values(first: Any, second: Any) -> bool:
     """Whether two probe outputs agree, tolerating a shape change between them.
 
     A model whose output shape moves between calls — a stateful diagnostic
@@ -681,17 +929,32 @@ def _same_values(first: torch.Tensor, second: torch.Tensor) -> bool:
     non-broadcastable shapes instead of returning False, which would surface as a
     checker crash rather than as the violation it is.
     """
+    if isinstance(first, list):
+        return len(first) == len(second) and all(
+            _same_values(a, b) for a, b in zip(first, second)
+        )
+    if isinstance(first, xr.DataArray):
+        return (
+            isinstance(second, xr.DataArray)
+            and first.e2s.as_numpy().identical(second.e2s.as_numpy())
+            and first.encoding == second.encoding
+        )
     return first.shape == second.shape and torch.allclose(first, second)
 
 
-def _rollout_values(
-    model: PrognosticModel, x: torch.Tensor, coords: CoordSystem, nsteps: int
-) -> torch.Tensor:
+def _rollout_values(model: PrognosticModel, x: Any, coords: Any, nsteps: int) -> Any:
     """Concatenate the forecast steps of a rollout into one tensor.
 
     The input is cloned per rollout so that a model violating ``P15`` cannot make
     successive rollouts disagree for the wrong reason.
     """
+    if isinstance(x, xr.DataArray):
+        with closing(
+            cast(Callable, model.create_iterator)(x.copy(deep=True))
+        ) as iterator:
+            return [
+                values.copy(deep=True) for values in islice(iterator, 1, nsteps + 1)
+            ]
     steps = islice(
         cast(Callable, model.create_iterator)(x.clone(), coords.copy()), 1, nsteps + 1
     )
@@ -839,7 +1102,7 @@ def _check_stochasticity(
 def _check_diagnostic_reproducibility(
     report: _Report,
     model: DiagnosticModel,
-    coords: CoordSystem,
+    coords: Any,
     device: Any,
     stochastic: bool,
 ) -> None:
@@ -850,7 +1113,9 @@ def _check_diagnostic_reproducibility(
     """
     x = _sample_tensor(coords, device)
 
-    def run() -> torch.Tensor:
+    def run() -> Any:
+        if isinstance(x, xr.DataArray):
+            return model(x.copy(deep=True)).copy(deep=True)
         out, _ = cast(Callable, model)(x.clone(), coords.copy())
         return out.detach().flatten().clone()
 
@@ -888,7 +1153,7 @@ def _check_diagnostic_reproducibility(
 def _check_reproducibility(
     report: _Report,
     model: PrognosticModel,
-    coords: CoordSystem,
+    coords: Any,
     device: Any,
     nsteps: int,
     stochastic: bool,
@@ -937,7 +1202,7 @@ def _check_reproducibility(
 def _check_step_rng_isolation(
     report: _Report,
     model: PrognosticModel,
-    coords: CoordSystem,
+    coords: Any,
     device: Any,
     stochastic: bool,
 ) -> None:
@@ -955,6 +1220,12 @@ def _check_step_rng_isolation(
     x = _sample_tensor(coords, device)
 
     def step() -> None:
+        if isinstance(x, xr.DataArray):
+            with closing(
+                cast(Callable, model.create_iterator)(x.copy(deep=True))
+            ) as iterator:
+                list(islice(iterator, 2))
+            return
         for _ in islice(cast(Callable, model.create_iterator)(x, coords.copy()), 2):
             pass
 
@@ -964,7 +1235,7 @@ def _check_step_rng_isolation(
 def _check_call_rng_isolation(
     report: _Report,
     model: DiagnosticModel,
-    coords: CoordSystem,
+    coords: Any,
     device: Any,
     stochastic: bool,
 ) -> None:
@@ -977,7 +1248,11 @@ def _check_call_rng_isolation(
     x = _sample_tensor(coords, device)
     _check_rng_isolation(
         report,
-        lambda: cast(Callable, model)(x, coords.copy()),
+        lambda: (
+            model(x.copy(deep=True))
+            if isinstance(x, xr.DataArray)
+            else cast(Callable, model)(x, coords.copy())
+        ),
         "calling a seeded model",
         "D10",
         device,
@@ -985,7 +1260,7 @@ def _check_call_rng_isolation(
 
 
 def _check_hook_scope(
-    report: _Report, model: PrognosticModel, coords: CoordSystem, device: Any
+    report: _Report, model: PrognosticModel, coords: Any, device: Any
 ) -> None:
     """Evaluate the hook scope rule (``P10``)."""
     # Bound separately so the narrowing does not shadow the PrognosticModel methods
@@ -994,6 +1269,14 @@ def _check_hook_scope(
         report.skip("P10", "model does not use PrognosticMixin hooks")
         return
 
+    native = isinstance(coords, xr.DataArray)
+    interval = getattr(hooks, "front_hook_interval", 1)
+    if native and not report.require(
+        "P10",
+        type(interval) is int and interval > 0,
+        "front_hook_interval must be a positive integer",
+    ):
+        return
     calls: list[str] = []
 
     def front(x: xr.DataArray) -> xr.DataArray:
@@ -1014,11 +1297,19 @@ def _check_hook_scope(
     hooks.rear_hook = rear
     try:
         x = _sample_tensor(coords, device)
-        next(islice(cast(Callable, model.create_iterator)(x, coords.copy()), 1, 2))
-        iterator_calls = set(calls)
+        if native:
+            with closing(cast(Callable, model.create_iterator)(x)) as iterator:
+                list(islice(iterator, 2 * interval + 1))
+            iterator_calls = calls.copy()
+        else:
+            next(islice(cast(Callable, model.create_iterator)(x, coords.copy()), 1, 2))
+            iterator_calls = list(set(calls))
 
         calls.clear()
-        cast(Callable, model)(_sample_tensor(coords, device), coords.copy())
+        if native:
+            model(_sample_tensor(coords, device))
+        else:
+            cast(Callable, model)(_sample_tensor(coords, device), coords.copy())
         call_calls = set(calls)
     finally:
         hooks.front_hook = original_front
@@ -1026,7 +1317,11 @@ def _check_hook_scope(
 
     report.require(
         "P10",
-        iterator_calls == {"front", "rear"},
+        (
+            iterator_calls == (["front"] + ["rear"] * interval) * 2
+            if native
+            else set(iterator_calls) == {"front", "rear"}
+        ),
         "create_iterator() must apply both hooks on every forecast step, applied "
         f"{iterator_calls or 'neither'}; a hook a caller sets must not be silently "
         "dropped",
@@ -1096,10 +1391,6 @@ def _evaluate_diagnostic(
     )
 
     input_coords = model.input_coords()
-    if isinstance(input_coords, xr.DataArray):
-        from earth2studio.models._conformance_xarray import evaluate
-
-        return evaluate(model, False, forward, 2, device, time)
     output_coords = _check_coord_declaration(
         report,
         model,
@@ -1127,6 +1418,16 @@ def _evaluate_diagnostic(
             "built",
         )
     else:
+        if isinstance(coords, xr.DataArray):
+            seed = getattr(model, "set_rng", None)
+            if stochastic and callable(seed):
+                seed(0)
+            _check_call_immutability(
+                report, model, coords, device, rule="D6", output_coords=output_coords
+            )
+            _check_diagnostic_reproducibility(report, model, coords, device, stochastic)
+            _check_call_rng_isolation(report, model, coords, device, stochastic)
+            return report
         out, out_coords = cast(Callable, model)(
             _sample_tensor(coords, device), coords.copy()
         )

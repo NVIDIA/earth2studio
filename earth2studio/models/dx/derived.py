@@ -17,7 +17,6 @@
 import numpy as np
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.grids import GridDefinition, LatLonGrid, resolve_grid
 from earth2studio.models.batch import batch_func
@@ -36,8 +35,7 @@ class _DerivedDiagnostic(torch.nn.Module):
         definition = resolve_grid(grid) if isinstance(grid, str) else grid
         if len(definition.dims) != 2:
             raise ValueError("Derived diagnostics require a two-dimensional grid")
-        # Reuse registered geometry, including its layout and CRS, on exact matches.
-        self.grid = _registered_grid(grid)
+        self.grid = grid
         self._spatial_dims = definition.dims
 
     def input_coords(self) -> CoordinateSystem:

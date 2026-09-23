@@ -22,7 +22,6 @@ from typing import Literal
 import numpy as np
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _registered_grid
 from loguru import logger
 
 from earth2studio.grids import HEALPixGrid, LatLonGrid
@@ -1479,7 +1478,7 @@ class DLESyMLatLon(DLESyM):
             attrs={k: v for k, v in x.attrs.items() if k not in grid_keys},
             name=x.name,
             dtype=x.dtype,
-            grid=_registered_grid(grid),
+            grid=grid,
         )
 
     # Trailing window, in hours, over which the `ttr-3h` prognostic input

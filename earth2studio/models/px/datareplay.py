@@ -14,15 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Hashable, Iterator
 
 import numpy as np
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _resolve_domain
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.grids import GridDefinition
+from earth2studio.grids import CurvilinearGrid, GridDefinition, LatLonGrid, resolve_grid
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
@@ -75,7 +74,17 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         self.source = source
         self.step = step
         self._variable = np.asarray(variable).copy()
-        dims, coordinates, grid = _resolve_domain(domain_coords)
+        grid: str | GridDefinition | None = None
+        coordinates: dict[Hashable, np.ndarray] = {}
+        if isinstance(domain_coords, (str, GridDefinition)):
+            grid = domain_coords
+        elif tuple(domain_coords) == ("lat", "lon"):
+            lat, lon = domain_coords["lat"], domain_coords["lon"]
+            grid = LatLonGrid(lat, lon) if lat.ndim == 1 else CurvilinearGrid(lat, lon)
+        else:
+            coordinates = {key: value for key, value in domain_coords.items()}
+        definition = resolve_grid(grid) if isinstance(grid, str) else grid
+        dims = definition.dims if definition is not None else tuple(coordinates)
         self._input_coords = coord_array(
             ("batch", "time", "lead_time", "variable", *dims),
             {

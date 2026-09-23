@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _registered_grid
 from loguru import logger
 
 from earth2studio.data import ACE2ERA5Data
@@ -277,7 +276,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(self._prog_vars_e2s, dtype=object),
             },
             dynamic=("batch", "time"),
-            grid=_registered_grid(LatLonGrid(self.lat, self.lon)),
+            grid=LatLonGrid(self.lat, self.lon),
         )
         return coords
 

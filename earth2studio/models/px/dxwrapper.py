@@ -21,7 +21,6 @@ from typing import Protocol, cast
 import numpy as np
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.grids import infer_grid
 from earth2studio.models.dx import DiagnosticModel
@@ -108,7 +107,9 @@ class PrepareInputCoordsDefault:
                 if key in dx_coords.attrs:
                     result.attrs[key] = deepcopy(dx_coords.attrs[key])
         else:
-            grid = _registered_grid(infer_grid(dx_coords))
+            grid = dx_coords.attrs.get("earth2studio_grid_id")
+            if grid is None:
+                grid = infer_grid(dx_coords)
             removed = {*source_spatial, "variable"}
             coords = {
                 k: v.variable.copy(deep=True)

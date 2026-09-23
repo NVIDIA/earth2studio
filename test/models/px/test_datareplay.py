@@ -156,7 +156,7 @@ def test_datareplay_grid_mismatch_raises():
     x = _initial_condition(GridRandom(DOMAIN))
     replay = DataReplay(source, VARIABLE, DOMAIN)
 
-    with pytest.raises(ValueError, match="wrong size"):
+    with pytest.raises(ValueError, match="required dim lat is not of size 8"):
         replay(x)
 
 
@@ -173,8 +173,11 @@ def test_datareplay_nonfinite_raises(monkeypatch):
 @pytest.mark.parametrize(
     "coords_update, match",
     [
-        ({"time": np.empty(0, dtype="datetime64[ns]")}, "non-empty time"),
-        ({"variable": VARIABLE[::-1]}, "does not match"),
+        (
+            {"time": np.empty(0, dtype="datetime64[ns]")},
+            "Dimension 'time' must be nonempty",
+        ),
+        ({"variable": VARIABLE[::-1]}, "required dim variable are not the same"),
     ],
 )
 def test_datareplay_invalid_coords(coords_update, match):
@@ -353,11 +356,24 @@ def test_replay_persistence_exact_registered_domain(
         else model_type("t2m", domain)
     )
     signature = model.input_coords()
-    assert signature.attrs.get("earth2studio_grid_id") == (
-        name if difference is None else None
-    )
+    assert "earth2studio_grid_id" not in signature.attrs
     for coord in configured.coords():
         xr.testing.assert_identical(signature.coords[coord], configured.coords()[coord])
     if difference is not None:
         assert "earth2studio_crs" not in signature.attrs
         assert "description" not in signature.attrs
+    named_model = (
+        model_type(Random(DOMAIN), "t2m", name)
+        if model_type is DataReplay
+        else model_type("t2m", name)
+    )
+    named_signature = named_model.input_coords()
+    assert named_signature.attrs["earth2studio_grid_id"] == name
+    for coord in registered.coords():
+        xr.testing.assert_identical(
+            named_signature.coords[coord], registered.coords()[coord]
+        )
+    for key, value in registered.attrs.items():
+        assert named_signature.attrs[key] == value
+    if registered.crs is not None:
+        assert named_signature.attrs["earth2studio_crs"] == registered.crs.to_string()

@@ -23,7 +23,6 @@ from typing import Any
 import numpy as np
 import torch
 import xarray as xr
-from earth2studio.models._array_utils import _registered_grid
 
 from earth2studio.data.base import DataSource
 from earth2studio.grids import LatLonGrid
@@ -317,7 +316,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(self._in_vars_e2s, dtype=object),
             },
             dynamic=("batch", "time"),
-            grid=_registered_grid(LatLonGrid(self.lat, self.lon)),
+            grid=LatLonGrid(self.lat, self.lon),
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
