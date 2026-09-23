@@ -293,11 +293,9 @@ class CAMulatorForcing:
 
     def _fetch_file(self, filename: str) -> str:
         """Download a file from the CAMulator HuggingFace repository (pinned
-        revision). With caching enabled the shared HuggingFace hub cache is used."""
+        revision) into the Earth2Studio cache directory."""
         if self._verbose:
             logger.info("Fetching CAMulator forcing file: {}", filename)
-        if self._cache:
-            return hf_hub_download(HF_REPO_ID, filename, revision=CAMULATOR_HF_REVISION)
         return hf_hub_download(
             HF_REPO_ID, filename, revision=CAMULATOR_HF_REVISION, local_dir=self.cache
         )

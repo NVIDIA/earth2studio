@@ -128,6 +128,9 @@ def test_camulator_forcing_cache(cache):
     assert pathlib.Path(ds.cache).is_dir() == cache or not cache
     data2 = ds(_TEST_TIME, ["sst"])
     assert data2.shape == data.shape
+    # Release the open netCDF before deleting: on NFS/Lustre the unlink of an
+    # open file is deferred and rmtree fails with ENOTEMPTY.
+    ds._close()
     try:
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
