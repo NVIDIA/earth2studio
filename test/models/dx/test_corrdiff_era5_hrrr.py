@@ -207,3 +207,9 @@ def test_constructor_validation():
         _build(number_of_samples=0)
     with pytest.raises(ValueError):
         _build(t_max=1.0)
+
+
+def test_load_model_rejects_unknown_variant():
+    # the check runs before the loader opens any package file
+    with pytest.raises(ValueError, match="variant"):
+        CorrDiffEra5Hrrr.load_model(None, variant="v_pred")

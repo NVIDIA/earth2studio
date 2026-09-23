@@ -45,6 +45,7 @@ from typing import Any, Literal
 
 import numpy as np
 import torch
+from fsspec.implementations.cache_mapper import BasenameCacheMapper
 
 from earth2studio.data import HRRR
 from earth2studio.models.auto import AutoModelMixin, Package
@@ -86,6 +87,11 @@ PredictionType = Literal["x0", "flow"]
 
 # hours in a mean tropical-ish year used by the training pipeline (365.25 days)
 _HOURS_PER_YEAR = 8766.0
+
+# Sub-folders of the hosted package, one per generative formulation. Every
+# artifact of a variant (checkpoint, metadata, statistics, grids, invariants)
+# lives under ``<variant>/`` so one package URI serves every formulation.
+SUPPORTED_VARIANTS = ("x_pred",)
 
 
 @check_optional_dependencies()
@@ -583,16 +589,30 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     # ---- package loading -------------------------------------------------------
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default package (not hosted yet).
+        """Default pre-trained package from the NVIDIA Hugging Face registry.
 
-        Build a package from a PhysicsNeMo checkpoint with
-        ``examples/weather/stormcast-conus-rfm/make_e2s_package.py`` and load it
-        with ``Package("/path/to/package")``.
+        The package nests one sub-folder per generative formulation (``x_pred/``:
+        the x-prediction rectified-flow model, EMA at 17.5 million training
+        samples, with its validated sampler settings); ``load_model(...,
+        variant=)`` selects the sub-folder. Packages for the other formulations
+        come from the PhysicsNeMo
+        ``examples/weather/stormcast-conus-rfm/make_e2s_package.py`` builder, which
+        writes the same layout, and load with ``Package("/path/to/package")``.
+
+        Returns
+        -------
+        Package
+            The hosted model package at ``hf://nvidia/corrdiff-era5-hrrr``.
         """
-        raise NotImplementedError(
-            "CorrDiffEra5Hrrr has no hosted default package; build one with the "
-            "PhysicsNeMo stormcast-conus-rfm example's make_e2s_package.py and pass "
-            "Package(<local path>) to load_model."
+        return Package(
+            "hf://nvidia/corrdiff-era5-hrrr@c95089642d19985714eebebdbd5b0b72c86ed1a3",
+            cache_options={
+                "cache_storage": Package.default_cache("corrdiff_era5_hrrr"),
+                # Keep the variant directory so files with matching basenames in
+                # different sub-folders (for example ``x_pred/metadata.json``)
+                # get distinct cache entries.
+                "cache_mapper": BasenameCacheMapper(directory_levels=1),
+            },
         )
 
     @staticmethod
@@ -618,14 +638,16 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         shift: float | None = None,
         seed: int | None = None,
         amp: bool | None = None,
+        variant: Literal["x_pred"] = "x_pred",
     ) -> DiagnosticModel:
         """Load the model from a package.
 
-        The package (see ``make_e2s_package.py`` in the PhysicsNeMo
-        ``stormcast-conus-rfm`` example) contains ``metadata.json`` (variables,
-        grid window, network and sampler settings), ``stats.json`` (normalization),
-        ``invariants.npy``, ``hrrr_lat.npy`` / ``hrrr_lon.npy``, ``era5_lat.npy`` /
-        ``era5_lon.npy`` and the DiT checkpoint saved at the full output resolution.
+        The package nests each model under its own sub-folder, ``<variant>/``
+        (see ``make_e2s_package.py`` in the PhysicsNeMo ``stormcast-conus-rfm``
+        example), holding ``metadata.json`` (variables, grid window, network and
+        sampler settings), ``stats.json`` (normalization), ``invariants.npy``,
+        ``hrrr_lat.npy`` / ``hrrr_lon.npy``, ``era5_lat.npy`` / ``era5_lon.npy`` and
+        the DiT checkpoint saved at the full output resolution.
 
         Parameters
         ----------
@@ -643,25 +665,34 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             Base RNG seed, by default None (unseeded).
         amp : bool | None, optional
             bf16 autocast for the network; defaults to the package metadata.
+        variant : {"x_pred"}, optional
+            Sub-folder of the package to load, by default ``"x_pred"`` (the
+            x-prediction rectified-flow model).
 
         Returns
         -------
         DiagnosticModel
             Loaded model.
         """
+        # Check the selector up front so a bad value fails with a clear message
+        # rather than a missing-file error when resolving "<variant>/...".
+        if variant not in SUPPORTED_VARIANTS:
+            raise ValueError(f"variant must be one of {list(SUPPORTED_VARIANTS)}")
         try:
             package.resolve("config.json")  # download bookkeeping, if hosted
         except (FileNotFoundError, ValueError):
             pass
-        metadata = cls._load_json(package, "metadata.json")
-        stats = cls._load_json(package, "stats.json")
+        # ``prefix`` locates every artifact of the selected model.
+        prefix = f"{variant}/"
+        metadata = cls._load_json(package, prefix + "metadata.json")
+        stats = cls._load_json(package, prefix + "stats.json")
         era5_variables = list(metadata["era5_variables"])
         output_variables = list(metadata["output_variables"])
         network_meta = metadata["network"]
         sampler_meta = metadata.get("sampler", {})
         scalar_meta = metadata.get("scalar_conditions", {})
 
-        dit = DiT.from_checkpoint(package.resolve(metadata["checkpoint"]))
+        dit = DiT.from_checkpoint(package.resolve(prefix + metadata["checkpoint"]))
         dit = dit.eval().requires_grad_(False)
         network: torch.nn.Module = ConcatConditionWrapper(dit)
         kind = network_meta["kind"]
@@ -681,13 +712,13 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             return torch.tensor([float(stats[group][v][key]) for v in names])
 
         hrrr_lat = torch.from_numpy(
-            cls._load_npy(package, "hrrr_lat.npy").astype(np.float32)
+            cls._load_npy(package, prefix + "hrrr_lat.npy").astype(np.float32)
         )
         hrrr_lon = torch.from_numpy(
-            cls._load_npy(package, "hrrr_lon.npy").astype(np.float32)
+            cls._load_npy(package, prefix + "hrrr_lon.npy").astype(np.float32)
         )
         invariants = torch.from_numpy(
-            cls._load_npy(package, "invariants.npy").astype(np.float32)
+            cls._load_npy(package, prefix + "invariants.npy").astype(np.float32)
         )
         rows = metadata["hrrr_window"]["rows"]
         cols = metadata["hrrr_window"]["cols"]
@@ -699,8 +730,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             network_kind=kind,
             era5_variables=era5_variables,
             output_variables=output_variables,
-            lat_input_grid=torch.from_numpy(cls._load_npy(package, "era5_lat.npy")),
-            lon_input_grid=torch.from_numpy(cls._load_npy(package, "era5_lon.npy")),
+            lat_input_grid=torch.from_numpy(
+                cls._load_npy(package, prefix + "era5_lat.npy")
+            ),
+            lon_input_grid=torch.from_numpy(
+                cls._load_npy(package, prefix + "era5_lon.npy")
+            ),
             lat_output_grid=hrrr_lat,
             lon_output_grid=hrrr_lon,
             hrrr_y=hrrr_y,
