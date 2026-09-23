@@ -44,6 +44,15 @@ examples, built to be adapted for real projects.
 
     [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval)
 
+- :material-access-point-network: **DSX Exchange Connector**
+
+    ---
+
+    Run AI weather models on a schedule and publish site forecasts to
+    NVIDIA DSX Exchange over MQTT.
+
+    [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/dsx-connector)
+
 </div>
 
 [All recipes on GitHub :octicons-arrow-right-24:][recipes]{ .e2s-hero__start .e2s-home-button }

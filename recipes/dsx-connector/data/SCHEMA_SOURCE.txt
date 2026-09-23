@@ -1,0 +1,15 @@
+Vendored copy of the DSX Exchange weather contract (AsyncAPI).
+
+  schema info.version : 0.1.0
+  vendored file       : data/weather.yaml
+  sha256              : 976d4bcec0285496b3fa08bc82edafba26bef978891681a91a95e39176df1d49
+
+The recipe validates every published message against this vendored copy at publish time, so it
+needs no network access or external tooling. This vendored file is the authoritative schema for
+the recipe; the sha256 above identifies exactly what is vendored.
+
+Sync policy:
+- data/weather.yaml is only changed to track a new revision of the DSX Exchange weather contract;
+  any such change is a deliberate contract sync.
+- To sync: replace data/weather.yaml with the new contract verbatim, update the version and sha256
+  above, and regenerate the parity golden if the wire output changed.

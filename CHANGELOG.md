@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added DSX Exchange connector recipe that publishes site weather forecasts
+  from StormCast CONUS and SFNO to NVIDIA DSX Exchange over MQTT
 
 ### Changed
 

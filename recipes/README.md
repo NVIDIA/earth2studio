@@ -54,6 +54,17 @@ directly.
     - Inference Compute Type: Multi-GPU
     - Estimated Runtime: 10 minutes to 2 hours
 
+- [DSX Exchange Connector](./dsx-connector/)
+
+    This recipe runs AI weather models on a schedule and publishes site forecasts to
+    NVIDIA DSX Exchange over MQTT, following the DSX Exchange weather contract. It
+    includes StormCast CONUS and SFNO example workflows, deterministic and ensemble
+    output, and a reusable publishing core for connecting other Earth2Studio models.
+
+    - Difficulty: Intermediate
+    - Inference Compute Type: Single-GPU
+    - Estimated Runtime: One forecast cycle (`--once`) or a persistent service
+
 - [Recipe Template](./template/)
 
     Recipe template for developers.
