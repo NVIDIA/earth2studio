@@ -23,7 +23,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, prep_data_array
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 
 
 @pytest.fixture
@@ -41,7 +41,6 @@ def PhooModel():
                 ]
             )
 
-        @batch_coords()
         def output_coords(self, input_coords: OrderedDict) -> OrderedDict:
 
             output_coords = input_coords.copy()

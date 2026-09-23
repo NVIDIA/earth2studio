@@ -22,7 +22,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.conformance import (
     ContractException,
     _evaluate_diagnostic,
@@ -244,7 +244,6 @@ def test_conformance_reports_shape_changing_output_as_violation():
         def input_coords(self) -> CoordSystem:
             return OrderedDict({"batch": np.empty(0), "value": np.arange(1)})
 
-        @batch_coords()
         def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
             output_coords = input_coords.copy()
             output_coords["value"] = np.arange(max(self.calls, 1))

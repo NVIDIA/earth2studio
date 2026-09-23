@@ -26,7 +26,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import handshake_coords, handshake_dim
 from earth2studio.utils.type import CoordSystem
@@ -84,7 +84,6 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
             }
         )
 
-    @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of diagnostic model.
 
@@ -101,9 +100,9 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
         target_input_coords = self.input_coords()
 
         # Validate dimensions
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
+        handshake_dim(input_coords, "variable", -3)
+        handshake_dim(input_coords, "lat", -2)
+        handshake_dim(input_coords, "lon", -1)
 
         # Validate coordinate values
         handshake_coords(input_coords, target_input_coords, "variable")

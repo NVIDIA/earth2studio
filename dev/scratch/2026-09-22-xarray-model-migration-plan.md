@@ -104,8 +104,8 @@ assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
 
 - [ ] Inspect each wrapper's input history, output stride, normalization, and
   iterator-specific multistep schedule before editing it.
-- [ ] Replace coordinate dictionaries and `batch_coords` on public signatures
-  with allocation-free signatures and `handshake_dataarray` validation.
+- [ ] Replace coordinate dictionaries on public signatures with allocation-free
+  signatures and `handshake_dataarray` validation, preserving leading dimensions directly.
 - [ ] Validate timedelta dtype, dimensionality, NaT, and relative history before
   computing output offsets from the final input lead time.
 - [ ] Use a DataArray `_step` with `batch_func`, convert to the core representation,

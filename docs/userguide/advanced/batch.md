@@ -93,7 +93,12 @@ The batch function does the following steps:
 4. Replace output batch coord with the batched input coordinates
 5. Unsqueeze the leading batch coordinate into original input dimensions
 
-Consider the following example:
+Coordinate planners preserve leading dimensions directly; `output_coords` does not
+need a batching decorator. For DataArray coordinate systems, use `coord_array_like`
+to preserve the input's leading dimensions and auxiliary coordinates while updating
+the model's output coordinates.
+
+Consider the following dictionary-coordinate example:
 
 ```python
 from collections import OrderedDict
@@ -101,18 +106,21 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from earth2studio.models.batch import batch_func, batch_coords
+from earth2studio.models.batch import batch_func
 
 
 class BatchModel:
-    input_coords = OrderedDict({"batch": np.zeros(0), "dim1": np.arange(2)})
+    def input_coords(self) -> OrderedDict:
+        return OrderedDict({"batch": np.zeros(0), "dim1": np.arange(2)})
 
-    @batch_coords()
     def output_coords(
         self,
         input_coords: OrderedDict
         ) -> OrderedDict:
-        return OrderedDict({"batch": np.zeros(0), "dim2": np.arange(4)})
+        output_coords = input_coords.copy()
+        del output_coords["dim1"]
+        output_coords["dim2"] = np.arange(4)
+        return output_coords
 
     @batch_func()
     def __call__(self, input, coords):
