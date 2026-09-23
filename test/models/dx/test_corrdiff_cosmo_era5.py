@@ -976,6 +976,17 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
         assert dx._bound_lo or dx._bound_up
     if dx._constraints.get("sza_gate"):
         assert dx._sza_gate
+
+    # The documented input-preparation path selects these coordinates out of the
+    # standard 0.25-degree ERA5 grid, so the REA2/REA6 input grid must stay aligned.
+    ic_grid = dx.input_coords()
+    for axis in ("lat", "lon"):
+        g = np.asarray(ic_grid[axis], dtype=np.float64)
+        assert np.all(np.diff(g) > 0), f"{axis} must be strictly increasing"
+        assert np.allclose(np.diff(g), 0.25), f"{axis} must be spaced 0.25 degrees"
+        assert np.allclose(g / 0.25, np.round(g / 0.25)), f"{axis} must be on the grid"
+    assert np.all(np.abs(np.asarray(ic_grid["lon"], dtype=np.float64)) <= 180.0)
+
     if device is None:
         pytest.skip("NATTEN forward requires CUDA; checkpoint load verified on CPU")
 
