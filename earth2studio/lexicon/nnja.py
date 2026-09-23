@@ -46,6 +46,7 @@ _SOURCE_KEYS = {
     "t": "prepbufr::TOB",
     "pres": "prepbufr::POB",
     "gps": "gpsro::15037",
+    "gps_refractivity": "gpsro::15036",
 }
 
 
@@ -117,6 +118,9 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         occurs once per frequency in each occultation. The source emits
         only the ionosphere-corrected (frequency-combined, MEFR == 0)
         observation instance during decode.
+      - ``15036`` -- refractivity (N-units) at the message's geometric
+        height levels (``HEIT``), exposed as ``gps_refractivity``; only the
+        value slot is emitted, not its error.
 
       The same source file can contain provider 1D-Var retrieval profiles:
       pressure (``10004``), temperature (``12001``), and specific humidity
@@ -155,6 +159,8 @@ class NNJAObsConvLexicon(metaclass=LexiconType):
         "pres": "prepbufr::POB",
         # GPS RO ionosphere-corrected bending angle from gps/gpsro/.
         "gps": "gpsro::15037",
+        # GPS RO refractivity levels (N-units) at HEIT heights.
+        "gps_refractivity": "gpsro::15036",
     }
 
     @classmethod

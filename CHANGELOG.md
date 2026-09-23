@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
+  (`GEODU`) columns on GPS-RO rows
 
 ### Changed
 
@@ -71,6 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
+  without their own tangent point, placing them at the occultation's reference
+  point instead of dropping them
 - Eval recipe: per-member seeding now works for models whose `set_rng` has no
   `reset` argument (for example `Aurora1p5Ensemble`)
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`

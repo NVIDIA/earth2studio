@@ -76,6 +76,7 @@ GPSRO_SAID = 1007
 GPSRO_PTID = 1050
 GPSRO_QFRO = 33039
 GPSRO_ELRC = 10035
+GPSRO_GEODU = 10036
 GPSRO_LAT = 5001
 GPSRO_LON = 6001
 GPSRO_YEAR = 4001
@@ -87,6 +88,8 @@ GPSRO_SEC = 4006
 GPSRO_MEFR = 2121
 GPSRO_IMPP = 7040
 GPSRO_BNDA = 15037
+GPSRO_HEIT = 7007
+GPSRO_ARFR = 15036
 
 
 NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
@@ -99,7 +102,7 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
             metadata={
                 "description": (
                     "Observation pressure coordinate (Pa); null for "
-                    "source-native GPSRO bending-angle rows"
+                    "source-native GPSRO rows"
                 )
             },
         ),
@@ -109,8 +112,9 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
             nullable=True,
             metadata={
                 "description": (
-                    "Observation height (m); GPSRO uses impact parameter "
-                    "minus Earth radius of curvature"
+                    "Observation height (m); GPSRO bending-angle rows use impact "
+                    "parameter minus Earth radius of curvature, refractivity rows "
+                    "the level's geometric height (HEIT)"
                 )
             },
         ),
@@ -153,6 +157,25 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
             nullable=True,
             metadata={"description": "PrepBUFR pressure quality mark (PQM)"},
         ),
+        pa.field(
+            "radius_curvature",
+            pa.float64(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "GPSRO local Earth radius of curvature (ELRC, m); null for "
+                    "other rows"
+                )
+            },
+        ),
+        pa.field(
+            "geoid_undulation",
+            pa.float64(),
+            nullable=True,
+            metadata={
+                "description": "GPSRO geoid undulation (GEODU, m); null for other rows"
+            },
+        ),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
     ]
@@ -189,6 +212,8 @@ _NULL_FLOAT_DTYPES: dict[str, type[np.floating[Any]]] = {
     "pres": np.float32,
     "elev": np.float32,
     "station_elev": np.float32,
+    "radius_curvature": np.float64,
+    "geoid_undulation": np.float64,
     "lat": np.float32,
     "lon": np.float32,
     "observation": np.float32,
@@ -528,11 +553,20 @@ def _extract_gpsro_subset(
     dt_min: datetime,
     dt_max: datetime,
 ) -> list[dict[str, Any]]:
-    """Extract the MEFR=0 first-BNDA bending angle from one occultation."""
+    """Extract the requested per-level fields from one occultation.
+
+    ``BNDA`` (bending angle) rows take the MEFR=0 first-slot value with
+    ``elev`` = impact parameter minus Earth radius of curvature and the level's
+    tangent point, or the occultation's reference point where the level has none.
+    ``ARFR`` (refractivity) rows take the first-slot value with ``elev`` = the
+    level's ``HEIT`` at the reference point. Both leave ``pres`` null and carry the
+    occultation's ``ELRC``/``GEODU``; no vertical coordinate is derived.
+    """
     sat_id: Any = None
     transmitter_id: Any = None
     quality_flag: Any = None
     radius: float | None = None
+    geoid: float | None = None
     lat: float | None = None
     lon: float | None = None
     year = month = day = hour = minute = None
@@ -547,9 +581,13 @@ def _extract_gpsro_subset(
             quality_flag = value
         elif descriptor_id == GPSRO_ELRC and value is not None:
             radius = float(value)
-        elif descriptor_id == GPSRO_LAT and value is not None:
+        elif descriptor_id == GPSRO_GEODU and value is not None:
+            geoid = float(value)
+        # The occultation reference point is the first CLATH/CLONH; later ones,
+        # still ahead of the first IMPP, belong to the first level.
+        elif descriptor_id == GPSRO_LAT and value is not None and lat is None:
             lat = float(value)
-        elif descriptor_id == GPSRO_LON and value is not None:
+        elif descriptor_id == GPSRO_LON and value is not None and lon is None:
             lon = float(value)
         elif descriptor_id == GPSRO_YEAR and value is not None:
             year = int(value)
@@ -591,27 +629,63 @@ def _extract_gpsro_subset(
     )
     current_impact: float | None = None
     current_frequency: float | None = None
-    current_lat: float | None = lat
-    current_lon: float | None = lon
+    current_lat: float = lat
+    current_lon: float = lon
+    current_height: float | None = None
     bnda_slot = 0
+    arfr_slot = 0
     rows: list[dict[str, Any]] = []
 
+    def make_row(
+        variable: str, row_lat: float, row_lon: float, elev: float
+    ) -> dict[str, Any]:
+        return {
+            "time": obs_time,
+            "lat": np.float32(row_lat),
+            "lon": np.float32(row_lon % 360.0),
+            "pres": None,
+            "elev": np.float32(elev),
+            # GPSRO has no conventional TYP; store receiver SAID in this
+            # shared numeric type column (matches GSI/UFS diagnostics).
+            "type": np.uint16(int(sat_id)) if sat_id is not None else None,
+            "level_cat": None,
+            "class": "GPSRO",
+            "station": station,
+            "station_elev": None,
+            # QFRO is a GPSRO flag table stored in ``quality`` for a uniform
+            # column; it is not a PrepBUFR quality mark.
+            "quality": (
+                np.uint16(int(quality_flag)) if quality_flag is not None else None
+            ),
+            "pressure_quality": None,
+            "radius_curvature": radius,
+            "geoid_undulation": geoid,
+            "observation": None,
+            "variable": variable,
+        }
+
     # Each frequency block lays out MEFR -> IMPP -> two BNDA per frequency; count
-    # slots, not values: BNDA #1 is the observation, BNDA #2 is its error.
+    # slots, not values: BNDA #1 is the observation, BNDA #2 is its error. The
+    # refractivity block lays out HEIT -> two ARFR (value, error) the same way.
     for descriptor, value in zip(descriptors, values):
         descriptor_id = descriptor.id
         if descriptor_id == GPSRO_BNDA:
             bnda_slot += 1
+        elif descriptor_id == GPSRO_ARFR:
+            arfr_slot += 1
         if value is None:
             if descriptor_id == GPSRO_LAT:
-                current_lat = None
+                current_lat = lat
             elif descriptor_id == GPSRO_LON:
-                current_lon = None
+                current_lon = lon
             elif descriptor_id == GPSRO_IMPP:
                 current_impact = None
             elif descriptor_id == GPSRO_MEFR:
                 current_frequency = None
                 bnda_slot = 0
+            elif descriptor_id == GPSRO_HEIT:
+                current_height = None
+                arfr_slot = 0
             continue
         if descriptor_id == GPSRO_LAT:
             current_lat = float(value)
@@ -626,7 +700,11 @@ def _extract_gpsro_subset(
         if descriptor_id == GPSRO_IMPP:
             current_impact = float(value)
             continue
-        if descriptor_id not in wanted_descrs or descriptor_id != GPSRO_BNDA:
+        if descriptor_id == GPSRO_HEIT:
+            current_height = float(value)
+            arfr_slot = 0
+            continue
+        if descriptor_id not in wanted_descrs:
             continue
         try:
             observation = float(value)
@@ -634,40 +712,32 @@ def _extract_gpsro_subset(
             continue
         if not np.isfinite(observation):
             continue
+        if descriptor_id == GPSRO_ARFR:
+            if arfr_slot != 1 or current_height is None:
+                continue
+            # Refractivity levels carry no per-level position; use the
+            # occultation's reference point.
+            row = make_row(wanted_descrs[descriptor_id], lat, lon, current_height)
+            row["observation"] = np.float32(observation)
+            rows.append(row)
+            continue
+        if descriptor_id != GPSRO_BNDA:
+            continue
         # MEFR == 0 is the ionosphere-corrected (frequency-combined) angle; take
         # only its first BNDA slot (the observation, not the error).
         if current_frequency is None or round(current_frequency) != 0 or bnda_slot != 1:
             continue
         if current_impact is None or radius is None:
             continue
-        if current_lat is None or current_lon is None:
-            continue
-
-        rows.append(
-            {
-                "time": obs_time,
-                "lat": np.float32(current_lat),
-                "lon": np.float32(current_lon % 360.0),
-                "pres": None,
-                # Impact height = impact parameter - local radius of curvature.
-                "elev": np.float32(current_impact - radius),
-                # GPSRO has no conventional TYP; store receiver SAID in this
-                # shared numeric type column (matches GSI/UFS diagnostics).
-                "type": np.uint16(int(sat_id)) if sat_id is not None else None,
-                "level_cat": None,
-                "class": "GPSRO",
-                "station": station,
-                "station_elev": None,
-                # QFRO is a GPSRO flag table stored in ``quality`` for a uniform
-                # schema; it is not the conventional 0-15 QM scale.
-                "quality": (
-                    np.uint16(int(quality_flag)) if quality_flag is not None else None
-                ),
-                "pressure_quality": None,
-                "observation": np.float32(observation),
-                "variable": wanted_descrs[descriptor_id],
-            }
+        # Impact height = impact parameter - local radius of curvature.
+        row = make_row(
+            wanted_descrs[descriptor_id],
+            current_lat,
+            current_lon,
+            current_impact - radius,
         )
+        row["observation"] = np.float32(observation)
+        rows.append(row)
     return rows
 
 
