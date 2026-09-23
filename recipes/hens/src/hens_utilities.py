@@ -29,12 +29,19 @@ from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import DataSource
-from earth2studio.io import IOBackend, KVBackend, XarrayBackend
+from earth2studio.io import (
+    IOBackend,
+    KVBackend,
+    NetCDF4Backend,
+    XarrayBackend,
+    ZarrBackend,
+)
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiff
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.time import to_time_array
+from earth2studio.utils.type import CoordSystem
 
 from .hens_utilities_reproduce import (
     ensure_all_torch_seeds_are_unique,
@@ -830,33 +837,46 @@ def update_model_dict(model_dict: dict, root: str) -> dict:
 
 def write_to_disk(
     cfg: DictConfig,
-    ic: str,
+    ic: str | np.datetime64,
     model_dict: dict,
     io_dict: dict[str, IOBackend],
     writer_executor: ThreadPoolExecutor | None = None,
     writer_threads: list[Future] = [],
+    base_random_seed: str | int | None = None,
 ) -> tuple[ThreadPoolExecutor | None, list[Future]]:
-    """Method which writes in-memory backends to file.
+    """Finalise output for one model checkpoint and initial condition.
+
+    - ``XarrayBackend`` and ``KVBackend`` keep forecasts in memory. This function
+      adds reproducibility metadata and exports them to NetCDF.
+    - ``ZarrBackend`` and ``NetCDF4Backend`` write forecasts during inference. This
+      function adds metadata directly to those files without using the writer pool.
+
+    Unsupported backends are skipped with a warning so that the remaining forecast
+    pairs can continue. This function does not save or finalise their output.
 
     Parameters
     ----------
     cfg : DictConfig
-        config.
-    ic : str
-        initial condition.
+        HENS configuration.
+    ic : str | np.datetime64
+        Initial condition time.
     model_dict : dict
-        dictionary containing loaded model, its class and its package
-    io : dict[IOBackend]
-        dictionary of io objects for data output
+        Loaded model, model class, and package.
+    io_dict : dict[str, IOBackend]
+        Output names and their IO backends.
     writer_executor : ThreadPoolExecutor, optional
-        executor for parallel file output, by default None
+        Executor for background file output, by default None
     writer_threads : list[Future], optional
-        threads for parallel file output, by default []
+        Pending background writes, by default []
+    base_random_seed : str | int | None, optional
+        Random seed used for this run. If omitted, ``cfg.random_seed`` is used when
+        available. Pass the generated seed explicitly when it is not stored in the
+        config, by default None
 
     Returns
     -------
-    tuple[ThreadPoolExecutor | None, list[Future]]:
-        List of writer threads and executor pool if exists
+    tuple[ThreadPoolExecutor | None, list[Future]]
+        Writer executor and pending write futures.
     """
 
     pkg = model_dict["package"]
@@ -865,70 +885,101 @@ def write_to_disk(
 
     file_name = cfg.project + "_" + str(ic)[:13] + pkg
 
+    def metadata_for(
+        io: ZarrBackend | NetCDF4Backend | XarrayBackend | KVBackend,
+    ) -> dict[str, Any]:
+        # Only called once the backend is known: the IOBackend protocol does not
+        # declare coords, and reading it can hit storage on other backends.
+        return reproducibility_metadata(io.coords, cfg, model_dict, base_random_seed)
+
     for k, io in io_dict.items():
-        out_path = os.path.join(cfg.file_output.path, k, file_name)
-
-        kw_args = {"path": out_path + ".nc", "format": "NETCDF4"}
-
-        if writer_executor is not None:
-            if isinstance(io, XarrayBackend):
-                tmp = io.root
-            elif isinstance(io, KVBackend):
-                tmp = io.to_xarray()
-            tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
-            writer_threads.append(writer_executor.submit(tmp.to_netcdf, **kw_args))
+        # write_to_disk only adds metadata for these concrete backends, so a
+        # subclass that persists differently must be handled explicitly.
+        if type(io) is ZarrBackend:
+            # Write all attributes in one metadata operation.
+            io.root.update_attributes(metadata_for(io))
+        elif type(io) is NetCDF4Backend:
+            # Flush the metadata and release the HDF5 file lock.
+            io.root.setncatts(metadata_for(io))
+            io.close()
+        # write_to_disk exports these in-memory backends itself, and compatible
+        # subclasses share the same export interface.
+        elif isinstance(io, (XarrayBackend, KVBackend)):
+            dataset = io.to_xarray() if isinstance(io, KVBackend) else io.root
+            dataset = dataset.assign_attrs(metadata_for(io))
+            netcdf_kwargs = {
+                "path": os.path.join(cfg.file_output.path, k, file_name) + ".nc",
+                "format": "NETCDF4",
+            }
+            if writer_executor is not None:
+                writer_threads.append(
+                    writer_executor.submit(dataset.to_netcdf, **netcdf_kwargs)
+                )
+            else:
+                dataset.to_netcdf(**netcdf_kwargs)
         else:
-            if isinstance(io, XarrayBackend):
-                tmp = io.root
-                tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
-                tmp.to_netcdf(**kw_args)
-            elif isinstance(io, KVBackend):
-                tmp = io.to_xarray()
-                tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
-                tmp.to_netcdf(**kw_args)
+            # Skip this output instead of stopping the remaining forecast pairs.
+            logger.warning(
+                f"Skipping output '{k}': write_to_disk does not support "
+                f"{type(io).__name__}. Reproducibility metadata was not added. "
+                "Forecast data is preserved only if the backend already wrote it."
+            )
 
     return writer_executor, writer_threads
 
 
-def extend_xarray_for_reproducibility(
-    x: xr.Dataset,
-    io: IOBackend,
+def reproducibility_metadata(
+    coords: CoordSystem,
     cfg: DictConfig,
     model_dict: dict,
-) -> xr.Dataset:
-    """Adds meta data to netcdf attributes
+    base_random_seed: str | int | None = None,
+) -> dict[str, Any]:
+    """Build reproducibility metadata for output files.
+
+    Values use plain Python types so that both NetCDF and Zarr can store them. For
+    example, Zarr cannot serialise the NumPy integers in ``coords["ensemble"]``.
+
+    This metadata does not contain the full run configuration. Reproducing a forecast
+    also requires matching settings such as ``perturbation`` and ``data_source``.
 
     Parameters
     ----------
-    x : xr.Dataset
-        the array that that we want to augment with metadata
-    io : IOBackend
-        object for data output
+    coords : CoordSystem
+        Coordinates written to the IO backend.
     cfg : DictConfig
-        config.
+        HENS configuration.
     model_dict : dict
-        dictionary containing loaded model, its class and its package
+        Loaded model, model class, and package.
+    base_random_seed : str | int | None, optional
+        Random seed used for this run. If omitted, ``cfg.random_seed`` is used when
+        available, by default None
 
     Returns
     -------
-    xr.Dataset
-        The augmented xarray dataset
+    dict[str, Any]
+        The reproducibility attributes.
     """
-    # This entire method needs work
-    if not hasattr(io, "coords"):
-        return x
+    metadata: dict[str, Any] = {
+        "torch_version": str(torch.__version__),
+        "model_package": str(model_dict["package"]),
+        "batch_size": int(cfg.batch_size),
+        "nensemble": int(cfg.nensemble),
+    }
 
-    batch_ids = [
-        get_batchid_from_ensid(cfg.nensemble, cfg.batch_size, ensid)
-        for ensid in io.coords["ensemble"]
-    ]
-    x = x.assign_attrs(batch_ids=batch_ids)
-    x = x.assign_attrs(torch_version=torch.__version__)
-    x = x.assign_attrs(model_package=model_dict["package"])
-    x = x.assign_attrs(batch_size=cfg.batch_size)
-    x = x.assign_attrs(nensemble=cfg.nensemble)
-    x = x.assign_attrs(random_seed=cfg.random_seed)
-    return x
+    if base_random_seed is None:
+        base_random_seed = cfg.get("random_seed")
+    if base_random_seed is not None:
+        # Use one metadata type for both user-provided strings and generated integers.
+        metadata["random_seed"] = str(base_random_seed)
+
+    # Add batch IDs only when the output contains an ensemble coordinate.
+    if "ensemble" in coords:
+        metadata["batch_ids"] = [
+            get_batchid_from_ensid(cfg.nensemble, cfg.batch_size, int(ensid))
+            for ensid in coords["ensemble"]
+        ]
+
+    return metadata
 
 
 def initialize_output_structures(

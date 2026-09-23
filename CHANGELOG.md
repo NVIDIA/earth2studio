@@ -90,6 +90,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evaluation recipe: clearing resume markers no longer races between
   ranks. Concurrent removal of the same progress directory retries until
   the directory no longer exists
+- HENS recipe: fixed output handling for `ZarrBackend` and
+  `NetCDF4Backend`. Both now receive reproducibility metadata without failing
+  when `thread_io` is enabled. The metadata records the random seed used by the
+  run, including an automatically generated seed. `NetCDF4Backend` files are
+  closed after writing so they can be read while the run continues.
+  `random_seed` is now always stored as a string; earlier `XarrayBackend` and
+  `KVBackend` output stored integer seeds as integers
 
 ### Security
 
