@@ -2378,7 +2378,7 @@
     },
     "group": "DataFrame Source",
     "kind": "data",
-    "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
+    "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = ())",
     "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
     "title": "NNJAObsConv",
     "tone": "observation",
@@ -2420,6 +2420,43 @@
     "title": "NNJAObsSat",
     "tone": "satellite",
     "url": "../../../modules/generated/data/dataframe/NNJAObsSat"
+  },
+  {
+    "badges": [
+      "region:global",
+      "dataclass:observation",
+      "product:wind",
+      "product:sat"
+    ],
+    "chips": [
+      "DataFrame Source",
+      "Direct Observations",
+      "Surface Winds",
+      "Satellite"
+    ],
+    "filters": {
+      "data class": [
+        "Direct Observations"
+      ],
+      "dataset family": [],
+      "gpu": [],
+      "product": [
+        "Surface Winds",
+        "Satellite"
+      ],
+      "provider": [],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "DataFrame Source",
+    "kind": "data",
+    "signature": "NNJAObsSatwnd(time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
+    "summary": "NNJA satellite-derived atmospheric motion vector (SATWND) data source.",
+    "title": "NNJAObsSatwnd",
+    "tone": "satellite",
+    "url": "../../../modules/generated/data/dataframe/NNJAObsSatwnd"
   },
   {
     "badges": [

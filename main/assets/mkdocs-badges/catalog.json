@@ -1384,7 +1384,7 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
+      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = ())",
       "source": "modules/generated/data/dataframe/NNJAObsConv.md",
       "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
       "symbol": "earth2studio.data.NNJAObsConv",
@@ -1404,6 +1404,20 @@
       "symbol": "earth2studio.data.NNJAObsSat",
       "title": "NNJAObsSat",
       "url": "modules/generated/data/dataframe/NNJAObsSat/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "dataclass:observation",
+        "product:wind",
+        "product:sat"
+      ],
+      "signature": "NNJAObsSatwnd(time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
+      "source": "modules/generated/data/dataframe/NNJAObsSatwnd.md",
+      "summary": "NNJA satellite-derived atmospheric motion vector (SATWND) data source.",
+      "symbol": "earth2studio.data.NNJAObsSatwnd",
+      "title": "NNJAObsSatwnd",
+      "url": "modules/generated/data/dataframe/NNJAObsSatwnd/"
     },
     {
       "classifiers": [
