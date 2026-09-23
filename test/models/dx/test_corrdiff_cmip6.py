@@ -40,7 +40,7 @@ def offline_cmip6(monkeypatch, request):
 
     monkeypatch.setattr(cmip6_module, "regression_step", corrdiff.regression_step)
 
-    def diffusion_step(*, sampler_fn, **kwargs):
+    def diffusion_step(sampler_fn, **kwargs):
         n = sampler_fn.keywords["num_steps"]
         steps = torch.arange(n, device=kwargs["device"], dtype=torch.float64)
         schedule = (

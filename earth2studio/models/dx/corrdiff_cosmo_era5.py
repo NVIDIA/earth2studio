@@ -824,8 +824,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         sub-region use :meth:`set_domain` (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
         """
-        signature = self.input_coords()
-        handshake_dataarray(input_coords, signature)
+        handshake_dataarray(input_coords, self.input_coords())
         handshake_time(input_coords, allow_dynamic=True)
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
@@ -852,11 +851,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             grid=CurvilinearGrid(lat_out, lon_out),
             dtype=input_coords.dtype,
             name=input_coords.name,
-            attrs={
-                k: v
-                for k, v in input_coords.attrs.items()
-                if k not in signature.attrs and k != "earth2studio_grid_id"
-            },
+            attrs=input_coords.attrs,
         )
 
     # ── invariants ──────────────────────────────────────────────────────────

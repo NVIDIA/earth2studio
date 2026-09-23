@@ -379,8 +379,7 @@ class CorrDiffCMIP6(CorrDiff):
         xr.DataArray
             Allocation-free output coordinate signature
         """
-        signature = self.input_coords()
-        handshake_dataarray(input_coords, signature)
+        handshake_dataarray(input_coords, self.input_coords())
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         grid = (
@@ -406,11 +405,7 @@ class CorrDiffCMIP6(CorrDiff):
             grid=grid,
             dtype=input_coords.dtype,
             name=input_coords.name,
-            attrs={
-                k: v
-                for k, v in input_coords.attrs.items()
-                if k not in signature.attrs and k != "earth2studio_grid_id"
-            },
+            attrs=input_coords.attrs,
         )
 
     @classmethod

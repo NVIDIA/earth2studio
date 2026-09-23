@@ -75,10 +75,10 @@ def offline_corrdiff(monkeypatch):
     monkeypatch.setattr(corrdiff_module, "stochastic_sampler", lambda *a, **kw: None)
     monkeypatch.setattr(corrdiff_module, "deterministic_sampler", lambda *a, **kw: None)
 
-    def regression_step(*, net, img_lr, latents_shape, **kwargs):
+    def regression_step(net, img_lr, latents_shape, **kwargs):
         return net(torch.zeros(latents_shape, device=img_lr.device), img_lr=img_lr)
 
-    def diffusion_step(*, img_shape, img_out_channels, rank_batches, device, **kwargs):
+    def diffusion_step(img_shape, img_out_channels, rank_batches, device, **kwargs):
         return torch.stack(
             [
                 torch.randn(

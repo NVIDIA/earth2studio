@@ -270,15 +270,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         """
         handshake_dataarray(input_coords, self.input_coords())
         leading = input_coords.dims[:-3]
-        position = len(leading)
-        dims = (
-            *leading[:position],
-            "sample",
-            *leading[position:],
-            "variable",
-            "y",
-            "x",
-        )
         native = self._native_grid()
         changed_grid = any(
             not np.array_equal(input_coords.coords[k], v)
@@ -294,33 +285,16 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             variable=self.output_variables.copy(),
             sample=np.arange(self.number_of_samples),
         )
-        attrs = deepcopy(input_coords.attrs)
-        if changed_grid:
-            for key in (
-                "earth2studio_grid_id",
-                "earth2studio_crs",
-                "dims",
-                "type",
-                "topology",
-                "shape",
-                "crs",
-            ):
-                attrs.pop(key, None)
-        dynamic = tuple(
-            d
-            for d in input_coords.attrs.get("earth2studio_dynamic_dims", ())
-            if d in dims[:position]
-        )
         # Samples follow the leading prefix so dynamic time remains a wildcard.
         result = coord_array(
-            dims,
+            (*leading, "sample", "variable", *native.dims),
             coords,
             sizes={d: input_coords.sizes[d] for d in leading},
-            dynamic=dynamic,
-            grid=self._native_grid(),
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=native,
             dtype=input_coords.dtype,
             name=input_coords.name,
-            attrs=attrs,
+            attrs=deepcopy(input_coords.attrs),
         )
         result.encoding = deepcopy(input_coords.encoding)
         return result
@@ -433,7 +407,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         input_lats: torch.Tensor | ArrayLike,
         input_lons: torch.Tensor | ArrayLike,
         max_dist_km: float | None = None,
-        *,
         input_grid: str | GridDefinition | xr.DataArray | None = None,
     ) -> nn.Module:
         """Build an interpolator from an input grid to the model grid.

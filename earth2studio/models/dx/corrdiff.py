@@ -69,7 +69,6 @@ def _replace_grid(
     x: xr.DataArray,
     grid: str | GridDefinition,
     variables: Sequence[str],
-    *,
     sample: int | None = None,
     lead_time: np.ndarray | None = None,
     sample_after_time: bool = False,
@@ -91,7 +90,7 @@ def _replace_grid(
         # execution. Fixed samples follow time, before any conditioning history.
         index = dims.index("time") + 1 if sample_after_time else dims.index("variable")
         dims.insert(index, "sample")
-    dims.extend(_grid_dims(grid))
+    dims.extend(definition.dims)
     coords = {
         k: deepcopy(v.variable)
         for k, v in x.coords.items()
@@ -103,27 +102,6 @@ def _replace_grid(
         coords["sample"] = np.arange(sample)
     if lead_time is not None:
         coords["lead_time"] = lead_time
-    grid_keys = {
-        "type",
-        "dims",
-        "shape",
-        "topology",
-        "crs",
-        "earth2studio_crs",
-        "earth2studio_grid_id",
-        "level",
-        "ordering",
-        "layout",
-        "xy_origin",
-        "xy_clockwise",
-        "origin",
-        "clockwise",
-        "nside",
-        "earth2studio_kind",
-        "earth2studio_schema_version",
-        "earth2studio_dynamic_dims",
-    }
-    attrs = {k: deepcopy(v) for k, v in x.attrs.items() if k not in grid_keys}
     dynamic = tuple(
         d for d in x.attrs.get("earth2studio_dynamic_dims", ()) if d in dims
     )
@@ -139,7 +117,7 @@ def _replace_grid(
         },
         dtype=x.dtype,
         name=x.name,
-        attrs=attrs,
+        attrs=deepcopy(x.attrs),
     )
     result.encoding = deepcopy(x.encoding)
     return result

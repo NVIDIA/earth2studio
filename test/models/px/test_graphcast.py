@@ -128,7 +128,7 @@ def _offline_backend(monkeypatch, module):
     return random
 
 
-def _prediction(*, rng, inputs, targets_template, forcings):
+def _prediction(rng, inputs, targets_template, forcings):
     result = targets_template.copy(deep=True)
     for name in result.data_vars:
         if name in inputs:

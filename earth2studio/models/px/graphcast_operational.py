@@ -265,7 +265,6 @@ def _jax_iterator(
     hours: int,
     backend_jax: Any,
     backend_data_utils: Any,
-    *,
     generated_forcings: bool = False,
 ) -> Iterator[xr.DataArray]:
     handshake_nonempty(x)

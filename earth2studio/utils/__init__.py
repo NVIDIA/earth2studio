@@ -21,6 +21,7 @@ from .coords import (
     handshake_coords,
     handshake_dataarray,
     handshake_dataarrays,
+    handshake_device,
     handshake_dim,
     handshake_metadata,
     handshake_nonempty,

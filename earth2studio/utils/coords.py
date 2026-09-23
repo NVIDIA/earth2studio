@@ -36,6 +36,7 @@ try:
 except ImportError:
     cp = None
 
+from earth2studio.utils.cupy import _is_cupy_array
 from earth2studio.utils.time_statistics import time_statistic_metadata
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
@@ -258,6 +259,9 @@ def coord_array(
         }
     )
     if definition is not None:
+        # A new definition owns identity and CRS, including their absence.
+        for key in (E2S_GRID_ID, E2S_CRS, "crs"):
+            metadata.pop(key, None)
         metadata.update(definition.attrs)
         metadata["dims"] = list(spatial_dims)
         if definition.crs is not None:
@@ -400,6 +404,61 @@ def handshake_dataarray(
     handshake_metadata(array, signature, keys)
 
 
+def handshake_device(array: xr.DataArray, expected_device: torch.device | str) -> None:
+    """Require field storage to be on the caller-supplied model device.
+
+    Parameters
+    ----------
+    array : xr.DataArray
+        Concrete NumPy- or CuPy-backed input field.
+    expected_device : torch.device | str
+        Device of an existing model buffer or parameter. CPU indices normalize
+        to ``cpu``; unindexed ``cuda`` uses ``torch.cuda.current_device()``.
+        Explicit CUDA indices are compared exactly without querying the runtime.
+
+    Raises
+    ------
+    TypeError
+        If the input is not a DataArray, its storage is not NumPy or CuPy
+        (including lazy arrays and coordinate signatures), or the expected
+        device is not CPU or CUDA.
+    ValueError
+        If the actual and expected devices differ.
+
+    Notes
+    -----
+    Returns None on success. Only storage type and device metadata are inspected;
+    field values are never read, converted, copied, or transferred. Call this
+    explicitly at model execution boundaries before tensor conversion. Resolving
+    unindexed CUDA requires an available Torch CUDA runtime.
+    """
+    if not isinstance(array, xr.DataArray):
+        raise TypeError("Expected a DataArray")
+
+    # DataArray.data can materialize lazy backend arrays. Inspect the backing
+    # storage first so unsupported arrays are rejected without reading values.
+    data = array.variable._data
+    if isinstance(data, np.ndarray):
+        actual = torch.device("cpu")
+    elif _is_cupy_array(data):
+        actual = torch.device("cuda", data.device.id)
+    else:
+        raise TypeError(
+            "Device validation supports only NumPy- or CuPy-backed DataArrays"
+        )
+
+    expected = torch.device(expected_device)
+    if expected.type == "cpu":
+        expected = torch.device("cpu")
+    elif expected.type == "cuda":
+        if expected.index is None:
+            expected = torch.device("cuda", torch.cuda.current_device())
+    else:
+        raise TypeError(f"Unsupported device type '{expected.type}'")
+    if actual != expected:
+        raise ValueError(f"Expected data on device {expected}, got {actual}")
+
+
 def handshake_nonempty(array: xr.DataArray) -> None:
     """Require nonempty axes before executing on a DataArray.
 
@@ -437,7 +496,6 @@ def handshake_metadata(
 def handshake_time(
     input_coords: CoordSystem | xr.DataArray,
     required_dim: str = "time",
-    *,
     allow_dynamic: bool = False,
     dimension: bool = True,
     step: np.timedelta64 | None = None,
@@ -579,7 +637,6 @@ def handshake_coords(
     input_coords: CoordSystem | xr.DataArray,
     target_coords: CoordSystem | xr.DataArray,
     required_dim: Hashable | Sequence[Hashable],
-    *,
     subset: bool = False,
 ) -> None:
     """Simple check to see if the required dimensions have the same coordinate system
