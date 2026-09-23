@@ -72,6 +72,26 @@ def test_run_deterministic(coords, variable, nsteps, time, device):
             assert io[var].shape[i + 2] == value.shape[0]
 
 
+def test_run_deterministic_batched_data():
+    class BatchedRandom(Random):
+        def __call__(self, time, variable):
+            return super().__call__(time, variable).expand_dims(ensemble=np.arange(2))
+
+    coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
+    io = run.deterministic(
+        ["2024-01-01"],
+        1,
+        Persistence(["t2m"], coords),
+        BatchedRandom(coords),
+        ZarrBackend(),
+        device=torch.device("cpu"),
+        verbose=False,
+    )
+    assert io["t2m"].shape == (2, 1, 2, 2, 3)
+    assert np.array_equal(io["ensemble"][:], np.arange(2))
+    assert not np.isnan(io["t2m"][:]).any()
+
+
 @pytest.mark.parametrize(
     "output_coords",
     [
