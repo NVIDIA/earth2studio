@@ -27,8 +27,13 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.dx.corrdiff import _field, _own_metadata, _validate_grid
-from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.models.dx.corrdiff import _field, _own_metadata
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -235,7 +240,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         xr.DataArray
             Allocation-free output coordinate signature
         """
-        _validate_grid(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords())
         output = _own_metadata(
             coord_array_like(
                 input_coords, {"variable": np.array(self.output_variables)}
@@ -515,13 +520,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         times : list[datetime]
             list of date times of input data
         """
-        for time in times:
-            if time < datetime(year=1940, month=1, day=1):
-                raise ValueError(
-                    f"Input data at {time} needs to be after January 1st, 1940 for CBottle infill if no input SST fields are provided"
-                )
-
-            if time >= datetime(year=2022, month=12, day=16, hour=12):
-                raise ValueError(
-                    f"Input data at {time} needs to be before December 16th, 2022 for CBottle infill if no input SST fields are provided"
-                )
+        handshake_time(
+            {"time": np.asarray(times, dtype="datetime64[us]")},
+            minimum=np.datetime64("1940-01-01"),
+            maximum=np.datetime64("2022-12-16T12:00"),
+        )

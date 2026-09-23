@@ -227,11 +227,11 @@ def test_dlesym_forward(device, grid_type, batch_size):
             "shape": [12 * nside**2],
         }.items():
             bad = field.assign_attrs({key: value})
-            with pytest.raises(ValueError, match="HEALPix"):
+            with pytest.raises(ValueError, match="metadata"):
                 model.output_coords(bad)
         bad = field.copy(deep=False)
         bad.attrs.pop("origin")
-        with pytest.raises(ValueError, match="HEALPix"):
+        with pytest.raises(ValueError, match="metadata"):
             model(bad)
     else:
         field = field.assign_coords(terrain=(("lat", "lon"), np.ones(spatial_dims)))

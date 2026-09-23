@@ -30,7 +30,14 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_dim,
+    handshake_size,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -464,44 +471,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             Coordinate system dictionary
         """
 
-        if not isinstance(input_coords, xr.DataArray):
-            raise TypeError("Expected a DataArray")
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("lead_time is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time
-        if (
-            lead.dims != ("lead_time",)
-            or not lead.size
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead.values).any()
-        ):
-            raise ValueError("lead_time must contain finite timedeltas")
-        target = self.input_coords()
-        if target.attrs.get("type") == "HEALPixGrid":
-            # Index coordinates alone cannot distinguish XY orientation/layout.
-            grid = HEALPixGrid(
-                int(np.log2(self.nside)),
-                ordering="xy",
-                layout="face",
-                xy_origin="north",
-                xy_clockwise=True,
-            )
-            for key, value in {
-                **grid.attrs,
-                "crs": None,
-                "earth2studio_crs": None,
-                "earth2studio_grid_id": None,
-            }.items():
-                if not np.array_equal(input_coords.attrs.get(key), value):
-                    raise ValueError(
-                        f"HEALPix representation metadata {key!r} does not match"
-                    )
-        handshake_dataarray(
-            coord_array_like(
-                input_coords, {"lead_time": lead.values - lead.values[-1]}
-            ),
-            target,
-        )
         return coord_array_like(
             input_coords,
             {
@@ -717,10 +688,10 @@ class DLESyM(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             Prepared input data for atmos and ocean models, respectively
         """
 
-        if x.ndim != 7:
-            raise ValueError(
-                f"DLESyM input data must be of shape (batch, time, lead_time, variable, face, height, width), got {x.shape} for coords {coords.keys()}"
-            )
+        handshake_dim(
+            coords,
+            ("batch", "time", "lead_time", "variable", "face", "height", "width"),
+        )
 
         # Flatten the batch and time dimensions
         # Before flattening, check if we have multiple batch elements
@@ -1014,12 +985,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         ValueError
             If the coordinates are invalid (missing or incorrect length lead_time dim)
         """
-        if "lead_time" not in coords.coords:
-            raise ValueError("Lead time is required in the output coordinates")
-        if len(coords["lead_time"]) != len(self.atmos_output_times):
-            raise ValueError(
-                f"Lead time dimension length mismatch between model and coords: expected {len(self.atmos_output_times)}, got {len(coords['lead_time'])}"
-            )
+        handshake_time(coords, "lead_time")
+        handshake_size(coords, "lead_time", len(self.atmos_output_times))
 
     @property
     def stochastic(self) -> bool:  # type: ignore[override]
@@ -1159,13 +1126,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         return x.copy(deep=True)
 
     def _advance_array(self, x: xr.DataArray) -> xr.DataArray:
-        if (
-            "time" not in x.coords
-            or x.time.dims != ("time",)
-            or not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         tensor, _ = x.e2s.to_torch()
         # Preserve arbitrary leading axes, including axes without labels.
         leading = x.dims[:-6]

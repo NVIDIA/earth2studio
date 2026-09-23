@@ -35,9 +35,14 @@ from earth2studio.models.dx.corrdiff import (
     _grid_dims,
     _own_metadata,
     _replace_grid,
-    _validate_grid,
 )
-from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_size,
+    handshake_time,
+)
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -225,20 +230,10 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         xr.DataArray
             Allocation-free output coordinate signature
         """
-        if not isinstance(input_coords, xr.DataArray):
-            raise TypeError("Expected a DataArray")
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("lead_time is required")
+        handshake_time(input_coords, "lead_time")
         lead = input_coords.coords["lead_time"]
-        if (
-            lead.dims != ("lead_time",)
-            or not lead.size
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead.values).any()
-        ):
-            raise ValueError("lead_time must contain finite one-dimensional timedeltas")
         # Each guidance frame is independent, conditioned at time + lead_time.
-        _validate_grid(
+        handshake_dataarray(
             input_coords,
             coord_array_like(self.input_coords(), {"lead_time": lead.values}),
         )
@@ -555,6 +550,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampling and fails for odds-ratio computations.
         """
 
+        handshake_dataarray(x, runtime=True)
+        for dim in x.dims[: -(3 if self.lat_lon else 2)]:
+            handshake_size(x, dim, 1)
         output_coords = self.output_coords(x)
         times = output_coords["time"].values[:, None]
         leads = output_coords["lead_time"].values[None, :]
@@ -563,16 +561,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         tensor = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
         x = tensor.reshape(-1, 1, *tensor.shape[-spatial_rank:])
         times = sample_times * (x.shape[0] // len(sample_times))
-
-        if x.shape[0] != len(times):
-            raise ValueError(
-                "Guidance samples and inferred time coordinates are inconsistent."
-            )
-        if x.shape[0] != 1:
-            raise ValueError(
-                "calculate_odds_ratio supports exactly one sample after flattening "
-                "(batch*time*lead_time == 1)."
-            )
 
         cb_input = self.get_cbottle_input(times)
         device = self.device_buffer.device
@@ -731,13 +719,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         times : list[datetime]
             list of date times of input data
         """
-        for time in times:
-            if time < datetime(year=1940, month=1, day=1):
-                raise ValueError(
-                    f"Input data at {time} needs to be after January 1st, 1940 for CBottle infill if no input SST fields are provided"
-                )
-
-            if time >= datetime(year=2022, month=12, day=16, hour=12):
-                raise ValueError(
-                    f"Input data at {time} needs to be before December 16th, 2022 for CBottle infill if no input SST fields are provided"
-                )
+        handshake_time(
+            {"time": np.asarray(times, dtype="datetime64[us]")},
+            minimum=np.datetime64("1940-01-01"),
+            maximum=np.datetime64("2022-12-16T12:00"),
+        )

@@ -31,7 +31,13 @@ from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -326,24 +332,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        if not isinstance(input_coords, xr.DataArray):
-            raise TypeError("Expected a DataArray")
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("lead_time is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time
-        if (
-            lead.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead.values).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            coord_array_like(
-                input_coords, {"lead_time": lead.values - lead.values[-1]}
-            ),
-            self.input_coords(),
-        )
         return coord_array_like(
             input_coords,
             {
@@ -502,11 +492,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         da = self.forcing_data_source(
             valid.reshape(-1), np.array(variables_e2s, dtype=object)
         )
-        if not (
-            np.allclose(da.coords["lat"].values, self.lat)
-            and np.allclose(da.coords["lon"].values, self.lon)
-        ):
-            raise ValueError("Forcing data source must provide data on the model grid")
+        handshake_coords(da, {"lat": self.lat, "lon": self.lon}, ["lat", "lon"])
         # [time * window, variable, lat, lon] -> [sample, window, var, lat, lon]
         forcing_x = torch.as_tensor(
             np.ascontiguousarray(da.transpose("time", "variable", "lat", "lon").values),
@@ -776,13 +762,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         return result
 
     def _array_tensor(self, x: xr.DataArray) -> tuple[torch.Tensor, CoordSystem]:
-        if (
-            "time" not in x.coords
-            or x.time.dims != ("time",)
-            or not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         tensor, _ = x.e2s.to_torch()
         tensor = (
             tensor.to(self.device_buffer.device).reshape(-1, *tensor.shape[-5:]).clone()
@@ -816,6 +796,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         xr.DataArray
             Initial state, then atmosphere outputs at the declared hook cadence.
         """
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         tensor, coords = self._array_tensor(x)

@@ -153,7 +153,7 @@ def test_regional_signature_validation(regional_model):
     else:
         bad_crs = signature.copy()
         bad_crs.attrs[E2S_CRS] = "EPSG:4326"
-        with pytest.raises(ValueError, match="CRS"):
+        with pytest.raises(ValueError, match="crs"):
             regional_model.output_coords(bad_crs)
 
 

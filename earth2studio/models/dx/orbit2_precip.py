@@ -29,9 +29,8 @@ from earth2studio.models.dx.corrdiff import (
     _geographic_grid,
     _own_metadata,
     _replace_grid,
-    _validate_grid,
 )
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import coord_array, handshake_dataarray
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -347,7 +346,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         CoordinateSystem
             Allocation-free output coordinate signature
         """
-        _validate_grid(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords())
         return _replace_grid(
             input_coords,
             _geographic_grid(

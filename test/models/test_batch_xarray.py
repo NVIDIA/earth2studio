@@ -52,6 +52,8 @@ class ArrayModel:
 def array_input(leading):
     dims = (*leading, "variable", "lat")
     coords = {dim: np.arange(2) + 10 for dim in leading}
+    if "time" in leading:
+        coords["time"] = np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[D]")
     coords.update(variable=["u", "v"], lat=[1, 2, 3], elevation=("lat", [7, 8, 9]))
     if leading:
         coords["valid"] = (leading, np.ones((2,) * len(leading)))
@@ -92,7 +94,7 @@ def test_array_batch_generator_protocol():
 
 def test_array_batch_validates_dimension_order():
     x = array_input(("time",)).transpose("variable", "time", "lat")
-    with pytest.raises(ValueError, match="dimensions"):
+    with pytest.raises(ValueError, match="dimension"):
         ArrayModel()(x)
 
 
@@ -102,7 +104,7 @@ def test_array_batch_rejects_changed_batch_size():
         def __call__(self, x):
             return x.isel(batch=slice(1))
 
-    with pytest.raises(ValueError, match="[Bb]atch.*size"):
+    with pytest.raises(ValueError, match="batch.*size"):
         BadModel()(array_input(("time",)))
 
 
@@ -126,7 +128,7 @@ def test_array_batch_rejects_reordering():
         def __call__(self, x):
             return x.isel(batch=slice(None, None, -1))
 
-    with pytest.raises(ValueError, match="[Bb]atch.*order"):
+    with pytest.raises(ValueError, match="batch"):
         Reversed()(array_input(("time",)))
 
 

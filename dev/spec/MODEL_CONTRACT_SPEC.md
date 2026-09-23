@@ -83,6 +83,30 @@ nonempty one-dimensional timedelta coordinate with no `NaT` entries; datetime
 and numeric labels are rejected. Output planning accepts both dynamic declarations and
 concrete DataArrays without mutating either.
 
+Coordinate validation uses the public handshakes in `earth2studio.utils.coords`:
+`handshake_dim` reads DataArray dimension order (including unlabelled axes),
+`handshake_size` reads dimension sizes, and `handshake_coords` compares coordinate
+dimensions and label values without Xarray alignment or attached auxiliary coordinates.
+These three APIs also accept legacy coordinate dictionaries. A tuple passed to
+`handshake_dim` checks the complete ordered dimensions; `handshake_coords(...,
+subset=True)` checks labels before an explicit model-specific selection.
+
+`handshake_dataarray(input, signature, relative_lead_time=True)` composes those
+checks with temporal and grid-metadata validation. `handshake_time` checks explicit,
+nonempty finite datetime/timedelta labels and optionally interval alignment or a
+minimum offset. Auxiliary/scalar validity times use `dimension=False`.
+`handshake_metadata` compares explicitly named attributes; HEALPix signatures
+require matching level, ordering, layout, origin and winding, including absent
+CRS/registry attributes. None of these checks materializes field values.
+
+Use `handshake_dataarray(input, runtime=True)` at execution boundaries to reject
+unresolved zero-sized axes. Concrete field arrays are always checked as runtime
+inputs, even when passed to `output_coords`; only explicitly declared dynamic
+zero-sized signature axes are accepted for planning. Generic leading axes need
+no labels; temporal labels are checked when present or required by the model.
+Model methods retain their history/output transformations and invoke standard
+handshakes for validation.
+
 ### Execution boundary
 
 The public `PrognosticModel` and `DiagnosticModel` protocols use DataArrays:

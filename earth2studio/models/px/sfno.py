@@ -29,7 +29,12 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -199,19 +204,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate input coordinates and advance the final lead by six hours."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
@@ -385,13 +379,7 @@ class SFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     @batch_func()
     def _step(self, x: xr.DataArray) -> xr.DataArray:
         signature = self.output_coords(x)
-        if "time" not in x.coords or x.time.dims != ("time",):
-            raise ValueError("A one-dimensional time coordinate is required")
-        if (
-            not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         tensor, _ = x.e2s.to_torch()
         out = from_torch(
             self._forward(tensor.to(self.device_buffer.device), x),
@@ -412,6 +400,8 @@ class SFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
         x, restored = self._restore_checkpoint_state(x)
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         if not restored:
             self._save_checkpoint_state(x)

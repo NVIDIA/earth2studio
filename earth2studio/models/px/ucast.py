@@ -730,17 +730,7 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def _check_input_coords(self, input_coords: CoordinateSystem) -> None:
         """Validate input coordinates against the public U-CAST coordinate system."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
-        lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 2
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain two finite timedeltas")
-        test_coords = input_coords.assign_coords(lead_time=lead - lead[-1])
+        handshake_dataarray(input_coords)
         target_input_coords = self.input_coords()
         input_variables = np.asarray(input_coords.coords.get("variable", []))
         if not self.preload_static_fields and input_variables.shape[0] == len(
@@ -749,7 +739,7 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             target_input_coords = coord_array_like(
                 target_input_coords, {"variable": np.array(VARIABLES)}
             )
-        handshake_dataarray(test_coords, target_input_coords)
+        handshake_dataarray(input_coords, target_input_coords, relative_lead_time=True)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model."""
@@ -1053,6 +1043,7 @@ class UCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         return x_norm, sst_mask
 
     def _default_generator(self, x: xr.DataArray) -> Generator[xr.DataArray]:
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None), variable=slice(0, len(VARIABLES))).copy(
             deep=True

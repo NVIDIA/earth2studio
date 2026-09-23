@@ -36,7 +36,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import interp
-from earth2studio.utils.coords import coord_array, handshake_dataarray
+from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -70,24 +70,6 @@ def _own_metadata(x: xr.DataArray) -> xr.DataArray:
     out.attrs = deepcopy(x.attrs)
     out.encoding = deepcopy(x.encoding)
     return out
-
-
-def _validate_grid(x: xr.DataArray, target: CoordinateSystem) -> None:
-    if not isinstance(x, xr.DataArray):
-        raise TypeError("Expected a DataArray")
-    handshake_dataarray(x, target)
-    # Validate the complete representation, including absent CRS/registry IDs.
-    keys = set(target.attrs) - {
-        "earth2studio_kind",
-        "earth2studio_schema_version",
-        "earth2studio_dynamic_dims",
-    }
-    keys.update(
-        ("crs", "earth2studio_crs", "earth2studio_grid_id", "origin", "clockwise")
-    )
-    for key in keys:
-        if not np.array_equal(x.attrs.get(key), target.attrs.get(key)):
-            raise ValueError(f"Grid representation metadata {key!r} does not match")
 
 
 def _replace_grid(
@@ -666,7 +648,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate input and plan samples on the configured output grid."""
-        _validate_grid(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords())
         return _replace_grid(
             input_coords,
             _geographic_grid(self.lat_output_numpy, self.lon_output_numpy),
@@ -1201,11 +1183,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         signature = self.output_coords(x)
         time = x.coords.get("time")
         if time is not None:
-            if (
-                not np.issubdtype(time.dtype, np.datetime64)
-                or np.isnat(time.values).any()
-            ):
-                raise TypeError("time must contain finite datetime64 values")
+            handshake_time(x, dimension=False)
             leading = x.dims[: -len(self.input_coords().dims[1:])]
             template = x.isel({d: 0 for d in x.dims if d not in leading}, drop=True)
             time = (
@@ -1394,7 +1372,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             Allocation-free output coordinate signature
         """
 
-        _validate_grid(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords())
         return _replace_grid(
             input_coords,
             _geographic_grid(

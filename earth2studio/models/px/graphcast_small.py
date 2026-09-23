@@ -24,7 +24,6 @@ import xarray as xr
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.aurora import _validate_aurora_time
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.graphcast_operational import (
     _add_tisr_batched,
@@ -34,6 +33,7 @@ from earth2studio.models.px.graphcast_operational import (
     _jax_signature,
 )
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import handshake_size, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -499,7 +499,7 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray without hooks."""
         signature = self.output_coords(x)
-        _validate_aurora_time(x)
+        handshake_time(x)
         device = self.device_buffer.device
         with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
             results = []
@@ -527,8 +527,8 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> xr.Dataset:
         """From a datarray get a dataset"""
-        if len(data.time.values) > 1:
-            raise TypeError("GraphCast model only supports 1 init_time.")
+        handshake_time(data)
+        handshake_size(data, "time", 1)
         # time
         if "lead_time" in data.dims:
             data["lead_time"] = [

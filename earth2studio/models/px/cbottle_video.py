@@ -28,10 +28,15 @@ from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
-from earth2studio.models.dx.corrdiff import _field, _own_metadata, _validate_grid
+from earth2studio.models.dx.corrdiff import _field, _own_metadata
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -225,24 +230,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         CoordinateSystem
             Allocation-free output coordinate signature
         """
-        if not isinstance(input_coords, xr.DataArray):
-            raise TypeError("Expected a DataArray")
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("lead_time is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time
-        if (
-            lead.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead.values).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        _validate_grid(
-            coord_array_like(
-                input_coords, {"lead_time": lead.values - lead.values[-1]}
-            ),
-            self.input_coords(),
-        )
         result = coord_array_like(
             input_coords, {"lead_time": lead.values + self._time_step}
         )
@@ -525,6 +514,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the initial condition, then eleven forecasts per video advance."""
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         state = x.copy(deep=True)
         yield state.copy(deep=True)

@@ -33,7 +33,10 @@ from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
+    handshake_coords,
     handshake_dataarray,
+    handshake_dim,
+    handshake_size,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -342,19 +345,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate history and declare the forecast on the checkpoint pixel grid."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or not lead.size
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain finite timedeltas")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": self.output_times + lead[-1]}
         )
@@ -670,6 +662,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
             Predicted frame tensor of shape ``(batch, time, 1, variable, y, x)``
             (denormalised) and its output coordinate system.
         """
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         x = x.copy(deep=True)
@@ -839,15 +832,11 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
             },
         )
         encoding = deepcopy(x_2km.encoding)
-        if x_1km.dims[:-3] != x_2km.dims[:-3]:
-            raise ValueError("Input leading dimensions must match at both resolutions")
+        handshake_dim(x_2km, (*x_1km.dims[:-3], *x_2km.dims[-3:]))
         for dim in x_1km.dims[:-3]:
-            if x_1km[dim].dims != x_2km[dim].dims or not np.array_equal(
-                np.asarray(x_1km[dim]), np.asarray(x_2km[dim])
-            ):
-                raise ValueError(
-                    f"Input coordinate {dim} must match at both resolutions"
-                )
+            handshake_size(x_2km, dim, x_1km.sizes[dim])
+            if dim in x_1km.coords or dim in x_2km.coords:
+                handshake_coords(x_2km, x_1km, dim)
         fine, _ = x_1km.e2s.to_torch()
         coarse, _ = x_2km.e2s.to_torch()
         batch_dims = fine.shape[:-3]

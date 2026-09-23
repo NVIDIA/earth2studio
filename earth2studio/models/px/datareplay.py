@@ -24,7 +24,12 @@ from earth2studio.models._array_utils import _resolve_domain
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.grids import GridDefinition
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
@@ -87,35 +92,15 @@ class DataReplay(torch.nn.Module, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the domain and return the signature one source step ahead."""
-        self._require_time(input_coords)
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        handshake_time(input_coords, allow_dynamic=True)
         lead = input_coords.lead_time
-        if (
-            lead.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("Input lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(input_coords, {"lead_time": lead.values + self.step})
-
-    @staticmethod
-    def _require_time(coords: CoordinateSystem) -> None:
-        if "time" not in coords.coords or coords.sizes.get("time", 0) == 0:
-            raise ValueError("DataReplay requires a non-empty time coordinate")
-        if (
-            coords.time.dims != ("time",)
-            or not np.issubdtype(coords.time.dtype, np.datetime64)
-            or np.isnat(coords.time).any()
-        ):
-            raise ValueError("DataReplay requires finite datetime time coordinates")
 
     @torch.inference_mode()
     def _forward(self, x: xr.DataArray) -> xr.DataArray:
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         signature = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         fetched = fetch_data(
@@ -152,6 +137,8 @@ class DataReplay(torch.nn.Module, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.copy(deep=True)
 

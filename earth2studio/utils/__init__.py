@@ -22,6 +22,8 @@ from .coords import (
     handshake_dataarray,
     handshake_dataarrays,
     handshake_dim,
+    handshake_metadata,
     handshake_size,
+    handshake_time,
 )
 from .cupy import from_torch

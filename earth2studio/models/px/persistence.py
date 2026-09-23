@@ -101,21 +101,8 @@ class Persistence(torch.nn.Module, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the relative history and advance its final lead by one step."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != self._history
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError(
-                "Input lead_time must contain the configured finite history"
-            )
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         final = input_coords.isel(lead_time=slice(-1, None))
         return coord_array_like(
             final.assign_coords(
@@ -175,6 +162,7 @@ class Persistence(torch.nn.Module, DataArrayPrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: xr.DataArray) -> xr.DataArray:
+        handshake_dataarray(x, runtime=True)
         signature = self.output_coords(x)
         result = x.isel(lead_time=slice(-1, None)).assign_coords(signature.coords)
         result.attrs = dict(signature.attrs)
@@ -203,6 +191,7 @@ class Persistence(torch.nn.Module, DataArrayPrognosticMixin):
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
         x, restored = self._restore_checkpoint_state(x)
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         if not restored:
             self._save_checkpoint_state(x)

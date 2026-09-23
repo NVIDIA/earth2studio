@@ -343,42 +343,8 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         CoordSystem
             Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
         """
-        if not isinstance(input_coords, xr.DataArray):
-            raise TypeError("Expected a DataArray")
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("lead_time is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time
-        if (
-            lead.dims != ("lead_time",)
-            or not lead.size
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead.values).any()
-        ):
-            raise ValueError("lead_time must contain finite timedeltas")
-        # HEALPix indices do not encode their ordering, layout or orientation.
-        grid = HEALPixGrid(
-            int(np.log2(self.nside)),
-            ordering="xy",
-            layout="face",
-            xy_origin="north",
-            xy_clockwise=True,
-        )
-        for key, value in {
-            **grid.attrs,
-            "crs": None,
-            "earth2studio_crs": None,
-            "earth2studio_grid_id": None,
-        }.items():
-            if not np.array_equal(input_coords.attrs.get(key), value):
-                raise ValueError(
-                    f"HEALPix representation metadata {key!r} does not match"
-                )
-        handshake_dataarray(
-            coord_array_like(
-                input_coords, {"lead_time": lead.values - lead.values[-1]}
-            ),
-            self.input_coords(),
-        )
         return coord_array_like(
             input_coords,
             {

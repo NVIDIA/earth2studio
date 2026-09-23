@@ -182,19 +182,8 @@ class FengWu(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate relative history and advance the final lead by six hours."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 2
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain two finite timedeltas")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
         )
@@ -328,6 +317,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
         while True:

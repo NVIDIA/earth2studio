@@ -136,19 +136,8 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Return the FCN coordinate signature after one forecast step."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords["lead_time"])
-        if (
-            input_coords["lead_time"].dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("Input lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
@@ -254,6 +243,7 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     @batch_func()
     def _step(self, x: xr.DataArray) -> xr.DataArray:
+        handshake_dataarray(x, runtime=True)
         signature = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         output = from_torch(self._forward(tensor), signature, name=x.name)
@@ -273,6 +263,7 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         xr.DataArray
             Forecast six hours in the future on the same device.
         """
+        handshake_dataarray(x, runtime=True)
         x, _ = self._restore_checkpoint_state(x)
         x = self._step(x)
         self._save_checkpoint_state(x)
@@ -281,7 +272,9 @@ class FCN(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
         x, restored = self._restore_checkpoint_state(x)
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
 
         if not restored:

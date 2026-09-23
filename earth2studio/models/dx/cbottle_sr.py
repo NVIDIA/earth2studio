@@ -30,9 +30,8 @@ from earth2studio.models.dx.corrdiff import (
     _grid_dims,
     _own_metadata,
     _replace_grid,
-    _validate_grid,
 )
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import coord_array, handshake_dataarray
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -335,7 +334,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         xr.DataArray
             Allocation-free output coordinate signature
         """
-        _validate_grid(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords())
         grid = (
             _geographic_grid(
                 np.asarray(self.output_grid.lat).ravel(),

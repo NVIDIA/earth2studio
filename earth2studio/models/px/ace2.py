@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from collections.abc import Iterator
 from copy import deepcopy
 from typing import Any
@@ -41,6 +42,9 @@ from earth2studio.utils.coords import (
     coord_array_like,
     handshake_coords,
     handshake_dataarray,
+    handshake_dim,
+    handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -290,24 +294,8 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         CoordSystem
             Coordinate system dictionary
         """
-        if not isinstance(input_coords, xr.DataArray):
-            raise TypeError("Expected a DataArray")
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("lead_time is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time
-        if (
-            lead.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead.values).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            coord_array_like(
-                input_coords, {"lead_time": lead.values - lead.values[-1]}
-            ),
-            self.input_coords(),
-        )
         return coord_array_like(
             input_coords,
             {
@@ -387,10 +375,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         """
 
         # Input validation
-        if x.ndim != 6:
-            raise ValueError(
-                "ACE2ERA5 requires input tensor with shape [batch, time, lead_time, variable, lat, lon]"
-            )
+        handshake_dim(coords, ("batch", "time", "lead_time", "variable", "lat", "lon"))
 
         for c in ["batch", "time", "lat", "lon"]:
             handshake_coords(coords, forcing_coords, c)
@@ -553,8 +538,10 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _fetch_forcing(
         self, x: torch.Tensor, coords: CoordSystem, lead_times: np.ndarray
     ) -> tuple[torch.Tensor, CoordSystem]:
+        handshake_time(coords)
+        handshake_time({"lead_time": lead_times}, "lead_time")
         forcing_by_lead = []
-        forcing_coords = None
+        forcing_coords: CoordSystem = OrderedDict()
         for lead_time in lead_times:
             forcing_by_time = []
             for time in coords["time"]:
@@ -565,9 +552,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             forcing_by_lead.append(torch.cat(forcing_by_time, dim=0))
 
         forcing_x = torch.cat(forcing_by_lead, dim=1)
-        if forcing_coords is None:
-            raise ValueError("ACE2ERA5 forcing data requires at least one time value.")
-
         forcing_coords["time"] = coords["time"]
         forcing_coords["lead_time"] = lead_times.astype("timedelta64[ns]")
 
@@ -600,8 +584,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         """
 
         # Validate input lead_time
-        if len(coords["lead_time"]) != 1:
-            raise ValueError("ACE2ERA5 forward expects one input lead_time entry [0h].")
+        handshake_size(coords, "lead_time", 1)
 
         # Pull forcing data (which is required at both input and output lead times)
         lead_times = np.array(
@@ -649,13 +632,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             Prognostic and diagnostic fields one timestep in the future.
         """
         signature = self.output_coords(x)
-        if (
-            "time" not in x.coords
-            or x.time.dims != ("time",)
-            or not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         tensor, coords = x.e2s.to_torch()
         out, _ = self._forward(tensor.to(self.device_buffer.device).clone(), coords)
         result = from_torch(out, signature)
@@ -679,6 +656,8 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         Iterator[xr.DataArray]
             Initial state followed by forecasts.
         """
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         while True:

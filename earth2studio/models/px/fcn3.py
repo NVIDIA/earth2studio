@@ -26,7 +26,12 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -213,19 +218,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the input signature and declare the next six-hour forecast."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time.values
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
@@ -371,13 +365,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     @batch_func()
     def _step(self, x: xr.DataArray, reset: bool = False) -> xr.DataArray:
         signature = self.output_coords(x)
-        if (
-            "time" not in x.coords
-            or x.time.dims != ("time",)
-            or not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         tensor, coords = x.e2s.to_torch()
         tensor = tensor.to(self.device_buffer.device)
         if reset:
@@ -393,6 +381,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.copy(deep=True)
         reset = True

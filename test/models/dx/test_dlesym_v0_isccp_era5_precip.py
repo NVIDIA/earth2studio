@@ -172,11 +172,11 @@ def test_dlesym_v0_isccp_era5_precip_forward(device, use_ttr, batch_size):
         "dims": ["hpx"],
         "shape": [12 * nside**2],
     }.items():
-        with pytest.raises(ValueError, match="HEALPix"):
+        with pytest.raises(ValueError, match="metadata"):
             model.output_coords(field.assign_attrs({key: value}))
     bad = field.copy(deep=False)
     bad.attrs.pop("clockwise")
-    with pytest.raises(ValueError, match="HEALPix"):
+    with pytest.raises(ValueError, match="metadata"):
         model(bad)
     out = model(field)
     out_coords = out.coords

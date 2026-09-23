@@ -65,10 +65,9 @@ from earth2studio.models.dx.corrdiff import (
     _geographic_grid,
     _own_metadata,
     _replace_grid,
-    _validate_grid,
 )
 from earth2studio.utils import interp
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import coord_array, handshake_dataarray
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -829,7 +828,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         sub-region use :meth:`set_domain` (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
         """
-        _validate_grid(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords())
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
         top, bot, left, right = self._halo
@@ -844,15 +843,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             self._output_coord_variables,
             sample=self.number_of_samples,
             sample_after_time=True,
-        )
-
-    def _is_native_input(self, lat: np.ndarray, lon: np.ndarray) -> bool:
-        """True iff lat/lon match the native ERA5 input grid (within tolerance)."""
-        return (
-            lat.shape == self.lat_input_numpy.shape
-            and lon.shape == self.lon_input_numpy.shape
-            and np.allclose(lat, self.lat_input_numpy)
-            and np.allclose(lon, self.lon_input_numpy)
         )
 
     # ── invariants ──────────────────────────────────────────────────────────

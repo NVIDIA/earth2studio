@@ -28,14 +28,16 @@ from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.aurora import (
-    _aurora_history,
-    _validate_aurora_history,
-    _validate_aurora_time,
-)
+from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_size,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -195,7 +197,7 @@ def _jax_variables(variables: list[str]) -> list[str]:
 def _jax_output_coords(
     model: torch.nn.Module, x: CoordinateSystem, variables: list[str], hours: int
 ) -> CoordinateSystem:
-    _validate_aurora_history(x, model.input_coords())
+    handshake_dataarray(x, model.input_coords(), relative_lead_time=True)
     replacements: dict[Hashable, np.ndarray | list[str]] = {
         "lead_time": x.lead_time.values[-1:] + np.timedelta64(hours, "h")
     }
@@ -263,6 +265,8 @@ def _jax_iterator(
     *,
     generated_forcings: bool = False,
 ) -> Iterator[xr.DataArray]:
+    handshake_dataarray(x, runtime=True)
+    handshake_time(x)
     model.output_coords(x)
     # Reserve per-time streams before the initial yield, as the original
     # iterators did. Hooks may replace fields without restarting these streams.
@@ -271,7 +275,7 @@ def _jax_iterator(
     ):
         rngs = [model._next_rng(t) for t in range(x.sizes["time"])]
     yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-    _validate_aurora_time(x)
+    handshake_time(x)
     iterators: list[Generator[xr.Dataset, Any, None]] = []
     refresh = False
     while True:
@@ -282,7 +286,7 @@ def _jax_iterator(
         )
         refresh = refresh or (history is not x and not _same_jax_input(history, x))
         model.output_coords(history)
-        _validate_aurora_time(history)
+        handshake_time(history)
         packed, restore = batch_func()._compress_array(model, history)
         signature = model.output_coords(packed)
         device = model.device_buffer.device
@@ -687,7 +691,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray without hooks."""
         signature = self.output_coords(x)
-        _validate_aurora_time(x)
+        handshake_time(x)
         device = self.device_buffer.device
         with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
             results = []
@@ -715,8 +719,8 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, DataArrayPrognosticM
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> xr.Dataset:
         """From a datarray get a dataset"""
-        if len(data.time.values) > 1:
-            raise TypeError("GraphCast model only supports 1 init_time.")
+        handshake_time(data)
+        handshake_size(data, "time", 1)
         # time
         if "lead_time" in data.dims:
             data["lead_time"] = [

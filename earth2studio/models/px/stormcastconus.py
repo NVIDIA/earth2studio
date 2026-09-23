@@ -366,18 +366,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         CoordinateSystem
             Output signature preserving the input grid and leading dimensions.
         """
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.coords["lead_time"])
-        if (
-            input_coords.coords["lead_time"].dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("Input lead_time must contain one finite timedelta")
-        relative = input_coords.assign_coords(lead_time=lead - lead[-1])
-        handshake_dataarray(relative, self.input_coords())
         return coord_array_like(
             input_coords,
             {"lead_time": lead + np.timedelta64(1, "h")},
@@ -672,6 +662,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         RuntimeError
             If conditioning data source is not initialized
         """
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         x = x.copy(deep=True)
         obs = yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
@@ -740,12 +731,11 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                     "shape of coords['time']"
                 )
             offsets = coords["time"] - init_time
-            if not np.all(offsets == offsets.reshape(-1)[0]):
-                raise ValueError(
-                    "conditioning_init_time must produce a uniform lead-time "
-                    "offset across coords['time']; differing per-time offsets "
-                    "are not supported"
-                )
+            handshake_coords(
+                {"time": offsets},
+                {"time": np.full_like(offsets, offsets.reshape(-1)[0])},
+                "time",
+            )
             lead_time = coords["lead_time"] + offsets.reshape(-1)[0]
         else:
             init_time = coords["time"]

@@ -29,6 +29,7 @@ from earth2studio.utils import (
     handshake_dataarrays,
     handshake_dim,
     handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.coords import (
     cat_coords,
@@ -74,6 +75,98 @@ def test_handshake_dim_failure(coords):
 
     with pytest.raises(ValueError):
         handshake_dim(coords, "lat", 5)
+
+
+def test_handshakes_dataarray_dimensions_and_labels():
+    signature = coord_array(
+        ("member", "variable", "y"),
+        {"variable": ["t2m"], "latitude": ("y", [10, 20])},
+        sizes={"member": 3},
+    )
+    handshake_dim(signature, "member", 0)
+    handshake_size(signature, "member", 3)
+    handshake_dim(signature, ("member", "variable", "y"))
+    handshake_coords(signature, signature.assign_coords(source="test"), "latitude")
+    with pytest.raises(KeyError):
+        handshake_dim(signature, "latitude")
+    with pytest.raises(ValueError):
+        handshake_coords(
+            signature, signature.assign_coords(latitude=("y", [20, 10])), "latitude"
+        )
+    handshake_coords(signature, signature.isel(y=[1]), "latitude", subset=True)
+    with pytest.raises(ValueError):
+        handshake_coords(
+            signature,
+            signature.assign_coords(latitude=("y", [20, 30])),
+            "latitude",
+            subset=True,
+        )
+
+
+def test_handshake_relative_history_and_runtime():
+    declaration = coord_array(
+        ("batch", "time", "lead_time", "variable"),
+        {"lead_time": np.array([-6, 0], dtype="timedelta64[h]"), "variable": ["t2m"]},
+        dynamic=("batch", "time"),
+    )
+    handshake_dataarray(declaration, declaration, relative_lead_time=True)
+    actual = coord_array(
+        ("member", "time", "lead_time", "variable"),
+        {
+            "time": np.array(["2020-01-01"], dtype="datetime64[D]"),
+            "lead_time": np.array([6, 12], dtype="timedelta64[h]"),
+            "variable": ["t2m"],
+        },
+        sizes={"member": 2},
+    )
+    handshake_dataarray(actual, declaration, relative_lead_time=True, runtime=True)
+    with pytest.raises(ValueError):
+        handshake_dataarray(
+            declaration, declaration, relative_lead_time=True, runtime=True
+        )
+    for bad in (
+        np.array([0, 6]),
+        np.array(["NaT", "2020-01-01"], dtype="datetime64[D]"),
+        np.array(["NaT", 6], dtype="timedelta64[h]"),
+        np.array([0, 3], dtype="timedelta64[h]"),
+    ):
+        with pytest.raises(ValueError):
+            handshake_dataarray(
+                actual.assign_coords(lead_time=bad),
+                declaration,
+                relative_lead_time=True,
+            )
+    with pytest.raises(ValueError):
+        handshake_dataarray(
+            actual.assign_coords(time=[0]), declaration, relative_lead_time=True
+        )
+    handshake_time(
+        actual, "lead_time", step=np.timedelta64(6, "h"), minimum=np.timedelta64(0, "h")
+    )
+    with pytest.raises(ValueError, match="align"):
+        handshake_time(actual, "lead_time", step=np.timedelta64(1, "D"))
+    with pytest.raises(ValueError, match="at least"):
+        handshake_time(actual, "lead_time", minimum=np.timedelta64(12, "h"))
+    scalar = actual.isel(time=0)
+    handshake_time(
+        actual, minimum=np.datetime64("2020-01-01"), maximum=np.datetime64("2020-01-02")
+    )
+    with pytest.raises(ValueError, match="before"):
+        handshake_time(actual, maximum=np.datetime64("2020-01-01"))
+    handshake_time(scalar, dimension=False)
+    with pytest.raises(ValueError):
+        handshake_time(scalar)
+
+
+def test_handshake_healpix_metadata():
+    from earth2studio.grids import HEALPixGrid
+
+    signature = coord_array(("hpx",), grid=HEALPixGrid(0, ordering="nested"))
+    handshake_dataarray(signature, signature)
+    changed = signature.copy(deep=False)
+    changed.attrs = {**signature.attrs, "ordering": "ring"}
+    with pytest.raises(ValueError, match="metadata"):
+        handshake_dataarray(changed, signature)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -1007,7 +1100,18 @@ def test_coordinate_dynamic_dimensions_are_model_independent(
     )
     concrete = coord_array(
         (*dynamic, "variable", "x"),
-        {**{dim: [0, 1] for dim in dynamic}, "variable": ["t2m"], "x": [0, 1]},
+        {
+            **{
+                dim: (
+                    np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[D]")
+                    if dim == "time"
+                    else [0, 1]
+                )
+                for dim in dynamic
+            },
+            "variable": ["t2m"],
+            "x": [0, 1],
+        },
     )
     handshake_dataarray(concrete, signature)
     assert signature.attrs["earth2studio_dynamic_dims"] == dynamic

@@ -610,6 +610,7 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         coords = coord_array_like(x).copy(deep=True)
         coords.encoding = deepcopy(x.encoding)
@@ -977,6 +978,7 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of diagnostic"""
 
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         coords = coord_array_like(x).copy(deep=True)
         coords.encoding = deepcopy(x.encoding)
@@ -986,16 +988,8 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         lat = torch.as_tensor(coords["lat"].values, device=x.device)
         lon = torch.as_tensor(coords["lon"].values, device=x.device)
 
-        if lat.ndim != lon.ndim:
-            raise ValueError(
-                "Error, lat/lon grids must have the same number of dimensions."
-            )
-
         if lat.ndim < 2:
             lon, lat = torch.meshgrid(lon, lat, indexing="xy")
-
-        if lat.shape != lon.shape:
-            raise ValueError("Error, lat/lon grids must be the same shape.")
 
         if self.lat_threshold is not None:
             _, nlon = lat.shape

@@ -29,7 +29,13 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_size,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -161,19 +167,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             - 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
             - 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
         """
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time.values
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 2
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain two finite timedeltas")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(input_coords, {"lead_time": lead[-1:] + self.DT})
 
     def prep_next_input(
@@ -246,10 +241,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             raise ValueError(
                 f"Internal forward pass expects x of shape (lead_time, variable, lat, lon), got {x.shape}"
             )
-        if len(coords["lead_time"]) != 2:
-            raise ValueError(
-                f"Internal forward pass expects coords['lead_time'] of length 2, got {len(coords['lead_time'])}"
-            )
+        handshake_size(coords, "lead_time", 2)
 
         # Prepare input tensor and date metadata
         x_cur, x_prev = x[-1:, :, :, :], x[:1, :, :, :]
@@ -304,13 +296,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         """Internal helper that handles cached latents during autoregressive rollout."""
 
         self.output_coords(x)
-        if (
-            "time" not in x.coords
-            or x.time.dims != ("time",)
-            or not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         packed, restore = batch_func()._compress_array(self, x)
         signature = self.output_coords(packed)
         tensor, coords = packed.e2s.to_torch()
@@ -347,6 +333,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         latent_cache: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None

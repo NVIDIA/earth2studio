@@ -27,7 +27,14 @@ from earth2studio.grids import infer_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_dim,
+    handshake_size,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.type import CoordinateSystem
@@ -40,32 +47,35 @@ def _convert_to_2d(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndarray, np.nda
 
 
 def _can_concat_directly(px: CoordinateSystem, dx: CoordinateSystem) -> bool:
-    return (
-        px.dims == dx.dims
-        and all(
-            d == "variable"
-            or (
-                px.sizes[d] == dx.sizes[d]
-                and np.array_equal(px.coords[d], dx.coords[d])
-            )
-            for d in dx.dims
-        )
-        and all(
-            k in px.coords and np.array_equal(px.coords[k], dx.coords[k])
-            for k in ("lat", "lon")
-            if k in dx.coords
-        )
-    )
+    try:
+        handshake_dim(px, dx.dims)
+        for dim in dx.dims:
+            if dim != "variable":
+                handshake_size(px, dim, dx.sizes[dim])
+                if dim in px.coords or dim in dx.coords:
+                    handshake_coords(px, dx, dim)
+        handshake_coords(px, dx, [k for k in ("lat", "lon") if k in dx.coords])
+    except (ValueError, KeyError):
+        return False
+    return True
 
 
 def _can_concat_with_subregion(px: CoordinateSystem, dx: CoordinateSystem) -> bool:
-    if px.dims != dx.dims or not {"lat", "lon"}.issubset(px.dims):
+    try:
+        handshake_dim(px, dx.dims)
+        handshake_dim(px, "lat")
+        handshake_dim(px, "lon")
+    except (ValueError, KeyError):
         return False
     for dim in px.dims:
         if dim == "variable":
             continue
         if dim not in ("lat", "lon"):
-            if not np.array_equal(px.coords[dim], dx.coords[dim]):
+            try:
+                handshake_size(px, dim, dx.sizes[dim])
+                if dim in px.coords or dim in dx.coords:
+                    handshake_coords(px, dx, dim)
+            except (ValueError, KeyError):
                 return False
         else:
             indices = px.get_index(dim).get_indexer(dx.coords[dim].values)
@@ -176,8 +186,16 @@ class PrepareOutputCoordsDefault:
         self, px_coords: CoordinateSystem, dx_coords: list[CoordinateSystem]
     ) -> CoordinateSystem:
         target = dx_coords[-1]
-        if not all(_can_concat_directly(c, target) for c in dx_coords):
-            raise ValueError("Diagnostic output grids and dimensions must match")
+        for source in dx_coords:
+            handshake_dim(source, target.dims)
+            for dim in target.dims:
+                if dim != "variable":
+                    handshake_size(source, dim, target.sizes[dim])
+                    if dim in source.coords or dim in target.coords:
+                        handshake_coords(source, target, dim)
+            handshake_coords(
+                source, target, [k for k in ("lat", "lon") if k in target.coords]
+            )
         sources = dx_coords
         if _can_concat_directly(px_coords, target) or _can_concat_with_subregion(
             px_coords, target
@@ -337,11 +355,15 @@ class DiagnosticWrapper(torch.nn.Module, DataArrayPrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Advance the nested model once, then diagnose its labelled output."""
+        handshake_dataarray(x, runtime=True)
+        self.output_coords(x)
         return self._diagnose(self.px_model(x.copy(deep=True)))
 
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
+        self.output_coords(x)
         iterator = self.px_model.create_iterator(x.copy(deep=True))
         try:
             first = True

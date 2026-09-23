@@ -45,7 +45,11 @@ def make_fcn() -> FCN:
 def input_array(signature: xr.DataArray) -> xr.DataArray:
     dims = ("member", "time", *signature.dims[1:])
     coords = {key: value for key, value in signature.coords.items()}
-    coords.update(member=[2, 5], time=[10, 20], height=("lat", [8, 9]))
+    coords.update(
+        member=[2, 5],
+        time=np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[D]"),
+        height=("lat", [8, 9]),
+    )
     return xr.DataArray(
         np.ones((2, 2, *signature.shape[1:]), dtype=np.float32),
         dims=dims,
@@ -110,6 +114,22 @@ def test_fcn_rejects_invalid_lead_time(lead: list | np.ndarray) -> None:
     x = input_array(model.input_coords()).assign_coords(lead_time=lead)
     with pytest.raises(ValueError, match="lead_time"):
         model.output_coords(x)
+    with pytest.raises(ValueError, match="lead_time"):
+        model(x)
+    with pytest.raises(ValueError, match="lead_time"):
+        next(model.create_iterator(x))
+
+
+def test_fcn_rejects_unresolved_execution_axes() -> None:
+    model = make_fcn()
+    declaration = model.input_coords()
+    model.output_coords(declaration)
+    with pytest.raises(ValueError, match="nonempty"):
+        model(declaration)
+    with pytest.raises(ValueError, match="nonempty"):
+        next(model.create_iterator(declaration))
+    unlabelled = input_array(declaration).drop_vars("member")
+    assert model(unlabelled).sizes["member"] == 2
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -285,4 +305,15 @@ def test_fuxi_signature_statistics() -> None:
             signature.assign_coords(
                 lead_time=np.array(["NaT", "NaT"], dtype="timedelta64[D]")
             )
+        )
+    field = coord_array_like(
+        signature,
+        {"batch": [0], "time": np.array(["2020-01-01"], dtype="datetime64[D]")},
+    )
+    field = from_torch(torch.ones(field.shape), field)
+    with pytest.raises(ValueError, match="time"):
+        next(model.create_iterator(field.assign_coords(time=[0])))
+    with pytest.raises(ValueError, match="align"):
+        model.output_coords(
+            field.assign_coords(lead_time=field.lead_time + np.timedelta64(1, "h"))
         )

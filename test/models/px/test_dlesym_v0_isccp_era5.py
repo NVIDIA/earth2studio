@@ -243,7 +243,7 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
     )
 
     field = from_torch(x, in_coords)
-    with pytest.raises(ValueError, match="HEALPix"):
+    with pytest.raises(ValueError, match="metadata"):
         model.output_coords(field.assign_attrs(origin="south", clockwise=False))
     out = model(field)
     out_coords = out.coords

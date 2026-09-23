@@ -167,19 +167,8 @@ class PanguBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the input signature and advance by this variant's time step."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(input_coords, {"lead_time": lead + self._time_step})
 
     def _restore_checkpoint_state(
@@ -359,6 +348,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Advance one DataArray using this variant's shortest-step model."""
+        handshake_dataarray(x, runtime=True)
         states, _, _ = self._restore_checkpoint_state(x)
         out = self._step(states["current"], self.ort)
         self._save_checkpoint_state({"current": out}, 0)
@@ -367,7 +357,9 @@ class PanguBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def _default_generator(
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
         states, step, restored = self._restore_checkpoint_state(x)
+        handshake_dataarray(states["current"], runtime=True)
         self.output_coords(states["current"])
         hours = int(self._time_step / np.timedelta64(1, "h"))
         if hours < 24 and "day" not in states:

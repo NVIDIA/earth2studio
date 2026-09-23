@@ -355,8 +355,59 @@ def coord_array_like(
     return output
 
 
-def handshake_dataarray(array: xr.DataArray, signature: xr.DataArray) -> None:
-    """Validate ordered dimensions, sizes, and labels against a signature."""
+def handshake_dataarray(
+    array: xr.DataArray,
+    signature: xr.DataArray | None = None,
+    *,
+    relative_lead_time: bool = False,
+    runtime: bool = False,
+) -> None:
+    """Validate input coordinates without accessing field data.
+
+    Parameters
+    ----------
+    array : xr.DataArray
+        Input field or allocation-free coordinate declaration.
+    signature : xr.DataArray, optional
+        Required fixed trailing dimensions, coordinates and grid metadata.
+        Omit to check only input structure and temporal coordinates.
+    relative_lead_time : bool, optional
+        Compare lead times relative to their final value, by default False
+    runtime : bool, optional
+        Require concrete nonempty axes before execution, by default False
+
+    Notes
+    -----
+    Leading axes need not have labels. Temporal axes require explicit finite,
+    one-dimensional labels, except declared zero-sized dynamic planning axes.
+    Comparisons ignore auxiliaries attached to individual coordinate DataArrays.
+    """
+    if not isinstance(array, xr.DataArray):
+        raise TypeError("Expected a DataArray")
+    runtime = runtime or not isinstance(array.data, _CoordinateArray)
+    declared = tuple(
+        dim
+        for dim in array.attrs.get(E2S_DYNAMIC_DIMS, ())
+        if array.sizes.get(dim) == 0
+    )
+    if array.dims[: len(declared)] != declared:
+        raise ValueError("Input dynamic dimensions must be a leading prefix")
+    for dim, size in array.sizes.items():
+        if size == 0 and (runtime or dim not in declared):
+            raise ValueError(f"Dimension '{dim}' must be nonempty")
+    temporal = {dim for dim in ("time", "lead_time") if dim in array.coords}
+    if signature is not None:
+        temporal.update(
+            dim
+            for dim in ("time", "lead_time")
+            if dim in signature.dims and dim in array.dims
+        )
+    for dim in temporal:
+        handshake_time(
+            array, dim, allow_dynamic=not runtime, dimension=dim in array.dims
+        )
+    if signature is None:
+        return
     dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
     if tuple(signature.dims[: len(dynamic)]) != dynamic:
         raise ValueError("Dynamic dimensions must lead the coordinate signature")
@@ -364,25 +415,135 @@ def handshake_dataarray(array: xr.DataArray, signature: xr.DataArray) -> None:
     trailing = tuple(array.dims[-len(fixed) :]) if fixed else ()
     if trailing != fixed:
         raise ValueError(f"Expected trailing dimensions {fixed}, got {array.dims}")
-    for dimension in fixed:
-        if array.sizes[dimension] != signature.sizes[dimension]:
-            raise ValueError(f"Dimension '{dimension}' has the wrong size")
+    for index, dimension in enumerate(fixed, start=-len(fixed)):
+        handshake_dim(array, dimension, index)
+        handshake_size(array, dimension, signature.sizes[dimension])
+    lead = None
+    if relative_lead_time:
+        handshake_time(array, "lead_time")
+        lead = np.asarray(array.coords["lead_time"])
     for name, coordinate in signature.coords.items():
         if set(coordinate.dims).intersection(dynamic):
             continue
-        if name not in array.coords:
-            raise ValueError(f"Coordinate '{name}' is missing")
-        actual = array.coords[name]
-        if actual.dims != coordinate.dims or not np.array_equal(actual, coordinate):
-            raise ValueError(f"Coordinate '{name}' does not match")
-    for key, label in (
-        (E2S_GRID_ID, "grid"),
-        (E2S_CRS, "CRS"),
-        (E2S_STATISTICS, "statistics"),
+        actual = array
+        if name == "lead_time" and lead is not None:
+            actual = array.assign_coords(lead_time=lead - lead[-1])
+        try:
+            handshake_coords(actual, signature, name)
+        except KeyError as error:
+            raise ValueError(str(error)) from error
+    keys = [
+        key for key in (E2S_GRID_ID, E2S_CRS, E2S_STATISTICS) if key in signature.attrs
+    ]
+    if signature.attrs.get("type") == "HEALPixGrid":
+        keys.extend(
+            (
+                "type",
+                "topology",
+                "dims",
+                "shape",
+                "level",
+                "nside",
+                "ordering",
+                "layout",
+                "origin",
+                "clockwise",
+                "crs",
+                E2S_CRS,
+                E2S_GRID_ID,
+            )
+        )
+    handshake_metadata(array, signature, keys)
+
+
+def handshake_metadata(
+    array: xr.DataArray, target: xr.DataArray, keys: Sequence[Hashable]
+) -> None:
+    """Require matching named attributes, including explicitly absent attributes.
+
+    Parameters
+    ----------
+    array, target : xr.DataArray
+        Input and reference arrays. Field values are never inspected.
+    keys : sequence of hashable
+        Metadata keys to compare; missing keys compare as None.
+    """
+    for key in keys:
+        if not np.array_equal(
+            np.asarray(array.attrs.get(key)), np.asarray(target.attrs.get(key))
+        ):
+            raise ValueError(f"DataArray metadata {key!r} does not match")
+
+
+def handshake_time(
+    input_coords: CoordSystem | xr.DataArray,
+    required_dim: str = "time",
+    *,
+    allow_dynamic: bool = False,
+    dimension: bool = True,
+    step: np.timedelta64 | None = None,
+    minimum: np.timedelta64 | np.datetime64 | None = None,
+    maximum: np.timedelta64 | np.datetime64 | None = None,
+) -> None:
+    """Validate explicit nonempty one-dimensional finite temporal labels.
+
+    Parameters
+    ----------
+    input_coords : CoordSystem or xr.DataArray
+        Input coordinates; only coordinate labels are inspected.
+    required_dim : str, optional
+        ``time`` requires datetimes; other names require timedeltas.
+    allow_dynamic : bool, optional
+        Permit an explicitly declared zero-sized planning axis, by default False
+    dimension : bool, optional
+        Require a one-dimensional dimension coordinate, by default True.
+        False permits scalar or auxiliary validity-time coordinates.
+    step : np.timedelta64, optional
+        Require labels aligned to this interval (datetimes relative to the epoch).
+    minimum : np.timedelta64 or np.datetime64, optional
+        Inclusive minimum permitted label.
+    maximum : np.timedelta64 or np.datetime64, optional
+        Exclusive maximum permitted label.
+    """
+    coordinates: Any = input_coords
+    if isinstance(input_coords, xr.DataArray):
+        coordinates = input_coords.coords
+        if (
+            allow_dynamic
+            and required_dim in input_coords.attrs.get(E2S_DYNAMIC_DIMS, ())
+            and input_coords.sizes.get(required_dim) == 0
+        ):
+            return
+    if required_dim not in coordinates:
+        raise ValueError(f"{required_dim} coordinate is required")
+    coordinate = coordinates[required_dim]
+    values = np.asarray(coordinate)
+    kind = "M" if required_dim == "time" else "m"
+    if (
+        not values.size
+        or values.dtype.kind != kind
+        or (
+            dimension
+            and (
+                values.ndim != 1
+                or (
+                    isinstance(coordinate, xr.DataArray)
+                    and coordinate.dims != (required_dim,)
+                )
+            )
+        )
+        or np.isnat(values).any()
     ):
-        expected = signature.attrs.get(key)
-        if expected is not None and array.attrs.get(key) != expected:
-            raise ValueError(f"DataArray {label} metadata does not match")
+        raise ValueError(
+            f"{required_dim} must contain nonempty finite {'datetimes' if kind == 'M' else 'timedeltas'}"
+        )
+    offsets = values - np.datetime64("1970-01-01") if kind == "M" else values
+    if step is not None and np.any(offsets % step != np.timedelta64(0, "ns")):
+        raise ValueError(f"{required_dim} must align to {step}")
+    if minimum is not None and np.any(values < minimum):
+        raise ValueError(f"{required_dim} must be at least {minimum}")
+    if maximum is not None and np.any(values >= maximum):
+        raise ValueError(f"{required_dim} must be before {maximum}")
 
 
 def handshake_dataarrays(
@@ -398,18 +559,18 @@ def handshake_dataarrays(
 
 
 def handshake_dim(
-    input_coords: CoordSystem,
-    required_dim: str,
+    input_coords: CoordSystem | xr.DataArray,
+    required_dim: Hashable | tuple[Hashable, ...],
     required_index: int | None = None,
 ) -> None:
     """Simple check to see if coordinate system has a dimension in a particular index
 
     Parameters
     ----------
-    input_coords : CoordSystem
+    input_coords : CoordSystem or xr.DataArray
         Input coordinate system to validate
-    required_dim : str
-        Required dimension (name of coordinate)
+    required_dim : str or tuple of hashable
+        Required dimension, or the complete ordered dimension tuple.
     required_index : int, optional
         Required index of dimension if needed, by default None
 
@@ -423,12 +584,21 @@ def handshake_dim(
         If dimension is not in the required index
     """
 
-    if required_dim not in input_coords:
+    input_dims = list(
+        input_coords.dims
+        if isinstance(input_coords, xr.DataArray)
+        else input_coords.keys()
+    )
+    if isinstance(required_dim, tuple):
+        if tuple(input_dims) != required_dim:
+            raise ValueError(
+                f"Expected dimensions {required_dim}, got {tuple(input_dims)}"
+            )
+        return
+    if required_dim not in input_dims:
         raise KeyError(
             f"Required dimension {required_dim} not found in input coordinates"
         )
-
-    input_dims = list(input_coords.keys())
 
     if required_index is None:
         return
@@ -447,20 +617,25 @@ def handshake_dim(
 
 
 def handshake_coords(
-    input_coords: CoordSystem,
-    target_coords: CoordSystem,
-    required_dim: str | list[str],
+    input_coords: CoordSystem | xr.DataArray,
+    target_coords: CoordSystem | xr.DataArray,
+    required_dim: Hashable | Sequence[Hashable],
+    *,
+    subset: bool = False,
 ) -> None:
     """Simple check to see if the required dimensions have the same coordinate system
 
     Parameters
     ----------
-    input_coords : CoordSystem
+    input_coords : CoordSystem or xr.DataArray
         Input coordinate system to validate
-    target_coords : CoordSystem
+    target_coords : CoordSystem or xr.DataArray
         Target coordinate system
-    required_dim : str | list[str]
+    required_dim : hashable or sequence of hashable
         Required dimension(s) (name of coordinate)
+    subset : bool, optional
+        Require target labels to be present in input, by default False.
+        Used before explicit model-specific subsetting.
     Raises
     ------
     KeyError
@@ -468,36 +643,56 @@ def handshake_coords(
     ValueError
         If coordinates of required dimensions don't match
     """
-    if isinstance(required_dim, str):
+    if isinstance(required_dim, str) or not isinstance(required_dim, Sequence):
         required_dim = [required_dim]
 
+    actual_coords: Any = (
+        input_coords.coords if isinstance(input_coords, xr.DataArray) else input_coords
+    )
+    expected_coords: Any = (
+        target_coords.coords
+        if isinstance(target_coords, xr.DataArray)
+        else target_coords
+    )
+
     for _required_dim in required_dim:
-        if _required_dim not in input_coords:
+        if _required_dim not in actual_coords:
             raise KeyError(
                 f"Required dimension {_required_dim} not found in input coordinates"
             )
 
-        if _required_dim not in target_coords:
+        if _required_dim not in expected_coords:
             raise KeyError(
                 f"Required dimension {_required_dim} not found in target coordinates"
             )
 
-        if input_coords[_required_dim].shape != target_coords[_required_dim].shape:
+        if subset:
+            if not np.isin(
+                expected_coords[_required_dim], actual_coords[_required_dim]
+            ).all():
+                raise ValueError(f"Required {_required_dim} labels are missing")
+            continue
+        if actual_coords[_required_dim].shape != expected_coords[_required_dim].shape:
             raise ValueError(
                 f"Coordinate systems for required dim {_required_dim} are not the same"
             )
 
-        if not np.all(
-            (input_coords[_required_dim] == target_coords[_required_dim]).flatten()
+        actual, expected = actual_coords[_required_dim], expected_coords[_required_dim]
+        if (
+            isinstance(actual, xr.DataArray)
+            and isinstance(expected, xr.DataArray)
+            and actual.dims != expected.dims
         ):
+            raise ValueError(f"Coordinate dimensions for {_required_dim} do not match")
+        if not np.array_equal(actual, expected):
             raise ValueError(
                 f"Coordinate systems for required dim {_required_dim} are not the same"
             )
 
 
 def handshake_size(
-    input_coords: CoordSystem,
-    required_dim: str,
+    input_coords: CoordSystem | xr.DataArray,
+    required_dim: Hashable,
     required_size: int,
 ) -> None:
     """Simple check to see if a coordinate system of a given dimension is a required
@@ -505,7 +700,7 @@ def handshake_size(
 
     Parameters
     ----------
-    input_coords : CoordSystem
+    input_coords : CoordSystem or xr.DataArray
         Input coordinate system to validate
     required_dim : str
         Required dimension (name of coordinate)
@@ -524,12 +719,13 @@ def handshake_size(
     Presently assumes coordinate system of given dimension is 1D
     """
 
-    if required_dim not in input_coords:
-        raise KeyError(
-            f"Required dimension {required_dim} not found in input coordinates"
-        )
-
-    if input_coords[required_dim].shape[0] != required_size:
+    handshake_dim(input_coords, required_dim)
+    size = (
+        input_coords.sizes[required_dim]
+        if isinstance(input_coords, xr.DataArray)
+        else input_coords[str(required_dim)].shape[0]
+    )
+    if size != required_size:
         raise ValueError(
             f"Coordinate size for required dim {required_dim} is not of size {required_size}"
         )

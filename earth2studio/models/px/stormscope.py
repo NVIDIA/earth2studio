@@ -39,7 +39,10 @@ from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
+    handshake_coords,
     handshake_dataarray,
+    handshake_dim,
+    handshake_size,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -731,19 +734,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         CoordinateSystem
             Output signature with the configured output lead-time window.
         """
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
-        lead = np.asarray(input_coords.coords["lead_time"])
-        if (
-            input_coords.coords["lead_time"].dims != ("lead_time",)
-            or lead.size == 0
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("Input lead_time must contain finite timedeltas")
-        last_time = lead[-1]
-        relative = input_coords.assign_coords(lead_time=lead - last_time)
-        handshake_dataarray(relative, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
+        last_time = np.asarray(input_coords.coords["lead_time"])[-1]
         return coord_array_like(
             input_coords, {"lead_time": self.output_times + last_time}
         )
@@ -825,11 +817,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         The last lead time from the original coordinate system is used as the lead time for the stacked tensor.
         """
         lt_dim = list(coords.keys()).index("lead_time")
-        var_dim = list(coords.keys()).index("variable")
-        if var_dim != lt_dim + 1:
-            raise ValueError(
-                f"The coordinate order must be [..., lead_time, variable, ...], got {list(coords.keys())}"
-            )
+        handshake_dim(coords, "variable", lt_dim + 1)
         n_lt = len(coords["lead_time"])
         n_vars = len(coords["variable"])
         stacked = x.reshape(
@@ -906,8 +894,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
         # Fold batch/time/lead_time dimensions
         b, t, lt, _, _, _ = x_main.shape
-        if lt != 1:
-            raise ValueError(f"Expected 1 lead time in prepared input data, got {lt}")
+        handshake_size(main_coords, "lead_time", 1)
         coords = main_coords  # used below for cos-zenith times
         x_main = x_main.reshape(b * t * lt, *x_main.shape[3:])
         if x_glm is not None:
@@ -1030,11 +1017,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             Output tensor for the same step with denoised prognostic variables.
         """
 
-        if x.dim() != 6 or (conditioning is not None and conditioning.dim() != 6):
-            cond_shape = conditioning.shape if conditioning is not None else None
-            raise ValueError(
-                f"Input tensors must have 6 dimensions [B, T, L, C, H, W], got {x.shape} and {cond_shape} for input and conditioning respectively"
-            )
+        handshake_dim(coords, ("batch", "time", "lead_time", "variable", "y", "x"))
+        if conditioning_coords is not None:
+            for index, dim in enumerate(("batch", "time", "lead_time", "variable")):
+                handshake_dim(conditioning_coords, dim, index)
 
         b, t, lt, _, _, _ = x.shape
 
@@ -1300,14 +1286,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             valid_mask = self.conditioning_valid_mask
 
         # Expect data on the model's native grid by default; only accept other grids if we can interpolate
-        if (
-            "y" not in coords
-            or "x" not in coords
-            or coords["y"].shape != self.y.shape
-            or coords["x"].shape != self.x.shape
-            or (coords["y"] != self.y).any()
-            or (coords["x"] != self.x).any()
-        ):
+        try:
+            handshake_coords(coords, {"y": self.y, "x": self.x}, ["y", "x"])
+        except (KeyError, ValueError):
             if interpolator is None:
                 raise ValueError(
                     f"Using {type_label} data on a non-native grid requires interpolation, call build_{type_label}_interpolator first"
@@ -1458,6 +1439,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         """
 
         self.output_coords(x)
+        handshake_dataarray(conditioning, runtime=True)
         if (
             conditioning.dims[-2:] == ("y", "x")
             and np.array_equal(conditioning.y, self.y)
@@ -1473,18 +1455,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                     },
                 ),
             )
+        handshake_dim(conditioning, (*x.dims[:-2], *conditioning.dims[-2:]))
         for dim in x.dims[:-3]:
-            if (
-                dim not in conditioning.dims
-                or x[dim].dims != conditioning[dim].dims
-                or not np.array_equal(np.asarray(x[dim]), np.asarray(conditioning[dim]))
-            ):
-                raise ValueError(f"Conditioning coordinate {dim} must match input")
+            handshake_size(conditioning, dim, x.sizes[dim])
+            if dim in x.coords or dim in conditioning.coords:
+                handshake_coords(conditioning, x, dim)
         packed, restore = batch_func()._compress_array(self, x)
         # Conditioning has its own spatial axes until prep_input interpolates it.
         # Pack only its leading axes, in the same order as the state members.
-        if conditioning.dims[:-2] != x.dims[:-2]:
-            raise ValueError("Conditioning leading dimensions must match input order")
         if "batch" in conditioning.coords and "batch" not in conditioning.dims:
             # The conditioning kernel needs only dimension labels. The state
             # restore callback retains its public scalar batch auxiliary.
@@ -1523,6 +1501,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self,
         x: xr.DataArray,
     ) -> Generator[xr.DataArray, None, None]:
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         x = x.copy(deep=True)

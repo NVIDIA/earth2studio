@@ -27,7 +27,6 @@ from loguru import logger
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.aurora import _validate_aurora_time
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.graphcast_operational import (
     _add_tisr_batched,
@@ -37,6 +36,7 @@ from earth2studio.models.px.graphcast_operational import (
     _jax_signature,
 )
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
+from earth2studio.utils.coords import handshake_size, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -501,8 +501,8 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixi
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> tuple[xr.Dataset, list[str]]:
         """Convert an Earth2Studio DataArray to a WeatherNext 2 Dataset."""
-        if len(data.time.values) > 1:
-            raise TypeError("WeatherNext 2 only supports one init_time per JAX call.")
+        handshake_time(data)
+        handshake_size(data, "time", 1)
         if "lead_time" in data.dims:
             data["lead_time"] = [
                 data.time.values[0] + level for level in data.lead_time.values
@@ -583,7 +583,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixi
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray and update cyclone tracks, without hooks."""
         signature = self.output_coords(x)
-        _validate_aurora_time(x)
+        handshake_time(x)
         self._reset_cyclone_tracks()
         device = self.device_buffer.device
         with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):

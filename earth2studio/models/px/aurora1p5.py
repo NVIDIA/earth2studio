@@ -24,14 +24,15 @@ import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.aurora import (
-    _aurora_history,
-    _validate_aurora_history,
-    _validate_aurora_time,
-)
+from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -272,7 +273,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Plan the next hourly output, including trailing one-hour diagnostics."""
-        _validate_aurora_history(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         return coord_array_like(
             input_coords,
             {
@@ -457,7 +458,7 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def _sub_steps(self, x: xr.DataArray, hours: list[int]) -> list[xr.DataArray]:
         self.output_coords(x)
-        _validate_aurora_time(x)
+        handshake_time(x)
         packed, restore = batch_func()._compress_array(self, x)
         signature = self.output_coords(packed)
         tensor, coords = packed.e2s.to_torch()
@@ -485,6 +486,8 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the final input, then six hourly queries per AR cycle."""
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         self.preds_idx = 0
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)

@@ -25,7 +25,13 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import (
+    coord_array,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_dim,
+    handshake_size,
+)
 from earth2studio.utils.cupy import _BATCH_METADATA_KEY
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
@@ -104,12 +110,15 @@ class batch_func:
         self, model: Any, x: xr.DataArray
     ) -> tuple[xr.DataArray, Callable[[xr.DataArray], xr.DataArray]]:
         signature = model.input_coords()
-        if not isinstance(signature, xr.DataArray) or signature.dims[0] != "batch":
-            raise ValueError("Model signature must have leading batch dimension")
+        handshake_dataarray(x, runtime=True)
+        handshake_dim(signature, "batch", 0)
         fixed = signature.dims[1:]
         count = x.ndim - len(fixed)
-        if count < 0 or x.dims[count:] != fixed:
-            raise ValueError(f"Input dimensions must end in {fixed}")
+        for index, dim in enumerate(fixed, start=-len(fixed)):
+            try:
+                handshake_dim(x, dim, index)
+            except KeyError as error:
+                raise ValueError(str(error)) from error
         leading = x.dims[:count]
         batch_coordinate = None
         if "batch" in x.coords and "batch" not in x.dims:
@@ -137,14 +146,9 @@ class batch_func:
         def restore(out: xr.DataArray) -> xr.DataArray:
             if not isinstance(out, xr.DataArray):
                 raise TypeError("Batched model must return a DataArray")
-            if not out.dims or out.dims[0] != "batch" or out.sizes["batch"] != size:
-                raise ValueError("Batch dimension size must be preserved by the model")
-            if "batch" not in out.coords or not np.array_equal(
-                out.coords["batch"].values, np.arange(size)
-            ):
-                raise ValueError(
-                    "Batch coordinate order must be preserved by the model"
-                )
+            handshake_dim(out, "batch", 0)
+            handshake_size(out, "batch", size)
+            handshake_coords(out, {"batch": np.arange(size)}, "batch")
             if metadata is None:
                 out = out.isel(batch=0, drop=True)
             else:

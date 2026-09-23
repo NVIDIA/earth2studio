@@ -26,7 +26,13 @@ import xarray as xr
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils import coord_array
+from earth2studio.utils import (
+    coord_array,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_dim,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -281,12 +287,12 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         delta = (coarse.coords["lead_time"].values[-1:] - final).astype(
             "timedelta64[ns]"
         )
-        if (delta <= np.timedelta64(0, "ns")).any() or (
-            delta.astype(np.int64) % self.num_interp_steps
-        ).any():
-            raise ValueError(
-                "Coarse forecast interval must divide into positive interpolation steps"
-            )
+        handshake_time(
+            {"lead_time": delta},
+            "lead_time",
+            step=np.timedelta64(self.num_interp_steps, "ns"),
+            minimum=np.timedelta64(1, "ns"),
+        )
         return self._prediction_coords(coarse, final + delta // self.num_interp_steps)
 
     def _prediction_coords(self, x: xr.DataArray, lead: np.ndarray) -> CoordinateSystem:
@@ -298,11 +304,8 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             grid="latlon-0.25deg-south-pole-excluded",
         )
         for dim in ("variable", "lat", "lon"):
-            if (
-                dim not in x.dims
-                or not np.isin(target.coords[dim], x.coords[dim]).all()
-            ):
-                raise ValueError(f"Base forecast is missing interpolation {dim} labels")
+            handshake_dim(x, dim)
+            handshake_coords(x, target, dim, subset=True)
         changed = {"lead_time", "variable"}
         if not np.array_equal(x.lat, target.lat) or not np.array_equal(
             x.lon, target.lon
@@ -459,8 +462,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         left, right = left.reshape(-1, *shape[-3:]), right.reshape(-1, *shape[-3:])
         leading = x0.dims[:-3]
         template = xr.DataArray(np.empty(shape[:-3]), dims=leading)
-        if "time" not in x0.coords:
-            raise ValueError("Interpolation requires a time coordinate")
+        handshake_time(x0)
         t0 = (
             (x0.time + x0.lead_time)
             .broadcast_like(template)
@@ -534,6 +536,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Return the first interpolated forecast from a labelled history, without hooks."""
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
@@ -562,6 +565,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
                 "Base forecast model, px_model, must be set before executing the model."
             )
 
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         iterator = self.px_model.create_iterator(x.copy(deep=True))
         try:

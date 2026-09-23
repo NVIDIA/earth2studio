@@ -31,7 +31,12 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -267,19 +272,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
             Output coordinates for the daily mean one day after the latest
             input.
         """
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Missing lead_time coordinate")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = input_coords.lead_time.values
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 2
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain two finite timedeltas")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         self._initial_step(input_coords)
         return coord_array_like(
             input_coords, {"lead_time": lead[-1:] + self._time_step}
@@ -386,11 +380,13 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         return output
 
     def _initial_step(self, coords: CoordinateSystem) -> int:
+        handshake_time(
+            coords.isel(lead_time=slice(-1, None)),
+            "lead_time",
+            step=self._time_step,
+            minimum=np.timedelta64(0, "D"),
+        )
         lead_days = float(coords["lead_time"].values[-1] / self._time_step)
-        if not np.isfinite(lead_days) or lead_days < 0 or not lead_days.is_integer():
-            raise ValueError(
-                "Latest lead time must be a non-negative whole number of days"
-            )
         return int(lead_days)
 
     @staticmethod
@@ -507,12 +503,9 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     @batch_func()
     def _step(self, x: xr.DataArray) -> xr.DataArray:
+        handshake_dataarray(x, runtime=True)
         signature = self.output_coords(x)
-        if "time" not in x.coords or x.time.dims != ("time",):
-            raise ValueError("A one-dimensional time coordinate is required")
-        times = x.time.values
-        if not np.issubdtype(times.dtype, np.datetime64) or np.isnat(times).any():
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         tensor, _ = x.e2s.to_torch()
         tensor = tensor.to(self.device_buffer.device)
         rolling = self._forward(tensor, x, self._initial_step(x))
@@ -541,6 +534,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         x: xr.DataArray,
     ) -> Generator[xr.DataArray, None, None]:
         """Advance FuXi-S2S while retaining its two-day rolling state."""
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         encoding = x.encoding.copy()

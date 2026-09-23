@@ -28,6 +28,8 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
+    handshake_dim,
+    handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -153,19 +155,10 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             Allocation-free signature preserving input metadata and grid.
         """
         handshake_dataarray(input_coords, self.input_coords())
-        if input_coords.dims[-5:] != ("time", "lead_time", "variable", "lat", "lon"):
-            raise ValueError("Expected trailing time, lead_time, variable, lat, lon")
-        for dim, kind in (("time", "M"), ("lead_time", "m")):
-            if dim in input_coords.attrs.get("earth2studio_dynamic_dims", ()):
-                continue
-            if (
-                dim not in input_coords.coords
-                or input_coords.coords[dim].dims != (dim,)
-                or input_coords.coords[dim].dtype.kind != kind
-                or input_coords.sizes[dim] == 0
-                or np.isnat(input_coords.coords[dim].values).any()
-            ):
-                raise ValueError(f"{dim} requires nonempty finite temporal labels")
+        handshake_dim(input_coords, "time", -5)
+        handshake_dim(input_coords, "lead_time", -4)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time", allow_dynamic=True)
         output = coord_array_like(input_coords, {"variable": ["tp:sum:0h:6h"]})
         output.encoding = input_coords.encoding.copy()
         return output

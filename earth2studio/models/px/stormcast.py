@@ -223,19 +223,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate the input and declare the next hourly forecast without allocation."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 1
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain one finite timedelta")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": lead + np.timedelta64(1, "h")}
         )
@@ -475,6 +464,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         x: xr.DataArray,
     ) -> Generator[xr.DataArray, None, None]:
 
+        handshake_dataarray(x, runtime=True)
         self.output_coords(x)
         x = x.copy(deep=True)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)

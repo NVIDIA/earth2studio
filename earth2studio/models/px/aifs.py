@@ -33,6 +33,7 @@ from earth2studio.utils import (
     coord_array_like,
     handshake_dataarray,
     handshake_size,
+    handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -70,19 +71,8 @@ def _aifs_input_coords(variables: list[str]) -> CoordinateSystem:
 def _aifs_output_coords(
     model: torch.nn.Module, x: CoordinateSystem, variables: list[str]
 ) -> CoordinateSystem:
-    if "lead_time" not in x.coords:
-        raise ValueError("Input lead_time coordinate is required")
+    handshake_dataarray(x, model.input_coords(), relative_lead_time=True)
     lead = x.lead_time.values
-    if (
-        x.lead_time.dims != ("lead_time",)
-        or lead.size != 2
-        or not np.issubdtype(lead.dtype, np.timedelta64)
-        or np.isnat(lead).any()
-    ):
-        raise ValueError("lead_time must contain two finite timedeltas")
-    handshake_dataarray(
-        x.assign_coords(lead_time=lead - lead[-1]), model.input_coords()
-    )
     replacements: dict[Hashable, np.ndarray | list[str]] = {
         "lead_time": lead[-1:] + np.timedelta64(6, "h")
     }
@@ -100,13 +90,7 @@ def _aifs_step(
     state: torch.Tensor | None = None,
 ) -> tuple[xr.DataArray, torch.Tensor]:
     model.output_coords(x)
-    if (
-        "time" not in x.coords
-        or x.time.dims != ("time",)
-        or not np.issubdtype(x.time.dtype, np.datetime64)
-        or np.isnat(x.time.values).any()
-    ):
-        raise ValueError("time must contain finite datetimes")
+    handshake_time(x)
     packed, restore = batch_func()._compress_array(model, x)
     signature = model.output_coords(packed)
     tensor, coords = packed.e2s.to_torch()
@@ -140,6 +124,8 @@ def _same_aifs_state(first: xr.DataArray, second: xr.DataArray) -> bool:
 def _aifs_iterator(
     model: torch.nn.Module, x: xr.DataArray, step: int
 ) -> Iterator[xr.DataArray]:
+    handshake_dataarray(x, runtime=True)
+    handshake_time(x)
     model.output_coords(x)
     yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
     state = None

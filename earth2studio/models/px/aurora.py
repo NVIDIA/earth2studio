@@ -25,7 +25,12 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -115,31 +120,6 @@ VARIABLES = [
 ]
 
 ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
-
-
-def _validate_aurora_history(x: CoordinateSystem, signature: CoordinateSystem) -> None:
-    if "lead_time" not in x.coords:
-        raise ValueError("Input lead_time coordinate is required")
-    lead = x.lead_time.values
-    if (
-        x.lead_time.dims != ("lead_time",)
-        or lead.size != 2
-        or not np.issubdtype(lead.dtype, np.timedelta64)
-        or np.isnat(lead).any()
-    ):
-        raise ValueError("lead_time must contain two finite timedeltas")
-    handshake_dataarray(x.assign_coords(lead_time=lead - lead[-1]), signature)
-
-
-def _validate_aurora_time(x: xr.DataArray) -> None:
-    if (
-        "time" not in x.coords
-        or x.time.dims != ("time",)
-        or not x.time.size
-        or not np.issubdtype(x.time.dtype, np.datetime64)
-        or np.isnat(x.time.values).any()
-    ):
-        raise ValueError("time must contain finite datetimes")
 
 
 def _aurora_history(previous: xr.DataArray, prediction: xr.DataArray) -> xr.DataArray:
@@ -232,7 +212,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate history and plan the next six-hour forecast without field data."""
-        _validate_aurora_history(input_coords, self.input_coords())
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         return coord_array_like(
             input_coords,
             {"lead_time": input_coords.lead_time.values[-1:] + np.timedelta64(6, "h")},
@@ -369,7 +349,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict six hours ahead, without iterator hooks."""
         signature = self.output_coords(x)
-        _validate_aurora_time(x)
+        handshake_time(x)
         tensor, coords = x.e2s.to_torch()
         out = self._forward(tensor.to(self.z.device).clone(), coords)
         result = from_torch(out, signature, name=x.name)
@@ -378,6 +358,8 @@ class Aurora(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the final input, then forecasts with hooks in original dimensions."""
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
         while True:

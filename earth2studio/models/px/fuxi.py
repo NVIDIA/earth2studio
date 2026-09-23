@@ -28,7 +28,12 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import DataArrayPrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_time,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -187,19 +192,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Validate relative history and advance the final lead by six hours."""
-        if "lead_time" not in input_coords.coords:
-            raise ValueError("Input lead_time coordinate is required")
+        handshake_dataarray(input_coords, self.input_coords(), relative_lead_time=True)
         lead = np.asarray(input_coords.lead_time)
-        if (
-            input_coords.lead_time.dims != ("lead_time",)
-            or lead.size != 2
-            or not np.issubdtype(lead.dtype, np.timedelta64)
-            or np.isnat(lead).any()
-        ):
-            raise ValueError("lead_time must contain two finite timedeltas")
-        handshake_dataarray(
-            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
-        )
         return coord_array_like(
             input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
         )
@@ -368,13 +362,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
     @batch_func()
     def _step(self, x: xr.DataArray, step: int = 0) -> xr.DataArray:
         self.output_coords(x)
-        if "time" not in x.coords or x.time.dims != ("time",):
-            raise ValueError("A one-dimensional time coordinate is required")
-        if (
-            not np.issubdtype(x.time.dtype, np.datetime64)
-            or np.isnat(x.time.values).any()
-        ):
-            raise ValueError("time must contain finite datetimes")
+        handshake_time(x)
         path = (
             self.ort_short_path
             if step < 20
@@ -402,6 +390,8 @@ class FuXi(torch.nn.Module, AutoModelMixin, DataArrayPrognosticMixin):
         self, x: xr.DataArray
     ) -> Generator[xr.DataArray, None, None]:
         step = 0
+        handshake_dataarray(x, runtime=True)
+        handshake_time(x)
         self.output_coords(x)
         yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
         while True:
