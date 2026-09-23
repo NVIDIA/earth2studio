@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
+  (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
+  source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
+  artifact filter applied at inference.
+- Added Aurora 1.5 Ensemble, SFNO, Pangu, FengWu, FuXi, DLWP, and FCN to the
+  docs scorecard
 - Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
 - Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
   (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
@@ -34,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
+  (`GEODU`) columns on GPS-RO rows
 
 ### Changed
 
@@ -65,6 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
+  without their own tangent point, placing them at the occultation's reference
+  point instead of dropping them
+- Eval recipe: per-member seeding now works for models whose `set_rng` has no
+  `reset` argument (for example `Aurora1p5Ensemble`)
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
   `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
   analysis stable (the old defaults could diverge to non-finite output).

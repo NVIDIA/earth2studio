@@ -195,6 +195,21 @@ function legend(items){
     const cls=i.dash==="2 5"?" dot":(i.ref?" ref":"");
     return `<span><span class="chip${cls}"></span>${i.label}</span>`;}).join("");
 }
+// Put a reference curve sampled at its own lead hours onto this model's
+// lead axis
+function alignLeads(srcLeads,srcY){
+  if(!srcLeads||srcLeads.length===D.lead_hours.length&&
+     srcLeads.every((h,i)=>h===D.lead_hours[i]))return srcY;
+  const pts=srcLeads.map((h,i)=>[h,srcY[i]]).filter(p=>isFin(p[1]));
+  return D.lead_hours.map(h=>{
+    let j=pts.findIndex(p=>p[0]>=h);
+    if(j<0)return null;
+    if(pts[j][0]===h)return pts[j][1];
+    if(j===0)return null;
+    const [h0,q0]=pts[j-1],[h1,q1]=pts[j];
+    return q0+(q1-q0)*(h-h0)/(h1-h0);
+  });
+}
 function drawLine(svg,y,px,py,color,dash){
   let d="",pen=false;
   y.forEach((q,i)=>{if(!isFin(q)){pen=false;return;}
@@ -292,7 +307,8 @@ function drawCurve(){
   const extras=activeBaselines().map(b=>{
     const mB=BCACHE[b].metrics[k]||
       (k==="ensemble_mean_mse"?BCACHE[b].metrics.rmse:null);
-    return {y:mB?mB.values[v]:null,label:BASELINES[b],ref:true,
+    const y=mB&&mB.values[v]?alignLeads(BCACHE[b].lead_hours,mB.values[v]):null;
+    return {y,label:BASELINES[b],ref:true,
             dash:dashes[Object.keys(BASELINES).indexOf(b)%dashes.length]};
   }).filter(s=>s.y);
   const series=split
