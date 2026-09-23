@@ -643,7 +643,9 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         latent_width = codec.n_latent
         df = df.reset_index(drop=True)
 
-        footprint_id = df.groupby(_FP_COLS, sort=False).ngroup().to_numpy()
+        # dropna=False: a NaN in any key (e.g. a missing zenith angle) must not
+        # collapse every such row into one merged pseudo-footprint.
+        footprint_id = df.groupby(_FP_COLS, sort=False, dropna=False).ngroup().to_numpy()
         sensor_channel = df["sensor_index"].to_numpy().astype(np.int64)
         channel_lookup = {
             int(sensor_chan): int(gcid)

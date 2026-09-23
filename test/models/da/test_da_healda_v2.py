@@ -345,11 +345,20 @@ def _build_gpsro_df(radius_curvature=6_370_000.0, with_columns=True):
     impact_height = np.array([2_000.0, 6_000.0, 10_000.0, 20_000.0, 30_000.0])
     t = REQUEST_TIME[0].astype("datetime64[ns]")
     n = n_levels + n_bending
+    # NNJAObsConv places refractivity rows at the occultation reference point
+    # but bending-angle rows at their per-level tangent points, so the bending
+    # rows must NOT share the reference lat/lon in this fixture.
+    lat = np.concatenate(
+        [np.full(n_levels, 45.0), 45.0 + 0.3 * np.arange(1, n_bending + 1)]
+    )
+    lon = np.concatenate(
+        [np.full(n_levels, 120.0), 120.0 - 0.2 * np.arange(1, n_bending + 1)]
+    )
     df = pd.DataFrame(
         {
             "time": np.full(n, t),
-            "lat": np.full(n, 45.0, dtype=np.float32),
-            "lon": np.full(n, 120.0, dtype=np.float32),
+            "lat": lat.astype(np.float32),
+            "lon": lon.astype(np.float32),
             "station": "G05|x",
             "variable": ["gps_refractivity"] * n_levels + ["gps"] * n_bending,
             "observation": np.concatenate(

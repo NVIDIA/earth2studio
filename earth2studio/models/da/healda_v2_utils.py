@@ -102,6 +102,7 @@ PLATFORM_NAME_TO_ID: dict[str, int] = {
     "q": 29,
     "t": 30,
     "uv": 31,
+    "n21": 32,
 }
 
 
@@ -586,8 +587,16 @@ def derive_gpsro_pressure(df: pd.DataFrame) -> pd.DataFrame:
     geodu = df["geoid_undulation"].to_numpy(dtype=np.float64, na_value=np.nan)
 
     ro = np.flatnonzero(is_refractivity | is_gps)
-    key_columns = [c for c in ("time", "lat", "lon", "station") if c in df.columns]
-    keys = df.iloc[ro][key_columns]
+    # Occultation key: bending-angle rows sit at their per-level tangent points
+    # while refractivity rows sit at the occultation's reference point, so
+    # lat/lon must NOT be part of the key. Time and station (satellite id) are
+    # shared across an occultation's rows; the radius of curvature breaks the
+    # rare tie of two occultations from one satellite in the same cycle.
+    keys = pd.DataFrame(index=range(len(ro)))
+    for column in ("time", "station"):
+        if column in df.columns:
+            keys[column] = df.iloc[ro][column].to_numpy()
+    keys["rc"] = np.round(elrc[ro], 1)
     _, group_ids = np.unique(
         pd.util.hash_pandas_object(keys, index=False).to_numpy(), return_inverse=True
     )
@@ -601,7 +610,9 @@ def derive_gpsro_pressure(df: pd.DataFrame) -> pd.DataFrame:
         occ_elrc = occ_elrc[np.isfinite(occ_elrc)]
         occ_geodu = geodu[occ]
         occ_geodu = occ_geodu[np.isfinite(occ_geodu)]
-        occ_lat = lat[occ[0]]
+        # Refractivity rows sit at the occultation reference point; use its
+        # latitude for the gravity profile, as the training ETL does.
+        occ_lat = lat[levels[0]]
         if occ_elrc.size == 0 or not np.isfinite(occ_lat):
             continue
         radius_of_curvature = float(occ_elrc[0])
