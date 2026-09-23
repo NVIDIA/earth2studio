@@ -294,6 +294,110 @@ def test_same_local_gpsro_bytes_preserve_default_product(tmp_path, monkeypatch):
     pd.testing.assert_frame_equal(nnja_public, gdas_public, check_exact=True)
 
 
+def _gpsro_message_with_refractivity(qfro: int) -> SimpleNamespace:
+    """One occultation: three MEFR=0 bending-angle levels and a refractivity
+    block laid out HEIT -> ARFR (value) -> ARFR (error) per level."""
+    header = [
+        (utils_ncep.GPSRO_SAID, 3),
+        (utils_ncep.GPSRO_PTID, 27),
+        (utils_ncep.GPSRO_QFRO, qfro),
+        (utils_ncep.GPSRO_ELRC, 6_371_000.0),
+        (utils_ncep.GPSRO_LAT, -10.5),
+        (utils_ncep.GPSRO_LON, -70.25),
+        (utils_ncep.GPSRO_YEAR, 2024),
+        (utils_ncep.GPSRO_MONTH, 1),
+        (utils_ncep.GPSRO_DAY, 1),
+        (utils_ncep.GPSRO_HOUR, 0),
+        (utils_ncep.GPSRO_MIN, 30),
+        (utils_ncep.GPSRO_SEC, 0.0),
+    ]
+    bending = []
+    for impact_height in (2_000.0, 10_000.0, 40_000.0):
+        bending += [
+            (utils_ncep.GPSRO_LAT, -10.5),
+            (utils_ncep.GPSRO_LON, -70.25),
+            (utils_ncep.GPSRO_MEFR, 0.0),
+            (utils_ncep.GPSRO_IMPP, 6_371_000.0 + impact_height),
+            (utils_ncep.GPSRO_BNDA, 0.01),
+            (utils_ncep.GPSRO_BNDA, 0.001),
+        ]
+    refractivity = []
+    for height in np.arange(0.0, 60_001.0, 200.0):
+        refractivity += [
+            (utils_ncep.GPSRO_HEIT, float(height)),
+            (utils_ncep.GPSRO_ARFR, float(300.0 * np.exp(-height / 7_000.0))),
+            (utils_ncep.GPSRO_ARFR, 0.5),
+        ]
+    return _message(header + bending + refractivity)
+
+
+def _decode_gpsro_message(
+    tmp_path, monkeypatch, decoded: SimpleNamespace, plan: dict | None = None
+) -> pd.DataFrame:
+    local_path = tmp_path / "refractivity.gpsro.bufr"
+    local_path.write_bytes(b"gpsro-bytes")
+    message_bytes = b"gpsro-message"
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda file_data, *, silence_noise: ({}, {}, [(message_bytes, 0)]),
+    )
+    monkeypatch.setattr(
+        utils_ncep,
+        "_create_decoder",
+        lambda _table_b, _table_d: _Decoder(message_bytes, decoded),
+    )
+    return utils_ncep.decode_gpsro(
+        str(local_path),
+        plan or _gpsro_plan(NNJAObsConvLexicon, "gps", utils_ncep.GPSRO_BNDA),
+        datetime(2024, 1, 1),
+        datetime(2024, 1, 1, 1),
+        decode_workers=1,
+    )
+
+
+def test_gpsro_refractivity_rows_are_exposed_raw(tmp_path, monkeypatch):
+    plan = _gpsro_plan(NNJAObsConvLexicon, "gps", utils_ncep.GPSRO_BNDA)
+    plan.update(
+        _gpsro_plan(NNJAObsConvLexicon, "gps_refractivity", utils_ncep.GPSRO_ARFR)
+    )
+    df = _decode_gpsro_message(
+        tmp_path, monkeypatch, _gpsro_message_with_refractivity(qfro=0), plan=plan
+    )
+
+    gps = df[df["variable"] == "gps"].reset_index(drop=True)
+    assert len(gps) == 3
+    np.testing.assert_allclose(gps["elev"].to_numpy(), [2_000.0, 10_000.0, 40_000.0])
+    assert gps["pres"].isna().all()
+
+    heights = np.arange(0.0, 60_001.0, 200.0)
+    refr = df[df["variable"] == "gps_refractivity"].reset_index(drop=True)
+    assert len(refr) == len(heights)
+    np.testing.assert_allclose(refr["elev"].to_numpy(), heights)
+    np.testing.assert_allclose(
+        refr["observation"].to_numpy(),
+        300.0 * np.exp(-heights / 7_000.0),
+        rtol=1e-6,
+    )
+    assert refr["pres"].isna().all()
+    assert (refr["lat"] == np.float32(-10.5)).all()
+    assert (refr["lon"] == np.float32(289.75)).all()
+    assert (refr["quality"] == 0).all()
+    assert (refr["station"] == "00030027").all()
+    assert (refr["class"] == "GPSRO").all()
+    assert (refr["type"] == 3).all()
+
+
+def test_gpsro_only_bending_angle_requested_emits_no_refractivity_rows(
+    tmp_path, monkeypatch
+):
+    df = _decode_gpsro_message(
+        tmp_path, monkeypatch, _gpsro_message_with_refractivity(qfro=0)
+    )
+    assert df["variable"].tolist() == ["gps"] * 3
+    assert df["pres"].isna().all()
+
+
 def test_cat_delimits_levels_and_repeated_pob_remains_an_event_slot():
     desc_values = [
         (utils_ncep.HDR_SID, b"72469   "),
@@ -475,12 +579,13 @@ def test_extract_gpsro_subset_missing_bending_angle_does_not_emit_error():
     assert rows == []
 
 
-def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values():
+def test_extract_gpsro_subset_missing_level_lat_falls_back_to_reference_point():
     subset_stream = [
         (utils_ncep.GPSRO_SAID, 3),
         (utils_ncep.GPSRO_PTID, 27),
         (utils_ncep.GPSRO_QFRO, 12),
         (utils_ncep.GPSRO_ELRC, 6_371_000.0),
+        (utils_ncep.GPSRO_GEODU, 12.5),
         (utils_ncep.GPSRO_LAT, -10.5),
         (utils_ncep.GPSRO_LON, -70.25),
         (utils_ncep.GPSRO_YEAR, 2024),
@@ -495,8 +600,8 @@ def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values(
         (utils_ncep.GPSRO_IMPP, 6_373_000.0),
         (utils_ncep.GPSRO_BNDA, 0.00123),
         (utils_ncep.GPSRO_BNDA, 0.00045),
-        # A missing per-level latitude must clear state so the next observation
-        # does not reuse -9.75 from the previous bending-angle block.
+        # A missing per-level latitude falls back to the occultation's reference
+        # latitude rather than reusing -9.75 from the previous level.
         (utils_ncep.GPSRO_LAT, None),
         (utils_ncep.GPSRO_LON, -68.5),
         (utils_ncep.GPSRO_MEFR, 0.0),
@@ -515,10 +620,16 @@ def test_extract_gpsro_subset_missing_level_lat_lon_does_not_reuse_stale_values(
         datetime(2024, 1, 1, 1),
     )
 
-    assert len(rows) == 1
+    assert len(rows) == 2
     assert rows[0]["lat"] == pytest.approx(np.float32(-9.75))
     assert rows[0]["lon"] == pytest.approx(np.float32(290.5))
-    assert rows[0]["observation"] == pytest.approx(np.float32(0.00123))
+    assert rows[1]["lat"] == pytest.approx(np.float32(-10.5))
+    assert rows[1]["lon"] == pytest.approx(np.float32(291.5))
+    assert rows[1]["observation"] == pytest.approx(np.float32(0.00234))
+    assert rows[1]["elev"] == pytest.approx(np.float32(3000.0))
+    for row in rows:
+        assert row["radius_curvature"] == 6_371_000.0
+        assert row["geoid_undulation"] == 12.5
 
 
 def test_finalize_rows_filters_and_converts_pressure():
@@ -648,3 +759,50 @@ def test_finalize_rows_adds_missing_columns():
     assert pd.isna(result["elev"].iloc[0])
     assert result["station"].iloc[0] is None
     assert pd.isna(result["station_elev"].iloc[0])
+
+
+def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
+    local_path = tmp_path / "amv.prepbufr.nr"
+    local_path.write_bytes(b"amv-prepbufr")
+    message_bytes = b"prepbufr-satwnd-message"
+    decoded = _message(
+        [
+            (utils_ncep.HDR_SID, b"72469   "),
+            (utils_ncep.HDR_XOB, -105.25),
+            (utils_ncep.HDR_YOB, 39.75),
+            (utils_ncep.HDR_DHR, 0.25),
+            (utils_ncep.HDR_ELV, 1_655.0),
+            (utils_ncep.HDR_TYP, 120),
+            (utils_ncep.OBS_CAT, 1),
+            (utils_ncep.OBS_POB, 850.0),
+            (utils_ncep.OBS_PQM, 4),
+            (utils_ncep.OBS_ZOB, 1_500.0),
+            (OBS_TOB, 5.5),
+            (OBS_TQM, 2),
+        ]
+    )
+    table_b = {utils_ncep.HDR_DHR: ("DHR", "HR", 5, 0, 0)}
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda data, *, silence_noise: (table_b, {}, [(message_bytes, 105)]),
+    )
+    monkeypatch.setattr(
+        utils_ncep, "_create_decoder", lambda tb, td: _Decoder(message_bytes, decoded)
+    )
+    bounds = (datetime(2024, 1, 1), datetime(2024, 1, 1, 1))
+    plan = _prepbufr_plan(NNJAObsConvLexicon, "t")
+    kept = utils_ncep.decode_prepbufr(str(local_path), plan, *bounds, decode_workers=1)
+    assert kept["class"].tolist() == ["SATWND"]
+    skipped = utils_ncep.decode_prepbufr(
+        str(local_path),
+        plan,
+        *bounds,
+        decode_workers=1,
+        exclude_message_types={"SATWND"},
+    )
+    assert skipped.empty
+
+    NNJAObsConv(cache=False, verbose=False, exclude_message_types=("SATWND",))
+    with pytest.raises(ValueError, match="Unknown PrepBUFR message types"):
+        NNJAObsConv(cache=False, verbose=False, exclude_message_types=("AMV",))

@@ -130,7 +130,9 @@ categories:
         api_refs:
           - earth2studio.models.px.Aurora
           - earth2studio.models.px.Aurora1p5
+          - earth2studio.models.px.Aurora1p5_6h
           - earth2studio.models.px.Aurora1p5Ensemble
+          - earth2studio.models.px.Aurora1p5Ensemble_6h
       - id: dlesym
         label: DLESyM
         extra: dlesym

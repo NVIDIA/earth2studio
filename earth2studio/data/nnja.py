@@ -44,11 +44,12 @@ from earth2studio.data.utils import (
     obstore_fetch_to_cache,
     prep_data_inputs,
 )
-from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
+from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
+    NCEP_SATWND_PUBLIC_SCHEMA,
     NCEPObsTask,
     compile_dataframe,
     cycle_windows,
@@ -56,11 +57,16 @@ from earth2studio.data.utils_ncep import (
     decode_ir_sounder,
     decode_microwave,
     decode_prepbufr,
+    decode_satwnd,
     map_aircraft_profile_types,
     plan_conv_tasks,
     resolve_output_schema,
 )
-from earth2studio.lexicon import NNJAObsConvLexicon, NNJAObsSatLexicon
+from earth2studio.lexicon import (
+    NNJAObsConvLexicon,
+    NNJAObsSatLexicon,
+    NNJAObsSatwndLexicon,
+)
 from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -156,7 +162,14 @@ class NNJAObsConv:
     GPSRO rows use the shared columns with product-specific meanings:
     ``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
     identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
-    ``elev`` is impact parameter minus Earth radius of curvature.
+    ``elev`` is impact parameter minus Earth radius of curvature for ``gps``
+    rows. The ``gps_refractivity`` variable exposes the message's refractivity
+    levels (``ARFR``, N-units) with ``elev`` set to the level height (``HEIT``)
+    so consumers can derive their own vertical coordinate. Both carry the
+    occultation's ``radius_curvature`` (``ELRC``) and ``geoid_undulation``
+    (``GEODU``); a level without its own tangent point sits at the
+    occultation's reference point. No retrieval
+    product is read.
 
     Parameters
     ----------
@@ -199,6 +212,10 @@ class NNJAObsConv:
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
+    exclude_message_types : Sequence[str], optional
+        PrepBUFR message families to skip at decode, e.g. ``("SATWND",)`` when
+        atmospheric motion vectors come from :class:`NNJAObsSatwnd` instead. By
+        default every family is decoded.
 
     Warning
     -------
@@ -237,6 +254,7 @@ class NNJAObsConv:
         async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
+        exclude_message_types: Sequence[str] = (),
     ) -> None:
         if source == "convbufr":
             raise NotImplementedError(
@@ -250,6 +268,13 @@ class NNJAObsConv:
             raise ValueError(
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
             )
+        unknown = set(exclude_message_types) - set(PREPBUFR_OBS_TYPES.values())
+        if unknown:
+            raise ValueError(
+                f"Unknown PrepBUFR message types {sorted(unknown)}; valid: "
+                f"{sorted(PREPBUFR_OBS_TYPES.values())}"
+            )
+        self._exclude_message_types = frozenset(exclude_message_types)
         self._source = source
         # Internal switch for the special aircraft-profile product. Default
         # output maps profile-stage 33x/43x/53x report codes to the standard
@@ -341,6 +366,8 @@ class NNJAObsConv:
                 key,
                 self.cache,
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
+                chunked=True,
+                atomic=True,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -423,6 +450,7 @@ class NNJAObsConv:
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
+                exclude_message_types=self._exclude_message_types,
             )
             if (
                 self._source == "prepbufr.acft_profiles"
@@ -468,6 +496,119 @@ class NNJAObsConv:
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
+
+
+@check_optional_dependencies(BUFR_DEPENDENCY_KEY)
+class NNJAObsSatwnd(NNJAObsConv):
+    """NNJA satellite-derived atmospheric motion vector (SATWND) data source.
+
+    Reads the raw NCEP AMV dumps (``amv/`` in the NNJA archive) rather than the
+    AMVs merged into PrepBUFR. The dumps keep every producer stream (GOES legacy
+    and GOES-R, Meteosat, Himawari, MODIS, AVHRR, VIIRS, LEO-GEO, INSAT) with its
+    own computation method, height assignment and quality indicators. Cycles
+    through 2019 read the ``amv/merged`` reprocessed product and later cycles the
+    operational ``amv/satwnd`` dump.
+
+    ``u``/``v`` rows are decomposed from ``WDIR``/``WSPD``. Shared columns follow
+    :class:`NNJAObsConv`: ``pres`` is the height assignment (``PRLC``, Pa),
+    ``quality`` the ``SWQM`` wind quality mark where the producer encodes one,
+    ``class`` is ``"SATWND"``; ``type``, ``station`` and ``elev`` are null
+    since the dump carries no report type, station or geometric height. Extra
+    columns carry ``satellite_id``, ``subset``, ``wind_method`` (``SWCM``),
+    ``wind_method_local`` (``CMCM``), ``height_method``, ``satellite_za`` and
+    the raw quality indicators keyed by generating application. No report
+    typing, quality control or thinning is applied.
+
+    Parameters
+    ----------
+    time_tolerance : TimeTolerance, optional
+        Time tolerance window for filtering observations. Accepts a single
+        value (symmetric ± window) or a tuple ``(lower, upper)`` for
+        asymmetric windows, by default ``np.timedelta64(0, 'm')``.
+    cache : bool, optional
+        Cache downloaded files in the local filesystem cache, by default True.
+    verbose : bool, optional
+        Show progress bars, by default True.
+    async_timeout : int, optional
+        Total timeout in seconds for the async fetch, by default 600.
+    async_workers : int, optional
+        Maximum number of concurrent async fetch tasks, by default 24.
+    decode_workers : int, optional
+        Number of parallel processes for BUFR message decoding. Recent cycle
+        files hold 3-5 million winds and decode at roughly 1,500 winds per second
+        per worker, so decoding dominates run time and scales with workers.
+        Set to 1 to disable multiprocessing, by default 8.
+    retries : int, optional
+        Number of retry attempts per failed fetch task with exponential
+        backoff, by default 3.
+
+    Warning
+    -------
+    This is a remote data source and can potentially download a large amount of data
+    to your local machine for large requests.
+
+    Note
+    ----
+    Additional information on the data repository can be referenced here:
+
+    - https://psl.noaa.gov/data/nnja_obs/
+    - https://registry.opendata.aws/noaa-reanalyses-pds/
+
+    Badges
+    ------
+    region:global dataclass:observation product:wind product:sat
+    """
+
+    SOURCE_ID = "earth2studio.data.NNJAObsSatwnd"
+    SCHEMA = NCEP_SATWND_PUBLIC_SCHEMA
+    LEXICON = NNJAObsSatwndLexicon  # type: ignore[assignment]
+    MIN_DATE = datetime(1979, 1, 1)
+    # Last year of the reprocessed amv/merged product; the operational dump follows.
+    MERGED_LAST_YEAR = 2019
+    VALID_SOURCES = frozenset(["satwnd"])
+
+    def __init__(
+        self,
+        time_tolerance: TimeTolerance = np.timedelta64(0, "m"),
+        cache: bool = True,
+        verbose: bool = True,
+        async_timeout: int = 600,
+        async_workers: int = 24,
+        decode_workers: int = 8,
+        retries: int = 3,
+    ) -> None:
+        super().__init__(
+            source="satwnd",
+            time_tolerance=time_tolerance,
+            cache=cache,
+            verbose=verbose,
+            async_timeout=async_timeout,
+            async_workers=async_workers,
+            decode_workers=decode_workers,
+            retries=retries,
+        )
+
+    def _build_uri(self, route: str, cycle: datetime) -> str:
+        if route != "satwnd":
+            raise ValueError(f"Unsupported route '{route}'")
+        product = "merged" if cycle.year <= self.MERGED_LAST_YEAR else "satwnd"
+        return (
+            f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/amv/{product}/"
+            f"{cycle:%Y}/{cycle:%m}/bufr/"
+            f"gdas.{cycle:%Y%m%d}.t{cycle.hour:02d}z.satwnd.tm00.bufr_d"
+        )
+
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+        if task.route != "satwnd":
+            raise ValueError(f"Unsupported route '{task.route}'")
+        frame = decode_satwnd(
+            local_path,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
+            decode_workers=self._decode_workers,
+        )
+        return frame[self.SCHEMA.names]
 
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
@@ -755,6 +896,8 @@ class NNJAObsSat:
                 key,
                 self.cache,
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
+                chunked=True,
+                atomic=True,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -790,8 +933,12 @@ class NNJAObsSat:
         raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
 
     def _handle_missing_file(self, path: str) -> None:
-        """Fail a request when an aggregate cycle file is absent."""
-        raise _NNJAObsSatIncompleteError("remote_file_missing", uri=path)
+        """Warn and skip an absent aggregate cycle file.
+
+        Archive gaps are expected (instrument outages, retired platforms), so one
+        missing cycle should not fail a multi-cycle request.
+        """
+        logger.warning(f"NNJA file {path} not found, skipping")
 
     def local_path(self, uri: str) -> str:
         """Return the deterministic cache path for an S3 URI."""
@@ -813,7 +960,7 @@ class NNJAObsSat:
     ) -> list[_NNJASatTask]:
         variables_by_sensor: dict[str, dict[str, str]] = {}
         for variable_name in variable:
-            source_key, _modifier = self.LEXICON[variable_name]
+            source_key, _modifier = self.LEXICON.get_item(variable_name)
             sensor, separator, source_field = source_key.partition("::")
             if not separator or sensor not in _NNJA_SAT_PRODUCTS or not source_field:
                 raise ValueError(f"Invalid NNJA satellite lexicon key: {source_key}")
