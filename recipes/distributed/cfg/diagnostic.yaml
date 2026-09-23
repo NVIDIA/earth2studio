@@ -1,0 +1,6 @@
+recipe: "diagnostic"
+
+parameters:
+  time: "2023-06-01T00:00:00"
+  nsteps: 12
+  output_path: diagnostic_distributed.zarr
