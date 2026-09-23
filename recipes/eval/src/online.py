@@ -73,6 +73,7 @@ and ``members_per_rank > 1`` on top of a member-batched rollout.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from collections import OrderedDict
 from collections.abc import Iterable, Sequence
@@ -2112,8 +2113,20 @@ def open_stats_store(
     times: np.ndarray,
     lead_times: np.ndarray,
     ensemble_size: int,
+    store_name: str | None = None,
 ) -> OutputManager:
     """Create (or validate) ``stats.zarr`` and return its manager.
+
+    Parameters
+    ----------
+    store_name : str | None
+        Override for the store filename.  ``None`` (the default) uses
+        ``scoring.online.stats_store``.  Multi-reference online scoring
+        (:func:`resolve_verification_sources`) opens one store per named
+        reference and passes each its own name here (see
+        :func:`named_store_filename`) so a campaign with no
+        ``verification_sources`` configured is byte-identical to before
+        this parameter existed.
 
     Collective across the whole world: every rank must call this, including
     ranks that belong to no ensemble group, because
@@ -2147,7 +2160,10 @@ def open_stats_store(
         statistics, variables, times, lead_times, ensemble_size, region_names
     )
     mgr = OutputManager(
-        cfg, store_name=settings.stats_store, chunks={"time": 1}, io_backend="zarr"
+        cfg,
+        store_name=store_name or settings.stats_store,
+        chunks={"time": 1},
+        io_backend="zarr",
     )
     mgr.validate_output_store(superset, [])
     run_on_rank0_first(add_stats_arrays, mgr.io, groups, region_names)
@@ -2743,7 +2759,11 @@ def finalize_scores_store_name(cfg: DictConfig) -> str:
     return str(cfg.scoring.output.get("store_name", "scores.zarr"))
 
 
-def finalize_stats(cfg: DictConfig) -> str:
+def finalize_stats(
+    cfg: DictConfig,
+    stats_store: str | None = None,
+    scores_store: str | None = None,
+) -> str:
     """Derive ``scores.zarr`` from the accumulated ``stats.zarr``.
 
     Single-process and cheap (the whole statistics store is ~500 KB per
@@ -2781,6 +2801,14 @@ def finalize_stats(cfg: DictConfig) -> str:
     ----------
     cfg : DictConfig
         Full Hydra config.
+    stats_store : str | None
+        Override for the statistics store filename.  ``None`` uses
+        ``scoring.online.stats_store``.  Multi-reference online scoring
+        passes each named reference's own filename (see
+        :func:`named_store_filename`).
+    scores_store : str | None
+        Override for the derived scores store filename.  ``None`` uses
+        :func:`finalize_scores_store_name`.
 
     Returns
     -------
@@ -2793,14 +2821,16 @@ def finalize_stats(cfg: DictConfig) -> str:
         If the statistics store does not exist.
     """
     settings = parse_online_settings(cfg)
-    stats_path = os.path.join(cfg.output.path, settings.stats_store)
+    stats_path = os.path.join(cfg.output.path, stats_store or settings.stats_store)
     if not os.path.exists(stats_path):
         raise FileNotFoundError(
             f"Statistics store not found at '{stats_path}'.\n"
             "Run inference (main.py) with scoring.mode=online first."
         )
 
-    scores_path = os.path.join(cfg.output.path, finalize_scores_store_name(cfg))
+    scores_path = os.path.join(
+        cfg.output.path, scores_store or finalize_scores_store_name(cfg)
+    )
 
     ds = xr.open_zarr(stats_path)
     ensemble_size = int(ds.sizes.get("ensemble", 1))
@@ -2939,3 +2969,227 @@ def build_online_scorer(
         device=device,
         known_missing_leads=known_missing_leads,
     )
+
+
+# ---------------------------------------------------------------------------
+# Multi-reference online scoring
+# ---------------------------------------------------------------------------
+#
+# Score one rollout against several truth/reference datasets in the same
+# pass, without ever materializing the forecast.  The key observation: at
+# each lead step the pipeline already holds the forecast field in memory
+# before OnlineScorer.update() discards it, and OnlineScorer itself already
+# owns all of its per-IC state as *instance* attributes (its FieldCache, its
+# list of OnlineStatistic accumulators, its stats.zarr manager).  So running
+# N references is just N independent OnlineScorer instances, each reading
+# its own truth field and each running the existing per-step accumulate +
+# collective-reduce path — not N reruns of the model, and not a change to
+# Pipeline.run, ForecastPipeline._rollout, or the collectives themselves.
+#
+# The one place the "just loop it" story gets more expensive rather than
+# just "N times the work": FairCRPS's PairwiseExchange all-gathers the
+# *residual* field ``f_i - y`` across the group, and that residual is
+# reference-dependent — so the field-sized member exchange (the only
+# collective in the whole scorer that puts a field, not a scalar, on the
+# wire) genuinely runs N times, once per reference, rather than being
+# shareable across references. Every other statistic reduces to a handful
+# of scalars/small blocks before communicating, so its Nx cost is cheap.
+#
+# Ordering: every rank of a group must build the same named references in
+# the same order (`resolve_verification_sources` builds its dict from the
+# same cfg on every rank, and MultiRefScorer iterates that dict in
+# insertion order), because each child OnlineScorer issues its own
+# collectives and NCCL requires every rank to issue a fixed sequence of
+# collectives in matching order.
+
+# Reference names become filenames, so keep them to a leading alphanumeric
+# followed by word characters: no separators, no dots, no traversal.
+_REF_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+"""Sentinel key `resolve_verification_sources` returns when
+``scoring.online.verification_sources`` is unset — the single, unnamed
+reference a campaign scored before this feature existed.  Callers use it to
+keep stats.zarr / scores.zarr filenames unprefixed in that case, so an
+existing campaign config produces byte-identical store names."""
+
+
+def resolve_verification_sources(
+    cfg: DictConfig, pipeline: Any
+) -> dict[str | None, DataSource]:
+    """Resolve one or more named verification (truth) sources.
+
+    ``scoring.online.verification_sources`` is the multi-reference knob: a
+    mapping of reference name -> ``DataSource`` Hydra config, or ``null`` to
+    reuse ``pipeline.verification_source(cfg)`` (the normal BYO /
+    predownloaded-zarr resolution) under that name.  Left unset (the
+    default), this returns a single entry keyed ``None``, matching every
+    campaign written before this feature existed.
+
+    Every named source is required to be local/predownloaded, exactly like
+    the singular ``verification_source`` — online scoring does not tolerate
+    in-loop remote fetches, and that constraint does not change by adding
+    more references.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full Hydra config.
+    pipeline : Any
+        The active :class:`~src.pipelines.base.Pipeline`; only its
+        ``verification_source(cfg)`` method is used, to avoid importing
+        ``src.pipelines.base`` from this module.
+
+    Returns
+    -------
+    dict[str | None, DataSource]
+        Reference name -> resolved source, in config order. The unnamed
+        reference is keyed ``None``.
+
+    Raises
+    ------
+    ValueError
+        If ``verification_sources`` is set but empty.
+    """
+    block = cfg.get("scoring", {}).get("online", {}) or {}
+    named = block.get("verification_sources", None)
+    if named is None:
+        return {None: pipeline.verification_source(cfg)}
+    if not named:
+        raise ValueError(
+            "scoring.online.verification_sources is set but empty; remove it "
+            "to score a single (unnamed) reference, or add at least one "
+            "named entry."
+        )
+
+    sources: dict[str | None, DataSource] = {}
+    for name, spec in named.items():
+        name = str(name)
+        if not _REF_NAME_RE.match(name):
+            raise ValueError(
+                f"Invalid verification source name '{name}'. Names are "
+                "interpolated into store filenames, so they must start with "
+                "an alphanumeric and contain only letters, digits, '_' or '-'."
+            )
+        if spec is None:
+            logger.info(f"Verification source '{name}': reusing the pipeline default.")
+            sources[name] = pipeline.verification_source(cfg)
+        else:
+            logger.info(f"Verification source '{name}': instantiating BYO source.")
+            sources[name] = hydra.utils.instantiate(spec)
+    return sources
+
+
+def named_store_filename(base: str, ref_name: str | None) -> str:
+    """Filename *base* should use for reference *ref_name*'s own store.
+
+    Every reference — including the unnamed one an unconfigured
+    ``verification_sources`` normalizes to — goes through this one function;
+    there is no separate "single-reference filename" branch anywhere else.
+    ``None`` maps to *base* unchanged, so a campaign with no
+    ``verification_sources`` block writes the exact same filenames as before
+    this feature existed. A name gets inserted before the extension:
+    ``("stats.zarr", "era5")`` -> ``"stats__era5.zarr"``.
+    """
+    if ref_name is None:
+        return base
+    root, ext = os.path.splitext(base)
+    return f"{root}__{ref_name}{ext or '.zarr'}"
+
+
+class MultiRefScorer:
+    """Fan out one rollout's yielded chunks to N :class:`OnlineScorer`\\ s.
+
+    :meth:`~src.pipelines.base.Pipeline.run` only ever calls
+    :meth:`begin_item`, :meth:`update` and :meth:`finish_item` on whatever it
+    was handed as ``scorer`` — it has no idea whether there is one reference
+    or several. So this class is a drop-in substitute for a single
+    :class:`OnlineScorer`: the pipeline, the rollout loop, and every
+    per-step model call are completely unmodified by multi-reference
+    scoring.
+
+    Each named reference gets its own :class:`OnlineScorer` — its own
+    verification :class:`FieldCache`, its own :class:`OnlineStatistic`
+    buffers, its own ``stats.zarr``. The forecast chunk a single
+    :meth:`update` call receives is handed to every child unchanged, and
+    each child reads it to form its own residual against its own truth.
+    See ``scoring.online.verification_sources`` for the cost model.
+
+    Parameters
+    ----------
+    scorers : dict[str | None, OnlineScorer]
+        Reference name -> scorer, in the fixed order every rank of the
+        group must agree on (see :func:`build_online_scorers`).
+    """
+
+    def __init__(self, scorers: dict[str | None, OnlineScorer]) -> None:
+        if not scorers:
+            raise ValueError("MultiRefScorer needs at least one child scorer.")
+        self._scorers = scorers
+
+    def begin_item(self, item: WorkItem) -> None:
+        for scorer in self._scorers.values():
+            scorer.begin_item(item)
+
+    def update(self, x: torch.Tensor, coords: CoordSystem) -> None:
+        for scorer in self._scorers.values():
+            scorer.update(x, coords)
+
+    def finish_item(self, item: WorkItem) -> None:
+        for scorer in self._scorers.values():
+            scorer.finish_item(item)
+
+
+def build_online_scorers(
+    cfg: DictConfig,
+    settings: OnlineSettings,
+    comm: GroupComm,
+    verification_sources: dict[str | None, DataSource],
+    variables: list[str],
+    lead_times: np.ndarray,
+    spatial_coords: CoordSystem,
+    stats_mgrs: dict[str | None, OutputManager],
+    device: torch.device,
+    known_missing_leads: Iterable[np.timedelta64] = (),
+) -> MultiRefScorer:
+    """Build one :class:`OnlineScorer` per named reference, fanned out via
+    :class:`MultiRefScorer`.
+
+    Every rank of a group must call this with *verification_sources* and
+    *stats_mgrs* keyed identically and in the same order — both are built
+    from the same cfg on every rank (:func:`resolve_verification_sources`
+    plus one ``open_stats_store`` per name), so this holds automatically as
+    long as callers don't reorder the dict in between.
+
+    Parameters
+    ----------
+    verification_sources : dict[str | None, DataSource]
+        From :func:`resolve_verification_sources`.
+    stats_mgrs : dict[str, OutputManager]
+        One ``stats.zarr`` manager per reference name, keyed identically to
+        *verification_sources*.
+
+    Returns
+    -------
+    MultiRefScorer
+    """
+    if set(verification_sources) != set(stats_mgrs):
+        raise ValueError(
+            "verification_sources and stats_mgrs must name the same "
+            f"references; got {sorted(map(str, verification_sources))} vs "
+            f"{sorted(map(str, stats_mgrs))}."
+        )
+    scorers = {
+        name: build_online_scorer(
+            cfg,
+            settings,
+            comm,
+            source,
+            variables,
+            lead_times,
+            spatial_coords,
+            stats_mgrs[name],
+            device,
+            known_missing_leads=known_missing_leads,
+        )
+        for name, source in verification_sources.items()
+    }
+    return MultiRefScorer(scorers)
