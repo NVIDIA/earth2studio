@@ -123,8 +123,9 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
         package: Package,
         loop_name: str = DEFAULT_LOOP,
         years: list[int] | None = None,
-        compile_dit: bool = False,
+        compile_dit: bool = True,
         time_parallel: int | None = None,
+        drop_platform_channels: list[str] | None = None,
     ) -> "HealDAv2Native":
         """Build the healda loop, load the raw training checkpoint, set up
         the inference dataset.
@@ -140,13 +141,19 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
             Years the observation dataset must cover, by default the current
             NNJA archive span configured in the environment
         compile_dit : bool, optional
-            Compile the backbone (faster steady state, slow first call),
-            by default False
+            Compile the backbone, by default True. Keep it on for scored
+            output: eager-mode numerics bias the geopotential column by up to
+            1.5 % in ERA5 RMSE relative to the trained (compiled) kernels.
         time_parallel : int | None, optional
             Shard the window frames over this many ranks (launch with
             ``torchrun --nproc_per_node=N``). The 8-frame NNJA window does not
             fit one GPU, so multi-GPU is required for the full observing
             system. By default the torchrun world size.
+        drop_platform_channels : list[str] | None, optional
+            Channel denials as ``sensor:platform:channel`` strings, applied as
+            probability-1 drop rules. The published checkpoint's reference
+            scoring denies ``amsua:metop-b:3`` and ``amsua:metop-b:6``; deny
+            them to reproduce that observing system, by default None
         """
         # Single-process torch.distributed, as healda's setup expects a group.
         os.environ.setdefault("MASTER_ADDR", "localhost")
@@ -160,6 +167,22 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
 
         loop = LOOPS[loop_name]
         loop.run_dir = tempfile.mkdtemp(prefix="healda_v2_native_")
+        if drop_platform_channels:
+            rules = {
+                (sensor, platform, channel): probability
+                for sensor, platform, channel, probability in (
+                    loop.obs_config.nnja_platform_channel_dropout
+                )
+            }
+            for spec in drop_platform_channels:
+                sensor, platform, channel = spec.split(":")
+                rules[(sensor, platform, int(channel))] = 1.0
+            loop.obs_config = dataclasses.replace(
+                loop.obs_config,
+                nnja_platform_channel_dropout=tuple(
+                    sorted(key + (prob,) for key, prob in rules.items())
+                ),
+            )
         # An unsharded rank carries the whole observation window, which the
         # fused FiLM Triton kernel does not survive; the pure-torch tokenizer
         # path uses the same weights (bf16-level numerics only). Sharded runs
