@@ -124,6 +124,7 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
         loop_name: str = DEFAULT_LOOP,
         years: list[int] | None = None,
         compile_dit: bool = False,
+        time_parallel: int | None = None,
     ) -> "HealDAv2Native":
         """Build the healda loop, load the raw training checkpoint, set up
         the inference dataset.
@@ -141,6 +142,11 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
         compile_dit : bool, optional
             Compile the backbone (faster steady state, slow first call),
             by default False
+        time_parallel : int | None, optional
+            Shard the window frames over this many ranks (launch with
+            ``torchrun --nproc_per_node=N``). The 8-frame NNJA window does not
+            fit one GPU, so multi-GPU is required for the full observing
+            system. By default the torchrun world size.
         """
         # Single-process torch.distributed, as healda's setup expects a group.
         os.environ.setdefault("MASTER_ADDR", "localhost")
@@ -149,21 +155,24 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
         os.environ.setdefault("WORLD_SIZE", "1")
         os.environ.setdefault("LOCAL_RANK", "0")
         healda_dist.init(timeout_infinite=True)
+        if time_parallel is None:
+            time_parallel = int(os.environ.get("WORLD_SIZE", "1"))
 
         loop = LOOPS[loop_name]
         loop.run_dir = tempfile.mkdtemp(prefix="healda_v2_native_")
-        # Single-GPU inference carries the whole observation window on one
-        # rank; the fused FiLM Triton kernel faults at that volume (the
-        # reference runs shard it 4-way). The pure-torch tokenizer path uses
-        # the same weights, so outputs are unchanged up to bf16 numerics.
-        if loop.sensor_embedder_config is not None:
+        # An unsharded rank carries the whole observation window, which the
+        # fused FiLM Triton kernel does not survive; the pure-torch tokenizer
+        # path uses the same weights (bf16-level numerics only). Sharded runs
+        # keep the fused kernel, as trained.
+        if time_parallel == 1 and loop.sensor_embedder_config is not None:
             loop.sensor_embedder_config = dataclasses.replace(
                 loop.sensor_embedder_config, use_fused_mlp=False
             )
-        loop.batch_size = 1
+        # As in healda's inference driver: one sample per model-parallel group.
         loop.batch_gpu = 1
+        loop.batch_size = torch.distributed.get_world_size()
         loop.fsdp = False
-        loop.time_parallel = 1
+        loop.time_parallel = time_parallel
         loop.dataloader_num_workers = 0
         loop.compile_dit = compile_dit
         loop.setup_datasets = False
@@ -247,13 +256,17 @@ class HealDAv2Native(torch.nn.Module, AutoModelMixin):
                         channel_axis=1,
                     ).reshape(shape)
 
+        # With time_parallel > 1 each rank holds a contiguous frame slice.
+        n_local = state.shape[2]
+        frames_per_rank = loop.time_length // loop.time_size
+        first = loop.time_rank * frames_per_rank
         time_step = self._dataset.times[1] - self._dataset.times[0]
         lead = (
-            (np.arange(loop.time_length) - (loop.time_length - 1))
+            (np.arange(first, first + n_local) - (loop.time_length - 1))
             * pd.Timedelta(time_step)
         ).astype("timedelta64[ns]")
         values = state.reshape(
-            1, len(self._channels), loop.time_length, LATLON_NLAT, LATLON_NLON
+            1, len(self._channels), n_local, LATLON_NLAT, LATLON_NLON
         )
         coords: OrderedDict[str, Any] = OrderedDict(
             time=np.array([np.datetime64(when, "ns")]),
