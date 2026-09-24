@@ -24,6 +24,7 @@ cosine zenith, invariants, scalar conditions) and the three sampling paths
 
 from collections import OrderedDict
 from datetime import datetime
+from inspect import signature
 
 import numpy as np
 import pytest
@@ -131,6 +132,36 @@ def test_coords_contract():
     assert list(oc) == ["batch", "sample", "time", "variable", "hrrr_y", "hrrr_x"]
     assert oc["sample"].size == 2 and oc["hrrr_y"].size == H and oc["hrrr_x"].size == W
     assert list(oc["variable"]) == OUTPUT_VARIABLES
+
+
+def test_default_variables():
+    defaults = signature(CorrDiffEra5Hrrr).parameters
+    era5_variables = defaults["era5_variables"].default
+    output_variables = defaults["output_variables"].default
+    assert len(era5_variables) == 26
+    assert len(output_variables) == 99
+    model = CorrDiffEra5Hrrr(
+        network=PhooNet(99),
+        lat_input_grid=torch.tensor([30.0, 29.0]),
+        lon_input_grid=torch.tensor([260.0, 261.0]),
+        lat_output_grid=torch.full((2, 2), 29.5),
+        lon_output_grid=torch.full((2, 2), 260.5),
+        hrrr_y=torch.arange(2),
+        hrrr_x=torch.arange(2),
+        era5_center=torch.zeros(26),
+        era5_scale=torch.ones(26),
+        out_center=torch.zeros(99),
+        out_scale=torch.ones(99),
+        invariants=torch.zeros(N_INV, 2, 2),
+    )
+    coords = model.input_coords()
+    coords["batch"] = np.array([0])
+    coords["time"] = np.array([np.datetime64("2025-10-24")])
+    assert model.network_kind == "rectified_flow"
+    np.testing.assert_array_equal(coords["variable"], era5_variables)
+    np.testing.assert_array_equal(
+        model.output_coords(coords)["variable"], output_variables
+    )
 
 
 def test_output_coords_rejects_wrong_grid():

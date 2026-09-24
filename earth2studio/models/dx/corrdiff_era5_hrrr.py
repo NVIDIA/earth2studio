@@ -14,27 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""ERA5 -> HRRR CONUS generative downscaling diagnostic (StormCast-CONUS family).
-
-Earth2Studio :class:`DiagnosticModel` wrapper for the ERA5 -> HRRR downscalers
-trained in the PhysicsNeMo ``stormcast-conus`` / ``stormcast-conus-rfm`` examples:
-a 678M-parameter DiT (neighborhood attention with rotary embeddings) that maps a
-0.25-degree ERA5 state over CONUS to the 3 km HRRR state (99 surface and
-hybrid-level variables) at the same validity time. One class serves the three
-generative formulations the examples train, selected by the package metadata:
-
-* ``rectified_flow`` with ``prediction_type="x0"`` -- the x-prediction rectified
-  flow model (the network predicts clean data; the wrapper converts to a velocity
-  with a clipped denominator, following arXiv:2511.13720).
-* ``rectified_flow`` with ``prediction_type="flow"`` -- the velocity-prediction
-  rectified flow model.
-* ``edm`` -- the EDM-preconditioned diffusion baseline (Karras sigma schedule).
-
-Sampling runs on the full 1024 x 1792 HRRR crop in a single forward per ODE step,
-with the SD3 resolution-dependent time-step shift that the examples validated for
-sampling a 256 x 256-trained network on the 28x larger domain.
-"""
-
 import json
 import math
 from collections import OrderedDict
@@ -82,8 +61,136 @@ except ImportError:
     cos_zenith_angle = None
     TensorDict = None
 
-NetworkKind = Literal["rectified_flow", "edm"]
-PredictionType = Literal["x0", "flow"]
+# Default channel order from the pretrained x_pred package.
+ERA5_VARIABLES = (
+    "u10m",
+    "v10m",
+    "t2m",
+    "tcwv",
+    "sp",
+    "msl",
+    "u1000",
+    "u850",
+    "u500",
+    "u250",
+    "v1000",
+    "v850",
+    "v500",
+    "v250",
+    "z1000",
+    "z850",
+    "z500",
+    "z250",
+    "t1000",
+    "t850",
+    "t500",
+    "t250",
+    "q1000",
+    "q850",
+    "q500",
+    "q250",
+)
+OUTPUT_VARIABLES = (
+    "u10m",
+    "v10m",
+    "t2m",
+    "mslp",
+    "u1hl",
+    "u2hl",
+    "u3hl",
+    "u4hl",
+    "u5hl",
+    "u6hl",
+    "u7hl",
+    "u8hl",
+    "u9hl",
+    "u10hl",
+    "u11hl",
+    "u13hl",
+    "u15hl",
+    "u20hl",
+    "u25hl",
+    "u30hl",
+    "v1hl",
+    "v2hl",
+    "v3hl",
+    "v4hl",
+    "v5hl",
+    "v6hl",
+    "v7hl",
+    "v8hl",
+    "v9hl",
+    "v10hl",
+    "v11hl",
+    "v13hl",
+    "v15hl",
+    "v20hl",
+    "v25hl",
+    "v30hl",
+    "t1hl",
+    "t2hl",
+    "t3hl",
+    "t4hl",
+    "t5hl",
+    "t6hl",
+    "t7hl",
+    "t8hl",
+    "t9hl",
+    "t10hl",
+    "t11hl",
+    "t13hl",
+    "t15hl",
+    "t20hl",
+    "t25hl",
+    "t30hl",
+    "q1hl",
+    "q2hl",
+    "q3hl",
+    "q4hl",
+    "q5hl",
+    "q6hl",
+    "q7hl",
+    "q8hl",
+    "q9hl",
+    "q10hl",
+    "q11hl",
+    "q13hl",
+    "q15hl",
+    "q20hl",
+    "q25hl",
+    "q30hl",
+    "Z1hl",
+    "Z2hl",
+    "Z3hl",
+    "Z4hl",
+    "Z5hl",
+    "Z6hl",
+    "Z7hl",
+    "Z8hl",
+    "Z9hl",
+    "Z10hl",
+    "Z11hl",
+    "Z13hl",
+    "Z15hl",
+    "Z20hl",
+    "Z25hl",
+    "Z30hl",
+    "p1hl",
+    "p2hl",
+    "p3hl",
+    "p4hl",
+    "p5hl",
+    "p6hl",
+    "p7hl",
+    "p8hl",
+    "p9hl",
+    "p10hl",
+    "p11hl",
+    "p13hl",
+    "p15hl",
+    "p20hl",
+    "refc",
+)
 
 # hours in a mean tropical-ish year used by the training pipeline (365.25 days)
 _HOURS_PER_YEAR = 8766.0
@@ -96,28 +203,10 @@ SUPPORTED_VARIANTS = ("x_pred",)
 
 @check_optional_dependencies()
 class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
-    """ERA5 -> HRRR CONUS generative downscaling model (StormCast-CONUS family).
+    """Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.
 
-    Diagnostic model that downscales a 0.25-degree ERA5 state over the
-    contiguous United States to the 3 km HRRR state at the same validity time:
-    99 output variables (10 m winds, 2 m temperature, mean sea-level pressure,
-    composite reflectivity, and wind, temperature, specific humidity,
-    geopotential and pressure on HRRR hybrid levels) on the native HRRR Lambert
-    conformal grid. Because the input is an ERA5 state, the model can downscale an
-    ERA5 analysis directly or run behind a global prognostic model that emits the
-    ERA5 variable set (for example ``SFNO -> CorrDiffEra5Hrrr``).
-
-    The network is a 678M-parameter PhysicsNeMo ``DiT`` (2 x 2 patches, NATTEN
-    neighborhood attention with 2-D rotary embeddings, QK-norm) conditioned on the
-    ERA5 fields bilinearly interpolated onto the HRRR grid, the cosine of the solar
-    zenith angle, and static invariants (mean and standard deviation of terrain
-    height, land fraction), plus a scalar day-of-year encoding. Training used
-    random 256 x 256 patches (2018-07 to 2025-09); sampling covers the full
-    1024 x 1792 domain in one forward per ODE step. The package uses the
-    generative formulation: rectified flow with x--prediction (Heun solver on a
-    resolution-shifted time grid). Each ``sample`` is an independent ensemble
-    member; the ensemble spread is a calibrated (though somewhat under-dispersive)
-    estimate of downscaling uncertainty.
+    For model architecture, training, and evaluation details, see the model card:
+    https://huggingface.co/nvidia/corrdiff-era5-hrrr
 
     Parameters
     ----------
@@ -126,12 +215,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         ``ConcatConditionWrapper(DiT)`` whose output is the velocity or the clean
         data (see ``prediction_type``); for ``network_kind="edm"`` an
         ``EDMPreconditioner(ConcatConditionWrapper(DiT))`` (an x0-predictor).
-    network_kind : {"rectified_flow", "edm"}
-        Generative formulation of the network's training.
-    era5_variables : Sequence[str]
-        ERA5 input variable names (Earth2Studio lexicon), in network channel order.
-    output_variables : Sequence[str]
-        HRRR output variable names, in network output-channel order.
     lat_input_grid, lon_input_grid : torch.Tensor
         1-D regular ERA5 input grid (the native training footprint). Latitude may
         be ascending or descending; input longitudes may use either the ``[0, 360)``
@@ -147,14 +230,20 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     invariants : torch.Tensor
         Normalized static invariant channels ``[n_inv, H, W]``, appended to the
         conditioning after the cosine-zenith channel.
+    network_kind : Literal["rectified_flow", "edm"], optional
+        Generative formulation, by default "rectified_flow"
+    era5_variables : Sequence[str], optional
+        Input channel order, by default :data:`ERA5_VARIABLES`
+    output_variables : Sequence[str], optional
+        Output channel order, by default :data:`OUTPUT_VARIABLES`
     presence_flags : Sequence[str]
         ERA5 variables that training randomly dropped from the input; one scalar
         "present" flag (always 1 at inference) per name.
     day_of_year : bool
         Whether the scalar conditioning carries ``[sin, cos]`` of the day-of-year
         phase at the validity time.
-    prediction_type : {"x0", "flow"}
-        Rectified-flow parameterization of ``network``'s output. Ignored for EDM.
+    prediction_type : Literal["x0", "flow"], optional
+        Rectified-flow output parameterization. Ignored for EDM, by default "x0"
     time_scale : float
         Multiplier applied to the rectified-flow time ``t in [0, 1]`` before the
         network's timestep embedder (the examples train with ``999.0``).
@@ -183,14 +272,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         Run network forwards under bf16 autocast while the ODE integration stays in
         fp32 (the examples' evaluation setting; roughly halves inference time).
 
-    Notes
-    -----
-    Training pairs ERA5 with HRRR analyses over CONUS:
-
-    - HRRR, NOAA: https://rapidrefresh.noaa.gov/hrrr/
-    - ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
-    - Training recipes: PhysicsNeMo ``examples/weather/stormcast-conus-rfm``
-
     Badges
     ------
     region:na class:downscaling product:wind product:temp product:atmos product:radar
@@ -200,9 +281,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     def __init__(
         self,
         network: torch.nn.Module,
-        network_kind: NetworkKind,
-        era5_variables: Sequence[str],
-        output_variables: Sequence[str],
         lat_input_grid: torch.Tensor,
         lon_input_grid: torch.Tensor,
         lat_output_grid: torch.Tensor,
@@ -214,9 +292,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         out_center: torch.Tensor,
         out_scale: torch.Tensor,
         invariants: torch.Tensor,
+        network_kind: Literal["rectified_flow", "edm"] = "rectified_flow",
+        era5_variables: Sequence[str] = ERA5_VARIABLES,
+        output_variables: Sequence[str] = OUTPUT_VARIABLES,
         presence_flags: Sequence[str] = (),
         day_of_year: bool = True,
-        prediction_type: PredictionType = "x0",
+        prediction_type: Literal["x0", "flow"] = "x0",
         time_scale: float = 999.0,
         number_of_samples: int = 1,
         number_of_steps: int = 50,
@@ -326,7 +407,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     def __str__(self) -> str:
         return "CorrDiffEra5Hrrr"
 
-    # ---- coordinate contracts --------------------------------------------------
     def input_coords(self) -> CoordSystem:
         """Input coordinate system: the native ERA5 CONUS footprint.
 
@@ -394,7 +474,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             }
         )
 
-    # ---- preprocessing ---------------------------------------------------------
     def _interpolate(self, x: torch.Tensor) -> torch.Tensor:
         """Bilinear ERA5 ``[C, H_in, W_in]`` -> HRRR crop ``[C, H, W]``."""
         lat0 = self.lat_input_grid
@@ -465,7 +544,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             device=background.device,
         )
 
-    # ---- sampling --------------------------------------------------------------
     def _inference_context(self, device: torch.device) -> AbstractContextManager:
         if self.amp:
             return torch.autocast(device_type=device.type, dtype=torch.bfloat16)
@@ -586,23 +664,14 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t])
         return out, output_coords
 
-    # ---- package loading -------------------------------------------------------
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained package from the NVIDIA Hugging Face registry.
-
-        The package nests one sub-folder per generative formulation (``x_pred/``:
-        the x-prediction rectified-flow model, EMA at 17.5 million training
-        samples, with its validated sampler settings); ``load_model(...,
-        variant=)`` selects the sub-folder. Packages for the other formulations
-        come from the PhysicsNeMo
-        ``examples/weather/stormcast-conus-rfm/make_e2s_package.py`` builder, which
-        writes the same layout, and load with ``Package("/path/to/package")``.
+        """Default pre-trained model package.
 
         Returns
         -------
         Package
-            The hosted model package at ``hf://nvidia/corrdiff-era5-hrrr``.
+            Model package with default checkpoint location
         """
         return Package(
             "hf://nvidia/corrdiff-era5-hrrr@c95089642d19985714eebebdbd5b0b72c86ed1a3",
@@ -641,13 +710,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         variant: Literal["x_pred"] = "x_pred",
     ) -> DiagnosticModel:
         """Load the model from a package.
-
-        The package nests each model under its own sub-folder, ``<variant>/``
-        (see ``make_e2s_package.py`` in the PhysicsNeMo ``stormcast-conus-rfm``
-        example), holding ``metadata.json`` (variables, grid window, network and
-        sampler settings), ``stats.json`` (normalization), ``invariants.npy``,
-        ``hrrr_lat.npy`` / ``hrrr_lon.npy``, ``era5_lat.npy`` / ``era5_lon.npy`` and
-        the DiT checkpoint saved at the full output resolution.
 
         Parameters
         ----------
