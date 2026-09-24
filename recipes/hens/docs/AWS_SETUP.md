@@ -201,4 +201,3 @@ forecast_model:
 Do not commit `.venv/`, model checkpoints, ERA5 caches, NetCDF outputs, AWS credentials, GitHub tokens, private keys, instance-specific DNS names or instance IDs.
 
 Commit scripts, YAML configurations, notebooks, documentation and small diagnostic files to the `beryl-poc` branch.
-
