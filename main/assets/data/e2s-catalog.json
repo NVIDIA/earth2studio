@@ -4147,6 +4147,61 @@
   },
   {
     "badges": [
+      "region:na",
+      "class:downscaling",
+      "product:wind",
+      "product:temp",
+      "product:atmos",
+      "product:radar",
+      "year:2026",
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Diagnostic",
+      "Downscaling",
+      "NVIDIA",
+      "PyTorch",
+      "Surface Winds",
+      "Surface Temperature"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Downscaling"
+      ],
+      "gpu": [
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Temperature",
+        "Atmosphere",
+        "Radar"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "North America"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Diagnostic",
+    "kind": "model",
+    "signature": "CorrDiffEra5Hrrr(network: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, hrrr_y: torch.Tensor, hrrr_x: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: torch.Tensor, network_kind: Literal['rectified_flow', 'edm'] = 'rectified_flow', era5_variables: Sequence[str] = ERA5_VARIABLES, output_variables: Sequence[str] = OUTPUT_VARIABLES, presence_flags: Sequence[str] = (), day_of_year: bool = True, prediction_type: Literal['x0', 'flow'] = 'x0', time_scale: float = 999.0, number_of_samples: int = 1, number_of_steps: int = 50, solver: Literal['heun', 'euler'] = 'heun', shift: float = 32.0, t_max: float = 0.99, x0v_clip: float = 0.05, sigma_min: float = 0.01, sigma_max: float = 200.0, rho: float = 7.0, seed: int | None = None, amp: bool = True)",
+    "summary": "Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.",
+    "title": "CorrDiffEra5Hrrr",
+    "tone": "radar",
+    "url": "../../../modules/generated/models/dx/CorrDiffEra5Hrrr"
+  },
+  {
+    "badges": [
       "region:as",
       "class:downscaling",
       "product:wind",
