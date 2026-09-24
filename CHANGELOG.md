@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `HealDAv2`, the earth2studio wrapper for the HealDA-v2 video data
+  assimilation model (physicsnemo `VideoHealDA`): jointly produces an 8-frame
+  48-hour window of global analyses on the HEALPix grid from conventional and
+  satellite observations, with pressure-level conventional-obs normalization,
+  source-only GPS-RO pressure derivation, and PCA-encoded infrared sounders.
+
+- Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
   source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
@@ -40,15 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
-- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
-  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
-  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
-  (`GEODU`) columns on GPS-RO rows
 - Added `NNJAObsSatwnd`, a data source for the raw NCEP atmospheric motion
   vector dumps in the NNJA archive (1979-present), exposing satellite, subset,
   computation method, height assignment, zenith angle and quality indicators
 - `NNJAObsConv` gains `exclude_message_types` to skip PrepBUFR message families
   at decode, e.g. `("SATWND",)` when AMVs come from `NNJAObsSatwnd`
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
+  (`GEODU`) columns on GPS-RO rows
 
 ### Changed
 
@@ -80,15 +87,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
-  without their own tangent point, placing them at the occultation's reference
-  point instead of dropping them
+- Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources
 - `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges
   (`chunked=True`) written atomically, so large aggregates no longer exceed the
   object store's per-request timeout and an interrupted download cannot leave a
   truncated cache file
+- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
+  without their own tangent point, placing them at the occultation's reference
+  point instead of dropping them
 - Eval recipe: per-member seeding now works for models whose `set_rng` has no
   `reset` argument (for example `Aurora1p5Ensemble`)
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`

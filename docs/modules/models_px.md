@@ -28,7 +28,9 @@ earth2studio.models.px.Atlas
 earth2studio.models.px.AtlasCRPS
 earth2studio.models.px.Aurora
 earth2studio.models.px.Aurora1p5
+earth2studio.models.px.Aurora1p5_6h
 earth2studio.models.px.Aurora1p5Ensemble
+earth2studio.models.px.Aurora1p5Ensemble_6h
 earth2studio.models.px.CAMulator
 earth2studio.models.px.CBottleVideo
 earth2studio.models.px.DataReplay

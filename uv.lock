@@ -2111,6 +2111,11 @@ corrdiff = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
 ]
+corrdiff-era5-hrrr = [
+    { name = "natten", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-physicsnemo" },
+    { name = "nvtx" },
+]
 cosmo = [
     { name = "einops" },
     { name = "natten", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
@@ -2501,6 +2506,7 @@ requires-dist = [
     { name = "multi-storage-client", marker = "extra == 'serve'", specifier = ">=0.44.0" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'all'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'atlas'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'corrdiff-era5-hrrr'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'cosmo'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'da-cosmo'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormcast-conus'" },
@@ -2513,12 +2519,14 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.1.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.2.0a0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=ff4cad2390e412b136e1739476506064d42eefba" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'da-cosmo'", specifier = ">=2.2.0a0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff-era5-hrrr'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=426f7552da4b4fa675e404e8a4f437e27681b668" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", specifier = ">=2.2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-cosmo'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=ff4cad2390e412b136e1739476506064d42eefba" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=426f7552da4b4fa675e404e8a4f437e27681b668" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=2.0" },
@@ -2527,11 +2535,12 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast-conus'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=ff4cad2390e412b136e1739476506064d42eefba" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast-conus'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = ">=2.1.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'corrdiff-era5-hrrr'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'cosmo'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-cosmo'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
@@ -2645,7 +2654,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "camulator", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-cosmo", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "samudrace", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "weathernext", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "camulator", "cbottle", "climatenet", "corrdiff", "corrdiff-era5-hrrr", "cosmo", "cyclone", "da-cosmo", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "samudrace", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "weathernext", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
@@ -6218,8 +6227,8 @@ wheels = [
 
 [[package]]
 name = "nvidia-physicsnemo"
-version = "2.2.0a0"
-source = { git = "https://github.com/NVIDIA/physicsnemo.git?rev=ff4cad2390e412b136e1739476506064d42eefba#ff4cad2390e412b136e1739476506064d42eefba" }
+version = "2.3.0a0"
+source = { git = "https://github.com/NVIDIA/physicsnemo.git?rev=426f7552da4b4fa675e404e8a4f437e27681b668#426f7552da4b4fa675e404e8a4f437e27681b668" }
 dependencies = [
     { name = "cftime" },
     { name = "einops" },
@@ -6232,17 +6241,14 @@ dependencies = [
     { name = "numpy" },
     { name = "nvtx" },
     { name = "omegaconf" },
-    { name = "onnx" },
     { name = "packaging" },
-    { name = "pandas" },
     { name = "psutil" },
     { name = "requests" },
     { name = "s3fs" },
-    { name = "tensordict-nightly", extra = ["zarr"] },
+    { name = "tensordict", extra = ["zarr"] },
     { name = "termcolor" },
     { name = "timm" },
     { name = "torch" },
-    { name = "torchvision" },
     { name = "tqdm" },
     { name = "treelib" },
     { name = "urllib3" },
@@ -6417,22 +6423,22 @@ dependencies = [
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5a12e16c2e8e5e25d13e4e00cefd8a25b4a90608b1fc718095e26a58c36ee159" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp311-cp311-manylinux_2_34_aarch64.whl", hash = "sha256:bf1e2504e0f67a85724a67f7f20c733c58c0b95a06420e8e09acaf1ed7b06154" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp311-cp311-win_amd64.whl", hash = "sha256:2d6e54ecb8c1f79b421c5471a624e3159b1a7c01b84e906fc1f3722bbfc3ab18" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b1fc39ada5067db5ca18c3777a64f3365a6d7d188a12421283787aec4c3e98d1" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp312-cp312-manylinux_2_34_aarch64.whl", hash = "sha256:351009f29c02a7c08cef869e55f99363131bf45858a3c4cd233dc80850b103bb" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp312-cp312-win_amd64.whl", hash = "sha256:7388afa11b005eea389e06d60c4a290494a4dd71e507a24ea21890dd9c39b547" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1eb221fc807e8516b9b21a5687b9e4a178e68f6bd4239f654181e236e1fdbdd2" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313-manylinux_2_34_aarch64.whl", hash = "sha256:d8f76d1f34db9f16390d62e3977e402ebe2d624f2d6fb4214a23e0692dd35660" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313-win_amd64.whl", hash = "sha256:e104b2ee538f0668616cfd12e4ed1911940b25140f9a1b58dfc6cdd164cc17a7" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6117d32d31e97646fe1ee2896fde9933e6b3662c7d9c8a229c96ebb9c4e5d159" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313t-manylinux_2_34_aarch64.whl", hash = "sha256:233937d273ea79428dab6791aa33111ee6f9abf1e73d19c25d9f9d248c8d7510" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1b6ad8d4fdc97031b3777949a4577efc6fb2627280639d14637a9fe54ae3af47" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314-manylinux_2_34_aarch64.whl", hash = "sha256:75eb343d19f9ad3b25c99ef6165a83e6a682ed52b6290d0eac49d5d5867a3219" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314-win_amd64.whl", hash = "sha256:b9de5177ddf91419b62bf145912c15e24ceead61a77a492349c651c2fa48d34c" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:11521e9d8cc964d70ceffcf4131dfdc118d4728e3be07b593a974594f25ecf40" },
-    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314t-manylinux_2_34_aarch64.whl", hash = "sha256:3bb13dd9878824b4ac57e51d3e5c06c549a48d5c13bb25678f4989f656fa49cb" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5a12e16c2e8e5e25d13e4e00cefd8a25b4a90608b1fc718095e26a58c36ee159", size = 204756027, upload-time = "2026-05-04T20:22:10Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp311-cp311-manylinux_2_34_aarch64.whl", hash = "sha256:bf1e2504e0f67a85724a67f7f20c733c58c0b95a06420e8e09acaf1ed7b06154", size = 209478534, upload-time = "2026-05-04T20:22:43Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp311-cp311-win_amd64.whl", hash = "sha256:2d6e54ecb8c1f79b421c5471a624e3159b1a7c01b84e906fc1f3722bbfc3ab18", size = 198938320, upload-time = "2026-05-04T20:24:17Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b1fc39ada5067db5ca18c3777a64f3365a6d7d188a12421283787aec4c3e98d1", size = 204773401, upload-time = "2026-05-04T20:19:40Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp312-cp312-manylinux_2_34_aarch64.whl", hash = "sha256:351009f29c02a7c08cef869e55f99363131bf45858a3c4cd233dc80850b103bb", size = 209481707, upload-time = "2026-05-04T20:20:27Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp312-cp312-win_amd64.whl", hash = "sha256:7388afa11b005eea389e06d60c4a290494a4dd71e507a24ea21890dd9c39b547", size = 198944054, upload-time = "2026-05-04T20:23:59Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1eb221fc807e8516b9b21a5687b9e4a178e68f6bd4239f654181e236e1fdbdd2", size = 204773882, upload-time = "2026-05-04T20:23:26Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313-manylinux_2_34_aarch64.whl", hash = "sha256:d8f76d1f34db9f16390d62e3977e402ebe2d624f2d6fb4214a23e0692dd35660", size = 209490610, upload-time = "2026-05-04T20:21:51Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313-win_amd64.whl", hash = "sha256:e104b2ee538f0668616cfd12e4ed1911940b25140f9a1b58dfc6cdd164cc17a7", size = 198946390, upload-time = "2026-05-04T20:23:42Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6117d32d31e97646fe1ee2896fde9933e6b3662c7d9c8a229c96ebb9c4e5d159", size = 204797842, upload-time = "2026-05-04T20:19:09Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp313-cp313t-manylinux_2_34_aarch64.whl", hash = "sha256:233937d273ea79428dab6791aa33111ee6f9abf1e73d19c25d9f9d248c8d7510", size = 209491668, upload-time = "2026-05-04T20:23:03Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1b6ad8d4fdc97031b3777949a4577efc6fb2627280639d14637a9fe54ae3af47", size = 204775029, upload-time = "2026-05-04T20:20:50Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314-manylinux_2_34_aarch64.whl", hash = "sha256:75eb343d19f9ad3b25c99ef6165a83e6a682ed52b6290d0eac49d5d5867a3219", size = 209490907, upload-time = "2026-05-04T20:20:01Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314-win_amd64.whl", hash = "sha256:b9de5177ddf91419b62bf145912c15e24ceead61a77a492349c651c2fa48d34c", size = 199566899, upload-time = "2026-05-04T20:18:32Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:11521e9d8cc964d70ceffcf4131dfdc118d4728e3be07b593a974594f25ecf40", size = 204794299, upload-time = "2026-05-04T20:22:28Z" },
+    { url = "https://aiinfra.pkgs.visualstudio.com/2692857e-05ef-43b4-ba9c-ccf1c22c437c/_packaging/22685817-9e91-4967-bafe-94c9843c26a9/pypi/download/onnxruntime-gpu/1.26/onnxruntime_gpu-1.26.0-cp314-cp314t-manylinux_2_34_aarch64.whl", hash = "sha256:3bb13dd9878824b4ac57e51d3e5c06c549a48d5c13bb25678f4989f656fa49cb", size = 209496421, upload-time = "2026-05-04T20:18:52Z" },
 ]
 
 [[package]]
@@ -8881,8 +8887,8 @@ wheels = [
 ]
 
 [[package]]
-name = "tensordict-nightly"
-version = "2026.8.6"
+name = "tensordict"
+version = "0.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -8894,23 +8900,26 @@ dependencies = [
     { name = "torch" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/40/e33a1ef58281864282c85e21c6f50ed6ede1af586cdb3976c4195fb67f9f/tensordict_nightly-2026.8.6-cp311-cp311-macosx_11_0_universal2.whl", hash = "sha256:1a597ec6781f64e1dd8965efbbf1697728fa859e160b64d2cbb8964bb1929fd5", size = 573931, upload-time = "2026-08-06T14:40:25.565Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/9a/5c06cc4cab96c8a1c90470e2c56e247959e1c276b9795cfed55652a0c8ef/tensordict_nightly-2026.8.6-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:2c50a907b218f0391185aadcf21c30c9c507c9faa813239a1db0eb3112aa1af1", size = 590391, upload-time = "2026-08-06T14:40:25.628Z" },
-    { url = "https://files.pythonhosted.org/packages/58/0f/8f0e7ad84b904d24128a43095604baabb271720b67291080ba8026adebbd/tensordict_nightly-2026.8.6-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:a373463fb53bdca941a239e5189490ce3803b14b87dd73a82adf13b8a87d3676", size = 584353, upload-time = "2026-08-06T14:41:39.315Z" },
-    { url = "https://files.pythonhosted.org/packages/3a/e4/447ca81624442e6ecbab124f78d459b7c5a58f308691b9d2beb1a2ac9ad3/tensordict_nightly-2026.8.6-cp311-cp311-win_amd64.whl", hash = "sha256:1f7e6fec0d1cd310f18adcb99818aff958ba9f9ac9c65298aeec060399534c33", size = 644776, upload-time = "2026-08-06T14:41:00.121Z" },
-    { url = "https://files.pythonhosted.org/packages/6e/35/c749b048810577e80da16c38f4a5c76fd180f0d6bef871cd0f550b2f7dd2/tensordict_nightly-2026.8.6-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:f7ba1f4be951a616ba7c4f153a32505873035df0b471496271cd24345e827380", size = 574782, upload-time = "2026-08-06T14:40:25.41Z" },
-    { url = "https://files.pythonhosted.org/packages/f3/78/81e8e32c5f902cec216c98fb79420193a27bfb666aedcd8fcbb9d337d685/tensordict_nightly-2026.8.6-cp312-cp312-manylinux1_x86_64.whl", hash = "sha256:634e98375dbcac55b871e00557d4b70cc0cb6217e6214f23ceb00ea395406a6f", size = 590259, upload-time = "2026-08-06T14:40:41.608Z" },
-    { url = "https://files.pythonhosted.org/packages/06/57/2afcae09e7a433303c3a3cc56904f09de846468840dc1b4cc9f09e59b46b/tensordict_nightly-2026.8.6-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:3560bade06788ce3675debcc50d2abaf7cf5ad8b87092c5323cfdd947284555f", size = 585158, upload-time = "2026-08-06T14:41:40.805Z" },
-    { url = "https://files.pythonhosted.org/packages/8a/bc/d0288705f47b71999bbf87e276104a2c58f41adad9048ef1ce311e5426df/tensordict_nightly-2026.8.6-cp312-cp312-win_amd64.whl", hash = "sha256:fe581875e1af7a930f0bb02e4ffd024500a56f1b637dbc55827e61a92c6fccbc", size = 646411, upload-time = "2026-08-06T14:40:56.659Z" },
-    { url = "https://files.pythonhosted.org/packages/8f/7e/414591c3e4554154a16595844945decacd53609e9dbaa569f771a69c20a1/tensordict_nightly-2026.8.6-cp313-cp313-macosx_11_0_universal2.whl", hash = "sha256:b5593d9b27babea45af386446c1f842a7bcc7cdd30c0e1c9a33fb23209117a35", size = 574800, upload-time = "2026-08-06T14:40:25.472Z" },
-    { url = "https://files.pythonhosted.org/packages/3e/35/e93251a4984d4f3640907e48076e03cd5dada557946d2796a3242a3aacff/tensordict_nightly-2026.8.6-cp313-cp313-manylinux1_x86_64.whl", hash = "sha256:cfda440e6f210a8e3b87899ecad43c503e86339287968cb36ddcd69e88a25d50", size = 590372, upload-time = "2026-08-06T14:40:42.878Z" },
-    { url = "https://files.pythonhosted.org/packages/fc/f5/8a5d564853504ff565503f344b5e717fd985f353fae0048136ae538fb309/tensordict_nightly-2026.8.6-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:524c59e56a09292ee902f60b8f6c01529276d830a75e46c93f3b809dc888aa0a", size = 585416, upload-time = "2026-08-06T14:41:42.106Z" },
-    { url = "https://files.pythonhosted.org/packages/0b/cd/1de112a0e9bd61198355a90f682d041928bd80276651800dba32be843307/tensordict_nightly-2026.8.6-cp313-cp313-win_amd64.whl", hash = "sha256:7bd7eb2b9cc95f1304c12bbb5dadd191e16e9cebfdf9c69d40a56d1dc622b963", size = 646500, upload-time = "2026-08-06T14:40:53.586Z" },
-    { url = "https://files.pythonhosted.org/packages/5e/87/4a15e5bda664f1b8a32c3c3c1b08ecf47783cc7309026c431eb14a233e11/tensordict_nightly-2026.8.6-cp314-cp314-macosx_11_0_universal2.whl", hash = "sha256:8e85992daac12a51758dab1e7d43cb1e5867247a0f8af4a78d305dda06014536", size = 574933, upload-time = "2026-08-06T14:40:22.32Z" },
-    { url = "https://files.pythonhosted.org/packages/c0/45/1f3cc64c7a853fc107e94ca484f31b36d0c4ec391fdb3d4d4228ac3c2305/tensordict_nightly-2026.8.6-cp314-cp314-manylinux1_x86_64.whl", hash = "sha256:da556f4df6b03d18729355cf60f6c49ab6afbbaa0f5db67109d7c9616b15c4e4", size = 590339, upload-time = "2026-08-06T14:40:25.446Z" },
-    { url = "https://files.pythonhosted.org/packages/47/50/e68db58ec93cd591678f23df83b9d1bd0329d11aa02092cf886510987ec9/tensordict_nightly-2026.8.6-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:851bdcbf5f5003c4bf7a9b65909b2b20a9d2ec898c3e7c0cbb7b34fb35240022", size = 586118, upload-time = "2026-08-06T14:41:43.53Z" },
-    { url = "https://files.pythonhosted.org/packages/a9/be/8111571b4f5aac48a81c4f182cb07017c4ea4b2495a5f474d6c7403ad944/tensordict_nightly-2026.8.6-cp314-cp314-win_amd64.whl", hash = "sha256:3cd202d02bd076d270832f453efaf84f442a4dbdfc438a39528de7dc12838155", size = 648451, upload-time = "2026-08-06T14:40:52.872Z" },
-    { url = "https://files.pythonhosted.org/packages/57/f1/f180bdcc04601a0990d749dcb19aa55c938cb383a2ccc2fd29f39317e3af/tensordict_nightly-2026.8.6-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:718880529d3effcb1e41adc31fbb911b5f01919c548c3218f4c44b6ebf082c54", size = 586447, upload-time = "2026-08-06T14:41:44.92Z" },
+    { url = "https://files.pythonhosted.org/packages/77/73/3b69eb2808fcdd37f4a64f8fed0a35169aae0b0e26a51417302d1600171c/tensordict-0.14.2-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:e2ac08238d0404a7f17f938331918c9bea026123bc7df4c07f2ce52b3068953f", size = 946021, upload-time = "2026-09-09T19:57:51.549Z" },
+    { url = "https://files.pythonhosted.org/packages/12/67/41ccb3fc88dbeb841853c66d1eee6b256119d4f8969c51c3bf16c32f9ecb/tensordict-0.14.2-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:001c62b1b9b7305077f29ab4e1a06693f1a7add7bfb2cd42d03b2172f185d425", size = 590330, upload-time = "2026-09-09T19:57:53.301Z" },
+    { url = "https://files.pythonhosted.org/packages/54/93/1c794af9e7caf9817b006925fa879f36b0912143ca8c1379fe2dd1275aaf/tensordict-0.14.2-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:002ce1387d1b6bb2ee29affbb68aaae4c79fa8773137bef88534fc2fadefca2f", size = 594908, upload-time = "2026-09-09T19:57:54.865Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/23/fb02f02d6c798ebff73a3965056cfd40b87763d1bee0e2955cef2572d6bc/tensordict-0.14.2-cp311-cp311-win_amd64.whl", hash = "sha256:0d1f8f949db128b896b9cb022de532d3d87902811d2751c11f52270a27eabd9a", size = 643896, upload-time = "2026-09-09T19:57:56.235Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/47/8a7bcc86b2c19467310798da61582b4426216d5c763a8fd51deaee7e8481/tensordict-0.14.2-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:0e8b65def0da306741d262976e7613afb2079e8b521b6be910edd8080a33c265", size = 946769, upload-time = "2026-09-09T19:57:57.638Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/2e/e8cb2ad607af6447ce3ad9b8d5421adcb9a0762c0e3c4adf37596fe6d976/tensordict-0.14.2-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:1553be455faf595bdc0e2b18649ca8791728ea13359805c22fe8c2aff6bd8fd0", size = 589908, upload-time = "2026-09-09T19:57:59.101Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/e6/a58bfc3290322b92805f544e5cad860a9b68245752313a3c2908a847417f/tensordict-0.14.2-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:0a748755bfb35db40123bcda67bfebac0138283d25deda76fe30be58ce10c247", size = 595446, upload-time = "2026-09-09T19:58:00.61Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/a9/1aaf93e888964d99c67130916d5406a13441daad7ce9da0bca5b8b920707/tensordict-0.14.2-cp312-cp312-win_amd64.whl", hash = "sha256:5e676f6048c4e3ad53de379469270545526d6a19badbc48bd5870b68c64e84f4", size = 644998, upload-time = "2026-09-09T19:58:02.173Z" },
+    { url = "https://files.pythonhosted.org/packages/72/ab/9768da43d554d4388b6c52b50f550c76749d8b222696c52b05a24ccd4316/tensordict-0.14.2-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:8c5e4aa2a4a8b4b1370828186836fad9605f2091a3fa3e009b15423d787aaed3", size = 946802, upload-time = "2026-09-09T19:58:03.832Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/91/a6e9cae928570cad2aa1e65921c769c547caab156d2ff62e9d78df62daea/tensordict-0.14.2-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:7d79bf7bcbdf6b0686ba756debffe9b73de9686e9fa5923747538408f130df9d", size = 590121, upload-time = "2026-09-09T19:58:05.927Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/a2/75ffd4e8dfb42f54bc65b1a9b6b8eee9639328434681177fa2319937b18f/tensordict-0.14.2-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:75a2a55f4633fbd3b82d158b2442e561bd595d48138ca473a2008e4e8689e640", size = 595477, upload-time = "2026-09-09T19:58:07.511Z" },
+    { url = "https://files.pythonhosted.org/packages/86/0f/3fe710c22bf0b02056c3234d665850d9b14395402d2fde47e110a719f703/tensordict-0.14.2-cp313-cp313-win_amd64.whl", hash = "sha256:99a36acdc59eb162d3de214be464be2c85998f004b83ddb425aa23f74b92b6f6", size = 645126, upload-time = "2026-09-09T19:58:09.151Z" },
+    { url = "https://files.pythonhosted.org/packages/85/65/0cf14c45147bbf71efae1c6f6546c3d1220f09620625ad0dd9dfc4eabdef/tensordict-0.14.2-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:10ae025f99e23dcec102652a9859c609122abac053fc3cd09ad999959d9069f2", size = 946953, upload-time = "2026-09-09T19:58:10.882Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/30/a14f0f0964cc945db335539186b6dba9d3a78506963ff97650314b49c587/tensordict-0.14.2-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:4ec2d0d1ca4a61196deadb7a88584d9df47dc720ba45d00af15783396961295f", size = 590932, upload-time = "2026-09-09T19:58:12.715Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/e3/ca37b8f2588d0caed67bcdbb5ec776553c2dda689db0f64b42795211dda9/tensordict-0.14.2-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:6d710cbc3091be3fee8d009492fb372df4c732e064495cf0ed5cdfacb5e168bd", size = 595951, upload-time = "2026-09-09T19:58:15.233Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/29/1ce98b215bdd38dd1e6999847720f024e7ecb5a31355b50aa2a0cbfd01b8/tensordict-0.14.2-cp314-cp314-win_amd64.whl", hash = "sha256:31512077ade1931b47b90be02a96ebfea23db28ab195c158bea01e11a0c71638", size = 644808, upload-time = "2026-09-09T19:58:16.869Z" },
+    { url = "https://files.pythonhosted.org/packages/28/58/a8961f0170faa68c8f037c7f8a769e6096eb4bc3826d4f1cca75de82553c/tensordict-0.14.2-cp314-cp314t-macosx_14_0_arm64.whl", hash = "sha256:ad9c5a260b031145cd8a10a2fcdc5aa6c817c0e92cb80ec40bb140a0368b868a", size = 951615, upload-time = "2026-09-09T19:58:18.425Z" },
+    { url = "https://files.pythonhosted.org/packages/98/b4/266e3860a60d1e1350261b8914b7e978e50b209b2da9407f890ba95f3c51/tensordict-0.14.2-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:595cdb56991ea6a7880af363f349299bb432041aa117fd8cdde76f0976f335a3", size = 592090, upload-time = "2026-09-09T19:58:19.919Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/a7/ff158220025f451f2c041bad424a406e0e41b1bee238c7163c3ffc5123dc/tensordict-0.14.2-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:0482dd97ba526d4918f8920aaa3936f6fe32f2ed4682a714e779582eacba4c2c", size = 595837, upload-time = "2026-09-09T19:58:21.257Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/bb/86795795ea07b096bc12e12c4e2ccdfbf24589dd508873d8a9ef56d4faf1/tensordict-0.14.2-cp314-cp314t-win_amd64.whl", hash = "sha256:68cba296f45c4eb98587644ce07902fbe75e064a2b738b8c5b2b590b8ea8f85b", size = 655648, upload-time = "2026-09-09T19:58:22.776Z" },
 ]
 
 [package.optional-dependencies]

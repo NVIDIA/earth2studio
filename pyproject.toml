@@ -242,7 +242,7 @@ stormcast = [
 ]
 stormcast-conus = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2.0a0", # TODO introduce a >=2.2 constraint and drop the git pin when PNM releases
+    "nvidia-physicsnemo>=2.2.0",
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
     "scipy>=1.15.2",
@@ -270,9 +270,14 @@ corrdiff = [
 cosmo = [
     "einops>=0.8.1",
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2.0a0",
+    "nvidia-physicsnemo>=2.2.0",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
+]
+corrdiff-era5-hrrr = [
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2.0a0", # TODO >=2.3 once the flow-matching release (PhysicsNeMo #1931) ships on PyPI
+    "nvtx>=0.2.11",
 ]
 cyclone = [
     "cucim-cu13>=25.4.0",
@@ -298,7 +303,7 @@ windgust-afno = [
 # DA Models
 da-cosmo = [
     "earth2studio[cosmo]",
-    "nvidia-physicsnemo>=2.2.0a0",
+    "nvidia-physicsnemo>=2.2.0",
     "cupy-cuda13x",
 ]
 da-healda = [
@@ -324,7 +329,7 @@ da-stormcast = [
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
     "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
-    "earth2studio[cbottle,climatenet,corrdiff,cosmo,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
+    "earth2studio[cbottle,climatenet,corrdiff,cosmo,corrdiff-era5-hrrr,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
 ]
 
@@ -390,8 +395,6 @@ flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
-# physicsnemo main has natten2d_rope (RoPE), not on PyPI yet; pin it for cosmo,
-# da-cosmo, and stormcast-conus until nvidia-physicsnemo>=2.2.0 ships on PyPI.
 onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
@@ -410,12 +413,10 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-# TODO: Remove the pins for cosmo, stormcast-conus with next PSN release (2.2.0)
 # TODO: Remove the pin for DLESyM after PNM 2.3.0 release (needs changes more recent than 2.2.0)
 nvidia-physicsnemo = [
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "cosmo"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "stormcast-conus"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "ff4cad2390e412b136e1739476506064d42eefba", extra = "dlesym"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "426f7552da4b4fa675e404e8a4f437e27681b668", extra = "dlesym"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "426f7552da4b4fa675e404e8a4f437e27681b668", extra = "corrdiff-era5-hrrr"},
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }

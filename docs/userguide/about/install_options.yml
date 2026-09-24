@@ -130,7 +130,9 @@ categories:
         api_refs:
           - earth2studio.models.px.Aurora
           - earth2studio.models.px.Aurora1p5
+          - earth2studio.models.px.Aurora1p5_6h
           - earth2studio.models.px.Aurora1p5Ensemble
+          - earth2studio.models.px.Aurora1p5Ensemble_6h
       - id: dlesym
         label: DLESyM
         extra: dlesym
@@ -360,10 +362,24 @@ categories:
         api_refs:
           - earth2studio.models.dx.CorrDiffCMIP6
           - earth2studio.models.dx.CorrDiffTaiwan
+      - id: corrdiff-era5-hrrr
+        label: CorrDiff ERA5-HRRR
+        extra: corrdiff-era5-hrrr
+        summary: CorrDiff ERA5 -> HRRR downscaler dependencies.
+        api_refs:
+          - earth2studio.models.dx.CorrDiffEra5Hrrr
+        preinstall:
+          pip:
+            - 'pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
+          uv:
+            pypi:
+              - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
+        warnings:
+          - Depends on natten for Python versions before 3.14.
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
-        summary: CorrDiff COSMO-ERA5 model dependencies.
+        summary: CorrDiff COSMO -> ERA5 model dependencies.
         api_refs:
           - earth2studio.models.dx.CorrDiffCosmoEra5
         # TODO: Removed with psn release 2.2.0
