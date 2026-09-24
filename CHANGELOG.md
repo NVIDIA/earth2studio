@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added ``HealDAv2Native``, a HealDA-v2 data assimilation wrapper that delegates
+  model construction, checkpoint loading and the observation pipeline to the
+  internal ``healda`` package (single source of truth), loading the raw
+  training state published at ``hf://nvidia/healda-v2``. Requires the internal
+  ``healda`` package and its observation archives.
+
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
   source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
