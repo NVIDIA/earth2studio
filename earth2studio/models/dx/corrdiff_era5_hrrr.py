@@ -104,7 +104,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
 
     Note
     ----
-    For more information on the model architecture and training, please refer to:
+    For more information see the following references:
 
     - https://huggingface.co/nvidia/corrdiff-era5-hrrr
 
