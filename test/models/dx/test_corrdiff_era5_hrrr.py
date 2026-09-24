@@ -14,233 +14,143 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for the CorrDiffEra5Hrrr diagnostic wrapper.
-
-Construction-based with a stand-in network on a small synthetic grid: they
-exercise the coordinate contracts, the conditioning assembly (interpolation,
-cosine zenith, invariants, scalar conditions) and the three sampling paths
-(x-prediction / velocity rectified flow, EDM) end to end on the CPU.
-"""
-
-from collections import OrderedDict
 from datetime import datetime
-from inspect import signature
 
 import numpy as np
 import pytest
 import torch
 
-pytest.importorskip("physicsnemo")
-pytest.importorskip("natten")
-
-from earth2studio.models.dx.corrdiff_era5_hrrr import (  # noqa: E402
-    CorrDiffEra5Hrrr,
-)
-
-ERA5_VARIABLES = ["u10m", "v10m", "t2m", "z500"]
-OUTPUT_VARIABLES = ["u10m", "v10m", "t2m", "refc", "q1hl"]
-N_INV = 3
-H, W = 8, 12
+from earth2studio.models.dx import CorrDiffEra5Hrrr
+from earth2studio.models.dx.corrdiff_era5_hrrr import ERA5_VARIABLES, OUTPUT_VARIABLES
+from earth2studio.utils import handshake_dim
 
 
 class PhooNet(torch.nn.Module):
-    """Stand-in for ConcatConditionWrapper(DiT): returns a scaled slice of x.
-
-    Records the number of conditioning channels it received so the tests can
-    check the assembled background.
-    """
-
-    def __init__(self, n_out: int, gain: float = 0.0):
+    def __init__(self):
         super().__init__()
-        self.n_out = n_out
-        self.gain = gain
-        self.seen_cond_channels: int | None = None
-        self.seen_cond_vec: int | None = None
-        self.seen_t: list[torch.Tensor] = []
+        self.seen_t = []
 
     def forward(self, x, t, condition=None):
-        self.seen_cond_channels = condition["cond_concat"].shape[1]
-        self.seen_cond_vec = condition["cond_vec"].shape[1]
         self.seen_t.append(t.detach().clone())
-        return self.gain * x[:, : self.n_out]
+        return torch.zeros_like(x)
 
 
-def _build(kind="rectified_flow", prediction_type="x0", **overrides):
-    lat_in = np.arange(30.0, 26.0, -0.5, dtype=np.float32)  # 8, descending
-    lon_in = np.arange(260.0, 265.0, 0.5, dtype=np.float32)  # 10
-    # curvilinear-ish output grid strictly inside the input footprint
-    lat2d, lon2d = np.meshgrid(
-        np.linspace(27.0, 29.0, H), np.linspace(260.5, 264.0, W), indexing="ij"
+@pytest.fixture
+def model_args():
+    lat, lon = torch.meshgrid(
+        torch.linspace(27, 29, 4), torch.linspace(261, 264, 6), indexing="ij"
     )
-    lat2d = lat2d + 0.05 * np.sin(lon2d)
-    net = PhooNet(len(OUTPUT_VARIABLES), gain=overrides.pop("gain", 0.0))
-    kwargs = dict(
-        network=net,
-        network_kind=kind,
-        era5_variables=ERA5_VARIABLES,
-        output_variables=OUTPUT_VARIABLES,
-        lat_input_grid=torch.tensor(lat_in),
-        lon_input_grid=torch.tensor(lon_in),
-        lat_output_grid=torch.tensor(lat2d, dtype=torch.float32),
-        lon_output_grid=torch.tensor(lon2d, dtype=torch.float32),
-        hrrr_y=torch.arange(H, dtype=torch.float64) * 3000.0,
-        hrrr_x=torch.arange(W, dtype=torch.float64) * 3000.0,
-        era5_center=torch.zeros(len(ERA5_VARIABLES)),
-        era5_scale=torch.ones(len(ERA5_VARIABLES)),
-        out_center=torch.tensor([0.0, 0.0, 280.0, -5.0, 0.0]),
-        out_scale=torch.tensor([3.0, 3.0, 10.0, 8.0, 1.0]),
-        invariants=torch.randn(N_INV, H, W),
+    return dict(
+        network=PhooNet(),
+        lat_input_grid=torch.arange(30, 26, -0.5),
+        lon_input_grid=torch.arange(260, 265, 0.5),
+        lat_output_grid=lat + 0.05 * lon.sin(),
+        lon_output_grid=lon,
+        hrrr_y=torch.arange(4) * 3000,
+        hrrr_x=torch.arange(6) * 3000,
+        era5_center=torch.zeros(26),
+        era5_scale=torch.ones(26),
+        out_center=torch.arange(99).float(),
+        out_scale=torch.ones(99) * 2,
+        invariants=torch.randn(3, 4, 6),
         presence_flags=["tcwv", "sp"],
-        day_of_year=True,
-        prediction_type=prediction_type,
         number_of_samples=2,
         number_of_steps=3,
-        shift=4.0,
         seed=0,
         amp=False,
     )
-    kwargs.update(overrides)
-    return CorrDiffEra5Hrrr(**kwargs), net
-
-
-def _input(model, n_time=1):
-    ic = model.input_coords()
-    x = torch.randn(1, n_time, len(ERA5_VARIABLES), ic["lat"].size, ic["lon"].size)
-    coords = OrderedDict(
-        {
-            "batch": np.array([0]),
-            "time": np.array(
-                [
-                    np.datetime64("2025-10-24T00:00") + np.timedelta64(6 * i, "h")
-                    for i in range(n_time)
-                ]
-            ),
-            "variable": np.array(ERA5_VARIABLES),
-            "lat": ic["lat"],
-            "lon": ic["lon"],
-        }
-    )
-    return x, coords
-
-
-def test_coords_contract():
-    model, _ = _build()
-    ic = model.input_coords()
-    assert list(ic) == ["batch", "time", "variable", "lat", "lon"]
-    _, coords = _input(model)
-    oc = model.output_coords(coords)
-    assert list(oc) == ["batch", "sample", "time", "variable", "hrrr_y", "hrrr_x"]
-    assert oc["sample"].size == 2 and oc["hrrr_y"].size == H and oc["hrrr_x"].size == W
-    assert list(oc["variable"]) == OUTPUT_VARIABLES
-
-
-def test_default_variables():
-    defaults = signature(CorrDiffEra5Hrrr).parameters
-    era5_variables = defaults["era5_variables"].default
-    output_variables = defaults["output_variables"].default
-    assert len(era5_variables) == 26
-    assert len(output_variables) == 99
-    model = CorrDiffEra5Hrrr(
-        network=PhooNet(99),
-        lat_input_grid=torch.tensor([30.0, 29.0]),
-        lon_input_grid=torch.tensor([260.0, 261.0]),
-        lat_output_grid=torch.full((2, 2), 29.5),
-        lon_output_grid=torch.full((2, 2), 260.5),
-        hrrr_y=torch.arange(2),
-        hrrr_x=torch.arange(2),
-        era5_center=torch.zeros(26),
-        era5_scale=torch.ones(26),
-        out_center=torch.zeros(99),
-        out_scale=torch.ones(99),
-        invariants=torch.zeros(N_INV, 2, 2),
-    )
-    coords = model.input_coords()
-    coords["batch"] = np.array([0])
-    coords["time"] = np.array([np.datetime64("2025-10-24")])
-    assert model.network_kind == "rectified_flow"
-    np.testing.assert_array_equal(coords["variable"], era5_variables)
-    np.testing.assert_array_equal(
-        model.output_coords(coords)["variable"], output_variables
-    )
-
-
-def test_output_coords_rejects_wrong_grid():
-    model, _ = _build()
-    _, coords = _input(model)
-    coords["lat"] = coords["lat"] + 1.0
-    with pytest.raises(ValueError):
-        model.output_coords(coords)
-
-
-def test_preprocess_assembles_conditioning():
-    model, _ = _build()
-    era5 = torch.randn(
-        len(ERA5_VARIABLES), model.lat_input_numpy.size, model.lon_input_numpy.size
-    )
-    cond = model.preprocess_input(era5, datetime(2025, 7, 1, 18))
-    # ERA5 channels + cos zenith + invariants
-    assert cond["cond_concat"].shape == (1, len(ERA5_VARIABLES) + 1 + N_INV, H, W)
-    # sin/cos day-of-year + two presence flags (always 1)
-    assert cond["cond_vec"].shape == (1, 4)
-    assert torch.all(cond["cond_vec"][0, 2:] == 1.0)
-    cz = cond["cond_concat"][0, len(ERA5_VARIABLES)]
-    assert torch.all(cz.abs() <= 1.0)
-    assert torch.isfinite(cond["cond_concat"]).all()
 
 
 @pytest.mark.parametrize(
-    "kind,prediction_type",
-    [("rectified_flow", "x0"), ("rectified_flow", "flow"), ("edm", "x0")],
+    "kind,prediction,batch_size,device",
+    [
+        ("rectified_flow", "x0", 1, "cpu"),
+        ("rectified_flow", "flow", 2, "cpu"),
+        ("edm", "x0", 2, "cpu"),
+        pytest.param(
+            "rectified_flow",
+            "x0",
+            2,
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
 )
-def test_call_shapes_and_seeding(kind, prediction_type):
-    if kind == "edm":
-        pytest.importorskip("physicsnemo.diffusion.preconditioners")
-    model, net = _build(kind=kind, prediction_type=prediction_type)
+def test_corrdiff_era5_hrrr(model_args, kind, prediction, batch_size, device):
+    dx = CorrDiffEra5Hrrr(
+        **model_args, network_kind=kind, prediction_type=prediction
+    ).to(device)
     if kind == "edm":
         from physicsnemo.diffusion.preconditioners import EDMPreconditioner
 
-        model.network = EDMPreconditioner(net, sigma_data=0.5)
-    x, coords = _input(model, n_time=2)
-    out, oc = model(x, coords)
-    assert out.shape == (1, 2, 2, len(OUTPUT_VARIABLES), H, W)
-    assert torch.isfinite(out).all()
-    assert list(oc) == ["batch", "sample", "time", "variable", "hrrr_y", "hrrr_x"]
-    # deterministic given the seed; members differ from each other
-    out2, _ = model(x, coords)
-    assert torch.allclose(out, out2)
+        dx.network = EDMPreconditioner(dx.network, sigma_data=0.5).to(device)
+    coords = dx.input_coords()
+    coords.update(
+        batch=np.arange(batch_size),
+        time=np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+    )
+    x = torch.randn(*(len(c) for c in coords.values()), device=device)
+    cond = dx.preprocess_input(x[0, 0], datetime(2025, 7, 1, 18))
+    assert cond["cond_concat"].shape == (1, 30, 4, 6)
+    assert cond["cond_vec"].shape == (1, 4)
+    assert torch.all(cond["cond_vec"][0, 2:] == 1)
+    assert cond["cond_concat"][0, 26].abs().max() <= 1
+    assert torch.isfinite(cond["cond_concat"]).all()
+    out, out_coords = dx(x, coords)
+    assert out.shape == (batch_size, 2, 2, 99, 4, 6)
+    assert out.device == torch.device(device) and torch.isfinite(out).all()
+    np.testing.assert_array_equal(coords["variable"], ERA5_VARIABLES)
+    np.testing.assert_array_equal(out_coords["variable"], OUTPUT_VARIABLES)
+    expected = dx.output_coords(coords)
+    for index, dim in enumerate(
+        ["batch", "sample", "time", "variable", "hrrr_y", "hrrr_x"]
+    ):
+        handshake_dim(out_coords, dim, index)
+        np.testing.assert_array_equal(out_coords[dim], expected[dim])
+    torch.testing.assert_close(out, dx(x, coords)[0])
     assert not torch.allclose(out[:, 0], out[:, 1])
+    dx.number_of_samples = 1
+    torch.testing.assert_close(dx(x, coords)[0], out[:, :1])
     if kind == "rectified_flow":
-        # the network sees the time scaled for its embedder (t in [0, 1] x 999)
-        assert max(float(t.max()) for t in net.seen_t) <= 999.0 * 0.999 + 1e-3
-        assert max(float(t.max()) for t in net.seen_t) > 1.0
+        from physicsnemo.diffusion.noise_schedulers import RectifiedFlowNoiseScheduler
+
+        assert 1 < max(float(t.max()) for t in model_args["network"].seen_t) < 999
+        scheduler = RectifiedFlowNoiseScheduler(t_max=dx.t_max)
+        shifted = dx._rf_time_steps(torch.device(device), scheduler)
+        dx.shift = 1
+        unshifted = dx._rf_time_steps(torch.device(device), scheduler)
+        assert shifted.shape == unshifted.shape and shifted[-1] == 0
+        assert torch.all(shifted[1:-1] > unshifted[1:-1])
 
 
-def test_rf_time_grid_shift():
-    model, _ = _build(shift=1.0)
-    from physicsnemo.diffusion.noise_schedulers import RectifiedFlowNoiseScheduler
-
-    sch = RectifiedFlowNoiseScheduler(t_max=0.99)
-    t_unshifted = model._rf_time_steps(torch.device("cpu"), sch)
-    model.shift = 16.0
-    t_shifted = model._rf_time_steps(torch.device("cpu"), sch)
-    assert t_shifted.shape == t_unshifted.shape
-    assert float(t_shifted[-1]) == 0.0
-    # the shift pushes interior steps toward the noise end
-    assert torch.all(t_shifted[1:-1] > t_unshifted[1:-1])
-
-
-def test_constructor_validation():
-    with pytest.raises(ValueError):
-        _build(kind="ddpm")
-    with pytest.raises(ValueError):
-        _build(prediction_type="epsilon")
-    with pytest.raises(ValueError):
-        _build(number_of_samples=0)
-    with pytest.raises(ValueError):
-        _build(t_max=1.0)
-
-
-def test_load_model_rejects_unknown_variant():
-    # the check runs before the loader opens any package file
+def test_corrdiff_era5_hrrr_exceptions(model_args):
+    dx = CorrDiffEra5Hrrr(**model_args)
+    assert dx.network_kind == "rectified_flow"
+    coords = dx.input_coords()
+    coords.update(
+        batch=np.array([0]), time=np.array(["2025-07-01"], dtype="datetime64[D]")
+    )
+    x = torch.zeros(*(len(c) for c in coords.values()))
+    for dim in ["time", "variable", "lat", "lon"]:
+        wrong = coords.copy()
+        if dim == "time":
+            wrong["wrong"] = wrong.pop(dim)
+        else:
+            wrong[dim] = coords[dim][::-1] if dim == "variable" else coords[dim] + 1
+        with pytest.raises((KeyError, ValueError)):
+            dx(x, wrong)
+    for key, value in dict(
+        network_kind="ddpm",
+        prediction_type="epsilon",
+        solver="invalid",
+        number_of_samples=0,
+        number_of_steps=0,
+        t_max=1,
+        shift=0,
+    ).items():
+        with pytest.raises(ValueError):
+            CorrDiffEra5Hrrr(**(model_args | {key: value}))
     with pytest.raises(ValueError, match="variant"):
         CorrDiffEra5Hrrr.load_model(None, variant="v_pred")
