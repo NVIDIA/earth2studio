@@ -440,7 +440,15 @@ def test_dlesym_v0_isccp_era5_latlon_input_coords(use_ttr):
     model = _build_latlon_model("cpu", nside=16, use_ttr=use_ttr)
     in_coords = model.input_coords()
     assert in_coords.data.nbytes == 0
-    assert in_coords.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    assert in_coords.attrs["type"] == "LatLonGrid"
+    assert in_coords.attrs["dims"] == ["lat", "lon"]
+    assert in_coords.attrs["shape"] == [721, 1440]
+    assert in_coords.attrs["topology"] == "rectilinear"
+    assert in_coords.attrs["crs"] == "EPSG:4326"
+    np.testing.assert_array_equal(in_coords.lat, np.linspace(90, -90, 721))
+    np.testing.assert_array_equal(
+        in_coords.lon, np.linspace(0, 360, 1440, endpoint=False)
+    )
 
     # Lat/lon dims present, HEALPix dims absent.
     for dim in ["lat", "lon"]:

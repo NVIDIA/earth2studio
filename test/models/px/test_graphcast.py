@@ -370,9 +370,16 @@ def test_graphcast_small_conformance(graphcast):
     p = type(graphcast).__new__(type(graphcast))
     torch.nn.Module.__init__(p)
     signature = p.input_coords()
-    assert signature.sizes["lat"] == (181 if isinstance(p, GraphCastSmall) else 721)
-    if isinstance(p, GraphCastOperational):
-        assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    shape = (181, 360) if isinstance(p, GraphCastSmall) else (721, 1440)
+    assert signature.attrs["type"] == "LatLonGrid"
+    assert signature.attrs["dims"] == ["lat", "lon"]
+    assert signature.attrs["shape"] == list(shape)
+    assert signature.attrs["topology"] == "rectilinear"
+    assert signature.attrs["crs"] == "EPSG:4326"
+    np.testing.assert_array_equal(signature.lat, np.linspace(90, -90, shape[0]))
+    np.testing.assert_array_equal(
+        signature.lon, np.linspace(0, 360, shape[1], endpoint=False)
+    )
     assert "tp06" in p.output_coords(signature).coords["variable"]
     shifted = coord_array_like(
         signature, {"lead_time": np.array([6, 12], dtype="timedelta64[h]")}

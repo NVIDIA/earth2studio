@@ -461,7 +461,9 @@ def test_stormcastconus_conditioning_init_time():
         [np.datetime64("2020-04-05T03:00"), np.datetime64("2020-04-05T04:00")]
     )
     p.conditioning_init_time = np.array([np.datetime64("2020-04-05T00:00")] * 2)
-    with pytest.raises(ValueError, match="uniform lead-time"):
+    with pytest.raises(
+        ValueError, match="Coordinate systems for required dim time are not the same"
+    ):
         p._get_conditioning(coords, batch_size=1, device=device)
     p.conditioning_init_time = np.array([np.datetime64("2020-04-05T00:00")] * 3)
     with pytest.raises(ValueError, match="scalar or match"):

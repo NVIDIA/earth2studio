@@ -301,8 +301,15 @@ def test_weathernext2_operational_checkpoint():
         model.land_sea_mask = np.ones(shape)
         signature = model.input_coords()
         assert signature.shape == (0, 0, 2, 83, *shape)
-        if cls is WeatherNext2Cyclones:
-            assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+        assert signature.attrs["type"] == "LatLonGrid"
+        assert signature.attrs["dims"] == ["lat", "lon"]
+        assert signature.attrs["shape"] == list(shape)
+        assert signature.attrs["topology"] == "rectilinear"
+        assert signature.attrs["crs"] == "EPSG:4326"
+        np.testing.assert_array_equal(signature.lat, np.linspace(90, -90, shape[0]))
+        np.testing.assert_array_equal(
+            signature.lon, np.linspace(0, 360, shape[1], endpoint=False)
+        )
         assert "tp06" in model.output_coords(signature).coords["variable"]
 
 
