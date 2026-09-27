@@ -605,7 +605,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(x)
         encoding = deepcopy(x.encoding)
         x, coords = x.e2s.to_torch()
-        x = x.to(self.means.device)
+        # Checkpoints expect float32 inputs; autocast does not convert float64.
+        x = x.to(device=self.means.device, dtype=torch.float32)
         conditioning = self._get_conditioning(
             OrderedDict((d, np.asarray(output_coords[d])) for d in output_coords.dims),
             x.shape[0],
@@ -768,6 +769,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             self._conditioning_grid = tuple(a.copy() for a in source)
         conditioning, conditioning_coords = field.e2s.to_torch()
+        conditioning = conditioning.to(device=device, dtype=torch.float32)
         conditioning = cast(LatLonInterpolation, self._conditioning_interp).to(
             device=device, dtype=conditioning.dtype
         )(conditioning)

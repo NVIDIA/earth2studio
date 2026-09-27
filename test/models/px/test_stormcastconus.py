@@ -285,6 +285,63 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
     assert out_coords.data.nbytes == 0
 
 
+@pytest.mark.parametrize(
+    "state_dtype, conditioning_dtype, device, use_amp",
+    [
+        (np.float32, np.float32, "cpu", False),
+        (np.float64, np.float32, "cpu", False),
+        (np.float32, np.float64, "cuda:0", True),
+        (np.float64, np.float64, "cuda:0", True),
+    ],
+)
+def test_stormcastconus_input_dtype(
+    state_dtype, conditioning_dtype, device, use_amp, monkeypatch
+):
+    if conus_module.TensorDict is None:
+        pytest.skip("PhysicsNeMo is unavailable")
+    if device == "cuda:0" and not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
+
+    p = _build_model(device, use_amp=use_amp)
+    # Exercise a real convolution under the sampler's autocast context. The
+    # usual identity denoiser does not detect incompatible input dtypes.
+    conv = torch.nn.Conv2d(2 * NVAR + NVAR_COND + 3, NVAR, 1).to(device)
+
+    def denoise(x, t, condition=None, **kwargs):
+        return conv(torch.cat((x, condition["cond_concat"]), dim=1)).float()
+
+    monkeypatch.setattr(p.diffusion_model, "forward", denoise)
+    source = p.conditioning_data_source
+    p.conditioning_data_source = lambda time, variable: source(time, variable).astype(
+        conditioning_dtype
+    )
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    signature = p.input_coords()
+    r = Random(OrderedDict((d, signature[d].values) for d in ("y", "x")))
+    x = fetch_data(
+        r,
+        time,
+        signature["variable"].values,
+        signature["lead_time"].values,
+        device=device,
+        target_grid=p.grid,
+    ).astype(state_dtype)
+    x = x.assign_coords(p.grid.coords())
+    x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
+    original = x.copy(deep=True)
+
+    out = p(x)
+    assert out.dtype == np.float32
+    assert out.e2s.to_torch()[0].device == torch.device(device)
+    iterator = p.create_iterator(x)
+    xr.testing.assert_identical(next(iterator), original)
+    for hour in (1, 2):
+        forecast = next(iterator)
+        assert forecast.dtype == np.float32
+        np.testing.assert_array_equal(forecast.lead_time, [np.timedelta64(hour, "h")])
+    xr.testing.assert_identical(x, original)
+
+
 @pytest.mark.parametrize("ensemble", [1, 2])
 @pytest.mark.parametrize("clamp_values", [False, True])
 @pytest.mark.parametrize("use_amp", [False, True])
