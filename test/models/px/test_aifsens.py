@@ -457,7 +457,7 @@ def model(backend) -> AIFSENS:
 @pytest.mark.package
 @pytest.mark.parametrize(
     "ensemble",
-    [1, 2],
+    [1],  # Two members exceed the CI GPU memory budget.
 )
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_aifsens_package(device, ensemble, model):
