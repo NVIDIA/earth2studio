@@ -639,7 +639,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, coords = x.e2s.to_torch()
-        out, _ = self._forward(tensor.to(self.device_buffer.device).clone(), coords)
+        # FME's ACE2 checkpoint expects float32 state and forcing tensors.
+        tensor = tensor.to(device=self.device_buffer.device, dtype=torch.float32)
+        out, _ = self._forward(tensor.clone(), coords)
         result = from_torch(out, signature)
         result.encoding = x.encoding.copy()
         return result

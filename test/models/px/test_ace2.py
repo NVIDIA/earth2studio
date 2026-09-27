@@ -319,6 +319,78 @@ class _DeterministicPhooStepper(PhooStepper):
         return output, None
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "device",
+    [
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_ace2era5_input_dtype(dtype, device, monkeypatch):
+    lat = np.linspace(90, -90, 4)
+    lon = np.linspace(0, 360, 8, endpoint=False)
+    monkeypatch.setattr(ace_src, "ACE_GRID_LAT", lat)
+    monkeypatch.setattr(ace_src, "ACE_GRID_LON", lon)
+
+    class Float32Stepper(PhooStepper):
+        def __init__(self):
+            super().__init__()
+            self.conv = torch.nn.Conv2d(1, 1, kernel_size=1)
+
+        def predict_paired(self, ic, forcing_batch):
+            # Exercise the same dtype requirement as the checkpoint's layers
+            # for both prognostic inputs and externally fetched forcings.
+            state = self.conv(ic._data.data[self.prognostic_names[0]])
+            forcing = self.conv(forcing_batch.data[self._input_only_names[0]][:, :1])
+            return (
+                SimpleNamespace(
+                    prediction={key: state + forcing for key in self.out_names}
+                ),
+                None,
+            )
+
+    source = Random({"lat": lat, "lon": lon})
+    model = ACE2ERA5(Float32Stepper(), source).to(device)
+    signature = model.input_coords()
+    x = fetch_data(
+        source,
+        time=np.array([np.datetime64("2001-01-01T00:00")]),
+        variable=signature["variable"].values,
+        lead_time=signature.lead_time.values,
+        device=device,
+    ).astype(dtype)
+    x.attrs.update(
+        {
+            k: v
+            for k, v in signature.attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+    )
+    before = x.copy(deep=True)
+
+    out = model(x)
+    assert out.dtype == np.float32
+    assert out.e2s.to_torch()[0].device == torch.device(device)
+    iterator = model.create_iterator(x)
+    xr.testing.assert_identical(next(iterator).e2s.as_numpy(), before.e2s.as_numpy())
+    for step in (1, 2):
+        out = next(iterator)
+        assert out.dtype == np.float32
+        assert out.lead_time.values[0] == np.timedelta64(6 * step, "h")
+    iterator.close()
+    xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
+
+
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ace2era5_conformance(device):
     forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
