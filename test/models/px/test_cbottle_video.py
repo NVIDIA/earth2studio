@@ -314,7 +314,8 @@ class TestCBottleVideoMock:
         with pytest.raises(ContractException) as exc_info:
             check_prognostic_contract(px, nsteps=1, device=device)
         assert exc_info.value.violations == [
-            "P13: repeated runs with the same input and seed disagree"
+            "P13: model declares stochastic=False but two rollouts from one input "
+            "disagree; declare stochastic=True and implement set_rng()"
         ]
 
 

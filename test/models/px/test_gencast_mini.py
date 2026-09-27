@@ -192,7 +192,8 @@ def test_gencast_mini_conformance(mock_GenCastMini_model):
     with pytest.raises(ContractException) as exc_info:
         check_prognostic_contract(mock_GenCastMini_model)
     assert exc_info.value.violations == [
-        "P13: repeated runs with the same input and seed disagree"
+        "P13: model declares stochastic=False but two rollouts from one input "
+        "disagree; declare stochastic=True and implement set_rng()"
     ]
 
 

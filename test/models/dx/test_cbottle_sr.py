@@ -334,7 +334,8 @@ class TestCBottleSRMock:
         with pytest.raises(ContractException) as exc_info:
             check_diagnostic_contract(dx)
         assert exc_info.value.violations == [
-            "D9: repeated runs with the same input and seed disagree"
+            "D9: model declares stochastic=False but two calls on one input disagree; "
+            "declare stochastic=True and implement set_rng()"
         ]
 
 

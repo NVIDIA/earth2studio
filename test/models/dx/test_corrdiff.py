@@ -803,32 +803,20 @@ class TestCorrDiffForward:
     def test_corrdiff_conformance(
         self, mock_residual_model, mock_regression_model, sample_model_params
     ):
-        """Check the mock model against the Earth2Studio model contract.
-
-        CorrDiff does not yet declare `stochastic` or implement `set_rng()` (see
-        the Migration table in dev/spec/MODEL_CONTRACT_SPEC.md — corrdiff uses a
-        local torch.Generator seeded via the constructor `seed` argument, so it
-        only needs the declaration and a `set_rng` wrapper). Until that lands,
-        `D10` is reported as an informational skip rather than a violation, so
-        this test pins the skip list instead of asserting `== []`.
-        """
+        # CorrDiff does not yet declare stochastic or implement set_rng(). With
+        # the default seed=None, repeated calls violate D9 for both the real
+        # and offline samplers. Pin this until the RNG contract is implemented.
         model = CorrDiff(
             residual_model=mock_residual_model,
             regression_model=mock_regression_model,
             **sample_model_params,
         )
-        if corrdiff_module.PhysicsNemoModule is None:
-            # The offline sampler returns seeded latents. With seed=None these
-            # differ, unlike the real sampler's zero-returning mock denoiser.
-            with pytest.raises(ContractException) as exc_info:
-                check_diagnostic_contract(model)
-            assert exc_info.value.violations == [
-                "D9: repeated runs with the same input and seed disagree"
-            ]
-        else:
-            assert check_diagnostic_contract(model) == [
-                "D10: model does not declare itself stochastic"
-            ]
+        with pytest.raises(ContractException) as exc_info:
+            check_diagnostic_contract(model)
+        assert exc_info.value.violations == [
+            "D9: model declares stochastic=False but two calls on one input disagree; "
+            "declare stochastic=True and implement set_rng()"
+        ]
 
     def test_corrdiff_seed_reproducibility(
         self, mock_residual_model, mock_regression_model, sample_model_params
