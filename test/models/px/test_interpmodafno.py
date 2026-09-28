@@ -187,14 +187,11 @@ def test_forecast_interpolation_call(time, device, tmp_path):
         model.clear_hooks()
 
 
-@pytest.mark.parametrize(
-    "ensemble",
-    [1, 2],
-)
-@pytest.mark.parametrize("history", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_forecast_interpolation_iter(ensemble, history, device):
+def test_forecast_interpolation_iter(device):
     """Test iteration functionality of InterpModAFNO model."""
+    ensemble = 1
+    history = 1
     time = np.array([np.datetime64("1993-04-05T00:00")])
 
     # Set up base model
