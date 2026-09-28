@@ -43,6 +43,44 @@ CuPy rejects CPU targets. CuPy defaults to the source CUDA device or the
 current device for CPU inputs. `auto` resolves from the source device.
 CuPy stays lazily imported; invalid backend names raise `ValueError`.
 
+### Minimal gradient example
+
+Save this as `backend_example.py` and run it with the environment setting applied
+before import:
+
+```bash
+EARTH2STUDIO_ARRAY_BACKEND=torch uv run backend_example.py
+```
+
+```python
+import torch
+import xarray as xr
+
+from earth2studio.utils.cupy import from_torch
+
+
+def double(array: xr.DataArray) -> xr.DataArray:
+    tensor, _ = array.e2s.to_torch()
+    return from_torch(tensor * 2, array)
+
+
+def square(array: xr.DataArray) -> xr.DataArray:
+    tensor, _ = array.e2s.to_torch()
+    return from_torch(tensor.square(), array)
+
+
+x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+array = from_torch(x, {"sample": [0, 1, 2]})
+result = square(double(array))
+result.sum(skipna=False).e2s.to_torch()[0].backward()
+torch.testing.assert_close(x.grad, 8 * x.detach())  # [8, 16, 24]
+```
+
+For a scoped setting instead, put wrapping and both component calls inside
+`with backend("torch"):` after importing `backend` from the same module.
+Both components must execute with autograd enabled; the backend setting does
+not override `torch.no_grad()` or `torch.inference_mode()`.
+
 ## Autograd semantics
 
 - Torch extraction returns the underlying tensor, independently of policy.
