@@ -111,11 +111,30 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return "persistence"
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free configured history and domain signature."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the configured
+            history and domain.
+        """
         return self._input_coords.copy()
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate the relative history and advance its final lead by one step."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature one step after the
+            final input lead time.
+        """
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
         handshake_dataarray(

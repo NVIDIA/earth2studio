@@ -173,7 +173,13 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free two-step input signature."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for two history steps.
+        """
         return coord_array(
             ("batch", "lead_time", "variable", "lat", "lon"),
             {
@@ -187,7 +193,19 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate relative history and advance the final lead by six hours."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature six hours after the
+            final input lead time.
+        """
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
         handshake_dataarray(

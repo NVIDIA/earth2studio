@@ -125,7 +125,13 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free FCN input coordinate signature."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the FCN grid.
+        """
         return coord_array(
             ("batch", "lead_time", "variable", "lat", "lon"),
             {
@@ -137,7 +143,18 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Return the FCN coordinate signature after one forecast step."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature after one forecast step.
+        """
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords["lead_time"])
         handshake_dataarray(

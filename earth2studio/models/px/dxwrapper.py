@@ -335,11 +335,30 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return getattr(self.px_model, "front_hook_interval", 1)
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the nested prognostic's allocation-free input declaration."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature of the nested
+            prognostic model.
+        """
         return self.px_model.input_coords().copy(deep=True)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Compose nested signature transformations without evaluating fields."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature composed from the
+            nested prognostic and diagnostic models.
+        """
         px = self.px_model.output_coords(input_coords)
         dx = [
             m.output_coords(p(px.copy(deep=True), m.input_coords()))

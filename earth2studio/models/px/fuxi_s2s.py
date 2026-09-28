@@ -244,7 +244,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         CoordinateSystem
-            Coordinate system for two consecutive UTC daily means.
+            Allocation-free DataArray input signature for two consecutive UTC
+            daily means.
         """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
@@ -260,18 +261,19 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate input coordinates and return the next daily coordinates.
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input coordinates with two consecutive daily lead times.
+            Input coordinate signature or DataArray to validate and transform,
+            with two consecutive daily lead times.
 
         Returns
         -------
         CoordinateSystem
-            Output coordinates for the daily mean one day after the latest
-            input.
+            Allocation-free DataArray output signature for the daily mean one
+            day after the latest input.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

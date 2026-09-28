@@ -341,7 +341,13 @@ class CorrDiffCMIP6(CorrDiff):
         ]
 
     def input_coords(self) -> xr.DataArray:
-        """Input coordinate system"""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray input signature.
+        """
         grid = (
             LatLonGrid(self.lat_input_numpy, self.lon_input_numpy)
             if self.lat_input_numpy.ndim == 1
@@ -364,7 +370,7 @@ class CorrDiffCMIP6(CorrDiff):
         )
 
     def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Samples follow time: ``[..., time, sample, lead_time, variable, ...]``.
         This keeps unresolved batch/time dimensions in a leading dynamic prefix.
@@ -372,12 +378,12 @@ class CorrDiffCMIP6(CorrDiff):
         Parameters
         ----------
         input_coords : xr.DataArray
-            Input coordinate system to transform into output_coords
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         xr.DataArray
-            Allocation-free output coordinate signature
+            Allocation-free DataArray output signature.
         """
         handshake_dataarray(input_coords, self.input_coords())
         handshake_time(input_coords, allow_dynamic=True)

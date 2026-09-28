@@ -195,12 +195,12 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("device_buffer", torch.empty(0))
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of prognostic model
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free input coordinate signature
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             (
@@ -219,17 +219,17 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of prognostic model
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input coordinate system to transform into output_coords
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free output coordinate signature
+            Allocation-free DataArray output signature.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

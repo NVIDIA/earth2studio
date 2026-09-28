@@ -39,7 +39,14 @@ class _DerivedDiagnostic(torch.nn.Module):
         self._spatial_dims = definition.dims
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free signature on the configured spatial grid."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the configured
+            spatial grid.
+        """
         return coord_array(
             ("batch", "variable", *self._spatial_dims),
             {"variable": np.asarray(self.in_variables)},
@@ -48,18 +55,20 @@ class _DerivedDiagnostic(torch.nn.Module):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate input labels and plan the derived variables without field data.
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or field on the configured grid.
+            Input coordinate signature or DataArray to validate and transform,
+            on the configured grid.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free output signature preserving leading dimensions and
-            unaffected metadata and coordinates.
+            Allocation-free DataArray output signature for the derived
+            variables, preserving leading dimensions and unaffected metadata
+            and coordinates.
         """
         handshake_dataarray(input_coords, self.input_coords())
         output = coord_array_like(

@@ -89,7 +89,14 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free atmospheric signature on the ERA5 grid."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for atmospheric fields
+            on the ERA5 grid.
+        """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
             {"variable": np.array(VARIABLES)},
@@ -98,17 +105,18 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or atmospheric field.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free classification signature preserving metadata and grid.
+            Allocation-free DataArray output signature for classification,
+            preserving metadata and grid.
         """
         handshake_dataarray(input_coords, self.input_coords())
         output = coord_array_like(input_coords, {"variable": np.array(OUT_VARIABLES)})

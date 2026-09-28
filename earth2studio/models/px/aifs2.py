@@ -339,7 +339,14 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare two six-hour frames, including caller invariants when configured."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for two six-hour frames,
+            including caller invariants when configured.
+        """
         # Get prognostic input variables
         input_vars = [self.VARIABLES[i] for i in self.input_ids]
 
@@ -361,7 +368,19 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate the input signature and declare the next six-hour forecast."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next six-hour
+            forecast.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time.values

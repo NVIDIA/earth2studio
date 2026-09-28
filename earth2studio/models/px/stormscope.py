@@ -713,7 +713,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free signature on the model's curvilinear grid."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the model's
+            curvilinear grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "y", "x"),
             {"lead_time": self.input_times, "variable": np.array(self.variables)},
@@ -724,17 +731,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Return an allocation-free signature for the next forecast window.
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or data array, with absolute forecast lead times.
+            Input coordinate signature or DataArray to validate and transform,
+            with absolute forecast lead times.
 
         Returns
         -------
         CoordinateSystem
-            Output signature with the configured output lead-time window.
+            Allocation-free DataArray output signature for the configured
+            output lead-time window.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

@@ -306,8 +306,8 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
@@ -324,13 +324,13 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

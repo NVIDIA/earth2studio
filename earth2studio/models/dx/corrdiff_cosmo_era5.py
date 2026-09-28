@@ -803,8 +803,15 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
     def input_coords(self) -> xr.DataArray:
-        """Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
-        are the native ERA5 footprint (regrid the ERA5 input onto this grid)."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray input signature with a dynamic leading
+            time dimension and the native ERA5 footprint. Regrid ERA5 input
+            onto this grid before execution.
+        """
         return coord_array(
             ("batch", "time", "variable", "lat", "lon"),
             {
@@ -815,7 +822,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
-        """Output coordinate system on the rotated-pole target grid.
+        """Output coordinate system of the diagnostic model.
 
         Samples follow time: ``[..., time, sample, variable, y, x]``. Batch and
         time remain a leading dynamic prefix when planning from input_coords().
@@ -823,6 +830,17 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         The input must be on the native ERA5 grid (:meth:`input_coords`); for a
         sub-region use :meth:`set_domain` (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
+
+        Parameters
+        ----------
+        input_coords : xr.DataArray
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray output signature on the rotated-pole
+            target grid.
         """
         handshake_dataarray(input_coords, self.input_coords())
         handshake_time(input_coords, allow_dynamic=True)

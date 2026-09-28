@@ -160,7 +160,13 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._ort6_session: InferenceSession | None = None
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free Pangu input signature."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for Pangu.
+        """
         return coord_array(
             ("batch", "lead_time", "variable", "lat", "lon"),
             {
@@ -172,7 +178,19 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate the input signature and advance by this variant's time step."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature advanced by this
+            variant's time step.
+        """
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
         handshake_dataarray(

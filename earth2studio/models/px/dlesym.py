@@ -431,12 +431,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of the prognostic model
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "face", "height", "width"),
@@ -457,17 +457,17 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
 
         handshake_time(input_coords, allow_dynamic=True)
@@ -1352,12 +1352,12 @@ class DLESyMLatLon(DLESyM):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of prognostic model
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         coords = super().input_coords()
         coords = self.coords_to_ll(coords)
@@ -1370,17 +1370,17 @@ class DLESyMLatLon(DLESyM):
         return coord_array_like(coords, {"variable": np.array(input_variables)})
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Output coordinate system
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
         return super().output_coords(input_coords)
 

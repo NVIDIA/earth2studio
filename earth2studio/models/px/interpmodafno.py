@@ -240,11 +240,12 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "InterpModAFNO"
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of the prognostic model
+        """Input coordinate system of the prognostic model.
+
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         # Getter / Setters don't work with torch.nn.Module, need to check manually here
         if self.px_model is None:
@@ -268,16 +269,17 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return signature
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of the prognostic model
+        """Output coordinate system of the prognostic model.
+
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
         self.input_coords()
         if self.px_model is None:

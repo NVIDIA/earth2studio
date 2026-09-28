@@ -261,7 +261,14 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     front_hook_interval = 6
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the six-hour AR history on the south-pole-excluded grid."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the six-hour
+            autoregressive history on the south-pole-excluded grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
@@ -273,7 +280,19 @@ class Aurora1p5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Plan the next hourly output, including trailing one-hour diagnostics."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next hourly
+            forecast, including trailing one-hour diagnostics.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time.values

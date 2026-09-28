@@ -622,11 +622,30 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out_data, target_lead_times
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the pole-inclusive one-degree input grid and history."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the history on the
+            pole-inclusive one-degree grid.
+        """
         return _jax_signature(VARIABLES, 6, (181, 360))
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Plan six-hour output including accumulated precipitation."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next six-hour
+            forecast, including accumulated precipitation.
+        """
         return _jax_output_coords(self, input_coords, VARIABLES, 6)
 
     @classmethod

@@ -133,7 +133,14 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free atmospheric signature on the FCN grid."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for atmospheric fields
+            on the FCN grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {"variable": np.array(VARIABLES)},
@@ -142,17 +149,20 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Plan precipitation accumulated over the next six hours.
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or field with datetime time and timedelta lead labels.
+            Input coordinate signature or DataArray to validate and transform,
+            with datetime time and timedelta lead-time labels.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free signature preserving input metadata and grid.
+            Allocation-free DataArray output signature for precipitation
+            accumulated over the next six hours, preserving input metadata
+            and grid.
         """
         handshake_dataarray(input_coords, self.input_coords())
         handshake_dim(input_coords, "time", -5)

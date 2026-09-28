@@ -210,22 +210,14 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("device_buffer", torch.empty(0))
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system expected by Atlas.
-
-        Notes
-        -----
-        - Lead times are fixed to [-6h, 0h].
-        - Variables are defined by the module-level `VARIABLES`.
-        - Spatial grid is 0.25° lat-lon: 721 latitudes, 1440 longitudes.
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free signature with coordinates:
-            - 'lead_time' : np.ndarray[np.timedelta64] of shape (2,)
-            - 'variable' : np.ndarray[str] of shape (n_variables,)
-            - 'lat' : np.ndarray[float] of shape (721,)
-            - 'lon' : np.ndarray[float] of shape (1440,)
+            Allocation-free DataArray input signature with lead times
+            ``[-6h, 0h]`` and the module-level ``VARIABLES`` on the 0.25 degree
+            latitude/longitude grid (721 latitudes, 1440 longitudes).
         """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
@@ -238,22 +230,19 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system produced by a single Atlas step (t+6h).
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Coordinate system associated with the input to the forward pass.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free output signature with coordinates:
-            - 'time' : np.ndarray[np.datetime64] (copied from input if present)
-            - 'lead_time' : np.timedelta64 set to +6h
-            - 'variable' : np.ndarray[str] matching `VARIABLES`
-            - 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
-            - 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
+            Allocation-free DataArray output signature six hours after the
+            final input lead time, preserving input variables, grid, and
+            leading dimensions.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

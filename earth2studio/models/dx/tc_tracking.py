@@ -437,12 +437,12 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         self.path_buffer = torch.empty(0, device=self.get_buffer("path_buffer").device)
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of diagnostic model
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
@@ -452,18 +452,17 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
         handshake_dataarray(input_coords, self.input_coords())
         return self._track_coords(input_coords)
@@ -767,12 +766,12 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         self.path_buffer = torch.empty(0, device=self.get_buffer("path_buffer").device)
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of diagnostic model
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
@@ -782,18 +781,17 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
         handshake_dataarray(input_coords, self.input_coords())
         return self._track_coords(input_coords)

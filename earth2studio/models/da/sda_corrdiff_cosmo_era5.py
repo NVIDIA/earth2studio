@@ -306,7 +306,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         return (OrderedDict((str(d), signature[d].values) for d in signature.dims),)
 
     def input_coords(self) -> tuple[FrameSchema]:
-        """Observation DataFrame schema.
+        """Input coordinate system of the assimilation model.
 
         Returns
         -------
@@ -327,9 +327,10 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
-        """Output coordinate system, matching what :meth:`__call__` returns: dims
-        ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the COSMO-REA
-        analysis grid, given the ERA5 init coords.
+        """Output coordinate system of the assimilation model.
+
+        Matches the dimensions returned by :meth:`__call__` on the COSMO-REA
+        analysis grid, given the ERA5 initialization coordinates.
 
         Parameters
         ----------

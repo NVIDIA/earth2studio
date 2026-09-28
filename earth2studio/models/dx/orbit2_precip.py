@@ -303,12 +303,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.overlap = overlap
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of diagnostic model
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free input coordinate signature
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
@@ -329,18 +329,17 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free output coordinate signature
+            Allocation-free DataArray output signature.
         """
         signature = self.input_coords()
         handshake_dataarray(input_coords, signature)

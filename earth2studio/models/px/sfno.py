@@ -181,7 +181,13 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "sfno_73ch_small"
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free input signature on the checkpoint grid."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the checkpoint grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
@@ -193,7 +199,19 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate input coordinates and advance the final lead by six hours."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature six hours after the
+            final input lead time.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)

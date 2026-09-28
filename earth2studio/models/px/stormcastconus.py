@@ -344,7 +344,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return np.asarray(self.input_coords()["y"])
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free signature on the cropped HRRR projected grid."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the cropped HRRR
+            projected grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "y", "x"),
             {
@@ -356,17 +363,19 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Return an allocation-free signature one hour after the input.
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or data array, with absolute forecast lead times.
+            Input coordinate signature or DataArray to validate and transform,
+            with absolute forecast lead times.
 
         Returns
         -------
         CoordinateSystem
-            Output signature preserving the input grid and leading dimensions.
+            Allocation-free DataArray output signature one hour after the input,
+            preserving the input grid and leading dimensions.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

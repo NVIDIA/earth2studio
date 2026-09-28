@@ -221,11 +221,30 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return jax.random.PRNGKey(np.random.randint(0, 2**31))
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the checkpoint grid and twelve-hour history."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the twelve-hour
+            history on the checkpoint grid.
+        """
         return _jax_signature(INPUT_VARIABLES, 12, self.land_sea_mask.shape)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Plan twelve-hour output and its accumulated precipitation."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next twelve-hour
+            forecast, including accumulated precipitation.
+        """
         return _jax_output_coords(self, input_coords, OUTPUT_VARIABLES, 12)
 
     @classmethod

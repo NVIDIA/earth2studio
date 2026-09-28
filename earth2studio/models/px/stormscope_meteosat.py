@@ -334,7 +334,14 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.output_times = output_times
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system"""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the checkpoint pixel
+            grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "y", "x"),
             {
@@ -346,7 +353,19 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate history and declare the forecast on the checkpoint pixel grid."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature on the checkpoint pixel
+            grid.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)

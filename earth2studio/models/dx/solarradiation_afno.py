@@ -129,7 +129,14 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("sincos_latlon", sincos_latlon)
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free atmospheric signature on the ERA5 grid."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for atmospheric fields
+            on the ERA5 grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {"variable": np.array(VARIABLES)},
@@ -138,17 +145,20 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Plan accumulated solar radiation for the configured frequency.
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or field with datetime time and timedelta lead labels.
+            Input coordinate signature or DataArray to validate and transform,
+            with datetime time and timedelta lead-time labels.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free signature preserving input metadata and grid.
+            Allocation-free DataArray output signature for accumulated solar
+            radiation at the configured frequency, preserving input metadata
+            and grid.
         """
         handshake_dataarray(input_coords, self.input_coords())
         handshake_dim(input_coords, "time", -5)

@@ -727,7 +727,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of the prognostic model."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
         return self._input_coords.copy()
 
     def _check_input_coords(self, input_coords: CoordinateSystem) -> None:
@@ -748,7 +754,18 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of the prognostic model."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature.
+        """
         self._check_input_coords(input_coords)
         return coord_array_like(
             input_coords,

@@ -36,11 +36,30 @@ class Identity(torch.nn.Module):
         return "identity"
 
     def input_coords(self) -> CoordinateSystem:
-        """Return an allocation-free signature accepting arbitrary dimensions."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature accepting arbitrary
+            dimensions.
+        """
         return coord_array(("batch",), dynamic=("batch",))
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Return the input coordinates without allocating field storage."""
+        """Output coordinate system of the diagnostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature preserving the input
+            coordinates.
+        """
         return coord_array_like(input_coords)
 
     @torch.inference_mode()

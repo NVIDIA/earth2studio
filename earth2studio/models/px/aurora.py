@@ -200,7 +200,14 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.preds_idx = 0
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the two-frame history on Aurora's native grid."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the two-frame history
+            on Aurora's native grid.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
@@ -212,7 +219,19 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate history and plan the next six-hour forecast without field data."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next six-hour
+            forecast.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time.values

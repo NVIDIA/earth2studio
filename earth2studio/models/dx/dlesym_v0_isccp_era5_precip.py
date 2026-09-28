@@ -306,12 +306,12 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
             )
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of diagnostic model.
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary with 2 history timesteps and the
+        CoordinateSystem
+            Allocation-free DataArray input signature with two history steps and the
             full coupled-state variable list on the HEALPix grid. When
             ``use_ttr=True``, the radiation channel is advertised as
             ``ttr`` (the wrapper converts to ``rlut`` internally).
@@ -336,17 +336,18 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of diagnostic model.
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
+        CoordinateSystem
+            Allocation-free DataArray output signature at the final input lead
+            time, with the configured precipitation variable.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")

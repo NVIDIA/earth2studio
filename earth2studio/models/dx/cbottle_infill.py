@@ -209,12 +209,12 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         return np.array(varidx)
 
     def input_coords(self) -> xr.DataArray:
-        """Input coordinate system of diagnostic model
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
         xr.DataArray
-            Allocation-free input coordinate signature
+            Allocation-free DataArray input signature.
         """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "lat", "lon"),
@@ -226,18 +226,17 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : xr.DataArray
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         xr.DataArray
-            Allocation-free output coordinate signature
+            Allocation-free DataArray output signature.
         """
         handshake_dataarray(input_coords, self.input_coords())
         handshake_time(input_coords, allow_dynamic=True)

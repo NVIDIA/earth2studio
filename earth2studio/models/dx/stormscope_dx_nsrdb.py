@@ -241,12 +241,12 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system.
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            GOES input coordinates.
+        CoordinateSystem
+            Allocation-free DataArray input signature for GOES observations.
         """
         return coord_array(
             ("batch", "time", "variable", "y", "x"),
@@ -256,17 +256,18 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system.
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Native-grid GOES input coordinates.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform,
+            on the native GOES grid.
 
         Returns
         -------
-        CoordSystem
-            Sampled GHI output coordinates.
+        CoordinateSystem
+            Allocation-free DataArray output signature for sampled GHI.
         """
         handshake_dataarray(input_coords, self.input_coords())
         leading = input_coords.dims[:-3]

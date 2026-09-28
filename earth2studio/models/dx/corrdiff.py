@@ -606,7 +606,14 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the configured input variables and actual geographic grid."""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the configured
+            variables and geographic grid.
+        """
         grid = _geographic_grid(self.lat_input_numpy, self.lon_input_numpy)
         return coord_array(
             ("batch", "variable", *_grid_dims(grid)),
@@ -616,7 +623,19 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate input and plan samples on the configured output grid."""
+        """Output coordinate system of the diagnostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for samples on the
+            configured output grid.
+        """
         handshake_dataarray(input_coords, self.input_coords())
         return _replace_grid(
             input_coords,
@@ -1309,7 +1328,13 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system"""
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
             {"variable": np.array(VARIABLES)},
@@ -1320,18 +1345,17 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of diagnostic model
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free output coordinate signature
+            Allocation-free DataArray output signature.
         """
 
         handshake_dataarray(input_coords, self.input_coords())

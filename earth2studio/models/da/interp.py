@@ -109,14 +109,14 @@ class InterpEquirectangular(torch.nn.Module):
         return None
 
     def input_coords(self) -> tuple[FrameSchema]:
-        """Input coordinate system specifying required DataFrame fields.
+        """Input coordinate system of the assimilation model.
 
         Returns
         -------
-         tuple[FrameSchema]
-            Tuple containing coordinate system dictionary with field names as keys:
-            - variable: array of acceptable variable values
-            - time, lat, lon, observation: empty arrays (dynamic dimensions)
+        tuple[FrameSchema]
+            Single-element tuple with the required observation DataFrame fields.
+            The variable field lists acceptable values; time, lat, lon, and
+            observation fields have dynamic values.
         """
         return (
             FrameSchema(
@@ -136,22 +136,22 @@ class InterpEquirectangular(torch.nn.Module):
         request_time: np.ndarray,
         **kwargs: Any,
     ) -> tuple[CoordSystem]:
-        """Output coordinate system for assimilated data.
+        """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem, ...]
-            Input coordinate system (CoordSystem for DataFrame input)
+        input_coords : tuple[CoordSystem]
+            Input coordinate-system tuple supplying the output variables.
+        request_time : np.ndarray
+            Analysis valid times.
+        **kwargs : Any
+            Additional request metadata; unused by this method.
 
         Returns
         -------
         tuple[CoordSystem]
-            Coordinate system dictionary with time, variable, lat, and lon dimensions
-
-        Raises
-        ------
-        ValueError
-            If input_coords are not valid
+            Single-element tuple with the analysis coordinate-system dictionary,
+            using time, variable, lat, and lon dimensions.
         """
         # Extract variables from first input coord system
         if len(input_coords) > 0 and "variable" in input_coords[0]:

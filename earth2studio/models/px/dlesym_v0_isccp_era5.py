@@ -284,7 +284,13 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
             )
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of the prognostic model."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
         coords = super().input_coords()
         if self.use_ttr:
             variables = list(coords["variable"].values)

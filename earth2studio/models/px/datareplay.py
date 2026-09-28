@@ -97,11 +97,29 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         )
 
     def input_coords(self) -> CoordinateSystem:
-        """Return the allocation-free signature with dynamic batch and time axes."""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature with dynamic batch and
+            time dimensions.
+        """
         return self._input_coords.copy(deep=True)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate the domain and return the signature one source step ahead."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature one source step ahead.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = input_coords.lead_time

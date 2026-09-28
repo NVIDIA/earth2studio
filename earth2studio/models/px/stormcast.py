@@ -212,7 +212,13 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.register_buffer("conditioning_stds", conditioning_stds)
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system"""
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
         return coord_array(
             ("batch", "time", "lead_time", "variable", "y", "x"),
             {
@@ -224,7 +230,19 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate the input and declare the next hourly forecast without allocation."""
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next hourly
+            forecast.
+        """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
         lead = np.asarray(input_coords.lead_time)
