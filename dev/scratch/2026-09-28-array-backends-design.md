@@ -72,6 +72,14 @@ in-place updates, arbitrary NumPy/CuPy kernels and Torch dtypes without NumPy
 representations (such as bfloat16). Arithmetic follows Torch promotion rules.
 This is bounded xarray interoperability, not a general NumPy replacement.
 
+Dispatch tables are shared; NumPy dtype lookup is cached per Torch dtype using
+an explicit CPU scalar on first use. Wrapping never exports the tensor payload.
+Basic slicing, transpose and broadcast use Torch views. Advanced/reversed
+indexing, concatenation and requested contiguous layouts can allocate copies.
+NumPy constants/index arrays used on CUDA require transfers; reuse Torch-backed
+constants when practical. For known NaN-free data, `skipna=False` avoids the
+additional work inherent in NaN-aware reductions.
+
 Backend-specific consumers still require their expected payload. In particular,
 `utils.coords.handshake_device()` currently accepts only NumPy/CuPy and rejects
 the Torch adapter; supporting it requires a separate coordinate-utility change.

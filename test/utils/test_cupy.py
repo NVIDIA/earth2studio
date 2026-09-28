@@ -248,6 +248,16 @@ def test_torch_nonleaf_round_trip_and_export_warnings():
         np.testing.assert_array_equal(result.data, tensor.detach().numpy())
 
 
+def test_torch_wrapping_ignores_default_device():
+    tensor = torch.arange(6.0, requires_grad=True)
+    cupy_utils._numpy_dtype.cache_clear()
+    with torch.device("meta"):
+        array = from_torch(tensor, {"x": np.arange(6)}, backend="torch")
+        result = (array + 2).e2s.to_torch()[0]
+    assert array.e2s.to_torch()[0] is tensor
+    assert_values_and_gradients(result, tensor + 2, tensor)
+
+
 def test_backend_tracking_metadata_and_devices(monkeypatch):
     tensor = torch.ones(3)
     signature = xr.DataArray(

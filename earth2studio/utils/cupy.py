@@ -23,7 +23,7 @@ from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from functools import reduce
+from functools import cache, reduce
 from importlib import import_module
 from operator import mul
 from typing import Any, Literal, cast
@@ -96,10 +96,58 @@ def _resolve_backend(value: ArrayBackend | None) -> ArrayBackend:
 
 
 class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
+    _parameters = {
+        np.zeros_like: (),
+        np.sum: ("axis", "dtype", "out", "keepdims"),
+        np.mean: ("axis", "dtype", "out", "keepdims"),
+        np.nansum: ("axis", "dtype", "out", "keepdims"),
+        np.nanmean: ("axis", "dtype", "out", "keepdims"),
+        np.concatenate: ("axis",),
+        np.stack: ("axis",),
+        np.where: ("x", "y"),
+        np.broadcast_to: ("shape",),
+        np.reshape: ("shape", "order"),
+        np.transpose: ("axes",),
+        np.moveaxis: ("source", "destination"),
+    }
+    _reductions: dict[Any, Callable[..., torch.Tensor]] = {
+        np.sum: torch.sum,
+        np.mean: torch.mean,
+        np.nansum: torch.nansum,
+        np.nanmean: torch.nanmean,
+    }
+    _operations: dict[Any, Callable[..., torch.Tensor]] = {
+        np.add: torch.add,
+        np.subtract: torch.sub,
+        np.multiply: torch.mul,
+        np.true_divide: torch.true_divide,
+        np.floor_divide: torch.floor_divide,
+        np.power: torch.pow,
+        np.remainder: torch.remainder,
+        np.negative: torch.neg,
+        np.positive: torch.positive,
+        np.absolute: torch.abs,
+        np.square: torch.square,
+        np.sqrt: torch.sqrt,
+        np.exp: torch.exp,
+        np.log: torch.log,
+        np.equal: lambda a, b: a == b,
+        np.not_equal: lambda a, b: a != b,
+        np.less: lambda a, b: a < b,
+        np.less_equal: lambda a, b: a <= b,
+        np.greater: lambda a, b: a > b,
+        np.greater_equal: lambda a, b: a >= b,
+        np.isnan: torch.isnan,
+        np.isfinite: torch.isfinite,
+        np.logical_not: torch.logical_not,
+        np.logical_and: torch.logical_and,
+        np.logical_or: torch.logical_or,
+        np.invert: torch.bitwise_not,
+    }
+
     def __init__(self, tensor: torch.Tensor) -> None:
         self.tensor = tensor
-        # Validate dtype without exporting the payload or severing its graph.
-        self.dtype = np.dtype(torch.empty((), dtype=tensor.dtype).numpy().dtype)
+        self.dtype = _numpy_dtype(tensor.dtype)
 
     @property
     def shape(self) -> tuple[int, ...]:
@@ -139,27 +187,13 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
                     for value in args
                 )
             )
-        parameters = {
-            np.zeros_like: (),
-            np.sum: ("axis", "dtype", "out", "keepdims"),
-            np.mean: ("axis", "dtype", "out", "keepdims"),
-            np.nansum: ("axis", "dtype", "out", "keepdims"),
-            np.nanmean: ("axis", "dtype", "out", "keepdims"),
-            np.concatenate: ("axis",),
-            np.stack: ("axis",),
-            np.where: ("x", "y"),
-            np.broadcast_to: ("shape",),
-            np.reshape: ("shape", "order"),
-            np.transpose: ("axes",),
-            np.moveaxis: ("source", "destination"),
-        }
         options = dict(kwargs)
         if func is np.reshape and "newshape" in options:
             options["shape"] = options.pop("newshape")
-        names = parameters.get(func, ())
+        names = self._parameters.get(func, ())
         positional = dict(zip(names, args[1:]))
         if (
-            func not in parameters
+            func not in self._parameters
             or len(args) > len(names) + 1
             or options.keys() - set(names)
             or options.keys() & positional.keys()
@@ -170,7 +204,7 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
         options.update(positional)
         if func is np.zeros_like:
             return _TorchArray(torch.zeros_like(self._coerce(args[0])))
-        if func in (np.sum, np.mean, np.nansum, np.nanmean):
+        if func in self._reductions:
             axis = options.get("axis")
             dtype = options.get("dtype")
             keepdims = options.get("keepdims", False)
@@ -186,17 +220,11 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
                 and not (value.is_floating_point() or value.is_complex())
             ):
                 dtype = torch.float64
-            reductions: dict[Any, Callable[..., torch.Tensor]] = {
-                np.sum: torch.sum,
-                np.mean: torch.mean,
-                np.nansum: torch.nansum,
-                np.nanmean: torch.nanmean,
-            }
             # Reduce singleton axes to retain NumPy's NaN and dtype semantics.
             if axis == ():
                 value, axis, keepdims = value.unsqueeze(-1), -1, False
             return _TorchArray(
-                reductions[func](value, dim=axis, keepdim=keepdims, dtype=dtype)
+                self._reductions[func](value, dim=axis, keepdim=keepdims, dtype=dtype)
             )
         if func in (np.concatenate, np.stack):
             axis = options.get("axis", 0)
@@ -239,35 +267,7 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
     def __array_ufunc__(
         self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any
     ) -> Any:
-        operations: dict[Any, Callable[..., torch.Tensor]] = {
-            np.add: torch.add,
-            np.subtract: torch.sub,
-            np.multiply: torch.mul,
-            np.true_divide: torch.true_divide,
-            np.floor_divide: torch.floor_divide,
-            np.power: torch.pow,
-            np.remainder: torch.remainder,
-            np.negative: torch.neg,
-            np.positive: torch.positive,
-            np.absolute: torch.abs,
-            np.square: torch.square,
-            np.sqrt: torch.sqrt,
-            np.exp: torch.exp,
-            np.log: torch.log,
-            np.equal: lambda a, b: a == b,
-            np.not_equal: lambda a, b: a != b,
-            np.less: lambda a, b: a < b,
-            np.less_equal: lambda a, b: a <= b,
-            np.greater: lambda a, b: a > b,
-            np.greater_equal: lambda a, b: a >= b,
-            np.isnan: torch.isnan,
-            np.isfinite: torch.isfinite,
-            np.logical_not: torch.logical_not,
-            np.logical_and: torch.logical_and,
-            np.logical_or: torch.logical_or,
-            np.invert: torch.bitwise_not,
-        }
-        if method != "__call__" or kwargs or ufunc not in operations:
+        if method != "__call__" or kwargs or ufunc not in self._operations:
             raise NotImplementedError(
                 f"Torch backend does not support {ufunc.__name__}.{method} with {tuple(kwargs)}"
             )
@@ -276,7 +276,7 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
         values = [
             value if np.isscalar(value) else self._coerce(value) for value in inputs
         ]
-        return _TorchArray(operations[ufunc](*values))
+        return _TorchArray(self._operations[ufunc](*values))
 
     def _coerce(self, value: Any) -> torch.Tensor:
         if isinstance(value, _TorchArray):
@@ -337,6 +337,12 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
         result = _TorchArray(self.tensor.clone())
         memo[id(self)] = result
         return result
+
+
+@cache
+def _numpy_dtype(dtype: torch.dtype) -> np.dtype:
+    # Resolve once per dtype, independently of Torch's default device.
+    return torch.empty((), dtype=dtype, device="cpu").numpy().dtype
 
 
 def _torch_dtype(dtype: Any) -> torch.dtype:

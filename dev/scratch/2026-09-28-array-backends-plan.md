@@ -27,6 +27,8 @@ per-call policy; private Torch duck array; shared conversion/batching helpers.
 - [x] Consolidate dispatch argument validation and parameterized operation tests;
   share value/gradient assertions. Retain positional-option rejection coverage.
 - [x] Shorten the design and replace stale plan status with verified results.
+- [x] Performance review: share dispatch tables and cache dtype lookup; reproduce
+  and fix wrapping failure under a non-CPU default device.
 
 Production file: `earth2studio/utils/cupy.py`. Tests: `test/utils/test_cupy.py`.
 Publication targets upstream with base `ngeneva/projected-grid-followup` (#1181),
@@ -47,9 +49,32 @@ Run from the worktree using its virtualenv:
 git diff --check
 ```
 
-Review results: **170 passed**, including CUDA; **96% statement coverage** of
-`cupy.py` (339/354 statements). Full-repository `make format` and `make lint`
+Performance-review results: **171 passed**, including CUDA. Prior publication
+coverage was **96%** of `cupy.py` (339/354 statements); coverage was not rerun for
+the performance changes. Full-repository `make format` and `make lint`
 passed using `UV_NO_SYNC=1` with the provisioned virtualenv; focused Black,
 Ruff, mypy and interrogate checks also passed.
 Existing pytest configuration, NumPy timedelta and Torch indexing warnings
 remain. Full repository/model test suites and older dependency versions were not run.
+
+## Performance review
+
+Local `torch.utils.benchmark.Timer.blocked_autorange(min_run_time=0.25)` medians,
+one CPU thread, float32 tensors with gradients enabled; Torch 2.14.0, H100 PCIe.
+CUDA timings include synchronization through the benchmark timer.
+
+| Operation | Before | After |
+| --- | ---: | ---: |
+| Wrap existing tensor, CPU, 16 × 16 | 2.74 µs | 0.29 µs |
+| Adapter scalar addition, CPU, 16 × 16 | 16.95 µs | 7.25 µs |
+| Adapter sum over axis 1, CPU, 16 × 16 | 12.54 µs | 6.26 µs |
+| Adapter scalar addition, CUDA, 1024 × 1024 | 31.60 µs | 14.61 µs |
+| Adapter sum over axis 1, CUDA, 1024 × 1024 | 28.44 µs | 14.60 µs |
+
+These are local microbenchmarks, not model speedup claims. Full xarray round trips
+still cost roughly 0.36 ms, mostly metadata handling. CPU profiling of a warmed
+CUDA transpose/slice/multiply/sum chain showed view operations plus one multiply
+and one reduction, without tensor-copy operations; storage identity confirmed
+view sharing. Native NaN-aware reductions and advanced indexing retain their
+normal Torch allocation costs. Numerical kernels and reduction semantics remain
+unchanged; no custom kernels or additional operation framework were introduced.
