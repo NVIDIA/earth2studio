@@ -230,15 +230,31 @@ consume its input before the 0th yield or emit partial steps.
 
 ## Hooks
 
-**Hooks belong to the iterator (`P10`).** Every core advance applies `front_hook`
-immediately before advancing; every forecast output applies `rear_hook` before it is
-yielded. `__call__` applies neither. Native models declare `front_hook_interval`, the
-positive number of forecast outputs per core advance (default 1). Multi-output cores
-preserve their numerical cadence: DLWP declares 2 because one twelve-hour core call
-produces two six-hour forecasts. Its hook order is front, rear, rear, then repeats;
-the second output is already computed and does not invoke another front hook.
-Conformance checks two complete declared cycles without model-name exceptions.
-`PrognosticMixin` hooks transform a single `xr.DataArray`.
+**Hooks belong to the iterator (`P10`).** `__call__` applies neither hook, and
+the iterator's initial-condition yield does not run either hook.
+
+- `front_hook` transforms the input state immediately before the model computes
+  new forecasts.
+- `rear_hook` transforms each forecast before the iterator yields it.
+
+One model computation may produce several forecasts that the iterator yields
+separately. `front_hook_interval` is the positive number of forecast yields per
+front-hook call. The default is 1: front hook → compute → rear hook → yield.
+
+DLWP sets `front_hook_interval = 2`: one core call computes both the +6-hour and
++12-hour forecasts. Its sequence is:
+
+1. Run the front hook, then compute both forecasts.
+2. Run the rear hook on the +6-hour forecast and yield it.
+3. Run the rear hook on the already-computed +12-hour forecast and yield it.
+4. Repeat from the updated state for the next pair of forecasts.
+
+There is no second front-hook call between those two yields because no new
+forecast computation occurs there. The conformance test checks this ordering
+over `2 * front_hook_interval` forecast yields, using the declared interval
+rather than special-casing model names.
+
+`PrognosticMixin` hooks each accept and return a single `xr.DataArray`.
 The front hook reaches recurrent state otherwise inaccessible between
 steps; see `examples/02_medium_range/02_model_perturbation_hook.py`.
 
