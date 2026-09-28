@@ -16,13 +16,17 @@
 
 from __future__ import annotations
 
+import os
+import warnings
 from collections import OrderedDict
-from collections.abc import Hashable, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import reduce
 from importlib import import_module
 from operator import mul
-from typing import Any
+from typing import Any, Literal, cast
 
 import numpy as np
 import torch
@@ -31,6 +35,363 @@ import xarray as xr
 from earth2studio.utils.type import CoordSystem
 
 _BATCH_METADATA_KEY = "_earth2studio_batch"
+ArrayBackend = Literal["auto", "numpy", "cupy", "torch"]
+
+
+def _validate_backend(value: str) -> ArrayBackend:
+    if value not in ("auto", "numpy", "cupy", "torch"):
+        raise ValueError(
+            f"Invalid array backend {value!r}; expected auto, numpy, cupy, or torch"
+        )
+    return cast(ArrayBackend, value)
+
+
+def _backend_from_environment() -> ArrayBackend:
+    return _validate_backend(os.getenv("EARTH2STUDIO_ARRAY_BACKEND", "auto"))
+
+
+_DEFAULT_BACKEND = _backend_from_environment()
+_BACKEND_OVERRIDE: ContextVar[ArrayBackend | None] = ContextVar(
+    "earth2studio_array_backend", default=None
+)
+
+
+@contextmanager
+def backend(value: ArrayBackend) -> Iterator[None]:
+    """Temporarily select the backend used by :func:`from_torch`.
+
+    Explicit conversion arguments override this context-local scope, which overrides
+    ``EARTH2STUDIO_ARRAY_BACKEND`` (read at import, default ``auto``). Existing arrays
+    retain their backend. Nested scopes restore the previous policy on exit.
+
+    Parameters
+    ----------
+    value : ArrayBackend
+        ``auto``, ``numpy``, ``cupy``, or ``torch``. Auto uses NumPy on CPU and CuPy
+        on CUDA. Torch preserves autograd history.
+
+    Yields
+    ------
+    None
+        The backend override is active within the context.
+
+    Raises
+    ------
+    ValueError
+        If the backend name is invalid.
+    """
+    token = _BACKEND_OVERRIDE.set(_validate_backend(value))
+    try:
+        yield
+    finally:
+        _BACKEND_OVERRIDE.reset(token)
+
+
+def _resolve_backend(value: ArrayBackend | None) -> ArrayBackend:
+    return (
+        _validate_backend(value)
+        if value is not None
+        else (_BACKEND_OVERRIDE.get() or _DEFAULT_BACKEND)
+    )
+
+
+class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
+    def __init__(self, tensor: torch.Tensor) -> None:
+        self.tensor = tensor
+        # Validate dtype without exporting the payload or severing its graph.
+        self.dtype = np.dtype(torch.empty((), dtype=tensor.dtype).numpy().dtype)
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return tuple(self.tensor.shape)
+
+    @property
+    def ndim(self) -> int:
+        return self.tensor.ndim
+
+    @property
+    def size(self) -> int:
+        return self.tensor.numel()
+
+    @property
+    def real(self) -> _TorchArray:
+        return _TorchArray(self.tensor.real)
+
+    @property
+    def imag(self) -> _TorchArray:
+        return _TorchArray(
+            self.tensor.imag
+            if self.tensor.is_complex()
+            else torch.zeros_like(self.tensor)
+        )
+
+    def __array__(self, dtype: Any = None, copy: bool | None = None) -> np.ndarray:
+        raise TypeError(
+            "Implicit NumPy conversion of Torch-backed data is unsupported; "
+            "use .e2s.as_numpy() to export explicitly"
+        )
+
+    def __array_function__(self, func: Any, types: Any, args: Any, kwargs: Any) -> Any:
+        if func is np.result_type:
+            return np.result_type(
+                *(
+                    value.dtype if isinstance(value, _TorchArray) else value
+                    for value in args
+                )
+            )
+        parameters = {
+            np.zeros_like: (),
+            np.sum: ("axis", "dtype", "out", "keepdims"),
+            np.mean: ("axis", "dtype", "out", "keepdims"),
+            np.nansum: ("axis", "dtype", "out", "keepdims"),
+            np.nanmean: ("axis", "dtype", "out", "keepdims"),
+            np.concatenate: ("axis",),
+            np.stack: ("axis",),
+            np.where: ("x", "y"),
+            np.broadcast_to: ("shape",),
+            np.reshape: ("shape", "order"),
+            np.transpose: ("axes",),
+            np.moveaxis: ("source", "destination"),
+        }
+        options = dict(kwargs)
+        if func is np.reshape and "newshape" in options:
+            options["shape"] = options.pop("newshape")
+        names = parameters.get(func, ())
+        positional = dict(zip(names, args[1:]))
+        if (
+            func not in parameters
+            or len(args) > len(names) + 1
+            or options.keys() - set(names)
+            or options.keys() & positional.keys()
+        ):
+            raise NotImplementedError(
+                f"Torch backend does not support {func.__name__} with these arguments"
+            )
+        options.update(positional)
+        if func is np.zeros_like:
+            return _TorchArray(torch.zeros_like(self._coerce(args[0])))
+        if func in (np.sum, np.mean, np.nansum, np.nanmean):
+            axis = options.get("axis")
+            dtype = options.get("dtype")
+            keepdims = options.get("keepdims", False)
+            if options.get("out") is not None:
+                raise NotImplementedError(
+                    "Torch backend does not support reduction out"
+                )
+            value = self._coerce(args[0])
+            dtype = _torch_dtype(dtype) if dtype is not None else None
+            if (
+                dtype is None
+                and func in (np.mean, np.nanmean)
+                and not (value.is_floating_point() or value.is_complex())
+            ):
+                dtype = torch.float64
+            reductions: dict[Any, Callable[..., torch.Tensor]] = {
+                np.sum: torch.sum,
+                np.mean: torch.mean,
+                np.nansum: torch.nansum,
+                np.nanmean: torch.nanmean,
+            }
+            # Reduce singleton axes to retain NumPy's NaN and dtype semantics.
+            if axis == ():
+                value, axis, keepdims = value.unsqueeze(-1), -1, False
+            return _TorchArray(
+                reductions[func](value, dim=axis, keepdim=keepdims, dtype=dtype)
+            )
+        if func in (np.concatenate, np.stack):
+            axis = options.get("axis", 0)
+            values = [self._coerce(value) for value in args[0]]
+            if func is np.concatenate and axis is None:
+                values = [value.reshape(-1) for value in values]
+                axis = 0
+            return _TorchArray(
+                (torch.cat if func is np.concatenate else torch.stack)(values, dim=axis)
+            )
+        if func is np.where:
+            if len(args) != 3 or kwargs:
+                raise NotImplementedError(
+                    "Torch backend supports only three-argument where"
+                )
+            return _TorchArray(
+                torch.where(
+                    self._coerce(args[0]), self._coerce(args[1]), self._coerce(args[2])
+                )
+            )
+        if func is np.broadcast_to:
+            return _TorchArray(
+                torch.broadcast_to(self._coerce(args[0]), options["shape"])
+            )
+        if func is np.reshape:
+            if options.get("order", "C") != "C":
+                raise NotImplementedError("Torch backend supports only C-order reshape")
+            return _TorchArray(self._coerce(args[0]).reshape(options["shape"]))
+        if func is np.transpose:
+            return args[0].transpose(options.get("axes"))
+        if func is np.moveaxis:
+            source, destination = options["source"], options["destination"]
+            if not isinstance(source, int):
+                source = tuple(source)
+                destination = tuple(destination)
+            return _TorchArray(
+                torch.movedim(self._coerce(args[0]), source, destination)
+            )
+
+    def __array_ufunc__(
+        self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any
+    ) -> Any:
+        operations: dict[Any, Callable[..., torch.Tensor]] = {
+            np.add: torch.add,
+            np.subtract: torch.sub,
+            np.multiply: torch.mul,
+            np.true_divide: torch.true_divide,
+            np.floor_divide: torch.floor_divide,
+            np.power: torch.pow,
+            np.remainder: torch.remainder,
+            np.negative: torch.neg,
+            np.positive: torch.positive,
+            np.absolute: torch.abs,
+            np.square: torch.square,
+            np.sqrt: torch.sqrt,
+            np.exp: torch.exp,
+            np.log: torch.log,
+            np.equal: lambda a, b: a == b,
+            np.not_equal: lambda a, b: a != b,
+            np.less: lambda a, b: a < b,
+            np.less_equal: lambda a, b: a <= b,
+            np.greater: lambda a, b: a > b,
+            np.greater_equal: lambda a, b: a >= b,
+            np.isnan: torch.isnan,
+            np.isfinite: torch.isfinite,
+            np.logical_not: torch.logical_not,
+            np.logical_and: torch.logical_and,
+            np.logical_or: torch.logical_or,
+            np.invert: torch.bitwise_not,
+        }
+        if method != "__call__" or kwargs or ufunc not in operations:
+            raise NotImplementedError(
+                f"Torch backend does not support {ufunc.__name__}.{method} with {tuple(kwargs)}"
+            )
+        # Python scalars retain Torch's weak scalar promotion; array constants
+        # retain their dtype and are transferred to the payload's device.
+        values = [
+            value if np.isscalar(value) else self._coerce(value) for value in inputs
+        ]
+        return _TorchArray(operations[ufunc](*values))
+
+    def _coerce(self, value: Any) -> torch.Tensor:
+        if isinstance(value, _TorchArray):
+            return value.tensor
+        if isinstance(value, torch.Tensor):
+            return value
+        if isinstance(value, np.ndarray):
+            value = (
+                value.copy()
+                if not value.flags.writeable or any(s < 0 for s in value.strides)
+                else value
+            )
+        return torch.as_tensor(value, device=self.tensor.device)
+
+    def __getitem__(self, key: Any) -> _TorchArray:
+        keys = list(key if isinstance(key, tuple) else (key,))
+        if any(item is Ellipsis for item in keys):
+            position = next(i for i, item in enumerate(keys) if item is Ellipsis)
+            count = self.ndim - sum(
+                item is not None and item is not Ellipsis for item in keys
+            )
+            keys[position : position + 1] = [slice(None)] * count
+        value = self.tensor
+        axis = 0
+        for index, item in enumerate(keys):
+            if item is None:
+                continue
+            if isinstance(item, slice) and item.step is not None and item.step < 0:
+                indices = torch.arange(
+                    *item.indices(value.shape[axis]), device=value.device
+                )
+                value = torch.index_select(value, axis, indices)
+                keys[index] = slice(None)
+            elif isinstance(item, np.ndarray):
+                keys[index] = self._coerce(item)
+            axis += 1
+        return _TorchArray(value[tuple(keys)])
+
+    def transpose(self, axes: Sequence[int] | None = None) -> _TorchArray:
+        return _TorchArray(
+            self.tensor.permute(
+                tuple(reversed(range(self.ndim))) if axes is None else tuple(axes)
+            )
+        )
+
+    def reshape(self, shape: tuple[int, ...]) -> _TorchArray:
+        return _TorchArray(self.tensor.reshape(shape))
+
+    def astype(self, dtype: Any, **kwargs: Any) -> _TorchArray:
+        copy = kwargs.pop("copy", True)
+        if kwargs:
+            raise NotImplementedError(
+                f"Torch backend does not support astype options {tuple(kwargs)}"
+            )
+        return _TorchArray(self.tensor.to(dtype=_torch_dtype(dtype), copy=copy))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> _TorchArray:
+        result = _TorchArray(self.tensor.clone())
+        memo[id(self)] = result
+        return result
+
+
+def _torch_dtype(dtype: Any) -> torch.dtype:
+    return torch.from_numpy(np.empty((), dtype=dtype)).dtype
+
+
+def _with_grad(tensor: torch.Tensor, requires_grad: bool) -> torch.Tensor:
+    if requires_grad and not tensor.requires_grad:
+        if not (tensor.is_floating_point() or tensor.is_complex()):
+            raise ValueError("Gradient tracking requires a floating or complex dtype")
+        return tensor.detach().requires_grad_(True)
+    return tensor
+
+
+def _tensor_data(
+    tensor: torch.Tensor,
+    policy: ArrayBackend,
+    device: str | torch.device | int | None = None,
+) -> Any:
+    if tensor.device.type not in ("cpu", "cuda"):
+        raise TypeError(f"Unsupported Torch device type '{tensor.device.type}'")
+    if policy == "auto":
+        policy = "numpy" if tensor.device.type == "cpu" else "cupy"
+    target = (
+        torch.device("cuda", device)
+        if isinstance(device, int)
+        else torch.device(device) if device is not None else None
+    )
+    if target is not None and target.type not in ("cpu", "cuda"):
+        raise TypeError(f"Unsupported Torch device type '{target.type}'")
+    if policy == "torch":
+        return _TorchArray(tensor if target is None else tensor.to(target))
+    if policy == "numpy" and target is not None and target.type != "cpu":
+        raise ValueError("NumPy backend requires a CPU device")
+    if policy == "cupy":
+        cp = _get_cupy()
+        if target is not None and target.type != "cuda":
+            raise ValueError("CuPy backend requires a CUDA device")
+        if target is None:
+            target = (
+                tensor.device
+                if tensor.is_cuda
+                else torch.device("cuda", cp.cuda.Device().id)
+            )
+    if tensor.requires_grad:
+        warnings.warn(
+            f"Converting gradient-tracked data to the {policy} backend drops "
+            "autograd history; use the torch backend to preserve gradients.",
+            UserWarning,
+            stacklevel=3,
+        )
+    detached = tensor.detach()
+    if policy == "numpy":
+        return detached.cpu().resolve_conj().resolve_neg().numpy()
+    return cp.from_dlpack(detached.to(target).resolve_conj().resolve_neg())
 
 
 @dataclass(frozen=True)
@@ -85,8 +446,19 @@ def _shares_memory(first: Any, second: Any) -> bool:
 
 
 def _reshape(data: Any, shape: tuple[int, ...], contiguous: bool) -> Any:
+    if isinstance(data, _TorchArray):
+        if contiguous:
+            return _TorchArray(data.tensor.contiguous().reshape(shape))
+        try:
+            return _TorchArray(data.tensor.view(shape))
+        except RuntimeError as error:
+            raise ValueError(
+                "Batching these dimensions requires a copy; set contiguous=True"
+            ) from error
     if not isinstance(data, np.ndarray) and not _is_cupy_array(data):
-        raise TypeError("Batching supports only NumPy- or CuPy-backed DataArrays")
+        raise TypeError(
+            "Batching supports only NumPy- or CuPy-backed DataArrays or the Torch backend"
+        )
 
     source = data
     if contiguous and not _is_contiguous(source):
@@ -119,11 +491,16 @@ def from_torch(
     name: Hashable | None = None,
     attrs: Mapping[Any, Any] | None = None,
     requires_grad: bool = False,
+    *,
+    backend: ArrayBackend | None = None,
 ) -> xr.DataArray:
     """Wrap a Torch tensor and coordinate system in an xarray DataArray.
 
-    CPU tensors share memory with a NumPy-backed DataArray. CUDA tensors share memory
-    with a CuPy-backed DataArray through DLPack.
+    By default, CPU tensors share memory with NumPy and CUDA tensors share memory
+    with CuPy through DLPack. Select the Torch backend to retain the original tensor
+    and its autograd history. NumPy/CuPy exports warn and detach tracked tensors.
+    Explicit backend arguments override :func:`backend` scopes, which override
+    ``EARTH2STUDIO_ARRAY_BACKEND`` (read at import, default ``auto``).
 
     Parameters
     ----------
@@ -137,28 +514,38 @@ def from_torch(
     attrs : Mapping[Any, Any] | None, optional
         DataArray attributes, by default None
     requires_grad : bool, optional
-        Request autograd-enabled conversion, by default False
+        Enable tracking if needed for floating/complex tensors, by default False
+        False preserves existing tracking. A non-Torch output still warns and
+        detaches when tracking is enabled.
+    backend : ArrayBackend | None, optional
+        Output policy (auto, numpy, cupy, torch), using the configured default
+        when None, by default None
+        NumPy transfers data to CPU; CuPy transfers CPU inputs to the current
+        CUDA device. Torch retains the input device.
 
     Returns
     -------
     xr.DataArray
-        DataArray sharing memory with the input tensor.
+        DataArray sharing memory where the selected backend permits. Torch-backed
+        arrays support selection, transpose, broadcasting, concatenation, copies,
+        arithmetic, sum/mean, and batching. Unsupported operations raise rather
+        than silently exporting to NumPy. Use ``.e2s.as_numpy()`` for explicit export.
 
     Raises
     ------
     ValueError
-        If coordinate dimensions do not match the tensor shape.
+        If coordinates, backend policy, or requested gradient dtype are invalid.
     TypeError
         If the tensor is not on a CPU or CUDA device.
     ImportError
-        If a CUDA tensor is provided without CuPy installed.
-    NotImplementedError
-        If ``requires_grad`` is True.
+        If the selected output requires CuPy and it is not installed.
+
+    Warns
+    -----
+    UserWarning
+        If a non-Torch backend drops autograd history.
     """
-    if requires_grad:
-        raise NotImplementedError(
-            "Torch conversion with requires_grad=True is not implemented"
-        )
+    policy = _resolve_backend(backend)
 
     if isinstance(coords, xr.DataArray):
         if tuple(tensor.shape) != coords.shape:
@@ -191,13 +578,7 @@ def from_torch(
     if len(dimensions) != tensor.ndim:
         raise ValueError("Coordinate dimensions do not match the tensor rank")
 
-    detached = tensor.detach()
-    if detached.device.type == "cpu":
-        data = detached.numpy()
-    elif detached.device.type == "cuda":
-        data = _get_cupy().from_dlpack(detached)
-    else:
-        raise TypeError(f"Unsupported Torch device type '{detached.device.type}'")
+    data = _tensor_data(_with_grad(tensor, requires_grad), policy)
 
     return xr.DataArray(
         data=data,
@@ -208,7 +589,7 @@ def from_torch(
     )
 
 
-@xr.register_dataarray_accessor("e2s")
+@xr.register_dataarray_accessor("e2s")  # type: ignore[no-untyped-call]
 class Earth2StudioAccessor:
     """Earth2Studio conversions and batching for xarray DataArrays."""
 
@@ -223,6 +604,8 @@ class Earth2StudioAccessor:
     def as_cupy(self, device: int | None = None) -> xr.DataArray:
         """Return a CuPy-backed DataArray.
 
+        Torch-backed inputs warn and detach if gradient tracking is enabled.
+
         Parameters
         ----------
         device : int | None, optional
@@ -233,6 +616,8 @@ class Earth2StudioAccessor:
         xr.DataArray
             DataArray with GPU-resident CuPy data.
         """
+        if isinstance(self._array.data, _TorchArray):
+            return self.to_backend("cupy", device=device)
         cp = _get_cupy()
         if device is None:
             data = cp.asarray(self._array.data)
@@ -244,11 +629,15 @@ class Earth2StudioAccessor:
     def as_numpy(self) -> xr.DataArray:
         """Return a NumPy-backed DataArray.
 
+        Torch-backed inputs warn and detach if gradient tracking is enabled.
+
         Returns
         -------
         xr.DataArray
             DataArray with host-resident NumPy data.
         """
+        if isinstance(self._array.data, _TorchArray):
+            return self.to_backend("numpy")
         if self.is_cupy:
             return _replace_data(self._array, self._array.data.get())
         if isinstance(self._array.data, np.ndarray):
@@ -258,10 +647,15 @@ class Earth2StudioAccessor:
     def to_torch(self, requires_grad: bool = False) -> tuple[torch.Tensor, CoordSystem]:
         """Convert to the legacy Torch tensor and coordinate representation.
 
+        Dispatch uses the actual payload, independently of backend configuration.
+        Torch-backed arrays return their original tensor and autograd history.
+
         Parameters
         ----------
         requires_grad : bool, optional
-            Request autograd-enabled conversion, by default False
+            Enable tracking for floating/complex data if needed, by default False
+            False preserves existing tracking. NumPy/CuPy inputs start new leaves;
+            this cannot recover history dropped by an earlier export.
 
         Returns
         -------
@@ -271,25 +665,57 @@ class Earth2StudioAccessor:
         Raises
         ------
         TypeError
-            If the DataArray is not backed by NumPy or CuPy.
-        NotImplementedError
-            If ``requires_grad`` is True.
+            If the DataArray is not backed by NumPy, CuPy, or Torch.
+        ValueError
+            If gradient tracking is requested for a non-floating/non-complex dtype.
         """
-        if requires_grad:
-            raise NotImplementedError(
-                "Torch conversion with requires_grad=True is not implemented"
-            )
-
         data = self._array.data
-        if isinstance(data, np.ndarray):
+        if isinstance(data, _TorchArray):
+            tensor = data.tensor
+        elif isinstance(data, np.ndarray):
             tensor = torch.from_numpy(data)
         elif self.is_cupy:
             tensor = torch.from_dlpack(data)
         else:
             raise TypeError(
-                "Torch conversion supports only NumPy- or CuPy-backed DataArrays"
+                "Torch conversion supports only NumPy- or CuPy-backed DataArrays "
+                "or the Torch backend"
             )
-        return tensor, _coord_system(self._array)
+        return _with_grad(tensor, requires_grad), _coord_system(self._array)
+
+    def to_backend(
+        self, backend: ArrayBackend, *, device: str | torch.device | int | None = None
+    ) -> xr.DataArray:
+        """Convert the numerical payload while retaining coordinates and metadata.
+
+        Parameters
+        ----------
+        backend : ArrayBackend
+            Explicit output backend: auto, numpy, cupy, or torch. Auto chooses
+            NumPy for CPU sources and CuPy for CUDA sources.
+        device : str | torch.device | int | None, optional
+            Output device, preserving the source device when possible, by default None
+            Integer values are CUDA device indices. NumPy requires CPU; CuPy
+            requires CUDA. Torch supports both.
+
+        Returns
+        -------
+        xr.DataArray
+            Converted array. Torch transfers preserve autograd. Exports to other
+            backends warn and detach when the source requires gradients.
+
+        Raises
+        ------
+        ValueError
+            If the backend or requested device is incompatible.
+        TypeError
+            If the input backend or device type is unsupported.
+        ImportError
+            If CuPy is needed but unavailable.
+        """
+        policy = _validate_backend(backend)
+        tensor, _ = self.to_torch()
+        return _replace_data(self._array, _tensor_data(tensor, policy, device))
 
     def batch(
         self,
@@ -321,7 +747,7 @@ class Earth2StudioAccessor:
         NotImplementedError
             If a coordinate spans batched and unbatched dimensions.
         TypeError
-            If the DataArray is not backed by NumPy or CuPy.
+            If the DataArray is not backed by NumPy, CuPy, or Torch.
         """
         batch_dims = tuple(dims)
         if _BATCH_METADATA_KEY in self._array.attrs or batch_dim in self._array.dims:
@@ -405,7 +831,7 @@ class Earth2StudioAccessor:
         ValueError
             If batch metadata is missing or incompatible with the DataArray.
         TypeError
-            If the DataArray is not backed by NumPy or CuPy.
+            If the DataArray is not backed by NumPy, CuPy, or Torch.
         """
         metadata = self._array.attrs.get(_BATCH_METADATA_KEY)
         if not isinstance(metadata, _BatchMetadata):
