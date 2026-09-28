@@ -16,10 +16,10 @@
 
 """Compare backend settings from the repository root:
 
-EARTH2STUDIO_ARRAY_BACKEND=auto uv run dev/scratch/backend_example.py
-EARTH2STUDIO_ARRAY_BACKEND=numpy uv run dev/scratch/backend_example.py
-EARTH2STUDIO_ARRAY_BACKEND=torch uv run dev/scratch/backend_example.py
-EARTH2STUDIO_ARRAY_BACKEND=cupy uv run dev/scratch/backend_example.py
+EARTH2STUDIO_ARRAY_BACKEND=auto uv run dev/examples/05_array_backends.py
+EARTH2STUDIO_ARRAY_BACKEND=numpy uv run dev/examples/05_array_backends.py
+EARTH2STUDIO_ARRAY_BACKEND=torch uv run dev/examples/05_array_backends.py
+EARTH2STUDIO_ARRAY_BACKEND=cupy uv run dev/examples/05_array_backends.py
 
 The CuPy setting requires CUDA and CuPy. Auto uses NumPy for CPU tensors and
 CuPy for CUDA tensors. Set the environment variable before importing Earth2Studio.
