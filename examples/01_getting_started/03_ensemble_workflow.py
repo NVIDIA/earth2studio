@@ -113,7 +113,7 @@ io = ZarrBackend(
 # %% tags=["e2sg-profile:setup"]
 sample = data(
     to_time_array(["2024-01-01"]),
-    model.input_coords()["variable"],
+    model.input_coords().coords["variable"].values,
 )
 print(f"Cached GFS input shape: {sample.shape}")
 

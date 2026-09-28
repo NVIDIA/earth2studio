@@ -27,15 +27,44 @@ try:
     from cbottle.datasets import base
     from cbottle.inference import MixtureOfExpertsDenoiser
 except ImportError:
-    pytest.skip("cbottle dependencies not installed", allow_module_level=True)
+    cbottle = None
 
-from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import (
     ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import CBottleVideo
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def offline_video(monkeypatch):
+    if cbottle is not None:
+        return
+
+    def initialize(
+        self, core, sst, lat_lon=True, dataset_modality=1, seed=None, **kwargs
+    ):
+        torch.nn.Module.__init__(self)
+        self.sst, self.lat_lon, self.seed = sst, lat_lon, seed
+        self.dataset_modality = dataset_modality
+        self._time_length = 12
+        self._time_step = np.timedelta64(6, "h")
+        self.register_buffer("device_buffer", torch.empty(0))
+
+    def forward(self, x, times):
+        gen = (
+            torch.Generator(device=x.device).manual_seed(self.seed)
+            if self.seed is not None
+            else None
+        )
+        noise = torch.rand((), device=x.device, generator=gen)
+        return torch.nan_to_num(x).expand(-1, 12, *x.shape[2:]) + noise
+
+    monkeypatch.setattr(CBottleVideo, "__init__", initialize)
+    monkeypatch.setattr(CBottleVideo, "_forward", forward)
 
 
 @pytest.fixture(scope="class")
@@ -57,6 +86,8 @@ def mock_sst_ds() -> torch.nn.Module:
 
 @pytest.fixture(scope="class")
 def mock_core_model() -> torch.nn.Module:
+    if cbottle is None:
+        return torch.nn.Identity()
     # Real model checkpoint has
     # {"model_channels": 256, "label_dim": 1024, "out_channels": 45, "condition_channels": 47}
     model_config = cbottle.config.models.ModelConfigV1()
@@ -94,7 +125,7 @@ class TestCBottleVideoMock:
                 0,
             ),
             (
-                torch.zeros(2, 2, 1, 45, 721, 1440),
+                torch.zeros(1, 2, 1, 45, 721, 1440),
                 np.array(
                     [datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)],
                     dtype=np.datetime64,
@@ -114,12 +145,23 @@ class TestCBottleVideoMock:
         ).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
-        coords = px.input_coords()
-        coords["batch"] = np.arange(x.shape[0])
-        coords["time"] = time
+        coords = coord_array_like(
+            px.input_coords(), {"batch": np.arange(x.shape[0]), "time": time}
+        )
+        coords.attrs["user"] = {"notes": ["input"]}
+        coords.encoding["user"] = {"notes": ["input"]}
+        coords.time.attrs["user"] = {"notes": ["input"]}
+        planned = px.output_coords(coords)
+        assert planned.data.nbytes == 0
+        assert planned.attrs["user"] == coords.attrs["user"]
+        assert planned.time.attrs["user"] == coords.time.attrs["user"]
+        assert coords.attrs["user"]["notes"] == ["input"]
+        assert coords.encoding["user"]["notes"] == ["input"]
+        assert coords.time.attrs["user"]["notes"] == ["input"]
 
         x = x.to(device)
-        out, out_coords = px(x, coords)
+        out = px(from_torch(x, coords))
+        out_coords = {k: out.coords[k].values for k in out.dims}
 
         assert out.shape == torch.Size(
             [x.shape[0], x.shape[1], x.shape[2], 45, 721, 1440]
@@ -148,12 +190,13 @@ class TestCBottleVideoMock:
         px = CBottleVideo(mock_core_model, mock_sst_ds, lat_lon=False).to(device)
         px.sampler_steps = 2  # Speed up sampler
 
-        coords = px.input_coords()
-        coords["batch"] = np.arange(x.shape[0])
-        coords["time"] = time
+        coords = coord_array_like(
+            px.input_coords(), {"batch": np.arange(x.shape[0]), "time": time}
+        )
 
         x = x.to(device)
-        out, out_coords = px(x, coords)
+        out = px(from_torch(x, coords))
+        out_coords = {k: out.coords[k].values for k in out.dims}
 
         assert out.shape == torch.Size([x.shape[0], x.shape[1], x.shape[2], 45, 49152])
         assert np.all(out_coords["variable"] == px.output_coords(coords)["variable"])
@@ -174,27 +217,32 @@ class TestCBottleVideoMock:
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
         px.sampler_steps = 2  # Speed up sampler
         # Initialize Data Source
-        dc = px.input_coords()
-        del dc["batch"]
-        del dc["time"]
-        del dc["lead_time"]
-        del dc["variable"]
-        r = Random(dc)
+        coords = coord_array_like(
+            px.input_coords(), {"batch": np.arange(ensemble), "time": time}
+        ).rename(batch="ensemble")
+        x = from_torch(torch.zeros(coords.shape), coords)
+        x.name = "conditioning"
+        x.attrs["user"] = {"history": ["initial"]}
+        x.encoding["user"] = {"history": ["initial"]}
+        x = x.assign_coords(marker=1)
+        original = x.copy(deep=True)
+        calls = []
+        px.front_hook = lambda a: calls.append(a.dims) or a
 
-        # Get Data and convert to tensor, coords
-        lead_time = px.input_coords()["lead_time"]
-        variable = px.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        def rear(a):
+            a.attrs["user"]["history"].append("forecast")
+            a.encoding["user"]["history"].append("forecast")
+            return a.drop_vars("marker") if "marker" in a.coords else a
 
-        # Add ensemble to front
-        x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-        coords.update({"ensemble": np.arange(ensemble)})
-        coords.move_to_end("ensemble", last=False)
-
-        p_iter = px.create_iterator(x, coords)
+        px.rear_hook = rear
+        p_iter = px.create_iterator(x)
+        initial = next(p_iter)
+        xr.testing.assert_identical(initial, original)
+        assert calls == []
 
         # Get generator
-        for i, (out, out_coords) in enumerate(p_iter):
+        for i, out in enumerate(p_iter, 1):
+            out_coords = {k: v.values for k, v in out.coords.items()}
             assert len(out.shape) == 6
             assert out.shape == torch.Size([ensemble, len(time), 1, 45, 721, 1440])
             assert (
@@ -203,9 +251,20 @@ class TestCBottleVideoMock:
             assert (out_coords["ensemble"] == np.arange(ensemble)).all()
             assert (out_coords["time"] == time).all()
             assert out_coords["lead_time"] == np.timedelta64(6 * i, "h")
+            assert "marker" not in out.coords
+            assert len(out.attrs["user"]["history"]) == i + 1
+            assert len(out.encoding["user"]["history"]) == i + 1
+            if i == 1:
+                retained = out
+                retained_copy = out.copy(deep=True)
             # Single forward is 12 steps so need to test more
             if i > 16:
                 break
+        xr.testing.assert_identical(x, original)
+        xr.testing.assert_identical(initial, original)
+        xr.testing.assert_identical(retained, retained_copy)
+        assert retained.encoding == retained_copy.encoding
+        assert calls == [x.dims, x.dims]
 
     @pytest.mark.parametrize(
         "dc",
@@ -221,15 +280,21 @@ class TestCBottleVideoMock:
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
 
         # Initialize Data Source
-        r = Random(dc)
 
         # Get Data and convert to tensor, coords
         lead_time = px.input_coords()["lead_time"]
         variable = px.input_coords()["variable"]
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        coords = OrderedDict(
+            time=time, lead_time=lead_time.values, variable=variable.values, **dc
+        )
+        x = xr.DataArray(
+            np.zeros(tuple(len(v) for v in coords.values()), dtype=np.float32),
+            dims=tuple(coords),
+            coords=coords,
+        )
 
         with pytest.raises((KeyError, ValueError)):
-            px(x, coords)
+            px(x)
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_cbottle_video_conformance(self, device, mock_core_model, mock_sst_ds):
@@ -248,7 +313,94 @@ class TestCBottleVideoMock:
         px.sampler_steps = 2  # Speed up sampler
         with pytest.raises(ContractException) as exc_info:
             check_prognostic_contract(px, nsteps=1, device=device)
-        assert {v.split(":")[0] for v in exc_info.value.violations} == {"P13"}
+        assert exc_info.value.violations == [
+            "P13: model declares stochastic=False but two rollouts from one input "
+            "disagree; declare stochastic=True and implement set_rng()"
+        ]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_cbottle_video_selects_frame_before_unbatch(monkeypatch, device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+
+    class SmallVideo(CBottleVideo):
+        def __init__(self):
+            torch.nn.Module.__init__(self)
+            self._time_length = 12
+            self._time_step = np.timedelta64(6, "h")
+            self.register_buffer("device_buffer", torch.empty(0))
+            self.calls = 0
+
+        def input_coords(self):
+            return coord_array(
+                ("batch", "time", "lead_time", "variable", "hpx"),
+                {
+                    "lead_time": [np.timedelta64(0, "h")],
+                    "variable": ["t2m", "u10m"],
+                    "hpx": [0, 1, 2],
+                },
+                dynamic=("batch", "time"),
+            )
+
+        def _forward(self, x, times):
+            self.calls += 1
+            # Match the real core's non-contiguous [batch, lead, variable, hpx] layout.
+            frames = torch.arange(12, device=x.device, dtype=x.dtype)
+            return (x.transpose(1, 2) + frames[None, None, :, None]).transpose(1, 2)
+
+    model = SmallVideo().to(device)
+    coords = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": [10, 20],
+            "time": np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[ns]"),
+        },
+    ).rename(batch="ensemble")
+    x = from_torch(
+        torch.arange(24, dtype=torch.float64, device=device).reshape(coords.shape),
+        coords,
+    )
+    x.name = "conditioning"
+    x.attrs["user"] = {"notes": ["input"]}
+    x.encoding["user"] = {"notes": ["input"]}
+    x.time.attrs["user"] = {"notes": ["time"]}
+    original = x.copy(deep=True)
+    expected = model._advance(x).isel(lead_time=slice(0, 1)).copy(deep=True)
+    model.calls = 0
+
+    unbatched_frames = []
+    accessor = type(x.e2s)
+    unbatch = accessor.unbatch
+
+    def record_unbatch(self, *args, **kwargs):
+        result = unbatch(self, *args, **kwargs)
+        unbatched_frames.append(result.sizes["lead_time"])
+        return result
+
+    monkeypatch.setattr(accessor, "unbatch", record_unbatch)
+    out = model(x)
+    assert unbatched_frames == [1]
+    assert model.calls == 1
+    xr.testing.assert_identical(out.e2s.as_numpy(), expected.e2s.as_numpy())
+    assert out.encoding == expected.encoding
+
+    unbatched_frames.clear()
+    iterator = model.create_iterator(x)
+    next(iterator)
+    for step in range(1, 13):
+        frame = next(iterator)
+        np.testing.assert_array_equal(
+            frame.e2s.as_numpy().values, original.e2s.as_numpy().values + step
+        )
+        assert frame.lead_time.values == np.timedelta64(6 * step, "h")
+    iterator.close()
+    assert unbatched_frames == [11, 11]
+    assert model.calls == 3
+    out.data[...] = -1
+    out.attrs["user"]["notes"].append("changed")
+    xr.testing.assert_identical(x.e2s.as_numpy(), original.e2s.as_numpy())
+    assert x.encoding == original.encoding
 
 
 @pytest.mark.package
@@ -263,20 +415,12 @@ def test_cbottle_video_package(device):
     px = model.to(device)
     px.sampler_steps = 2
 
-    dc = px.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = px.input_coords()["lead_time"]
-    variable = px.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = px(x, coords)
+    coords = coord_array_like(px.input_coords(), {"batch": [0], "time": time}).isel(
+        batch=0, drop=True
+    )
+    x = from_torch(torch.randn(coords.shape, device=device), coords)
+    out = px(x)
+    out_coords = {k: out.coords[k].values for k in out.dims}
 
     assert out.shape == torch.Size([len(time), 1, 45, 721, 1440])
     assert (out_coords["variable"] == px.output_coords(coords)["variable"]).all()

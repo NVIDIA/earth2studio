@@ -82,7 +82,7 @@ from earth2studio.utils.coords import split_coords
 times = np.array(
     [np.datetime64("2022-01-01T00:00:00"), np.datetime64("2022-01-01T06:00:00")]
 )
-variables = model.input_coords()["variable"]
+variables = model.input_coords().coords["variable"].values
 zarr_path = "./outputs/19_wb2_dataset.zarr"
 # Create Zarr store to pack data into
 zb = ZarrBackend(file_name=zarr_path, backend_kwargs={"overwrite": True})
@@ -98,14 +98,14 @@ zb.add_array(full_coords, array_name=list(variables))
 
 # Loop over timestamps, fetch data and write slices into the pre-created arrays
 for t in np.atleast_1d(times):
-    x, coords = fetch_data(
+    x = fetch_data(
         wb2,
         time=np.array([t]),
         variable=variables,
         lead_time=np.array([np.timedelta64(0, "h")]),
         device="cpu",
     )
-    xs, reduced_coords, var_names = split_coords(x, coords, dim="variable")
+    xs, reduced_coords, var_names = split_coords(*x.e2s.to_torch(), dim="variable")
     zb.write(xs, reduced_coords, array_name=list(var_names))
 
 # %%

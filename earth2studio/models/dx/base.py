@@ -47,7 +47,7 @@ class DiagnosticModel(Protocol):
         pass
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of diagnostic model
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
@@ -57,13 +57,12 @@ class DiagnosticModel(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of the diagnostic model given an input coordinate
-        system.
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or real DataArray to validate and transform.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
@@ -73,7 +72,7 @@ class DiagnosticModel(Protocol):
         Raises
         ------
         ValueError
-            If input_coords are not valid
+            If the input coordinates are not valid.
         """
         pass
 

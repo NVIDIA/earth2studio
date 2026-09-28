@@ -15,22 +15,39 @@
 # limitations under the License.
 
 from collections.abc import Iterable
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.px.ace2 as ace_src
 from earth2studio.data import Random, fetch_data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.ace2 import (
     ACE2ERA5,
     _cftime_to_npdatetime64,
     _npdatetime64_to_cftime,
 )
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.imports import OptionalDependencyFailure
 
-pytest.importorskip("fme")
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch):
+    if ace_src.__file__ in OptionalDependencyFailure.failures:
+        monkeypatch.delitem(OptionalDependencyFailure.failures, ace_src.__file__)
+
+        class Batch:
+            @classmethod
+            def new_on_device(cls, **kwargs):
+                return SimpleNamespace(**kwargs)
+
+        monkeypatch.setattr(ace_src, "BatchData", Batch)
+        monkeypatch.setattr(
+            ace_src, "PrognosticState", lambda data: SimpleNamespace(_data=data)
+        )
 
 
 class PhooOutput:
@@ -165,17 +182,29 @@ def test_ACE2ERA5_call(device):
 
     # Build a Random data source over the model grid
     dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
+    assert isinstance(dc, xr.DataArray)
+    assert dc.data.nbytes == 0
+    r = Random({d: dc[d].values for d in ("lat", "lon")})
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, variable.values, lead_time.values, device=device)
+    x.attrs.update(
+        {
+            k: v
+            for k, v in dc.attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+    )
 
-    out, out_coords = p(x, coords)
+    out = p(x)
+    out_coords = out.coords
+    coords = x
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -187,11 +216,7 @@ def test_ACE2ERA5_call(device):
     assert out.shape[4] == len(p.lon)
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
     np.testing.assert_array_equal(out_coords["lat"], ACE_GRID_LAT)
     np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
 
@@ -206,30 +231,64 @@ def test_ACE2ERA5_iter(batch, device):
     p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
 
     dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
+    r = Random({d: dc[d].values for d in ("lat", "lon")})
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, variable.values, lead_time.values, device=device)
+    x.attrs.update(
+        {
+            k: v
+            for k, v in dc.attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+    )
 
     # Add ensemble to the front
-    x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
-    coords.update({"batch": np.arange(batch)})
-    coords.move_to_end("batch", last=False)
+    x = x.expand_dims(batch=np.arange(batch)).copy(deep=True)
+    x = x.assign_coords(remove_me="old")
+    x.attrs["remove_me"] = "old"
+    seen = []
 
-    p_iter = p.create_iterator(x, coords)
+    def front(state):
+        if seen:
+            assert "remove_me" not in state.attrs
+            assert "remove_me" not in state.coords
+            assert state.attrs["added"] == len(seen)
+            assert state.coords["added"].item() == len(seen)
+            assert state.name == "rear state"
+            assert state.encoding == {"rear": len(seen)}
+        return state
+
+    def rear(state):
+        seen.append(True)
+        state.attrs.pop("remove_me", None)
+        state = state.drop_vars("remove_me", errors="ignore")
+        state.attrs["added"] = len(seen)
+        state = state.assign_coords(added=len(seen))
+        state.name = "rear state"
+        state.encoding = {"rear": len(seen)}
+        return state
+
+    p.front_hook, p.rear_hook = front, rear
+    coords = x
+
+    p_iter = p.create_iterator(x)
 
     # First yield returns the first forecast step
-    out, out_coords = next(p_iter)
+    out = next(p_iter)
+    out_coords = out.coords
     assert len(out.shape) == 6
     assert out.shape[0] == batch
     assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
 
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, out in enumerate(p_iter):
+        out_coords = out.coords
         assert len(out.shape) == 6
         assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
@@ -260,25 +319,83 @@ class _DeterministicPhooStepper(PhooStepper):
         return output, None
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "device",
+    [
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_ace2era5_input_dtype(dtype, device, monkeypatch):
+    lat = np.linspace(90, -90, 4)
+    lon = np.linspace(0, 360, 8, endpoint=False)
+    monkeypatch.setattr(ace_src, "ACE_GRID_LAT", lat)
+    monkeypatch.setattr(ace_src, "ACE_GRID_LON", lon)
+
+    class Float32Stepper(PhooStepper):
+        def __init__(self):
+            super().__init__()
+            self.conv = torch.nn.Conv2d(1, 1, kernel_size=1)
+
+        def predict_paired(self, ic, forcing_batch):
+            # Exercise the same dtype requirement as the checkpoint's layers
+            # for both prognostic inputs and externally fetched forcings.
+            state = self.conv(ic._data.data[self.prognostic_names[0]])
+            forcing = self.conv(forcing_batch.data[self._input_only_names[0]][:, :1])
+            return (
+                SimpleNamespace(
+                    prediction={key: state + forcing for key in self.out_names}
+                ),
+                None,
+            )
+
+    source = Random({"lat": lat, "lon": lon})
+    model = ACE2ERA5(Float32Stepper(), source).to(device)
+    signature = model.input_coords()
+    x = fetch_data(
+        source,
+        time=np.array([np.datetime64("2001-01-01T00:00")]),
+        variable=signature["variable"].values,
+        lead_time=signature.lead_time.values,
+        device=device,
+    ).astype(dtype)
+    x.attrs.update(
+        {
+            k: v
+            for k, v in signature.attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+    )
+    before = x.copy(deep=True)
+
+    out = model(x)
+    assert out.dtype == np.float32
+    assert out.e2s.to_torch()[0].device == torch.device(device)
+    iterator = model.create_iterator(x)
+    xr.testing.assert_identical(next(iterator).e2s.as_numpy(), before.e2s.as_numpy())
+    for step in (1, 2):
+        out = next(iterator)
+        assert out.dtype == np.float32
+        assert out.lead_time.values[0] == np.timedelta64(6 * step, "h")
+    iterator.close()
+    xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
+
+
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ace2era5_conformance(device):
-    """Check the mock ACE2ERA5 model against the Earth2Studio model contract.
-
-    Checked on GPU like the rest of this file: fme builds its BatchData on
-    whatever `fme.get_device()` resolves to and rejects tensors that are not
-    already there, so on a machine with a GPU a CPU probe input fails inside the
-    stepper before any rule is reached.
-
-    This is a genuine, verified violation (not a mock artifact): fails P16
-    (create_iterator()'s yield 0 changes after later steps are produced, so
-    the yields alias one buffer). Tracked in
-    test/models/test_model_conformance.py pending a wrapper fix.
-    """
     forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
     p = ACE2ERA5(_DeterministicPhooStepper(), forcing_source).to(device)
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p, device=device)
-    assert "P16" in str(exc_info.value)
+    check_prognostic_contract(p, device=device)
 
 
 @pytest.mark.package
@@ -294,17 +411,27 @@ def test_ace2era5_package(device):
 
     # Build a Random data source over the model grid
     dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
+    r = Random({d: dc[d].values for d in ("lat", "lon")})
 
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, variable.values, lead_time.values, device=device)
+    x.attrs.update(
+        {
+            k: v
+            for k, v in dc.attrs.items()
+            if k
+            not in (
+                "earth2studio_kind",
+                "earth2studio_schema_version",
+                "earth2studio_dynamic_dims",
+            )
+        }
+    )
 
-    out, out_coords = p(x, coords)
+    out = p(x)
+    out_coords = out.coords
+    coords = x
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -316,11 +443,7 @@ def test_ace2era5_package(device):
     assert out.shape[4] == len(p.lon)
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 def test_time_conversion_helpers_roundtrip():

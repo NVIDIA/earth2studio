@@ -64,8 +64,7 @@ class PrognosticModel(Protocol):
         pass
 
     def input_coords(self) -> CoordinateSystem:
-        """Input coordinate system of prognostic model, time dimension should contain
-        time-delta objects
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
@@ -75,23 +74,23 @@ class PrognosticModel(Protocol):
         pass
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Output coordinate system of the prognostic model give an input coordinate
-        system.
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input signature or real DataArray to validate and transform.
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
         CoordinateSystem
-            Allocation-free output signature, retaining concrete leading dimensions.
+            Allocation-free DataArray output signature, retaining concrete
+            leading dimensions.
 
         Raises
         ------
         ValueError
-            If input_coords are not valid
+            If the input coordinates are not valid.
         """
         pass
 

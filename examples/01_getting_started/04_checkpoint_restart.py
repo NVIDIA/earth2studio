@@ -120,16 +120,9 @@ first_attempt_nsteps = 1
 
 def deterministic_output_coords(model, time, nsteps, variables):
     """Full output coords for entire roll out"""
-    input_coords = model.input_coords()
-    output_coords = model.output_coords(input_coords).copy()
-    for key, value in model.output_coords(input_coords).items():
-        if value.shape == (0,):
-            del output_coords[key]
+    from earth2studio.run import _output_dimensions
 
-    output_coords["time"] = to_time_array(time)
-    output_coords["lead_time"] = np.asarray(
-        [model.output_coords(input_coords)["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
+    output_coords = _output_dimensions(model, to_time_array(time), nsteps)
     output_coords["variable"] = variables
     output_coords.move_to_end("lead_time", last=False)
     output_coords.move_to_end("time", last=False)
@@ -138,10 +131,12 @@ def deterministic_output_coords(model, time, nsteps, variables):
 
 def model_domain_coords(model):
     """Small helper"""
-    coords = model.input_coords().copy()
-    for key in ("batch", "lead_time", "variable"):
-        coords.pop(key)
-    return coords
+    signature = model.input_coords()
+    return OrderedDict(
+        (dim, signature.coords[dim].values)
+        for dim in signature.dims
+        if dim not in ("batch", "time", "lead_time", "variable")
+    )
 
 
 # %%

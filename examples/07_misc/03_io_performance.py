@@ -107,7 +107,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from tqdm import tqdm
 
-from earth2studio.utils.coords import map_coords, split_coords
+from earth2studio.utils.coords import split_coords
 from earth2studio.utils.time import to_time_array
 
 times = [datetime(2024, 1, 1)]
@@ -128,30 +128,22 @@ def christmas_five_day_ensemble(
     # ==========================================
     # Fetch Initialization Data
     prognostic_ic = prognostic.input_coords()
+    from earth2studio.run import _map_field, _output_dimensions
+    from earth2studio.utils.cupy import from_torch
+
     times = to_time_array(times)
 
-    x, coords0 = fetch_data(
+    x = fetch_data(
         source=data,
         time=times,
-        variable=prognostic_ic["variable"],
-        lead_time=prognostic_ic["lead_time"],
+        variable=prognostic_ic.coords["variable"].values,
+        lead_time=prognostic_ic.coords["lead_time"].values,
         device=device,
     )
     # ==========================================
     # ==========================================
     # Set up IO backend by pre-allocating arrays (not needed for AsyncZarrBackend)
-    total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
-    if "batch" in total_coords:
-        del total_coords["batch"]
-    total_coords["time"] = times
-    total_coords["lead_time"] = np.asarray(
-        [
-            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
-            for i in range(nsteps + 1)
-        ]
-    ).flatten()
-    total_coords.move_to_end("lead_time", last=False)
-    total_coords.move_to_end("time", last=False)
+    total_coords = _output_dimensions(prognostic, times, nsteps)
     total_coords = {"ensemble": np.arange(nensemble)} | total_coords
 
     variables_to_save = total_coords.pop("variable")
@@ -159,17 +151,17 @@ def christmas_five_day_ensemble(
     # ==========================================
     # ==========================================
     # Run inference
-    coords = {"ensemble": np.arange(nensemble)} | coords0.copy()
-    x = x.unsqueeze(0).repeat(nensemble, *([1] * x.ndim))
+    x = x.expand_dims(ensemble=np.arange(nensemble)).copy(deep=True)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic_ic)
+    x = _map_field(x, prognostic_ic)
 
     # Perturb ensemble
-    x, coords = perturbation(x, coords)
+    tensor, coords = perturbation(*x.e2s.to_torch())
+    x = from_torch(tensor, x.assign_coords(coords))
 
     # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
+    model = prognostic.create_iterator(x)
 
     with tqdm(
         total=nsteps + 1,
@@ -177,10 +169,10 @@ def christmas_five_day_ensemble(
         position=1,
         leave=False,
     ) as pbar:
-        for step, (x, coords) in enumerate(model):
+        for step, x in enumerate(model):
             # Dump result to IO, split_coords separates variables to different arrays
-            x, coords = map_coords(x, coords, {"variable": np.array(["t2m", "tcwv"])})
-            io.write(*split_coords(x, coords))
+            x = x.sel(variable=["t2m", "tcwv"])
+            io.write(*split_coords(*x.e2s.to_torch()))
             pbar.update(1)
             if step == nsteps:
                 break

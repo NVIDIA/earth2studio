@@ -96,10 +96,9 @@ times = [datetime(2005, 10, 11, 12)]
 
 model = CBottleTCGuidance.load_model(package, seed=0).to(device)
 # Create guidance tensor
-guidance, coords = model.create_guidance_tensor(lat, lon, times)
-guidance = guidance.to(device)
+guidance = model.create_guidance_tensor(lat, lon, times)
 # Run guided sampling
-guided_sample, guided_coords = model(guidance, coords)
+guided_sample = model(guidance)
 
 # %%
 # Post Processing Guided Sample
@@ -113,14 +112,14 @@ import matplotlib.pyplot as plt
 
 plt.close("all")
 
-variables = guided_coords["variable"]
+variables = guided_sample.coords["variable"].values
 u_var = "u10m"
 u_idx = int(np.where(variables == u_var)[0][0])
 
 # guided_sample dims: [time, lead_time, variable, lat, lon]
-u = guided_sample[0, 0, u_idx].detach().cpu().numpy()
-lat_coords = guided_coords["lat"]
-lon_coords = guided_coords["lon"]
+u = guided_sample[0, 0, u_idx].e2s.as_numpy().values
+lat_coords = guided_sample.coords["lat"].values
+lon_coords = guided_sample.coords["lon"].values
 
 # Caribbean box in 0-360 longitude convention
 lon_min, lon_max = 260.0, 300.0  # 100W to 60W
@@ -171,10 +170,7 @@ model = CBottleTCGuidance.load_model(
     allow_second_order_derivatives=True,
 ).to(device)
 
-log_odds_ratio, forward_latents, latent_coords = model.calculate_odds_ratio(
-    guidance,
-    coords,
-)
+log_odds_ratio, forward_latents = model.calculate_odds_ratio(guidance)
 
 print(f"Log odds ratio: {log_odds_ratio:.4f}")
 print(f"Forward latents shape: {tuple(forward_latents.shape)}")
@@ -191,9 +187,9 @@ print(f"Forward latents shape: {tuple(forward_latents.shape)}")
 plt.close("all")
 
 # Identify the u10m channel in output variable ordering
-latent_variables = latent_coords["variable"]
+latent_variables = forward_latents.coords["variable"].values
 u_latent_idx = int(np.where(latent_variables == u_var)[0][0])
-latent_u = forward_latents[0, u_latent_idx].detach().cpu().numpy()
+latent_u = forward_latents.sel(variable=u_var).squeeze().e2s.as_numpy().values
 
 latent_u_carib = latent_u[np.ix_(lat_mask, lon_mask)]
 

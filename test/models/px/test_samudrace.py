@@ -16,17 +16,22 @@
 
 import dataclasses
 import datetime
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 
+import earth2studio.models.px.samudrace as sam_src
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.samudrace import SamudrACE
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
 
-pytest.importorskip("fme")
+FME_AVAILABLE = sam_src.__file__ not in OptionalDependencyFailure.failures
 
 # Tiny coupled test configuration: 6 hour atmosphere steps, 18 hour ocean
 # steps (3 inner atmosphere steps per coupled cycle), on a 6 x 8 grid with
@@ -218,6 +223,9 @@ def build_coupled_stepper():
 @pytest.fixture(autouse=True)
 def fme_distributed():
     """Enter fme's distributed context around each test."""
+    if not FME_AVAILABLE:
+        yield
+        return
     from fme.core.distributed.distributed import Distributed
 
     try:
@@ -233,9 +241,85 @@ def fme_distributed():
 
 
 @pytest.fixture
-def model():
+def model(monkeypatch):
     """SamudrACE wrapper around the synthetic coupled stepper."""
-    return SamudrACE(build_coupled_stepper(), DeterministicForcing())
+    if FME_AVAILABLE:
+        return SamudrACE(build_coupled_stepper(), DeterministicForcing())
+    import cftime
+
+    monkeypatch.delitem(
+        OptionalDependencyFailure.failures, sam_src.__file__, raising=False
+    )
+    monkeypatch.setattr(sam_src, "cftime", cftime)
+    monkeypatch.setattr(sam_src, "_ensure_fme_distributed", lambda: None)
+    monkeypatch.setattr(sam_src, "BatchData", lambda **kw: SimpleNamespace(**kw))
+    monkeypatch.setattr(
+        sam_src, "PrognosticState", lambda data: SimpleNamespace(_data=data)
+    )
+    monkeypatch.setattr(
+        sam_src, "CoupledPrognosticState", lambda **kw: SimpleNamespace(**kw)
+    )
+    monkeypatch.setattr(sam_src, "CoupledBatchData", lambda **kw: SimpleNamespace(**kw))
+    config = SimpleNamespace(
+        atmosphere_timestep=ATMOS_TIMESTEP,
+        ocean_timestep=OCEAN_TIMESTEP,
+        get_forcing_window_data_requirements=lambda **kw: SimpleNamespace(
+            atmosphere_requirements=SimpleNamespace(names=ATMOS_FORCING_NAMES),
+            ocean_requirements=SimpleNamespace(names=OCEAN_FORCING_NAMES),
+        ),
+    )
+    monkeypatch.setattr(
+        sam_src,
+        "CoupledStepperConfig",
+        SimpleNamespace(from_state=lambda state: config),
+    )
+
+    class Stepper:
+        n_inner_steps = N_INNER_STEPS
+        modules = torch.nn.ModuleList()
+        atmosphere = SimpleNamespace(
+            prognostic_names=ATMOS_PROG_NAMES, out_names=ATMOS_OUT_NAMES
+        )
+        ocean = SimpleNamespace(
+            prognostic_names=OCEAN_PROG_NAMES, out_names=OCEAN_OUT_NAMES
+        )
+        training_dataset_info = SimpleNamespace(
+            atmosphere=SimpleNamespace(
+                horizontal_coordinates=SimpleNamespace(lat=MODEL_LAT, lon=MODEL_LON)
+            ),
+            ocean=SimpleNamespace(
+                horizontal_coordinates=SimpleNamespace(lat=MODEL_LAT, lon=MODEL_LON)
+            ),
+        )
+
+        def set_eval(self):
+            pass
+
+        def get_state(self):
+            return {"config": {}}
+
+        def predict(self, state, forcing):
+            def component(old, names, steps):
+                data = old._data.data
+                base = next(iter(data.values()))
+                pred = {
+                    name: torch.cat(
+                        [data.get(name, base) + i + 1 for i in range(steps)], dim=1
+                    )
+                    for name in names
+                }
+                next_data = {name: pred[name][:, -1:] for name in data}
+                return SimpleNamespace(data=pred), SimpleNamespace(
+                    _data=SimpleNamespace(data=next_data)
+                )
+
+            a, sa = component(state.atmosphere_data, ATMOS_OUT_NAMES, N_INNER_STEPS)
+            o, so = component(state.ocean_data, OCEAN_OUT_NAMES, 1)
+            return SimpleNamespace(atmosphere_data=a, ocean_data=o), SimpleNamespace(
+                atmosphere_data=sa, ocean_data=so
+            )
+
+    return SamudrACE(Stepper(), DeterministicForcing())
 
 
 def build_input(model, time, batch=1):
@@ -243,15 +327,13 @@ def build_input(model, time, batch=1):
     torch.manual_seed(1)
     in_coords = model.input_coords()
     x = torch.randn(batch, len(time), 1, len(in_coords["variable"]), N_LAT, N_LON)
-    coords = in_coords.copy()
-    coords["batch"] = np.arange(batch)
-    coords["time"] = time
+    coords = coord_array_like(in_coords, {"batch": np.arange(batch), "time": time})
     return x, coords
 
 
 def step_once(p, x, coords):
     """Advance one atmosphere step through the model's iterator."""
-    p_iter = p.create_iterator(x, coords)
+    p_iter = p.create_iterator(from_torch(x, coords))
     next(p_iter)  # initial condition
     return next(p_iter)
 
@@ -265,26 +347,30 @@ device_params = [
 ]
 
 
-def test_samudrace_call_unsupported(model):
-    """SamudrACE is iterator-only: a direct forward call is refused."""
+def test_samudrace_call(model):
     time = np.array([np.datetime64("2001-01-01T00:00")])
     x, coords = build_input(model, time)
 
-    with pytest.raises(NotImplementedError, match="create_iterator"):
-        model(x, coords)
+    field = from_torch(x, coords)
+    out = model(field)
+    expected = step_once(model, x, coords)
+    xr.testing.assert_identical(out, expected)
 
 
 @pytest.mark.parametrize("device", device_params)
-def test_samudrace_iter_device(model, device):
+def test_samudrace_iter_device(model, device, monkeypatch):
     """One atmosphere step through the iterator, on each device."""
+    from unittest.mock import Mock
+
     time = np.array([np.datetime64("2001-01-01T00:00")])
     p = model.to(device)
     x, coords = build_input(p, time)
     x = x.to(device)
 
-    p_iter = p.create_iterator(x, coords)
+    p_iter = p.create_iterator(from_torch(x, coords))
     next(p_iter)  # initial condition
-    out, out_coords = next(p_iter)
+    field = next(p_iter)
+    out, out_coords = field.e2s.to_torch()
 
     assert out.device == torch.device(device)
     assert out.shape == (1, len(time), 1, len(OUT_VARS), N_LAT, N_LON)
@@ -304,9 +390,57 @@ def test_samudrace_iter_device(model, device):
         j = list(out_coords["variable"]).index(name)
         assert torch.isfinite(out[:, :, :, j]).all()
 
+    run_cycle = p._run_cycle
+    states = []
+    ages = []
+
+    def tracked_cycle(state, *args):
+        age = next((age for saved, age in states if saved is state), 0)
+        ages.append(age)
+        atmos, ocean, next_state = run_cycle(state, *args)
+        states.append((next_state, age + 1))
+        return atmos, ocean, next_state
+
+    monkeypatch.setattr(p, "_run_cycle", tracked_cycle)
+    array_tensor = Mock(wraps=p._array_tensor)
+    monkeypatch.setattr(p, "_array_tensor", array_tensor)
+    for masked in (False, True):
+        p.clear_hooks()
+        array_tensor.reset_mock()
+        probe = x.clone()
+        if masked:
+            probe[..., 0, 0] = float("nan")
+        ages.clear()
+        states.clear()
+        iterator = p.create_iterator(from_torch(probe, coords))
+        next(iterator)
+        for _ in range(3 * N_INNER_STEPS):
+            next(iterator)
+        assert ages == [0, 1, 2]
+        assert array_tensor.call_count == 1
+        # A custom identity hook still runs mutation detection, including NaNs.
+        p.front_hook = lambda state: state
+        for _ in range(N_INNER_STEPS):
+            next(iterator)
+        assert ages == [0, 1, 2, 3]
+        assert array_tensor.call_count == 2
+
+        def mutate(state):
+            state.data[...] += 1
+            return state
+
+        p.front_hook = mutate
+        for _ in range(N_INNER_STEPS):
+            next(iterator)
+        assert ages == [0, 1, 2, 3, 0]
+        assert array_tensor.call_count == 3
+        iterator.close()
+
 
 def test_samudrace_input_coords(model):
     in_coords = model.input_coords()
+    assert isinstance(in_coords, xr.DataArray)
+    assert in_coords.data.nbytes == 0
     assert list(in_coords["variable"]) == IN_VARS
     assert in_coords["lead_time"][0] == np.timedelta64(0, "h")
     assert in_coords["lat"][0] > in_coords["lat"][-1]
@@ -327,15 +461,51 @@ def test_samudrace_iter(model, batch):
     time = np.array([np.datetime64("2001-01-01T00:00")])
     x, coords = build_input(model, time, batch=batch)
 
-    var_list = list(model.output_coords(coords.copy())["variable"])
+    var_list = list(model.output_coords(coords.copy())["variable"].values)
     ocean_prog_idx = {name: var_list.index(name) for name in OCEAN_PROG_NAMES}
     ocean_diag_idx = var_list.index("o_diag")
     in_var_list = list(coords["variable"])
 
-    p_iter = model.create_iterator(x, coords)
+    field = from_torch(x, coords)
+    field.name = "coupled"
+    field.encoding = {"test": "coupling"}
+    field = field.assign_coords(remove_me="old")
+    field.attrs.update(remove_me="old", counter={"count": 0})
+    events = []
+
+    def front(state):
+        if events:
+            assert "remove_me" not in state.attrs
+            assert "remove_me" not in state.coords
+            assert state.attrs["added"] == N_INNER_STEPS
+            assert state.coords["added"].item() == N_INNER_STEPS
+            assert state.name == "rear state"
+            assert state.encoding["rear"] == N_INNER_STEPS
+        events.append("front")
+        assert state.dims == field.dims
+        state.attrs["hook"] = "metadata only"
+        return state
+
+    def rear(state):
+        events.append("rear")
+        state.attrs["counter"]["count"] += 1
+        count = events.count("rear")
+        state.attrs.pop("remove_me", None)
+        state = state.drop_vars("remove_me", errors="ignore")
+        state.attrs["added"] = count
+        state = state.assign_coords(added=count)
+        state.name = "rear state"
+        state.encoding["rear"] = count
+        return state
+
+    model.front_hook, model.rear_hook = front, rear
+    p_iter = model.create_iterator(field)
 
     # First yield is the initial condition
-    out, out_coords = next(p_iter)
+    initial = next(p_iter)
+    xr.testing.assert_identical(initial, field)
+    assert events == []
+    out, out_coords = initial.reindex(variable=var_list).e2s.to_torch()
     assert out.shape == (batch, 1, 1, len(OUT_VARS), N_LAT, N_LON)
     assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
     # Prognostic channels equal the input state; diagnostics are NaN
@@ -347,7 +517,12 @@ def test_samudrace_iter(model, batch):
     assert torch.isnan(out[:, :, :, ocean_diag_idx]).all()
 
     outputs = [out]
-    for i, (out, out_coords) in enumerate(p_iter):
+    retained = []
+    for i, output in enumerate(p_iter):
+        for prior, snapshot in retained:
+            xr.testing.assert_identical(prior, snapshot)
+        retained.append((output, output.copy(deep=True)))
+        out, out_coords = output.e2s.to_torch()
         assert out.shape == (batch, 1, 1, len(OUT_VARS), N_LAT, N_LON)
         assert (out_coords["variable"] == np.array(var_list, dtype=object)).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
@@ -358,6 +533,9 @@ def test_samudrace_iter(model, batch):
             break
 
     # Ocean prognostic fields are held constant between cycle boundaries and
+    assert events == (["front"] + ["rear"] * N_INNER_STEPS) * 2
+    assert model.front_hook_interval == N_INNER_STEPS
+    assert field.attrs["counter"] == {"count": 0}
     # update exactly at each boundary
     for name, j in ocean_prog_idx.items():
         for step in range(1, N_INNER_STEPS):
@@ -385,6 +563,7 @@ def test_samudrace_iter(model, batch):
 def test_samudrace_parity(model):
     """The concatenated iterator trajectory equals a direct predict
     trajectory over the same stepper, initial condition, and forcing."""
+    pytest.importorskip("fme")
     import cftime
     from fme.ace.data_loading.batch_data import BatchData, PrognosticState
     from fme.coupled.data_loading.batch_data import (
@@ -397,11 +576,9 @@ def test_samudrace_parity(model):
     x, coords = build_input(model, time)
 
     # Iterator trajectory through the Earth2Studio seam
-    p_iter = model.create_iterator(x, coords)
+    p_iter = model.create_iterator(from_torch(x, coords))
     next(p_iter)  # initial condition
-    outputs = [
-        out for out, _ in (next(p_iter) for _ in range(n_cycles * N_INNER_STEPS))
-    ]
+    outputs = [next(p_iter).e2s.to_torch()[0] for _ in range(n_cycles * N_INNER_STEPS)]
     var_list = list(model.output_coords(coords.copy())["variable"])
 
     # Direct fme trajectory: one predict call over n_cycles coupled
@@ -498,8 +675,10 @@ def test_samudrace_exceptions(model):
     x, coords = build_input(model, time)
 
     # More than one input lead time
-    bad_coords = coords.copy()
-    bad_coords["lead_time"] = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    bad_coords = coord_array_like(
+        coords,
+        {"lead_time": np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])},
+    )
     with pytest.raises(ValueError):
         step_once(model, torch.cat([x, x], dim=2), bad_coords)
 
@@ -574,9 +753,9 @@ def test_samudrace_forcing_window_from_file(model, tmp_path):
         time = np.array([np.datetime64("0311-01-01T00:00:00")])
         x, coords = build_input(p, time)
 
-        p_iter = p.create_iterator(x, coords)
+        p_iter = p.create_iterator(from_torch(x, coords))
         next(p_iter)  # initial condition
-        outputs = [out for out, _ in (next(p_iter) for _ in range(N_INNER_STEPS))]
+        outputs = [next(p_iter).e2s.to_torch()[0] for _ in range(N_INNER_STEPS)]
 
     var_list = list(p.output_coords(coords.copy())["variable"])
     for out in outputs:
@@ -641,18 +820,7 @@ def test_samudrace_forcing_out_of_calendar(model, tmp_path):
 
 
 def test_samudrace_conformance(model):
-    # SamudrACE's __call__ always raises NotImplementedError (its native
-    # step is the coupled ocean step, spanning multiple atmosphere steps;
-    # only create_iterator is supported). check_prognostic_contract's
-    # rollout checks call the model directly (P15/P10 probes) and do not
-    # guard that call, so the checker itself cannot complete rather than
-    # reporting a rule violation. Tracked as a follow-up — either SamudrACE
-    # gains a single-step __call__, or the checker gains a documented way
-    # to skip call-based rules for iterator-only models. Asserting on the
-    # exception here documents the known-bad state without leaving a
-    # permanently red test.
-    with pytest.raises(NotImplementedError, match="create_iterator"):
-        check_prognostic_contract(model)
+    check_prognostic_contract(model)
 
 
 def test_samudrace_load_default_package():
@@ -693,17 +861,16 @@ def test_samudrace_package():
     time = np.array([np.datetime64("0151-01-06T00:00:00")])
     da = SamudrACEData(verbose=False)(time, in_coords["variable"])
     x = torch.as_tensor(da.values, dtype=torch.float32)[None, :, None]
-    coords = in_coords.copy()
-    coords["batch"] = np.arange(1)
-    coords["time"] = time
+    coords = coord_array_like(in_coords, {"batch": np.arange(1), "time": time})
 
     # One coupled cycle through the iterator, one atmosphere step at a time
     n_inner_steps = model.stepper.n_inner_steps
-    p_iter = model.create_iterator(x, coords)
+    p_iter = model.create_iterator(from_torch(x, coords))
     next(p_iter)  # initial condition
     steps = [next(p_iter) for _ in range(n_inner_steps)]
 
-    for i, (out, out_coords) in enumerate(steps):
+    for i, field in enumerate(steps):
+        out, out_coords = field.e2s.to_torch()
         assert out.shape == (1, 1, 1, len(out_vars), 180, 360)
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         assert out_coords["lat"][0] > out_coords["lat"][-1]

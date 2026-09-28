@@ -34,7 +34,7 @@ from earth2studio.models.da.utils import (
     validate_observation_fields,
 )
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import coord_array, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -245,7 +245,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         # classification (``_identity_output_indices``, deny-by-default so a future
         # transform type is excluded automatically); keys are the Earth2Studio
         # lexicon names taken from the public output_coords vocabulary.
-        names = list(model.output_coords(model.input_coords())["variable"])
+        names = model.output_coords(model.input_coords())["variable"].values.tolist()
         self._out_idx = {names[i]: i for i in model._identity_output_indices}
         for v in assimilate_variables:
             if v not in self._out_idx:
@@ -302,10 +302,11 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         tuple[CoordSystem]
             Single-element tuple with the ERA5 initialization coordinate system.
         """
-        return (self.model.input_coords(),)
+        signature = self.model.input_coords()
+        return (OrderedDict((str(d), signature[d].values) for d in signature.dims),)
 
     def input_coords(self) -> tuple[FrameSchema]:
-        """Observation DataFrame schema.
+        """Input coordinate system of the assimilation model.
 
         Returns
         -------
@@ -326,9 +327,10 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
-        """Output coordinate system, matching what :meth:`__call__` returns: dims
-        ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the COSMO-REA
-        analysis grid, given the ERA5 init coords.
+        """Output coordinate system of the assimilation model.
+
+        Matches the dimensions returned by :meth:`__call__` on the COSMO-REA
+        analysis grid, given the ERA5 initialization coordinates.
 
         Parameters
         ----------
@@ -346,8 +348,14 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         target = self.model.input_coords()
         handshake_dim(input_coords[0], "lat", -2)
         handshake_dim(input_coords[0], "lon", -1)
-        handshake_coords(input_coords[0], target, "variable")
-        oc = self.model.output_coords(input_coords[0])
+        # The assimilation protocol keeps dictionary coordinates. Adapt only the
+        # nested diagnostic planning boundary, preserving its grid validation.
+        signature = coord_array(
+            tuple(input_coords[0]),
+            {k: v for k, v in input_coords[0].items()},
+            attrs=target.attrs,
+        )
+        oc = self.model.output_coords(signature)
         lat2d, lon2d = np.asarray(oc["lat"]), np.asarray(oc["lon"])
         h, w = lat2d.shape
         return (

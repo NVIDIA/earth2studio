@@ -119,7 +119,6 @@ def _build_input_da(model, time, device="cpu"):
         model.variables,
         lead_time=np.array([np.timedelta64(0, "h")]),
         device=device,
-        legacy=False,
     )
     return x.assign_coords(
         lat=(["hrrr_y", "hrrr_x"], model.lat),
@@ -522,7 +521,6 @@ def test_stormcast_sda_package(device, sda_model):
         ic["variable"],
         lead_time=np.array([np.timedelta64(0, "h")]),
         device=device,
-        legacy=False,
     )
     x = x.assign_coords(
         lat=(["hrrr_y", "hrrr_x"], model.lat),

@@ -71,17 +71,16 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from collections import OrderedDict
 from datetime import datetime
 
 import numpy as np
 import torch
 from loguru import logger
 
-from earth2studio.data import DataSource, prep_data_array
+from earth2studio.data import DataSource
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import CorrDiffTaiwan
-from earth2studio.utils.coords import map_coords, split_coords
+from earth2studio.utils.coords import split_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -122,28 +121,34 @@ def run(
 
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    x, coords = prep_data_array(
-        data(time, corrdiff.input_coords()["variable"]), device=device
-    )
-    x, coords = map_coords(x, coords, corrdiff.input_coords())
+    from earth2studio.data import fetch_data
+    from earth2studio.run import _dimension_coords, _map_field
+
+    x = fetch_data(
+        data, time, corrdiff.input_coords().coords["variable"].values, device=device
+    ).squeeze("lead_time", drop=True)
+    x = _map_field(x, corrdiff.input_coords())
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     # Set up IO backend
-    output_coords = corrdiff.output_coords(corrdiff.input_coords())
-    total_coords = OrderedDict(
-        {
-            "time": coords["time"],
-            "sample": output_coords["sample"],
-            "lat": output_coords["lat"],
-            "lon": output_coords["lon"],
-        }
-    )
-    io.add_array(total_coords, output_coords["variable"])
+    signature = corrdiff.output_coords(x)
+    total_coords = _dimension_coords(signature)
+    variables = total_coords.pop("variable")
+    io.add_array(total_coords, variables)
+    # Legacy IO stores dimension labels separately from auxiliary geography.
+    # Save the two-dimensional coordinates explicitly for the plotting section.
+    for name in ("lat", "lon"):
+        coordinate = signature.coords[name]
+        io.add_array(
+            _dimension_coords(coordinate),
+            name,
+            data=torch.as_tensor(coordinate.values),
+        )
 
     logger.info("Inference starting!")
-    x, coords = corrdiff(x, coords)
-    io.write(*split_coords(x, coords))
+    x = corrdiff(x)
+    io.write(*split_coords(*x.e2s.to_torch()))
 
     logger.success("Inference complete")
     return io

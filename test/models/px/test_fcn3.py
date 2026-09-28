@@ -14,20 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from collections import OrderedDict
 from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import (
     ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import FCN3
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(request):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
+    if request.node.originalname != "test_fcn3_iter":
+        pytest.importorskip("makani")
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
@@ -42,6 +58,7 @@ class PhooFCN3Preprocessor(torch.nn.Module):
                 10,
             ),
         )
+        self.refreshes = 0
 
     def set_internal_state(self, state: torch.Tensor):
         self.state = state.to(self.state.device)
@@ -50,6 +67,7 @@ class PhooFCN3Preprocessor(torch.nn.Module):
         return self.state
 
     def update_internal_state(self, replace_state=True):
+        self.refreshes += 1
         self.state = torch.randn((10,), device=self.state.device)
 
 
@@ -114,9 +132,11 @@ def test_fcn3_call(time, device, dummy_model):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(r, time, variable, lead_time, device=device)
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -124,11 +144,7 @@ def test_fcn3_call(time, device, dummy_model):
     assert out.shape == torch.Size([len(time), 1, 72, 721, 1440])
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize(
@@ -136,12 +152,26 @@ def test_fcn3_call(time, device, dummy_model):
     [1, 2],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fcn3_iter(ensemble, device, dummy_model):
+def test_fcn3_iter(ensemble, device, dummy_model, monkeypatch):
 
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model = PhooFCN3ModelWrapper(dummy_model)
-    p = FCN3(model).to(device)
+    p = FCN3.__new__(FCN3)
+    inspect.unwrap(FCN3.__init__)(p, model, variables=np.array(["t2m"]))
+    p.to(device)
+    declared = p.input_coords()
+    assert (
+        declared.data.nbytes == 0
+        and declared.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    )
+    signature = coord_array(
+        declared.dims,
+        {"lead_time": declared.lead_time, "variable": declared.coords["variable"]},
+        dynamic=("batch", "time"),
+        grid=LatLonGrid([45, -45], [0, 120, 240]),
+    )
+    monkeypatch.setattr(p, "input_coords", lambda: signature.copy())
 
     # Create "domain coords"
     dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
@@ -152,31 +182,66 @@ def test_fcn3_iter(ensemble, device, dummy_model):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
+    x = fetch_data(r, time, variable, lead_time, device=device)
+    x.attrs.update(earth2studio_crs="EPSG:4326")
+    x = x.expand_dims(ensemble=np.arange(ensemble))
+    x = x.rename("weather")
+    x = from_torch(x.e2s.to_torch()[0].to(device), coord_array_like(x), name=x.name)
+    x.encoding = {"source": "fixture"}
+    original = x.copy(deep=True)
+    monkeypatch.setattr(
+        model,
+        "forward",
+        lambda value, t, **kwargs: value + dummy_model.preprocessor.state[0],
+    )
+    p_iter = p.create_iterator(x)
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
+    initial = next(p_iter)
+    assert dummy_model.preprocessor.refreshes == 0
+    retained = []
+    for i, out in enumerate(p_iter):
+        out_coords = out.coords
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 72, 721, 1440])
+        assert out.shape == torch.Size([ensemble, len(time), 1, 1, 2, 3])
         assert (
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        assert out.name == x.name and out.encoding == x.encoding
+        retained.append((out, out.copy(deep=True)))
+        if i == 1:
+            torch.testing.assert_close(
+                out.e2s.to_torch()[0] - retained[0][0].e2s.to_torch()[0],
+                retained[0][0].e2s.to_torch()[0] - x.e2s.to_torch()[0],
+            )
 
         if i > 5:
             break
+    # The iterator draws one noise state per member, then restores it each step.
+    assert dummy_model.preprocessor.refreshes == ensemble
+    for out, saved in retained:
+        xr.testing.assert_identical(out, saved)
+    xr.testing.assert_identical(initial, original)
+    xr.testing.assert_identical(x, original)
+    assert retained[-1][0].e2s.to_torch()[0].device == torch.device(device)
+    p_iter.close()
+    monkeypatch.setattr(model, "forward", PhooFCN3ModelWrapper.forward.__get__(model))
+    p.set_rng(17)
+    first = p(x)
+    generator = model._generator
+    p.set_rng(18, reset=False)
+    assert model._generator is generator
+    p.set_rng(17)
+    torch.testing.assert_close(
+        first.e2s.to_torch()[0], p(x).e2s.to_torch()[0], rtol=0, atol=0
+    )
+    p.set_rng(18)
+    assert not torch.equal(first.e2s.to_torch()[0], p(x).e2s.to_torch()[0])
 
 
 @pytest.mark.parametrize(
@@ -200,10 +265,10 @@ def test_fcn3_exceptions(dc, device, dummy_model):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(x)
 
 
 def test_fcn3_conformance(dummy_model):
@@ -215,11 +280,6 @@ def test_fcn3_conformance(dummy_model):
 
     Not conformant. Genuine wrapper bugs, tracked in
     test/models/test_model_conformance.py pending a fix:
-    - P15: _forward() takes a view with x.squeeze(2) and then writes into it
-      with `x[j, i : i + 1] = ...`, so both __call__ and create_iterator()
-      mutate the caller's tensor.
-    - P16: the same in-place write lands in the tensor already yielded as step
-      0, so that yield changes once a later step is produced.
     - P14: refreshing the core model's internal noise state draws from the
       global generator, so stepping a seeded model perturbs global RNG state.
     """
@@ -229,8 +289,6 @@ def test_fcn3_conformance(dummy_model):
         check_prognostic_contract(p)
     assert {v.split(":")[0] for v in exc_info.value.violations} == {
         "P14",
-        "P15",
-        "P16",
     }
 
 
