@@ -35,7 +35,7 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.px import CBottleVideo
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
 
 
@@ -125,7 +125,7 @@ class TestCBottleVideoMock:
                 0,
             ),
             (
-                torch.zeros(2, 2, 1, 45, 721, 1440),
+                torch.zeros(1, 2, 1, 45, 721, 1440),
                 np.array(
                     [datetime(2000, 1, 2, 3, 4, 5), datetime(1980, 8, 1)],
                     dtype=np.datetime64,
@@ -317,6 +317,90 @@ class TestCBottleVideoMock:
             "P13: model declares stochastic=False but two rollouts from one input "
             "disagree; declare stochastic=True and implement set_rng()"
         ]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_cbottle_video_selects_frame_before_unbatch(monkeypatch, device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+
+    class SmallVideo(CBottleVideo):
+        def __init__(self):
+            torch.nn.Module.__init__(self)
+            self._time_length = 12
+            self._time_step = np.timedelta64(6, "h")
+            self.register_buffer("device_buffer", torch.empty(0))
+            self.calls = 0
+
+        def input_coords(self):
+            return coord_array(
+                ("batch", "time", "lead_time", "variable", "hpx"),
+                {
+                    "lead_time": [np.timedelta64(0, "h")],
+                    "variable": ["t2m", "u10m"],
+                    "hpx": [0, 1, 2],
+                },
+                dynamic=("batch", "time"),
+            )
+
+        def _forward(self, x, times):
+            self.calls += 1
+            # Match the real core's non-contiguous [batch, lead, variable, hpx] layout.
+            frames = torch.arange(12, device=x.device, dtype=x.dtype)
+            return (x.transpose(1, 2) + frames[None, None, :, None]).transpose(1, 2)
+
+    model = SmallVideo().to(device)
+    coords = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": [10, 20],
+            "time": np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[ns]"),
+        },
+    ).rename(batch="ensemble")
+    x = from_torch(
+        torch.arange(24, dtype=torch.float64, device=device).reshape(coords.shape),
+        coords,
+    )
+    x.name = "conditioning"
+    x.attrs["user"] = {"notes": ["input"]}
+    x.encoding["user"] = {"notes": ["input"]}
+    x.time.attrs["user"] = {"notes": ["time"]}
+    original = x.copy(deep=True)
+    expected = model._advance(x).isel(lead_time=slice(0, 1)).copy(deep=True)
+    model.calls = 0
+
+    unbatched_frames = []
+    accessor = type(x.e2s)
+    unbatch = accessor.unbatch
+
+    def record_unbatch(self, *args, **kwargs):
+        result = unbatch(self, *args, **kwargs)
+        unbatched_frames.append(result.sizes["lead_time"])
+        return result
+
+    monkeypatch.setattr(accessor, "unbatch", record_unbatch)
+    out = model(x)
+    assert unbatched_frames == [1]
+    assert model.calls == 1
+    xr.testing.assert_identical(out.e2s.as_numpy(), expected.e2s.as_numpy())
+    assert out.encoding == expected.encoding
+
+    unbatched_frames.clear()
+    iterator = model.create_iterator(x)
+    next(iterator)
+    for step in range(1, 13):
+        frame = next(iterator)
+        np.testing.assert_array_equal(
+            frame.e2s.as_numpy().values, original.e2s.as_numpy().values + step
+        )
+        assert frame.lead_time.values == np.timedelta64(6 * step, "h")
+    iterator.close()
+    assert unbatched_frames == [11, 11]
+    assert model.calls == 3
+    out.data[...] = -1
+    out.attrs["user"]["notes"].append("changed")
+    xr.testing.assert_identical(x.e2s.as_numpy(), original.e2s.as_numpy())
+    assert x.encoding == original.encoding
 
 
 @pytest.mark.package

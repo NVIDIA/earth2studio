@@ -495,25 +495,27 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     @batch_func()
-    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+    def _advance(self, x: xr.DataArray, single_step: bool = False) -> xr.DataArray:
         self.output_coords(x)
         times = np.tile(x.time.values + x.lead_time.values[-1], x.sizes["batch"])
         tensor = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
         domain = tensor.shape[3:]
         out = self._forward(tensor.reshape(-1, 1, *domain), times)
         out = out.reshape(x.sizes["batch"], x.sizes["time"], self._time_length, *domain)
+        # Select before cloning and unbatching so single-step calls only copy one frame.
+        stop = 2 if single_step else self._time_length
         signature = coord_array_like(
             x,
             {
                 "lead_time": x.lead_time.values[-1]
-                + np.arange(1, self._time_length) * self._time_step
+                + np.arange(1, stop) * self._time_step
             },
         )
-        return from_torch(out[:, :, 1:].clone(), signature)
+        return from_torch(out[:, :, 1:stop].clone(), signature)
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict the next six-hour field from labelled conditioning data."""
-        return self._advance(x).isel(lead_time=slice(0, 1)).copy(deep=True)
+        return self._advance(x, single_step=True).copy(deep=True)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the initial condition, then eleven forecasts per video advance."""
