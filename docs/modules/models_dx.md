@@ -26,6 +26,7 @@ earth2studio.models.dx.CBottleSR
 earth2studio.models.dx.CBottleTCGuidance
 earth2studio.models.dx.CorrDiffCMIP6
 earth2studio.models.dx.CorrDiffCosmoEra5
+earth2studio.models.dx.CorrDiffEra5Hrrr
 earth2studio.models.dx.CorrDiffTaiwan
 earth2studio.models.dx.ClimateNet
 earth2studio.models.dx.DerivedRH
