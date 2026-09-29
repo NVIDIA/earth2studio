@@ -28,6 +28,7 @@ from pyproj import CRS
 
 from earth2studio.grids._utils import (
     array,
+    cf_coordinates,
     coordinate_hash,
     geographic_subset_indexers,
     metadata,
@@ -76,7 +77,9 @@ class LatLonGrid:
     ) -> xr.Coordinates:
         """Return latitude and longitude coordinates."""
         indexes = indexes or {"lat": self.latitude, "lon": self.longitude}
-        return xr.Coordinates({"lat": indexes["lat"], "lon": indexes["lon"]})
+        return cf_coordinates(
+            xr.Coordinates({"lat": indexes["lat"], "lon": indexes["lon"]})
+        )
 
     def subset_indexers(
         self,

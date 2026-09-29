@@ -176,7 +176,7 @@ def _jax_signature(
     grid = {
         (181, 360): "latlon-1deg",
         (721, 1440): "latlon-0.25deg",
-    }.get(tuple(shape)) or LatLonGrid(
+    }.get(shape) or LatLonGrid(
         np.linspace(90, -90, shape[0], endpoint=True),
         np.linspace(0, 360, shape[1], endpoint=False),
     )

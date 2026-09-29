@@ -14,12 +14,25 @@ Latitude–longitude inputs may also omit the default EPSG:4326 CRS metadata;
 projected inputs still require their CRS, and HEALPix inputs require matching
 level, ordering, layout, and applicable XY orientation metadata.
 
+## CF descriptions
+
+Grid coordinates carry CF `standard_name`, `long_name`, and `units` attributes.
+Spatial dimension coordinates also carry `axis` where applicable. Projected
+coordinate descriptions and units come from the CRS. `coord_array` preserves
+these descriptions when dimensions are renamed or coordinates are supplied explicitly.
+
+For grids with a CRS, CF projection parameters are included directly in the
+DataArray attributes. These are descriptive metadata: initialization adds no
+grid-mapping variable, bounds, or other coordinate arrays. HEALPix signatures
+remain index-only; latitude/longitude descriptions accompany geographic
+coordinates when those are explicitly requested from the grid.
+
 ## Global latitude–longitude grids
 
 | Name | Shape (latitude, longitude) | Convention / examples |
 | --- | --- | --- |
 | `latlon-0.25deg` | 721 × 1440 | North to south, both poles; most global models |
-| `latlon-0.25deg-south-pole-excluded` | 720 × 1440 | North to south, excludes south pole; FCN, Aurora |
+| `latlon-0.25deg-south-pole-excluded` | 720 × 1440 | N→S, excludes south pole; FCN, Aurora |
 | `latlon-1deg` | 181 × 360 | North to south, both poles; GraphCastSmall |
 | `latlon-1.5deg` | 121 × 240 | North to south, both poles; FuXiS2S, UCast |
 | `gaussian-f90` | 180 × 360 | South to north Gaussian latitudes; ACE2 |
@@ -38,7 +51,7 @@ Levels **3, 6, and 10** are registered with each of these suffixes:
 | `healpix-l{level}-nested` | NESTED | `hpx` |
 | `healpix-l{level}-ring` | RING | `hpx` |
 | `healpix-l{level}-xy-north-clockwise` | XY, north origin, clockwise | `hpx` |
-| `healpix-l{level}-xy-north-clockwise-face` | XY, north origin, clockwise | `face`, `height`, `width` |
+| `healpix-l{level}-xy-north-clockwise-face` | XY, north, clockwise | `face`, `height`, `width` |
 
 At level L, `nside = 2**L`, the flat layout has `12 * nside**2` pixels, and the
 face layout has shape `(12, nside, nside)`. Aliases `hpx3`, `hpx6`, and `hpx10`

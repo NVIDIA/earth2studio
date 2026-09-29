@@ -19,7 +19,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from functools import partial
 
 import numpy as np
 import xarray as xr
@@ -42,8 +43,17 @@ from earth2studio.grids.latlon import LatLonGrid
 from earth2studio.grids.point import PointGrid
 from earth2studio.grids.projected import ProjectedGrid
 
-_GRID_REGISTRY: dict[str, GridDefinition] = {}
+_GRID_REGISTRY: dict[str, GridDefinition | None] = {}
 _GRID_ALIASES: dict[str, str] = {}
+_GRID_FACTORIES: dict[str, Callable[[], GridDefinition]] = {}
+
+
+def _register_builtin(
+    name: str, factory: Callable[[], GridDefinition], *, aliases: Sequence[str] = ()
+) -> None:
+    _GRID_REGISTRY[name] = None
+    _GRID_FACTORIES[name] = factory
+    _GRID_ALIASES.update({alias: name for alias in aliases})
 
 
 def _is_crs(value: str) -> bool:
@@ -99,8 +109,8 @@ def register_grid(
             }
             if (
                 existing == canonical
-                and _GRID_REGISTRY[existing].fingerprint() == definition.fingerprint()
                 and set(grid_aliases) == current_aliases
+                and resolve_grid(existing).fingerprint() == definition.fingerprint()
             ):
                 return
             raise ValueError(
@@ -116,10 +126,15 @@ def list_grids() -> tuple[str, ...]:
 
 
 def resolve_grid(grid: str) -> GridDefinition:
-    """Resolve a canonical grid name or alias."""
+    """Resolve a name or alias, constructing and caching built-ins on first use."""
     canonical = grid if grid in _GRID_REGISTRY else _GRID_ALIASES.get(grid)
     if canonical is not None:
-        return _GRID_REGISTRY[canonical]
+        definition = _GRID_REGISTRY[canonical]
+        if definition is None:
+            definition = _GRID_FACTORIES[canonical]()
+            _validate_definition(definition)
+            _GRID_REGISTRY[canonical] = definition
+        return definition
     if _is_crs(grid):
         raise ValueError(
             "A CRS does not define grid dimensions or geometry; create a grid "
@@ -170,47 +185,47 @@ def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
     )
 
 
-register_grid(
+_register_builtin(
     "latlon-0.25deg",
-    LatLonGrid(
+    lambda: LatLonGrid(
         latitude=np.arange(90.0, -90.25, -0.25),
         longitude=np.arange(0.0, 360.0, 0.25),
     ),
     aliases=("latlon025",),
 )
-register_grid(
+_register_builtin(
     "latlon-0.25deg-south-pole-excluded",
-    LatLonGrid(
+    lambda: LatLonGrid(
         latitude=np.arange(90.0, -90.0, -0.25),
         longitude=np.arange(0.0, 360.0, 0.25),
     ),
     aliases=("fcn1", "fcn1-global-0.25deg"),
 )
-register_grid(
+_register_builtin(
     "latlon-1deg",
-    LatLonGrid(
+    lambda: LatLonGrid(
         latitude=np.linspace(90.0, -90.0, 181),
         longitude=np.arange(0.0, 360.0, 1.0),
     ),
 )
-register_grid(
+_register_builtin(
     "latlon-1.5deg",
-    LatLonGrid(
+    lambda: LatLonGrid(
         latitude=np.linspace(90.0, -90.0, 121),
         longitude=np.arange(0.0, 360.0, 1.5),
     ),
 )
-register_grid(
+_register_builtin(
     "gaussian-f90",
-    LatLonGrid(
+    lambda: LatLonGrid(
         latitude=np.degrees(np.arcsin(np.polynomial.legendre.leggauss(180)[0])),
         longitude=np.arange(0.5, 360.0, 1.0),
     ),
     aliases=("ace2",),
 )
-register_grid(
+_register_builtin(
     "hrrr-conus-3km",
-    ProjectedGrid(
+    lambda: ProjectedGrid(
         y=-1587306.1525566636 + 3000.0 * np.arange(1059),
         x=-2697520.1425219304 + 3000.0 * np.arange(1799),
         coordinate_reference_system=(
@@ -220,9 +235,9 @@ register_grid(
     ),
     aliases=("hrrr",),
 )
-register_grid(
+_register_builtin(
     "healpix-l6-nested",
-    HEALPixGrid(level=6, ordering="nested"),
+    partial(HEALPixGrid, level=6, ordering="nested"),
     aliases=("hpx6",),
 )
 
@@ -230,18 +245,21 @@ register_grid(
 # XY orientation is explicit in the name: it changes geographic pixel identity.
 for _level in (3, 6, 10):
     if _level != 6:
-        register_grid(
+        _register_builtin(
             f"healpix-l{_level}-nested",
-            HEALPixGrid(_level, ordering="nested"),
+            partial(HEALPixGrid, _level, ordering="nested"),
             aliases=(f"hpx{_level}",),
         )
-    register_grid(f"healpix-l{_level}-ring", HEALPixGrid(_level, ordering="ring"))
+    _register_builtin(
+        f"healpix-l{_level}-ring", partial(HEALPixGrid, _level, ordering="ring")
+    )
     _layouts: tuple[HEALPixLayout, ...] = ("flat", "face")
     for _layout in _layouts:
-        register_grid(
+        _register_builtin(
             f"healpix-l{_level}-xy-north-clockwise"
             + ("-face" if _layout == "face" else ""),
-            HEALPixGrid(
+            partial(
+                HEALPixGrid,
                 _level,
                 ordering="xy",
                 layout=_layout,

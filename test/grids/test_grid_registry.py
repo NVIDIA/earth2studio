@@ -14,10 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import runpy
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 import xarray as xr
 
+import earth2studio.grids as grids
 from earth2studio.grids import (
     E2S_CRS,
     E2S_GRID_ID,
@@ -31,6 +35,34 @@ from earth2studio.grids import (
 )
 
 GRID = ProjectedGrid([0, 3000], [0, 3000, 6000], "EPSG:3857")
+
+
+def test_builtin_grids_are_lazy_and_cached(monkeypatch):
+    constructors = []
+    for module, name in (
+        (grids.latlon, "LatLonGrid"),
+        (grids.projected, "ProjectedGrid"),
+        (grids.healpix, "HEALPixGrid"),
+    ):
+        constructor = Mock(wraps=getattr(module, name))
+        monkeypatch.setattr(module, name, constructor)
+        constructors.append(constructor)
+    registry = runpy.run_path(grids.__file__)
+    names = registry["list_grids"]()
+    assert "healpix-l10-nested" in names
+    assert all(constructor.call_count == 0 for constructor in constructors)
+    resolve = registry["resolve_grid"]
+    grid = resolve("hpx3")
+    assert grid.level == 3
+    assert resolve("healpix-l3-nested") is resolve("hpx3") is grid
+    assert [constructor.call_count for constructor in constructors] == [0, 0, 1]
+    assert registry["list_grids"]() == names
+    # Pending built-ins reserve names/aliases and retain idempotent registration.
+    registry["register_grid"]("latlon-1deg", resolve("latlon-1deg"))
+    with pytest.raises(ValueError, match="conflicts"):
+        registry["register_grid"]("custom-grid", GRID, aliases=("hpx10",))
+    with pytest.raises(ValueError, match="conflicts"):
+        registry["register_grid"]("healpix-l6-nested", GRID)
 
 
 def test_grid_registry_builtins():

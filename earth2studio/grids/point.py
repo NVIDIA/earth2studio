@@ -28,6 +28,7 @@ from numpy.typing import NDArray
 
 from earth2studio.grids._utils import (
     array,
+    cf_coordinates,
     coordinate_hash,
     geographic_subset_indexers,
     metadata,
@@ -88,7 +89,7 @@ class PointGrid:
         longitude = xr.DataArray(self.longitude, dims="x", coords={"x": self.x}).sel(
             x=indexes["x"]
         )
-        return coordinates.assign(lat=latitude, lon=longitude)
+        return cf_coordinates(coordinates.assign(lat=latitude, lon=longitude))
 
     def subset_indexers(
         self,

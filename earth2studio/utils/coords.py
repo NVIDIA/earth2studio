@@ -277,6 +277,9 @@ def coord_array(
         name=name,
         attrs=metadata,
     )
+    if definition is not None:
+        for coordinate, value in grid_coords.items():
+            array.coords[renamed.get(coordinate, coordinate)].attrs.update(value.attrs)
     if "variable" in array.coords:
         if array.coords["variable"].dims != ("variable",):
             raise ValueError("Variable must be a one-dimensional coordinate")
