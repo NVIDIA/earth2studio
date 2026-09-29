@@ -48,6 +48,10 @@ model_package = HealDA.load_default_package()
 model = HealDA.load_model(model_package)
 ```
 
+Models that only run on an accelerator take the device at load time; for example
+`HealDAv2.load_model(package, device="cuda:0")` builds the HealDA v2 network and its
+observation pipeline directly on the GPU.
+
 ### Stateless Assimilation
 
 The main work of a data assimilation model is the `__call__` function. It accepts one
