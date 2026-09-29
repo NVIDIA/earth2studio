@@ -69,7 +69,14 @@ def metadata(definition: GridDefinition, **details: Any) -> dict[str, Any]:
 def cf_coordinates(
     coordinates: xr.Coordinates, *, crs: CRS | None = None
 ) -> xr.Coordinates:
-    """Describe existing coordinates with CF attributes, without adding arrays."""
+    """Describe existing coordinates with CF attributes, without adding arrays.
+
+    References
+    ----------
+    CF Conventions, coordinate types and grid mappings:
+    https://cfconventions.org/cf-conventions/cf-conventions.html#coordinate-types
+    https://cfconventions.org/cf-conventions/cf-conventions.html#grid-mappings-and-projections
+    """
     for name, standard_name, units, axis in (
         ("lat", "latitude", "degrees_north", "Y"),
         ("lon", "longitude", "degrees_east", "X"),

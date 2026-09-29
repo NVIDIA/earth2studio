@@ -221,7 +221,6 @@ _register_builtin(
         latitude=np.degrees(np.arcsin(np.polynomial.legendre.leggauss(180)[0])),
         longitude=np.arange(0.5, 360.0, 1.0),
     ),
-    aliases=("ace2",),
 )
 _register_builtin(
     "hrrr-conus-3km",

@@ -131,7 +131,6 @@ def test_gaussian_f90_builtin():
     )
     np.testing.assert_array_equal(coords["lon"], np.arange(0.5, 360, 1))
     assert np.all(np.diff(coords["lat"]) > 0)
-    assert resolve_grid("ace2") is grid
 
 
 @pytest.mark.parametrize("level", [3, 6, 10])
