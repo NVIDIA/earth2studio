@@ -200,8 +200,6 @@ register_grid(
         longitude=np.arange(0.0, 360.0, 1.5),
     ),
 )
-# ACE2's regular Gaussian grid: 180 south-to-north Gaussian latitudes and
-# 360 half-degree-centered longitudes (distinct from an equiangular 1deg grid).
 register_grid(
     "gaussian-f90",
     LatLonGrid(
