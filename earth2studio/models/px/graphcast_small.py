@@ -418,12 +418,10 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
 
             # Pop forcings from batch if needed
-            try:
-                batch = batch.drop_vars(
-                    list(FORCING_VARIABLES) + ["year_progress", "day_progress"]
-                )
-            except ValueError:
-                pass
+            batch = batch.drop_vars(
+                list(FORCING_VARIABLES) + ["year_progress", "day_progress"],
+                errors="ignore",
+            )
 
             # Compute forcings
             data_utils.add_derived_vars(batch)
