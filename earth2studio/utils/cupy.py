@@ -167,6 +167,8 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
 
     @property
     def imag(self) -> _TorchArray:
+        if not self.tensor.is_complex():
+            self._warn_no_gradient("imag", self.tensor)
         return _TorchArray(
             self.tensor.imag
             if self.tensor.is_complex()
@@ -203,7 +205,9 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
             )
         options.update(positional)
         if func is np.zeros_like:
-            return _TorchArray(torch.zeros_like(self._coerce(args[0])))
+            value = self._coerce(args[0])
+            self._warn_no_gradient(func.__name__, value)
+            return _TorchArray(torch.zeros_like(value))
         if func in self._reductions:
             axis = options.get("axis")
             dtype = options.get("dtype")
@@ -214,6 +218,8 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
                 )
             value = self._coerce(args[0])
             dtype = _torch_dtype(dtype) if dtype is not None else None
+            if dtype is not None and not (dtype.is_floating_point or dtype.is_complex):
+                self._warn_no_gradient(func.__name__, value)
             if (
                 dtype is None
                 and func in (np.mean, np.nanmean)
@@ -276,7 +282,23 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
         values = [
             value if np.isscalar(value) else self._coerce(value) for value in inputs
         ]
-        return _TorchArray(self._operations[ufunc](*values))
+        result = self._operations[ufunc](*values)
+        # floor_divide has a grad_fn, but PyTorch does not implement its backward.
+        if not result.requires_grad or ufunc is np.floor_divide:
+            self._warn_no_gradient(ufunc.__name__, *values)
+        return _TorchArray(result)
+
+    @staticmethod
+    def _warn_no_gradient(operation: str, *values: Any) -> None:
+        if torch.is_grad_enabled() and any(
+            isinstance(value, torch.Tensor) and value.requires_grad for value in values
+        ):
+            warnings.warn(
+                f"Torch backend operation '{operation}' does not support gradients "
+                "for these inputs; gradients will not propagate through this operation.",
+                UserWarning,
+                stacklevel=3,
+            )
 
     def _coerce(self, value: Any) -> torch.Tensor:
         if isinstance(value, _TorchArray):
@@ -331,7 +353,10 @@ class _TorchArray(np.lib.mixins.NDArrayOperatorsMixin):
             raise NotImplementedError(
                 f"Torch backend does not support astype options {tuple(kwargs)}"
             )
-        return _TorchArray(self.tensor.to(dtype=_torch_dtype(dtype), copy=copy))
+        target = _torch_dtype(dtype)
+        if not (target.is_floating_point or target.is_complex):
+            self._warn_no_gradient("astype", self.tensor)
+        return _TorchArray(self.tensor.to(dtype=target, copy=copy))
 
     def __deepcopy__(self, memo: dict[int, Any]) -> _TorchArray:
         result = _TorchArray(self.tensor.clone())

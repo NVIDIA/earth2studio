@@ -8,4 +8,3 @@
 - [Build](build.md)
 - [Recipes](recipes.md)
 - [Skills](skills.md)
-- [Supported Array Operations and Gradients](../advanced/array_backends.md#supported-operations)

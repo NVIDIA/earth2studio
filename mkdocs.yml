@@ -524,7 +524,6 @@ nav:
     - userguide/advanced/index.md
     - Checkpointing: userguide/advanced/checkpointing.md
     - Batch Dimension: userguide/advanced/batch.md
-    - Array Backends and Gradients: userguide/advanced/array_backends.md
     - AutoModels: userguide/advanced/auto.md
     - Lexicon: userguide/advanced/lexicon.md
     - Knowledge Base:
