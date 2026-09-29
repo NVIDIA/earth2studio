@@ -55,10 +55,10 @@ def offline_sr(monkeypatch):
         self.input_type = self.output_type = "latlon" if lat_lon else "healpix"
         self.register_buffer("_device_buffer", torch.empty(0))
         self.input_grid = SimpleNamespace(
-            lat=np.linspace(90, -90, 721, endpoint=False), lon=np.arange(1440) / 4
+            lat=np.linspace(90, -90, 721), lon=np.arange(1440) / 4
         )
         if super_resolution_window is None:
-            lat = np.linspace(90, -90, output_resolution[0], endpoint=False)
+            lat = np.linspace(90, -90, output_resolution[0])
             lon = np.linspace(0, 360, output_resolution[1], endpoint=False)
         else:
             s, w, n, e = super_resolution_window
