@@ -65,10 +65,17 @@ runs:
         TESTMON_TOX_ENV: ${{ inputs.tox-env }}
       with:
         script: |
-          const { findBaselineRun } = require('./.github/scripts/testmon-baseline.cjs');
-          const runId = await findBaselineRun(
-            github, context.repo, process.env.TESTMON_BASE_BRANCH, process.env.TESTMON_TOX_ENV
+          const branch = process.env.TESTMON_BASE_BRANCH;
+          const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
+            ...context.repo,
+            name: `testmon-${branch}-${process.env.TESTMON_TOX_ENV}`,
+            per_page: 100,
+          });
+          // Newest first; exclude expired databases and runs on other branches.
+          const artifact = artifacts.find(item =>
+            !item.expired && item.workflow_run?.head_branch === branch
           );
+          const runId = artifact ? String(artifact.workflow_run.id) : '';
           core.setOutput('run-id', runId);
           if (!runId) core.notice('No testmon baseline found; running without cached test selection.');
 
@@ -122,6 +129,8 @@ runs:
         path: ${{ env.TESTMON_CACHE }}
         key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-${{ inputs.testmon-base-branch }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # The first RC run seeds these databases with a full test run.
+    # Later RC pushes refresh them for copied PRs targeting that branch.
     - name: Publish RC testmon baseline
       if: always() && inputs.save-testmon-cache == 'true' && inputs.testmon-base-branch != 'main'
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

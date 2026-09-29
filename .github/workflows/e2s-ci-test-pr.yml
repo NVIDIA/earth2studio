@@ -78,8 +78,14 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
-            const { resolveBaseBranch } = require('./.github/scripts/testmon-baseline.cjs');
-            const branch = await resolveBaseBranch(github, context.repo, context.ref.replace('refs/heads/', ''));
+            // Copied PRs are push events, so github.base_ref is unavailable.
+            const match = /^refs\/heads\/pull-request\/(\d+)$/.exec(context.ref);
+            if (!match) throw new Error(`Invalid copied PR ref: ${context.ref}`);
+            const { data: pr } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: Number(match[1]),
+            });
+            const branch = pr.base.ref;
             core.setOutput('branch', branch);
             core.info(`Using ${branch} as the CI baseline`);
 
