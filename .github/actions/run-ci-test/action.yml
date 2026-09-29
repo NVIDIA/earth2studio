@@ -24,6 +24,9 @@ inputs:
   save-testmon-cache:
     description: Whether to save the testmon cache after the test run.
     default: "false"
+  testmon-base-branch:
+    description: Branch whose testmon database is the test baseline.
+    default: main
 
 runs:
   using: composite
@@ -42,13 +45,42 @@ runs:
 
     - name: Restore testmon cache
       id: testmon-cache
+      if: inputs.save-testmon-cache == 'true' || inputs.testmon-base-branch == 'main'
       uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
       continue-on-error: true
       with:
         path: ${{ env.TESTMON_CACHE }}
-        key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+        key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-${{ inputs.testmon-base-branch }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
-          e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-main-
+          e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-${{ inputs.testmon-base-branch }}-
+
+    # Push events on copied PR branches cannot restore another branch's cache.
+    - name: Find RC testmon baseline
+      id: baseline
+      if: inputs.save-testmon-cache != 'true' && inputs.testmon-base-branch != 'main'
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      continue-on-error: true
+      env:
+        TESTMON_BASE_BRANCH: ${{ inputs.testmon-base-branch }}
+        TESTMON_TOX_ENV: ${{ inputs.tox-env }}
+      with:
+        script: |
+          const { findBaselineRun } = require('./.github/scripts/testmon-baseline.cjs');
+          const runId = await findBaselineRun(
+            github, context.repo, process.env.TESTMON_BASE_BRANCH, process.env.TESTMON_TOX_ENV
+          );
+          core.setOutput('run-id', runId);
+          if (!runId) core.notice('No testmon baseline found; running without cached test selection.');
+
+    - name: Download RC testmon baseline
+      if: steps.baseline.outputs.run-id != ''
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      continue-on-error: true
+      with:
+        name: testmon-${{ inputs.testmon-base-branch }}-${{ inputs.tox-env }}
+        path: ${{ env.TESTMON_CACHE }}
+        github-token: ${{ github.token }}
+        run-id: ${{ steps.baseline.outputs.run-id }}
 
     - name: Prepare CI directories
       shell: bash
@@ -88,4 +120,16 @@ runs:
       continue-on-error: true
       with:
         path: ${{ env.TESTMON_CACHE }}
-        key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-main-${{ github.run_id }}-${{ github.run_attempt }}
+        key: e2s-testmon-${{ inputs.tox-env }}-${{ runner.os }}-${{ inputs.testmon-base-branch }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    - name: Publish RC testmon baseline
+      if: always() && inputs.save-testmon-cache == 'true' && inputs.testmon-base-branch != 'main'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      continue-on-error: true
+      with:
+        name: testmon-${{ inputs.testmon-base-branch }}-${{ inputs.tox-env }}
+        path: ${{ env.TESTMON_CACHE }}
+        include-hidden-files: true
+        if-no-files-found: ignore
+        overwrite: true
+        retention-days: 30

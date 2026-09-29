@@ -22,8 +22,10 @@ on:
       - "pull-request/**"
 
 permissions:
+  actions: read
   contents: read
   packages: read
+  pull-requests: read
 
 defaults:
   run:
@@ -56,6 +58,7 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     runs-on: ubuntu-latest
     outputs:
+      base_branch: ${{ steps.base.outputs.branch }}
       data: ${{ steps.filter.outputs.data }}
       perturb: ${{ steps.filter.outputs.perturb }}
       stats: ${{ steps.filter.outputs.stats }}
@@ -70,11 +73,22 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Resolve PR target branch
+        id: base
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const { resolveBaseBranch } = require('./.github/scripts/testmon-baseline.cjs');
+            const branch = await resolveBaseBranch(github, context.repo, context.ref.replace('refs/heads/', ''));
+            core.setOutput('branch', branch);
+            core.info(`Using ${branch} as the CI baseline`);
+
       - name: Detect changed test suites
         id: filter
         uses: ./.github/actions/detect-ci-changes
         with:
           mode: pr
+          base-branch: ${{ steps.base.outputs.branch }}
 
   format:
     name: Format
@@ -201,6 +215,7 @@ jobs:
     name: Test
     if: github.repository == 'NVIDIA/earth2studio'
     needs:
+      - changes
       - format
       - lint
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -220,6 +235,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-px-models:
@@ -246,6 +262,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-dx-models:
@@ -272,6 +289,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-data:
@@ -298,6 +316,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-data
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-perturb:
@@ -324,6 +343,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-perturb
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-stats:
@@ -350,6 +370,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-stats
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-da-models:
@@ -376,6 +397,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-da-models
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-px-models-conflicts:
@@ -402,6 +424,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-serve:
@@ -428,6 +451,7 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-serve
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   coverage:
