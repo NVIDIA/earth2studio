@@ -47,6 +47,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -61,9 +62,9 @@ from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.dx.corrdiff import _field
 from earth2studio.utils import interp
 from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -848,11 +849,11 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             lon_out = lon_out[top : H - bot, left : W - right]
 
         leading = input_coords.dims[:-3]
-        return coord_array(
+        result = coord_array(
             (*leading, "sample", "variable", "y", "x"),
             {
                 **{
-                    k: v.variable
+                    k: deepcopy(v.variable)
                     for k, v in input_coords.coords.items()
                     if set(v.dims).issubset(leading)
                 },
@@ -864,8 +865,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             grid=CurvilinearGrid(lat_out, lon_out),
             dtype=input_coords.dtype,
             name=input_coords.name,
-            attrs=input_coords.attrs,
+            attrs=deepcopy(input_coords.attrs),
         )
+        result.encoding = deepcopy(input_coords.encoding)
+        return result
 
     # ── invariants ──────────────────────────────────────────────────────────
 
@@ -1451,7 +1454,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         for b in range(out.shape[0]):
             for t in range(out.shape[2]):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t], lat2d, lon2d)
-        return restore(from_torch(out, output_coords)).transpose(*signature.dims)
+        return restore(_field(out, output_coords)).transpose(*signature.dims)
 
     def to(self, device: torch.device) -> "CorrDiffCosmoEra5":
         """Move the model to a device (the active regression/diffusion sub-network
