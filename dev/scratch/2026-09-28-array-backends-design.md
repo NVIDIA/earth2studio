@@ -45,11 +45,11 @@ CuPy stays lazily imported; invalid backend names raise `ValueError`.
 
 ### Minimal gradient example
 
-Run [backend_example.py](backend_example.py) from the repository root with the
+Run [05_array_backends.py](../examples/05_array_backends.py) from the repository root with the
 environment setting applied before import:
 
 ```bash
-EARTH2STUDIO_ARRAY_BACKEND=torch uv run dev/scratch/backend_example.py
+EARTH2STUDIO_ARRAY_BACKEND=torch uv run dev/examples/05_array_backends.py
 ```
 
 ```python

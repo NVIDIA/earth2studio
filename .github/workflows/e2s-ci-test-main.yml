@@ -20,6 +20,7 @@ on:
   push:
     branches:
       - main
+      - "*-rc"
   workflow_dispatch:
 
 permissions:
@@ -122,7 +123,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-px-models:
     name: Test prognostic models
@@ -145,7 +147,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-dx-models:
     name: Test diagnostic models
@@ -168,7 +171,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-data:
     name: Test data sources
@@ -191,7 +195,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-data
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-perturb:
     name: Test perturbation methods
@@ -214,7 +219,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-perturb
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-stats:
     name: Test statistics and metrics
@@ -237,7 +243,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-stats
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-da-models:
     name: Test data assimilation models
@@ -260,7 +267,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-da-models
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-px-models-conflicts:
     name: Test model conflict environments
@@ -283,7 +291,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   test-serve:
     name: Test serve
@@ -306,7 +315,8 @@ jobs:
         uses: ./.github/actions/run-ci-test
         with:
           tox-env: test-serve
-          save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
+          testmon-base-branch: ${{ github.ref_name }}
+          save-testmon-cache: ${{ github.ref_type == 'branch' && (github.ref_name == 'main' || endsWith(github.ref_name, '-rc')) }}
 
   coverage:
     name: Coverage

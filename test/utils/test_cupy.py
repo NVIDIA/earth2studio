@@ -370,7 +370,16 @@ def test_torch_nan_reductions(operation, skipna):
         requires_grad=True,
     )
     array = from_torch(tensor, {"x": [0, 1], "y": [0, 1, 2]}, backend="torch")
-    actual = getattr(array, operation)("y", skipna=skipna).e2s.to_torch()[0]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        actual = getattr(array, operation)("y", skipna=skipna).e2s.to_torch()[0]
+    # xarray builds nondifferentiable masks/constants for skipna sum; the
+    # selected data still retains its gradient, checked below.
+    if operation == "sum" and skipna:
+        assert any("isnan" in str(w.message) for w in caught)
+        assert any("zeros_like" in str(w.message) for w in caught)
+    else:
+        assert not caught
     expected = getattr(torch, ("nan" if skipna else "") + operation)(tensor, dim=1)
     assert_values_and_gradients(actual, expected, tensor)
 
@@ -378,7 +387,8 @@ def test_torch_nan_reductions(operation, skipna):
 def test_torch_comparisons_cast_and_unsupported_operations():
     tensor = torch.arange(3.0, requires_grad=True)
     array = from_torch(tensor, {"x": [0, 1, 2]}, backend="torch")
-    torch.testing.assert_close((array > 1).e2s.to_torch()[0], tensor > 1)
+    with pytest.warns(UserWarning, match="greater.*gradient"):
+        torch.testing.assert_close((array > 1).e2s.to_torch()[0], tensor > 1)
     converted = array.astype(np.float64).e2s.to_torch()[0]
     assert converted.dtype == torch.float64 and converted.requires_grad
     assert array.copy(deep=True).e2s.to_torch()[0].data_ptr() != tensor.data_ptr()
@@ -518,3 +528,58 @@ def test_torch_scalar_left_comparisons(operation):
     np.testing.assert_array_equal(
         operation(1, array.data).tensor.numpy(), operation(1, np.arange(3.0))
     )
+
+
+@pytest.mark.parametrize(
+    "name,operation",
+    [
+        ("floor_divide", lambda a: np.floor_divide(5, a)),
+        ("equal", lambda a: np.equal(a, 2)),
+        ("less", lambda a: np.less(2, a)),
+        ("isnan", np.isnan),
+        ("isfinite", np.isfinite),
+        ("logical_not", np.logical_not),
+        ("logical_and", lambda a: np.logical_and(a, a)),
+        ("zeros_like", np.zeros_like),
+        ("astype", lambda a: a.astype(np.int64)),
+        ("astype", lambda a: a.astype(bool)),
+        ("sum", lambda a: np.sum(a, dtype=np.int64)),
+        ("nansum", lambda a: np.nansum(a, dtype=np.int64)),
+        ("imag", lambda a: a.imag),
+    ],
+)
+@pytest.mark.parametrize("mode", ["tracked", "untracked", "no_grad", "inference_mode"])
+def test_torch_nondifferentiable_operations_warn(name, operation, mode):
+    tensor = torch.tensor([1.0, 2.0, 3.0], requires_grad=mode != "untracked")
+    data = from_torch(tensor, {"x": [0, 1, 2]}, backend="torch").data
+    expected = operation(
+        from_torch(tensor.detach(), {"x": [0, 1, 2]}, backend="torch").data
+    )
+    context = (
+        getattr(torch, mode)()
+        if mode in ("no_grad", "inference_mode")
+        else torch.enable_grad()
+    )
+    with context, warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        if mode == "tracked" and name in ("sum", "nansum"):
+            with pytest.raises(RuntimeError, match="Autograd not support dtype"):
+                operation(data)
+        else:
+            actual = operation(data)
+            torch.testing.assert_close(actual.tensor, expected.tensor)
+    assert len(caught) == (1 if mode == "tracked" else 0)
+    if caught:
+        assert issubclass(caught[0].category, UserWarning)
+        assert name in str(caught[0].message)
+        assert "gradient" in str(caught[0].message)
+
+
+def test_torch_differentiable_operations_do_not_warn():
+    tensor = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+    array = from_torch(tensor, {"x": [0, 1, 2]}, backend="torch")
+    with warnings.catch_warnings(record=True) as caught:
+        result = ((array + 1) ** 2).astype(np.float64).sum(skipna=False)
+        result.e2s.to_torch()[0].backward()
+    assert not caught
+    torch.testing.assert_close(tensor.grad, 2 * (tensor.detach() + 1))
