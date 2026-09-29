@@ -84,8 +84,7 @@ _ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
 
 
 def _variable_labels(variables: list[str]) -> np.ndarray:
-    # ttr03 consists of the three hourly, interval-ending samples through T.
-    return np.array(["ttr:sum:-2h:1h" if v == "ttr03" else v for v in variables])
+    return np.array(variables)
 
 
 @check_optional_dependencies()
@@ -1642,9 +1641,7 @@ class DLESyMLatLon(DLESyM):
         prep_coords = coords.copy()
 
         # Fetch the base variables
-        base_vars = [
-            "ttr03" if v == "ttr:sum:-2h:1h" else v for v in prep_coords["variable"]
-        ]
+        base_vars = list(prep_coords["variable"])
         src_vars = {
             v: x[..., base_vars.index(v) : base_vars.index(v) + 1, :, :]
             for v in base_vars

@@ -432,8 +432,8 @@ def test_dlesym_conformance():
         "ttr03" if v == "z500" else v for v in model.atmos_variables
     ]
     signature = model.input_coords()
-    assert signature["variable"].values[0] == "ttr:sum:-2h:1h"
-    assert "ttr:sum:-2h:1h" in signature.attrs["earth2studio_statistics"]
+    assert signature["variable"].values[0] == "ttr03"
+    assert "ttr:sum:-2h:1h" not in signature.attrs.get("earth2studio_statistics", {})
 
 
 def test_dlesym_latlon_conformance():
