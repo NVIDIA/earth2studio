@@ -30,7 +30,7 @@ from earth2studio.data import ACE2ERA5Data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
 from earth2studio.data.base import DataSource
 from earth2studio.data.utils import fetch_data
-from earth2studio.grids import LatLonGrid, resolve_grid
+from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -276,12 +276,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(self._prog_vars_e2s, dtype=object),
             },
             dynamic=("batch", "time"),
-            grid=(
-                "gaussian-f90"
-                if LatLonGrid(self.lat, self.lon).fingerprint()
-                == resolve_grid("gaussian-f90").fingerprint()
-                else LatLonGrid(self.lat, self.lon)
-            ),
+            grid=LatLonGrid(self.lat, self.lon),
         )
         return coords
 
