@@ -4,6 +4,16 @@ Use `earth2studio.grids.list_grids()` to discover built-in grids and
 `resolve_grid(name)` to retrieve their geometry. Pass a registered name to
 `coord_array(..., grid=name)` to include that identity in a model signature.
 
+Input validation first checks `earth2studio_grid_id`. Matching nonempty IDs are
+trusted to identify spatial coordinates, skipping their value comparisons.
+Different nonempty IDs are rejected, even when coordinates match. If either ID is
+missing, validation falls back to explicit coordinate and specification checks.
+Dimensions, sizes, non-spatial labels, and required metadata are always checked.
+Clear the grid ID when changing spatial coordinates to enable explicit validation.
+Latitude–longitude inputs may also omit the default EPSG:4326 CRS metadata;
+projected inputs still require their CRS, and HEALPix inputs require matching
+level, ordering, layout, and applicable XY orientation metadata.
+
 ## Global latitude–longitude grids
 
 | Name | Shape (latitude, longitude) | Convention / examples |

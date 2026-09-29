@@ -378,9 +378,18 @@ def handshake_dataarray(
     must match. Validate temporal labels with ``handshake_time`` and normalize
     relative lead times at the call site before comparing.
     Comparisons ignore auxiliaries attached to individual coordinate DataArrays.
+    Matching nonempty grid IDs are trusted to identify spatial coordinates and
+    skip their value comparisons. Different nonempty IDs are rejected; a missing
+    ID falls back to explicit coordinate checks. Dimensions, sizes, non-spatial
+    labels and required grid metadata are always validated. Geographic axes may omit
+    the default EPSG:4326 CRS metadata.
     """
     if not isinstance(array, xr.DataArray):
         raise TypeError("Expected a DataArray")
+    grid_id = signature.attrs.get(E2S_GRID_ID)
+    input_grid_id = array.attrs.get(E2S_GRID_ID)
+    if grid_id and input_grid_id and input_grid_id != grid_id:
+        raise ValueError(f"DataArray metadata {E2S_GRID_ID!r} does not match")
     dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
     if tuple(signature.dims[: len(dynamic)]) != dynamic:
         raise ValueError("Dynamic dimensions must lead the coordinate signature")
@@ -391,16 +400,34 @@ def handshake_dataarray(
     for index, dimension in enumerate(fixed, start=-len(fixed)):
         handshake_dim(array, dimension, index)
         handshake_size(array, dimension, signature.sizes[dimension])
+    spatial_dims = (
+        set(signature.attrs.get("dims", ()))
+        if grid_id and input_grid_id == grid_id
+        else set()
+    )
     for name, coordinate in signature.coords.items():
         if set(coordinate.dims).intersection(dynamic):
+            continue
+        if coordinate.dims and set(coordinate.dims).issubset(spatial_dims):
             continue
         try:
             handshake_coords(array, signature, name)
         except KeyError as error:
             raise ValueError(str(error)) from error
-    keys = [
-        key for key in (E2S_GRID_ID, E2S_CRS, E2S_STATISTICS) if key in signature.attrs
-    ]
+    keys = [key for key in (E2S_CRS, E2S_STATISTICS) if key in signature.attrs]
+    if (
+        signature.attrs.get("type") == "LatLonGrid"
+        and signature.attrs.get(E2S_CRS) == "EPSG:4326"
+        and E2S_CRS not in array.attrs
+        and array.attrs.get("crs", "EPSG:4326") == "EPSG:4326"
+    ):
+        keys.remove(E2S_CRS)
+    if signature.attrs.get("type") == "HEALPixGrid":
+        keys.extend(
+            key
+            for key in ("level", "nside", "ordering", "layout", "origin", "clockwise")
+            if key in signature.attrs
+        )
     handshake_metadata(array, signature, keys)
 
 

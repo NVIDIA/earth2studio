@@ -324,6 +324,9 @@ def test_ucast_iter_uses_internal_normalized_state() -> None:
 def test_ucast_exceptions(ucast_model: UCast, coords_update: dict) -> None:
     time = np.array([np.datetime64("2020-01-01T00:00")])
     x = _input(ucast_model, time)
+    # Edited spatial coordinates no longer carry the original grid identity.
+    if {"lat", "lon"}.intersection(coords_update):
+        x.attrs.pop("earth2studio_grid_id", None)
     with pytest.raises((KeyError, ValueError)):
         ucast_model(x.assign_coords(coords_update))
 

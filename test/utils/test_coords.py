@@ -281,6 +281,62 @@ def test_handshake_relative_history_and_runtime():
         handshake_time(scalar)
 
 
+@pytest.mark.parametrize("grid_id", [None, "custom-latlon"])
+def test_handshake_named_latlon_grid_identity(grid_id):
+    declaration = coord_array(("lat", "lon"), grid="latlon-1.5deg")
+    actual = coord_array(("lat", "lon"), dict(declaration.coords))
+    if grid_id is not None:
+        actual.attrs["earth2studio_grid_id"] = grid_id
+        with pytest.raises(ValueError, match="earth2studio_grid_id"):
+            handshake_dataarray(actual, declaration)
+        return
+    handshake_dataarray(actual, declaration)
+    with pytest.raises(ValueError, match="lat"):
+        handshake_dataarray(actual.assign_coords(lat=actual.lat + 1), declaration)
+    actual.attrs["earth2studio_crs"] = "EPSG:3857"
+    with pytest.raises(ValueError, match="metadata"):
+        handshake_dataarray(actual, declaration)
+
+
+def test_handshake_matching_grid_id_skips_spatial_comparisons(monkeypatch):
+    import earth2studio.utils.coords as coords_module
+
+    declaration = coord_array(
+        ("variable", "lat", "lon"), {"variable": ["t2m"]}, grid="latlon-1.5deg"
+    )
+    checked = []
+    original = coords_module.handshake_coords
+
+    def check(array, signature, name):
+        checked.append(name)
+        assert name not in {"lat", "lon"}
+        return original(array, signature, name)
+
+    monkeypatch.setattr(coords_module, "handshake_coords", check)
+    handshake_dataarray(declaration, declaration)
+    assert checked == ["variable"]
+    with pytest.raises(ValueError):
+        handshake_dataarray(declaration.isel(lat=slice(1, None)), declaration)
+    with pytest.raises(ValueError, match="variable"):
+        handshake_dataarray(declaration.assign_coords(variable=["u10m"]), declaration)
+
+
+def test_handshake_named_healpix_accepts_matching_specs():
+    from earth2studio.grids import HEALPixGrid
+
+    declaration = coord_array(("hpx",), grid="healpix-l3-nested")
+    actual = coord_array(("hpx",), grid=HEALPixGrid(3, ordering="nested"))
+    handshake_dataarray(actual, declaration)
+    actual.attrs["earth2studio_grid_id"] = "custom-healpix"
+    with pytest.raises(ValueError, match="earth2studio_grid_id"):
+        handshake_dataarray(actual, declaration)
+    actual.attrs.pop("earth2studio_grid_id")
+    for key, value in (("ordering", "ring"), ("level", 4), ("layout", "face")):
+        changed = actual.assign_attrs({key: value})
+        with pytest.raises(ValueError, match="metadata"):
+            handshake_dataarray(changed, declaration)
+
+
 def test_handshake_healpix_metadata():
     from earth2studio.grids import HEALPixGrid
 
@@ -288,7 +344,8 @@ def test_handshake_healpix_metadata():
     handshake_dataarray(signature, signature)
     changed = signature.copy(deep=False)
     changed.attrs = {**signature.attrs, "ordering": "ring"}
-    handshake_dataarray(changed, signature)
+    with pytest.raises(ValueError, match="metadata"):
+        handshake_dataarray(changed, signature)
     with pytest.raises(ValueError, match="metadata"):
         handshake_metadata(changed, signature, ("ordering",))
 
@@ -1150,6 +1207,14 @@ def test_coordinate_projected_grid_metadata():
     assert "earth2studio_grid_id" not in signature.attrs
     assert signature.attrs[E2S_CRS] == grid.crs.to_string()
     assert infer_grid(signature).fingerprint() == grid.fingerprint()
+    for crs in (None, "EPSG:4326"):
+        changed = signature.copy(deep=False)
+        if crs is None:
+            changed.attrs.pop(E2S_CRS)
+        else:
+            changed.attrs[E2S_CRS] = crs
+        with pytest.raises(ValueError, match="metadata"):
+            handshake_dataarray(changed, signature)
     named = coord_array(
         ("hrrr_y", "hrrr_x"),
         grid=grid,
