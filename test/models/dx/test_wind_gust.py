@@ -101,7 +101,7 @@ def test_afno_windgust(batch, times, device):
     before = x.copy(deep=True)
     out = dx(x)
     assert out.shape == (batch, times, 1, 1, 4, 6)
-    assert out.coords["variable"].values.tolist() == ["fg10m:max:1h"]
+    assert out.coords["variable"].values.tolist() == ["fg10m"]
     handshake_dataarray(out, dx.output_coords(x))
     tensor, _ = out.e2s.to_torch()
     source, _ = x.e2s.to_torch()

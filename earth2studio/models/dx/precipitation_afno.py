@@ -136,13 +136,13 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         -------
         CoordinateSystem
             Allocation-free DataArray output signature for six-hour accumulated
-            total precipitation, with variable ``tp:sum:6h`` and derived temporal
-            statistics, preserving leading dimensions and the FCN grid.
+            total precipitation, with variable ``tp``, preserving leading
+            dimensions and the FCN grid.
         """
         handshake_dataarray(input_coords, self.input_coords())
         return coord_array_like(
             input_coords,
-            {"variable": np.array(["tp:sum:6h"])},
+            {"variable": np.array(["tp"])},
         )
 
     def __str__(self) -> str:
@@ -212,7 +212,7 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         xr.DataArray
-            Total precipitation with ``tp`` / ``sum:6h`` metadata on the input device.
+            Six-hour total precipitation with variable ``tp`` on the input device.
         """
         output_coords = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
