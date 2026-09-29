@@ -184,6 +184,7 @@ def test_ACE2ERA5_call(device):
     dc = p.input_coords()
     assert isinstance(dc, xr.DataArray)
     assert dc.data.nbytes == 0
+    assert dc.attrs["earth2studio_grid_id"] == "gaussian-f90"
     r = Random({d: dc[d].values for d in ("lat", "lon")})
 
     lead_time = p.input_coords()["lead_time"]
@@ -331,12 +332,7 @@ class _DeterministicPhooStepper(PhooStepper):
         ),
     ],
 )
-def test_ace2era5_input_dtype(dtype, device, monkeypatch):
-    lat = np.linspace(90, -90, 4)
-    lon = np.linspace(0, 360, 8, endpoint=False)
-    monkeypatch.setattr(ace_src, "ACE_GRID_LAT", lat)
-    monkeypatch.setattr(ace_src, "ACE_GRID_LON", lon)
-
+def test_ace2era5_input_dtype(dtype, device):
     class Float32Stepper(PhooStepper):
         def __init__(self):
             super().__init__()
@@ -354,7 +350,7 @@ def test_ace2era5_input_dtype(dtype, device, monkeypatch):
                 None,
             )
 
-    source = Random({"lat": lat, "lon": lon})
+    source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
     model = ACE2ERA5(Float32Stepper(), source).to(device)
     signature = model.input_coords()
     x = fetch_data(
