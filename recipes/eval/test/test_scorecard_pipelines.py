@@ -31,12 +31,12 @@ import pytest
 import torch
 import xarray as xr
 from omegaconf import OmegaConf
-from scorecard.utils.pipelines import (
+from src.data import PredownloadedSource
+from src.pipelines.regional import (
     RegionalForecastPipeline,
     SubgridSource,
     _conditioning_window,
 )
-from src.data import PredownloadedSource
 
 # A small "full" limited-area grid and the model window inside it.
 FULL_Y = np.arange(6, dtype=float) * 3000.0
@@ -382,3 +382,98 @@ class TestRegionalForecastPipeline:
             cfg, torch.device("cpu")
         )
         assert "EARTH2STUDIO_DATA_CACHE" not in os.environ
+
+
+class TestLongitudeConvention:
+    def _global(self):
+        lon = np.arange(0.0, 360.0, 90.0)
+        lat = np.array([10.0, 0.0])
+        return xr.DataArray(
+            np.arange(8.0).reshape(1, 1, 2, 4),
+            dims=("time", "variable", "lat", "lon"),
+            coords={
+                "time": [np.datetime64("2025-01-01")],
+                "variable": ["a"],
+                "lat": lat,
+                "lon": lon,
+            },
+        )
+
+    def test_source_relabelled_to_signed_longitudes(self):
+        from src.pipelines.regional import align_longitudes
+
+        da = align_longitudes(self._global(), np.array([-90.0, 0.0]))
+        assert list(da["lon"].values) == [-180.0, -90.0, 0.0, 90.0]
+        # the value that sat at 270 E now sits at -90
+        assert float(da.sel(lon=-90.0, lat=10.0).values.squeeze()) == 3.0
+
+    def test_signed_target_selects_through_subgrid(self):
+        from src.pipelines.regional import SubgridSource
+
+        ref = OrderedDict({"lat": np.array([10.0]), "lon": np.array([-90.0, 0.0])})
+        da = SubgridSource(lambda t, v: self._global(), ref)(
+            np.datetime64("2025-01-01"), ["a"]
+        )
+        assert list(da["lon"].values) == [-90.0, 0.0]
+
+    def test_no_change_when_conventions_agree(self):
+        from src.pipelines.regional import align_longitudes
+
+        da = align_longitudes(self._global(), np.array([0.0, 90.0]))
+        assert list(da["lon"].values) == [0.0, 90.0, 180.0, 270.0]
+
+
+class TestIndexDims:
+    def test_two_d_latlon_become_index_dims(self):
+        from src.pipelines.regional import _index_dims
+
+        lat2 = np.linspace(45, 50, 3)[:, None] * np.ones((1, 4))
+        lon2 = np.ones((3, 1)) * np.linspace(5, 12, 4)[None, :]
+        coords = OrderedDict(
+            {
+                "time": np.empty(0),
+                "variable": np.array(["t2m"]),
+                "lat": lat2,
+                "lon": lon2,
+            }
+        )
+        out, grid = _index_dims(coords)
+        assert list(out) == ["time", "variable", "y", "x"]
+        assert out["y"].tolist() == [0, 1, 2] and out["x"].tolist() == [0, 1, 2, 3]
+        assert grid["lat"].shape == (3, 4)
+
+    def test_one_d_grid_untouched(self):
+        from src.pipelines.regional import _index_dims
+
+        coords = OrderedDict({"lat": np.array([1.0, 2.0]), "lon": np.array([3.0])})
+        out, grid = _index_dims(coords)
+        assert out is coords and grid == {}
+
+
+class TestApplyCrop:
+    def test_routes_to_set_domain(self):
+        from src.pipelines.regional import apply_crop
+
+        class Model:
+            def set_domain(self, lat_min, lat_max, lon_min, lon_max, margin_deg=1.0):
+                return ("cropped", lat_min, lat_max, lon_min, lon_max, margin_deg)
+
+        out = apply_crop(
+            Model(),
+            {
+                "lat_min": 45,
+                "lat_max": 50,
+                "lon_min": 5,
+                "lon_max": 12,
+                "margin_deg": 2.0,
+            },
+        )
+        assert out == ("cropped", 45, 50, 5, 12, 2.0)
+
+    def test_none_is_identity_and_missing_hook_raises(self):
+        from src.pipelines.regional import apply_crop
+
+        model = object()
+        assert apply_crop(model, None) is model
+        with pytest.raises(TypeError, match="load_args"):
+            apply_crop(model, {"lat_min": 0, "lat_max": 1, "lon_min": 0, "lon_max": 1})

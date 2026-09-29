@@ -1095,7 +1095,7 @@ Each source module has a specific scoped responsibilities:
 <!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
 | --- | --- |
-| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope) |
+| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope, Regional) |
 | `assimilation.py` | DA plumbing — `load_assimilation`, `ObsSourceSet`, `AssimilationRunner`, analysis→tensor conversion |
 | `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 | `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |

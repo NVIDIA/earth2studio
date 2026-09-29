@@ -373,7 +373,7 @@ def data_sources(run: Path) -> dict:
 def build_metrics(
     ds: xr.Dataset,
     variables: list[str],
-    lead_h: list[int],
+    lead_h: list[float | int],
     region: str | None = None,
     months: tuple[int, ...] | None = None,
     hour: int | None = None,
@@ -441,7 +441,9 @@ def build_metrics(
     return metrics
 
 
-def build_heatmap(ds: xr.Dataset, variables: list[str], lead_h: list[int]) -> dict:
+def build_heatmap(
+    ds: xr.Dataset, variables: list[str], lead_h: list[float | int]
+) -> dict:
     """Per-IC skill grids for every scored variable (the docs' IC heatmap).
 
     One row per initial condition, one column per lead time — the raw
@@ -472,6 +474,13 @@ def build_heatmap(ds: xr.Dataset, variables: list[str], lead_h: list[int]) -> di
         if values:
             metrics[key] = {"label": label, "values": values}
     return metrics
+
+
+def lead_hours(ds: xr.Dataset) -> list[float | int]:
+    """Lead times in hours: ints for whole hours, floats for sub-hourly
+    models (10-minute steps export as 0.1667, 0.3333, ...)."""
+    hours = ds.lead_time.values / np.timedelta64(1, "h")
+    return [int(h) if float(h).is_integer() else round(float(h), 4) for h in hours]
 
 
 def drop_unscored_times(ds: xr.Dataset) -> xr.Dataset:
@@ -534,7 +543,10 @@ def event_ic_count(ds: xr.Dataset, event: dict) -> int:
 
 
 def build_events(
-    ds: xr.Dataset, variables: list[str], lead_h: list[int], events: dict[str, dict]
+    ds: xr.Dataset,
+    variables: list[str],
+    lead_h: list[float | int],
+    events: dict[str, dict],
 ) -> dict[str, dict]:
     """One ``metrics`` block per event: its region, windowed in time.
 
@@ -603,7 +615,7 @@ def export(
     variables = sorted(
         {k.split("__", 1)[1] for k in ds.data_vars if "__" in k}, key=sort_key
     )
-    lead_h = (ds.lead_time.values / np.timedelta64(1, "h")).astype(int).tolist()
+    lead_h = lead_hours(ds)
     times = [str(t)[:16].replace("T", " ") for t in ds.time.values]
     n_ens = int(ds.sizes.get("ensemble", 1))
     regions = [str(r) for r in ds.region.values] if "region" in ds.dims else []
@@ -709,9 +721,7 @@ def export(
             {k.split("__", 1)[1] for k in src_ds.data_vars if "__" in k},
             key=sort_key,
         )
-        src_lead_h = (
-            (src_ds.lead_time.values / np.timedelta64(1, "h")).astype(int).tolist()
-        )
+        src_lead_h = lead_hours(src_ds)
         built = build_events(src_ds, src_vars, src_lead_h, src_events)
         for name, block in built.items():
             by_event[name] = {**block, "run": src_run.name}

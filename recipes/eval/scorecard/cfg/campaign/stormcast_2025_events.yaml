@@ -58,7 +58,7 @@ project: stormcast
 run_id: 2025_events
 
 pipeline:
-    _target_: scorecard.utils.pipelines.RegionalForecastPipeline
+    _target_: src.pipelines.regional.RegionalForecastPipeline
     # Global conditioning, streamed from ARCO during inference.
     conditioning_source:
         _target_: earth2studio.data.ARCO_ERA5

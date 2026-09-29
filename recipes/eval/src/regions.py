@@ -278,15 +278,25 @@ _EVENT_KEYS = frozenset({"label", "start", "end", "region", "window", "ics"})
 _EVENT_IC_KEYS = frozenset({"step_hours", "lookback_hours"})
 
 
-def _whole_hours(event: str, key: str, value: object) -> int:
-    """Return ``value`` as an int, rejecting anything that ``int()`` would
-    silently truncate (e.g. ``12.5`` -> 12)."""
-    if isinstance(value, bool) or not isinstance(value, int):
+def _hours(event: str, key: str, value: object) -> float:
+    """Return ``value`` as hours with minute resolution.
+
+    Accepts ints and floats that are a whole number of minutes (``0.5`` is
+    30 minutes); rejects bools and values that ``int()`` or a minute grid
+    would silently truncate (``12.25`` hours is fine, ``0.3`` is not).
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(
-            f"Event '{event}': ics.{key} must be a whole number of hours; "
-            f"got {value!r}."
+            f"Event '{event}': ics.{key} must be a number of hours; got {value!r}."
         )
-    return value
+    minutes = float(value) * 60.0
+    if abs(minutes - round(minutes)) > 1e-6:
+        raise ValueError(
+            f"Event '{event}': ics.{key} must be a whole number of minutes "
+            f"(a multiple of 1/60 h); got {value!r}."
+        )
+    hours = round(minutes) / 60.0
+    return int(hours) if hours.is_integer() else hours
 
 
 # Which timestamp an event window filters: the valid time of each
@@ -404,7 +414,7 @@ def parse_events(value: Any) -> dict[str, dict[str, Any]] | None:
             region = parsed[name] if parsed is not None else None
 
         ics_spec = spec.get("ics", None)
-        ics: dict[str, int] | None = None
+        ics: dict[str, float] | None = None
         if ics_spec is not None:
             if not isinstance(ics_spec, dict):
                 raise ValueError(
@@ -419,7 +429,7 @@ def parse_events(value: Any) -> dict[str, dict[str, Any]] | None:
                 )
             if ics_spec.get("step_hours") is None:
                 raise ValueError(f"Event '{name}': ics.step_hours is required.")
-            step_hours = _whole_hours(name, "step_hours", ics_spec["step_hours"])
+            step_hours = _hours(name, "step_hours", ics_spec["step_hours"])
             if step_hours <= 0:
                 raise ValueError(
                     f"Event '{name}': ics.step_hours must be positive; "
@@ -436,7 +446,7 @@ def parse_events(value: Any) -> dict[str, dict[str, Any]] | None:
                         "lead time has valid times inside the window."
                     )
                 lookback = 0
-            lookback_hours = _whole_hours(name, "lookback_hours", lookback)
+            lookback_hours = _hours(name, "lookback_hours", lookback)
             if lookback_hours < 0:
                 raise ValueError(
                     f"Event '{name}': ics.lookback_hours must be >= 0; "

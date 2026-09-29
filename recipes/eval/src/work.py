@@ -799,13 +799,15 @@ def event_initial_times(
         ics = event.get("ics")
         if ics is None:
             continue
-        step = np.timedelta64(int(ics["step_hours"]), "h")
-        first = event["start"] - np.timedelta64(int(ics["lookback_hours"]), "h")
+        step = np.timedelta64(int(round(float(ics["step_hours"]) * 60)), "m")
+        first = event["start"] - np.timedelta64(
+            int(round(float(ics["lookback_hours"]) * 60)), "m"
+        )
         grid = np.arange(first, event["end"] + step, step).astype("datetime64[s]")
         grid = grid[grid <= np.datetime64(event["end"], "s")]
         logger.info(
             f"Event '{name}': {len(grid)} initial conditions from {grid[0]} "
-            f"to {grid[-1]} every {ics['step_hours']} h"
+            f"to {grid[-1]} every {ics['step_hours']:g} h"
         )
         times.append(grid)
     if not times:

@@ -122,7 +122,7 @@ python run_scorecard.py stormcast_2025_events
 python export_scores.py stormcast --docs
 ```
 
-StormCast runs through `scorecard.utils.pipelines.RegionalForecastPipeline`,
+StormCast runs through the recipe's `src.pipelines.regional.RegionalForecastPipeline`,
 which serves any limited-area model on a window of a larger source grid.
 The pipeline crops the source to the model window and, when the model
 conditions on a coarse global state, either fetches those fields into

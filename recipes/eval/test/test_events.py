@@ -676,3 +676,50 @@ class TestDropUnscoredTimes:
         doc, splits = export_mod.export("toy", run)
         assert len(doc["initial_conditions"]) == len(IC_TIMES) - 1
         assert len(splits["heatmap"]["initial_conditions"]) == len(IC_TIMES) - 1
+
+
+class TestSubHourlyEvents:
+    def test_half_hour_step_gives_a_30_minute_grid(self):
+        from src.regions import parse_events
+        from src.work import event_initial_times
+
+        events = parse_events(
+            {
+                "storm": _event(
+                    window="init", ics={"step_hours": 0.5, "lookback_hours": 1}
+                )
+            }
+        )
+        times = event_initial_times(events)
+        deltas = np.diff(times).astype("timedelta64[m]").astype(int)
+        assert set(deltas.tolist()) == {30}
+        assert times[0] == events["storm"]["start"] - np.timedelta64(60, "m")
+
+    @pytest.mark.parametrize("bad", [0.34, True, "6"])
+    def test_non_minute_values_rejected(self, bad):
+        from src.regions import parse_events
+
+        with pytest.raises(ValueError, match="ics.step_hours"):
+            parse_events(
+                {"storm": _event(ics={"step_hours": bad, "lookback_hours": 1})}
+            )
+
+
+class TestSubHourlySteps:
+    def test_verification_times_keep_minutes(self):
+        from src.predownload_utils import compute_verification_times
+
+        t0 = np.datetime64("2025-06-15T12:00")
+        times = compute_verification_times([t0], 3, 10 / 60)
+        assert [str(np.datetime64(t, "m"))[-5:] for t in sorted(times)] == [
+            "12:00",
+            "12:10",
+            "12:20",
+            "12:30",
+        ]
+
+    def test_whole_hours_unchanged(self):
+        from src.predownload_utils import compute_verification_times
+
+        t0 = np.datetime64("2025-06-15T12:00")
+        assert len(compute_verification_times([t0], 2, 6)) == 3
