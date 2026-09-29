@@ -34,7 +34,6 @@ from types import SimpleNamespace
 from test_cbottle_infill import _field
 
 from earth2studio.models.conformance import (
-    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleTCGuidance
@@ -46,13 +45,10 @@ def offline_tc(monkeypatch):
     if cbottle is not None:
         return
 
-    def initialize(
-        self, core_model, classifier, sst, lat_lon=True, seed=None, **kwargs
-    ):
+    def initialize(self, core_model, classifier, sst, lat_lon=True, **kwargs):
         torch.nn.Module.__init__(self)
         self.sst = sst
         self.lat_lon = lat_lon
-        self.seed = seed
         self.sigma_max = 200
         self.sampler_steps = 2
         self.batch_size = 2
@@ -303,7 +299,7 @@ class TestCBottleTCMock:
         self, x, time, device, mock_core_model, mock_classifier_model, mock_sst_ds
     ):
         dx = CBottleTCGuidance(
-            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False, seed=0
+            mock_core_model, mock_classifier_model, mock_sst_ds, lat_lon=False
         ).to(device)
         dx.sampler_steps = 2  # Speed up sampler
         dx.batch_size = 2
@@ -457,12 +453,6 @@ class TestCBottleTCMock:
         input SST fields the model rejects anything from 2022-12-16 on, and the
         checker's default probe time (2024-01-01) is outside it.
 
-        CBottleTCGuidance does not currently declare `stochastic` or implement
-        `set_rng()`; constructed without a seed — the default — its diffusion
-        latents come from the unseeded global generator, so two calls on one
-        input disagree and D9 is violated. Pinned here until the wrapper
-        declares stochastic and implements set_rng().
-
         Explicitly moved to and probed on cuda:0 rather than left on whatever
         device the class-scoped fixtures happen to be on: earlier tests in this
         class move the shared fixture modules onto cuda:0 via ``.to(device)``
@@ -474,14 +464,9 @@ class TestCBottleTCMock:
             "cuda:0"
         )
         dx.sampler_steps = 2  # Speed up sampler
-        with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(
-                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
-            )
-        assert exc_info.value.violations == [
-            "D9: model declares stochastic=False but two calls on one input disagree; "
-            "declare stochastic=True and implement set_rng()"
-        ]
+        check_diagnostic_contract(
+            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+        )
 
 
 @pytest.mark.package
@@ -489,7 +474,8 @@ class TestCBottleTCMock:
 def test_cbottle_tc_package(device):
     # Only cuda used here to speed things up, but CPU also works
     package = CBottleTCGuidance.load_default_package()
-    dx = CBottleTCGuidance.load_model(package, seed=0).to(device)
+    dx = CBottleTCGuidance.load_model(package).to(device)
+    dx.set_rng(0)
 
     # Guidance over florida
     lat = 27

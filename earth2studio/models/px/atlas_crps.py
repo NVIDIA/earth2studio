@@ -29,6 +29,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -52,7 +53,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class AtlasCRPS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     """Atlas CRPS ensemble prognostic model for ERA5 variables on a 0.25 degree global
     lat-lon grid.
 
@@ -92,7 +93,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Note
     ----
     Ensemble noise is drawn from the global PyTorch generator, use
-    :func:`torch.manual_seed` for reproducible members.
+    ``set_rng`` for reproducible members.
 
     Note
     ----
@@ -204,6 +205,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return result
 
     @torch.inference_mode()
+    @seeded
     def _forward(
         self,
         x: torch.Tensor,

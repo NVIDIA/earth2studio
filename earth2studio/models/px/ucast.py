@@ -32,6 +32,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -632,7 +633,7 @@ def _compute_forcings(
     return forcing
 
 
-class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class UCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     """U-CAST 1.5 degree global probabilistic weather model.
 
     U-CAST is a 12-hour autoregressive U-Net forecaster trained on WeatherBench2
@@ -880,6 +881,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x * self.scale.to(dtype=x.dtype) + self.center.to(dtype=x.dtype)
 
     @torch.inference_mode()
+    @seeded
     def _forward(
         self,
         x: torch.Tensor,

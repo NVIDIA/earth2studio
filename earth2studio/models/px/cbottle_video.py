@@ -30,6 +30,7 @@ from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -76,7 +77,7 @@ class TimeStepperFunction(StrEnum):
 
 
 @check_optional_dependencies()
-class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class CBottleVideo(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     """Climate in a bottle video prognostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle video
@@ -118,9 +119,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Maximum supported noise level during sampling, by default 1000
     sigma_min : float, optional
         Minimum supported noise level during sampling, by default 0.02
-    seed : int | None, optional
-        If set, will fix the seed of the random generator for latent variables, by
-        default None
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
@@ -146,7 +144,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sampler_steps: int = 18,
         sigma_max: float = 1000.0,
         sigma_min: float = 0.02,
-        seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
         time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN,
     ):
@@ -158,7 +155,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sigma_min = sigma_min
         self.sampler_steps = sampler_steps
         self.time_stepper = time_stepper
-        self.seed = seed
         self.dataset_modality = dataset_modality
         self._mixture_model = core_model
         self.core_model = CBottle3d(core_model)
@@ -242,6 +238,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords, {"lead_time": lead.values + self._time_step}
         )
 
+    @seeded
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array
 
@@ -275,7 +272,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        out, _ = self.core_model.sample(input_batch, seed=self.seed)
+        out, _ = self.core_model.sample(input_batch, seed=int(np.random.randint(2**32)))
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())
@@ -437,7 +434,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 1000,
-        seed: int | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -453,9 +449,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 200
-        seed : int, optional
-            Random generator seed for latent variables. If None, no seed will be used,
-            by default None
 
         Returns
         -------
@@ -491,7 +484,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            seed=seed,
         )
 
     @batch_func()

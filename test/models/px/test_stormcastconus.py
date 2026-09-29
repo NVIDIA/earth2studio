@@ -24,9 +24,10 @@ import xarray as xr
 
 import earth2studio.models.px.stormcastconus as conus_module
 from earth2studio.data import Random, Random_FX, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
+from earth2studio.models.rng import seeded
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -49,7 +50,7 @@ def optional_backend(monkeypatch, request):
     monkeypatch.setattr(
         StormCastCONUS,
         "_forward",
-        lambda self, x, conditioning, time, **kw: x + torch.randn_like(x),
+        seeded(lambda self, x, conditioning, time, **kw: x + torch.randn_like(x)),
     )
 
 
@@ -206,12 +207,7 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
         assert dit.detokenizer.input_size == (16, 16)
         assert dit.detokenizer.h_patches == 2
         assert dit.detokenizer.w_patches == 2
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(model)
 
 
 @pytest.mark.parametrize(

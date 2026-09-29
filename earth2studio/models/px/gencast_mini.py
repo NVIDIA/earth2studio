@@ -168,10 +168,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Geopotential at surface on lat-lon grid
     sst_nan_mask : np.ndarray
         Boolean mask indicating where SST values are NaN (ocean vs land)
-    seed : int | None, optional
-        Random seed for JAX PRNG key used in stochastic sampling. If None, a random seed
-        is generated each time the model is called, producing stochastic forecasts. By
-        default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, requires 24GB of host RAM. JIT compilation
         adds a one-time cost (several minutes for the first call) but makes subsequent
@@ -194,7 +190,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         land_sea_mask: np.ndarray,
         geopotential_at_surface: np.ndarray,
         sst_nan_mask: np.ndarray,
-        seed: int | None = 0,
         jit_compile: bool = True,
     ):
         super().__init__()
@@ -207,7 +202,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.land_sea_mask = land_sea_mask
         self.geopotential_at_surface = geopotential_at_surface
         self.sst_nan_mask = sst_nan_mask
-        self.seed = seed
+        self.prng_key = None
 
         self.run_forward = self._load_run_forward_from_checkpoint(
             jit_compile=jit_compile
@@ -215,10 +210,18 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.register_buffer("device_buffer", torch.empty(0))
 
+    stochastic = True
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Initialize the JAX stream, or reset it when ``reset`` is True."""
+        if reset or self.prng_key is None:
+            self.prng_key = jax.random.PRNGKey(seed)
+
     def _next_rng(self, time_index: int) -> "chex.PRNGKey":
-        if self.seed is not None:
-            return jax.random.fold_in(jax.random.PRNGKey(self.seed), time_index)
-        return jax.random.PRNGKey(np.random.randint(0, 2**31))
+        if self.prng_key is None:
+            return jax.random.PRNGKey(np.random.randint(0, 2**31))
+        self.prng_key, rng = jax.random.split(self.prng_key)
+        return rng
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -270,7 +273,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         jit_compile: bool = True,
-        seed: int | None = 0,
     ) -> PrognosticModel:
         """Load prognostic model from package.
 
@@ -280,8 +282,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Package to load model from
         jit_compile : bool, optional
             JIT-compile the model forward pass with, by default True.
-        seed : int | None, optional
-            Random seed for JAX PRNG key used in stochastic sampling, by default 0.
 
         Returns
         -------
@@ -327,7 +327,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             land_sea_mask,
             geopotential_at_surface,
             sst_nan_mask,
-            seed=seed,
             jit_compile=jit_compile,
         )
 
@@ -507,9 +506,9 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         xr.Dataset
             Prediction for each 12-hour time step
         """
-        inputs = xr.Dataset(inputs)
-        targets_template = xr.Dataset(targets_template)
-        forcings = xr.Dataset(forcings)
+        inputs = inputs.copy()
+        targets_template = targets_template.copy()
+        forcings = forcings.copy()
 
         targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
         current_inputs = inputs

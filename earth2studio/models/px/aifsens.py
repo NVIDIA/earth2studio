@@ -29,6 +29,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -170,7 +171,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class AIFSENS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     """Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
     probabilistic, ensemble-based forecast model from the European Centre for
     Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a
@@ -799,6 +800,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @torch.inference_mode()
+    @seeded
     def _forward(
         self,
         x: torch.Tensor,

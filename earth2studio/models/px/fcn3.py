@@ -26,6 +26,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -137,7 +138,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class FCN3(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     """FourCastNet 3 advances global weather modeling by implementing a scalable,
     geometric machine learning (ML) approach to probabilistic ensemble forecasting.
     The approach is designed to respect spherical geometry and to accurately model the
@@ -163,8 +164,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Core PyTorch model with loaded weights
     variables : np.array, optional
         Variables associated with model, by default 72 variable model.
-    seed : int, optional
-        Seed of the underlying FCN3 model's random generators, by default 333
 
     Badges
     ------
@@ -176,7 +175,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         variables: np.array = np.array(VARIABLES),
-        seed: int = 333,
     ):
         super().__init__()
         self.model = core_model
@@ -185,25 +183,25 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
-        self.set_rng(reset=True, seed=seed)
-
     def __str__(self) -> str:
         return "fcn3"
 
     stochastic = True
 
-    def set_rng(self, seed: int = 333, reset: bool = True) -> None:
+    def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the underlying FCN3 model's RNG
 
         Parameters
         ----------
-        seed : int, optional
-            Seed for the RNG, by default 333
+        seed : int
+            Seed for the RNG
         reset : bool, optional
             Whether to reset the state of the RNG, by default True
         """
-        self.seed = seed
-        self.model.set_rng(reset=reset, seed=seed)
+        if reset or self._rng_generator is None:
+            super().set_rng(seed, reset=reset)
+            with self._rng_context():
+                self.model.set_rng(reset=True, seed=seed)
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -387,6 +385,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @batch_func()
+    @seeded
     def _step(self, x: xr.DataArray, reset: bool = False) -> xr.DataArray:
         signature = self.output_coords(x)
         handshake_time(x)

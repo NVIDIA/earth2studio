@@ -30,11 +30,11 @@ from types import SimpleNamespace
 from test_cbottle_infill import _field
 
 from earth2studio.models.conformance import (
-    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleSR
 from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
+from earth2studio.models.rng import seeded
 from earth2studio.utils import handshake_dim
 
 
@@ -49,13 +49,10 @@ def offline_sr(monkeypatch):
         lat_lon=True,
         output_resolution=(2161, 4320),
         super_resolution_window=None,
-        seed=None,
         **kwargs,
     ):
         torch.nn.Module.__init__(self)
-        self.seed = seed
         self.sampler_steps = kwargs.get("sampler_steps", 18)
-        self._sample_index = 0
         self.input_type = self.output_type = "latlon" if lat_lon else "healpix"
         self.register_buffer("_device_buffer", torch.empty(0))
         self.input_grid = SimpleNamespace(
@@ -71,6 +68,7 @@ def offline_sr(monkeypatch):
             )
         self.output_grid = SimpleNamespace(lat=lat, lon=lon)
 
+    @seeded
     def forward(self, x):
         # Mirror the EDM schedule denominator; one step produces NaN, not a
         # valid diffusion trajectory, even in the lightweight offline fixture.
@@ -84,16 +82,8 @@ def offline_sr(monkeypatch):
             if self.output_type == "latlon"
             else (12, 12582912)
         )
-        gen = (
-            torch.Generator(device=x.device).manual_seed(self.seed + self._sample_index)
-            if self.seed is not None
-            else None
-        )
-        self._sample_index += 1
         return (
-            (torch.rand((), device=x.device, generator=gen) * schedule[0] / 800)
-            .float()
-            .expand(shape)
+            (torch.rand((), device=x.device) * schedule[0] / 800).float().expand(shape)
         )
 
     monkeypatch.setattr(CBottleSR, "__init__", initialize)
@@ -332,12 +322,7 @@ class TestCBottleSRMock:
             return out
 
         monkeypatch.setattr(dx, "_forward", finite_forward)
-        with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(dx, device=device)
-        assert exc_info.value.violations == [
-            "D9: model declares stochastic=False but two calls on one input disagree; "
-            "declare stochastic=True and implement set_rng()"
-        ]
+        check_diagnostic_contract(dx, device=device)
 
 
 @pytest.mark.package
@@ -351,8 +336,8 @@ def test_cbottle_sr_package(device):
         lat_lon=True,
         sampler_steps=2,  # Smallest valid EDM schedule
         output_resolution=(721, 1440),  # Reduced for testing
-        seed=42,  # Set seed for reproducibility
     ).to(device)
+    dx.set_rng(42)
 
     x = torch.randn(1, 12, 721, 1440).to(device)
     coords = OrderedDict(

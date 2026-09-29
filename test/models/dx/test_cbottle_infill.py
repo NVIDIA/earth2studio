@@ -32,7 +32,6 @@ except ImportError:
 from types import SimpleNamespace
 
 from earth2studio.models.conformance import (
-    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx import CBottleInfill
@@ -65,7 +64,6 @@ def offline_infill(monkeypatch):
         torch.nn.Module.__init__(self)
         self.sst = sst_ds
         self.input_variables = input_variables
-        self.seed = None
         self.sigma_max = 200
         self.sampler_steps = 2
         self.batch_size = 4
@@ -374,23 +372,13 @@ class TestCBottleMock:
         this test would otherwise inherit a CUDA model against the checker's
         CPU-default probe tensor depending on test execution order.
 
-        CBottleInfill does not currently declare `stochastic` or implement
-        `set_rng()` — the sampler call has no seed argument to pass one to at
-        all ("NO SEED SUPPORT!" in cbottle_infill.py) — so its diffusion latents
-        come from the unseeded global generator and two calls on one input
-        disagree, violating D9. Pinned here until the wrapper can be seeded.
         """
         input_variables = np.array(["u10m", "v10m"])
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to("cuda:0")
         dx.sampler_steps = 2  # Speed up sampler
-        with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(
-                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
-            )
-        assert exc_info.value.violations == [
-            "D9: model declares stochastic=False but two calls on one input disagree; "
-            "declare stochastic=True and implement set_rng()"
-        ]
+        check_diagnostic_contract(
+            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+        )
 
 
 @pytest.mark.package

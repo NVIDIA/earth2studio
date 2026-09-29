@@ -27,6 +27,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -204,7 +205,6 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.register_buffer("device_buffer", torch.empty(0))
         self.preds_idx = 0
-        self.seed: int | None = None
 
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
@@ -511,7 +511,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             yield from self._default_generator(x)
             return
 
-        self._set_rng(self.seed)
+        self.model.reset_noise()
         # Set once: the FIFO noise cache rolls across AR cycles, not per-cycle.
         n_substeps = int(_AR_STEP_HOURS) // self._STEP_HOURS
         self.model.set_noise_accumulation(n=n_substeps)
@@ -580,7 +580,7 @@ class Aurora1p5(_Aurora):
 
 
 @check_optional_dependencies()
-class Aurora1p5Ensemble(_Aurora):
+class Aurora1p5Ensemble(RNGMixin, _Aurora):
     """Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to
     :class:`Aurora1p5` except it uses the stochastic ensemble checkpoint, where
     each forward pass injects fresh Gaussian noise into the backbone conditioning
@@ -617,10 +617,6 @@ class Aurora1p5Ensemble(_Aurora):
     static_vars : dict[str, torch.Tensor]
         Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
-    seed : int | None, optional
-        If specified, sets the random seed via :meth:`set_rng` at the start of
-        each :meth:`create_iterator` call for reproducible stochastic noise.
-        By default None (non-reproducible).
 
     Badges
     ------
@@ -635,22 +631,33 @@ class Aurora1p5Ensemble(_Aurora):
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
-        seed: int | None = None,
     ) -> None:
         super().__init__(core_model, static_vars)
-        self.seed = seed
 
     stochastic = True
 
-    def set_rng(self, seed: int | None) -> None:
-        """Seed the global RNG and reset the model's internal noise cache.
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the isolated random stream and reset cached noise.
 
         Parameters
         ----------
-        seed : int | None
-            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
+        seed : int
+            Seed for reproducible sampling.
+        reset : bool, optional
+            Reset an existing stream, by default True.
         """
-        self._set_rng(seed)
+        if reset or self._rng_generator is None:
+            super().set_rng(seed, reset=reset)
+            self.model.reset_noise()
+
+    @seeded
+    def _forward_sub_steps(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        lead_time_hours: list[int],
+    ) -> list[torch.Tensor]:
+        return super()._forward_sub_steps(x, coords, lead_time_hours)
 
 
 @check_optional_dependencies()

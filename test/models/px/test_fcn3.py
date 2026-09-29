@@ -26,7 +26,6 @@ import xarray as xr
 from earth2studio.data import Random, fetch_data
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import (
-    ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import FCN3
@@ -272,24 +271,9 @@ def test_fcn3_exceptions(dc, device, dummy_model):
 
 
 def test_fcn3_conformance(dummy_model):
-    """Check the mock FCN3 model against the Earth2Studio model contract.
-
-    FCN3 declares stochastic=True and delegates set_rng to its core model. The
-    Phoo core model seeds a local torch.Generator and adds noise from it once
-    seeded, so P13 (reproducibility) and P14 (RNG isolation) are exercisable.
-
-    Not conformant. Genuine wrapper bugs, tracked in
-    test/models/test_model_conformance.py pending a fix:
-    - P14: refreshing the core model's internal noise state draws from the
-      global generator, so stepping a seeded model perturbs global RNG state.
-    """
     model = PhooFCN3ModelWrapper(dummy_model)
     p = FCN3(model)
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert {v.split(":")[0] for v in exc_info.value.violations} == {
-        "P14",
-    }
+    check_prognostic_contract(p)
 
 
 @pytest.fixture(scope="function")

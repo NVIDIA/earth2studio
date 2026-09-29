@@ -25,7 +25,7 @@ import xarray as xr
 import earth2studio.models.px.stormscope as scope_module
 import earth2studio.utils.interp as interp_module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
@@ -402,12 +402,7 @@ def test_stormscope_iter(batch, device):
         if i > 3:
             break
     model.clear_hooks()
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(model)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

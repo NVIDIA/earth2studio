@@ -24,7 +24,7 @@ import xarray as xr
 
 import earth2studio.models.px.stormcast as stormcast_module
 from earth2studio.data import HRRR, Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -378,12 +378,7 @@ def test_stormcast_conformance():
         sampler_steps=2,
     )
 
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(p)
 
 
 @pytest.fixture(scope="function")

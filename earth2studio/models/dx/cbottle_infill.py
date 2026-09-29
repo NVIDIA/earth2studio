@@ -26,6 +26,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -59,7 +60,7 @@ VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
 
 
 @check_optional_dependencies()
-class CBottleInfill(torch.nn.Module, AutoModelMixin):
+class CBottleInfill(torch.nn.Module, RNGMixin, AutoModelMixin):
     """Climate in a bottle infill diagnostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill
@@ -98,9 +99,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 200
-    seed : int | None, optional
-        If set, will fix the seed of the random generator for latent variables (no
-        effect), by default None
 
     Badges
     ------
@@ -118,7 +116,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         input_variables: list[str] | VariableArray,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int | None = None,
     ):
         super().__init__()
 
@@ -126,7 +123,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.sampler_steps = sampler_steps
         self.batch_size = 4
-        self.seed = seed
 
         self.input_variables = input_variables
 
@@ -316,6 +312,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     @torch.inference_mode()
     @batch_func()
+    @seeded
     def __call__(
         self,
         x: xr.DataArray,
@@ -370,7 +367,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             # Use CBottle3d infill method
             infilled_data, _ = self.core_model.infill(
                 batch_slice,
-                # seed=None if self.seed is None else self.seed + i, # NO SEED SUPPORT!
             )
 
             outputs.append(infilled_data)

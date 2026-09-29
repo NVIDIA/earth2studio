@@ -30,6 +30,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.corrdiff import CorrDiff
+from earth2studio.models.rng import seeded
 from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -111,8 +112,6 @@ class CorrDiffCMIP6(CorrDiff):
         is not supported in CorrDiffCMIP6. Default is "both".
     hr_mean_conditioning : bool, optional
         Whether to use high-res mean conditioning, by default True
-    seed : int | None, optional
-        Random seed for reproducibility, by default None
     grid_spacing_tolerance : float, optional
         Relative tolerance for checking regular grid spacing, by default 1e-5
     grid_bounds_margin : float, optional
@@ -140,7 +139,7 @@ class CorrDiffCMIP6(CorrDiff):
     ...     CorrDiffCMIP6.load_default_package(),
     ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
     ... )
-    >>> model.seed = 1 # Set seed for reprod
+    >>> model.set_rng(1) # Set seed for reproducibility
     >>> model.number_of_samples = 1 # Modify number of samples if needed
     >>> model = model.to(device)
     >>>
@@ -254,7 +253,6 @@ class CorrDiffCMIP6(CorrDiff):
         sampler_type: Literal["deterministic", "stochastic"] = "stochastic",
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
-        seed: int | None = None,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
         sigma_min: float | None = None,
@@ -285,7 +283,6 @@ class CorrDiffCMIP6(CorrDiff):
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
-            seed=seed,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
             sigma_min=sigma_min,
@@ -594,7 +591,6 @@ class CorrDiffCMIP6(CorrDiff):
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
-            seed=None,
             time_feature_center=time_feature_center,
             time_feature_scale=time_feature_scale,
             grid_spacing_tolerance=grid_spacing_tolerance,
@@ -780,6 +776,7 @@ class CorrDiffCMIP6(CorrDiff):
         return torch.flip(x, [2])
 
     @torch.inference_mode()
+    @seeded
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
     ) -> torch.Tensor:
@@ -822,9 +819,7 @@ class CorrDiffCMIP6(CorrDiff):
             )
 
         # Compute base seed once (sample index added in loop)
-        seed0 = (
-            int(self.seed) if self.seed is not None else int(np.random.randint(2**32))
-        )
+        seed0 = int(np.random.randint(2**32))
 
         # Where to accumulate samples (CPU streaming reduces GPU peak memory)
         out_device = (

@@ -36,6 +36,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -67,7 +68,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class StormScopeBase(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     """StormScope diffusion prognostic base model with staged denoising.
 
     Variants should subclass to define dataset/resolution specifics (e.g., grids,
@@ -1006,6 +1007,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.cat(parts, dim=1)
 
     @torch.inference_mode()
+    @seeded
     def _forward(
         self,
         x: torch.Tensor,

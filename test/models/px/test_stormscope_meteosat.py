@@ -25,8 +25,9 @@ import xarray as xr
 
 import earth2studio.models.px.stormscope_meteosat as meteosat_module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
+from earth2studio.models.rng import seeded
 from earth2studio.utils import coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -51,7 +52,7 @@ def optional_backend(monkeypatch, request):
     monkeypatch.setattr(
         StormScopeMeteosatEU,
         "_forward",
-        lambda self, x, zen_azi: torch.randn_like(x[:, -1]),
+        seeded(lambda self, x, zen_azi: torch.randn_like(x[:, -1])),
     )
     monkeypatch.setattr(
         StormScopeMeteosatEU,
@@ -749,12 +750,7 @@ def test_stormscope_meteosat_exceptions():
 def test_stormscope_meteosat_conformance():
     model = create_spoof_model()
 
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(model)
 
 
 @pytest.mark.package

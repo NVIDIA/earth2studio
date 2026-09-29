@@ -29,6 +29,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -69,7 +70,7 @@ class DatasetModality(IntEnum):
 
 
 @check_optional_dependencies()
-class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
+class CBottleTCGuidance(torch.nn.Module, RNGMixin, AutoModelMixin):
     """Climate in a Bottle tropical cyclone guidance diagnostic.
     This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
     guidance map on a lat-lon grid and synthesis global climate realizations at that
@@ -109,9 +110,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     batch_size : int, optional
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
-    seed : int, optional
-        Random generator seed for latent variables. If None will use no seed, by default
-        None
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
@@ -135,7 +133,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: float = 200.0,
         batch_size: int = 4,
-        seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
     ):
         super().__init__()
@@ -145,7 +142,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
-        self.seed = seed
         self.dataset_modality = dataset_modality
         self._core_model = core_model
         self._class_model = classifier_model
@@ -273,7 +269,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int | None = None,
         allow_second_order_derivatives: bool = False,
     ) -> DiagnosticModel:
         """Load diagnostic from package
@@ -290,9 +285,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
-        seed : int, optional
-            Random generator seed for latent variables. If None, no seed will be used,
-            by default None
         allow_second_order_derivatives : bool, optional
             Enable checkpoint/model loading path required for second-order autodiff
             (needed for odds-ratio computations). Keep False for faster standard
@@ -341,7 +333,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            seed=seed,
         )
 
     def create_guidance_tensor(
@@ -438,6 +429,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         return guidance_data
 
     @batch_func()
+    @seeded
     def __call__(
         self,
         x: xr.DataArray,
@@ -486,7 +478,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             output, cb_coords = self.core_model.sample(
                 batch,
                 guidance_pixels=indices_where_tc,
-                seed=self.seed,
+                seed=int(np.random.randint(2**32)),
                 guidance_scale=self.guidance_scale,
             )
 

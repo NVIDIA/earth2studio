@@ -30,6 +30,7 @@ from earth2studio.data import HRRR
 from earth2studio.grids import CurvilinearGrid, GridDefinition, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     handshake_dataarray,
@@ -66,7 +67,7 @@ class _MaskedModel(nn.Module):
 
 
 @check_optional_dependencies()
-class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
+class StormScopeDxNSRDB(torch.nn.Module, RNGMixin, AutoModelMixin):
     """Estimate Global Horizontal Irradiance from GOES imagery.
 
     This diagnostic model is designed to be used with the
@@ -117,8 +118,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         Maximum input interpolation distance, by default 12.0.
     number_of_samples : int, optional
         Number of GHI samples per input, by default 1.
-    seed : int | None, optional
-        Base random seed, by default None.
     num_steps : int, optional
         Number of diffusion steps, by default 12.
     amp : bool, optional
@@ -176,7 +175,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         number_of_samples: int = 1,
-        seed: int | None = None,
         num_steps: int = 12,
         amp: bool = True,
     ) -> None:
@@ -230,7 +228,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         self._input_interp_max_dist_km = input_interp_max_dist_km
         self.input_interp: nn.Module | None = None
         self.number_of_samples = number_of_samples
-        self.seed = seed
         self.num_steps = num_steps
         self.amp = amp
         self._input_grid: GridDefinition = self._native_grid()
@@ -325,7 +322,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         number_of_samples: int = 1,
-        seed: int | None = None,
     ) -> DiagnosticModel:
         """Load the StormScope NSRDB diagnostic.
 
@@ -335,8 +331,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             Package containing model assets.
         number_of_samples : int, optional
             Number of GHI samples, by default 1.
-        seed : int | None, optional
-            Base random seed, by default None.
 
         Returns
         -------
@@ -400,7 +394,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
             number_of_samples=number_of_samples,
-            seed=seed,
         )
 
     def build_input_interpolator(
@@ -658,6 +651,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
                 )
         return next_state
 
+    @seeded
     def _forward_sample(self, x: torch.Tensor, coords: np.ndarray) -> torch.Tensor:
         if x.dim() != 5:
             raise ValueError("StormScopeDxNSRDB requires [batch, time, variable, y, x]")
@@ -712,18 +706,15 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         tensor = torch.where(self.input_valid_mask, tensor, 0.0)
         # The numerical kernel retains its [batch, time, channel, y, x] layout.
         tensor = tensor.reshape(1, -1, *tensor.shape[-3:])
-        samples = []
-        for sample_index in range(self.number_of_samples):
-            if self.seed is not None:
-                torch.manual_seed(self.seed + sample_index)
-            samples.append(
-                self._forward_sample(tensor, times).reshape(
-                    *[x.sizes[d] for d in leading],
-                    len(self.output_variables),
-                    len(self.y),
-                    len(self.x),
-                )
+        samples = [
+            self._forward_sample(tensor, times).reshape(
+                *[x.sizes[d] for d in leading],
+                len(self.output_variables),
+                len(self.y),
+                len(self.x),
             )
+            for _ in range(self.number_of_samples)
+        ]
         position = output_coords.dims.index("sample")
         result = from_torch(torch.stack(samples, dim=position), output_coords)
         result.encoding = deepcopy(x.encoding)

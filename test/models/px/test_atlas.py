@@ -113,7 +113,7 @@ def model_domain(request, monkeypatch):
         and not torch.cuda.is_available()
     ):
         pytest.skip("CUDA unavailable")
-    if request.node.originalname == "test_atlas_iter":
+    if request.node.originalname in ("test_atlas_iter", "test_atlas_conformance"):
         declared = Atlas.input_coords
 
         def small(self):
@@ -135,6 +135,7 @@ def model_domain(request, monkeypatch):
     ):
         pytest.importorskip("physicsnemo")
     if request.node.originalname in (
+        "test_atlas_conformance",
         "test_atlas_iter",
         "test_atlas_input_coords",
         "test_atlas_output_coords",
@@ -528,15 +529,15 @@ def test_atlas_output_coords(atlas_test_components):
     assert len(output_coords["lon"]) == len(input_coords["lon"])
 
 
-def test_atlas_conformance(atlas_test_components):
-    """Check the mock Atlas model against the Earth2Studio model contract."""
+def test_atlas_conformance(atlas_test_components, monkeypatch):
     p = Atlas(**atlas_test_components)
-    # Atlas is deterministic (stochastic=False via PrognosticMixin's default), so
-    # P14 is reported as an informational skip rather than evaluated; that is
-    # expected and not a contract violation.
-    assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
-    ]
+    sample = p.sinterpolant.sample
+    monkeypatch.setattr(
+        p.sinterpolant,
+        "sample",
+        lambda *args, **kwargs: sample(*args, **kwargs) + torch.rand(()),
+    )
+    check_prognostic_contract(p)
 
 
 @pytest.mark.package

@@ -23,7 +23,6 @@ import xarray as xr
 
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import (
-    ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.dx import (
@@ -34,6 +33,7 @@ from earth2studio.models.dx import (
     SolarRadiationAFNO1H,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 
@@ -367,20 +367,9 @@ def test_dxwrapper_run(device, times, number_of_samples):
 
 
 def test_fcn3_conformance():
-    """Check the mock FCN3 model against the Earth2Studio model contract.
-
-    FCN3 declares stochastic=True and delegates set_rng to its core model. The
-    Phoo core model seeds a local torch.Generator and adds noise from it once
-    seeded, so P13 (reproducibility) and P14 (RNG isolation) are exercisable.
-
-    Not conformant; same violations as
-    test/models/px/test_fcn3.py::test_fcn3_conformance, which documents each.
-    """
     fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
     px_model = FCN3(fcn3_model)
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(px_model)
-    assert {v.split(":")[0] for v in exc_info.value.violations} == {"P14"}
+    check_prognostic_contract(px_model)
 
 
 def test_persistence_conformance():
@@ -472,19 +461,16 @@ def test_diagnosticwrapper_conformance(tmp_path):
     iterator.close()
     wrapped_model.clear_hooks()
 
-    class SamplingWind(DerivedWS):
+    class SamplingWind(RNGMixin, DerivedWS):
+        @seeded
         def __call__(self, x):
             result = super().__call__(x)
             result.data += torch.randn(result.shape).numpy()
             return result
 
     sampled = DiagnosticWrapper(px_model, SamplingWind(["10m"], grid=grid))
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(sampled)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    assert sampled.stochastic
+    check_prognostic_contract(sampled)
 
     from earth2studio.utils.checkpoint import Checkpoint
 

@@ -354,9 +354,15 @@ def test_aifsens_conformance(monkeypatch, device):
     )
     monkeypatch.setattr(p, "input_coords", lambda: signature.copy())
 
-    assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
-    ]
+    with monkeypatch.context() as patch:
+        predict = model.predict_step
+        patch.setattr(
+            model,
+            "predict_step",
+            lambda *args, **kwargs: predict(*args, **kwargs)
+            * torch.rand((), device=device),
+        )
+        check_prognostic_contract(p, device=device)
     coords = coord_array_like(
         signature,
         {"batch": [0, 1], "time": np.array(["2000-01-01"], dtype="datetime64[ns]")},

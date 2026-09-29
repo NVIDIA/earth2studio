@@ -380,7 +380,7 @@ plt.savefig(
 
 # %%
 dx_de.number_of_samples = ensemble_size
-dx_de.seed = 0  # reproducible, distinct members (seeds 0..N-1)
+dx_de.set_rng(0)  # reproducible, distinct members
 ens = dx_de(x_de)
 
 clct = ens.isel(batch=0, time=0).sel(variable="tcc").e2s.as_numpy().values

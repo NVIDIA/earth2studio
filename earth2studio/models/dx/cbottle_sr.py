@@ -24,6 +24,7 @@ from earth2studio.grids import LatLonGrid, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -83,7 +84,7 @@ HPX_LEVEL_HR = 10
 
 
 @check_optional_dependencies()
-class CBottleSR(torch.nn.Module, AutoModelMixin):
+class CBottleSR(torch.nn.Module, RNGMixin, AutoModelMixin):
     """Climate in a Bottle Super-Resolution (CBottleSR) model.
 
     CBottleSR is a diffusion-based super-resolution model that learns mappings between
@@ -126,8 +127,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
-    seed : int, optional
-        Random generator seed for latent variables, by default None
 
     Badges
     ------
@@ -144,15 +143,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        seed: int | None = None,
     ) -> None:
         super().__init__()
 
         self.sr_model = sr_model
-        self.seed = seed
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
-        self._sample_index = 0
 
         self.register_buffer(
             "_device_buffer",
@@ -394,7 +390,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        seed: int | None = None,
         distilled_model: bool = False,
     ) -> DiagnosticModel:
         """Load diagnostic model from package
@@ -415,8 +410,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
-        seed : int, optional
-            Random generator seed for latent variables, by default None
         distilled_model : bool, optional
             Whether to use the distilled model, If True, the distilled helper is used,
             enabling generation with fewer sampler steps, by default False
@@ -454,7 +447,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            seed=seed,
         )
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
@@ -466,6 +458,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         return torch.index_select(x, 0, self._from_sr_index)
 
     @torch.inference_mode()
+    @seeded
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Super resolve the input tensor"""
         x = self._reorder_to_sr_channels(x)
@@ -481,29 +474,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         x = x.unsqueeze(0).unsqueeze(2)
 
-        if self.seed is not None:
-            rng_devices: list[torch.device] = []
-            if self.device.type == "cuda":
-                rng_devices.append(self.device)
-
-            with torch.random.fork_rng(devices=rng_devices, enabled=True):
-                seed = self.seed + self._sample_index
-                torch.manual_seed(seed)
-                if self.device.type == "cuda":
-                    torch.cuda.manual_seed_all(seed)
-                out, _ = self.sr_model(
-                    x,
-                    coords=replace(self._coords),
-                    extents=self.super_resolution_extents,
-                )
-        else:
-            out, _ = self.sr_model(
-                x,
-                coords=replace(self._coords),
-                extents=self.super_resolution_extents,
-            )
-
-        self._sample_index += 1
+        out, _ = self.sr_model(
+            x,
+            coords=replace(self._coords),
+            extents=self.super_resolution_extents,
+        )
 
         out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":

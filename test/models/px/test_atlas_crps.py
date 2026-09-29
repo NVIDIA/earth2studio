@@ -117,7 +117,10 @@ def model_domain(request, monkeypatch):
         and not torch.cuda.is_available()
     ):
         pytest.skip("CUDA unavailable")
-    if request.node.originalname == "test_atlas_crps_iter":
+    if request.node.originalname in (
+        "test_atlas_crps_iter",
+        "test_atlas_crps_conformance",
+    ):
         declared = AtlasCRPS.input_coords
 
         def small(self):
@@ -139,6 +142,7 @@ def model_domain(request, monkeypatch):
     ):
         pytest.importorskip("physicsnemo")
     if request.node.originalname in (
+        "test_atlas_crps_conformance",
         "test_atlas_crps_iter",
         "test_atlas_crps_input_coords",
         "test_atlas_crps_output_coords",
@@ -456,25 +460,15 @@ def test_atlas_crps_prep_next_input_with_ensemble(atlas_crps_test_components, de
     assert np.array_equal(coords_next["ensemble"], coords["ensemble"])
 
 
-def test_atlas_crps_conformance(atlas_crps_test_components):
-    """Check the mock AtlasCRPS model against the Earth2Studio model contract.
-
-    AtlasCRPS does not currently declare `stochastic` or implement `set_rng()`
-    (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it has no seeding
-    mechanism today and needs one added, forked). Until that lands, the contract
-    checker treats it as a non-stochastic model, so this test only exercises the
-    structural/coordinate rules against the deterministic mock.
-
-    Note: `torch-harmonics` (required by the `atlas` extra) failed to build in
-    every environment (a broken local C++ toolchain, unrelated to this wrapper),
-    so this assertion could not be executed against real dependencies everywhere;
-    it is expected to hold based on static review of AtlasCRPS's hook wiring and
-    the deterministic Phoo forward pass above.
-    """
+def test_atlas_crps_conformance(atlas_crps_test_components, monkeypatch):
     p = AtlasCRPS(**atlas_crps_test_components)
-    assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
-    ]
+    forward = p.model.forward
+    monkeypatch.setattr(
+        p.model,
+        "forward",
+        lambda *args, **kwargs: forward(*args, **kwargs) + torch.rand(()),
+    )
+    check_prognostic_contract(p)
 
 
 def test_atlas_crps_input_coords(atlas_crps_test_components):

@@ -31,7 +31,7 @@ from test_graphcast import (
 )
 
 import earth2studio.models.px.gencast_mini as module
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.gencast_mini import (
     ATMOS_VARIABLES,
     INPUT_VARIABLES,
@@ -105,7 +105,8 @@ def mock_GenCastMini_model(monkeypatch):
         p.land_sea_mask = np.ones((5, 8))
         p.geopotential_at_surface = np.ones((5, 8))
         p.sst_nan_mask = np.ones((5, 8), dtype=bool)
-        p.seed = 0
+        p.prng_key = None
+        p.set_rng(0)
         p.ckpt = SimpleNamespace(
             task_config=make_dataclass("Task", [("forcing_variables", tuple)])(())
         )
@@ -114,7 +115,7 @@ def mock_GenCastMini_model(monkeypatch):
         noise = (
             float(module.jax.random.uniform(kwargs["rng"])) / 100
             if module.hk is not None
-            else float(kwargs["rng"][0]) / 100
+            else float(np.random.default_rng(np.asarray(kwargs["rng"])).random()) / 100
         )
         return _prediction(**kwargs) + noise
 
@@ -188,13 +189,7 @@ def test_gencast_mini_exceptions(mock_GenCastMini_model):
 
 
 def test_gencast_mini_conformance(mock_GenCastMini_model):
-    mock_GenCastMini_model.seed = None
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(mock_GenCastMini_model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(mock_GenCastMini_model)
 
 
 def test_gencast_mini_variables(mock_GenCastMini_model):

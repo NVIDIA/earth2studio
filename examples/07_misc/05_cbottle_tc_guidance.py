@@ -94,7 +94,8 @@ lat = torch.tensor([27.0], device=device)  # Near Florida
 lon = torch.tensor([-82.0], device=device)  # Converted internally to [0, 360)
 times = [datetime(2005, 10, 11, 12)]
 
-model = CBottleTCGuidance.load_model(package, seed=0).to(device)
+model = CBottleTCGuidance.load_model(package).to(device)
+model.set_rng(0)
 # Create guidance tensor
 guidance = model.create_guidance_tensor(lat, lon, times)
 # Run guided sampling
@@ -165,10 +166,10 @@ plt.savefig("outputs/05_cbottle_tc_guided_sample.jpg")
 # %%
 model = CBottleTCGuidance.load_model(
     package,
-    seed=0,
     sampler_steps=2,
     allow_second_order_derivatives=True,
 ).to(device)
+model.set_rng(0)
 
 log_odds_ratio, forward_latents = model.calculate_odds_ratio(guidance)
 
