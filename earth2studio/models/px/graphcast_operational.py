@@ -173,7 +173,10 @@ INV_VOCAB = {v: k for k, v in WB2Lexicon.VOCAB.items()}
 def _jax_signature(
     variables: list[str], hours: int, shape: tuple[int, int]
 ) -> CoordinateSystem:
-    grid = LatLonGrid(
+    grid = {
+        (181, 360): "latlon-1deg",
+        (721, 1440): "latlon-0.25deg",
+    }.get(tuple(shape)) or LatLonGrid(
         np.linspace(90, -90, shape[0], endpoint=True),
         np.linspace(0, 360, shape[1], endpoint=False),
     )

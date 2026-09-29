@@ -326,12 +326,16 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
                 "variable": np.array(variables),
             },
             dynamic=("batch", "time"),
-            grid=HEALPixGrid(
-                int(np.log2(self.nside)),
-                ordering="xy",
-                layout="face",
-                xy_origin="north",
-                xy_clockwise=True,
+            grid=(
+                "healpix-l6-xy-north-clockwise-face"
+                if self.nside == 64
+                else HEALPixGrid(
+                    int(np.log2(self.nside)),
+                    ordering="xy",
+                    layout="face",
+                    xy_origin="north",
+                    xy_clockwise=True,
+                )
             ),
         )
 

@@ -20,7 +20,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.grids import HEALPixGrid, LatLonGrid, infer_grid
+from earth2studio.grids import LatLonGrid, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
@@ -345,7 +345,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 np.asarray(self.output_grid.lon).ravel(),
             )
             if self.output_type == "latlon"
-            else HEALPixGrid(HPX_LEVEL_HR, ordering="nested", layout="flat")
+            else resolve_grid(f"healpix-l{HPX_LEVEL_HR}-nested")
         )
         if grid.fingerprint() == infer_grid(input_coords).fingerprint():
             return coord_array_like(input_coords)
@@ -359,7 +359,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             },
             sizes={d: input_coords.sizes[d] for d in leading},
             dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
-            grid=grid,
+            grid=(
+                grid
+                if self.output_type == "latlon"
+                else f"healpix-l{HPX_LEVEL_HR}-nested"
+            ),
             dtype=input_coords.dtype,
             name=input_coords.name,
             attrs={

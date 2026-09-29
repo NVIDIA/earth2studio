@@ -24,7 +24,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
-from earth2studio.grids import HEALPixGrid, LatLonGrid
+from earth2studio.grids import HEALPixGrid, LatLonGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -447,12 +447,16 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 ),
             },
             dynamic=("batch", "time"),
-            grid=HEALPixGrid(
-                int(np.log2(self.nside)),
-                ordering="xy",
-                layout="face",
-                xy_origin="north",
-                xy_clockwise=True,
+            grid=(
+                "healpix-l6-xy-north-clockwise-face"
+                if self.nside == 64
+                else HEALPixGrid(
+                    int(np.log2(self.nside)),
+                    ordering="xy",
+                    layout="face",
+                    xy_origin="north",
+                    xy_clockwise=True,
+                )
             ),
         )
 
@@ -1430,12 +1434,16 @@ class DLESyMLatLon(DLESyM):
         return self._grid_signature(
             coords,
             ("lat", "lon"),
-            HEALPixGrid(
-                int(np.log2(self.nside)),
-                ordering="xy",
-                layout="face",
-                xy_origin="north",
-                xy_clockwise=True,
+            (
+                "healpix-l6-xy-north-clockwise-face"
+                if self.nside == 64
+                else HEALPixGrid(
+                    int(np.log2(self.nside)),
+                    ordering="xy",
+                    layout="face",
+                    xy_origin="north",
+                    xy_clockwise=True,
+                )
             ),
         )
 
@@ -1446,9 +1454,13 @@ class DLESyMLatLon(DLESyM):
         )
 
     def _grid_signature(
-        self, x: xr.DataArray, old_dims: tuple[str, ...], grid: HEALPixGrid | LatLonGrid
+        self,
+        x: xr.DataArray,
+        old_dims: tuple[str, ...],
+        grid: str | HEALPixGrid | LatLonGrid,
     ) -> CoordinateSystem:
         leading = tuple(d for d in x.dims if d not in old_dims)
+        definition = resolve_grid(grid) if isinstance(grid, str) else grid
         grid_keys = {
             "type",
             "dims",
@@ -1465,7 +1477,7 @@ class DLESyMLatLon(DLESyM):
             "clockwise",
         }
         return coord_array(
-            (*leading, *grid.dims),
+            (*leading, *definition.dims),
             {
                 k: v
                 for k, v in x.coords.items()

@@ -187,6 +187,30 @@ register_grid(
     aliases=("fcn1", "fcn1-global-0.25deg"),
 )
 register_grid(
+    "latlon-1deg",
+    LatLonGrid(
+        latitude=np.linspace(90.0, -90.0, 181),
+        longitude=np.arange(0.0, 360.0, 1.0),
+    ),
+)
+register_grid(
+    "latlon-1.5deg",
+    LatLonGrid(
+        latitude=np.linspace(90.0, -90.0, 121),
+        longitude=np.arange(0.0, 360.0, 1.5),
+    ),
+)
+# ACE2's regular Gaussian grid: 180 south-to-north Gaussian latitudes and
+# 360 half-degree-centered longitudes (distinct from an equiangular 1deg grid).
+register_grid(
+    "gaussian-f90",
+    LatLonGrid(
+        latitude=np.degrees(np.arcsin(np.polynomial.legendre.leggauss(180)[0])),
+        longitude=np.arange(0.5, 360.0, 1.0),
+    ),
+    aliases=("ace2",),
+)
+register_grid(
     "hrrr-conus-3km",
     ProjectedGrid(
         y=-1587306.1525566636 + 3000.0 * np.arange(1059),
@@ -203,6 +227,30 @@ register_grid(
     HEALPixGrid(level=6, ordering="nested"),
     aliases=("hpx6",),
 )
+
+# These are the levels used by TC guidance, DLESyM/CBottle, and CBottle SR.
+# XY orientation is explicit in the name: it changes geographic pixel identity.
+for _level in (3, 6, 10):
+    if _level != 6:
+        register_grid(
+            f"healpix-l{_level}-nested",
+            HEALPixGrid(_level, ordering="nested"),
+            aliases=(f"hpx{_level}",),
+        )
+    register_grid(f"healpix-l{_level}-ring", HEALPixGrid(_level, ordering="ring"))
+    _layouts: tuple[HEALPixLayout, ...] = ("flat", "face")
+    for _layout in _layouts:
+        register_grid(
+            f"healpix-l{_level}-xy-north-clockwise"
+            + ("-face" if _layout == "face" else ""),
+            HEALPixGrid(
+                _level,
+                ordering="xy",
+                layout=_layout,
+                xy_origin="north",
+                xy_clockwise=True,
+            ),
+        )
 
 __all__ = [
     "E2S_CRS",

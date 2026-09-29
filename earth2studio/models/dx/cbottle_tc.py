@@ -23,7 +23,7 @@ import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.grids import HEALPixGrid, LatLonGrid
+from earth2studio.grids import LatLonGrid, resolve_grid
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
@@ -190,13 +190,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         grid = (
             LatLonGrid(self.lat_grid.cpu().numpy(), self.lon_grid.cpu().numpy())
             if self.lat_lon
-            else HEALPixGrid(
-                TC_HPX_LEVEL,
-                ordering="xy",
-                layout="flat",
-                xy_origin="north",
-                xy_clockwise=True,
-            )
+            else resolve_grid(f"healpix-l{TC_HPX_LEVEL}-xy-north-clockwise")
         )
         return coord_array(
             ("batch", "time", "lead_time", "variable", *grid.dims),
@@ -205,7 +199,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
                 "variable": ["tc_guidance"],
             },
             dynamic=("batch", "time"),
-            grid=grid,
+            grid=(
+                grid if self.lat_lon else f"healpix-l{TC_HPX_LEVEL}-xy-north-clockwise"
+            ),
         )
 
     def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:

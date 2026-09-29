@@ -254,10 +254,9 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     [np.timedelta64(-1, "D"), np.timedelta64(0, "D")]
                 ),
                 "variable": np.array(DAILY_VARIABLES),
-                "lat": np.linspace(90, -90, 121, endpoint=True),
-                "lon": np.linspace(0, 360, 240, endpoint=False),
             },
             dynamic=("batch", "time"),
+            grid="latlon-1.5deg",
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
