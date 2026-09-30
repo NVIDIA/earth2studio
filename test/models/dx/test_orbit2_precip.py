@@ -419,5 +419,7 @@ def test_orbit2_precip_exceptions():
         dx(field.rename(variable="wrong"))
     with pytest.raises(ValueError):
         dx(field.transpose("batch", "variable", "lon", "lat"))
+    reversed_lat = field.isel(lat=slice(None, None, -1))
+    reversed_lat.attrs.pop("earth2studio_grid_id", None)
     with pytest.raises(ValueError):
-        dx(field.isel(lat=slice(None, None, -1)))
+        dx(reversed_lat)

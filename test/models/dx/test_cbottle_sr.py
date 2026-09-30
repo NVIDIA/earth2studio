@@ -316,13 +316,14 @@ class TestCBottleSRMock:
             dx(_field(dx, x, wrong_coords))
 
     def test_cbottle_sr_conformance(self, mock_cbottle_core_model, monkeypatch):
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
         dx = CBottleSR(
             mock_cbottle_core_model,
             lat_lon=True,
             output_resolution=(721, 1440),
             sampler_steps=2,  # Smallest valid EDM schedule
             sigma_max=800,  # Reduced for testing
-        )
+        ).to(device)
         forward = dx._forward
 
         def finite_forward(x):
@@ -332,7 +333,7 @@ class TestCBottleSRMock:
 
         monkeypatch.setattr(dx, "_forward", finite_forward)
         with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(dx)
+            check_diagnostic_contract(dx, device=device)
         assert exc_info.value.violations == [
             "D9: model declares stochastic=False but two calls on one input disagree; "
             "declare stochastic=True and implement set_rng()"
