@@ -51,6 +51,8 @@ from earth2studio.data.utils_ncep import (
     NCEP_MICROWAVE_SATELLITES,
     NCEP_SATWND_PUBLIC_SCHEMA,
     NCEPObsTask,
+    _NCEPIRSounderDecodeError,
+    _NCEPMicrowaveDecodeError,
     compile_dataframe,
     cycle_windows,
     decode_gpsro,
@@ -108,9 +110,8 @@ def _raise_task_failure(
         "cause_type": type(cause).__name__,
         "cause_message": str(cause),
     }
-    cause_context = getattr(cause, "context", None)
-    if isinstance(cause_context, dict):
-        context["cause_context"] = cause_context
+    if isinstance(cause, (_NCEPMicrowaveDecodeError, _NCEPIRSounderDecodeError)):
+        context["cause_context"] = cause.context
     raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
 
 
@@ -694,8 +695,9 @@ class NNJAObsSat:
     ``scan_position`` is the one-based cross-track position: the encoded
     ``FOVN`` for the microwave sensors, AIRS (1-90), and IASI (1-120, a
     composite of 30 fields of regard x 4 detectors), and the encoded
-    ``FORN`` (1-30) for CrIS, whose ``FOVN`` is the 1-9 detector index
-    within the 3x3 field of regard and is not carried. ``scan_angle`` is
+    ``FORN`` (1-30) for CrIS, whose ``FOVN``, the 1-9 detector index within
+    the 3x3 field of regard, is the ``detector`` column (null for the other
+    sensors). ``scan_angle`` is
     the signed nominal instrument look angle derived from the FOV for the
     microwave sensors; it is always NaN for the IR sounders, whose scan
     geometry is sensor-specific — use ``satellite_za`` (the unsigned

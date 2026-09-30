@@ -1056,7 +1056,9 @@ def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
         sensor="mhs",
     )
 
-    assert len(rows) == 1
+    # The missing channel 2 is a NaN row, so the footprint keeps all its channels
+    assert [row["sensor_index"] for row in rows] == [1, 2]
+    assert np.isnan(rows[1]["observation"])
     assert rows[0]["lat"] == pytest.approx(-1.2286)
     assert rows[0]["lon"] == pytest.approx(357.1021)
     assert rows[0]["satellite"] == "metop-b"
@@ -1364,7 +1366,7 @@ def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
     # Inside coverage plans normally
     assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
 
-    # One sensor out of coverage no longer sinks the others in the same request
+    # A sensor outside its coverage does not stop the others from being planned
     tasks = source._create_tasks([datetime(2025, 1, 1)], ["airs", "atms", "cris"])
     assert {task.sensor for task in tasks} == {"atms", "cris"}
 
@@ -1501,13 +1503,14 @@ def test_nnja_ir_decode_iasi_scaled_radiance_planck():
     assert rows[0]["wavenumber"] == pytest.approx(645.0)
     assert rows[0]["satellite"] == "metop-b"
 
-    # A channel outside every CHSF band cannot be converted and is skipped
+    # A channel outside every CHSF band cannot be converted: a NaN row, not a drop
     no_band = _ir_scalar_pairs(said=3) + [
         (31002, 1),
         (ncep_microwave._CHANNEL_NUMBER, 1),
         (ncep_microwave._SCRA, scra),
     ]
-    assert not _decode_ir_pairs(no_band, "iasi")
+    (row,) = _decode_ir_pairs(no_band, "iasi")
+    assert np.isnan(row["observation"])
 
 
 def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():

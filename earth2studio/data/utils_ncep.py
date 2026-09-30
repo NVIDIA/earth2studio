@@ -1655,9 +1655,8 @@ def _decode_microwave_subset(
             "quality": _as_optional_int(channel.get(_CHANNEL_QUALITY)),
         }
         for variable, source_descriptor in variable_fields:
+            # A missing value stays a NaN row: every decoded footprint appears.
             observation = _as_float(channel.get(source_descriptor))
-            if not np.isfinite(observation):
-                continue
             rows.append(
                 {
                     **scalar_values,
@@ -2055,8 +2054,6 @@ def _decode_ir_subset(
         [_as_float(channels[c].get(obs_descriptor)) for c in ch_kept],
         dtype=np.float64,
     )
-    keep = np.isfinite(obs)
-
     # Convert to brightness temperature. The output wavenumber comes from
     # the instrument grids for IASI/CrIS (also used for the Planck
     # inversion); AIRS has no formulaic grid, so its wavenumber is read
@@ -2073,30 +2070,29 @@ def _decode_ir_subset(
     elif sensor == "iasi":
         chsf_list = [_iasi_chsf(ch) for ch in ch_kept]
         has_chsf = np.array([c is not None for c in chsf_list], dtype=bool)
-        iasi_skipped_no_chsf = int(np.count_nonzero(keep & ~has_chsf))
-        if iasi_skipped_no_chsf:
+        no_chsf = int(np.count_nonzero(np.isfinite(obs) & ~has_chsf))
+        if no_chsf:
             # Distinguishes a product with a narrower CHSF band table than
             # expected from a product with no data
             logger.debug(
-                f"IASI footprint skipped {iasi_skipped_no_chsf} channel(s) "
-                f"outside every CHSF band"
+                f"IASI footprint: {no_chsf} channel(s) outside every CHSF band"
             )
-        keep &= has_chsf
         chsf_arr = np.array(
             [c if c is not None else 0 for c in chsf_list], dtype=np.float64
         )
         wn = np.asarray(wavenumber_cm_inverse("iasi", ch_kept), dtype=np.float64)
-        bt = radiance_to_bt(iasi_radiance_mw(obs, chsf_arr), wn)
+        bt = np.where(
+            has_chsf, radiance_to_bt(iasi_radiance_mw(obs, chsf_arr), wn), np.nan
+        )
     elif sensor == "cris":
         wn = np.asarray(wavenumber_cm_inverse("cris", ch_kept), dtype=np.float64)
         bt = radiance_to_bt(cris_radiance_mw(obs), wn)
     else:
         return []
 
-    with np.errstate(invalid="ignore"):
-        keep &= np.isfinite(bt)
-    if not keep.any():
-        return []
+    # Every channel is emitted, so every decoded footprint appears; a missing or
+    # unconvertible value is a NaN observation.
+    bt = np.where(np.isfinite(bt), bt, np.nan)
 
     # Per-channel quality resolution
     quality_list: list[int | None]
@@ -2127,8 +2123,6 @@ def _decode_ir_subset(
 
     rows: list[dict[str, Any]] = []
     for i, channel_number in enumerate(ch_kept):
-        if not keep[i]:
-            continue
         rows.append(
             {
                 **scalar_values,
