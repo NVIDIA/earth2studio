@@ -19,7 +19,7 @@
 HealDA v2 Global Data Assimilation
 ==================================
 
-Producing a 0.25 degree global analysis from GPS-RO and satellite-wind observations.
+Producing a 0.25 degree global analysis from the NNJA observing system.
 
 This example runs the HealDA v2 data assimilation model on NNJA observations. The
 model is observation-only: it reads an eight-frame, six-hourly window ending at the
@@ -29,7 +29,8 @@ the analysis of the last frame on the 721 x 1440 equiangular grid.
 In this example you will learn:
 
 - How to load the HealDA v2 model with the `healda` package as its backend
-- Fetching NNJA GPS-RO and satellite-wind DataFrames over the model's 48 hour window
+- Fetching NNJA conventional, satellite-wind and radiance DataFrames over the model's
+  48 hour window
 - Running the model and comparing the analysis against ERA5
 """
 
@@ -46,15 +47,15 @@ In this example you will learn:
 # This example requires the following components:
 #
 # - Assimilation Model: HealDA v2 [`earth2studio.models.da.HealDAv2`][earth2studio.models.da.HealDAv2].
-# - Datasource (GPS-RO): NNJA conventional observations
+# - Datasource (PrepBUFR and GPS-RO): NNJA conventional observations
 #   [`earth2studio.data.NNJAObsConv`][earth2studio.data.NNJAObsConv].
 # - Datasource (winds): NNJA satellite winds
 #   [`earth2studio.data.NNJAObsSatwnd`][earth2studio.data.NNJAObsSatwnd].
+# - Datasource (radiances): NNJA satellite radiances
+#   [`earth2studio.data.NNJAObsSat`][earth2studio.data.NNJAObsSat].
 #
-# The checkpoint was trained on the full NNJA observing system (radiances, PrepBUFR
-# conventional reports, GPS-RO and satellite winds). GPS-RO and satellite winds are the
-# two streams with Earth2Studio adapters today, so the analysis here is a degraded
-# subset of what the recipe can produce.
+# Decoding 48 hours of NNJA BUFR takes a long time on first use; the raw files are
+# cached, so later runs over the same window skip the download.
 
 # %%
 import os
@@ -73,7 +74,7 @@ from tqdm import tqdm
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-from earth2studio.data import NCAR_ERA5, NNJAObsConv, NNJAObsSatwnd, fetch_dataframe
+from earth2studio.data import NCAR_ERA5, fetch_dataframe
 from earth2studio.models.da import HealDAv2
 
 # The network runs on a CUDA device only; building the 0.25 degree recipe fetches the
@@ -92,22 +93,21 @@ model = HealDAv2.load_model(package, device="cuda:0")
 analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3) - timedelta(seconds=1))
 
-gpsro_schema, satwnd_schema = model.input_coords()
-gpsro_df = fetch_dataframe(
-    NNJAObsConv(time_tolerance=tolerance),
-    time=analysis_time,
-    variable=np.array(gpsro_schema["variable"]),
-    fields=np.array(list(gpsro_schema.keys())),
-)
-logger.info(f"Fetched {len(gpsro_df)} GPS-RO rows")
-
-satwnd_df = fetch_dataframe(
-    NNJAObsSatwnd(time_tolerance=tolerance),
-    time=analysis_time,
-    variable=np.array(satwnd_schema["variable"]),
-    fields=np.array(list(satwnd_schema.keys())),
-)
-logger.info(f"Fetched {len(satwnd_df)} satellite-wind rows")
+conv_schema, satwnd_schema, sat_schema = model.input_coords()
+conv_source, satwnd_source, sat_source = model.data_sources(tolerance)
+frames = {}
+for name, source, schema in (
+    ("conv_obs", conv_source, conv_schema),
+    ("satwnd_obs", satwnd_source, satwnd_schema),
+    ("sat_obs", sat_source, sat_schema),
+):
+    frames[name] = fetch_dataframe(
+        source,
+        time=analysis_time,
+        variable=np.array(schema["variable"]),
+        fields=np.array(list(schema.keys())),
+    )
+    logger.info(f"Fetched {len(frames[name])} {name} rows")
 
 # %%
 # Run the Model
@@ -115,7 +115,7 @@ logger.info(f"Fetched {len(satwnd_df)} satellite-wind rows")
 # The direct call returns the analysis as an `xr.DataArray` on the model's device.
 
 # %%
-analysis = model(gpsro_obs=gpsro_df, satwnd_obs=satwnd_df)
+analysis = model(**frames)
 logger.info(f"Analysis shape: {analysis.shape}")
 
 # %%
@@ -126,15 +126,11 @@ logger.info(f"Analysis shape: {analysis.shape}")
 
 # %%
 import cartopy.crs as ccrs
+import cupy
 import matplotlib.pyplot as plt
 
 plot_vars = ["t2m", "z500"]
 era5 = NCAR_ERA5()(analysis_time, plot_vars)
-
-
-def to_numpy(arr):
-    """CuPy / Numpy helper function"""
-    return arr.get() if hasattr(arr, "get") else arr
 
 
 lat = analysis.coords["lat"].values
@@ -143,7 +139,7 @@ fig, axes = plt.subplots(
     2, len(plot_vars), subplot_kw={"projection": ccrs.Robinson()}, figsize=(14, 6)
 )
 for col, var in enumerate(plot_vars):
-    field = to_numpy(analysis.sel(variable=var).data[0])
+    field = cupy.asnumpy(analysis.sel(variable=var).data[0])
     truth = era5.sel(variable=var).values[0]
     logger.info(f"{var} MAE vs ERA5: {float(np.abs(field - truth).mean()):.4f}")
     for row, (title, values) in enumerate((("HealDA v2", field), ("ERA5", truth))):

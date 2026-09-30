@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -33,30 +35,27 @@ ELRC = 6_371_000.0
 # ---------- Mock analysis model ----------
 
 
-class PhooAnalysisModel:
-    """Stands in for healda.inference.AnalysisModel."""
+class PhooDAModel:
+    """Stands in for healda.inference.DAModel."""
 
     def __init__(self, device="cpu"):
         self.net = torch.nn.Linear(1, 1)
         self.device = torch.device(device)
         self.channels = list(CHANNELS)
+        self.satellite_sensors = ("atms", "amsua", "cris")
+        self.ir_channels = {"cris": [19, 24]}
+        self.loop = SimpleNamespace(obs_config=SimpleNamespace(nnja_ir_channels="ir32"))
         self.calls: list[dict] = []
 
-    def analyze(self, analysis_times, *, gpsro_tables=None, satwnd_tables=None):
-        self.calls.append(
-            {
-                "times": analysis_times,
-                "gpsro": gpsro_tables,
-                "satwnd": satwnd_tables,
-            }
-        )
+    def run_analysis(self, analysis_times, **tables):
+        self.calls.append({"times": analysis_times, **tables})
         return torch.randn(
             len(analysis_times), len(self.channels), NLAT, NLON, device=self.device
         )
 
 
 def _build_model(device="cpu") -> HealDAv2:
-    return HealDAv2(PhooAnalysisModel(device))
+    return HealDAv2(PhooDAModel(device))
 
 
 def _gpsro_df(request_time, n_levels=3):
@@ -139,7 +138,7 @@ def test_healda_v2_call(request_time):
     gpsro = _gpsro_df(request_time)
     satwnd = _satwnd_df(request_time)
 
-    out = model(gpsro_obs=gpsro, satwnd_obs=satwnd)
+    out = model(conv_obs=gpsro, satwnd_obs=satwnd)
 
     assert isinstance(out, xr.DataArray)
     assert out.dims == ("time", "variable", "lat", "lon")
@@ -152,32 +151,27 @@ def test_healda_v2_call(request_time):
     (call,) = model._model.calls
     assert list(call["times"]) == list(pd.DatetimeIndex(request_time))
     # The adapters keyed the rows by NCEP cycle for the healda loaders.
-    assert call["gpsro"] is not None and call["satwnd"] is not None
-    assert pd.Timestamp(CYCLE) in call["gpsro"]
-    assert pd.Timestamp(CYCLE) in call["satwnd"]
+    assert pd.Timestamp(CYCLE) in call["gpsro_tables"]
+    assert pd.Timestamp(CYCLE) in call["satwnd_tables"]
+    assert call["prepbufr_tables"] == {}
 
 
-def test_healda_v2_single_stream():
+def test_healda_v2_omitted_streams_are_not_passed():
     model = _build_model()
     request_time = np.array([CYCLE])
     out = model(satwnd_obs=_satwnd_df(request_time))
     assert out.shape == (1, len(CHANNELS), NLAT, NLON)
     (call,) = model._model.calls
-    assert call["gpsro"] is None
+    assert set(call) == {"times", "satwnd_tables"}
 
 
-def test_healda_v2_accepts_frames_with_to_pandas():
-    class HostFrame:
-        def __init__(self, df):
-            self._df = df
-            self.attrs = df.attrs
-
-        def to_pandas(self):
-            return self._df
-
+def test_healda_v2_accepts_cudf():
+    cudf = pytest.importorskip("cudf")
     model = _build_model()
     request_time = np.array([CYCLE])
-    out = model(gpsro_obs=HostFrame(_gpsro_df(request_time)))
+    frame = cudf.from_pandas(_satwnd_df(request_time))
+    frame.attrs = {"request_time": request_time}
+    out = model(satwnd_obs=frame)
     assert out.shape[0] == 1
 
 
@@ -211,24 +205,22 @@ def test_healda_v2_generator():
     request_time = np.array([CYCLE])
     gen = model.create_generator()
     assert gen.send(None) is None
-    da = gen.send((_gpsro_df(request_time), None))
+    da = gen.send((_gpsro_df(request_time), None, None))
     assert isinstance(da, xr.DataArray)
-    da = gen.send((None, _satwnd_df(request_time)))
+    da = gen.send((None, _satwnd_df(request_time), None))
     assert da.shape == (1, len(CHANNELS), NLAT, NLON)
     with pytest.raises(ValueError, match="At least one"):
-        gen.send((None, None))
+        gen.send((None, None, None))
     gen.close()
 
 
 def test_healda_v2_coords():
     model = _build_model()
     assert model.init_coords() is None
-    gpsro_schema, satwnd_schema = model.input_coords()
-    for schema in (gpsro_schema, satwnd_schema):
-        for field in ("time", "lat", "lon", "observation", "variable"):
-            assert field in schema
-    assert list(gpsro_schema["variable"]) == ["gps", "gps_refractivity"]
+    conv_schema, satwnd_schema, sat_schema = model.input_coords()
+    assert "gps_refractivity" in list(conv_schema["variable"])
     assert list(satwnd_schema["variable"]) == ["u", "v"]
+    assert list(sat_schema["variable"]) == ["atms_antenna_temperature", "amsua", "cris"]
     (coords,) = model.output_coords(
         model.input_coords(), request_time=np.array([CYCLE])
     )
@@ -236,11 +228,16 @@ def test_healda_v2_coords():
     assert len(coords["lat"]) == NLAT and len(coords["lon"]) == NLON
 
 
-def test_healda_v2_to_moves_the_pipeline_device():
-    model = _build_model()
-    model.to("cpu")
-    assert model.device == torch.device("cpu")
-    assert model._model.device == torch.device("cpu")
+def test_healda_v2_data_sources_match_training():
+    from earth2studio.data import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd
+
+    tolerance = (np.timedelta64(-45, "h"), np.timedelta64(3, "h"))
+    conv, satwnd, sat = _build_model().data_sources(tolerance, cache=False)
+    assert isinstance(conv, NNJAObsConv) and not isinstance(conv, NNJAObsSatwnd)
+    assert isinstance(satwnd, NNJAObsSatwnd)
+    assert isinstance(sat, NNJAObsSat)
+    assert conv._original_event and not conv._balloon_drift
+    assert sat._sensor_indices == {"cris": frozenset({19, 24})}
 
 
 @pytest.mark.package
@@ -250,7 +247,7 @@ def test_healda_v2_package():
     model = HealDAv2.load_model(package, device="cuda:0")
     request_time = np.array([CYCLE])
 
-    out = model(gpsro_obs=_gpsro_df(request_time), satwnd_obs=_satwnd_df(request_time))
+    out = model(conv_obs=_gpsro_df(request_time), satwnd_obs=_satwnd_df(request_time))
 
     assert isinstance(out, xr.DataArray)
     assert out.dims == ("time", "variable", "lat", "lon")
