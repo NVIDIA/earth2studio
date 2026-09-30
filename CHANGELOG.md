@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `safe_int(np.float32(12))` returned 0. A numpy float that is not a Python float was formatted as `12.0`, and `int()` rejected that text.
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources

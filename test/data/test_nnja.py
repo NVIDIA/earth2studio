@@ -340,6 +340,11 @@ def test_nnja_safe_int():
     assert _safe_int(3.14) == 3
     assert _safe_int(-7.9) == -7
 
+    assert _safe_int(np.float32(12)) == 12
+    assert _safe_int(np.float32(-7.9)) == -7
+    assert _safe_int(np.float16(3)) == 3
+    assert _safe_int(np.float32(np.nan)) == 0
+
     # bytes input
     assert _safe_int(b"123") == 123
     assert _safe_int(b"  456  ") == 456

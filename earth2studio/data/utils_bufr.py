@@ -206,7 +206,11 @@ def safe_int(v: Any) -> int:
     elif v is None:
         s = ""
     else:
-        s = str(v).strip()
+        # np.float32 is not a Python float. Its text form is "12.0", which int() rejects.
+        try:
+            return int(v)
+        except (TypeError, ValueError, OverflowError):
+            s = str(v).strip()
     if not s:
         return 0
     try:
