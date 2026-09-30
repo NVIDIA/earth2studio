@@ -806,3 +806,71 @@ def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
     NNJAObsConv(cache=False, verbose=False, exclude_message_types=("SATWND",))
     with pytest.raises(ValueError, match="Unknown PrepBUFR message types"):
         NNJAObsConv(cache=False, verbose=False, exclude_message_types=("AMV",))
+
+
+def _sounding_level() -> tuple[list[SimpleNamespace], list[object]]:
+    """One radiosonde level whose temperature carries two events, latest first."""
+    from earth2studio.data.utils_bufr import (
+        HDR_DHR,
+        HDR_SID,
+        HDR_TYP,
+        HDR_XOB,
+        HDR_YOB,
+        OBS_CAT,
+        OBS_HRDR,
+        OBS_POB,
+        OBS_XDR,
+        OBS_YDR,
+    )
+
+    desc_values = [
+        (HDR_SID, b"72393"),
+        (HDR_XOB, 10.0),
+        (HDR_YOB, 20.0),
+        (HDR_DHR, 0.0),
+        (HDR_TYP, 120),
+        (OBS_CAT, 1),
+        (OBS_POB, 500.0),
+        (OBS_HRDR, 0.5),
+        (OBS_YDR, 21.0),
+        (OBS_XDR, 11.0),
+        (OBS_TOB, -10.0),  # latest event
+        (OBS_TQM, 9),
+        (OBS_TOB, -12.0),  # original report, program code 1
+        (OBS_TQM, 2),
+    ]
+    return [SimpleNamespace(id=d) for d, _ in desc_values], [v for _, v in desc_values]
+
+
+@pytest.mark.parametrize(
+    "original_event, balloon_drift, value, quality, hours, lat, lon",
+    [
+        (False, True, -10.0, 9, 0.5, 21.0, 11.0),
+        (True, True, -12.0, 2, 0.5, 21.0, 11.0),
+        (False, False, -10.0, 9, 0.0, 20.0, 10.0),
+        (True, False, -12.0, 2, 0.0, 20.0, 10.0),
+    ],
+)
+def test_prepbufr_event_and_drift_selection(
+    original_event, balloon_drift, value, quality, hours, lat, lon
+):
+    descriptors, values = _sounding_level()
+    base = datetime(2024, 1, 1)
+    ((key, _modifier),) = _prepbufr_plan(NNJAObsConvLexicon, "t").values()
+    rows = utils_ncep._extract_prepbufr_subset(
+        descriptors,
+        values,
+        base,
+        "ADPUPA",
+        [("t", key)],
+        base - timedelta(hours=3),
+        base + timedelta(hours=3),
+        original_event=original_event,
+        balloon_drift=balloon_drift,
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["observation"] == value
+    assert row["quality"] == quality
+    assert row["time"] == base + timedelta(hours=hours)
+    assert (row["lat"], row["lon"]) == (lat, lon)

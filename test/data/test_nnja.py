@@ -309,6 +309,30 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     assert cleanup_calls["n"] == 2
 
 
+@pytest.mark.parametrize(
+    "cls, variable", [(NNJAObsConv, "t"), (nnja.NNJAObsSatwnd, "u")]
+)
+def test_nnja_obs_conv_decode_failure_raises(tmp_path, monkeypatch, cls, variable):
+    """A file that fails to decode fails the request instead of returning no rows."""
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+    source = cls(cache=True, verbose=False)
+
+    async def fake_fetch_files(uris):
+        pass
+
+    def broken_decode(path, task):
+        raise ModuleNotFoundError("No module named 'bitarray'")
+
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "_decode_file", broken_decode)
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
+        source(datetime(2024, 1, 1), [variable])
+    assert err.value.context["reason"] == "task_failure"
+    assert isinstance(err.value.__cause__, ModuleNotFoundError)
+
+
 def test_nnja_obs_conv_available():
     """Test NNJAObsConv.available() classmethod with both datetime types."""
     assert NNJAObsConv.available(datetime(2024, 1, 1, 0)) is True
@@ -786,6 +810,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "scan_angle",
         "scan_position",
         "scan_line",
+        "detector",
         "sensor_index",
         "wavenumber",
         "solza",
@@ -1228,8 +1253,11 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
         NNJAObsSat.resolve_fields(["unknown"])
     with pytest.raises(TypeError):
         NNJAObsSat.resolve_fields(pa.schema([pa.field("lat", pa.float64())]))
+    # ATMS starts in 2012, AMSU-A in 1998: plan the one that exists
+    tasks = source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+    assert {task.sensor for task in tasks} == {"amsua"}
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
-        source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+        source._create_tasks([datetime(2000, 1, 1)], ["atms", "cris"])
     assert unavailable.value.context["reason"] == "archive_unavailable"
     with pytest.raises(KeyError):
         ncep_microwave.decode_microwave(
@@ -1335,6 +1363,10 @@ def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
 
     # Inside coverage plans normally
     assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
+
+    # One sensor out of coverage no longer sinks the others in the same request
+    tasks = source._create_tasks([datetime(2025, 1, 1)], ["airs", "atms", "cris"])
+    assert {task.sensor for task in tasks} == {"atms", "cris"}
 
 
 def test_nnja_obs_sat_decode_file_routes_ir_and_microwave(monkeypatch):

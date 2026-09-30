@@ -93,6 +93,27 @@ class _NNJAObsSatIncompleteError(RuntimeError):
         super().__init__(f"NNJAObsSat request incomplete: {self.context}")
 
 
+def _raise_task_failure(
+    uri: str, task_index: int, task_count: int, cause: Exception
+) -> None:
+    """``compile_dataframe`` error hook: a file that fails to decode fails the request.
+
+    Without it ``compile_dataframe`` logs the failure and drops the file, so the call
+    returns fewer rows, or none, as if the archive were empty.
+    """
+    context: dict[str, object] = {
+        "uri": uri,
+        "task_index": task_index,
+        "task_count": task_count,
+        "cause_type": type(cause).__name__,
+        "cause_message": str(cause),
+    }
+    cause_context = getattr(cause, "context", None)
+    if isinstance(cause_context, dict):
+        context["cause_context"] = cause_context
+    raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
+
+
 _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     "atms": _NNJASatProduct("atms/atms", "atms", 2012),
     "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
@@ -216,6 +237,16 @@ class NNJAObsConv:
         PrepBUFR message families to skip at decode, e.g. ``("SATWND",)`` when
         atmospheric motion vectors come from :class:`NNJAObsSatwnd` instead. By
         default every family is decoded.
+    event : str, optional
+        Which event of each observation's PrepBUFR event stack to return.
+        ``"latest"`` is the top of the stack, after quality control and
+        corrections (for temperature often the virtual temperature), with its
+        quality mark; ``"original"`` is the bottom, the report as first ingested
+        (program code 1). By default ``"latest"``.
+    balloon_drift : bool, optional
+        Place each radiosonde level at its drifted time and position (HRDR, YDR,
+        XDR). False keeps the report header's time and position for every level.
+        By default True.
 
     Warning
     -------
@@ -255,6 +286,8 @@ class NNJAObsConv:
         decode_workers: int = 8,
         retries: int = 3,
         exclude_message_types: Sequence[str] = (),
+        event: str = "latest",
+        balloon_drift: bool = True,
     ) -> None:
         if source == "convbufr":
             raise NotImplementedError(
@@ -275,6 +308,10 @@ class NNJAObsConv:
                 f"{sorted(PREPBUFR_OBS_TYPES.values())}"
             )
         self._exclude_message_types = frozenset(exclude_message_types)
+        if event not in ("latest", "original"):
+            raise ValueError(f"event must be 'latest' or 'original', got {event!r}")
+        self._original_event = event == "original"
+        self._balloon_drift = balloon_drift
         self._source = source
         # Internal switch for the special aircraft-profile product. Default
         # output maps profile-stage 33x/43x/53x report codes to the standard
@@ -335,6 +372,7 @@ class NNJAObsConv:
             self.SOURCE_ID,
             self.local_path,
             self._decode_file,
+            _raise_task_failure,
         )
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
@@ -451,6 +489,8 @@ class NNJAObsConv:
                 task.datetime_max,
                 decode_workers=self._decode_workers,
                 exclude_message_types=self._exclude_message_types,
+                original_event=self._original_event,
+                balloon_drift=self._balloon_drift,
             )
             if (
                 self._source == "prepbufr.acft_profiles"
@@ -862,7 +902,7 @@ class NNJAObsSat:
             self.SOURCE_ID,
             self.local_path,
             self._decode_file,
-            self._handle_incomplete_task,
+            _raise_task_failure,
         )
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
@@ -913,25 +953,6 @@ class NNJAObsSat:
             cause_message=str(cause),
         ) from cause
 
-    def _handle_incomplete_task(
-        self,
-        uri: str,
-        task_index: int,
-        task_count: int,
-        cause: Exception,
-    ) -> None:
-        context: dict[str, object] = {
-            "uri": uri,
-            "task_index": task_index,
-            "task_count": task_count,
-            "cause_type": type(cause).__name__,
-            "cause_message": str(cause),
-        }
-        cause_context = getattr(cause, "context", None)
-        if isinstance(cause_context, dict):
-            context["cause_context"] = cause_context
-        raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
-
     def _handle_missing_file(self, path: str) -> None:
         """Warn and skip an absent aggregate cycle file.
 
@@ -968,6 +989,7 @@ class NNJAObsSat:
 
         windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
         tasks: list[_NNJASatTask] = []
+        unavailable: dict[str, list[datetime]] = {}
         for sensor, var_plan in variables_by_sensor.items():
             product = _NNJA_SAT_PRODUCTS[sensor]
             if (
@@ -988,15 +1010,8 @@ class NNJAObsSat:
                 if cycle.year < product.first_year or (
                     product.last_year is not None and cycle.year > product.last_year
                 ):
-                    uri = self._build_satellite_uri(cycle, sensor)
-                    raise _NNJAObsSatIncompleteError(
-                        "archive_unavailable",
-                        uri=uri,
-                        sensor=sensor,
-                        cycle=cycle.isoformat(),
-                        first_year=product.first_year,
-                        last_year=product.last_year,
-                    )
+                    unavailable.setdefault(sensor, []).append(cycle)
+                    continue
                 tasks.append(
                     _NNJASatTask(
                         uri=self._build_satellite_uri(cycle, sensor),
@@ -1007,6 +1022,26 @@ class NNJAObsSat:
                         var_plan=var_plan,
                     )
                 )
+        # A sensor outside its archive years has no rows there, like a sensor with no
+        # platform in flight; only a request with nothing left to read is an error.
+        if unavailable and not tasks:
+            sensor, cycles = next(iter(unavailable.items()))
+            product = _NNJA_SAT_PRODUCTS[sensor]
+            raise _NNJAObsSatIncompleteError(
+                "archive_unavailable",
+                uri=self._build_satellite_uri(cycles[0], sensor),
+                sensor=sensor,
+                cycle=cycles[0].isoformat(),
+                first_year=product.first_year,
+                last_year=product.last_year,
+            )
+        for sensor, cycles in unavailable.items():
+            product = _NNJA_SAT_PRODUCTS[sensor]
+            logger.warning(
+                f"NNJAObsSat: no {sensor} archive for {len(cycles)} cycle(s) outside "
+                f"{product.first_year}-{product.last_year or 'present'}; "
+                f"no {sensor} rows will be returned for them"
+            )
         return tasks
 
     @staticmethod

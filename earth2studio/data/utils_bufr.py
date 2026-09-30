@@ -462,22 +462,35 @@ def parse_prepbufr_messages(
     # Decode DX table messages using pybufrkit (they use standard descriptors)
     if dx_messages:
         ctx = silence_bufr_noise() if silence_noise else contextlib.nullcontext()
+        decoded, first_error = 0, None
         with ctx:
             try:
                 dx_decoder = BufrDecoder()
                 for dx_bytes in dx_messages:
                     try:
                         dx_msg = dx_decoder.process(dx_bytes)
-                    except Exception:  # noqa: S112
+                    except ImportError:
+                        raise
+                    except Exception as exc:  # noqa: S112
+                        first_error = first_error or exc
                         logger.debug("Skipping unparseable DX-table message")
                         continue
+                    decoded += 1
                     td = dx_msg.template_data.value
                     dvas = td.decoded_values_all_subsets
                     if not dvas:
                         continue
                     extract_dx_tables(dvas[0], table_b, table_d)
+            except ImportError:
+                raise
             except Exception as e:
                 logger.warning(f"Failed to extract DX tables: {e}")
+        # A malformed DX message is skipped; none decoding means no data message can be
+        # decoded either, which must fail rather than read as an empty file.
+        if not decoded:
+            raise ValueError(
+                f"None of {len(dx_messages)} DX-table messages could be decoded"
+            ) from first_error
 
     return table_b, table_d, data_messages
 

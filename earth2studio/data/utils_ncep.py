@@ -302,6 +302,8 @@ def _decode_prepbufr_message(
     dt_max: datetime,
     dhr_scale: int,
     hrdr_scale: int,
+    original_event: bool = False,
+    balloon_drift: bool = True,
 ) -> list[dict[str, Any]]:
     try:
         message = decoder.process(message_bytes)
@@ -330,6 +332,8 @@ def _decode_prepbufr_message(
                 dt_max,
                 dhr_scale,
                 hrdr_scale,
+                original_event,
+                balloon_drift,
             )
         )
     return rows
@@ -345,8 +349,15 @@ def _extract_prepbufr_subset(
     dt_max: datetime,
     dhr_scale: int = 5,
     hrdr_scale: int = 5,
+    original_event: bool = False,
+    balloon_drift: bool = True,
 ) -> list[dict[str, Any]]:
-    """Extract first-event observations from CAT-delimited physical levels."""
+    """Extract one event per observation from CAT-delimited physical levels.
+
+    PrepBUFR stacks events newest first: the top is the latest (quality-controlled,
+    e.g. virtual temperature), the bottom the original report (program code 1).
+    ``original_event`` selects the bottom instead of the top.
+    """
     header: dict[str, Any] = {
         "sid": "",
         "xob": None,
@@ -402,8 +413,7 @@ def _extract_prepbufr_subset(
     }
 
     # PrepBUFR repeats CAT blocks; each CAT starts a new physical level. Within a
-    # level keep only the first occurrence of each descriptor (the observation);
-    # later repeats are event-stack history, not new observations.
+    # level a repeated descriptor is an older event of the same observation.
     rows: list[dict[str, Any]] = []
     level: dict[int, Any] = {}
     in_level = False
@@ -422,11 +432,15 @@ def _extract_prepbufr_subset(
                     needed_ids,
                     need_wind,
                     var_keys,
+                    balloon_drift,
                 )
             level = {OBS_CAT: value}
             in_level = True
         elif in_level and descriptor_id in OBSERVATION_DESCR_IDS:
-            level.setdefault(descriptor_id, value)
+            if original_event:
+                level[descriptor_id] = value
+            else:
+                level.setdefault(descriptor_id, value)
     if in_level:
         _emit_prepbufr_level(
             rows,
@@ -439,6 +453,7 @@ def _extract_prepbufr_subset(
             needed_ids,
             need_wind,
             var_keys,
+            balloon_drift,
         )
     return rows
 
@@ -454,16 +469,20 @@ def _emit_prepbufr_level(
     needed_ids: dict[str, int],
     need_wind: bool,
     var_keys: Sequence[tuple[str, str]],
+    balloon_drift: bool = True,
 ) -> None:
     common = base_row.copy()
-    level_time = _time_from_offset(base_time, level.get(OBS_HRDR), hrdr_scale)
-    if level_time is not None:
-        common["time"] = level_time
+    # Drift (HRDR/YDR/XDR) places a sounding level where the balloon was; without it
+    # every level keeps the report header's time and position.
+    if balloon_drift:
+        level_time = _time_from_offset(base_time, level.get(OBS_HRDR), hrdr_scale)
+        if level_time is not None:
+            common["time"] = level_time
     if common["time"] < dt_min or common["time"] > dt_max:
         return
 
-    level_lat = level.get(OBS_YDR)
-    level_lon = level.get(OBS_XDR)
+    level_lat = level.get(OBS_YDR) if balloon_drift else None
+    level_lon = level.get(OBS_XDR) if balloon_drift else None
     if level_lat is not None:
         common["lat"] = np.float32(level_lat)
     if level_lon is not None:
@@ -864,6 +883,8 @@ def _prepbufr_worker(
     dt_max: datetime,
     dhr_scale: int,
     hrdr_scale: int,
+    original_event: bool,
+    balloon_drift: bool,
 ) -> list[dict[str, Any]]:
     with _silence_bufr_noise():
         return _decode_prepbufr_message(
@@ -875,6 +896,8 @@ def _prepbufr_worker(
             dt_max,
             dhr_scale,
             hrdr_scale,
+            original_event,
+            balloon_drift,
         )
 
 
@@ -897,6 +920,8 @@ def decode_prepbufr(
     dt_max: datetime,
     decode_workers: int = 8,
     exclude_message_types: Collection[str] = (),
+    original_event: bool = False,
+    balloon_drift: bool = True,
 ) -> pd.DataFrame:
     """Decode a merged NCEP PrepBUFR file into a DataFrame.
 
@@ -913,6 +938,12 @@ def decode_prepbufr(
     exclude_message_types : Collection[str]
         PrepBUFR message families (e.g. ``"SATWND"``) whose messages are skipped
         without decoding.
+    original_event : bool
+        Emit each observation's original report (event program code 1) instead of
+        its latest, quality-controlled event.
+    balloon_drift : bool
+        Place sounding levels at their drifted time and position; False keeps the
+        report header's.
     """
     decode_workers = max(1, decode_workers)
     var_keys = [(variable, key) for variable, (key, _) in plan.items()]
@@ -950,14 +981,15 @@ def decode_prepbufr(
                     dt_max,
                     dhr_scale,
                     hrdr_scale,
+                    original_event,
+                    balloon_drift,
                 )
                 for message_bytes, obs_class in work_items
             ]
+            # A message that fails to decode is skipped inside the worker, so a worker
+            # that raises is systematic and fails the file.
             for future in futures:
-                try:
-                    rows.extend(future.result())
-                except Exception as error:
-                    logger.debug(f"PrepBUFR worker failed: {error}")
+                rows.extend(future.result())
     else:
         decoder = _create_decoder(table_b, table_d)
         for message_bytes, obs_class in work_items:
@@ -971,6 +1003,8 @@ def decode_prepbufr(
                     dt_max,
                     dhr_scale,
                     hrdr_scale,
+                    original_event,
+                    balloon_drift,
                 )
             )
     logger.debug(
@@ -1441,6 +1475,17 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
             metadata={"description": "Encoded one-based field-of-view number"},
         ),
         pa.field("scan_line", pa.uint32(), nullable=True),
+        pa.field(
+            "detector",
+            pa.uint16(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "CrIS detector within the field of regard (FOVN, 1-9), which "
+                    "with scan_position fixes the look angle; null for other sensors"
+                )
+            },
+        ),
         E2STUDIO_SCHEMA.field("sensor_index"),
         E2STUDIO_SCHEMA.field("wavenumber"),
         E2STUDIO_SCHEMA.field("solza"),
@@ -1982,6 +2027,9 @@ def _decode_ir_subset(
         "scan_angle": np.nan,  # IR scan geometry is sensor-specific; omitted here
         "scan_position": scan_position,
         "scan_line": _as_optional_int(scalars.get(_SCAN_LINE)),
+        "detector": (
+            _as_optional_int(scalars.get(_FOV_NUMBER)) if sensor == "cris" else None
+        ),
         "solza": _as_float(scalars.get(_SOLAR_ZENITH)),
         "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
         "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
