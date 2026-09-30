@@ -2837,6 +2837,8 @@
       
         
       
+        
+      
     
     
     
@@ -3301,6 +3303,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stormcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StormCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3478,14 +3508,14 @@ counterpart in the verification store, so the scorecard skips them.</p>
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
-  "../../../_static/scorecard/plot.html?model=fcn&label=FCN",
+  "../../../_static/scorecard/plot.html?model=fcn&label=FCN&domain=Global&v=60ce8024",
   window.location.href);
 </script>
 
 <h2 id="evaluation">Evaluation<a class="headerlink" href="#evaluation" title="Permanent link">&para;</a></h2>
 <p>Deterministic · 48 initial conditions · 14-day horizon · 24 variables</p>
 <p>Scores are latitude-weighted (cos φ) and aggregated over the initial
-conditions. Evaluation is done against ERA5 fetched from ARCO.
+conditions. Evaluation is done against NCAR_ERA5.
 Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 <table>
 <thead>
