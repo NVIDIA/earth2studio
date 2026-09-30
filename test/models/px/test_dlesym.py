@@ -213,7 +213,9 @@ def test_dlesym_forward(device, grid_type, batch_size):
         assert field.attrs["ordering"] == "xy"
         assert field.attrs["origin"] == "north"
         assert field.attrs["clockwise"] is True
-        assert "earth2studio_grid_id" not in field.attrs
+        assert (
+            field.attrs["earth2studio_grid_id"] == "healpix-l6-xy-north-clockwise-face"
+        )
         for key, value in {
             "origin": "south",
             "clockwise": False,

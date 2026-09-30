@@ -28,7 +28,6 @@ import torch.nn.functional as F
 import xarray as xr
 from loguru import logger
 
-from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -721,9 +720,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "variable": np.array(input_variables),
             },
             dynamic=("batch", "time"),
-            grid=LatLonGrid(
-                np.linspace(90, -90, 121), np.linspace(0, 360, 240, endpoint=False)
-            ),
+            grid="latlon-1.5deg",
         )
 
     def input_coords(self) -> CoordinateSystem:

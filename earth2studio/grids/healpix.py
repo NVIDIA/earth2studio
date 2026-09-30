@@ -26,7 +26,11 @@ import numpy as np
 import xarray as xr
 from numpy.typing import NDArray
 
-from earth2studio.grids._utils import geographic_subset_indexers, metadata
+from earth2studio.grids._utils import (
+    cf_coordinates,
+    geographic_subset_indexers,
+    metadata,
+)
 from earth2studio.grids.base import GridTopology
 
 HEALPixOrdering = Literal["nested", "ring", "xy"]
@@ -220,7 +224,9 @@ class HEALPixGrid:
                 self.xy_origin,
                 self.xy_clockwise,
             )
-            return coordinates.assign(lat=("hpx", latitude), lon=("hpx", longitude))
+            return cf_coordinates(
+                coordinates.assign(lat=("hpx", latitude), lon=("hpx", longitude))
+            )
 
         face, height, width = np.meshgrid(
             indexes["face"], indexes["height"], indexes["width"], indexing="ij"
@@ -229,7 +235,9 @@ class HEALPixGrid:
         latitude, longitude = _healpix_coordinates(
             self.nside, "xy", pixels, self.xy_origin, self.xy_clockwise
         )
-        return coordinates.assign(lat=(self.dims, latitude), lon=(self.dims, longitude))
+        return cf_coordinates(
+            coordinates.assign(lat=(self.dims, latitude), lon=(self.dims, longitude))
+        )
 
     def subset_indexers(
         self,

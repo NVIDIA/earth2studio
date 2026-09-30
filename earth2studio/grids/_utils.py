@@ -61,8 +61,39 @@ def metadata(definition: GridDefinition, **details: Any) -> dict[str, Any]:
     }
     if definition.crs is not None:
         result["crs"] = definition.crs.to_string()
+        result.update(definition.crs.to_cf())
     result.update(details)
     return result
+
+
+def cf_coordinates(
+    coordinates: xr.Coordinates, *, crs: CRS | None = None
+) -> xr.Coordinates:
+    """Describe existing coordinates with CF attributes, without adding arrays.
+
+    References
+    ----------
+    CF Conventions, coordinate types and grid mappings:
+    https://cfconventions.org/cf-conventions/cf-conventions.html#coordinate-types
+    https://cfconventions.org/cf-conventions/cf-conventions.html#grid-mappings-and-projections
+    """
+    for name, standard_name, units, axis in (
+        ("lat", "latitude", "degrees_north", "Y"),
+        ("lon", "longitude", "degrees_east", "X"),
+    ):
+        if name in coordinates:
+            coordinate = coordinates[name]
+            coordinate.attrs.update(
+                standard_name=standard_name, long_name=standard_name, units=units
+            )
+            if coordinate.dims == (name,):
+                coordinate.attrs["axis"] = axis
+    if crs is not None and crs.is_projected:
+        for attributes in crs.cs_to_cf():
+            name = attributes.get("axis", "").lower()
+            if name in coordinates:
+                coordinates[name].attrs.update(attributes)
+    return coordinates
 
 
 def geographic_subset_indexers(

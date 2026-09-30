@@ -59,10 +59,36 @@ def optional_backend(request):
 
 
 def make_input(model, times, device="cpu"):
-    signature = model.input_coords().rename(batch="time")
+    signature = model.input_coords()
+    if "time" in signature.dims:
+        signature = coord_array_like(
+            signature, {"batch": [0], "time": np.asarray(times)}
+        )
+        return from_torch(torch.randn(signature.shape, device=device), signature).isel(
+            batch=0, drop=True
+        )
+    signature = signature.rename(batch="time")
     signature.attrs["earth2studio_dynamic_dims"] = ("time",)
     signature = coord_array_like(signature, {"time": np.asarray(times)})
     return from_torch(torch.randn(signature.shape, device=device), signature)
+
+
+@pytest.mark.parametrize("has_time", [False, True])
+def test_make_input_unique_time_dimension(has_time):
+    class Model:
+        def input_coords(self):
+            leading = ("batch", "time") if has_time else ("batch",)
+            return coord_array(
+                (*leading, "lead_time", "variable"),
+                {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m"]},
+                dynamic=leading,
+            )
+
+    times = np.array(["2025-08-21", "2025-08-22"], dtype="datetime64[ns]")
+    field = make_input(Model(), times)
+    assert field.dims == ("time", "lead_time", "variable")
+    assert field.shape == (2, 1, 1)
+    np.testing.assert_array_equal(field.coords["time"], times)
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
