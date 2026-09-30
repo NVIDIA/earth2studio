@@ -1,0 +1,11 @@
+.bd-page-width {
+  max-width: 104rem;  /* default is 88rem */
+}
+
+.bd-sidebar-primary {
+  flex-basis: 25%;
+}
+
+.pst-secondary-sidebar{
+  flex-basis: 30%;
+}
