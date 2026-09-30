@@ -601,6 +601,17 @@ class Pipeline(ABC):
         """
         return set()
 
+    def grid_coords(self) -> dict[str, tuple[tuple[str, ...], np.ndarray]]:
+        """Auxiliary coordinate arrays to store beside the output variables.
+
+        A model on a curvilinear grid writes its data on index dimensions
+        (``y``/``x``) and carries the 2-D latitude and longitude of every
+        cell as extra coordinates, ``{"lat": (("y", "x"), lat2d), "lon":
+        (("y", "x"), lon2d)}``.  :class:`src.output.OutputManager` writes
+        them into the store once, at creation.  Default: none.
+        """
+        return {}
+
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
         """Declare zarr stores that ``predownload.py`` should populate.
 

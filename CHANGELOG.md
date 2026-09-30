@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the HealDA v2 data assimilation model (`HealDAv2`): a 0.25 degree global
   analysis from NNJA GPS-RO and satellite-wind observations, backed by the
   `healda` package (`da-healda-v2` extra).
+- Added event scoring to the evaluation recipe and the scorecards.
 - Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data

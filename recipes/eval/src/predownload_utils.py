@@ -117,25 +117,44 @@ def _align_source_to_spatial_ref(
     return _RegriddedDataSource(source, tgt_lat, np.asarray(tgt_lon))
 
 
-def infer_step_hours(model: object) -> int:
-    """Infer the model's output timestep in hours from its coordinate methods.
+def infer_step(model: object) -> np.timedelta64:
+    """Return the model's intrinsic time step as a ``timedelta64``.
 
-    Computed as the difference between the first output lead time and the last
-    input lead time, which equals the model's intrinsic step size.
+    Taken from the model's coordinate systems: the first output lead time
+    minus the last input lead time, at minute resolution so a 10-minute
+    nowcaster keeps its exact step.
     """
     ic_coords = model.input_coords()  # type: ignore[attr-defined]
     out_coords = model.output_coords(ic_coords)  # type: ignore[attr-defined]
     delta = out_coords["lead_time"][0] - ic_coords["lead_time"][-1]
-    return int(delta / np.timedelta64(1, "h"))
+    return np.timedelta64(delta, "m")
+
+
+def infer_step_hours(model: object) -> float:
+    """Return the model's intrinsic time step in hours.
+
+    Whole hours come back as integral floats (``6.0``); sub-hourly models
+    come back fractional (``10 min`` -> ``0.1667``).  Pass the value on to
+    :func:`compute_verification_times`, which keeps minute precision.
+    """
+    return float(infer_step(model) / np.timedelta64(1, "h"))
+
+
+def as_step(step: float | int | np.timedelta64) -> np.timedelta64:
+    """Normalize a step given in hours (int or float) or as a timedelta to a
+    minute-resolution ``timedelta64``."""
+    if isinstance(step, np.timedelta64):
+        return np.timedelta64(step, "m")
+    return np.timedelta64(int(round(float(step) * 60)), "m")
 
 
 def compute_verification_times(
     ic_times: list[np.datetime64],
     nsteps: int,
-    step_hours: int,
+    step_hours: float | int | np.timedelta64,
 ) -> list[np.datetime64]:
     """Collect all unique model-output valid times across every IC window."""
-    step = np.timedelta64(step_hours, "h")
+    step = as_step(step_hours)
     times: set[np.datetime64] = set()
     for t in ic_times:
         for k in range(nsteps + 1):
