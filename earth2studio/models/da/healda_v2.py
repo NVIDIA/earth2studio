@@ -239,11 +239,14 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         package: Package,
         device: str | torch.device = "cuda",
         checkpoint_name: str = "healda_v2.checkpoint",
+        loop_name: str = "v2-nnja-latlon-final",
+        compile_dit: bool = True,
     ) -> AssimilationModel:
         """Load HealDA v2 from package.
 
-        The network runs on a CUDA device only; the 0.25 degree recipe also fetches ERA5
-        static fields into the healda cache the first time it is built.
+        The network runs on a CUDA device only, as a single unsharded process; the
+        0.25 degree recipe also fetches ERA5 static fields into the healda cache the
+        first time it is built.
 
         Parameters
         ----------
@@ -254,6 +257,12 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         checkpoint_name : str, optional
             Name of the checkpoint file inside the package, by default
             "healda_v2.checkpoint"
+        loop_name : str, optional
+            healda training preset to fall back to when the checkpoint carries no
+            ``loop.json``, by default "v2-nnja-latlon-final"
+        compile_dit : bool, optional
+            Run the backbone through ``torch.compile`` as trained; eager execution was
+            measured to bias the geopotential column, by default True
 
         Returns
         -------
@@ -264,7 +273,9 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
             raise RuntimeError("HealDA v2 requires a CUDA device")
         path = package.resolve(checkpoint_name)
         logger.info(f"Building HealDA v2 from {checkpoint_name}")
-        model = healda_inference.load_analysis_model(path, device=device)
+        model = healda_inference.load_analysis_model(
+            path, device=device, loop_name=loop_name, compile_dit=compile_dit
+        )
         return cls(model)
 
     def __call__(
