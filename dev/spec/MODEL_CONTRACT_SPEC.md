@@ -349,9 +349,6 @@ Aurora resets cached noise without reapplying a constructor seed. GenCast and
 WeatherNext use advancing functional JAX keys. DiagnosticWrapper dispatches
 seeding to its stochastic components. DLESyM retains its native local generator.
 
-FuXiS2S's hidden ONNX randomness and DataReplay's source-dependent randomness
-remain explicit exemptions in `test/models/test_model_conformance.py`.
-
 ## Conformance
 
 `earth2studio.models.conformance.check_prognostic_contract(model)` evaluates every
