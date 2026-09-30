@@ -136,6 +136,16 @@ def test_icechunk_reopen_with_scalar_array() -> None:
     assert list(io.coords) == ["lat"]
     assert "crs" in io
 
+    # Write and commit through the reopened backend, then reopen and read back
+    x = torch.randn(8)
+    io.write(x, coords, "fields")
+    io.commit("write after reopen")
+
+    io = IceChunkBackend(storage=storage)
+    xx, _ = io.read(coords, "fields")
+    assert torch.allclose(x, xx)
+    assert "crs" in io
+
 
 def test_icechunk_empty_commit() -> None:
 
