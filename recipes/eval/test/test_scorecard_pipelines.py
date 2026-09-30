@@ -30,6 +30,7 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+import zarr
 from omegaconf import OmegaConf
 from src.data import PredownloadedSource
 from src.pipelines.regional import (
@@ -477,3 +478,42 @@ class TestApplyCrop:
         assert apply_crop(model, None) is model
         with pytest.raises(TypeError, match="load_args"):
             apply_crop(model, {"lat_min": 0, "lat_max": 1, "lon_min": 0, "lon_max": 1})
+
+
+class TestGridCoords:
+    def test_regional_diagnostic_exposes_2d_latlon(self):
+        from src.pipelines.regional import RegionalDiagnosticPipeline
+
+        pipeline = RegionalDiagnosticPipeline()
+        lat2 = np.linspace(45, 50, 3)[:, None] * np.ones((1, 4))
+        pipeline._grid_latlon = {"lat": lat2, "lon": lat2 + 10}
+        coords = pipeline.grid_coords()
+        assert set(coords) == {"lat", "lon"}
+        assert coords["lat"][0] == ("y", "x") and coords["lat"][1].shape == (3, 4)
+
+    def test_no_curvilinear_grid_means_no_extra_coords(self):
+        from src.pipelines.regional import RegionalDiagnosticPipeline
+
+        assert RegionalDiagnosticPipeline().grid_coords() == {}
+
+    @pytest.mark.skipif(int(zarr.__version__.split(".")[0]) < 3, reason="zarr v3 API")
+    def test_written_as_xarray_coordinates(self, tmp_path):
+        from src.output import write_grid_coords
+
+        path = str(tmp_path / "store.zarr")
+        group = zarr.open_group(path, mode="w")
+        group.create_array(
+            "t2m", shape=(2, 3, 4), dtype="f4", dimension_names=("time", "y", "x")
+        )
+        for name, n in (("time", 2), ("y", 3), ("x", 4)):
+            arr = group.create_array(
+                name, shape=(n,), dtype="i8", dimension_names=(name,)
+            )
+            arr[...] = np.arange(n)
+        lat2 = np.linspace(45, 50, 3)[:, None] * np.ones((1, 4))
+        write_grid_coords(
+            path, {"lat": (("y", "x"), lat2), "lon": (("y", "x"), lat2 + 10)}, ["t2m"]
+        )
+        ds = xr.open_zarr(path, consolidated=False)
+        assert set(ds.coords) >= {"lat", "lon"} and ds["lat"].dims == ("y", "x")
+        assert list(ds.data_vars) == ["t2m"]

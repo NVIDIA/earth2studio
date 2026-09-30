@@ -42,8 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
 - Added event scoring to the evaluation recipe and the scorecards.
-  `scoring.events` pairs a time window with a region and can add initial
-  conditions. A StormCast campaign demonstrates this event-based scoring.
 - Added `NNJAObsSatwnd`, a data source for the raw NCEP atmospheric motion
   vector dumps in the NNJA archive (1979-present), exposing satellite, subset,
   computation method, height assignment, zenith angle and quality indicators

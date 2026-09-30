@@ -262,18 +262,18 @@ CONDITIONING_MODES = ("predownload", "live")
 class RegionalForecastPipeline(ForecastPipeline):
     """Forecast pipeline for limited-area models on a window of a larger grid.
 
-    Two things separate regional models (StormCast is the configured example)
-    Their initial conditions and truth come from a source that returns its
-    whole grid while the model runs on a window of it, so the pipeline crops
-    every store, and a live ``verification_source``, with :class:`SubgridSource`
-    (a live ``ic_source`` needs no help: the recipe selects the window itself).
-    And some of them condition each step on coarse global fields that the
-    model fetches through a data-source attribute; given a
-    ``conditioning_source``, the pipeline either predownloads those fields
-    into ``conditioning.zarr`` on a lat/lon window around the domain and
-    attaches that store as a local :class:`src.data.PredownloadedSource`,
-    or, in ``live`` mode, attaches the source itself and streams them
-    during inference.
+    Two things separate regional models (StormCast is the configured example).
+    First, their initial conditions and truth come from a source that returns
+    its whole grid while the model runs on a window of it, so the pipeline
+    crops with :class:`SubgridSource`: every predownloaded store,
+    and a live ``verification_source`` if the campaign brings one instead of
+    predownloading truth.  Second, some of them condition each step on
+    coarse global fields that the model fetches through a data-source
+    attribute; given a ``conditioning_source``, the pipeline either
+    predownloads those fields into ``conditioning.zarr`` on a lat/lon window
+    around the domain and attaches that store as a local
+    :class:`src.data.PredownloadedSource`, or, in ``live`` mode, attaches
+    the source itself and streams them during inference.
 
     ``conditioning_mode`` covers the conditioning fields only. The
     initial-condition and verification stores follow the recipe's own
@@ -283,7 +283,7 @@ class RegionalForecastPipeline(ForecastPipeline):
     that saves only its scores::
 
         pipeline:
-          _target_: scorecard.utils.pipelines.RegionalForecastPipeline
+          _target_: src.pipelines.regional.RegionalForecastPipeline
           conditioning_source:
             _target_: earth2studio.data.ARCO_ERA5
             cache: false
@@ -599,8 +599,8 @@ class RegionalDiagnosticPipeline(DiagnosticPipeline):
       [-180, 180).
     * Curvilinear output: a model whose output grid is 2-D ``lat``/``lon``
       (a rotated-pole grid) lands on index dimensions ``y``/``x`` in the
-      store, and the pipeline writes the 2-D latitudes and longitudes once
-      to ``grid_latlon.npz`` in the run directory for downstream regridding.
+      store, with the 2-D latitudes and longitudes written alongside as the
+      coordinates ``lat[y, x]`` and ``lon[y, x]``.
 
     The output carries the diagnostic fields only; the raw input lives on a
     different grid and stays out.  Scoring needs truth on the model's output
@@ -651,11 +651,11 @@ class RegionalDiagnosticPipeline(DiagnosticPipeline):
         )
         self._spatial_ref, self._grid_latlon = _index_dims(native)
         self._zero_lead = np.array([np.timedelta64(0, "ns")])
-        if self._grid_latlon:
-            path = os.path.join(cfg.output.path, "grid_latlon.npz")
-            if not os.path.exists(path):
-                os.makedirs(cfg.output.path, exist_ok=True)
-                np.savez(path, **self._grid_latlon)
+
+    def grid_coords(self) -> dict[str, tuple[tuple[str, ...], np.ndarray]]:
+        """The 2-D latitude and longitude of a curvilinear output grid, stored
+        beside the variables as ``lat[y, x]`` and ``lon[y, x]``."""
+        return {k: (("y", "x"), v) for k, v in self._grid_latlon.items()}
 
     def _windowed(self, data_source: Any, dx: Any) -> Any:
         """The source cropped to *dx*'s input grid (cached per source)."""

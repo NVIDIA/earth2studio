@@ -36,9 +36,7 @@ pure row gather: its 720 latitudes are exactly the target's first 720, and the
 appended -90 row carries zero latitude weight in scoring.
 
 The regional pipelines for regional models (StormCast, CorrDiff COSMO)
-live in the recipe as :mod:`src.pipelines.regional`; this module re-exports
-them so campaigns written against ``scorecard.utils.pipelines`` keep
-working.
+are part of the recipe itself: :mod:`src.pipelines.regional`.
 """
 
 from __future__ import annotations
@@ -340,15 +338,3 @@ class ClimatologyPipeline(ForecastPipeline):
         self.prognostic.set_source(
             PredownloadedSource(os.path.join(cfg.output.path, "climatology.zarr"))
         )
-
-
-# Regional pipelines moved into the recipe proper; re-exported for
-# campaigns that still point at scorecard.utils.pipelines.
-from src.pipelines.regional import (  # noqa: E402, F401
-    CONDITIONING_MODES,
-    RegionalDiagnosticPipeline,
-    RegionalForecastPipeline,
-    SubgridSource,
-    align_longitudes,
-    apply_crop,
-)
