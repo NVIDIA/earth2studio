@@ -296,6 +296,28 @@ scoring:
     #         - {lat: [20, 90]}
     #         - {lat: [-90, -20]}
     regions: null
+    # Named events: a time window paired with a region, for reporting skill
+    # during one episode (a windstorm, a heat wave, a hurricane).  An
+    # event's box joins the regions above under the event's name, so it
+    # must be configured before an online run; the time window is applied
+    # when the scorecard exporter reads the per-IC scores.  `window` picks
+    # the timestamp the window filters: `valid` (default) keeps the
+    # (IC, lead) pairs whose valid time falls inside it, `init` keeps whole
+    # forecasts by initial time.  `ics` adds initial conditions every
+    # `step_hours` from `start - lookback_hours` up to `end`; a valid
+    # window needs `lookback_hours` (set it to the forecast horizon so
+    # every lead time has valid times inside the window).  `region` may
+    # also name one of the regions above.
+    #
+    # events:
+    #     storm_eowyn:
+    #         label: "Storm Éowyn"
+    #         start: "2025-01-23 12:00:00"
+    #         end: "2025-01-25 00:00:00"
+    #         region: {lat: [48, 62], lon: [-15, 5]}
+    #         window: valid
+    #         ics: {step_hours: 12, lookback_hours: 336}
+    events: null
     output:
         store_name: scores.zarr
         overwrite: true
