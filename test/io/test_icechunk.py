@@ -121,6 +121,22 @@ def test_icechunk_local_filesystem_and_branch() -> None:
         assert torch.allclose(x, xx)
 
 
+def test_icechunk_reopen_with_scalar_array() -> None:
+    storage = icechunk.in_memory_storage()
+    io = IceChunkBackend(storage=storage)
+    coords = OrderedDict({"lat": np.linspace(-90, 90, 8)})
+    io.add_array(coords, "fields")
+    # Scalar array, e.g. a CF grid_mapping variable; zarr stores () as None
+    io.root.create_array(
+        "crs", shape=(), dtype="int32", fill_value=0, dimension_names=()
+    )
+    io.commit("add scalar")
+
+    io = IceChunkBackend(storage=storage)
+    assert list(io.coords) == ["lat"]
+    assert "crs" in io
+
+
 def test_icechunk_empty_commit() -> None:
 
     io = IceChunkBackend()
