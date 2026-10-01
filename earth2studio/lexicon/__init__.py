@@ -19,6 +19,7 @@ import warnings
 from .ace import ACELexicon
 from .arco import ARCO_ERA5Lexicon
 from .cams import CAMSGlobalLexicon
+from .camulator import CAMulatorLexicon
 from .cbottle import CBottleLexicon
 from .cds import CDS_ERA5Lexicon
 from .cfs import CFSFluxLexicon, CFSLexicon
@@ -53,7 +54,7 @@ from .metop import (
 from .mrms import MRMSLexicon
 from .ncar import NCAR_ERA5Lexicon
 from .nclimgrid import NClimGridLexicon
-from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon
+from .nnja import NNJAObsConvLexicon, NNJAObsSatLexicon, NNJAObsSatwndLexicon
 from .opera import OPERALexicon
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFSLexicon,

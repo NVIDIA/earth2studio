@@ -3,8 +3,8 @@ revision = 3
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version == '3.12.*' and platform_machine != 's390x'",
     "python_full_version >= '3.13' and platform_machine == 's390x'",
+    "python_full_version == '3.12.*' and platform_machine != 's390x'",
     "python_full_version == '3.12.*' and platform_machine == 's390x'",
     "python_full_version < '3.12' and platform_machine != 's390x'",
     "python_full_version < '3.12' and platform_machine == 's390x'",
@@ -121,6 +121,18 @@ wheels = [
 ]
 
 [[package]]
+name = "aiohttp-retry"
+version = "2.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/61/ebda4d8e3d8cfa1fd3db0fb428db2dd7461d5742cea35178277ad180b033/aiohttp_retry-2.9.1.tar.gz", hash = "sha256:8eb75e904ed4ee5c2ec242fefe85bf04240f685391c4879d8f541d6028ff01f1", size = 13608, upload-time = "2024-11-06T10:44:54.574Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/99/84ba7273339d0f3dfa57901b846489d2e5c2cd731470167757f1935fffbd/aiohttp_retry-2.9.1-py3-none-any.whl", hash = "sha256:66d2759d1921838256a05a3f80ad7e724936f083e35be5abb5e16eed6be6dc54", size = 9981, upload-time = "2024-11-06T10:44:52.917Z" },
+]
+
+[[package]]
 name = "aioitertools"
 version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -184,19 +196,19 @@ name = "arraylake"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click", marker = "python_full_version >= '3.12'" },
-    { name = "donfig", marker = "python_full_version >= '3.12'" },
-    { name = "httpx", marker = "python_full_version >= '3.12'" },
-    { name = "icechunk", marker = "python_full_version >= '3.12'" },
-    { name = "numpy", marker = "python_full_version >= '3.12'" },
-    { name = "packaging", marker = "python_full_version >= '3.12'" },
-    { name = "pydantic", extra = ["email"], marker = "python_full_version >= '3.12'" },
-    { name = "python-dateutil", marker = "python_full_version >= '3.12'" },
-    { name = "rich", marker = "python_full_version >= '3.12'" },
-    { name = "ruamel-yaml", marker = "python_full_version >= '3.12'" },
-    { name = "structlog", marker = "python_full_version >= '3.12'" },
-    { name = "typer", marker = "python_full_version >= '3.12'" },
-    { name = "zarr", marker = "python_full_version >= '3.12'" },
+    { name = "click" },
+    { name = "donfig" },
+    { name = "httpx" },
+    { name = "icechunk" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pydantic", extra = ["email"] },
+    { name = "python-dateutil" },
+    { name = "rich" },
+    { name = "ruamel-yaml" },
+    { name = "structlog" },
+    { name = "typer" },
+    { name = "zarr" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e4/03/8952b0cf57d42d95269046ac822b2b8d0cc12e90f4b34930cf3edb773e99/arraylake-1.2.0.tar.gz", hash = "sha256:f37a8a0aa10bb8397b6fbe76effc9f3ee010be93849743dc3208226c1ad648e5", size = 302585, upload-time = "2026-07-09T20:13:35.979Z" }
 wheels = [
@@ -348,8 +360,8 @@ name = "cattrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs", marker = "python_full_version >= '3.12'" },
-    { name = "typing-extensions", marker = "python_full_version >= '3.12'" },
+    { name = "attrs" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a0/ec/ba18945e7d6e55a58364d9fb2e46049c1c2998b3d805f19b703f14e81057/cattrs-26.1.0.tar.gz", hash = "sha256:fa239e0f0ec0715ba34852ce813986dfed1e12117e209b816ab87401271cdd40", size = 495672, upload-time = "2026-02-18T22:15:19.406Z" }
 wheels = [
@@ -544,7 +556,7 @@ name = "click-plugins"
 version = "1.1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click", marker = "python_full_version < '3.12'" },
+    { name = "click" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c3/a4/34847b59150da33690a36da3681d6bbc2ec14ee9a846bc30a6746e5984e4/click_plugins-1.1.1.2.tar.gz", hash = "sha256:d7af3984a99d243c131aa1a828331e7630f4a88a9741fd05c927b204bcf92261", size = 8343, upload-time = "2025-06-25T00:47:37.555Z" }
 wheels = [
@@ -832,40 +844,40 @@ cccl = [
     { name = "nvidia-cuda-cccl", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 cublas = [
-    { name = "nvidia-cublas", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cublas" },
 ]
 cudart = [
     { name = "nvidia-cuda-runtime", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 cufft = [
-    { name = "nvidia-cufft", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cufft" },
 ]
 cufile = [
-    { name = "nvidia-cufile", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cufile" },
 ]
 cupti = [
-    { name = "nvidia-cuda-cupti", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cuda-cupti" },
 ]
 curand = [
-    { name = "nvidia-curand", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-curand" },
 ]
 cusolver = [
-    { name = "nvidia-cusolver", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cusolver" },
 ]
 cusparse = [
-    { name = "nvidia-cusparse", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cusparse" },
 ]
 nvcc = [
     { name = "nvidia-cuda-nvcc", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 nvjitlink = [
-    { name = "nvidia-nvjitlink", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-nvjitlink" },
 ]
 nvrtc = [
     { name = "nvidia-cuda-nvrtc", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 nvtx = [
-    { name = "nvidia-nvtx", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-nvtx" },
 ]
 nvvm = [
     { name = "nvidia-nvvm", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -1058,6 +1070,8 @@ da-healda = [
     { name = "nvidia-physicsnemo" },
 ]
 data = [
+    { name = "aiohttp" },
+    { name = "aiohttp-retry" },
     { name = "arraylake", marker = "python_full_version >= '3.12'" },
     { name = "cdsapi" },
     { name = "cfgrib" },
@@ -1066,11 +1080,9 @@ data = [
     { name = "ecmwf-opendata" },
     { name = "eumdac" },
     { name = "gribberish", marker = "python_full_version >= '3.12'" },
-    { name = "httpx" },
     { name = "icechunk", marker = "python_full_version >= '3.12'" },
     { name = "intake-esgf", marker = "python_full_version >= '3.12'" },
     { name = "pcodec", marker = "python_full_version >= '3.12'" },
-    { name = "planetary-computer" },
     { name = "pybufrkit" },
     { name = "pyproj" },
     { name = "pystac-client" },
@@ -1103,6 +1115,7 @@ stormscope = [
     { name = "natten" },
     { name = "nvidia-physicsnemo" },
     { name = "nvtx" },
+    { name = "omegaconf" },
     { name = "scipy" },
 ]
 utils = [
@@ -1114,6 +1127,10 @@ utils = [
 requires-dist = [
     { name = "aiofiles", marker = "extra == 'all'", specifier = ">=23.0.0" },
     { name = "aiofiles", marker = "extra == 'serve'", specifier = ">=23.0.0" },
+    { name = "aiohttp", marker = "extra == 'all'", specifier = ">=3.9.0" },
+    { name = "aiohttp", marker = "extra == 'data'", specifier = ">=3.9.0" },
+    { name = "aiohttp-retry", marker = "extra == 'all'", specifier = ">=2.8.3" },
+    { name = "aiohttp-retry", marker = "extra == 'data'", specifier = ">=2.8.3" },
     { name = "anemoi-models", marker = "extra == 'aifs'", specifier = "==0.5.1" },
     { name = "anemoi-models", marker = "extra == 'aifs2'", specifier = ">=0.9.3,<0.9.5" },
     { name = "anemoi-models", marker = "extra == 'aifs2ens'", specifier = "==0.11.2" },
@@ -1143,15 +1160,18 @@ requires-dist = [
     { name = "cudf-cu13", marker = "extra == 'da-stormcast'", specifier = ">=26.2.0" },
     { name = "cupy-cuda13x", marker = "extra == 'all'" },
     { name = "cupy-cuda13x", marker = "extra == 'cyclone'" },
+    { name = "cupy-cuda13x", marker = "extra == 'da-cosmo'" },
     { name = "cupy-cuda13x", marker = "extra == 'da-healda'" },
     { name = "cupy-cuda13x", marker = "extra == 'da-interp'" },
     { name = "cupy-cuda13x", marker = "extra == 'da-stormcast'" },
     { name = "dm-haiku", marker = "extra == 'all'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'gencast'", specifier = ">=0.0.14" },
     { name = "dm-haiku", marker = "extra == 'graphcast'", specifier = ">=0.0.14" },
+    { name = "dm-haiku", marker = "extra == 'weathernext'", specifier = ">=0.0.14" },
     { name = "dm-tree", marker = "extra == 'all'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'gencast'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'graphcast'", specifier = ">=0.1.9" },
+    { name = "dm-tree", marker = "extra == 'weathernext'", specifier = ">=0.1.9" },
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'da-healda'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
@@ -1177,6 +1197,7 @@ requires-dist = [
     { name = "einops", marker = "extra == 'atlas'" },
     { name = "einops", marker = "extra == 'corrdiff'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'cosmo'", specifier = ">=0.8.1" },
+    { name = "einops", marker = "extra == 'da-cosmo'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'da-stormcast'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'stormcast'", specifier = ">=0.8.1" },
     { name = "eumdac", marker = "extra == 'all'", specifier = ">=3.1.0" },
@@ -1190,21 +1211,18 @@ requires-dist = [
     { name = "flax", marker = "extra == 'all'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'gencast'", specifier = ">=0.10.6" },
     { name = "flax", marker = "extra == 'graphcast'", specifier = ">=0.10.6" },
+    { name = "flax", marker = "extra == 'weathernext'", specifier = ">=0.10.6" },
     { name = "fme", marker = "extra == 'ace2'", git = "https://github.com/ai2cm/ace.git?rev=e211cad3e1a5cff0fa84e8d2f0ee67042eff3d4d" },
+    { name = "fme", marker = "extra == 'samudrace'", specifier = "==2026.4.0" },
     { name = "fsspec", specifier = ">=2024.2.0" },
     { name = "gcsfs" },
-    { name = "graphcast", marker = "extra == 'all'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
-    { name = "graphcast", marker = "extra == 'gencast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
-    { name = "graphcast", marker = "extra == 'graphcast'", git = "https://github.com/google-deepmind/graphcast.git?rev=7077d40a36db6541e3ed72ccaed1c0d202fa6014" },
     { name = "gribberish", marker = "python_full_version >= '3.12' and extra == 'all'", specifier = ">=1.5.0" },
     { name = "gribberish", marker = "python_full_version >= '3.12' and extra == 'data'", specifier = ">=1.5.0" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
     { name = "hiredis", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "hiredis", marker = "extra == 'serve'", specifier = ">=2.0.0" },
-    { name = "httpx", marker = "extra == 'all'", specifier = "==0.28.1" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.25.0" },
-    { name = "httpx", marker = "extra == 'data'", specifier = "==0.28.1" },
     { name = "httpx", marker = "extra == 'serve'", specifier = ">=0.25.0" },
     { name = "huggingface-hub", specifier = ">=0.27.0" },
     { name = "hydra-core", marker = "extra == 'all'", specifier = ">=1.3.0" },
@@ -1220,6 +1238,7 @@ requires-dist = [
     { name = "jax", extras = ["cuda13"], marker = "extra == 'all'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda13"], marker = "extra == 'gencast'", specifier = ">=0.4.26" },
     { name = "jax", extras = ["cuda13"], marker = "extra == 'graphcast'", specifier = ">=0.4.26" },
+    { name = "jax", extras = ["cuda13"], marker = "extra == 'weathernext'", specifier = ">=0.4.26" },
     { name = "loguru" },
     { name = "makani", marker = "extra == 'all'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
     { name = "makani", marker = "extra == 'fcn3'", git = "https://github.com/NVIDIA/makani.git?rev=b38fcb2799d7dbc146fa60459f3f9823394a8bf1" },
@@ -1233,7 +1252,9 @@ requires-dist = [
     { name = "multi-storage-client", marker = "extra == 'serve'", specifier = ">=0.44.0" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'all'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'atlas'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'corrdiff-era5-hrrr'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'cosmo'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'da-cosmo'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormcast-conus'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormscope'" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
@@ -1244,11 +1265,14 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.1.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.2.0a0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=bf0ad4f43275b84a7beab35127d57a99cd359260" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff-era5-hrrr'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=426f7552da4b4fa675e404e8a4f437e27681b668" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", specifier = ">=2.2.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'da-cosmo'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'da-stormcast'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=426f7552da4b4fa675e404e8a4f437e27681b668" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=2.0" },
@@ -1257,12 +1281,14 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'solarradiation-afno'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'statistics'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormcast'", specifier = ">=2.0" },
-    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast-conus'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=bf0ad4f43275b84a7beab35127d57a99cd359260" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'stormcast-conus'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'stormscope'", specifier = ">=2.1.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'windgust-afno'", specifier = ">=1.0.1" },
     { name = "nvtx", marker = "extra == 'all'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'corrdiff'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'corrdiff-era5-hrrr'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'cosmo'", specifier = ">=0.2.11" },
+    { name = "nvtx", marker = "extra == 'da-cosmo'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'da-stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast'", specifier = ">=0.2.11" },
     { name = "nvtx", marker = "extra == 'stormcast-conus'", specifier = ">=0.2.11" },
@@ -1274,6 +1300,7 @@ requires-dist = [
     { name = "omegaconf", marker = "extra == 'dlesym'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast'", specifier = ">=2.3.0" },
     { name = "omegaconf", marker = "extra == 'stormcast-conus'", specifier = ">=2.3.0" },
+    { name = "omegaconf", marker = "extra == 'stormscope'", specifier = ">=2.3.0" },
     { name = "onnx", marker = "extra == 'all'" },
     { name = "onnx", marker = "extra == 'fengwu'" },
     { name = "onnx", marker = "extra == 'fuxi'" },
@@ -1288,10 +1315,9 @@ requires-dist = [
     { name = "onnxscript", marker = "extra == 'pangu'" },
     { name = "pandas" },
     { name = "pandas", marker = "extra == 'ace2'", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "extra == 'samudrace'", specifier = ">=2.3.2" },
     { name = "pcodec", marker = "python_full_version >= '3.12' and extra == 'all'", specifier = ">=1.0.2" },
     { name = "pcodec", marker = "python_full_version >= '3.12' and extra == 'data'", specifier = ">=1.0.2" },
-    { name = "planetary-computer", marker = "extra == 'all'", specifier = ">=0.5.0" },
-    { name = "planetary-computer", marker = "extra == 'data'", specifier = ">=0.5.0" },
     { name = "prometheus-client", marker = "extra == 'all'", specifier = ">=0.17.0" },
     { name = "prometheus-client", marker = "extra == 'serve'", specifier = ">=0.17.0" },
     { name = "pyarrow", specifier = ">=14.0.0" },
@@ -1335,10 +1361,13 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'corrdiff'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'cosmo'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'da-cosmo'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'da-stormcast'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'data'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'fcn3'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'perturbation'", specifier = ">=1.15.2" },
+    { name = "scipy", marker = "extra == 'samudrace'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'sfno'", specifier = ">=1.10.0" },
     { name = "scipy", marker = "extra == 'stormcast'", specifier = ">=1.15.2" },
     { name = "scipy", marker = "extra == 'stormcast-conus'", specifier = ">=1.15.2" },
@@ -1363,13 +1392,15 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'serve'", specifier = ">=1.26.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'all'", specifier = ">=0.24.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'serve'", specifier = ">=0.24.0" },
-    { name = "xarray", marker = "extra == 'all'", specifier = "<2026.4.0" },
-    { name = "xarray", marker = "extra == 'gencast'", specifier = "<2026.4.0" },
-    { name = "xarray", marker = "extra == 'graphcast'", specifier = "<2026.4.0" },
+    { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'all'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
+    { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'gencast'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
+    { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'graphcast'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
+    { name = "weathernext", marker = "python_full_version >= '3.12' and extra == 'weathernext'", git = "https://github.com/google-deepmind/weathernext.git?rev=9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" },
+    { name = "xarray", marker = "extra == 'samudrace'", specifier = ">=2025.1.0" },
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "cbottle", "climatenet", "corrdiff", "cosmo", "cyclone", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "camulator", "cbottle", "climatenet", "corrdiff", "corrdiff-era5-hrrr", "cosmo", "cyclone", "da-cosmo", "da-healda", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "samudrace", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "weathernext", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [
@@ -1399,7 +1430,7 @@ dev = [
 ]
 docs = [
     { name = "cartopy" },
-    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=5eaddfe1fd4e842d6e2a5fa63a9a8718eeed7e9a" },
+    { name = "earth2studio-gallery", git = "https://github.com/NickGeneva/earth2studio-gallery.git?rev=23608550091f6ffb6256c3830514c6489f11fd90" },
     { name = "griffe-inherited-docstrings", specifier = ">=1.1.3" },
     { name = "matplotlib" },
     { name = "mike", specifier = ">=2.1.0" },
@@ -1554,8 +1585,8 @@ name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dnspython", marker = "python_full_version >= '3.12'" },
-    { name = "idna", marker = "python_full_version >= '3.12'" },
+    { name = "dnspython" },
+    { name = "idna" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz", hash = "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426", size = 51238, upload-time = "2025-08-26T13:09:06.831Z" }
 wheels = [
@@ -1758,9 +1789,9 @@ name = "globus-sdk"
 version = "3.65.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "python_full_version >= '3.12'" },
-    { name = "pyjwt", extra = ["crypto"], marker = "python_full_version >= '3.12'" },
-    { name = "requests", marker = "python_full_version >= '3.12'" },
+    { name = "cryptography" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/49/93/a6f6686bb2beb038047abe203b48c7f995f6a96884679eedf7e9aa34300b/globus_sdk-3.65.0.tar.gz", hash = "sha256:a4b350b980809e86d768c8e327de9ddee4405b60cfb83429cdf831ac0c63d763", size = 275365, upload-time = "2025-10-03T01:56:45.402Z" }
 wheels = [
@@ -1921,7 +1952,7 @@ name = "gribberish"
 version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "python_full_version >= '3.12'" },
+    { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f1/82/235485420d78041a0061f09d69ab552a7eb3d7ae0ace6c9746e60e5953e1/gribberish-1.7.0.tar.gz", hash = "sha256:637f5565983d3a5b8a3b7fbee5af7edaaf177124856903a76298eebb9ed98c0f", size = 3286022, upload-time = "2026-08-13T18:13:46.249Z" }
 wheels = [
@@ -2179,7 +2210,7 @@ name = "icechunk"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zarr", marker = "python_full_version >= '3.12'" },
+    { name = "zarr" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/89/41/ea6d2ebe3fced2be5ca4e8540b776d9544a31e30f0a90fe7968b28288aff/icechunk-2.1.1.tar.gz", hash = "sha256:a46637e2e079edcfb92a6cc2a7a0cfb990224b0be2fb1931f967361d17498fa0", size = 3528133, upload-time = "2026-07-08T20:30:01.408Z" }
 wheels = [
@@ -2254,16 +2285,16 @@ name = "intake-esgf"
 version = "2026.1.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dask", marker = "python_full_version >= '3.12'" },
-    { name = "globus-sdk", marker = "python_full_version >= '3.12'" },
-    { name = "netcdf4", marker = "python_full_version >= '3.12'" },
-    { name = "pandas", marker = "python_full_version >= '3.12'" },
-    { name = "pystac-client", marker = "python_full_version >= '3.12'" },
-    { name = "pyyaml", marker = "python_full_version >= '3.12'" },
-    { name = "requests", marker = "python_full_version >= '3.12'" },
-    { name = "requests-cache", marker = "python_full_version >= '3.12'" },
-    { name = "tqdm", marker = "python_full_version >= '3.12'" },
-    { name = "xarray", marker = "python_full_version >= '3.12'" },
+    { name = "dask" },
+    { name = "globus-sdk" },
+    { name = "netcdf4" },
+    { name = "pandas" },
+    { name = "pystac-client" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "requests-cache" },
+    { name = "tqdm" },
+    { name = "xarray" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/be/13/6f99d94d2522a55646edb8e3e0c9bf14474bd04403fc15465ab0d7137ec5/intake_esgf-2026.1.26.tar.gz", hash = "sha256:0ae6257104e4f307bb28f675d1ad703b7cdaa10e74b5b3a77e6949aee72c9890", size = 98904, upload-time = "2026-01-26T17:13:23.789Z" }
 wheels = [
@@ -2673,7 +2704,7 @@ name = "ml-dtypes"
 version = "0.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "python_full_version < '3.13'" },
+    { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0e/4a/c27b42ed9b1c7d13d9ba8b6905dece787d6259152f2309338aed29b2447b/ml_dtypes-0.5.4.tar.gz", hash = "sha256:8ab06a50fb9bf9666dd0fe5dfb4676fa2b0ac0f31ecff72a6c3af8e22c063453", size = 692314, upload-time = "2025-11-17T22:32:31.031Z" }
 wheels = [
@@ -3407,10 +3438,10 @@ name = "onnx"
 version = "1.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ml-dtypes", marker = "python_full_version < '3.13'" },
-    { name = "numpy", marker = "python_full_version < '3.13'" },
-    { name = "protobuf", marker = "python_full_version < '3.13'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "ml-dtypes" },
+    { name = "numpy" },
+    { name = "protobuf" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c5/93/942d2a0f6a70538eea042ce0445c8aefd46559ad153469986f29a743c01c/onnx-1.21.0.tar.gz", hash = "sha256:4d8b67d0aaec5864c87633188b91cc520877477ec0254eda122bef8be43cd764", size = 12074608, upload-time = "2026-03-27T21:33:36.118Z" }
 wheels = [
@@ -3563,7 +3594,7 @@ name = "pcodec"
 version = "1.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "python_full_version >= '3.12'" },
+    { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7e/04/463fb9af3d6d790a44d01db4c2890d84d089a918e730e70f841892127634/pcodec-1.0.2.tar.gz", hash = "sha256:f97cad59175e9353f1da9f5bbadce340d31858e992f4ebdf09acc78f424f08d4", size = 146715, upload-time = "2026-05-10T00:54:47.32Z" }
 wheels = [
@@ -3650,25 +3681,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/31/5e/03966aedfbfcbb4d5f8aa042452d3361f325b963ebbadddac05b122e47dd/pillow-11.3.0-pp311-pypy311_pp73-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5418b53c0d59b3824d05e029669efa023bbef0f3e92e75ec8428f3799487f361", size = 4957170, upload-time = "2025-07-01T09:16:23.762Z" },
     { url = "https://files.pythonhosted.org/packages/cc/2d/e082982aacc927fc2cab48e1e731bdb1643a1406acace8bed0900a61464e/pillow-11.3.0-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:504b6f59505f08ae014f724b6207ff6222662aab5cc9542577fb084ed0676ac7", size = 5581505, upload-time = "2025-07-01T09:16:25.593Z" },
     { url = "https://files.pythonhosted.org/packages/34/e7/ae39f538fd6844e982063c3a5e4598b8ced43b9633baa3a85ef33af8c05c/pillow-11.3.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:c84d689db21a1c397d001aa08241044aa2069e7587b398c8cc63020390b1c1b8", size = 6984598, upload-time = "2025-07-01T09:16:27.732Z" },
-]
-
-[[package]]
-name = "planetary-computer"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "packaging" },
-    { name = "pydantic" },
-    { name = "pystac" },
-    { name = "pystac-client" },
-    { name = "python-dotenv" },
-    { name = "pytz" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9b/d3/ccfb0e823e9beb72b7e6b749f0985c4db1530d4e4a145b1b5d12f5de417e/planetary-computer-1.0.0.tar.gz", hash = "sha256:5958a8e1d8ba1aafc7ac45878df2d7d03405806ae31ed2e675333faebca960cc", size = 17076, upload-time = "2023-07-05T13:06:58.679Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/7a/3965a2b58d172e106c1064af19707d29f86a0142c28ff40185490a0a8cfe/planetary_computer-1.0.0-py3-none-any.whl", hash = "sha256:7af5839f9346c1d23d53fff4e80e955db18a2d81992877816e22dcbc2f90c40d", size = 14163, upload-time = "2023-07-05T13:06:57.06Z" },
 ]
 
 [[package]]
@@ -3912,7 +3924,7 @@ wheels = [
 
 [package.optional-dependencies]
 email = [
-    { name = "email-validator", marker = "python_full_version >= '3.12'" },
+    { name = "email-validator" },
 ]
 
 [[package]]
@@ -4029,7 +4041,7 @@ wheels = [
 
 [package.optional-dependencies]
 crypto = [
-    { name = "cryptography", marker = "python_full_version >= '3.12'" },
+    { name = "cryptography" },
 ]
 
 [[package]]
@@ -4317,14 +4329,14 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine == 's390x'",
 ]
 dependencies = [
-    { name = "affine", marker = "python_full_version < '3.12'" },
-    { name = "attrs", marker = "python_full_version < '3.12'" },
-    { name = "certifi", marker = "python_full_version < '3.12'" },
-    { name = "click", marker = "python_full_version < '3.12'" },
-    { name = "click-plugins", marker = "python_full_version < '3.12'" },
-    { name = "cligj", marker = "python_full_version < '3.12'" },
-    { name = "numpy", marker = "python_full_version < '3.12'" },
-    { name = "pyparsing", marker = "python_full_version < '3.12'" },
+    { name = "affine" },
+    { name = "attrs" },
+    { name = "certifi" },
+    { name = "click" },
+    { name = "click-plugins" },
+    { name = "cligj" },
+    { name = "numpy" },
+    { name = "pyparsing" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ec/fa/fce8dc9f09e5bc6520b6fc1b4ecfa510af9ca06eb42ad7bdff9c9b8989d0/rasterio-1.4.4.tar.gz", hash = "sha256:c95424e2c7f009b8f7df1095d645c52895cd332c0c2e1b4c2e073ea28b930320", size = 445004, upload-time = "2025-12-12T18:01:08.971Z" }
 wheels = [
@@ -4360,18 +4372,18 @@ version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version == '3.12.*' and platform_machine != 's390x'",
     "python_full_version >= '3.13' and platform_machine == 's390x'",
+    "python_full_version == '3.12.*' and platform_machine != 's390x'",
     "python_full_version == '3.12.*' and platform_machine == 's390x'",
 ]
 dependencies = [
-    { name = "affine", marker = "python_full_version >= '3.12'" },
-    { name = "attrs", marker = "python_full_version >= '3.12'" },
-    { name = "certifi", marker = "python_full_version >= '3.12'" },
-    { name = "click", marker = "python_full_version >= '3.12'" },
-    { name = "cligj", marker = "python_full_version >= '3.12'" },
-    { name = "numpy", marker = "python_full_version >= '3.12'" },
-    { name = "pyparsing", marker = "python_full_version >= '3.12'" },
+    { name = "affine" },
+    { name = "attrs" },
+    { name = "certifi" },
+    { name = "click" },
+    { name = "cligj" },
+    { name = "numpy" },
+    { name = "pyparsing" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f6/88/edb4b66b6cb2c13f123af5a3896bf70c0cbe73ab3cd4243cb4eb0212a0f6/rasterio-1.5.0.tar.gz", hash = "sha256:1e0ea56b02eea4989b36edf8e58a5a3ef40e1b7edcb04def2603accd5ab3ee7b", size = 452184, upload-time = "2026-01-05T16:06:47.169Z" }
 wheels = [
@@ -4429,12 +4441,12 @@ name = "requests-cache"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs", marker = "python_full_version >= '3.12'" },
-    { name = "cattrs", marker = "python_full_version >= '3.12'" },
-    { name = "platformdirs", marker = "python_full_version >= '3.12'" },
-    { name = "requests", marker = "python_full_version >= '3.12'" },
-    { name = "url-normalize", marker = "python_full_version >= '3.12'" },
-    { name = "urllib3", marker = "python_full_version >= '3.12'" },
+    { name = "attrs" },
+    { name = "cattrs" },
+    { name = "platformdirs" },
+    { name = "requests" },
+    { name = "url-normalize" },
+    { name = "urllib3" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8c/41/cca56fdb48cbca8feb68770bce70cb315de2a1f7d6bf7ca62c437ac279f0/requests_cache-1.3.1.tar.gz", hash = "sha256:784e9d07f72db4fe234830a065230c59eb446489528f271ba288c640897e47c4", size = 99416, upload-time = "2026-03-04T18:05:50.918Z" }
 wheels = [
@@ -4476,11 +4488,11 @@ resolution-markers = [
     "python_full_version < '3.12' and platform_machine == 's390x'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version < '3.12'" },
-    { name = "packaging", marker = "python_full_version < '3.12'" },
-    { name = "pyproj", marker = "python_full_version < '3.12'" },
-    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "xarray", marker = "python_full_version < '3.12'" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pyproj" },
+    { name = "rasterio", version = "1.4.4", source = { registry = "https://pypi.org/simple" } },
+    { name = "xarray" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/8e/fe4e87460f8c62d8d5c683e09f19fbde5d9cfcfd0342d02df1f452999b5d/rioxarray-0.19.0.tar.gz", hash = "sha256:7819a0036fd874c8c8e280447cbbe43d8dc72fc4a14ac7852a665b1bdb7d4b04", size = 54600, upload-time = "2025-04-21T17:46:54.183Z" }
 wheels = [
@@ -4493,16 +4505,16 @@ version = "0.22.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version == '3.12.*' and platform_machine != 's390x'",
     "python_full_version >= '3.13' and platform_machine == 's390x'",
+    "python_full_version == '3.12.*' and platform_machine != 's390x'",
     "python_full_version == '3.12.*' and platform_machine == 's390x'",
 ]
 dependencies = [
-    { name = "numpy", marker = "python_full_version >= '3.12'" },
-    { name = "packaging", marker = "python_full_version >= '3.12'" },
-    { name = "pyproj", marker = "python_full_version >= '3.12'" },
-    { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "xarray", marker = "python_full_version >= '3.12'" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pyproj" },
+    { name = "rasterio", version = "1.5.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "xarray" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/04/9e43477ab0fce7c4c949e1131bfae55ec5228da4ba30f55760660db224b2/rioxarray-0.22.0.tar.gz", hash = "sha256:3f55f23a632ffd9eff13463634227f4afbbcf298947536e161f6cf2ce88d4373", size = 61337, upload-time = "2026-03-06T17:11:00.16Z" }
 wheels = [
@@ -5136,7 +5148,7 @@ name = "url-normalize"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "idna", marker = "python_full_version >= '3.12'" },
+    { name = "idna" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/31/febb777441e5fcdaacb4522316bf2a527c44551430a4873b052d545e3279/url_normalize-2.2.1.tar.gz", hash = "sha256:74a540a3b6eba1d95bdc610c24f2c0141639f3ba903501e61a52a8730247ff37", size = 18846, upload-time = "2025-04-26T20:37:58.553Z" }
 wheels = [

@@ -34,10 +34,14 @@ The regrid uses ``Pipeline._output_regridder``, the recipe's documented
 extension point, so no recipe code is modified. For Aurora the "regrid" is a
 pure row gather: its 720 latitudes are exactly the target's first 720, and the
 appended -90 row carries zero latitude weight in scoring.
+
+The regional pipelines for regional models (StormCast, CorrDiff COSMO)
+are part of the recipe itself: :mod:`src.pipelines.regional`.
 """
 
 from __future__ import annotations
 
+import os
 from collections import OrderedDict
 
 import numpy as np
@@ -327,7 +331,6 @@ class ClimatologyPipeline(ForecastPipeline):
 
     def setup(self, cfg: DictConfig, device: torch.device) -> None:
         """Load the baseline and point it at the local climatology store."""
-        import os
 
         from src.data import PredownloadedSource
 

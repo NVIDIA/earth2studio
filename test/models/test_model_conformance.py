@@ -58,6 +58,8 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "AtlasCRPS",
     "Aurora",
     "Aurora1p5",
+    "Aurora1p5_6h",
+    "CAMulator",
     "DLESyM",
     "DLESyMLatLon",
     "DLESyMv0_ISCCP_ERA5",
@@ -79,6 +81,10 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
 }
 
 _PROGNOSTIC_EXEMPT: dict[str, str] = {
+    "Aurora1p5Ensemble_6h": (
+        "P14: retains global seeding like the hourly variant; "
+        "test/models/px/test_aurora1p5.py::test_aurora1p5_fixed_cadence."
+    ),
     "Aurora1p5Ensemble": (
         "P12/P14: retains set_rng(seed) and global seeding; each iterator reapplies "
         "the constructor seed and resets noise. "
@@ -157,6 +163,10 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "WindgustAFNO",
 }
 _DIAGNOSTIC_EXEMPT: dict[str, str] = {
+    "CorrDiffEra5Hrrr": (
+        "D9 with seed=None: undeclared sampler randomness; "
+        "test/models/test_corrdiff_era5_hrrr_contract.py."
+    ),
     "CorrDiff": (
         "D9 with seed=None and a noise-producing sampler: undeclared randomness; "
         "test/models/dx/test_corrdiff.py::TestCorrDiffForward::test_corrdiff_conformance."
