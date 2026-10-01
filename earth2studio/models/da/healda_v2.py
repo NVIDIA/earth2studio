@@ -340,19 +340,22 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
 
     @staticmethod
     def _request_time(*frames: pd.DataFrame | None) -> TimeArray:
-        request_time = None
-        for df in frames:
-            if df is not None and df.attrs.get("request_time", None) is not None:
-                request_time = df.attrs["request_time"]
-                break
-        if request_time is None:
+        stamps = [
+            np.atleast_1d(np.asarray(df.attrs["request_time"], dtype="datetime64[ns]"))
+            for df in frames
+            if df is not None and df.attrs.get("request_time", None) is not None
+        ]
+        if not stamps:
             raise ValueError(
                 "Observation DataFrame must have 'request_time' in attrs. "
                 "This is typically set by earth2studio.data.fetch_dataframe."
             )
-        if isinstance(request_time, np.ndarray):
-            return request_time.astype("datetime64[ns]")
-        return np.array([np.datetime64(request_time, "ns")], dtype="datetime64[ns]")
+        if any(not np.array_equal(stamp, stamps[0]) for stamp in stamps[1:]):
+            raise ValueError(
+                "Observation DataFrames carry different 'request_time' values; fetch "
+                f"them for the same analysis time, got {[list(s) for s in stamps]}"
+            )
+        return stamps[0]
 
     def build_output(
         self, analysis: torch.Tensor, output_coords: CoordSystem

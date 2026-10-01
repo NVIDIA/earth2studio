@@ -188,6 +188,13 @@ def test_healda_v2_call_missing_request_time():
         model(satwnd_obs=df)
 
 
+def test_healda_v2_call_mismatched_request_times():
+    model = _build_model()
+    later = np.array([CYCLE + np.timedelta64(6, "h")])
+    with pytest.raises(ValueError, match="different 'request_time'"):
+        model(conv_obs=_gpsro_df(np.array([CYCLE])), satwnd_obs=_satwnd_df(later))
+
+
 def test_healda_v2_call_no_inputs():
     model = _build_model()
     with pytest.raises(ValueError, match="At least one"):
