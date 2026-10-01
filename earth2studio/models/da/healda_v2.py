@@ -143,9 +143,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
 
     def to(self, device: Any) -> "HealDAv2":  # type: ignore[override]
         """Move the network and the observation pipeline to ``device``."""
-        device = torch.device(device)
-        self._model.net.to(device)
-        self._model.device = device
+        self._model.to(device)
         return self
 
     def init_coords(self) -> None:
@@ -305,7 +303,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         tables = e2s_nnja.analysis_tables(
             *frames,
             sensors=self._model.satellite_sensors,
-            ir_channels=self._model.loop.obs_config.nnja_ir_channels,
+            ir_channels=self._model.ir_channels,
         )
         analysis = self._model.run_analysis(pd.DatetimeIndex(request_time), **tables)
         return self.build_output(analysis, output_coords)

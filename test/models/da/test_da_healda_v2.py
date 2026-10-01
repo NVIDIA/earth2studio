@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -49,8 +48,12 @@ class PhooDAModel:
         self.channels = list(CHANNELS)
         self.satellite_sensors = ("atms", "amsua", "cris")
         self.ir_channels = {"cris": [19, 24]}
-        self.loop = SimpleNamespace(obs_config=SimpleNamespace(nnja_ir_channels="ir32"))
         self.calls: list[dict] = []
+
+    def to(self, device):
+        self.device = torch.device(device)
+        self.net.to(self.device)
+        return self
 
     def run_analysis(self, analysis_times, **tables):
         self.calls.append({"times": analysis_times, **tables})
