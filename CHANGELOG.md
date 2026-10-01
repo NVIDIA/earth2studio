@@ -11,13 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the HealDA v2 data assimilation model (`HealDAv2`): a 0.25 degree global
+  analysis from NNJA PrepBUFR, GPS-RO, satellite-wind and satellite-radiance
+  observations, backed by the `healda` package (`da-healda-v2` extra).
+- Added an `original_event` option and report time/latitude/longitude columns to
+  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
+- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+
 ### Changed
+
+- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
+  is a NaN observation instead of a dropped row, so every footprint appears.
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file fails to decode
+  instead of silently returning fewer rows, and when the DX-table messages give no
+  tables.
+- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
+  instead of failing the whole request.
 
 ### Security
 
@@ -27,12 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the HealDA v2 data assimilation model (`HealDAv2`): a 0.25 degree global
-  analysis from NNJA PrepBUFR, GPS-RO, satellite-wind and satellite-radiance
-  observations, backed by the `healda` package (`da-healda-v2` extra).
-- Added an `original_event` option and report time/latitude/longitude columns to
-  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
-- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
 - Added event scoring to the evaluation recipe and the scorecards.
 - Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
@@ -76,8 +86,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
-  is a NaN observation instead of a dropped row, so every footprint appears.
 - Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
   `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
   emit a warning and will be removed in a future release.
@@ -102,11 +110,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file fails to decode
-  instead of silently returning fewer rows; PrepBUFR decoding raises when no DX table
-  decodes.
-- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
-  instead of failing the whole request.
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources
