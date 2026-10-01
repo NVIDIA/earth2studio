@@ -233,25 +233,15 @@ def test_healda_v2_coords():
     assert len(coords["lat"]) == NLAT and len(coords["lon"]) == NLON
 
 
-def test_healda_v2_data_sources_match_training():
-    from earth2studio.data import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd
-
-    tolerance = (np.timedelta64(-45, "h"), np.timedelta64(3, "h"))
-    conv, satwnd, sat = _build_model().data_sources(tolerance, cache=False)
-    assert isinstance(conv, NNJAObsConv) and not isinstance(conv, NNJAObsSatwnd)
-    assert isinstance(satwnd, NNJAObsSatwnd)
-    assert isinstance(sat, NNJAObsSat)
-    assert conv._original_event
-    assert conv._exclude_message_types == {"SATWND"}
-    assert {"report_time", "report_lat", "report_lon"} <= set(conv.SCHEMA.names)
-    assert sat._sensor_indices == {"cris": frozenset({19, 24})}
+def test_healda_v2_sensor_indices():
+    assert _build_model().sensor_indices == {"cris": [19, 24]}
 
 
 @pytest.mark.package
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
 def test_healda_v2_package():
     package = HealDAv2.load_default_package()
-    model = HealDAv2.load_model(package, device="cuda:0")
+    model = HealDAv2.load_model(package).to("cuda:0")
     request_time = np.array([CYCLE])
 
     out = model(conv_obs=_gpsro_df(request_time), satwnd_obs=_satwnd_df(request_time))

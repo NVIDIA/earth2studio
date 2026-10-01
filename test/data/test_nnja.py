@@ -148,6 +148,14 @@ def test_nnja_obs_conv_exceptions():
         NNJAObsConv.resolve_fields(wrong_type_schema)
 
 
+def test_nnja_obs_conv_original_event():
+    latest = NNJAObsConv(cache=False, verbose=False)
+    original = NNJAObsConv(original_event=True, cache=False, verbose=False)
+
+    assert not latest._original_event
+    assert original._original_event
+
+
 def test_nnja_obs_conv_validate_time():
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 0)])
     NNJAObsConv._validate_time([datetime(2024, 1, 1, 6)])

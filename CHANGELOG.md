@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the HealDA v2 data assimilation model (`HealDAv2`): a 0.25 degree global
   analysis from NNJA PrepBUFR, GPS-RO, satellite-wind and satellite-radiance
   observations, backed by the `healda` package (`da-healda-v2` extra).
-- Added an `event` option and report time/latitude/longitude columns to
+- Added an `original_event` option and report time/latitude/longitude columns to
   `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
 - Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
 - Added event scoring to the evaluation recipe and the scorecards.

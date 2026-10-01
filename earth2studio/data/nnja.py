@@ -181,6 +181,10 @@ class NNJAObsConv:
     cross-section of data from a plethora of sensing platforms (satellites, surface
     stations, weather balloons, and more) and features data from 1979 to the present.
 
+    PrepBUFR reports are selected by report-header time to preserve complete
+    profiles. ``time``, ``lat``, and ``lon`` contain level coordinates;
+    ``report_time``, ``report_lat``, and ``report_lon`` contain header coordinates.
+
     GPSRO rows use the shared columns with product-specific meanings:
     ``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
     identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
@@ -238,17 +242,9 @@ class NNJAObsConv:
         PrepBUFR message families to skip at decode, e.g. ``("SATWND",)`` when
         atmospheric motion vectors come from :class:`NNJAObsSatwnd` instead. By
         default every family is decoded.
-    event : str, optional
-        Which event of each observation's PrepBUFR event stack to return.
-        ``"latest"`` is the top of the stack, after quality control and
-        corrections (for temperature often the virtual temperature), with its
-        quality mark; ``"original"`` is the bottom, the report as first ingested
-        (program code 1). By default ``"latest"``.
-
-        PrepBUFR reports are selected by report-header time to preserve complete
-        profiles. ``time``, ``lat``, and ``lon`` contain level coordinates;
-        ``report_time``, ``report_lat``, and ``report_lon`` contain header
-        coordinates.
+    original_event : bool, optional
+        Return the report as first ingested (program code 1) instead of the latest
+        quality-controlled event, by default False
 
     Warning
     -------
@@ -288,7 +284,7 @@ class NNJAObsConv:
         decode_workers: int = 8,
         retries: int = 3,
         exclude_message_types: Sequence[str] = (),
-        event: str = "latest",
+        original_event: bool = False,
     ) -> None:
         if source == "convbufr":
             raise NotImplementedError(
@@ -309,9 +305,7 @@ class NNJAObsConv:
                 f"{sorted(PREPBUFR_OBS_TYPES.values())}"
             )
         self._exclude_message_types = frozenset(exclude_message_types)
-        if event not in ("latest", "original"):
-            raise ValueError(f"event must be 'latest' or 'original', got {event!r}")
-        self._original_event = event == "original"
+        self._original_event = original_event
         self._source = source
         # Internal switch for the special aircraft-profile product. Default
         # output maps profile-stage 33x/43x/53x report codes to the standard

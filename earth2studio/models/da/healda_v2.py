@@ -33,7 +33,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
+from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray
 
 try:
     import cupy as cp
@@ -92,9 +92,10 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     The model takes the NNJA observing system it was trained on as three DataFrames:
     ``conv_obs`` (PrepBUFR ``u``, ``v``, ``q``, ``t``, ``pres`` and GPS-RO ``gps``,
     ``gps_refractivity``), ``satwnd_obs`` (``u``, ``v``) and ``sat_obs`` (radiances of
-    ``atms``, ``amsua``, ``amsub``, ``mhs``, ``airs``, ``iasi`` and ``cris``). Fetch
-    them with the sources ``data_sources`` returns: the PrepBUFR event, level placement
-    and IR channels must match training.
+    ``atms``, ``amsua``, ``amsub``, ``mhs``, ``airs``, ``iasi`` and ``cris``). Any
+    source producing these schemas works. To reproduce training from NNJA, use
+    ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",))``,
+    ``NNJAObsSatwnd`` and ``NNJAObsSat(sensor_indices=model.sensor_indices)``.
 
     Any stream may be omitted; the analysis then uses the others alone. Operational
     channel denials (``healda.inference.DENIALS``) apply by analysis time.
@@ -134,39 +135,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     def sensor_indices(self) -> dict[str, Sequence[int]]:
         """IR sounder channels the model reads, for ``NNJAObsSat(sensor_indices=...)``."""
         return self._model.ir_channels
-
-    def data_sources(
-        self, time_tolerance: TimeTolerance, **kwargs: Any
-    ) -> tuple[NNJAObsConv, NNJAObsSatwnd, NNJAObsSat]:
-        """The ``(conv_obs, satwnd_obs, sat_obs)`` sources, configured as trained.
-
-        PrepBUFR provides each observation's original event and complete reports;
-        HealDA uses the report-coordinate columns to reproduce its training input.
-        Radiances only for the IR sounder channels the model reads; the full CrIS
-        spectrum is about 600M rows per six-hour cycle.
-
-        Parameters
-        ----------
-        time_tolerance : TimeTolerance
-            Window around each request time, ``[t - 45h, t + 3h)`` for one analysis
-        **kwargs : Any
-            Passed to every source, e.g. ``cache`` or ``decode_workers``
-        """
-        return (
-            NNJAObsConv(
-                time_tolerance=time_tolerance,
-                event="original",
-                # Satellite winds come from NNJAObsSatwnd only.
-                exclude_message_types=("SATWND",),
-                **kwargs,
-            ),
-            NNJAObsSatwnd(time_tolerance=time_tolerance, **kwargs),
-            NNJAObsSat(
-                time_tolerance=time_tolerance,
-                sensor_indices=self.sensor_indices,
-                **kwargs,
-            ),
-        )
 
     @property
     def device(self) -> torch.device:
@@ -256,22 +224,20 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        device: str | torch.device = "cuda",
         checkpoint_name: str = "healda_v2.checkpoint",
         loop_name: str = "v2-nnja-latlon-final",
     ) -> AssimilationModel:
         """Load HealDA v2 from package.
 
-        The network runs on a CUDA device only, as a single unsharded process; the
-        0.25 degree recipe also fetches ERA5 static fields into the healda cache the
-        first time it is built.
+        The model is built on the CPU; move it with ``.to("cuda")``, as the network
+        runs on a CUDA device only, as a single unsharded process. The 0.25 degree
+        recipe also fetches ERA5 static fields into the healda cache the first time it
+        is built.
 
         Parameters
         ----------
         package : Package
             Package containing the ``.checkpoint`` archive written by ``healda-train``
-        device : str | torch.device, optional
-            Device to build the model on, by default "cuda"
         checkpoint_name : str, optional
             Name of the checkpoint file inside the package, by default
             "healda_v2.checkpoint"
@@ -284,11 +250,9 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         AssimilationModel
             Loaded HealDA v2 assimilation model
         """
-        if torch.device(device).type != "cuda":
-            raise RuntimeError("HealDA v2 requires a CUDA device")
         path = package.resolve(checkpoint_name)
         logger.info(f"Building HealDA v2 from {checkpoint_name}")
-        model = healda_inference.load_da_model(path, device, loop_name=loop_name)
+        model = healda_inference.load_da_model(path, "cpu", loop_name=loop_name)
         return cls(model)
 
     def __call__(
@@ -307,7 +271,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         ----------
         conv_obs : pd.DataFrame | None, optional
             PrepBUFR and GPS-RO observations from
-            ``NNJAObsConv(event="original")``, by default None
+            ``NNJAObsConv(original_event=True)``, by default None
         satwnd_obs : pd.DataFrame | None, optional
             Satellite winds from ``NNJAObsSatwnd``, by default None
         sat_obs : pd.DataFrame | None, optional

@@ -74,27 +74,44 @@ from tqdm import tqdm
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-from earth2studio.data import NCAR_ERA5, fetch_dataframe
+from earth2studio.data import (
+    NCAR_ERA5,
+    NNJAObsConv,
+    NNJAObsSat,
+    NNJAObsSatwnd,
+    fetch_dataframe,
+)
 from earth2studio.models.da import HealDAv2
 
 # The network runs on a CUDA device only; building the 0.25 degree recipe fetches the
 # ERA5 static fields into the healda cache the first time.
 package = HealDAv2.load_default_package()
-model = HealDAv2.load_model(package, device="cuda:0")
+model = HealDAv2.load_model(package).to("cuda:0")
 
 # %%
 # Fetch Observations
 # ------------------
-# One analysis reads observations spanning ``[t - 45h, t + 3h)``. The NNJA sources
-# return DataFrames matching `HealDAv2.input_coords`; `fetch_dataframe` attaches the
-# ``request_time`` metadata the model requires.
+# One analysis reads observations spanning ``[t - 45h, t + 3h)``. Any source returning
+# DataFrames that match `HealDAv2.input_coords` works; here the NNJA sources are
+# configured as in training: each PrepBUFR observation's original event, satellite
+# winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
+# `fetch_dataframe` attaches the ``request_time`` metadata the model requires.
 
 # %%
 analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
+# Source windows include both ends. Reports at exactly t + 3h are also in the next
+# cycle's file, which the model was trained without, so the window stops 1 s short.
 tolerance = (timedelta(hours=-45), timedelta(hours=3) - timedelta(seconds=1))
 
+conv_source = NNJAObsConv(
+    time_tolerance=tolerance,
+    original_event=True,
+    exclude_message_types=("SATWND",),
+)
+satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance)
+sat_source = NNJAObsSat(time_tolerance=tolerance, sensor_indices=model.sensor_indices)
+
 conv_schema, satwnd_schema, sat_schema = model.input_coords()
-conv_source, satwnd_source, sat_source = model.data_sources(tolerance)
 frames = {}
 for name, source, schema in (
     ("conv_obs", conv_source, conv_schema),
