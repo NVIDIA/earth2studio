@@ -14,6 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Forecast workflow helpers and simulation supervision.
+
+The public surface here is deliberately small: the built-in workflows plus
+:class:`~earth2studio.run.session.WorkItem`, the unit of distributable work.
+Custom generators use ``LoopPlan`` in :mod:`earth2studio.run.session`; resumable
+custom execution implements its plan/session protocols. Graph execution lives in
+:mod:`earth2studio.coupling`, which this package must never import.
+"""
+
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
@@ -23,13 +32,14 @@ from typing import cast
 import numpy as np
 import torch
 from loguru import logger
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore[import-untyped]
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
+from earth2studio.run.session import WorkItem
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
@@ -40,6 +50,13 @@ from earth2studio.utils.time import to_time_array
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
+__all__ = [
+    "WorkItem",
+    "deterministic",
+    "diagnostic",
+    "ensemble",
+]
 
 
 def deterministic(
