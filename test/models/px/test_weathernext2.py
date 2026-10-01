@@ -84,7 +84,7 @@ def mock_weathernext2_model(request, monkeypatch):
         p._cyclone_tracks = pd.DataFrame()
         p._cyclone_prediction_history = []
         p._cyclone_tracker = None
-        p.set_rng(0)
+        p.prng_key = None
 
     def prediction(**kwargs):
         noise = (
@@ -183,6 +183,7 @@ def test_weathernext2_concurrent_iterators(mock_weathernext2_model):
 
 
 def test_weathernext2_rng_advances(monkeypatch, mock_weathernext2_model):
+    mock_weathernext2_model.set_rng(0)
     rngs = []
 
     def record_rng(*args, rng, targets_template, **kwargs):
