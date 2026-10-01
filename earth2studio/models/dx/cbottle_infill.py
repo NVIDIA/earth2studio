@@ -26,6 +26,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.rng import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -311,6 +312,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     stochastic = True
     _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed cBottle infilling's Brownian and diffusion noise.
@@ -380,31 +382,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             }
 
             # Use CBottle3d infill method
-            devices = [device.index] if device.type == "cuda" else []
             # Infill draws Brownian increments and sampler noise internally.
-            with torch.random.fork_rng(
-                devices=devices, enabled=self._rng_seed is not None
-            ):
-                if self._rng_seed is not None:
-                    torch.set_rng_state(self._rng_states["cpu"])
-                    for index in devices:
-                        key = f"cuda:{index}"
-                        if key not in self._rng_states:
-                            self._rng_states[key] = (
-                                torch.Generator(device=key)
-                                .manual_seed(self._rng_seed)
-                                .get_state()
-                            )
-                        torch.cuda.set_rng_state(self._rng_states[key], index)
-                try:
-                    infilled_data, _ = self.core_model.infill(batch_slice)
-                finally:
-                    if self._rng_seed is not None:
-                        self._rng_states["cpu"] = torch.get_rng_state()
-                        for index in devices:
-                            self._rng_states[f"cuda:{index}"] = (
-                                torch.cuda.get_rng_state(index)
-                            )
+            with fork_rng(self._rng_states, self._rng_seed, device):
+                infilled_data, _ = self.core_model.infill(batch_slice)
 
             outputs.append(infilled_data)
 

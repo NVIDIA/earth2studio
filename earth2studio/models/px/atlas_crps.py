@@ -29,6 +29,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -205,6 +206,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     stochastic = True
     _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed the latent noise generated internally by Atlas CRPS.
@@ -271,28 +273,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             low_res = prev_latents[1].clone()
 
         conditioning = self.model_processor.preprocess_conditioning(high_res, low_res)
-        devices = [x.device.index] if x.is_cuda else []
-        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
-            if self._rng_seed is not None:
-                torch.set_rng_state(self._rng_states["cpu"])
-                for device in devices:
-                    key = f"cuda:{device}"
-                    if key not in self._rng_states:
-                        self._rng_states[key] = (
-                            torch.Generator(device=key)
-                            .manual_seed(self._rng_seed)
-                            .get_state()
-                        )
-                    torch.cuda.set_rng_state(self._rng_states[key], device)
-            try:
-                residual_latent = self.model(prev, conditioning)
-            finally:
-                if self._rng_seed is not None:
-                    self._rng_states["cpu"] = torch.get_rng_state()
-                    for device in devices:
-                        self._rng_states[f"cuda:{device}"] = torch.cuda.get_rng_state(
-                            device
-                        )
+        with fork_rng(self._rng_states, self._rng_seed, x.device):
+            residual_latent = self.model(prev, conditioning)
 
         # Decode the latent residual and return to state space
         pred = self.autoencoder(high_res, residual_latent)

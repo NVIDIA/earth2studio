@@ -24,6 +24,7 @@ from earth2studio.grids import LatLonGrid, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.rng import fork_rng
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -458,6 +459,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
     stochastic = True
     _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed cBottle super-resolution latent and sampler noise.
@@ -489,33 +491,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         x = x.unsqueeze(0).unsqueeze(2)
 
-        devices = [x.device.index] if x.is_cuda else []
         # The super-resolution backend accepts neither seed nor generator.
-        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
-            if self._rng_seed is not None:
-                torch.set_rng_state(self._rng_states["cpu"])
-                for device in devices:
-                    key = f"cuda:{device}"
-                    if key not in self._rng_states:
-                        self._rng_states[key] = (
-                            torch.Generator(device=key)
-                            .manual_seed(self._rng_seed)
-                            .get_state()
-                        )
-                    torch.cuda.set_rng_state(self._rng_states[key], device)
-            try:
-                out, _ = self.sr_model(
-                    x,
-                    coords=replace(self._coords),
-                    extents=self.super_resolution_extents,
-                )
-            finally:
-                if self._rng_seed is not None:
-                    self._rng_states["cpu"] = torch.get_rng_state()
-                    for device in devices:
-                        self._rng_states[f"cuda:{device}"] = torch.cuda.get_rng_state(
-                            device
-                        )
+        with fork_rng(self._rng_states, self._rng_seed, x.device):
+            out, _ = self.sr_model(
+                x,
+                coords=replace(self._coords),
+                extents=self.super_resolution_extents,
+            )
 
         out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":

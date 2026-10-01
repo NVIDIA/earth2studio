@@ -21,6 +21,34 @@ import torch
 from earth2studio.models.px.stormscope import StormScopeBase
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_fork_rng_persistent_state(device):
+    from earth2studio.models.rng import fork_rng
+
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    device = torch.device(device)
+    states = {"cpu": torch.Generator().manual_seed(1).get_state()}
+    reference = torch.Generator(device=device).manual_seed(1)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if device.type == "cuda" else None
+    for fail in (False, True, False):
+        try:
+            with fork_rng(states, 1, device):
+                actual = torch.randn(8, device=device)
+                if fail:
+                    raise RuntimeError("sampling failed")
+        except RuntimeError:
+            assert fail
+        assert torch.equal(actual, torch.randn(8, device=device, generator=reference))
+        assert torch.equal(cpu_state, torch.get_rng_state())
+        if cuda_state is not None:
+            assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+    with fork_rng(None, None, device):
+        torch.rand(8)
+    assert not torch.equal(cpu_state, torch.get_rng_state())
+
+
 @pytest.mark.parametrize(
     "device",
     [

@@ -30,6 +30,7 @@ from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.rng import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -239,6 +240,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     stochastic = True
     _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed cBottle's latent and sampler noise state.
@@ -287,29 +289,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        devices = [device.index] if device.type == "cuda" else []
         # cBottle's seed argument covers only initial latents, not sampler noise.
-        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
-            if self._rng_seed is not None:
-                torch.set_rng_state(self._rng_states["cpu"])
-                for index in devices:
-                    key = f"cuda:{index}"
-                    if key not in self._rng_states:
-                        self._rng_states[key] = (
-                            torch.Generator(device=key)
-                            .manual_seed(self._rng_seed)
-                            .get_state()
-                        )
-                    torch.cuda.set_rng_state(self._rng_states[key], index)
-            try:
-                out, _ = self.core_model.sample(input_batch, seed=None)
-            finally:
-                if self._rng_seed is not None:
-                    self._rng_states["cpu"] = torch.get_rng_state()
-                    for index in devices:
-                        self._rng_states[f"cuda:{index}"] = torch.cuda.get_rng_state(
-                            index
-                        )
+        with fork_rng(self._rng_states, self._rng_seed, device):
+            out, _ = self.core_model.sample(input_batch, seed=None)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())
