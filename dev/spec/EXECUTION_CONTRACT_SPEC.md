@@ -3,8 +3,8 @@
 Goal: one execution path for single-model and coupled runs, without making the
 single-model case pay for coupling's complexity.
 
-The interface between Pipeline work supervision and the execution of one  
-forward run: how to align things between single-model forecasts and coupled  
+The interface between Pipeline work supervision and the execution of one
+forward run: how to align things between single-model forecasts and coupled
 component graphs.
 
 ## Layers
@@ -591,4 +591,3 @@ class SteppablePrognosticModel(Protocol):
         """Declare each state entry's coordinate signature without values."""
         ...
 ```
-
