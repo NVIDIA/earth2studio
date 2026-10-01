@@ -27,7 +27,7 @@ except ImportError:
     Batch = Metadata = None
 
 from earth2studio.models import px
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px import aurora1p5 as aurora_module
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
@@ -422,11 +422,7 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
     assert calls == [(cycle, h) for cycle in range(2) for h in range(step, 7, step)]
     if ensemble:
         assert core.noise_accumulation_calls == [6 // step, 0]
-        with pytest.raises(ContractException) as exc_info:
-            check_prognostic_contract(p)
-        assert {v.split(":")[0] for v in exc_info.value.violations} == {"P14"}
-    else:
-        check_prognostic_contract(p)
+    check_prognostic_contract(p)
     np.testing.assert_array_equal(
         coords["lead_time"], np.array([6, 12], dtype="timedelta64[h]")
     )

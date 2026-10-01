@@ -455,9 +455,10 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         packed, restore = batch_func()._compress_array(self, x)
         signature = self.output_coords(packed)
         tensor, coords = packed.e2s.to_torch()
-        predictions = self._forward_sub_steps(
-            tensor.to(self.device_buffer.device).clone(), coords, hours
-        )
+        with fork_rng(self._rng_states, self._rng_seed, self.device_buffer.device):
+            predictions = self._forward_sub_steps(
+                tensor.to(self.device_buffer.device).clone(), coords, hours
+            )
         results = []
         for h, prediction in zip(hours, predictions):
             out_signature = coord_array_like(
@@ -520,10 +521,24 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         finally:
             self.model.set_noise_accumulation(n=0)
 
-    def _set_rng(self, seed: int | None) -> None:
-        if seed is not None:
-            torch.manual_seed(seed)
-        self.model.reset_noise()
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the isolated random stream and reset cached ensemble noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for reproducible sampling.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+            if self._ENSEMBLE:
+                self.model.reset_noise()
 
 
 @check_optional_dependencies()
@@ -635,33 +650,6 @@ class Aurora1p5Ensemble(_Aurora):
         super().__init__(core_model, static_vars)
 
     stochastic = True
-    _rng_seed: int | None = None
-    _rng_states: dict[str, torch.Tensor] | None = None
-
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Set the isolated random stream and reset cached noise.
-
-        Parameters
-        ----------
-        seed : int
-            Seed for reproducible sampling.
-        reset : bool, optional
-            Reset an existing stream, by default True.
-        """
-        if reset or self._rng_seed is None:
-            self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
-            self.model.reset_noise()
-
-    def _forward_sub_steps(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        lead_time_hours: list[int],
-    ) -> list[torch.Tensor]:
-        # Aurora generates and caches noise internally, without a generator API.
-        with fork_rng(self._rng_states, self._rng_seed, x.device):
-            return super()._forward_sub_steps(x, coords, lead_time_hours)
 
 
 @check_optional_dependencies()
@@ -715,9 +703,6 @@ class Aurora1p5Ensemble_6h(_Aurora):
         Core Aurora1p5Ensemble model (stochastic=True)
     static_vars : dict[str, torch.Tensor]
         Static field tensors, each with shape (720, 1440).
-    seed : int | None, optional
-        Seed applied at the start of each iterator for reproducible stochastic
-        noise, by default None
 
     Badges
     ------
@@ -734,17 +719,5 @@ class Aurora1p5Ensemble_6h(_Aurora):
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
-        seed: int | None = None,
     ) -> None:
         super().__init__(core_model, static_vars)
-        self.seed = seed
-
-    def set_rng(self, seed: int | None) -> None:
-        """Seed the global RNG and reset the model's internal noise cache.
-
-        Parameters
-        ----------
-        seed : int | None
-            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
-        """
-        self._set_rng(seed)
