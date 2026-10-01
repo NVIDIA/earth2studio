@@ -18,6 +18,12 @@ Runnable tutorials for proposed APIs and workflows.
 - `05_array_backends.py`: environment defaults, scoped backend overrides, and
   gradient-preserving Torch handoffs with optional CUDA/CuPy examples.
 
+## Execution contracts
+
+- `05_single_model_session.py`: one model through `SingleModelPlan` and
+  snapshot/resume, composable output transforms, and an adaptive generator
+  wrapped in `LoopPlan` without session subclasses.
+
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only
 synthetic coordinates and requires no model weights or downloads.
