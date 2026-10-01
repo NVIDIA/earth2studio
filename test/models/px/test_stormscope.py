@@ -27,6 +27,7 @@ import earth2studio.utils.interp as interp_module
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope import (
+    StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
 )
@@ -77,6 +78,47 @@ def optional_backend(monkeypatch, request):
     monkeypatch.setattr(
         scope_module, "cos_zenith_angle", lambda t, lon, lat: np.zeros_like(lat)
     )
+
+
+@pytest.fixture
+def stormscope_rng_model():
+    model = StormScopeBase.__new__(StormScopeBase)
+    torch.nn.Module.__init__(model)
+    return model
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_rng_stream_reset_and_isolation(device, stormscope_rng_model):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    model = stormscope_rng_model
+    template = torch.empty(8, device=device)
+    model.set_rng(42, reset=False)
+    first = model._randn_like(template)
+    model.set_rng(999, reset=False)
+    second = model._randn_like(template)
+    assert not torch.equal(first, second)
+    model.set_rng(42)
+    cpu_state = torch.get_rng_state()
+    numpy_state = np.random.get_state()
+    cuda_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []
+    assert torch.equal(first, model._randn_like(template))
+    assert torch.equal(second, model._randn_like(template))
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    assert np.array_equal(numpy_state[1], np.random.get_state()[1])
+    assert numpy_state[2:] == np.random.get_state()[2:]
+    for before, after in zip(
+        cuda_states, torch.cuda.get_rng_state_all() if cuda_states else []
+    ):
+        assert torch.equal(before, after)
+    model.set_rng(43)
+    assert not torch.equal(first, model._randn_like(template))
+
+
+def test_stormscope_unseeded_uses_global_rng(stormscope_rng_model):
+    state = torch.get_rng_state()
+    stormscope_rng_model._randn_like(torch.empty(8))
+    assert not torch.equal(state, torch.get_rng_state())
 
 
 def _public_coords(

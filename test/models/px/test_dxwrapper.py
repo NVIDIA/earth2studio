@@ -57,6 +57,25 @@ def optional_backend(request):
         pytest.importorskip("physicsnemo.utils.zenith_angle")
 
 
+def test_dxwrapper_dispatches_rng():
+    class Component(torch.nn.Module):
+        stochastic = True
+        _rng_generator = None
+
+        def set_rng(self, seed, reset=True):
+            if reset or self._rng_generator is None:
+                self._rng_generator = torch.Generator().manual_seed(seed)
+
+    components = [Component(), Component()]
+    wrapper = DiagnosticWrapper(*components)
+    assert wrapper.stochastic
+    wrapper.set_rng(12, reset=False)
+    states = [model._rng_generator.get_state() for model in components]
+    wrapper.set_rng(99, reset=False)
+    for model, state in zip(components, states):
+        assert torch.equal(model._rng_generator.get_state(), state)
+
+
 def make_input(model, times, device="cpu"):
     signature = model.input_coords()
     if "time" in signature.dims:

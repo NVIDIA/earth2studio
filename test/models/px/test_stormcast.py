@@ -41,6 +41,65 @@ def optional_backend(monkeypatch, request):
     )
 
 
+@pytest.fixture
+def stormcast_rng_model():
+    model = StormCast.__new__(StormCast)
+    torch.nn.Module.__init__(model)
+    model._sample = lambda x, conditioning: torch.randn_like(x)
+    return model
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sampler_stream(device, stormcast_rng_model):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    model = stormcast_rng_model
+    x = torch.empty(8, device=device)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+    model.set_rng(42, reset=False)
+    first = model._forward(x, x)
+    reference = torch.Generator(device=device).manual_seed(42)
+    assert torch.equal(first, torch.randn(x.shape, device=device, generator=reference))
+    other = StormCast.__new__(StormCast)
+    torch.nn.Module.__init__(other)
+    other._sample = model._sample
+    other.set_rng(43)
+    other_first = other._forward(x, x)
+    model.set_rng(99, reset=False)
+    second = model._forward(x, x)
+    assert torch.equal(second, torch.randn(x.shape, device=device, generator=reference))
+    assert not torch.equal(second, other_first)
+    assert not torch.equal(first, second)
+    model.set_rng(42)
+    assert torch.equal(first, model._forward(x, x))
+    assert torch.equal(second, model._forward(x, x))
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sampler_exception_isolation(device, stormcast_rng_model):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    x = torch.empty(8, device=device)
+    stormcast_rng_model.set_rng(42)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+
+    def fail(x, conditioning):
+        torch.randn_like(x)
+        raise RuntimeError("sampler failed")
+
+    stormcast_rng_model._sample = fail
+    with pytest.raises(RuntimeError, match="sampler failed"):
+        stormcast_rng_model._forward(x, x)
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
 # Spoof models with same call signature
 class PhooStormCastRegressionModel(torch.nn.Module):
     def __init__(self, out_vars=3):
