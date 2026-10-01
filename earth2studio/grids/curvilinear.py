@@ -28,6 +28,7 @@ from numpy.typing import NDArray
 
 from earth2studio.grids._utils import (
     array,
+    cf_coordinates,
     coordinate_hash,
     geographic_subset_indexers,
     metadata,
@@ -91,7 +92,7 @@ class CurvilinearGrid:
         longitude = xr.DataArray(
             self.longitude, dims=self.dims, coords={"y": self.y, "x": self.x}
         ).sel(y=indexes["y"], x=indexes["x"])
-        return coordinates.assign(lat=latitude, lon=longitude)
+        return cf_coordinates(coordinates.assign(lat=latitude, lon=longitude))
 
     def subset_indexers(
         self,

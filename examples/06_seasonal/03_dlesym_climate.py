@@ -33,7 +33,7 @@ are worth highlighting:
   applies a per-day-of-year moment-matching transform to convert it to OLR
   internally (controlled by the ``use_ttr`` flag).
 - A separate [`earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip`][earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip]
-  diagnostic predicts 6-hourly accumulated precipitation (``tp06``) from the
+  diagnostic predicts 6-hourly accumulated precipitation (``tp:sum:6h``) from the
   full coupled state.
 
 In this example you will learn:
@@ -105,7 +105,7 @@ precip = DLESyMv0_ISCCP_ERA5Precip.load_model(package, use_ttr=False).to(device)
 # Note that ``ttr`` appears in the prognostic input variables (the wrapper
 # converts it to OLR internally), while the output variables report ``rlut``
 # (OLR) -- the model variable space. The precip diagnostic consumes the full
-# 10-variable coupled state and emits a single ``tp06`` field.
+# 10-variable coupled state and emits a single ``tp:sum:6h`` field.
 
 # %%
 in_coords = model.input_coords()
@@ -125,19 +125,25 @@ print("Precip input variables:     ", precip.input_coords()["variable"])
 # %%
 ic_date = np.datetime64("2021-06-15")
 
-x, coords = fetch_data(
+x = fetch_data(
     source=data,
     time=np.array([ic_date]),
     variable=np.array(in_coords["variable"]),
-    lead_time=in_coords["lead_time"],
+    lead_time=in_coords.coords["lead_time"].values,
     device=device,
 )
 
 # Run a single coupled step (lat/lon in, lat/lon out)
-y, y_coords = model(x, coords)
+from earth2studio.run import _dimension_coords, _map_field
+from earth2studio.utils.cupy import from_torch
 
-y_atmos, y_atmos_coords = model.retrieve_valid_atmos_outputs(y, y_coords)
-y_ocean, y_ocean_coords = model.retrieve_valid_ocean_outputs(y, y_coords)
+x = _map_field(x, in_coords)
+y = model(x)
+
+y_atmos = model.retrieve_valid_atmos_outputs(y)
+y_ocean = model.retrieve_valid_ocean_outputs(y)
+y_atmos_coords = _dimension_coords(y_atmos)
+y_ocean_coords = _dimension_coords(y_ocean)
 
 print(
     "Atmosphere outputs (variables, lead_time [hrs]):",
@@ -163,13 +169,16 @@ forecast_days = 16
 hours_per_step = int(model.atmos_output_times[-1] / np.timedelta64(1, "h"))  # 96h
 n_steps = int(np.ceil(forecast_days * 24 / hours_per_step))
 
-model_iter = model.create_iterator(x, coords)
+model_iter = model.create_iterator(x)
 next(model_iter)  # initial condition
 for _ in range(n_steps):
-    y, y_coords = next(model_iter)
+    y = next(model_iter)
 
-y_atmos, y_atmos_coords = model.retrieve_valid_atmos_outputs(y, y_coords)
-y_ocean, y_ocean_coords = model.retrieve_valid_ocean_outputs(y, y_coords)
+y_atmos = model.retrieve_valid_atmos_outputs(y)
+y_ocean = model.retrieve_valid_ocean_outputs(y)
+y_coords = _dimension_coords(y)
+y_atmos_coords = _dimension_coords(y_atmos)
+y_ocean_coords = _dimension_coords(y_ocean)
 print(
     "Final forecast lead time:",
     y_coords["lead_time"][-1].astype("timedelta64[h]"),
@@ -190,25 +199,22 @@ print(
 # channel order, which differs from the order the precip diagnostic expects
 # (e.g. ``ws10m`` and ``rlut`` are swapped). Reorder the variable axis to match
 # the diagnostic's input variables before feeding it.
-precip_vars = list(precip.input_coords()["variable"])
-y_vars = list(y_coords["variable"])
-var_order = [y_vars.index(v) for v in precip_vars]
+precip_vars = precip.input_coords().coords["variable"].values
 
 # Last two atmosphere lead times form the [-6h, 0h] window relative to the
 # diagnosed valid time; relative spacing is what the diagnostic validates.
-precip_in = y[:, -2:][:, :, var_order]
-precip_coords = y_coords.copy()
-precip_coords["lead_time"] = y_coords["lead_time"][-2:]
-precip_coords["variable"] = np.array(precip_vars)
+precip_in = y.isel(lead_time=slice(-2, None)).sel(variable=precip_vars)
 
 # Regrid the coupled state onto HEALPix using the prognostic's regridder
-precip_in_hpx = model.to_hpx(precip_in)
-precip_coords_hpx = model.coords_to_hpx(precip_coords)
+precip_in_hpx = from_torch(
+    model.to_hpx(precip_in.e2s.to_torch()[0]), model.coords_to_hpx(precip_in)
+)
 
-tp, tp_coords = precip(precip_in_hpx, precip_coords_hpx)
+tp = precip(precip_in_hpx)
+tp_coords = _dimension_coords(tp)
 
 # Regrid the precip output back to lat/lon for plotting
-tp_ll = model.to_ll(tp)
+tp_ll = from_torch(model.to_ll(tp.e2s.to_torch()[0]), model.coords_to_ll(tp))
 print(
     "Precip output (variable, valid lead_time [hrs]):",
     tp_coords["variable"],
@@ -243,7 +249,7 @@ atmos_lead = y_atmos_coords["lead_time"][-1]
 im = axs[0].pcolormesh(
     lon,
     lat,
-    y_atmos[0, -1, atmos_idx].cpu().numpy(),
+    y_atmos[0, -1, atmos_idx].e2s.as_numpy().values,
     transform=ccrs.PlateCarree(),
     cmap="cividis",
 )
@@ -258,7 +264,7 @@ ocean_lead = y_ocean_coords["lead_time"][-1]
 im = axs[1].pcolormesh(
     lon,
     lat,
-    y_ocean[0, -1, ocean_idx].cpu().numpy(),
+    y_ocean[0, -1, ocean_idx].e2s.as_numpy().values,
     transform=ccrs.PlateCarree(),
     cmap="Spectral_r",
 )
@@ -275,7 +281,7 @@ cbar.set_label(f"{ocean_var} [{ocean_units}]")
 # grid-scale outliers, and an auto-scaled norm would chase those and wash out
 # the real field. Values are clipped into the window for display only.
 precip_lead = tp_coords["lead_time"][-1]
-precip_field = np.clip(tp_ll[0, 0, 0].cpu().numpy(), 0.0, None)
+precip_field = np.clip(tp_ll[0, 0, 0].e2s.as_numpy().values, 0.0, None)
 vmin, vmax = 1e-4, 5e-2  # metres of accumulated precip over 6 h
 im = axs[2].pcolormesh(
     lon,
@@ -285,11 +291,11 @@ im = axs[2].pcolormesh(
     cmap="GnBu",
     norm=LogNorm(vmin=vmin, vmax=vmax),
 )
-axs[2].set_title(f"tp06 @ {precip_lead.astype('timedelta64[h]')}")
+axs[2].set_title(f"tp:sum:6h @ {precip_lead.astype('timedelta64[h]')}")
 axs[2].coastlines()
 axs[2].gridlines()
 cbar = fig.colorbar(im, ax=axs[2], orientation="horizontal", pad=0.05, extend="both")
-cbar.set_label("tp06 [m] (log scale)")
+cbar.set_label("tp:sum:6h [m] (log scale)")
 
 plt.suptitle(f"Upstream DLESyM forecast - Initialization: {ic_date}")
 plt.tight_layout()

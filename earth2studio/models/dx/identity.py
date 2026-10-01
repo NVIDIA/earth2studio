@@ -14,13 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-
-import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils import coord_array, coord_array_like, handshake_nonempty
+from earth2studio.utils.type import CoordinateSystem
 
 
 class Identity(torch.nn.Module):
@@ -37,40 +35,35 @@ class Identity(torch.nn.Module):
     def __str__(self) -> str:
         return "identity"
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model, time dimension should contain
-        time-delta objects
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature accepting arbitrary
+            dimensions.
         """
-        return OrderedDict({"batch": np.empty(0)})
+        return coord_array(("batch",), dynamic=("batch",))
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature preserving the input
+            coordinates.
         """
-        return input_coords.copy()
+        return coord_array_like(input_coords)
 
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        return x, self.output_coords(coords)
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Return the labelled field, preserving its device and metadata."""
+        handshake_nonempty(x)
+        return x.copy(deep=False)

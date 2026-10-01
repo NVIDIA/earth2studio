@@ -67,14 +67,9 @@ unchanged and replace the one piece that needs custom behavior.
 ## Data Movement { #data_userguide }
 
 Earth2Studio keeps the data exchanged between components explicit and inspectable.
-Inside model workflows, the common representation is:
-
-1. A PyTorch tensor (`torch.Tensor`) that holds the array data on the inference device.
-2. An ordered coordinate dictionary (`CoordSystem`) that describes the tensor axes.
-
-The tensor carries the values; the coordinate system explains what each dimension
-means.
-For example, a forecast tensor might be indexed by batch, lead time, variable,
+Inside model workflows, fields are `xarray.DataArray` objects carrying values,
+dimension labels, auxiliary coordinates and metadata together. Values are backed by
+NumPy on CPU and CuPy on CUDA. For example, a forecast might be indexed by batch, lead time, variable,
 latitude, and longitude.
 
 !!! note
@@ -82,16 +77,17 @@ latitude, and longitude.
     scaling, and model-specific preprocessing should be handled inside the relevant
     model or component.
 
-Data sources generally return Xarray objects because those objects are useful outside
-Earth2Studio and keep coordinate metadata attached on the CPU.
-Workflow utilities such as `earth2studio.data.fetch_data` and
-`earth2studio.data.prep_data_array` then prepare tensors and coordinate dictionaries
-for model execution.
+Data sources return Xarray objects. `earth2studio.data.fetch_data` prepares a field
+DataArray for model execution, including requested grids and temporal statistics.
+Tensor-based components such as IO and statistics use explicit boundary conversion
+with `.e2s.to_torch()`; `from_torch(tensor, signature)` restores labelled fields.
 
 ## Coordinate Systems { #coordinates_userguide }
 
-Coordinate dictionaries are ordered because their keys correspond to tensor
-dimensions.
+Models declare coordinates with allocation-free `CoordinateSystem` DataArrays.
+Read dimension order through `.dims`, lengths through `.sizes`, and labels through
+`.coords`. The signature contains no field values. Dynamic leading dimensions are
+marked explicitly; spatial domains and variables are configured before planning.
 Earth2Studio uses a small set of common coordinate names across built-in components:
 
 | Key | Description |
@@ -103,21 +99,19 @@ Earth2Studio uses a small set of common coordinate names across built-in compone
 | `lat` | Latitude coordinate values. |
 | `lon` | Longitude coordinate values, commonly `[0, 360)`. |
 
-The coordinate dictionary does not need to be complicated.
-A simple latitude-longitude grid might look like:
+A simple latitude-longitude field might look like:
 
 ```python
-from collections import OrderedDict
-
 import numpy as np
-import torch
+import xarray as xr
 
-x = torch.randn(181, 360)
-coords = OrderedDict(
-    {
+x = xr.DataArray(
+    np.random.default_rng(0).standard_normal((181, 360)),
+    dims=("lat", "lon"),
+    coords={
         "lat": np.linspace(-90, 90, 181),
         "lon": np.linspace(0, 360, 360, endpoint=False),
-    }
+    },
 )
 ```
 

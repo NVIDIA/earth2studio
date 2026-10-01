@@ -97,6 +97,6 @@ class LaggedEnsemble:
                 variable=coords["variable"],
                 lead_time=coords["lead_time"],
                 device=y.device,
-            )[0]
+            ).e2s.to_torch()[0]
 
         return y, coords

@@ -14,278 +14,158 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+import inspect
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import SolarRadiationAFNO1H, SolarRadiationAFNO6H
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(request, monkeypatch):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
+    if request.node.get_closest_marker("package") is None:
+        monkeypatch.setattr(
+            "earth2studio.models.dx.solarradiation_afno.cos_zenith_angle",
+            lambda time, lon, lat: np.full(np.shape(lon), time.hour),
+        )
 
 
 class PhooAFNOSolarRadiation(torch.nn.Module):
-    """Mock model for testing."""
+    def __init__(self):
+        super().__init__()
+        self.solar = []
 
     def forward(self, x):
-        # x: (batch, variables, lat, lon)
-        # The model expects input shape (batch, variables, lat, lon)
-        # where variables includes the input variables plus sza, sincos_latlon, orography, and landsea_mask
-        # We'll return a tensor of the same shape but with only one variable
-        return torch.zeros_like(x[:, :1, :, :])
+        self.solar.append(float(x[0, 24, 0, 0]))
+        return x[:, :1, :, :]
 
 
-@pytest.fixture
-def mock_model():
-    """Create a mock model for testing."""
-    model = PhooAFNOSolarRadiation()
-    return model
+@pytest.fixture(params=[SolarRadiationAFNO1H, SolarRadiationAFNO6H])
+def model_class(request):
+    return request.param
 
 
-@pytest.mark.parametrize(
-    "x",
-    [
-        # Single time, single lead time
-        torch.randn(1, 1, 1, 24, 721, 1440),
-        # Multiple times, single lead time
-        torch.randn(1, 2, 1, 24, 721, 1440),
-        # Single time, multiple lead times
-        torch.randn(1, 1, 2, 24, 721, 1440),
-        # Multiple times, multiple lead times
-        torch.randn(1, 2, 2, 24, 721, 1440),
-        # Multiple batch, multiple times, multiple lead times
-        torch.randn(2, 2, 2, 24, 721, 1440),
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@pytest.mark.parametrize(
-    "model_class,freq",
-    [
-        (SolarRadiationAFNO1H, "1h"),
-        (SolarRadiationAFNO6H, "6h"),
-    ],
-)
-def test_solarradiation_afno(x, device, mock_model, model_class, freq):
-    """Test basic functionality of SolarRadiationAFNO models."""
-    # Create mock tensors for model initialization
-    era5_mean = torch.zeros(24, 1, 1)
-    era5_std = torch.ones(24, 1, 1)
-    ssrd_mean = torch.zeros(1, 1, 1)
-    ssrd_std = torch.ones(1, 1, 1)
-    orography = torch.zeros(1, 1, 721, 1440)
-    landsea_mask = torch.zeros(1, 1, 721, 1440)
-    sincos_latlon = torch.zeros(1, 4, 721, 1440)
-
-    model = model_class(
-        core_model=mock_model,
-        freq=freq,
-        era5_mean=era5_mean,
-        era5_std=era5_std,
-        ssrd_mean=ssrd_mean,
-        ssrd_std=ssrd_std,
-        orography=orography,
-        landsea_mask=landsea_mask,
-        sincos_latlon=sincos_latlon,
-    ).to(device)
-    x = x.to(device)
-
-    # Create time array based on number of time steps
-    times = np.array(
-        [
-            np.datetime64("2024-01-01") + np.timedelta64(i, "h")
-            for i in range(x.shape[1])
-        ]
+def make_model(model_class, device="cpu"):
+    model = model_class.__new__(model_class)
+    inspect.unwrap(model_class.__init__)(
+        model,
+        PhooAFNOSolarRadiation(),
+        model_class.freq,
+        torch.ones(24, 1, 1),
+        torch.full((24, 1, 1), 2.0),
+        torch.ones(1, 1, 1),
+        torch.full((1, 1, 1), 3.0),
+        torch.zeros(1, 1, 4, 6),
+        torch.zeros(1, 1, 4, 6),
+        torch.zeros(1, 4, 4, 6),
     )
-    # Create lead time array based on number of lead time steps
-    lead_times = np.array(
-        [np.timedelta64(int(freq[:-1]) * i, "h") for i in range(x.shape[2])]
+    declared = model.input_coords()
+    assert declared.data.nbytes == 0
+    assert declared.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    signature = coord_array(
+        declared.dims,
+        {"variable": declared.coords["variable"]},
+        dynamic=declared.attrs["earth2studio_dynamic_dims"],
+        grid=LatLonGrid(np.linspace(90, -90, 4), np.arange(6) * 60),
     )
+    model.input_coords = lambda: signature.copy()
+    return model.to(device)
 
-    coords = OrderedDict(
+
+def make_input(model, shape, device):
+    batch, times, leads = shape
+    coords = coord_array_like(
+        model.input_coords(),
         {
-            "batch": np.ones(x.shape[0]),
-            "time": times,
-            "lead_time": lead_times,
-            "variable": model.input_coords()["variable"],
-            "lat": model.input_coords()["lat"],
-            "lon": model.input_coords()["lon"],
-        }
+            "batch": np.arange(batch),
+            "time": np.datetime64("2024-01-01", "ns")
+            + np.arange(times) * np.timedelta64(1, "h"),
+            "lead_time": np.arange(leads) * np.timedelta64(int(model.freq[:-1]), "h"),
+        },
     )
-
-    # Run model
-    out, out_coords = model(x, coords)
-    assert out.shape == (x.shape[0], x.shape[1], x.shape[2], 1, 721, 1440)
-    assert out_coords["variable"] == np.array(["ssrd"])
-    assert out_coords["lat"].shape == (721,)
-    assert out_coords["lon"].shape == (1440,)
-    assert torch.all(out >= 0)
-    assert torch.all(out <= 1e6)
-
-
-@pytest.mark.parametrize(
-    "invalid_coords",
-    [
-        OrderedDict({"batch": np.array([0]), "variable": np.array(["wrong_var"])}),
-        OrderedDict(
-            {"batch": np.array([0]), "variable": np.array(["t2m"])}
-        ),  # Missing sza component
-        OrderedDict(
-            {"batch": np.array([0]), "variable": np.array(["sza"])}
-        ),  # Missing t2m component
-    ],
-)
-@pytest.mark.parametrize(
-    "model_class,freq",
-    [
-        (SolarRadiationAFNO1H, "1h"),
-        (SolarRadiationAFNO6H, "6h"),
-    ],
-)
-def test_solarradiation_afno_invalid_coords(
-    invalid_coords, mock_model, model_class, freq
-):
-    """Test solar radiation model with invalid coordinates."""
-    # Create mock tensors for model initialization
-    era5_mean = torch.zeros(24, 1, 1)
-    era5_std = torch.ones(24, 1, 1)
-    ssrd_mean = torch.zeros(1, 1, 1)
-    ssrd_std = torch.ones(1, 1, 1)
-    orography = torch.zeros(1, 1, 721, 1440)
-    landsea_mask = torch.zeros(1, 1, 721, 1440)
-    sincos_latlon = torch.zeros(1, 4, 721, 1440)
-
-    model = model_class(
-        core_model=mock_model,
-        freq=freq,
-        era5_mean=era5_mean,
-        era5_std=era5_std,
-        ssrd_mean=ssrd_mean,
-        ssrd_std=ssrd_std,
-        orography=orography,
-        landsea_mask=landsea_mask,
-        sincos_latlon=sincos_latlon,
+    x = from_torch(torch.randn(coords.shape, device=device), coords, name="weather")
+    x = x.assign_coords(
+        units=("variable", ["input"] * x.sizes["variable"]),
+        valid_time=(("time", "lead_time"), x.time.values[:, None] + x.lead_time.values),
     )
+    x.attrs["source"] = "fixture"
+    x.encoding = {"source": "fixture"}
+    return x
 
-    x = torch.randn((1, 1, 1, len(invalid_coords["variable"]), 721, 1440))
+
+@pytest.mark.parametrize("shape", [(1, 1, 1), (2, 2, 2)])
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_solarradiation_afno(shape, device, model_class):
+    model = make_model(model_class, device)
+    x = make_input(model, shape, device)
+    before = x.copy(deep=True)
+    out = model(x)
+    assert out.shape == (*shape, 1, 4, 6)
+    assert out.coords["variable"].values.tolist() == [f"ssrd:sum:{model.freq}"]
+    handshake_dataarray(out, model.output_coords(x))
+    tensor, _ = out.e2s.to_torch()
+    assert torch.all(tensor >= 0)
+    assert torch.all(tensor <= 1e6)
+    source = x.e2s.to_torch()[0]
+    torch.testing.assert_close(
+        tensor, torch.clamp((source[..., :1, :, :] - 1) / 2 * 3 + 1, min=0)
+    )
+    assert tensor.device == torch.device(device)
+    assert out.name == x.name and out.encoding == x.encoding
+    assert out.attrs["source"] == x.attrs["source"] and "units" not in out.coords
+    assert out.attrs["earth2studio_crs"] == x.attrs["earth2studio_crs"]
+    xr.testing.assert_identical(out.valid_time, x.valid_time)
+    xr.testing.assert_identical(x, before)
+    hours = (
+        ((x.valid_time.values - x.time.values[0]) / np.timedelta64(1, "h"))
+        .ravel()
+        .tolist()
+    )
+    assert model.core_model.solar == hours * shape[0]
+
+
+@pytest.mark.parametrize("variable", ["wrong_var", "t2m", "sza"])
+def test_solarradiation_afno_invalid_coords(variable, model_class):
+    model = make_model(model_class)
+    x = (
+        make_input(model, (1, 1, 1), "cpu")
+        .isel(variable=[0])
+        .assign_coords(variable=[variable])
+    )
     with pytest.raises(ValueError):
-        model(x, invalid_coords)
+        model(x)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-@pytest.mark.parametrize(
-    "model_class,freq",
-    [
-        (SolarRadiationAFNO1H, "1h"),
-        (SolarRadiationAFNO6H, "6h"),
-    ],
-)
-def test_solarradiation_afno_exceptions(device, mock_model, model_class, freq):
-    """Test exception handling for invalid inputs."""
-    # Create mock tensors for model initialization
-    era5_mean = torch.zeros(24, 1, 1)
-    era5_std = torch.ones(24, 1, 1)
-    ssrd_mean = torch.zeros(1, 1, 1)
-    ssrd_std = torch.ones(1, 1, 1)
-    orography = torch.zeros(1, 1, 721, 1440)
-    landsea_mask = torch.zeros(1, 1, 721, 1440)
-    sincos_latlon = torch.zeros(1, 4, 721, 1440)
-
-    model = model_class(
-        core_model=mock_model,
-        freq=freq,
-        era5_mean=era5_mean,
-        era5_std=era5_std,
-        ssrd_mean=ssrd_mean,
-        ssrd_std=ssrd_std,
-        orography=orography,
-        landsea_mask=landsea_mask,
-        sincos_latlon=sincos_latlon,
-    ).to(device)
-
-    # Test invalid input shapes
-    x = torch.randn((1, 1, 1, 24, 721, 1440), device=device)
-    coords = OrderedDict(
-        {
-            "batch": np.ones(1),
-            "time": np.array([np.datetime64("2024-01-01")]),
-            "lead_time": np.array([np.timedelta64(int(freq[:-1]), "h")]),
-            "variable": model.input_coords()["variable"],
-            "lat": model.input_coords()["lat"],
-            "lon": model.input_coords()["lon"],
-        }
-    )
-
-    # Test invalid coordinate dimensions
-    wrong_coords = coords.copy()
-    wrong_coords["lat"] = np.linspace(
-        90, -90, 722, endpoint=False
-    )  # Wrong lat dimension
-    with pytest.raises(ValueError):
-        model(x, wrong_coords)
-
-    # Test missing required coordinates
-    wrong_coords = coords.copy()
-    del wrong_coords["lat"]
-    with pytest.raises(ValueError):
-        model(x, wrong_coords)
+def test_solarradiation_afno_exceptions(device, model_class):
+    model = make_model(model_class, device)
+    x = make_input(model, (1, 1, 1), device)
+    for wrong in (
+        x.isel(lat=slice(1, None)),
+        x.drop_vars("lat"),
+        x.assign_coords(lead_time=[0]),
+        x.assign_coords(time=np.array(["NaT"], dtype="datetime64[ns]")),
+        x.assign_attrs(earth2studio_crs="EPSG:3857"),
+    ):
+        with pytest.raises(ValueError):
+            model(wrong)
 
 
-def test_solarradiation_afno_1h_conformance(mock_model):
-    """Check the mock SolarRadiationAFNO1H model against the model contract.
-
-    The model does not declare itself stochastic, so D10 (RNG isolation) is
-    structurally inapplicable and reported as a skip rather than passed.
-    """
-    era5_mean = torch.zeros(24, 1, 1)
-    era5_std = torch.ones(24, 1, 1)
-    ssrd_mean = torch.zeros(1, 1, 1)
-    ssrd_std = torch.ones(1, 1, 1)
-    orography = torch.zeros(1, 1, 721, 1440)
-    landsea_mask = torch.zeros(1, 1, 721, 1440)
-    sincos_latlon = torch.zeros(1, 4, 721, 1440)
-
-    model = SolarRadiationAFNO1H(
-        core_model=mock_model,
-        freq="1h",
-        era5_mean=era5_mean,
-        era5_std=era5_std,
-        ssrd_mean=ssrd_mean,
-        ssrd_std=ssrd_std,
-        orography=orography,
-        landsea_mask=landsea_mask,
-        sincos_latlon=sincos_latlon,
-    )
-    assert check_diagnostic_contract(model) == [
-        "D10: model does not declare itself stochastic"
-    ]
-
-
-def test_solarradiation_afno_6h_conformance(mock_model):
-    """Check the mock SolarRadiationAFNO6H model against the model contract.
-
-    The model does not declare itself stochastic, so D10 (RNG isolation) is
-    structurally inapplicable and reported as a skip rather than passed.
-    """
-    era5_mean = torch.zeros(24, 1, 1)
-    era5_std = torch.ones(24, 1, 1)
-    ssrd_mean = torch.zeros(1, 1, 1)
-    ssrd_std = torch.ones(1, 1, 1)
-    orography = torch.zeros(1, 1, 721, 1440)
-    landsea_mask = torch.zeros(1, 1, 721, 1440)
-    sincos_latlon = torch.zeros(1, 4, 721, 1440)
-
-    model = SolarRadiationAFNO6H(
-        core_model=mock_model,
-        freq="6h",
-        era5_mean=era5_mean,
-        era5_std=era5_std,
-        ssrd_mean=ssrd_mean,
-        ssrd_std=ssrd_std,
-        orography=orography,
-        landsea_mask=landsea_mask,
-        sincos_latlon=sincos_latlon,
-    )
+def test_solarradiation_afno_conformance(model_class):
+    model = make_model(model_class)
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
@@ -293,36 +173,12 @@ def test_solarradiation_afno_6h_conformance(mock_model):
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-@pytest.mark.parametrize(
-    "model_class,freq",
-    [
-        (SolarRadiationAFNO1H, "1h"),
-        (SolarRadiationAFNO6H, "6h"),
-    ],
-)
-def test_solarradiation_afno_package(device, model_class, freq):
-    # Only cuda supported
+def test_solarradiation_afno_package(device, model_class):
+    pytest.importorskip("physicsnemo")
     package = model_class.load_default_package()
     dx = model_class.load_model(package).to(device)
-    x = torch.randn(2, 1, 1, 24, 721, 1440).to(device)
-    coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "time": np.array([np.datetime64("2024-01-01T00:00")]),
-            "lead_time": np.array([np.timedelta64(int(freq[:-1]), "h")]),
-            "variable": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-
-    out, out_coords = dx(x, coords)
-    assert out.shape == torch.Size([x.shape[0], 1, 1, 1, 721, 1440])
-    assert out_coords["variable"] == dx.output_coords(coords)["variable"]
-    handshake_dim(out_coords, "lon", 5)
-    handshake_dim(out_coords, "lat", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
-    assert torch.all(out >= 0)
+    x = make_input(dx, (2, 1, 1), device)
+    out = dx(x)
+    assert out.shape == (2, 1, 1, 1, 721, 1440)
+    handshake_dataarray(out, dx.output_coords(x))
+    assert torch.all(out.e2s.to_torch()[0] >= 0)

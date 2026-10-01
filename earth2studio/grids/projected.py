@@ -29,6 +29,7 @@ from pyproj import CRS, Transformer
 
 from earth2studio.grids._utils import (
     array,
+    cf_coordinates,
     coordinate_hash,
     geographic_subset_indexers,
     metadata,
@@ -78,7 +79,7 @@ class ProjectedGrid:
         indexes = indexes or {"y": self.y, "x": self.x}
         coordinates: dict[str, Any] = {"y": indexes["y"], "x": indexes["x"]}
         if only_index:
-            return xr.Coordinates(coordinates)
+            return cf_coordinates(xr.Coordinates(coordinates), crs=self.crs)
         xx, yy = np.meshgrid(indexes["x"], indexes["y"])
         longitude, latitude = Transformer.from_crs(
             self.crs, CRS.from_epsg(4326), always_xy=True
@@ -87,7 +88,7 @@ class ProjectedGrid:
             lat=(("y", "x"), latitude),
             lon=(("y", "x"), np.mod(longitude, 360)),
         )
-        return xr.Coordinates(coordinates)
+        return cf_coordinates(xr.Coordinates(coordinates), crs=self.crs)
 
     def subset_indexers(
         self,

@@ -79,7 +79,7 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 from earth2studio.data import HRRR, GHCNHourly, fetch_data
 from earth2studio.models.px import StormCastCONUS
-from earth2studio.utils.coords import map_coords
+from earth2studio.run import _map_field
 
 # Load the default model package
 package = StormCastCONUS.load_default_package()
@@ -116,14 +116,18 @@ hrrr = HRRR()
 # %%
 init_time = np.array([np.datetime64("2026-04-17T18:00")])
 
-x, coords = fetch_data(
+x = fetch_data(
     hrrr,
     time=init_time,
     variable=model.variables,
     lead_time=np.array([np.timedelta64(0, "h")]),
     device="cuda:0",
 )
-x, coords = map_coords(x, coords, model.input_coords())
+# Fetch currently preserves the source grid. Select native labels explicitly;
+# the shared runner mapping verifies geographic auxiliaries/CRS and refreshes
+# cropped grid metadata without retaining the full-domain grid ID.
+x = x.rename(hrrr_y="y", hrrr_x="x")
+x = _map_field(x.sel(y=model.grid.y, x=model.grid.x), model.input_coords())
 
 # %%
 # Run Without Observations
@@ -145,13 +149,13 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
 no_obs_fields = []
-gen = model.create_generator(x.clone(), coords.copy())
-x_cur, c_cur = next(gen)  # prime the generator, yields initial state (lead_time = 0 h)
+gen = model.create_generator(x.copy(deep=True))
+x_cur = next(gen)  # prime the generator, yields initial state (lead_time = 0 h)
 
 for step in tqdm(range(nsteps), desc="No-obs forecast"):
     logger.info(f"Running no-obs forecast step {step + 1}/{nsteps}")
-    x_cur, c_cur = gen.send(None)  # advance one hour without observations
-    no_obs_fields.append(x_cur[0, 0, var_idx].cpu().numpy())
+    x_cur = gen.send(None)  # advance one hour without observations
+    no_obs_fields.append(x_cur[0, 0, var_idx].e2s.as_numpy().values)
 
 gen.close()
 no_obs_fields = np.stack(no_obs_fields)  # (nsteps, H, W)
@@ -223,13 +227,13 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
 obs_fields = []
-gen = model.create_generator(x.clone(), coords.copy())
-x_cur, c_cur = next(gen)  # prime the generator, yields initial state
+gen = model.create_generator(x.copy(deep=True))
+x_cur = next(gen)  # prime the generator, yields initial state
 
 for step in tqdm(range(nsteps), desc="Obs forecast"):
     # Target valid time is one step ahead of the current generator state
     valid_time = np.array(
-        [c_cur["time"][0] + c_cur["lead_time"][0] + np.timedelta64(1, "h")]
+        [x_cur.time.values[0] + x_cur.lead_time.values[0] + np.timedelta64(1, "h")]
     )
     obs_df = ghcn(valid_time, plot_vars)
 
@@ -243,8 +247,8 @@ for step in tqdm(range(nsteps), desc="Obs forecast"):
     logger.info(
         f"Step {step + 1}/{nsteps} — {len(obs_df) if obs is not None else 0} obs"
     )
-    x_cur, c_cur = gen.send(obs)  # advance one hour with observations
-    obs_fields.append(x_cur[0, 0, var_idx].cpu().numpy())
+    x_cur = gen.send(obs)  # advance one hour with observations
+    obs_fields.append(x_cur[0, 0, var_idx].e2s.as_numpy().values)
 
 gen.close()
 obs_fields = np.stack(obs_fields)  # (nsteps, H, W)
@@ -375,20 +379,18 @@ plt.savefig("outputs/01_stormcast_conus_sda_comparison.jpg", dpi=150)
 # improves accuracy relative to the actual analysis.
 
 # %%
-truth_x, truth_coords = fetch_data(
+truth_x = fetch_data(
     hrrr,
     time=init_time,
     variable=np.array([plot_var]),
     lead_time=np.array([np.timedelta64(h + 1, "h") for h in range(nsteps)]),
     device="cpu",
 )
-truth_x, truth_coords = map_coords(
-    truth_x,
-    truth_coords,
-    {"hrrr_y": model.hrrr_y, "hrrr_x": model.hrrr_x},
-)
+truth_signature = model.input_coords().sel(variable=[plot_var])
+truth_x = truth_x.rename(hrrr_y="y", hrrr_x="x")
+truth_x = _map_field(truth_x.sel(y=model.grid.y, x=model.grid.x), truth_signature)
 # truth_x shape: (time=1, lead_time=nsteps, variable=1, H, W)
-truth_fields = truth_x[0, :, 0].numpy()  # (nsteps, H, W)
+truth_fields = truth_x[0, :, 0].values  # (nsteps, H, W)
 
 no_obs_err = np.abs(no_obs_fields - truth_fields)
 obs_err = np.abs(obs_fields - truth_fields)

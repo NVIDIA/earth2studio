@@ -27,9 +27,10 @@ import xarray as xr
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXiS2S
 from earth2studio.models.px.fuxi_s2s import VARIABLES
-from earth2studio.utils import coord_array_like, handshake_dim
+from earth2studio.utils import coord_array, coord_array_like, handshake_dim
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time_statistics import source_times
 
@@ -214,6 +215,26 @@ def test_fuxi_s2s_coords() -> None:
     )
 
 
+@pytest.mark.parametrize("grid_id", [None, "custom-latlon"])
+def test_fuxi_s2s_coords_grid_identity(grid_id) -> None:
+    model = _identity_model()
+    expected = model.input_coords()
+    actual = coord_array(
+        expected.dims, dict(expected.coords), dynamic=("batch", "time")
+    )
+    if grid_id is not None:
+        actual.attrs["earth2studio_grid_id"] = grid_id
+        with pytest.raises(ValueError, match="earth2studio_grid_id"):
+            model.output_coords(actual)
+        return
+    output = model.output_coords(actual)
+    np.testing.assert_array_equal(
+        output.lead_time, np.array([1], dtype="timedelta64[D]")
+    )
+    with pytest.raises(ValueError, match="lat"):
+        model.output_coords(actual.assign_coords(lat=actual.lat + 1))
+
+
 def test_fuxi_s2s_unit_conversions() -> None:
     model = _identity_model()
     x = torch.ones(2, len(VARIABLES), 2, 3)
@@ -273,7 +294,9 @@ class TestFuXiS2SMock:
 
         lead_time = model.input_coords()["lead_time"].values
         variable = model.input_coords()["variable"].values
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+        ).e2s.to_torch()
 
         out, out_coords = model(
             from_torch(x, coords, attrs=model.input_coords().attrs)
@@ -318,7 +341,9 @@ class TestFuXiS2SMock:
 
         lead_time = model.input_coords()["lead_time"].values
         variable = model.input_coords()["variable"].values
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+        ).e2s.to_torch()
 
         with pytest.raises((KeyError, ValueError)):
             model(from_torch(x, coords, attrs=model.input_coords().attrs))
@@ -334,7 +359,9 @@ class TestFuXiS2SMock:
 
         lead_time = model.input_coords()["lead_time"].values
         variable = model.input_coords()["variable"].values
-        x, coords = fetch_data(r, time, variable, lead_time, device=device)
+        x, coords = fetch_data(
+            r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+        ).e2s.to_torch()
 
         x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
         coords.update({"ensemble": np.arange(ensemble)})
@@ -413,8 +440,10 @@ def test_fuxi_s2s_conformance() -> None:
         predictions.append(next(iterator).copy(deep=True))
         iterator.close()
 
-    # The legacy checker only accepts tensor/dictionary models. Check its P13
-    # invariant directly here: undeclared randomness changes repeated rollouts.
+    # Pin the native checker's exact remaining violation as well as the values.
+    with pytest.raises(ContractException) as error:
+        check_prognostic_contract(model)
+    assert {v.split(":")[0] for v in error.value.violations} == {"P13"}
     assert model.stochastic is False
     assert predictions[0].dims == predictions[1].dims == x.dims
     xr.testing.assert_identical(predictions[0].coords, predictions[1].coords)

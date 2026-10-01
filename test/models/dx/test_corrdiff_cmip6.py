@@ -21,11 +21,39 @@ from typing import ClassVar
 import numpy as np
 import pytest
 import torch
+import xarray as xr
+from test_corrdiff import offline_corrdiff as offline_corrdiff
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_diagnostic_contract
+import earth2studio.models.dx.corrdiff_cmip6 as cmip6_module
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffCMIP6
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def offline_cmip6(monkeypatch, request):
+    request.getfixturevalue("offline_corrdiff")
+    if cmip6_module.regression_step is not None:
+        return
+    from earth2studio.models.dx import corrdiff
+
+    monkeypatch.setattr(cmip6_module, "regression_step", corrdiff.regression_step)
+
+    def diffusion_step(sampler_fn, **kwargs):
+        n = sampler_fn.keywords["num_steps"]
+        steps = torch.arange(n, device=kwargs["device"], dtype=torch.float64)
+        schedule = (
+            800 ** (1 / 7) + steps / (n - 1) * (0.02 ** (1 / 7) - 800 ** (1 / 7))
+        ) ** 7
+        return (
+            corrdiff.diffusion_step(sampler_fn=sampler_fn, **kwargs) * schedule[0] / 800
+        )
+
+    monkeypatch.setattr(cmip6_module, "diffusion_step", diffusion_step)
+    monkeypatch.setattr(
+        cmip6_module, "cos_zenith_angle", lambda dt, lon, lat: np.zeros_like(lat)
+    )
 
 
 class MockPhysicsNemoModule(torch.nn.Module):
@@ -125,7 +153,7 @@ def cmip6_model_minimal(mock_residual_model, mock_regression_model):
         time_feature_center=torch.zeros(2),
         time_feature_scale=torch.ones(2),
         number_of_samples=1,
-        number_of_steps=1,
+        number_of_steps=2,
         solver="euler",
         sampler_type="stochastic",
         inference_mode="regression",
@@ -225,6 +253,7 @@ class TestCorrDiffCMIP6Utils:
 
         model.stream_samples_to_cpu = True
         y_cpu = model._forward(x, valid_time=valid_time)
+        assert torch.isfinite(y_cpu).all()
         assert y_cpu.device.type == "cpu"
         assert y_cpu.shape[0] == 1
         assert y_cpu.shape[1] == 2
@@ -232,6 +261,7 @@ class TestCorrDiffCMIP6Utils:
 
         model.stream_samples_to_cpu = False
         y_gpu = model._forward(x, valid_time=valid_time)
+        assert torch.isfinite(y_gpu).all()
         assert y_gpu.device.type == "cuda"
         assert y_gpu.shape == y_cpu.shape
 
@@ -252,13 +282,7 @@ class TestCorrDiffCMIP6Utils:
         dev/spec/MODEL_CONTRACT_SPEC.md under "Ownership of Tensors"
         (issue #1133 / PR #1134), just not yet fixed for this wrapper.
         """
-        with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(cmip6_model_minimal)
-        assert exc_info.value.violations == [
-            "D6: __call__ modified the input tensor in place; a caller's "
-            "initial condition must survive the call, and mutating it only "
-            "moves the defensive copy onto every caller"
-        ]
+        check_diagnostic_contract(cmip6_model_minimal)
 
     def test_postprocess_output(self, cmip6_model_minimal):
         model = cmip6_model_minimal
@@ -307,42 +331,57 @@ def test_corrdiff_cmip6_forward(
     number_of_samples,
     device,
     cmip6_model_minimal,
+    monkeypatch,
 ):
 
     dx = cmip6_model_minimal.to(device)
     torch.cuda.empty_cache()
-    time = np.array([np.datetime64("1993-04-05T00:00")])
     # Test the cached model package AIFS
     dx.output_lead_times = output_lead_times
     dx.number_of_samples = number_of_samples
-    dx.number_of_steps = 1
+    dx.number_of_steps = 2
 
     # Create "domain coords"
-    dc = {k: dx.input_coords()[k] for k in ["lat", "lon"]}
+    coords = coord_array_like(dx.input_coords(), {"batch": [0], "time": time}).isel(
+        batch=0, drop=True
+    )
+    x = from_torch(torch.randn(coords.shape, device=device), coords)
+    original = x.copy(deep=True)
+    dx.inference_mode = inference_mode
+    core_outputs = []
+    forward = dx._forward
 
-    # Initialize Data Source
-    r = Random(dc)
+    def record_forward(tensor, valid_time):
+        result = forward(tensor, valid_time)
+        core_outputs.append((valid_time, result.clone()))
+        return result
 
-    # Get Data and convert to tensor, coords
-    lead_time = dx.input_coords()["lead_time"]
-    variable = dx.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    monkeypatch.setattr(dx, "_forward", record_forward)
+    out = dx(x)
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()
+    declaration = dx.output_coords(dx.input_coords())
+    assert declaration.data.nbytes == 0
+    assert declaration.attrs["earth2studio_dynamic_dims"] == ("batch", "time")
+    handshake_dataarray(out, declaration)
+    out_coords = out.coords
+    xr.testing.assert_identical(x, original)
 
-    out, out_coords = dx(x, coords)
-
-    assert out.shape[0] == number_of_samples
-    assert out.shape[1] == time.shape[0]
+    assert out.shape[0] == time.shape[0]
+    assert out.shape[1] == number_of_samples
     assert out.shape[2] == output_lead_times.shape[0]
     assert out.shape[3] == len(dx.output_variables)
 
     # Check variables
     assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 5)
-    handshake_dim(out_coords, "lat", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "sample", 0)
+    assert out.dims == ("time", "sample", "lead_time", "variable", "lat", "lon")
+    for i, timestamp in enumerate(time):
+        for j, lead in enumerate(output_lead_times):
+            valid_time, expected = core_outputs[i * len(output_lead_times) + j]
+            assert np.datetime64(valid_time) == timestamp + lead
+            torch.testing.assert_close(
+                out.isel(time=i, lead_time=j).e2s.to_torch()[0].cpu(),
+                expected[0].cpu(),
+            )
 
 
 @pytest.mark.package
@@ -354,30 +393,22 @@ def test_corrdiff_cmip6_package(device):
     package = CorrDiffCMIP6.load_default_package()
     dx = CorrDiffCMIP6.load_model(package, device=device)
     dx.number_of_samples = 2
-    dx.number_of_steps = 1
+    dx.number_of_steps = 2
 
     # Create "domain coords"
-    dc = {k: dx.input_coords()[k] for k in ["lat", "lon"]}
+    coords = coord_array_like(dx.input_coords(), {"batch": [0], "time": time}).isel(
+        batch=0, drop=True
+    )
+    x = from_torch(torch.randn(coords.shape, device=device), coords)
+    out = dx(x)
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()
+    out_coords = out.coords
 
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = dx.input_coords()["lead_time"]
-    variable = dx.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-    out, out_coords = dx(x, coords)
-
-    assert out.shape[0] == 2
-    assert out.shape[1] == 1
+    assert out.shape[0] == 1
+    assert out.shape[1] == 2
     assert out.shape[2] == 1
     assert out.shape[3] == len(dx.output_variables)
 
     # Check variables
     assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 5)
-    handshake_dim(out_coords, "lat", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "sample", 0)
+    assert out.dims == ("time", "sample", "lead_time", "variable", "lat", "lon")

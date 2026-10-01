@@ -15,6 +15,8 @@ Runnable tutorials for proposed APIs and workflows.
   grid-backed regional geometry, output planning, and precipitation statistics.
 - `04_xarray_model_execution.py`: FCN DataArray stepping, leading-dimension batching,
   iterator hooks, and the Torch bridge with a small CPU-only synthetic core.
+- `05_array_backends.py`: environment defaults, scoped backend overrides, and
+  gradient-preserving Torch handoffs with optional CUDA/CuPy examples.
 
 ## Execution contracts
 

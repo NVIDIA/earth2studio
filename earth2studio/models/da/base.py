@@ -129,17 +129,16 @@ class AssimilationModel(Protocol):
         pass
 
     def input_coords(self) -> tuple[FrameSchema | CoordSystem, ...]:
-        """Input coordinate system of assimilation model.
+        """Input coordinate system of the assimilation model.
 
-        For DataFrame inputs, this should return a PyArrow schema (or a wrapper
-        containing schema and constraints). For tensor inputs, this should return
-        a CoordSystem.
+        DataFrame inputs use frame schemas specifying fields and constraints.
+        Gridded inputs use coordinate-system dictionaries.
 
         Returns
         -------
         tuple[FrameSchema | CoordSystem, ...]
             Tuple of coordinate systems or frame schemas, one for each input argument
-            that __call__ or create_generator accepts
+            that ``__call__`` or ``create_generator`` accepts.
         """
         pass
 
@@ -149,26 +148,23 @@ class AssimilationModel(Protocol):
         *args: Any,
         **kwargs: Any,
     ) -> tuple[FrameSchema | CoordSystem, ...]:
-        """Output coordinate system of the assimilation model given an input coordinate
-        system.
+        """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
         input_coords : tuple[FrameSchema | CoordSystem, ...]
-            Input coordinate system tuple. FrameSchema (OrderedDict mapping field names
-            to numpy arrays) for DataFrame inputs, or CoordSystem (OrderedDict mapping
-            dimension names to coordinate arrays) for tensor inputs
-        *args
-            Additional positional arguments
-        **kwargs
+            Input coordinate-system dictionaries or frame schemas to transform.
+        *args : Any
+            Additional positional arguments.
+        **kwargs : Any
             Additional keyword arguments, typically including request metadata such as
-            request_time and request_lead_time from DataFrame attrs
+            ``request_time`` and ``request_lead_time`` from DataFrame attributes.
 
         Returns
         -------
         tuple[FrameSchema | CoordSystem, ...]
             Tuple of coordinate systems or frame schemas, one for each output argument
-            that __call__ or create_generator returns
+            that ``__call__`` or ``create_generator`` returns.
         """
         pass
 

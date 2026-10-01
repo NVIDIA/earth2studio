@@ -37,7 +37,7 @@ class MyDAModel(torch.nn.Module, AutoModelMixin):
     pass
 ```
 
-**Note**: DA models do NOT use `PrognosticMixin` or `batch_func`/`batch_coords` decorators — the observation-centric API does not use the same batching conventions as px/dx models.
+**Note**: DA models do NOT use `PrognosticMixin` or the `batch_func` decorator — the observation-centric API does not use the same batching conventions as px/dx models.
 
 ## Optional Dependencies
 
@@ -551,7 +551,7 @@ class MyDAModel(torch.nn.Module, AutoModelMixin):
 | Primary input | `torch.Tensor` + `CoordSystem` | `torch.Tensor` + `CoordSystem` | `pd.DataFrame` / `xr.DataArray` |
 | Primary output | `torch.Tensor` + `CoordSystem` | `torch.Tensor` + `CoordSystem` | `xr.DataArray` / `pd.DataFrame` |
 | Time integration | Yes (`create_iterator`) | No | Optional (`create_generator`) |
-| `@batch_func` / `@batch_coords` | Yes | Yes | **No** |
+| `@batch_func` | Yes | Yes | **No** |
 | `PrognosticMixin` | Yes | No | No |
 | Init data | No | No | Optional (`init_coords`) |
 | Stateful iteration | via `create_iterator` generator | N/A | via `create_generator` send protocol |
@@ -570,7 +570,7 @@ class MyDAModel(torch.nn.Module, AutoModelMixin):
 - **Prime `create_generator` with `yield None`** (or the initial state) before the loop
 - **Handle `GeneratorExit`** in `create_generator` for clean-up
 - **Register `device_buffer`** to track device via a `device` property
-- **Do NOT use `@batch_func` or `@batch_coords`** - these are px/dx conventions only
+- **Do NOT use `@batch_func`** - this is a px/dx convention only
 - **Do NOT use `@torch.inference_mode()`** if the forward pass requires gradients (e.g., DPS guidance); document the reason if omitted
 - **Documentation**: Add the DA model to [models_da.md](mdc:docs/modules/models_da.md), maintaining alphabetical order, and add an entry to [install_options.yml](mdc:docs/userguide/about/install_options.yml) when the model has an optional dependency extra or needs API install notes
 - DO NOT attempt to make a general base class with intent to reuse the wrapper

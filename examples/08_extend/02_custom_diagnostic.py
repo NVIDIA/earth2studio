@@ -60,14 +60,13 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from collections import OrderedDict
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
 class CustomDiagnostic(torch.nn.Module):
@@ -76,73 +75,52 @@ class CustomDiagnostic(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the prognostic model
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free coordinate signature
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(["t2m"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(["t2m"])},
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
         """Output coordinate system of the prognostic model
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : xr.DataArray
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free coordinate signature
         """
         # Check input coordinates are valid
-        target_input_coords = self.input_coords()
-        for i, (key, value) in enumerate(target_input_coords.items()):
-            if key != "batch":
-                handshake_dim(input_coords, key, i)
-                handshake_coords(input_coords, target_input_coords, key)
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(input_coords, {"variable": np.array(["t2m_c"])})
 
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(["t2m_c"]),
-                "lat": np.linspace(90, -90, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-        output_coords["batch"] = input_coords["batch"]
-        return output_coords
-
-    @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+    ) -> xr.DataArray:
         """Runs diagnostic model
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field carrying its coordinates and grid metadata
         """
-        out_coords = self.output_coords(coords)
-        out = x - 273.15  # To celcius
-        return out, out_coords
+        out_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        return from_torch(tensor - 273.15, out_coords)
 
 
 # %%

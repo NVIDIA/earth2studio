@@ -94,7 +94,7 @@ io = ZarrBackend()
 # %% tags=["e2sg-profile:setup"]
 sample = data(
     to_time_array(["2023-12-31T18:00:00", "2024-01-01"]),
-    model.input_coords()["variable"],
+    model.input_coords().coords["variable"].values,
 )
 print(sample)
 

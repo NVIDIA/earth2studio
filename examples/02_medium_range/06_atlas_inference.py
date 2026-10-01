@@ -77,9 +77,9 @@ In this example you will learn:
 #     you will need to in-fill the NaNs using the appropriate land-sea mask.
 #
 # !!! note
-#     Atlas-CRPS expects total precipitation as a 6-hour accumulation (``tp06``), not the
+#     Atlas-CRPS expects total precipitation as a 6-hour accumulation (``tp:sum:6h``), not the
 #     1-hour accumulation returned by a bare ``tp`` request. The model's ``VARIABLES`` list
-#     already requests ``tp06``, so data sources with a matching lexicon entry (including
+#     requests ``tp:sum:6h``, which fetch_data computes from hourly samples (including
 #     ARCO ERA5) will accumulate the correct window automatically.
 #
 
@@ -138,22 +138,22 @@ input_coords = model.input_coords()
 
 # Fetch initial conditions matching the model's expected variables and lead times
 time = np.array([np.datetime64("2024-01-01T00:00")])
-x, coords = fetch_data(
+x = fetch_data(
     source=data,
     time=time,
-    variable=input_coords["variable"],
-    lead_time=input_coords["lead_time"],
+    variable=input_coords.coords["variable"].values,
+    lead_time=input_coords.coords["lead_time"].values,
     device=device,
 )
 
 # Add a batch dimension
-x = x.unsqueeze(0)
-coords["batch"] = np.arange(1)
-coords.move_to_end("batch", last=False)
+from earth2studio.run import _map_field
+
+x = _map_field(x, input_coords).expand_dims(batch=[0])
 
 # Single manual forward step (see warning above for why this must not be chained)
-y, y_coords = model(x, coords)
-lead_hrs = y_coords["lead_time"][0] / np.timedelta64(1, "h")
+y = model(x)
+lead_hrs = y.coords["lead_time"].values[0] / np.timedelta64(1, "h")
 print(f"Manual step: lead_time = {lead_hrs:.0f}h, shape = {y.shape}")
 
 

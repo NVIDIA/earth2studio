@@ -149,8 +149,8 @@ for i, package in enumerate([model_package_1, model_package_2]):
 
     # Perturbation method
     # Here we will simplify the process that's in the original paper for conciseness
-    noise_amplification = torch.zeros(model.input_coords()["variable"].shape[0])
-    index_z500 = list(model.input_coords()["variable"]).index("z500")
+    noise_amplification = torch.zeros(model.input_coords().sizes["variable"])
+    index_z500 = list(model.input_coords().coords["variable"].values).index("z500")
     noise_amplification[index_z500] = 39.27  # z500 (0.35 * z500 skill)
     noise_amplification = noise_amplification.reshape(1, 1, 1, -1, 1, 1)
 

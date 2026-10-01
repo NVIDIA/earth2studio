@@ -238,7 +238,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         return None
 
     def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
-        """Input coordinate system specifying required DataFrame fields.
+        """Input coordinate system of the assimilation model.
 
         Returns two FrameSchemas: one for conventional observations and one for
         satellite observations. When calling the model, either may be ``None``
@@ -247,8 +247,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         tuple[FrameSchema, FrameSchema]
-            (conventional_schema, satellite_schema) describing the expected
-            columns for each observation DataFrame
+            Conventional and satellite frame schemas, respectively, describing
+            the required fields of each observation DataFrame.
         """
         conv_schema = FrameSchema(
             {
@@ -286,19 +286,23 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         request_time: np.ndarray | None = None,
         **kwargs: Any,
     ) -> tuple[CoordSystem]:
-        """Output coordinate system for the HealDA analysis.
+        """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
-            Input coordinate system
+        input_coords : tuple[CoordSystem, CoordSystem]
+            Conventional and satellite input coordinate systems. The output
+            grid and variables are determined by the model configuration.
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
+        **kwargs : Any
+            Additional request metadata; unused by this method.
 
         Returns
         -------
         tuple[CoordSystem]
-            Coordinate system with time, variable, and lat/lon or npix dimensions
+            Single-element tuple with the analysis coordinate-system dictionary,
+            using time, variable, and lat/lon or npix dimensions.
         """
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")

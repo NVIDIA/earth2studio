@@ -54,7 +54,6 @@ In this example you will learn:
 
 # %%
 import os
-from collections import OrderedDict
 from datetime import datetime, timedelta
 
 import cartopy.crs as ccrs
@@ -131,20 +130,27 @@ dx_mean.amp = amp
 
 # %%
 sic = sfno.input_coords()
-x, coords = fetch_data(
+from earth2studio.run import _map_field
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+x = fetch_data(
     ARCO_ERA5(),
     time=np.array([np.datetime64(init_time)]),
-    variable=sic["variable"],
-    lead_time=sic["lead_time"],
+    variable=sic.coords["variable"].values,
+    lead_time=sic.coords["lead_time"].values,
     device=device,
 )
-dt_hours = int(sfno.output_coords(sic)["lead_time"][0] / np.timedelta64(1, "h"))
-model = sfno.create_iterator(x, coords)
+dt_hours = int(
+    sfno.output_coords(sic).coords["lead_time"].values[0] / np.timedelta64(1, "h")
+)
+x = _map_field(x, sic)
+model = sfno.create_iterator(x)
 # The iterator yields the t=0 analysis first (before any forward step), so the four
 # 6-hourly steps to 24 h take lead_hours // dt_hours + 1 = 5 calls (the first call
 # consumes the initial condition).
 for _ in range(lead_hours // dt_hours + 1):
-    x_fc, coords_fc = next(model)  # global forecast state at the current step
+    x_fc = next(model)  # global forecast state at the current step
 
 # %%
 # Hand the forecast state to the downscaler
@@ -159,13 +165,17 @@ for _ in range(lead_hours // dt_hours + 1):
 # %%
 
 
-def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
+def regrid_to_input(x_src, dvars, dlat, dlon):
     """Subset to the downscaler's ERA5 variables and bilinearly regrid a global
     regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon]."""
-    svars = list(src_coords["variable"])
-    slat = np.asarray(src_coords["lat"]).astype(float)
-    slon = np.asarray(src_coords["lon"]).astype(float)
-    field = x_src.reshape(-1, len(svars), len(slat), len(slon))[0].float().cpu().numpy()
+    svars = list(x_src.coords["variable"].values)
+    slat = x_src.coords["lat"].values.astype(float)
+    slon = x_src.coords["lon"].values.astype(float)
+    field = (
+        x_src.e2s.as_numpy()
+        .values.reshape(-1, len(svars), len(slat), len(slon))[0]
+        .astype(np.float32)
+    )
     field = field[[svars.index(v) for v in dvars]]  # select the 47 channels
     if slat[0] > slat[-1]:  # ensure ascending latitude
         slat, field = slat[::-1], field[:, ::-1, :]
@@ -181,25 +191,22 @@ def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
     return out
 
 
-def sfno_to_downscaler(x_fc, coords_fc, dx, valid_time):
+def sfno_to_downscaler(x_fc, dx, valid_time):
     """Map a global SFNO step output to the downscaler's regional input + coords."""
     ic = dx.input_coords()
-    dvars = list(ic["variable"])
+    dvars = list(ic.coords["variable"].values)
     dlat, dlon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
-    out = regrid_to_input(x_fc, coords_fc, dvars, dlat, dlon)
-    coords_dx = OrderedDict(
-        batch=np.array([0]),
-        time=np.array([np.datetime64(valid_time)]),
-        variable=np.array(dvars),
-        lat=dlat,
-        lon=dlon,
+    out = regrid_to_input(x_fc, dvars, dlat, dlon)
+    signature = coord_array_like(
+        ic, {"batch": np.array([0]), "time": np.array([np.datetime64(valid_time)])}
     )
-    return torch.from_numpy(out)[None, None].to(x_fc.device), coords_dx
+    return from_torch(torch.from_numpy(out)[None, None].to(device), signature)
 
 
 valid_time = init_time + timedelta(hours=lead_hours)
-x_dx, coords_dx = sfno_to_downscaler(x_fc, coords_fc, dx, valid_time)
-out, out_coords = dx(x_dx, coords_dx)
+x_dx = sfno_to_downscaler(x_fc, dx, valid_time)
+out = dx(x_dx)
+out_coords = out.coords
 
 # %%
 # Plot the downscaled fields
@@ -208,7 +215,7 @@ out, out_coords = dx(x_dx, coords_dx)
 # 2 m temperature, total precipitation, 10 m zonal wind, and total cloud cover.
 
 # %%
-o = out[0, 0, 0].cpu().numpy()  # [variable, lat, lon] (batch 0, sample 0, time 0)
+o = out[0, 0, 0].e2s.as_numpy().values
 # ``output_variables`` are the interior COSMO names used for indexing here; the
 # canonical (relabeled) names are in ``out_coords["variable"]``.
 ov = dx.output_variables
@@ -250,10 +257,11 @@ plt.savefig("outputs/04_cosmo_rea_downscaling.jpg", dpi=150)
 
 # %%
 dx_de = dx.set_domain(**germany)
-x_de, coords_de = sfno_to_downscaler(x_fc, coords_fc, dx_de, valid_time)
-out_de, out_de_coords = dx_de(x_de, coords_de)
+x_de = sfno_to_downscaler(x_fc, dx_de, valid_time)
+out_de = dx_de(x_de)
+out_de_coords = out_de.coords
 
-o_de = out_de[0, 0, 0].cpu().numpy()
+o_de = out_de[0, 0, 0].e2s.as_numpy().values
 lat_de, lon_de = np.asarray(out_de_coords["lat"]), np.asarray(out_de_coords["lon"])
 plt.close("all")
 fig, axs = plt.subplots(1, 2, figsize=(15, 7), subplot_kw={"projection": projection})
@@ -292,22 +300,18 @@ class PrepareCosmoREAInput:
     time (= time + lead_time) for the zenith channel, the ERA5 variable subset,
     and a lon-wrap regrid onto the downscaler's regional grid."""
 
-    def __call__(self, x, px_coords, dx_coords):
+    def __call__(self, x, dx_coords):
         valid = (
-            np.asarray(px_coords["time"]).reshape(-1)[0]
-            + np.asarray(px_coords["lead_time"]).reshape(-1)[0]
+            x.coords["time"].values.reshape(-1)[0]
+            + x.coords["lead_time"].values.reshape(-1)[0]
         )
-        dvars = list(dx_coords["variable"])
+        dvars = list(dx_coords.coords["variable"].values)
         dlat, dlon = np.asarray(dx_coords["lat"]), np.asarray(dx_coords["lon"])
-        out = regrid_to_input(x, px_coords, dvars, dlat, dlon)
-        coords = OrderedDict(
-            batch=np.array([0]),
-            time=np.array([np.datetime64(valid)]),
-            variable=np.array(dvars),
-            lat=dlat,
-            lon=dlon,
+        out = regrid_to_input(x, dvars, dlat, dlon)
+        signature = coord_array_like(
+            dx_coords, {"batch": np.array([0]), "time": np.array([valid])}
         )
-        return torch.from_numpy(out)[None, None].to(x.device), coords
+        return from_torch(torch.from_numpy(out)[None, None].to(device), signature)
 
 
 wrapped = DiagnosticWrapper(sfno, dx_de, prepare_dx_input_tensor=PrepareCosmoREAInput())
@@ -316,10 +320,20 @@ wrapped = DiagnosticWrapper(sfno, dx_de, prepare_dx_input_tensor=PrepareCosmoREA
 # workflow would stream the rolled-out fields into an IO backend (e.g.
 # [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend]); here we keep the T_2M frames in memory to plot.
 frames = {}
-it = wrapped.create_iterator(x, coords)  # reuse the initial condition above
-for step in range(lead_hours // dt_hours + 1):
-    out_step, oc_step = next(it)
-    frames[step * dt_hours] = out_step[0, 0, 0, ov.index("T_2M")].cpu().numpy() - 273.15
+it = wrapped.create_iterator(x)  # reuse the initial condition above
+next(it)  # The wrapper first yields the raw global initial condition.
+for step in range(lead_hours // dt_hours):
+    out_step = next(it)
+    # Input preparation moved forecast validity into the diagnostic time label.
+    lead = int(
+        (out_step.coords["time"].values[0] - x.coords["time"].values[0])
+        / np.timedelta64(1, "h")
+    )
+    temperature = out_step.sel(variable="t2m")
+    temperature = temperature.isel(
+        {dim: 0 for dim in temperature.dims if dim not in ("y", "x")}
+    ).transpose("y", "x")
+    frames[lead] = temperature.e2s.as_numpy().values - 273.15
 
 # Shared color scale across all lead times so the diurnal evolution is comparable.
 leads = sorted(frames)
@@ -367,9 +381,9 @@ plt.savefig(
 # %%
 dx_de.number_of_samples = ensemble_size
 dx_de.seed = 0  # reproducible, distinct members (seeds 0..N-1)
-ens, ens_coords = dx_de(x_de, coords_de)
+ens = dx_de(x_de)
 
-clct = ens[0, :, 0, ov.index("CLCT")].cpu().numpy()  # [sample, lat, lon]
+clct = ens.isel(batch=0, time=0).sel(variable="tcc").e2s.as_numpy().values
 ncol = int(np.ceil(np.sqrt(ensemble_size)))
 nrow = int(np.ceil(ensemble_size / ncol))
 plt.close("all")
@@ -421,9 +435,9 @@ plt.savefig(
 
 # %%
 dx_mean_de = dx_mean.set_domain(**germany)
-x_mde, coords_mde = sfno_to_downscaler(x_fc, coords_fc, dx_mean_de, valid_time)
-reg_de, _ = dx_mean_de(x_mde, coords_mde)
-reg_clct = reg_de[0, 0, 0, ov.index("CLCT")].cpu().numpy()
+x_mde = sfno_to_downscaler(x_fc, dx_mean_de, valid_time)
+reg_de = dx_mean_de(x_mde)
+reg_clct = reg_de[0, 0, 0, ov.index("CLCT")].e2s.as_numpy().values
 
 ens_mean = clct.mean(0)  # diffusion ensemble mean [lat, lon]
 ens_std = clct.std(0)  # diffusion ensemble spread
@@ -473,11 +487,12 @@ plt.savefig(
 dx_hub = CorrDiffCosmoEra5.load_model(
     package, device=device, mode="mean", resolution="rea6", hub_heights=[100]
 ).set_domain(**germany)
-x_hub, coords_hub = sfno_to_downscaler(x_fc, coords_fc, dx_hub, valid_time)
-out_hub, hub_coords = dx_hub(x_hub, coords_hub)
-hv = list(hub_coords["variable"])
-u100 = out_hub[0, 0, 0, hv.index("u100m")].cpu().numpy()
-v100 = out_hub[0, 0, 0, hv.index("v100m")].cpu().numpy()
+x_hub = sfno_to_downscaler(x_fc, dx_hub, valid_time)
+out_hub = dx_hub(x_hub)
+hub_coords = out_hub.coords
+hv = list(out_hub.coords["variable"].values)
+u100 = out_hub[0, 0, 0, hv.index("u100m")].e2s.as_numpy().values
+v100 = out_hub[0, 0, 0, hv.index("v100m")].e2s.as_numpy().values
 ws100 = np.hypot(u100, v100)  # or compose DerivedWS(levels=["100m"]) for ws100m
 
 plt.close("all")
@@ -512,9 +527,10 @@ plt.savefig(
 dx2 = CorrDiffCosmoEra5.load_model(
     package, device=device, mode="mean", resolution="rea2"
 ).set_domain(lat_min=47.5, lat_max=51.0, lon_min=7.0, lon_max=13.0)
-x2, coords2 = sfno_to_downscaler(x_fc, coords_fc, dx2, valid_time)
-out2, oc2 = dx2(x2, coords2)
-o2 = out2[0, 0, 0].cpu().numpy()
+x2 = sfno_to_downscaler(x_fc, dx2, valid_time)
+out2 = dx2(x2)
+oc2 = out2.coords
+o2 = out2[0, 0, 0].e2s.as_numpy().values
 # REA2's interior names differ from REA6's (2MT/10U here vs T_2M/U_10M above);
 # canonical names are in oc2["variable"].
 ov2 = dx2.output_variables

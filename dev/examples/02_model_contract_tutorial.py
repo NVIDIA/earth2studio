@@ -24,7 +24,7 @@ Resolve coordinates, iterate a rollout, compose hooks, and check conformance.
 A conforming model can be driven by any caller without wrapper-specific knowledge.
 This tutorial walks the contract on a model that needs no weights, then checks it.
 
-This example uses the legacy tensor/OrderedDict interface. See
+This example uses the native DataArray interface. See
 ``03_coordinate_signatures.py`` for allocation-free DataArray coordinate planning.
 """
 
@@ -40,13 +40,15 @@ from itertools import islice
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.conformance import (
     ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 domain = OrderedDict(
     {
@@ -60,11 +62,11 @@ model = Persistence("t2m", domain, history=2)
 # Read the Declaration
 # --------------------
 # ``input_coords()`` declares what a model accepts. Order is part of the contract,
-# and a zero-length array marks an open dimension whose size the caller chooses.
+# and explicitly declared dynamic dimensions form a zero-sized leading prefix.
 
 # %%
 declared = model.input_coords()
-print(list(declared))
+print(declared.dims)
 print(declared["batch"].size, declared["lead_time"])
 
 # %%
@@ -79,8 +81,7 @@ print(declared["batch"].size, declared["lead_time"])
 # before allocating anything.
 
 # %%
-coords = model.input_coords()
-coords["batch"] = np.arange(1)
+coords = coord_array_like(model.input_coords(), {"batch": np.arange(1)})
 print(model.output_coords(coords)["lead_time"])
 
 # %%
@@ -89,15 +90,16 @@ print(model.output_coords(coords)["lead_time"])
 # shifts with it, so a model can start from any point in a forecast.
 
 # %%
-rebased = coords.copy()
-rebased["lead_time"] = coords["lead_time"] + np.timedelta64(24, "h")
+rebased = coord_array_like(
+    coords, {"lead_time": coords.lead_time.values + np.timedelta64(24, "h")}
+)
 print(model.output_coords(rebased)["lead_time"])
 
 # %%
 # Invalid coordinates are rejected rather than silently coerced.
 
 # %%
-misordered = OrderedDict(reversed(list(coords.items())))
+misordered = coords.transpose(*reversed(coords.dims))
 try:
     model.output_coords(misordered)
 except (ValueError, KeyError) as error:
@@ -110,9 +112,11 @@ except (ValueError, KeyError) as error:
 # caller writing ``nsteps`` forecast steps therefore draws ``nsteps + 1`` yields.
 
 # %%
-x = torch.randn(1, 2, 1, 8, 16, generator=torch.Generator().manual_seed(0))
-for step, (values, step_coords) in enumerate(model.create_iterator(x, coords.copy())):
-    print(step, step_coords["lead_time"], tuple(values.shape))
+x = from_torch(
+    torch.randn(1, 2, 1, 8, 16, generator=torch.Generator().manual_seed(0)), coords
+)
+for step, values in enumerate(model.create_iterator(x)):
+    print(step, values.lead_time.values, tuple(values.shape))
     if step == 2:
         break
 
@@ -137,27 +141,23 @@ for step, (values, step_coords) in enumerate(model.create_iterator(x, coords.cop
 applied: list[np.ndarray] = []
 
 
-def record(
-    values: torch.Tensor, hook_coords: CoordSystem
-) -> tuple[torch.Tensor, CoordSystem]:
+def record(values: xr.DataArray) -> xr.DataArray:
     """Record the lead time each step is advanced from."""
-    applied.append(hook_coords["lead_time"].copy())
-    return values, hook_coords
+    applied.append(values.lead_time.values.copy())
+    return values
 
 
-def offset(
-    values: torch.Tensor, hook_coords: CoordSystem
-) -> tuple[torch.Tensor, CoordSystem]:
+def offset(values: xr.DataArray) -> xr.DataArray:
     """Shift every predicted value, standing in for a bias correction."""
-    return values + 1, hook_coords
+    return values.copy(data=values.data + 1)
 
 
 model.front_hook = record
 model.rear_hook = offset
 
-iterator = model.create_iterator(x, coords.copy())
+iterator = model.create_iterator(x)
 next(iterator)
-step_values, _ = next(iterator)
+step_values = next(iterator)
 print(len(applied), float(step_values.max()))
 
 model.clear_hooks()
@@ -169,9 +169,9 @@ model.clear_hooks()
 # condition survives the call, so it can be reused, retried, or written out.
 
 # %%
-before = x.clone()
-model(x, coords.copy())
-print(torch.equal(before, x))
+before = x.copy(deep=True)
+model(x)
+print(before.identical(x))
 
 # %%
 # Yields must stay independent too: once a later step is produced, an earlier yield
@@ -180,13 +180,13 @@ print(torch.equal(before, x))
 
 # %%
 held, snapshots = [], []
-for values, _ in islice(model.create_iterator(x, coords.copy()), 3):
+for values in islice(model.create_iterator(x), 3):
     held.append(values)
-    snapshots.append(values.clone())
+    snapshots.append(values.copy(deep=True))
 
 # Snapshot during iteration, not after: aliased yields have already converged on the
 # final step's values by the time the rollout finishes.
-print([torch.equal(a, b) for a, b in zip(held, snapshots)])
+print([a.identical(b) for a, b in zip(held, snapshots)])
 
 # %%
 # Declare Stochasticity
@@ -216,13 +216,12 @@ class NoisyPersistence(Persistence):
         if reset or getattr(self, "generator", None) is None:
             self.generator = torch.Generator().manual_seed(seed)
 
-    def _forward(
-        self, values: torch.Tensor, step_coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        out, out_coords = super()._forward(values, step_coords)
+    def _forward(self, values: xr.DataArray) -> xr.DataArray:
+        out = super()._forward(values)
         # An unseeded stochastic model falls back to the global RNG rather than failing
         generator = getattr(self, "generator", None)
-        return out + torch.randn(out.shape, generator=generator), out_coords
+        tensor, _ = out.e2s.to_torch()
+        return from_torch(tensor + torch.randn(out.shape, generator=generator), out)
 
 
 noisy = NoisyPersistence("t2m", domain, history=2)
@@ -231,9 +230,9 @@ noisy = NoisyPersistence("t2m", domain, history=2)
 def rollout(seed: int) -> float:
     """Run one forecast step from a given seed and return its first value."""
     noisy.set_rng(seed)
-    iterator = noisy.create_iterator(x, coords.copy())
+    iterator = noisy.create_iterator(x)
     next(iterator)
-    return float(next(iterator)[0].flatten()[0])
+    return float(next(iterator).values.flat[0])
 
 
 print(rollout(0), rollout(0), rollout(1))
@@ -310,14 +309,12 @@ class ForkedSeedPersistence(NoisyPersistence):
         if reset or getattr(self, "_seed", None) is None:
             self._seed = seed
 
-    def _forward(
-        self, values: torch.Tensor, step_coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        out, out_coords = Persistence._forward(self, values, step_coords)
+    def _forward(self, values: xr.DataArray) -> xr.DataArray:
+        out = Persistence._forward(self, values)
         with torch.random.fork_rng(devices=[]):
             torch.manual_seed(self._seed)
             noise = torch.randn(out.shape)
-        return out + noise, out_coords
+        return from_torch(out.e2s.to_torch()[0] + noise, out)
 
 
 print(check_prognostic_contract(ForkedSeedPersistence("t2m", domain, history=2)))

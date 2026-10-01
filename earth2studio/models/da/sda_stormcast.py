@@ -287,7 +287,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )
 
     def input_coords(self) -> tuple[FrameSchema]:
-        """Input coordinate system specifying required DataFrame fields."""
+        """Input coordinate system of the assimilation model.
+
+        Returns
+        -------
+        tuple[FrameSchema]
+            Single-element tuple with the required observation DataFrame fields:
+            time, lat, lon, observation, and variable.
+        """
         return (
             FrameSchema(
                 {
@@ -301,7 +308,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         )
 
     def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
-        """Output coordinate system of the assimilation model
+        """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
@@ -310,8 +317,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        tuple[CoordSystem]
+            Single-element tuple with the analysis coordinate-system dictionary
+            on the HRRR grid, one hour after the initialization lead time.
         """
 
         output_coords = OrderedDict(
