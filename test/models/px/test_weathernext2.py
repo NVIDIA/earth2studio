@@ -40,7 +40,7 @@ from test_graphcast import (
 
 import earth2studio.models.px.weathernext2_cyclones as module
 from earth2studio.data import Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.weathernext2_cyclones import (
     OUTPUT_VARIABLES,
     WeatherNext2Cyclones,
@@ -84,7 +84,7 @@ def mock_weathernext2_model(request, monkeypatch):
         p._cyclone_tracks = pd.DataFrame()
         p._cyclone_prediction_history = []
         p._cyclone_tracker = None
-        p.set_rng(0)
+        p.prng_key = None
 
     def prediction(**kwargs):
         noise = (
@@ -183,6 +183,7 @@ def test_weathernext2_concurrent_iterators(mock_weathernext2_model):
 
 
 def test_weathernext2_rng_advances(monkeypatch, mock_weathernext2_model):
+    mock_weathernext2_model.set_rng(0)
     rngs = []
 
     def record_rng(*args, rng, targets_template, **kwargs):
@@ -204,19 +205,13 @@ def test_weathernext2_rng_advances(monkeypatch, mock_weathernext2_model):
 
 def test_weathernext2_conformance(mock_weathernext2_model):
     model = mock_weathernext2_model
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(model)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(model)
 
 
 def test_weathernext2_set_rng(mock_weathernext2_model):
     mock_weathernext2_model.set_rng(123)
     key = np.asarray(mock_weathernext2_model.prng_key)
     mock_weathernext2_model.set_rng(456, reset=False)
-    assert mock_weathernext2_model.seed == 456
     np.testing.assert_array_equal(key, mock_weathernext2_model.prng_key)
     mock_weathernext2_model.set_rng(456)
     assert not np.array_equal(key, mock_weathernext2_model.prng_key)

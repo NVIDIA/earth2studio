@@ -27,6 +27,8 @@ from __future__ import annotations
 import inspect
 from types import ModuleType
 
+import pytest
+
 import earth2studio.models.dx as dx
 import earth2studio.models.px as px
 from earth2studio.models.dx.base import DiagnosticModel
@@ -48,6 +50,54 @@ def _model_classes(module: ModuleType, base: type) -> dict[str, type]:
 _PROGNOSTIC_CLASSES = _model_classes(px, PrognosticModel)
 _DIAGNOSTIC_CLASSES = _model_classes(dx, DiagnosticModel)
 
+
+@pytest.mark.parametrize(
+    "model", [*_PROGNOSTIC_CLASSES.values(), *_DIAGNOSTIC_CLASSES.values()]
+)
+def test_model_seeding_only_through_set_rng(model: type) -> None:
+    assert "seed" not in inspect.signature(model).parameters
+    if hasattr(model, "load_model"):
+        assert "seed" not in inspect.signature(model.load_model).parameters
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "AIFSENS",
+        "AIFS2ENS",
+        "Atlas",
+        "AtlasCRPS",
+        "Aurora1p5Ensemble",
+        "Aurora1p5Ensemble_6h",
+        "CBottleVideo",
+        "FCN3",
+        "GenCastMini",
+        "StormCast",
+        "StormCastCONUS",
+        "StormScopeGOES",
+        "StormScopeMRMS",
+        "StormScopeMeteosatEU",
+        "UCast",
+        "WeatherNext2Cyclones",
+        "WeatherNext2CyclonesMini",
+        "CBottleInfill",
+        "CBottleSR",
+        "CBottleTCGuidance",
+        "CorrDiff",
+        "CorrDiffTaiwan",
+        "CorrDiffCMIP6",
+        "CorrDiffCosmoEra5",
+        "CorrDiffEra5Hrrr",
+        "StormScopeDxNSRDB",
+    ],
+)
+def test_stochastic_models_expose_set_rng(name: str) -> None:
+    model = (_PROGNOSTIC_CLASSES | _DIAGNOSTIC_CLASSES)[name]
+    parameters = inspect.signature(model.set_rng).parameters
+    assert list(parameters) == ["self", "seed", "reset"]
+    assert parameters["reset"].default is True
+
+
 _PROGNOSTIC_CONFORMANT: set[str] = {
     "ACE2ERA5",
     "AIFS",
@@ -60,14 +110,20 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "Aurora1p5",
     "Aurora1p5_6h",
     "CAMulator",
+    "Aurora1p5Ensemble",
+    "Aurora1p5Ensemble_6h",
+    "CBottleVideo",
+    "DiagnosticWrapper",
     "DLESyM",
     "DLESyMLatLon",
     "DLESyMv0_ISCCP_ERA5",
     "DLESyMv0_ISCCP_ERA5LatLon",
     "DLWP",
     "FCN",
+    "FCN3",
     "FengWu",
     "FuXi",
+    "GenCastMini",
     "GraphCastOperational",
     "GraphCastSmall",
     "InterpModAFNO",
@@ -77,60 +133,17 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "Persistence",
     "SamudrACE",
     "SFNO",
+    "StormCast",
+    "StormCastCONUS",
+    "StormScopeGOES",
+    "StormScopeMRMS",
+    "StormScopeMeteosatEU",
     "UCast",
+    "WeatherNext2Cyclones",
+    "WeatherNext2CyclonesMini",
 }
 
 _PROGNOSTIC_EXEMPT: dict[str, str] = {
-    "Aurora1p5Ensemble_6h": (
-        "P14: retains global seeding like the hourly variant; "
-        "test/models/px/test_aurora1p5.py::test_aurora1p5_fixed_cadence."
-    ),
-    "Aurora1p5Ensemble": (
-        "P12/P14: retains set_rng(seed) and global seeding; each iterator reapplies "
-        "the constructor seed and resets noise. "
-        "test/models/px/test_aurora1p5.py::test_aurora1p5_ensemble_conformance."
-    ),
-    "CBottleVideo": (
-        "P13: undeclared backend sampling; "
-        "test/models/px/test_cbottle_video.py::TestCBottleVideoMock::test_cbottle_video_conformance."
-    ),
-    "DiagnosticWrapper": (
-        "P13 when wrapping an unseeded diagnostic: retains component randomness "
-        "without seeding dispatch; test/models/px/test_dxwrapper.py::test_diagnosticwrapper_conformance."
-    ),
-    "GenCastMini": (
-        "P13 with seed=None: fresh per-time keys, without stochastic declaration; "
-        "test/models/px/test_gencast_mini.py::test_gencast_mini_conformance."
-    ),
-    "StormCast": (
-        "P13: global diffusion draws; test/models/px/test_stormcast.py::test_stormcast_conformance."
-    ),
-    "StormCastCONUS": (
-        "P13: global diffusion draws; test/models/px/test_stormcastconus.py."
-    ),
-    "StormScopeGOES": (
-        "P13: global diffusion draws; test/models/px/test_stormscope.py."
-    ),
-    "StormScopeMRMS": (
-        "P13: global diffusion draws; test/models/px/test_stormscope.py."
-    ),
-    "StormScopeMeteosatEU": (
-        "P13: global diffusion draws; "
-        "test/models/px/test_stormscope_meteosat.py::test_stormscope_meteosat_conformance."
-    ),
-    "WeatherNext2Cyclones": (
-        "P13: advancing functional keys without stochastic declaration; "
-        "test/models/px/test_weathernext2.py::test_weathernext2_conformance."
-    ),
-    "WeatherNext2CyclonesMini": (
-        "P13: same key progression as WeatherNext2Cyclones; "
-        "test/models/px/test_weathernext2.py::test_weathernext2_conformance."
-    ),
-    "FCN3": (
-        "P14: core noise-state refresh draws from global RNG; pinned by "
-        "test/models/px/test_fcn3.py::test_fcn3_conformance. "
-        "Native input/yield ownership violations are fixed."
-    ),
     "FuXiS2S": (
         "P13: ONNX graph samples internal perturbations without a seed API; "
         "test/models/px/test_fuxi_s2s.py::test_fuxi_s2s_conformance."
@@ -143,8 +156,15 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
 }
 
 _DIAGNOSTIC_CONFORMANT: set[str] = {
+    "CBottleInfill",
+    "CBottleSR",
+    "CBottleTCGuidance",
     "ClimateNet",
+    "CorrDiff",
     "CorrDiffCMIP6",
+    "CorrDiffCosmoEra5",
+    "CorrDiffEra5Hrrr",
+    "CorrDiffTaiwan",
     "DLESyMv0_ISCCP_ERA5Precip",
     "DerivedRH",
     "DerivedRHDewpoint",
@@ -158,44 +178,12 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",
     "SolarRadiationAFNO6H",
+    "StormScopeDxNSRDB",
     "TCTrackerVitart",
     "TCTrackerWuDuan",
     "WindgustAFNO",
 }
-_DIAGNOSTIC_EXEMPT: dict[str, str] = {
-    "CorrDiffEra5Hrrr": (
-        "D9 with seed=None: undeclared sampler randomness; "
-        "test/models/test_corrdiff_era5_hrrr_contract.py."
-    ),
-    "CorrDiff": (
-        "D9 with seed=None and a noise-producing sampler: undeclared randomness; "
-        "test/models/dx/test_corrdiff.py::TestCorrDiffForward::test_corrdiff_conformance."
-    ),
-    "CBottleInfill": (
-        "D9: backend infill has no seed support; "
-        "test/models/dx/test_cbottle_infill.py::TestCBottleMock::test_cbottleinfill_conformance."
-    ),
-    "CBottleSR": (
-        "D9 with seed=None: undeclared sampler randomness; "
-        "test/models/dx/test_cbottle_sr.py::TestCBottleSRMock::test_cbottle_sr_conformance."
-    ),
-    "CBottleTCGuidance": (
-        "D9 with seed=None: undeclared backend sampling; "
-        "test/models/dx/test_cbottle_tc.py::TestCBottleTCMock::test_cbottletcguidance_conformance."
-    ),
-    "CorrDiffCosmoEra5": (
-        "D9 with seed=None: fresh diffusion noise; "
-        "test/models/dx/test_corrdiff_cosmo_era5.py::test_corrdiff_cosmo_era5_conformance."
-    ),
-    "CorrDiffTaiwan": (
-        "D9 with seed=None: fresh sampler seeds; "
-        "test/models/dx/test_corrdiff_taiwan.py::test_corrdiff_taiwan_conformance."
-    ),
-    "StormScopeDxNSRDB": (
-        "D9 with seed=None: undeclared global draws; "
-        "test/models/dx/test_stormscope_dx_nsrdb.py::test_stormscope_dx_nsrdb_conformance."
-    ),
-}
+_DIAGNOSTIC_EXEMPT: dict[str, str] = {}
 
 
 def _check_registration(
@@ -233,3 +221,8 @@ def test_diagnostic_models_are_registered() -> None:
         _DIAGNOSTIC_EXEMPT,
         "test/models/test_model_conformance.py",
     )
+
+
+def test_rng_control_is_owned_by_model_wrappers() -> None:
+    for model in [*_PROGNOSTIC_CLASSES.values(), *_DIAGNOSTIC_CLASSES.values()]:
+        assert all(base.__name__ != "RNGMixin" for base in model.__mro__)

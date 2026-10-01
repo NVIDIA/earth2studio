@@ -30,7 +30,6 @@ except ImportError:
     cbottle = None
 
 from earth2studio.models.conformance import (
-    ContractException,
     check_prognostic_contract,
 )
 from earth2studio.models.px import CBottleVideo
@@ -44,27 +43,43 @@ def offline_video(monkeypatch):
     if cbottle is not None:
         return
 
-    def initialize(
-        self, core, sst, lat_lon=True, dataset_modality=1, seed=None, **kwargs
-    ):
+    def initialize(self, core, sst, lat_lon=True, dataset_modality=1, **kwargs):
         torch.nn.Module.__init__(self)
-        self.sst, self.lat_lon, self.seed = sst, lat_lon, seed
+        self.sst, self.lat_lon = sst, lat_lon
         self.dataset_modality = dataset_modality
         self._time_length = 12
         self._time_step = np.timedelta64(6, "h")
         self.register_buffer("device_buffer", torch.empty(0))
+        self.sigma_min, self.sigma_max, self.sampler_steps = 0.02, 80, 2
+        self.time_stepper = "heun"
+        self.condition_regridder = lambda x: x
+        self.output_regridder = lambda x: x
 
-    def forward(self, x, times):
-        gen = (
-            torch.Generator(device=x.device).manual_seed(self.seed)
-            if self.seed is not None
-            else None
-        )
-        noise = torch.rand((), device=x.device, generator=gen)
-        return torch.nan_to_num(x).expand(-1, 12, *x.shape[2:]) + noise
+        class Core:
+            def sample(self, batch, seed=None):
+                x = batch["target"]
+                noise = torch.rand((), device=x.device)
+                return (
+                    torch.nan_to_num(x).expand(-1, -1, 12, *x.shape[3:]) + noise,
+                    None,
+                )
+
+        self.core_model = Core()
 
     monkeypatch.setattr(CBottleVideo, "__init__", initialize)
-    monkeypatch.setattr(CBottleVideo, "_forward", forward)
+    monkeypatch.setattr(
+        CBottleVideo, "get_cbottle_input", lambda self, x, times, **kw: {"target": x}
+    )
+    from types import SimpleNamespace
+
+    import earth2studio.models.px.cbottle_video as video_module
+
+    monkeypatch.setattr(
+        video_module,
+        "TimeStepperFunction",
+        lambda value: SimpleNamespace(value=value),
+        raising=False,
+    )
 
 
 @pytest.fixture(scope="class")
@@ -298,25 +313,9 @@ class TestCBottleVideoMock:
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_cbottle_video_conformance(self, device, mock_core_model, mock_sst_ds):
-        """Check the mock CBottleVideo model against the Earth2Studio model contract.
-
-        CBottleVideo does not currently declare `stochastic` or implement
-        `set_rng()` (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it
-        already passes a seed straight to the core model's sample() call, so only
-        the declaration and set_rng() entry point are missing). Until that lands
-        the checker takes the undeclared stochasticity at face value: two
-        rollouts from one input disagree while the model declares
-        stochastic=False, which is P13. Pinned here until the wrapper declares
-        stochastic and implements set_rng().
-        """
         px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
         px.sampler_steps = 2  # Speed up sampler
-        with pytest.raises(ContractException) as exc_info:
-            check_prognostic_contract(px, nsteps=1, device=device)
-        assert exc_info.value.violations == [
-            "P13: model declares stochastic=False but two rollouts from one input "
-            "disagree; declare stochastic=True and implement set_rng()"
-        ]
+        check_prognostic_contract(px, nsteps=1, device=device)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

@@ -167,9 +167,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         ``v = (x_t - x0_hat) / max(t, x0v_clip)`` near the data end (``t -> 0``).
     sigma_min, sigma_max, rho : float
         EDM Karras schedule parameters. Ignored for rectified flow.
-    seed : int | None
-        Base RNG seed for the sampling latents; member ``i`` uses ``seed + i``.
-        ``None`` leaves sampling unseeded.
     amp : bool
         Run network forwards under bf16 autocast while the ODE integration stays in
         fp32 (the examples' evaluation setting; roughly halves inference time).
@@ -210,7 +207,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         sigma_min: float = 0.01,
         sigma_max: float = 200.0,
         rho: float = 7.0,
-        seed: int | None = None,
         amp: bool = True,
     ):
         super().__init__()
@@ -268,7 +264,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         self.sigma_min = float(sigma_min)
         self.sigma_max = float(sigma_max)
         self.rho = float(rho)
-        self.seed = seed
         self.amp = bool(amp)
 
         lat_in = torch.as_tensor(lat_input_grid, dtype=torch.float32).reshape(-1)
@@ -472,17 +467,33 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             t = self.shift * t / (1.0 + (self.shift - 1.0) * t)
         return t
 
-    def _sample_one(self, condition: "TensorDict", seed: int | None) -> torch.Tensor:
+    stochastic = True
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the model-owned latent noise stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for reproducible sampling.
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, initialize only
+            when no stream has been set.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
+    def _sample_one(self, condition: "TensorDict") -> torch.Tensor:
         """Draw one member: ``[1, n_out, H, W]`` in normalized units."""
         device = self.invariants.device
         H, W = self.lat_output_grid.shape
         n_out = len(self.output_variables)
-        gen = (
-            torch.Generator(device=device).manual_seed(seed)
-            if seed is not None
-            else None
-        )
-        latents = torch.randn((1, n_out, H, W), device=device, generator=gen)
+        latents = torch.randn(
+            (1, n_out, H, W),
+            device="cpu" if self._rng_generator is not None else device,
+            generator=self._rng_generator,
+        ).to(device)
         ctx = self._inference_context(device)
 
         def net(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
@@ -533,10 +544,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     def _forward(self, era5: torch.Tensor, valid_time: datetime) -> torch.Tensor:
         """Downscale one ERA5 state -> ``[sample, n_out, H, W]`` in physical units."""
         condition = self.preprocess_input(era5, valid_time)
-        members = []
-        for i in range(self.number_of_samples):
-            seed = None if self.seed is None else self.seed + i
-            members.append(self._sample_one(condition, seed))
+        members = [self._sample_one(condition) for _ in range(self.number_of_samples)]
         out = torch.cat(members, dim=0)
         return out * self.out_scale + self.out_center
 
@@ -622,7 +630,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         number_of_samples: int | None = None,
         number_of_steps: int | None = None,
         shift: float | None = None,
-        seed: int | None = None,
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
     ) -> DiagnosticModel:
@@ -640,8 +647,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             ODE steps; defaults to the package metadata.
         shift : float | None, optional
             Rectified-flow resolution shift; defaults to the package metadata.
-        seed : int | None, optional
-            Base RNG seed, by default None (unseeded).
         amp : bool | None, optional
             bf16 autocast for the network; defaults to the package metadata.
         variant : {"x_pred"}, optional
@@ -745,7 +750,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             sigma_min=float(sampler_meta.get("sigma_min", 0.01)),
             sigma_max=float(sampler_meta.get("sigma_max", 200.0)),
             rho=float(sampler_meta.get("rho", 7.0)),
-            seed=seed,
             amp=amp if amp is not None else bool(sampler_meta.get("amp", True)),
         )
         if device is not None:

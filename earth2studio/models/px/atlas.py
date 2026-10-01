@@ -30,6 +30,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -290,6 +291,24 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         result.encoding = x_pred.encoding.copy()
         return result
 
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed Atlas's stochastic interpolant sampling state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for latent sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -342,14 +361,16 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cond = {"x_1": low_res.clone(), "x_2": prev.clone()}
 
         # Stochastic interpolant sampling in latent space
-        prediction_latent = self.sinterpolant.sample(
-            self.model,
-            low_res.clone(),
-            steps=self.sinterpolant_sample_steps,
-            cond=cond,
-            verbose=False,
-            compute_normalization=True,
-        )
+        # The interpolant draws its own latent noise and accepts no generator.
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+            prediction_latent = self.sinterpolant.sample(
+                self.model,
+                low_res.clone(),
+                steps=self.sinterpolant_sample_steps,
+                cond=cond,
+                verbose=False,
+                compute_normalization=True,
+            )
 
         # Decode
         pred = self.autoencoders[0](high_res, prediction_latent)

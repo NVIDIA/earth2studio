@@ -163,8 +163,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Core PyTorch model with loaded weights
     variables : np.array, optional
         Variables associated with model, by default 72 variable model.
-    seed : int, optional
-        Seed of the underlying FCN3 model's random generators, by default 333
 
     Badges
     ------
@@ -176,7 +174,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         variables: np.array = np.array(VARIABLES),
-        seed: int = 333,
     ):
         super().__init__()
         self.model = core_model
@@ -185,25 +182,25 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
 
-        self.set_rng(reset=True, seed=seed)
-
     def __str__(self) -> str:
         return "fcn3"
 
     stochastic = True
+    _rng_initialized = False
 
-    def set_rng(self, seed: int = 333, reset: bool = True) -> None:
+    def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the underlying FCN3 model's RNG
 
         Parameters
         ----------
-        seed : int, optional
-            Seed for the RNG, by default 333
+        seed : int
+            Seed for the RNG
         reset : bool, optional
             Whether to reset the state of the RNG, by default True
         """
-        self.seed = seed
-        self.model.set_rng(reset=reset, seed=seed)
+        if reset or not self._rng_initialized:
+            self.model.set_rng(reset=True, seed=seed)
+            self._rng_initialized = True
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

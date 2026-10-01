@@ -308,9 +308,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     solver : {"heun", "euler"}
         Diffusion ODE solver: ``"heun"`` (2nd-order, default) or ``"euler"``
         (1st-order).
-    seed : int | None
-        Base RNG seed for diffusion sampling (a per-sample offset is added).
-        ``None`` (default) leaves sampling unseeded.
     amp : bool
         Run the network forward passes (regression patches and the diffusion
         denoiser) under ``torch.autocast`` bf16. Roughly halves inference time
@@ -387,7 +384,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 800.0,
         rho: float = 7.0,
         solver: Literal["heun", "euler"] = "heun",
-        seed: int | None = None,
         amp: bool = False,
         hub_heights: Sequence[float] | None = None,
         hub_interp: Literal["linear", "log"] = "linear",
@@ -428,7 +424,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.rho = rho
         self.solver = solver
-        self.seed = seed
         self.amp = amp
 
         self.era5_variables = list(era5_variables)
@@ -1336,6 +1331,26 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             )
         return out.float()
 
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the independent initial-latent draws for COSMO diffusion.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
+    @property
+    def stochastic(self) -> bool:
+        """Whether diffusion sampling is enabled."""
+        return self.mode == "diffusion"
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -1376,7 +1391,16 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 [
                     self.postprocess_output(
                         self._denoise(
-                            background, None if self.seed is None else self.seed + i
+                            background,
+                            (
+                                int(
+                                    torch.randint(
+                                        2**32, (), generator=self._rng_generator
+                                    )
+                                )
+                                if self._rng_generator is not None
+                                else None
+                            ),
                         ),
                         valid_time,
                         lat_np,
@@ -1652,13 +1676,15 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             sigma_max=self.sigma_max,
             rho=self.rho,
             solver=self.solver,
-            seed=self.seed,
             amp=self.amp,
             hub_heights=(self._hub_heights or None),
             hub_interp=self._hub_interp,
             wind_levels=self._wind_levels,
         )
         sub._halo = halo_trim
+        if self._rng_generator is not None:
+            sub._rng_generator = torch.Generator()
+            sub._rng_generator.set_state(self._rng_generator.get_state())
         sub.check_inputs = self.check_inputs
         sub._patch_size = self._patch_size
         sub._min_domain_cells = self._min_domain_cells

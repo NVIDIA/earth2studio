@@ -32,6 +32,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -879,6 +880,23 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _denormalize(self, x: torch.Tensor) -> torch.Tensor:
         return x * self.scale.to(dtype=x.dtype) + self.center.to(dtype=x.dtype)
 
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed U-CAST's inference dropout state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for dropout masks.
+        reset : bool, optional
+            Reset existing dropout state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -939,11 +957,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with torch.autocast(
             device_type=x.device.type, dtype=torch.float16, enabled=use_amp
         ):
-            pred_residual = self.model(
-                model_input,
-                dynamical_condition=forcing,
-                static_condition=static,
-            )
+            # Torch dropout accepts no explicit generator.
+            with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+                pred_residual = self.model(
+                    model_input,
+                    dynamical_condition=forcing,
+                    static_condition=static,
+                )
 
         pred_norm = (
             pred_residual

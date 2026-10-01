@@ -116,6 +116,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Shared implementation for WeatherNext 2 model variants."""
 
     MODEL_NAME: str
+    stochastic = True
     PARAMS_PATH: str
     SAMPLE_PATH: str
 
@@ -124,7 +125,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ckpt: "fgn.CheckPoint",
         land_sea_mask: np.ndarray,
         geopotential_at_surface: np.ndarray,
-        seed: int = 0,
         jit_compile: bool = True,
         track_cyclones: bool = False,
     ):
@@ -133,7 +133,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ckpt = ckpt
         self.land_sea_mask = land_sea_mask
         self.geopotential_at_surface = geopotential_at_surface
-        self.set_rng(seed)
+        self.prng_key = None
         self.track_cyclones = track_cyclones
         self._cyclone_tracks = pd.DataFrame()
         self._cyclone_prediction_history: list[xr.Dataset] = []
@@ -160,11 +160,12 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         reset : bool, optional
             Reset the generator state from ``seed``, by default True.
         """
-        self.seed = seed
-        if reset:
+        if reset or self.prng_key is None:
             self.prng_key = jax.random.PRNGKey(seed)
 
     def _next_rng(self, time_index: int) -> "chex.PRNGKey":
+        if self.prng_key is None:
+            return jax.random.PRNGKey(np.random.randint(0, 2**31))
         self.prng_key, rng = jax.random.split(self.prng_key)
         return rng
 
@@ -315,7 +316,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        seed: int = 0,
         jit_compile: bool = True,
         track_cyclones: bool = False,
     ) -> PrognosticModel:
@@ -325,8 +325,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from.
-        seed : int, optional
-            Initial random seed for the stochastic FGN noise generator, by default 0.
         jit_compile : bool, optional
             JIT-compile the model forward pass, by default True.
         track_cyclones : bool, optional
@@ -350,7 +348,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ckpt,
             land_sea_mask,
             geopotential_at_surface,
-            seed=seed,
             jit_compile=jit_compile,
             track_cyclones=track_cyclones,
         )
@@ -432,9 +429,9 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcings: xr.Dataset,
     ) -> Generator[xr.Dataset, tuple | None, None]:
         """Generate an open-ended WeatherNext 2 rollout one chunk at a time."""
-        inputs = xr.Dataset(inputs)
-        targets_template = xr.Dataset(targets_template)
-        forcings = xr.Dataset(forcings)
+        inputs = inputs.copy()
+        targets_template = targets_template.copy()
+        forcings = forcings.copy()
         targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
         current_inputs = inputs
         forcing_variables = list(self.task_config.forcing_variables)
@@ -687,8 +684,6 @@ class WeatherNext2CyclonesMini(_WeatherNext2Base):
         Land-sea mask on the WeatherNext grid.
     geopotential_at_surface : np.ndarray
         Surface geopotential on the WeatherNext grid.
-    seed : int, optional
-        Initial random seed for the stochastic FGN noise generator, by default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, by default True.
     track_cyclones : bool, optional
@@ -780,8 +775,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
         Land-sea mask on the WeatherNext grid.
     geopotential_at_surface : np.ndarray
         Surface geopotential on the WeatherNext grid.
-    seed : int, optional
-        Initial random seed for the stochastic FGN noise generator, by default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, by default True.
     track_cyclones : bool, optional
@@ -832,7 +825,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
     def load_model(
         cls,
         package: Package,
-        seed: int = 0,
         jit_compile: bool = True,
         track_cyclones: bool = False,
         checkpoint_member: int = 1,
@@ -843,8 +835,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
         ----------
         package : Package
             Package to load model from.
-        seed : int, optional
-            Initial random seed for the stochastic FGN noise generator, by default 0.
         jit_compile : bool, optional
             JIT-compile the model forward pass, by default True.
         track_cyclones : bool, optional
@@ -867,7 +857,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
             ckpt,
             sample_input["land_sea_mask"].values,
             sample_input["geopotential_at_surface"].values,
-            seed=seed,
             jit_compile=jit_compile,
             track_cyclones=track_cyclones,
         )

@@ -33,6 +33,7 @@ from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -536,21 +537,40 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if num_steps is None:
             num_steps = self.num_diffusion_steps
-        latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
+        # PhysicsNeMo's stochastic Heun solver draws global noise internally.
+        with fork_rng(self._rng_seed, state.device, states=self._rng_states):
+            latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
+            return sample(
+                denoiser,
+                latents,
+                noise_scheduler=self.scheduler,
+                num_steps=num_steps,
+                solver="edm_stochastic_heun",
+                solver_options={
+                    "S_churn": self.sampler_args["S_churn"],
+                    "S_min": self.sampler_args["S_min"],
+                    "S_max": self.sampler_args["S_max"],
+                    "S_noise": self.sampler_args["S_noise"],
+                },
+            )
 
-        return sample(
-            denoiser,
-            latents,
-            noise_scheduler=self.scheduler,
-            num_steps=num_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
-        )
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the CONUS diffusion sampler's latent and churn noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
 
     def _edm_denoiser(self, condition: TensorDict) -> Any:
         """Build an unconditional EDM denoiser for the given conditioning."""

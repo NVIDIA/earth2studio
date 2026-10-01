@@ -24,7 +24,7 @@ import xarray as xr
 
 import earth2studio.models.px.stormcast as stormcast_module
 from earth2studio.data import HRRR, Random, fetch_data
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -37,8 +37,67 @@ def optional_backend(monkeypatch, request):
         pytest.skip("PhysicsNeMo is unavailable")
     monkeypatch.delitem(OptionalDependencyFailure.failures, stormcast_module.__file__)
     monkeypatch.setattr(
-        StormCast, "_forward", lambda self, x, conditioning: x + torch.randn_like(x)
+        StormCast, "_sample", lambda self, x, conditioning: x + torch.randn_like(x)
     )
+
+
+@pytest.fixture
+def stormcast_rng_model():
+    model = StormCast.__new__(StormCast)
+    torch.nn.Module.__init__(model)
+    model._sample = lambda x, conditioning: torch.randn_like(x)
+    return model
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sampler_stream(device, stormcast_rng_model):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    model = stormcast_rng_model
+    x = torch.empty(8, device=device)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+    model.set_rng(42, reset=False)
+    first = model._forward(x, x)
+    reference = torch.Generator(device=device).manual_seed(42)
+    assert torch.equal(first, torch.randn(x.shape, device=device, generator=reference))
+    other = StormCast.__new__(StormCast)
+    torch.nn.Module.__init__(other)
+    other._sample = model._sample
+    other.set_rng(43)
+    other_first = other._forward(x, x)
+    model.set_rng(99, reset=False)
+    second = model._forward(x, x)
+    assert torch.equal(second, torch.randn(x.shape, device=device, generator=reference))
+    assert not torch.equal(second, other_first)
+    assert not torch.equal(first, second)
+    model.set_rng(42)
+    assert torch.equal(first, model._forward(x, x))
+    assert torch.equal(second, model._forward(x, x))
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sampler_exception_isolation(device, stormcast_rng_model):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    x = torch.empty(8, device=device)
+    stormcast_rng_model.set_rng(42)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+
+    def fail(x, conditioning):
+        torch.randn_like(x)
+        raise RuntimeError("sampler failed")
+
+    stormcast_rng_model._sample = fail
+    with pytest.raises(RuntimeError, match="sampler failed"):
+        stormcast_rng_model._forward(x, x)
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
 
 
 # Spoof models with same call signature
@@ -378,12 +437,7 @@ def test_stormcast_conformance():
         sampler_steps=2,
     )
 
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert exc_info.value.violations == [
-        "P13: model declares stochastic=False but two rollouts from one input "
-        "disagree; declare stochastic=True and implement set_rng()"
-    ]
+    check_prognostic_contract(p)
 
 
 @pytest.fixture(scope="function")

@@ -28,7 +28,7 @@ import xarray as xr
 
 import earth2studio.models.dx.corrdiff as corrdiff_module
 from earth2studio.models.auto import Package
-from earth2studio.models.conformance import ContractException, check_diagnostic_contract
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiff
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -803,25 +803,16 @@ class TestCorrDiffForward:
     def test_corrdiff_conformance(
         self, mock_residual_model, mock_regression_model, sample_model_params
     ):
-        # CorrDiff does not yet declare stochastic or implement set_rng(). With
-        # the default seed=None, repeated calls violate D9 for both the real
-        # and offline samplers. Pin this until the RNG contract is implemented.
         model = CorrDiff(
             residual_model=mock_residual_model,
             regression_model=mock_regression_model,
             **sample_model_params,
         )
-        with pytest.raises(ContractException) as exc_info:
-            check_diagnostic_contract(model)
-        assert exc_info.value.violations == [
-            "D9: model declares stochastic=False but two calls on one input disagree; "
-            "declare stochastic=True and implement set_rng()"
-        ]
+        check_diagnostic_contract(model)
 
     def test_corrdiff_seed_reproducibility(
         self, mock_residual_model, mock_regression_model, sample_model_params
     ):
-        """Test that seed parameter provides reproducible results."""
         params = sample_model_params.copy()
         seed = 42
 
@@ -829,17 +820,17 @@ class TestCorrDiffForward:
         model1 = CorrDiff(
             residual_model=mock_residual_model,
             regression_model=mock_regression_model,
-            seed=seed,
             **params,
         )
 
         model2 = CorrDiff(
             residual_model=mock_residual_model,
             regression_model=mock_regression_model,
-            seed=seed,
             **params,
         )
 
+        model1.set_rng(seed)
+        model2.set_rng(seed)
         x = torch.randn(1, 4, 36, 40)
         coords = OrderedDict(
             {

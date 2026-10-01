@@ -334,35 +334,24 @@ streams reset. Reproducibility checks alone cannot catch this interference: a mo
 may reproduce perfectly in isolation while destroying independence in a cascade.
 The rule constrains the observable effect, not the isolation mechanism.
 
-**Known deviations:** `dlesym` uses a local generator and conforms; `fcn3` fails
-`P14` because core noise-state refresh draws globally; `aurora1p5` fails through
-bare `torch.manual_seed(seed)`. `Aurora1p5Ensemble` is exempt in
-`test/models/test_model_conformance.py` pending a follow-up wrapper fix.
-
 ### Seeding is the only entry point
 
-A constructor `seed` must not override later `set_rng()` calls.
-`Aurora1p5Ensemble` violates this by reapplying `self.set_rng(self.seed)` in
-`create_iterator()`; its exemption also covers this pending fix. Removing constructor
-seeds remains open, including the `load_model(seed=...)` APIs of `corrdiff`,
-`cbottle_sr`, and `stormscope_dx_nsrdb`.
+Constructors and `load_model()` do not accept `seed`. Load the model, then call
+`model.set_rng(seed)` to initialize its stream. Calls and new iterators advance
+that stream; only an explicit reset restarts it.
 
 ### Current wrappers
 
-The DataArray protocol migration preserves existing model randomness. The RNG
-rules above remain targets for separate follow-up work, not changes in this PR.
-`fcn3` and `dlesym` retain `(seed, reset)` controls; `Aurora1p5Ensemble` retains
-`set_rng(seed: int | None)` and global seeding. WeatherNext retains its existing
-functional-key `set_rng`, including updating `seed` with `reset=False` while
-leaving the key unchanged. GenCast retains per-time functional keys and its seed
-attribute. Composition wrappers do not add seeding dispatch.
-
-CorrDiff and cBottle retain their existing constructor/attribute seed controls.
-CBottleSR retains its pre-existing fork and per-sample seed progression; infill
-retains its backend's lack of seed support. StormScopeDxNSRDB still globally seeds
-each sample. StormCast, StormCastCONUS, StormScope and UCast retain their global
-diffusion/dropout draws. Existing undeclared-randomness exceptions remain pinned
-in `test/models/test_model_conformance.py` and the corresponding model tests.
+Each wrapper owns its RNG implementation. FCN3 delegates to its backend's RNG
+API; CorrDiff supplies sample seeds to its diffusion backend; StormScope and
+NSRDB use explicit noise generators. GenCast and WeatherNext use advancing
+functional JAX keys. Backends without a generator API run inside a wrapper-local
+Torch RNG fork via `earth2studio.models.utils.fork_rng`, saving and resuming
+model-owned CPU/CUDA RNG state between sampling
+calls. Seeds initialize streams once per reset; sampling advances their state. Forks cover only
+the relevant numerical calls and never span iterator yields. Aurora also resets
+its cached noise. DiagnosticWrapper dispatches seeding to its stochastic
+components, and DLESyM retains its native local generator.
 
 ## Conformance
 
@@ -421,6 +410,3 @@ dependencies; a dependency skip is not evidence that a model passes conformance.
   ownership remain undecided.
 - Forcing/conditioning declarations require agreement with coupling and
   labelled-array proposals before inclusion here.
-- Keep constructor `seed=` as a construction-time `set_rng` convenience or remove
-  it? Account for loading APIs, Aurora's override bug, and preserving diagnostics'
-  fresh-seed default (or communicating a breaking change).

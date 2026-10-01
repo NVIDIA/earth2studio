@@ -22,7 +22,7 @@ import torch
 from test_corrdiff import _input_field
 from test_corrdiff import offline_corrdiff as offline_corrdiff
 
-from earth2studio.models.conformance import ContractException, check_diagnostic_contract
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffTaiwan
 
 
@@ -188,20 +188,6 @@ def test_corrdiff_exceptions(x, device):
 
 
 def test_corrdiff_taiwan_conformance():
-    """Model contract conformance (dev/spec/MODEL_CONTRACT_SPEC.md).
-
-    Reuses the same mock construction as ``test_corrdiff`` (no ``seed=``
-    override, matching the constructor default). CorrDiffTaiwan draws its
-    diffusion-sampler latents from a seed that defaults to a fresh
-    ``np.random.randint`` draw per call when unset, but the class declares no
-    ``stochastic`` attribute and implements no ``set_rng``: it defaults to the
-    contract's ``stochastic=False`` reading. Two calls on the same input then
-    draw independent sampler noise and disagree -- even with the deterministic
-    passthrough ``PhooCorrDiff.forward`` -- which genuinely violates ``D9``.
-    This is a wrapper defect (no ``stochastic``/``set_rng`` declaration to make
-    diffusion sampling reproducible), not a test issue, and is tracked for a
-    follow-up fix rather than papered over here.
-    """
     model = PhooCorrDiff()
     in_center = torch.zeros(12, 1, 1)
     in_scale = torch.ones(12, 1, 1)
@@ -220,12 +206,7 @@ def test_corrdiff_taiwan_conformance():
         out_lat,
         out_lon,
     )
-    with pytest.raises(ContractException) as exc_info:
-        check_diagnostic_contract(dx)
-    assert exc_info.value.violations == [
-        "D9: model declares stochastic=False but two calls on one input disagree; "
-        "declare stochastic=True and implement set_rng()"
-    ]
+    check_diagnostic_contract(dx)
 
 
 @pytest.mark.package

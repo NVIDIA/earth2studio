@@ -723,7 +723,7 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
     p.front_hook = lambda value: histories.append(value.copy(deep=True)) or value
 
     def rollout(seed):
-        p.seed = seed
+        p.set_rng(seed)
         iterator = p.create_iterator(field)
         initial = next(iterator)
         retained = [next(iterator) for _ in range(3)]
@@ -732,13 +732,14 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
         return retained
 
     a, b, c = rollout(17), rollout(17), rollout(18)
-    # Preserve the original global seed + fcstep stream, including its final state.
-    p.seed = 17
+    # Public calls and numerical steps consume the same isolated stream.
+    p.set_rng(17)
     torch.testing.assert_close(
         p(field).e2s.to_torch()[0], a[0].e2s.to_torch()[0], rtol=0, atol=0
     )
     native_coords = {d: coords.coords[d].values for d in coords.dims}
     state = p._prepare_input(field.e2s.to_torch()[0].to(device), native_coords)
+    p.set_rng(17)
     for step, reference in enumerate(a):
         state, output_coords = p._forward(
             state,
@@ -973,21 +974,7 @@ def test_aifs2ens_exceptions(dc, device, backend):
         p(x)
 
 
-def test_aifs2ens_conformance(backend):
-    """Check the mock AIFS2ENS model against the Earth2Studio model contract.
-
-    AIFS2ENS does not currently declare `stochastic` or implement `set_rng()`
-    (see dev/spec/MODEL_CONTRACT_SPEC.md's Migration table: it seeds the global
-    RNG via a bare `torch.manual_seed(self.seed + step)` and needs the seeding
-    forked into `torch.random.fork_rng()`). Until that declaration lands, the
-    contract checker treats it as a non-stochastic model, so this test only
-    exercises the structural/coordinate rules against the deterministic mock.
-
-    Note: `flash-attn` (required by the `aifs2ens` extra) cannot be built without
-    CUDA, so this assertion could not be executed against real dependencies in
-    every environment; it is expected to hold based on static review of
-    AIFS2ENS's hook wiring and the deterministic Phoo forward pass above.
-    """
+def test_aifs2ens_conformance(backend, monkeypatch):
     device = "cpu"
     model = PhooAIFS2ENSModel()
 
@@ -1011,9 +998,13 @@ def test_aifs2ens_conformance(backend):
         invariants=invariants,
     ).to(device)
 
-    assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
-    ]
+    predict = model.predict_step
+    monkeypatch.setattr(
+        model,
+        "predict_step",
+        lambda *args, **kwargs: predict(*args, **kwargs) * torch.rand(()),
+    )
+    check_prognostic_contract(p)
 
 
 @pytest.fixture(scope="function")

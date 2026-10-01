@@ -42,7 +42,6 @@ from test_corrdiff import _input_field
 import earth2studio.models.dx.corrdiff_cosmo_era5 as cosmo_module
 from earth2studio.models.auto import Package
 from earth2studio.models.conformance import (
-    ContractException,
     check_diagnostic_contract,
 )
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
@@ -309,21 +308,6 @@ def test_corrdiff_cosmo_era5_call():
 
 
 def test_corrdiff_cosmo_era5_conformance():
-    """Model contract conformance (dev/spec/MODEL_CONTRACT_SPEC.md).
-
-    Exercises diffusion mode -- the mode whose randomness actually matters for
-    the contract's stochasticity rules (mean mode is a plain deterministic
-    regression). CorrDiffCosmoEra5 draws its diffusion-sampler noise from a
-    ``seed`` constructor argument, but declares no ``stochastic`` attribute and
-    implements no ``set_rng``: it defaults to the contract's ``stochastic=False``
-    reading. With the constructor's own default (``seed=None``, i.e. no
-    ``seed=`` override -- as a caller who does not opt into a fixed seed would
-    construct it), two calls on the same input draw independent noise and
-    disagree, which genuinely violates ``D9``. This is a wrapper defect (no
-    ``stochastic``/``set_rng`` declaration to make diffusion sampling
-    reproducible), not a test issue, and is tracked for a follow-up fix rather
-    than papered over here.
-    """
     ov = OUTPUT_VARIABLES
     dx = _build(
         mode="diffusion",
@@ -333,12 +317,7 @@ def test_corrdiff_cosmo_era5_conformance():
         channel_transforms={},
         constraints={},
     )
-    with pytest.raises(ContractException) as exc_info:
-        check_diagnostic_contract(dx)
-    assert exc_info.value.violations == [
-        "D9: model declares stochastic=False but two calls on one input disagree; "
-        "declare stochastic=True and implement set_rng()"
-    ]
+    check_diagnostic_contract(dx)
 
 
 @pytest.mark.parametrize("number_of_samples", [1, 3])
@@ -350,10 +329,10 @@ def test_corrdiff_cosmo_era5_samples(number_of_samples):
         regression_model=None,
         diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
         number_of_samples=number_of_samples,
-        seed=0,
         channel_transforms={},
         constraints={},
     )
+    dx.set_rng(0)
     x, coords = _diffusion_coords(dx)
     field = dx(_input_field(dx, x, coords))
     oc = field.coords
@@ -376,7 +355,6 @@ def test_diffusion_euler_differs_from_heun():
             regression_model=None,
             diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
             number_of_samples=1,
-            seed=0,
             solver=solver,
             channel_transforms={},
             constraints={},
@@ -384,6 +362,8 @@ def test_diffusion_euler_differs_from_heun():
 
     dx_heun = _build_solver("heun")
     dx_euler = _build_solver("euler")
+    dx_heun.set_rng(0)
+    dx_euler.set_rng(0)
     x, coords = _diffusion_coords(dx_heun)
     out_heun = dx_heun(_input_field(dx_heun, x, coords)).e2s.to_torch()[0]
     out_euler = dx_euler(_input_field(dx_euler, x, coords)).e2s.to_torch()[0]
@@ -429,9 +409,11 @@ def test_set_domain_preserves_config():
         number_of_samples=3,
         amp=True,
         physical_clamp=False,
-        seed=42,
     )
+    dx.set_rng(42)
     cr = dx.set_domain(lat_min=48.0, lat_max=52.0, lon_min=8.0, lon_max=13.0)
+    assert cr._rng_generator is not dx._rng_generator
+    assert torch.equal(cr._rng_generator.get_state(), dx._rng_generator.get_state())
 
     assert cr._has_constraints == dx._has_constraints
     assert sorted(cr._bound_lo) == sorted(dx._bound_lo)
@@ -451,7 +433,6 @@ def test_set_domain_preserves_config():
         "number_of_samples",
         "amp",
         "physical_clamp",
-        "seed",
     ):
         assert getattr(cr, attr) == getattr(dx, attr), attr
     assert cr.output_variables == dx.output_variables

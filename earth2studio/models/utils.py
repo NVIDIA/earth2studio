@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TypeVar
 
 try:
@@ -87,3 +89,59 @@ def create_ort_session(
     )
 
     return ort_session
+
+
+@contextmanager
+def fork_rng(
+    seed: int | None = None,
+    device: torch.device = torch.device("cpu"),
+    states: dict[str, torch.Tensor] | None = None,
+) -> Iterator[None]:
+    """Run sampling with isolated Torch RNG state when seeded.
+
+    Parameters
+    ----------
+    seed : int | None, optional
+        Seed for missing states. None passes through without RNG isolation and
+        ignores supplied states, leaving them untouched, by default None
+    device : torch.device, optional
+        Sampling device. Manages CPU RNG and, for CUDA, the selected GPU's RNG,
+        by default torch.device("cpu")
+    states : dict[str, torch.Tensor] | None, optional
+        RNG snapshots keyed by ``cpu`` and ``cuda:N``, updated in place. None
+        uses a fresh empty dictionary for each seeded call, by default None
+
+    Notes
+    -----
+    Provide and reuse a state dictionary to preserve the stream between calls.
+    Seeded calls restore global RNG state on exit, including on exceptions.
+
+    Warnings
+    --------
+    Do not span iterator yields or concurrent access to the same generators.
+    """
+    if seed is None:
+        yield
+        return
+    if states is None:
+        states = {}
+    devices = []
+    if device.type == "cuda":
+        devices = [
+            device.index if device.index is not None else torch.cuda.current_device()
+        ]
+    with torch.random.fork_rng(devices=devices):
+        if "cpu" not in states:
+            states["cpu"] = torch.Generator().manual_seed(seed).get_state()
+        torch.set_rng_state(states["cpu"])
+        for index in devices:
+            key = f"cuda:{index}"
+            if key not in states:
+                states[key] = torch.Generator(device=key).manual_seed(seed).get_state()
+            torch.cuda.set_rng_state(states[key], index)
+        try:
+            yield
+        finally:
+            states["cpu"] = torch.get_rng_state()
+            for index in devices:
+                states[f"cuda:{index}"] = torch.cuda.get_rng_state(index)

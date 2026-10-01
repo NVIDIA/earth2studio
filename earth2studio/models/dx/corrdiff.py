@@ -203,8 +203,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Which inference mode to use, by default "both"
     hr_mean_conditioning : bool, optional
         Whether to use high-res mean conditioning, by default True
-    seed : Optional[int], optional
-        Random seed for reproducibility, by default None
     grid_spacing_tolerance : float, optional
         Relative tolerance for checking regular grid spacing. Allows for slight variations
         in grid spacing (e.g., for Gaussian grids). For 1D grids, raises ValueError if
@@ -252,7 +250,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         sampler_type: Literal["deterministic", "stochastic"] = "stochastic",
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
-        seed: int | None = None,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
         sigma_min: float | None = None,
@@ -275,7 +272,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         self.sampler_type = sampler_type
         self.inference_mode = inference_mode
         self.hr_mean_conditioning = hr_mean_conditioning
-        self.seed = seed
         self.img_shape = (lat_output_grid.shape[0], lon_output_grid.shape[0])
         self.invariants_dict = invariants
         self.invariant_center = invariant_center
@@ -769,7 +765,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         sampler_type = metadata.get("sampler_type", "stochastic")
         inference_mode = metadata.get("inference_mode", "both")
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
-        seed = metadata.get("seed", None)
         sigma_min_metadata = metadata.get("sigma_min", None)
         sigma_max_metadata = metadata.get("sigma_max", None)
         grid_spacing_tolerance = metadata.get("grid_spacing_tolerance", 1e-5)
@@ -908,7 +903,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
-            seed=seed,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
             sigma_min=effective_sigma_min,
@@ -1079,6 +1073,26 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         """
         return nullcontext()
 
+    _sample_rng: np.random.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the per-sample seeds passed to CorrDiff's diffusion backend.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._sample_rng is None:
+            self._sample_rng = np.random.default_rng(seed)
+
+    @property
+    def stochastic(self) -> bool:
+        """Whether inference includes diffusion sampling."""
+        return self.inference_mode != "regression"
+
     @torch.inference_mode()
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
@@ -1132,7 +1146,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             torch.Tensor
                 Generated sample
             """
-            seed = self.seed if self.seed is not None else np.random.randint(2**32)
+            seed = int(
+                self._sample_rng.integers(2**32)
+                if self._sample_rng is not None
+                else np.random.randint(2**32)
+            )
 
             if self.residual_model and self.inference_mode != "regression":
                 mean_hr = image_reg[:1] if self.hr_mean_conditioning else None
@@ -1278,8 +1296,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     solver: Literal['euler', 'heun']
         Discretization of diffusion process. Only 'euler' and 'heun'
         are supported. Default is 'euler'
-    seed: int | None, optional
-        Random seed for reproducibility. Default is None.
 
     Badges
     ------
@@ -1300,7 +1316,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         number_of_samples: int = 1,
         number_of_steps: int = 8,
         solver: Literal["euler", "heun"] = "euler",
-        seed: int | None = None,
     ):
         super().__init__()
         self.residual_model = residual_model
@@ -1324,7 +1339,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.number_of_samples = number_of_samples
         self.number_of_steps = number_of_steps
         self.solver = solver
-        self.seed = seed
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
     def input_coords(self) -> CoordinateSystem:
@@ -1511,6 +1525,22 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             self.out_lon_full,
         )[..., 1:-1, 1:-1]
 
+    stochastic = True
+    _sample_rng: np.random.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the stacked generators used by the Taiwan diffusion sampler.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._sample_rng is None:
+            self._sample_rng = np.random.default_rng(seed)
+
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.solver not in ["euler", "heun"]:
@@ -1543,12 +1573,12 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         x_reg = torch.cat((x, grid), dim=1)
 
         # Create seeds for each sample
-        seed = self.seed if self.seed is not None else np.random.randint(2**32)
-        if seed is not None:
-            gen = torch.Generator(device=x.device)
-            gen.manual_seed(seed)
-        else:
-            gen = None
+        seed = int(
+            self._sample_rng.integers(2**32)
+            if self._sample_rng is not None
+            else np.random.randint(2**32)
+        )
+        gen = torch.Generator(device=x.device).manual_seed(seed)
         sample_seeds = (
             torch.randint(
                 0, 2**32, (self.number_of_samples,), device=x.device, generator=gen

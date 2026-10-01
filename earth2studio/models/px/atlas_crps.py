@@ -29,6 +29,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -92,7 +93,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Note
     ----
     Ensemble noise is drawn from the global PyTorch generator, use
-    :func:`torch.manual_seed` for reproducible members.
+    ``set_rng`` for reproducible members.
 
     Note
     ----
@@ -203,6 +204,24 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         result.encoding = x_pred.encoding.copy()
         return result
 
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the latent noise generated internally by Atlas CRPS.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for latent sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -254,7 +273,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             low_res = prev_latents[1].clone()
 
         conditioning = self.model_processor.preprocess_conditioning(high_res, low_res)
-        residual_latent = self.model(prev, conditioning)
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+            residual_latent = self.model(prev, conditioning)
 
         # Decode the latent residual and return to state space
         pred = self.autoencoder(high_res, residual_latent)

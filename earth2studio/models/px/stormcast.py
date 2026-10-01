@@ -31,6 +31,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -357,6 +358,29 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
+        # The PhysicsNeMo sampler draws churn noise without a generator argument.
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+            return self._sample(x, conditioning)
+
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed StormCast's initial latent and stochastic solver noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
+    def _sample(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
 
         # Scale data
         if "conditioning_means" in self._buffers:

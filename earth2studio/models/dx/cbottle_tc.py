@@ -29,6 +29,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -109,9 +110,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     batch_size : int, optional
         Batch size to generate time samples at, consider adjusting based on hardware
         being used, by default 4
-    seed : int, optional
-        Random generator seed for latent variables. If None will use no seed, by default
-        None
     dataset_modality: DatasetModality, optional
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
@@ -135,7 +133,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: float = 200.0,
         batch_size: int = 4,
-        seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
     ):
         super().__init__()
@@ -145,7 +142,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.sampler_steps = sampler_steps
         self.batch_size = batch_size
-        self.seed = seed
         self.dataset_modality = dataset_modality
         self._core_model = core_model
         self._class_model = classifier_model
@@ -273,7 +269,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int | None = None,
         allow_second_order_derivatives: bool = False,
     ) -> DiagnosticModel:
         """Load diagnostic from package
@@ -290,9 +285,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 80
-        seed : int, optional
-            Random generator seed for latent variables. If None, no seed will be used,
-            by default None
         allow_second_order_derivatives : bool, optional
             Enable checkpoint/model loading path required for second-order autodiff
             (needed for odds-ratio computations). Keep False for faster standard
@@ -341,7 +333,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            seed=seed,
         )
 
     def create_guidance_tensor(
@@ -403,6 +394,24 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         signature = coord_array_like(self.input_coords(), {"batch": [0], "time": times})
         signature = signature.isel(batch=0, drop=True)
         return from_torch(guidance, signature)
+
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed cBottle guidance sampling and optional ICON translation.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for guidance sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
 
     def _prepare_guidance_tensor(self, x: torch.Tensor) -> torch.Tensor:
         """Preparies HPX guidance tensor for model. If inputs are lat lon, will convert
@@ -483,19 +492,20 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             batch["day_of_year"] = day_of_year[start_idx:end_idx]
 
             indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
-            output, cb_coords = self.core_model.sample(
-                batch,
-                guidance_pixels=indices_where_tc,
-                seed=self.seed,
-                guidance_scale=self.guidance_scale,
-            )
-
-            # If ICON, translate
-            if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
-                output = self.core_model._normalize(output)
-                output = self.core_model._reorder(output)
-                batch["target"] = output
-                output, _ = self.core_model.translate(batch, dataset="icon")
+            device = batch["target"].device
+            # Backend seeds cover only latents; translation and churn use Torch globals.
+            with fork_rng(self._rng_seed, device, states=self._rng_states):
+                output, cb_coords = self.core_model.sample(
+                    batch,
+                    guidance_pixels=indices_where_tc,
+                    seed=None,
+                    guidance_scale=self.guidance_scale,
+                )
+                if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
+                    output = self.core_model._normalize(output)
+                    output = self.core_model._reorder(output)
+                    batch["target"] = output
+                    output, _ = self.core_model.translate(batch, dataset="icon")
 
             outputs.append(output)
 

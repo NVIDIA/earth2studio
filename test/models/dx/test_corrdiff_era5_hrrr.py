@@ -20,6 +20,8 @@ import numpy as np
 import pytest
 import torch
 
+import earth2studio.models.dx.corrdiff_era5_hrrr as corrdiff_module
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffEra5Hrrr
 from earth2studio.models.dx.corrdiff_era5_hrrr import ERA5_VARIABLES, OUTPUT_VARIABLES
 from earth2studio.utils import handshake_dim
@@ -35,6 +37,86 @@ class PhooNet(torch.nn.Module):
     def forward(self, x, t, condition=None):
         self.seen_t.append(t.detach().clone())
         return torch.zeros_like(x)
+
+
+@pytest.fixture
+def rng_model(monkeypatch):
+    p = CorrDiffEra5Hrrr.__new__(CorrDiffEra5Hrrr)
+    torch.nn.Module.__init__(p)
+    p.register_buffer("lat_input_grid", torch.linspace(30, 27, 4))
+    p.lat_input_numpy = p.lat_input_grid.numpy()
+    p.lon_input_numpy = np.arange(8) + 260.0
+    p.register_buffer("lat_output_grid", torch.ones(2, 3) * 28)
+    p._lat_out_cpu = p.lat_output_grid.numpy()
+    p._lon_out_cpu = np.ones((2, 3)) * 262
+    p.hrrr_y, p.hrrr_x = np.arange(2), np.arange(3)
+    p.era5_variables, p.output_variables = np.array(["t2m"]), np.array(["t2m"])
+    p.number_of_samples = 2
+    p.number_of_steps = 2
+    p.solver = "euler"
+    p.network_kind = "edm"
+    p.sigma_min, p.sigma_max, p.rho = 0.01, 1.0, 7.0
+    p.t_max, p.shift = 0.99, 1.0
+    p.amp = False
+    p.register_buffer("invariants", torch.zeros(1, 2, 3))
+    p.register_buffer("out_center", torch.zeros(1, 1, 2, 3))
+    p.register_buffer("out_scale", torch.ones(1, 1, 2, 3))
+    p.preprocess_input = lambda x, time: None
+
+    class Scheduler:
+        def __init__(self, **kwargs):
+            pass
+
+        def get_denoiser(self, **kwargs):
+            return None
+
+        def sigma(self, t):
+            return t
+
+    monkeypatch.setattr(corrdiff_module, "EDMNoiseScheduler", Scheduler)
+    monkeypatch.setattr(corrdiff_module, "RectifiedFlowNoiseScheduler", Scheduler)
+    monkeypatch.setattr(
+        corrdiff_module, "sample", lambda denoiser, latents, scheduler, **kw: latents
+    )
+    p._rf_time_steps = lambda device, scheduler: torch.tensor([1.0, 0.0], device=device)
+    return p
+
+
+def test_corrdiff_era5_hrrr_conformance(rng_model):
+    check_diagnostic_contract(rng_model)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("kind", ["edm", "rectified_flow"])
+def test_corrdiff_era5_hrrr_rng(rng_model, device, kind):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    p = rng_model.to(device)
+    p.network_kind = kind
+    x = torch.zeros(1, 4, 8, device=device)
+    time = datetime(2025, 7, 1)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+    p.set_rng(42, reset=False)
+    first = p._forward(x, time)
+    p.set_rng(99, reset=False)
+    second = p._forward(x, time)
+    assert not torch.equal(first, second)
+    assert not torch.equal(first[0], first[1])
+    p.set_rng(42)
+    assert torch.equal(first, p._forward(x, time))
+    assert torch.equal(second, p._forward(x, time))
+    p.set_rng(43)
+    assert not torch.equal(first, p._forward(x, time))
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
+def test_corrdiff_era5_hrrr_unseeded_rng(rng_model):
+    state = torch.get_rng_state()
+    rng_model._forward(torch.zeros(1, 4, 8), datetime(2025, 7, 1))
+    assert not torch.equal(state, torch.get_rng_state())
 
 
 @pytest.fixture
@@ -58,7 +140,6 @@ def model_args():
         presence_flags=["tcwv", "sp"],
         number_of_samples=2,
         number_of_steps=3,
-        seed=0,
         amp=False,
     )
 
@@ -84,6 +165,7 @@ def test_corrdiff_era5_hrrr(model_args, kind, prediction, batch_size, device):
     dx = CorrDiffEra5Hrrr(
         **model_args, network_kind=kind, prediction_type=prediction
     ).to(device)
+    dx.set_rng(0)
     if kind == "edm":
         from physicsnemo.diffusion.preconditioners import EDMPreconditioner
 
@@ -115,10 +197,13 @@ def test_corrdiff_era5_hrrr(model_args, kind, prediction, batch_size, device):
     ):
         handshake_dim(out_coords, dim, index)
         np.testing.assert_array_equal(out_coords[dim], expected.coords[dim])
+    dx.set_rng(0)
     torch.testing.assert_close(out, dx(field).e2s.to_torch()[0])
     assert not torch.allclose(out[:, 0], out[:, 1])
     dx.number_of_samples = 1
-    torch.testing.assert_close(dx(field).e2s.to_torch()[0], out[:, :1])
+    dx.set_rng(0)
+    single = dx(field).e2s.to_torch()[0]
+    torch.testing.assert_close(single[0, 0, 0], out[0, 0, 0])
     if kind == "rectified_flow":
         from physicsnemo.diffusion.noise_schedulers import RectifiedFlowNoiseScheduler
 

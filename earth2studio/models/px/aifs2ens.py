@@ -29,6 +29,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -106,11 +107,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cached. If False, invariant fields must be provided as input variables,
         enabling use of invariants from alternative sources for exact reproducibility,
         by default True.
-    seed : int | None
-        If specified, sets the random seed before each model forward pass for
-        reproducible stochastic noise. The seed used is `seed + step` where
-        step is the forecast step number (0, 1, 2, ...). Use the same seed in both
-        E2S and vanilla anemoi-inference to get identical outputs, by default None.
 
     Warning
     -------
@@ -285,12 +281,10 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         inverse_interpolation_matrix: torch.Tensor,
         invariants: torch.Tensor,
         preload_invariants: bool = True,
-        seed: int | None = None,
     ) -> None:
         super().__init__()
         self.model = model
         self.preload_invariants = preload_invariants
-        self.seed = seed
         if preload_invariants:
             self.register_buffer("invariants", invariants)
         else:
@@ -424,7 +418,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         preload_invariants: bool = True,
-        seed: int | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -438,10 +431,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             as input variables, allowing use of invariants from alternative sources
             (e.g., ECMWF Open Data) for exact reproducibility with reference
             implementations, by default True.
-        seed : int | None, optional
-            If specified, sets the random seed before each model forward pass for
-            reproducible stochastic noise. The seed used is `seed + step` where
-            step is the forecast step number, by default None.
 
         Returns
         -------
@@ -562,7 +551,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             inverse_interpolation_matrix=torch_inverse_interpolation_matrix,
             invariants=invariants,
             preload_invariants=preload_invariants,
-            seed=seed,
         )
 
     @staticmethod
@@ -973,6 +961,24 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x
 
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set Anemoi's sampling state without changing the caller's Torch RNG.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for Anemoi's noise draws.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     def _forward(
         self,
         x: torch.Tensor,
@@ -980,14 +986,9 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         step: int = 0,
     ) -> tuple[torch.Tensor, CoordinateSystem]:
         output_coords = self.output_coords(coords)
-        # Set RNG seed for reproducibility if specified
-        # Uses step-dependent seed so each forward call is deterministic but different
-        if self.seed is not None:
-            torch.manual_seed(self.seed + step)
-            if x.device.type == "cuda":
-                torch.cuda.manual_seed(self.seed + step)
         with torch.autocast(device_type=x.device.type, dtype=torch.bfloat16):
-            y = self.model.predict_step(x, fcstep=step)
+            with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+                y = self.model.predict_step(x, fcstep=step)
             out = torch.zeros(
                 (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),
                 device=x.device,

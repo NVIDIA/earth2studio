@@ -26,6 +26,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -98,9 +99,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 200
-    seed : int | None, optional
-        If set, will fix the seed of the random generator for latent variables (no
-        effect), by default None
 
     Badges
     ------
@@ -118,7 +116,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         input_variables: list[str] | VariableArray,
         sampler_steps: int = 18,
         sigma_max: float = 200,
-        seed: int | None = None,
     ):
         super().__init__()
 
@@ -126,7 +123,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.sampler_steps = sampler_steps
         self.batch_size = 4
-        self.seed = seed
 
         self.input_variables = input_variables
 
@@ -314,6 +310,24 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             sigma_max=sigma_max,
         )
 
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed cBottle infilling's Brownian and diffusion noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for infilling noise.
+        reset : bool, optional
+            Reset existing noise state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     @torch.inference_mode()
     @batch_func()
     def __call__(
@@ -368,10 +382,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             }
 
             # Use CBottle3d infill method
-            infilled_data, _ = self.core_model.infill(
-                batch_slice,
-                # seed=None if self.seed is None else self.seed + i, # NO SEED SUPPORT!
-            )
+            # Infill draws Brownian increments and sampler noise internally.
+            with fork_rng(self._rng_seed, device, states=self._rng_states):
+                infilled_data, _ = self.core_model.infill(batch_slice)
 
             outputs.append(infilled_data)
 

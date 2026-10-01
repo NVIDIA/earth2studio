@@ -117,8 +117,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         Maximum input interpolation distance, by default 12.0.
     number_of_samples : int, optional
         Number of GHI samples per input, by default 1.
-    seed : int | None, optional
-        Base random seed, by default None.
     num_steps : int, optional
         Number of diffusion steps, by default 12.
     amp : bool, optional
@@ -176,7 +174,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         x_coords: np.ndarray | None = None,
         input_interp_max_dist_km: float = 12.0,
         number_of_samples: int = 1,
-        seed: int | None = None,
         num_steps: int = 12,
         amp: bool = True,
     ) -> None:
@@ -230,7 +227,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         self._input_interp_max_dist_km = input_interp_max_dist_km
         self.input_interp: nn.Module | None = None
         self.number_of_samples = number_of_samples
-        self.seed = seed
         self.num_steps = num_steps
         self.amp = amp
         self._input_grid: GridDefinition = self._native_grid()
@@ -325,7 +321,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         number_of_samples: int = 1,
-        seed: int | None = None,
     ) -> DiagnosticModel:
         """Load the StormScope NSRDB diagnostic.
 
@@ -335,8 +330,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             Package containing model assets.
         number_of_samples : int, optional
             Number of GHI samples, by default 1.
-        seed : int | None, optional
-            Base random seed, by default None.
 
         Returns
         -------
@@ -400,7 +393,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
             number_of_samples=number_of_samples,
-            seed=seed,
         )
 
     def build_input_interpolator(
@@ -658,6 +650,22 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
                 )
         return next_state
 
+    stochastic = True
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the Gaussian initial noise used by the NSRDB sampler.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the initial-noise stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
     def _forward_sample(self, x: torch.Tensor, coords: np.ndarray) -> torch.Tensor:
         if x.dim() != 5:
             raise ValueError("StormScopeDxNSRDB requires [batch, time, variable, y, x]")
@@ -678,9 +686,10 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
         noise = torch.randn(
             (batch_size * time_size, len(self.output_variables), height, width),
-            device=device,
+            device=device if self._rng_generator is None else "cpu",
             dtype=self._SAMPLER_DTYPE,
-        )
+            generator=self._rng_generator,
+        ).to(device)
         initial_state = regression / self.sigma_max + noise
         with torch.autocast(device_type=device.type, enabled=self.amp):
             output = self._edm_sampler(initial_state, condition).to(dtype)
@@ -712,18 +721,15 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         tensor = torch.where(self.input_valid_mask, tensor, 0.0)
         # The numerical kernel retains its [batch, time, channel, y, x] layout.
         tensor = tensor.reshape(1, -1, *tensor.shape[-3:])
-        samples = []
-        for sample_index in range(self.number_of_samples):
-            if self.seed is not None:
-                torch.manual_seed(self.seed + sample_index)
-            samples.append(
-                self._forward_sample(tensor, times).reshape(
-                    *[x.sizes[d] for d in leading],
-                    len(self.output_variables),
-                    len(self.y),
-                    len(self.x),
-                )
+        samples = [
+            self._forward_sample(tensor, times).reshape(
+                *[x.sizes[d] for d in leading],
+                len(self.output_variables),
+                len(self.y),
+                len(self.x),
             )
+            for _ in range(self.number_of_samples)
+        ]
         position = output_coords.dims.index("sample")
         result = from_torch(torch.stack(samples, dim=position), output_coords)
         result.encoding = deepcopy(x.encoding)

@@ -27,7 +27,7 @@ except ImportError:
     Batch = Metadata = None
 
 from earth2studio.models import px
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px import aurora1p5 as aurora_module
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
@@ -340,19 +340,11 @@ def test_aurora1p5_ensemble_iter(n_members, device):
 
 def test_aurora1p5_ensemble_conformance():
     p = _make_ensemble_model("cpu")
-    with pytest.raises(ContractException) as exc_info:
-        check_prognostic_contract(p)
-    assert {v.split(":")[0] for v in exc_info.value.violations} == {"P14"}
-    with pytest.raises(TypeError, match="reset"):
-        p.set_rng(123, reset=True)
+    check_prognostic_contract(p)
     x = _input(p, np.array(["2001-06-04"], dtype="datetime64[ns]"))
     state = torch.get_rng_state().clone()
-    p.set_rng(None)
-    assert torch.equal(state, torch.get_rng_state())
     p.set_rng(123)
-    assert p.seed is None
-    assert not torch.equal(state, torch.get_rng_state())
-    state = torch.get_rng_state().clone()
+    assert torch.equal(state, torch.get_rng_state())
     iterator = p.create_iterator(x)
     next(iterator)
     first = next(iterator)
@@ -360,22 +352,10 @@ def test_aurora1p5_ensemble_conformance():
     iterator = p.create_iterator(x)
     next(iterator)
     xr.testing.assert_identical(first, next(iterator))
-    assert not torch.equal(state, torch.get_rng_state())
-    constructor_seeded = Aurora1p5Ensemble(
-        PhooAurora1p5EnsembleModel(),
-        {k: torch.ones(_H, _W) for k in _STATIC_KEYS},
-        seed=987,
-    )
-    constructor_seeded.set_rng(123)
-    iterator = constructor_seeded.create_iterator(x)
-    next(iterator)
-    constructor_first = next(iterator)
-    assert not constructor_first.identical(first)
-    constructor_seeded.set_rng(456)
-    iterator = constructor_seeded.create_iterator(x)
-    next(iterator)
-    xr.testing.assert_identical(constructor_first, next(iterator))
-    assert constructor_seeded.seed == 987
+    assert torch.equal(state, torch.get_rng_state())
+    stream = p._rng_seed
+    p.set_rng(456, reset=False)
+    assert stream == p._rng_seed
 
 
 @pytest.mark.parametrize(
@@ -442,11 +422,7 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
     assert calls == [(cycle, h) for cycle in range(2) for h in range(step, 7, step)]
     if ensemble:
         assert core.noise_accumulation_calls == [6 // step, 0]
-        with pytest.raises(ContractException) as exc_info:
-            check_prognostic_contract(p)
-        assert {v.split(":")[0] for v in exc_info.value.violations} == {"P14"}
-    else:
-        check_prognostic_contract(p)
+    check_prognostic_contract(p)
     np.testing.assert_array_equal(
         coords["lead_time"], np.array([6, 12], dtype="timedelta64[h]")
     )

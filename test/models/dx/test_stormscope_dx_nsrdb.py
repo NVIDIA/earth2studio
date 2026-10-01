@@ -23,7 +23,7 @@ import torch
 import xarray as xr
 
 import earth2studio.models.dx.stormscope_dx_nsrdb as stormscope_module
-from earth2studio.models.conformance import ContractException, check_diagnostic_contract
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import StormScopeDxNSRDB
 from earth2studio.utils import coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
@@ -115,7 +115,7 @@ def create_model(
     if partial_mask:
         valid_mask[: height // 2] = False
 
-    return StormScopeDxNSRDB(
+    model = StormScopeDxNSRDB(
         diffusion_model=PhooDiffusionModel(),
         regression_model=PhooRegressionModel(),
         sigma_min=0.004,
@@ -131,10 +131,12 @@ def create_model(
         y_coords=np.arange(height),
         x_coords=np.arange(width),
         number_of_samples=number_of_samples,
-        seed=seed,
         num_steps=2,
         amp=False,
     ).to(device)
+    if seed is not None:
+        model.set_rng(seed)
+    return model
 
 
 def make_input(
@@ -215,9 +217,11 @@ def test_stormscope_dx_nsrdb_seed_and_samples():
     second = model(input_tensor)
     first_coords = first.coords
 
-    xr.testing.assert_identical(first, second)
-    assert not torch.equal(rng, torch.get_rng_state())
-    model.seed = 43
+    assert not np.array_equal(first.values, second.values)
+    model.set_rng(42)
+    xr.testing.assert_identical(first, model(input_tensor))
+    assert torch.equal(rng, torch.get_rng_state())
+    model.set_rng(43)
     assert not np.array_equal(first.values, model(input_tensor).values)
     assert first.shape == (1, 1, 2, 1, 32, 64)
     np.testing.assert_array_equal(first_coords["sample"], np.arange(2))
@@ -232,8 +236,9 @@ def test_stormscope_dx_nsrdb_seed_and_samples():
     observed = input_tensor.assign_coords(
         time=input_tensor.time + np.timedelta64(3, "h")
     )
+    model.set_rng(43)
     expected = model(observed)
-    model.seed = 43
+    model.set_rng(43)
     one = model(
         forecast.isel(member=0, lead_time=0, drop=True).assign_coords(
             time=observed.time
@@ -384,13 +389,14 @@ def test_stormscope_dx_nsrdb_local_package(tmp_path, monkeypatch):
     package = LocalPackage(tmp_path)
     monkeypatch.setattr(stormscope_module, "Module", PhooModule)
 
-    model = StormScopeDxNSRDB.load_model(package, number_of_samples=2, seed=7)
+    model = StormScopeDxNSRDB.load_model(package, number_of_samples=2)
+    model.set_rng(7)
     identity_means, identity_stds = model._build_normalization(
         package, registry, np.array(["identity"])
     )
 
     assert model.number_of_samples == 2
-    assert model.seed == 7
+    assert model._rng_generator.initial_seed() == 7
     torch.testing.assert_close(
         model.conditioning_means.flatten(), torch.arange(8, dtype=torch.float32)
     )
@@ -457,12 +463,7 @@ def test_stormscope_dx_nsrdb_constructor_exceptions(kwargs, match):
 
 def test_stormscope_dx_nsrdb_conformance():
     model = create_model()
-    with pytest.raises(ContractException) as exc_info:
-        check_diagnostic_contract(model)
-    assert exc_info.value.violations == [
-        "D9: model declares stochastic=False but two calls on one input disagree; "
-        "declare stochastic=True and implement set_rng()"
-    ]
+    check_diagnostic_contract(model)
 
 
 @pytest.mark.package
@@ -470,8 +471,8 @@ def test_stormscope_dx_nsrdb_conformance():
 def test_stormscope_dx_nsrdb_package():
     model = StormScopeDxNSRDB.load_model(
         StormScopeDxNSRDB.load_default_package(),
-        seed=42,
     ).to("cuda:0")
+    model.set_rng(42)
     model.num_steps = 2
     input_tensor = make_input(model, device="cuda:0")
 

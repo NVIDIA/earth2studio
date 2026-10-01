@@ -29,6 +29,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -798,6 +799,24 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return x
 
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set Anemoi's sampling state without changing the caller's Torch RNG.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for Anemoi's noise draws.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -807,7 +826,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordinateSystem]:
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=x.device.type, dtype=torch.float16):
-            y = self.model.predict_step(x, fcstep=step)
+            with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+                y = self.model.predict_step(x, fcstep=step)
             out = torch.empty(
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,
