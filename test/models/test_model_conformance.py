@@ -52,21 +52,7 @@ _DIAGNOSTIC_CLASSES = _model_classes(dx, DiagnosticModel)
 
 
 @pytest.mark.parametrize(
-    "model",
-    [
-        (
-            pytest.param(
-                model,
-                marks=pytest.mark.xfail(
-                    reason="New upstream wrapper still exposes constructor/loader seeds",
-                    strict=True,
-                ),
-            )
-            if name == "CorrDiffEra5Hrrr"
-            else model
-        )
-        for name, model in (_PROGNOSTIC_CLASSES | _DIAGNOSTIC_CLASSES).items()
-    ],
+    "model", [*_PROGNOSTIC_CLASSES.values(), *_DIAGNOSTIC_CLASSES.values()]
 )
 def test_model_seeding_only_through_set_rng(model: type) -> None:
     assert "seed" not in inspect.signature(model).parameters
@@ -101,6 +87,7 @@ def test_model_seeding_only_through_set_rng(model: type) -> None:
         "CorrDiffTaiwan",
         "CorrDiffCMIP6",
         "CorrDiffCosmoEra5",
+        "CorrDiffEra5Hrrr",
         "StormScopeDxNSRDB",
     ],
 )
@@ -176,6 +163,7 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "CorrDiff",
     "CorrDiffCMIP6",
     "CorrDiffCosmoEra5",
+    "CorrDiffEra5Hrrr",
     "CorrDiffTaiwan",
     "DLESyMv0_ISCCP_ERA5Precip",
     "DerivedRH",
@@ -195,12 +183,7 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "TCTrackerWuDuan",
     "WindgustAFNO",
 }
-_DIAGNOSTIC_EXEMPT: dict[str, str] = {
-    "CorrDiffEra5Hrrr": (
-        "D9 with seed=None: undeclared sampler randomness; "
-        "test/models/test_corrdiff_era5_hrrr_contract.py."
-    ),
-}
+_DIAGNOSTIC_EXEMPT: dict[str, str] = {}
 
 
 def _check_registration(
