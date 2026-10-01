@@ -26,7 +26,7 @@ from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.rng import fork_rng
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,

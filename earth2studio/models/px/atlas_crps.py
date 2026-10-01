@@ -29,7 +29,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import fork_rng
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,

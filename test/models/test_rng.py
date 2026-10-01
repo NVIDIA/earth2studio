@@ -23,7 +23,7 @@ from earth2studio.models.px.stormscope import StormScopeBase
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_fork_rng_persistent_state(device):
-    from earth2studio.models.rng import fork_rng
+    from earth2studio.models.utils import fork_rng
 
     if device.startswith("cuda") and not torch.cuda.is_available():
         pytest.skip("CUDA missing")

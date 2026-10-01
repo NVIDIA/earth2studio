@@ -24,7 +24,7 @@ from earth2studio.grids import LatLonGrid, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.rng import fork_rng
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (

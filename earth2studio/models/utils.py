@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TypeVar
 
 try:
@@ -87,3 +89,52 @@ def create_ort_session(
     )
 
     return ort_session
+
+
+@contextmanager
+def fork_rng(
+    states: dict[str, torch.Tensor] | None,
+    seed: int | None,
+    device: torch.device,
+) -> Iterator[None]:
+    """Resume model-owned Torch RNG state for a numerical sampling call.
+
+    Parameters
+    ----------
+    states : dict[str, torch.Tensor] | None
+        Model-owned states keyed by ``cpu`` and ``cuda:N``. Updated in place
+        with the advanced states, including when sampling raises an exception.
+    seed : int | None
+        Initial seed for a previously unused device. None leaves global RNG
+        behavior unchanged. Seeded calls require an initialized CPU state.
+    device : torch.device
+        Sampling device. CPU state is preserved alongside CUDA state.
+
+    Notes
+    -----
+    Restores the caller's global state on exit. Do not span iterator yields or
+    use concurrently with other code accessing the same global generators.
+    """
+    if seed is None:
+        yield
+        return
+    if states is None:
+        raise ValueError("Seeded sampling requires initialized RNG states")
+    devices = []
+    if device.type == "cuda":
+        devices = [
+            device.index if device.index is not None else torch.cuda.current_device()
+        ]
+    with torch.random.fork_rng(devices=devices):
+        torch.set_rng_state(states["cpu"])
+        for index in devices:
+            key = f"cuda:{index}"
+            if key not in states:
+                states[key] = torch.Generator(device=key).manual_seed(seed).get_state()
+            torch.cuda.set_rng_state(states[key], index)
+        try:
+            yield
+        finally:
+            states["cpu"] = torch.get_rng_state()
+            for index in devices:
+                states[f"cuda:{index}"] = torch.cuda.get_rng_state(index)

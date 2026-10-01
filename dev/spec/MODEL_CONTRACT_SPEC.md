@@ -346,7 +346,7 @@ Each wrapper owns its RNG implementation. FCN3 delegates to its backend's RNG
 API; CorrDiff supplies sample seeds to its diffusion backend; StormScope and
 NSRDB use explicit noise generators. GenCast and WeatherNext use advancing
 functional JAX keys. Backends without a generator API run inside a wrapper-local
-Torch RNG fork via `earth2studio.models.rng.fork_rng`, saving and resuming
+Torch RNG fork via `earth2studio.models.utils.fork_rng`, saving and resuming
 model-owned CPU/CUDA RNG state between sampling
 calls. Seeds initialize streams once per reset; sampling advances their state. Forks cover only
 the relevant numerical calls and never span iterator yields. Aurora also resets

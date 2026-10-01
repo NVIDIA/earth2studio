@@ -27,7 +27,7 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import fork_rng
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
