@@ -1,7 +1,11 @@
 # Execution Contracts (draft)
 
-The interface between Pipeline work supervision and the execution of one forward run: how to align things between single-model forecasts and coupled component graphs.
+Goal: one execution path for single-model and coupled runs, without making the
+single-model case pay for coupling's complexity.
 
+The interface between Pipeline work supervision and the execution of one
+forward run: how to align things between single-model forecasts and coupled
+component graphs.
 
 Pipeline and the graph compiler are not yet implemented. Existing model, source, grid (`GRID_SPEC.md`), and
 time-statistics (`TIME_STATISTICS_SPEC.md`) contracts remain authoritative.
