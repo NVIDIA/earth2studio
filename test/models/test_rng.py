@@ -14,56 +14,81 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from contextlib import nullcontext
+
 import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.px import DiagnosticWrapper, StormCast
 from earth2studio.models.px.stormscope import StormScopeBase
+from earth2studio.models.utils import fork_rng
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fork_rng_persistent_state(device):
-    from earth2studio.models.utils import fork_rng
-
-    if device.startswith("cuda") and not torch.cuda.is_available():
+@pytest.fixture(params=["cpu", "cuda:0"])
+def device(request):
+    if request.param.startswith("cuda") and not torch.cuda.is_available():
         pytest.skip("CUDA missing")
-    device = torch.device(device)
+    return torch.device(request.param)
+
+
+def make_model(model_type):
+    model = model_type.__new__(model_type)
+    torch.nn.Module.__init__(model)
+    return model
+
+
+@pytest.fixture
+def stormscope():
+    return make_model(StormScopeBase)
+
+
+@pytest.fixture
+def stormcast():
+    model = make_model(StormCast)
+    model._sample = lambda x, conditioning: torch.randn_like(x)
+    return model
+
+
+def test_fork_rng_persistent_state(device):
     states = {"cpu": torch.Generator().manual_seed(1).get_state()}
     reference = torch.Generator(device=device).manual_seed(1)
     cpu_state = torch.get_rng_state()
     cuda_state = torch.cuda.get_rng_state(device) if device.type == "cuda" else None
     for fail in (False, True, False):
-        try:
+        expectation = (
+            pytest.raises(RuntimeError, match="sampling failed")
+            if fail
+            else nullcontext()
+        )
+        with expectation:
             with fork_rng(states, 1, device):
                 actual = torch.randn(8, device=device)
                 if fail:
                     raise RuntimeError("sampling failed")
-        except RuntimeError:
-            assert fail
         assert torch.equal(actual, torch.randn(8, device=device, generator=reference))
         assert torch.equal(cpu_state, torch.get_rng_state())
         if cuda_state is not None:
             assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
+def test_fork_rng_unseeded_uses_global_rng(device):
+    reference = torch.Generator(device=device)
+    state = (
+        torch.cuda.get_rng_state(device)
+        if device.type == "cuda"
+        else torch.get_rng_state()
+    )
+    reference.set_state(state)
     with fork_rng(None, None, device):
-        torch.rand(8)
-    assert not torch.equal(cpu_state, torch.get_rng_state())
+        first = torch.randn(8, device=device)
+    second = torch.randn(8, device=device)
+    assert torch.equal(first, torch.randn(8, device=device, generator=reference))
+    assert torch.equal(second, torch.randn(8, device=device, generator=reference))
 
 
-@pytest.mark.parametrize(
-    "device",
-    [
-        "cpu",
-        pytest.param(
-            "cuda:0",
-            marks=pytest.mark.skipif(
-                not torch.cuda.is_available(), reason="CUDA missing"
-            ),
-        ),
-    ],
-)
-def test_rng_stream_reset_and_isolation(device):
-    model = StormScopeBase.__new__(StormScopeBase)
-    torch.nn.Module.__init__(model)
+def test_rng_stream_reset_and_isolation(device, stormscope):
+    model = stormscope
     template = torch.empty(8, device=device)
     model.set_rng(42, reset=False)
     first = model._randn_like(template)
@@ -87,17 +112,13 @@ def test_rng_stream_reset_and_isolation(device):
     assert not torch.equal(first, model._randn_like(template))
 
 
-def test_unseeded_model_uses_global_rng():
-    model = StormScopeBase.__new__(StormScopeBase)
-    torch.nn.Module.__init__(model)
+def test_unseeded_model_uses_global_rng(stormscope):
     state = torch.get_rng_state()
-    model._randn_like(torch.empty(8))
+    stormscope._randn_like(torch.empty(8))
     assert not torch.equal(state, torch.get_rng_state())
 
 
 def test_wrapper_dispatches_rng():
-    from earth2studio.models.px import DiagnosticWrapper
-
     class Component(torch.nn.Module):
         stochastic = True
         _rng_generator = None
@@ -106,35 +127,26 @@ def test_wrapper_dispatches_rng():
             if reset or self._rng_generator is None:
                 self._rng_generator = torch.Generator().manual_seed(seed)
 
-    wrapper = DiagnosticWrapper(Component(), Component())
+    components = [Component(), Component()]
+    wrapper = DiagnosticWrapper(*components)
     assert wrapper.stochastic
     wrapper.set_rng(12, reset=False)
-    states = [
-        m._rng_generator.get_state() for m in [wrapper.px_model, *wrapper.dx_model]
-    ]
+    states = [model._rng_generator.get_state() for model in components]
     wrapper.set_rng(99, reset=False)
-    for model, state in zip([wrapper.px_model, *wrapper.dx_model], states):
+    for model, state in zip(components, states):
         assert torch.equal(model._rng_generator.get_state(), state)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormcast_sampler_state_and_exception_isolation(device):
-    from earth2studio.models.px import StormCast
-
-    if device.startswith("cuda") and not torch.cuda.is_available():
-        pytest.skip("CUDA missing")
-    model = StormCast.__new__(StormCast)
-    torch.nn.Module.__init__(model)
+def test_stormcast_sampler_stream(device, stormcast):
+    model = stormcast
     x = torch.empty(8, device=device)
-    model._sample = lambda x, conditioning: torch.randn_like(x)
     cpu_state = torch.get_rng_state()
     cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
     model.set_rng(42, reset=False)
     first = model._forward(x, x)
     reference = torch.Generator(device=device).manual_seed(42)
     assert torch.equal(first, torch.randn(x.shape, device=device, generator=reference))
-    other = StormCast.__new__(StormCast)
-    torch.nn.Module.__init__(other)
+    other = make_model(StormCast)
     other._sample = model._sample
     other.set_rng(43)
     other_first = other._forward(x, x)
@@ -146,14 +158,24 @@ def test_stormcast_sampler_state_and_exception_isolation(device):
     model.set_rng(42)
     assert torch.equal(first, model._forward(x, x))
     assert torch.equal(second, model._forward(x, x))
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
+def test_stormcast_sampler_exception_isolation(device, stormcast):
+    x = torch.empty(8, device=device)
+    stormcast.set_rng(42)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
 
     def fail(x, conditioning):
         torch.randn_like(x)
         raise RuntimeError("sampler failed")
 
-    model._sample = fail
+    stormcast._sample = fail
     with pytest.raises(RuntimeError, match="sampler failed"):
-        model._forward(x, x)
+        stormcast._forward(x, x)
     assert torch.equal(cpu_state, torch.get_rng_state())
     if x.is_cuda:
         assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
