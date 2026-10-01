@@ -254,7 +254,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+            self._rng_states = {}
 
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array

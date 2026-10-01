@@ -102,15 +102,14 @@ def fork_rng(
     Parameters
     ----------
     states : dict[str, torch.Tensor] | None
-        Model-owned RNG snapshots. When ``seed`` is not None, the caller must
-        supply ``states["cpu"]`` (a CPU generator's ``get_state()`` result).
-        For CUDA sampling, ``states["cuda:N"]`` stores the selected GPU's state;
-        this helper creates that entry from ``seed`` if it is missing.
+        Model-owned RNG snapshots keyed by ``cpu`` and ``cuda:N``. Pass an empty
+        dictionary to start a new stream; this helper initializes missing CPU
+        and selected CUDA states from ``seed`` as needed.
         Saved states are resumed and updated in place as sampling advances,
         including when sampling raises an exception. Ignored if ``seed`` is None.
     seed : int | None
         If not None, run sampling with the model's saved RNG states, using this
-        seed only to create a missing CUDA state for ``device``. Existing states
+        seed to create missing CPU and selected CUDA states. Existing states
         are not reseeded. If None, no RNG state is saved or restored: random
         draws use and advance the caller's global RNG streams normally.
     device : torch.device
@@ -130,13 +129,15 @@ def fork_rng(
         yield
         return
     if states is None:
-        raise ValueError("Seeded sampling requires initialized RNG states")
+        raise ValueError("Seeded sampling requires a state dictionary; use {} to start")
     devices = []
     if device.type == "cuda":
         devices = [
             device.index if device.index is not None else torch.cuda.current_device()
         ]
     with torch.random.fork_rng(devices=devices):
+        if "cpu" not in states:
+            states["cpu"] = torch.Generator().manual_seed(seed).get_state()
         torch.set_rng_state(states["cpu"])
         for index in devices:
             key = f"cuda:{index}"

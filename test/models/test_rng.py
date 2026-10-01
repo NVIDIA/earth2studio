@@ -29,8 +29,9 @@ def device(request):
     return torch.device(request.param)
 
 
-def test_fork_rng_persistent_state(device):
-    states = {"cpu": torch.Generator().manual_seed(1).get_state()}
+@pytest.mark.parametrize("initialized", [False, True])
+def test_fork_rng_persistent_state(device, initialized):
+    states = {"cpu": torch.Generator().manual_seed(1).get_state()} if initialized else {}
     reference = torch.Generator(device=device).manual_seed(1)
     cpu_state = torch.get_rng_state()
     cuda_state = torch.cuda.get_rng_state(device) if device.type == "cuda" else None

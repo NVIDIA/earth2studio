@@ -411,7 +411,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+            self._rng_states = {}
 
     def _prepare_guidance_tensor(self, x: torch.Tensor) -> torch.Tensor:
         """Preparies HPX guidance tensor for model. If inputs are lat lon, will convert

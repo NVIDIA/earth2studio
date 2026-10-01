@@ -326,7 +326,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+            self._rng_states = {}
 
     @torch.inference_mode()
     @batch_func()

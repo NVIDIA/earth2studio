@@ -570,7 +570,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+            self._rng_states = {}
 
     def _edm_denoiser(self, condition: TensorDict) -> Any:
         """Build an unconditional EDM denoiser for the given conditioning."""
