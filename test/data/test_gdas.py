@@ -258,6 +258,7 @@ def test_nomads_gdas_call_mock(tmp_path):
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime([obs_time1, obs_time2]),
+            "report_time": pd.to_datetime([obs_time1, obs_time2]),
             "pres": np.array([50000.0, 85000.0], dtype=np.float32),
             "elev": np.array([5000.0, 1500.0], dtype=np.float32),
             "type": np.array([101, 106], dtype=np.uint16),
@@ -265,10 +266,14 @@ def test_nomads_gdas_call_mock(tmp_path):
             "class": ["1", "1"],
             "lat": np.array([40.0, 35.0], dtype=np.float32),
             "lon": np.array([250.0, 280.0], dtype=np.float32),
+            "report_lat": np.array([40.0, 35.0], dtype=np.float32),
+            "report_lon": np.array([250.0, 280.0], dtype=np.float32),
             "station": ["72451", "72520"],
             "station_elev": np.array([300.0, 200.0], dtype=np.float32),
             "quality": np.array([0, 0], dtype=np.uint16),
             "pressure_quality": pd.array([1, 1], dtype="uint16[pyarrow]"),
+            "radius_curvature": np.array([np.nan, np.nan], dtype=np.float64),
+            "geoid_undulation": np.array([np.nan, np.nan], dtype=np.float64),
             "observation": np.array([250.0, 288.0], dtype=np.float32),
             "variable": ["t", "t"],
         }

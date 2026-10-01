@@ -65,6 +65,9 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+            "report_time": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 00:00:00"]
+            ),
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
@@ -72,6 +75,8 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
+            "report_lat": [40.0, 41.0],
+            "report_lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
@@ -216,6 +221,9 @@ def test_nnja_obs_conv_mock_fetch():
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+            "report_time": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 00:00:00"]
+            ),
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
@@ -223,6 +231,8 @@ def test_nnja_obs_conv_mock_fetch():
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
+            "report_lat": [40.0, 41.0],
+            "report_lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],

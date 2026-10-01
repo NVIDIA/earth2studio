@@ -244,10 +244,11 @@ class NNJAObsConv:
         corrections (for temperature often the virtual temperature), with its
         quality mark; ``"original"`` is the bottom, the report as first ingested
         (program code 1). By default ``"latest"``.
-    balloon_drift : bool, optional
-        Place each radiosonde level at its drifted time and position (HRDR, YDR,
-        XDR). False keeps the report header's time and position for every level.
-        By default True.
+
+        PrepBUFR reports are selected by report-header time to preserve complete
+        profiles. ``time``, ``lat``, and ``lon`` contain level coordinates;
+        ``report_time``, ``report_lat``, and ``report_lon`` contain header
+        coordinates.
 
     Warning
     -------
@@ -288,7 +289,6 @@ class NNJAObsConv:
         retries: int = 3,
         exclude_message_types: Sequence[str] = (),
         event: str = "latest",
-        balloon_drift: bool = True,
     ) -> None:
         if source == "convbufr":
             raise NotImplementedError(
@@ -312,7 +312,6 @@ class NNJAObsConv:
         if event not in ("latest", "original"):
             raise ValueError(f"event must be 'latest' or 'original', got {event!r}")
         self._original_event = event == "original"
-        self._balloon_drift = balloon_drift
         self._source = source
         # Internal switch for the special aircraft-profile product. Default
         # output maps profile-stage 33x/43x/53x report codes to the standard
@@ -491,7 +490,6 @@ class NNJAObsConv:
                 decode_workers=self._decode_workers,
                 exclude_message_types=self._exclude_message_types,
                 original_event=self._original_event,
-                balloon_drift=self._balloon_drift,
             )
             if (
                 self._source == "prepbufr.acft_profiles"

@@ -843,17 +843,13 @@ def _sounding_level() -> tuple[list[SimpleNamespace], list[object]]:
 
 
 @pytest.mark.parametrize(
-    "original_event, balloon_drift, value, quality, hours, lat, lon",
+    "original_event, value, quality",
     [
-        (False, True, -10.0, 9, 0.5, 21.0, 11.0),
-        (True, True, -12.0, 2, 0.5, 21.0, 11.0),
-        (False, False, -10.0, 9, 0.0, 20.0, 10.0),
-        (True, False, -12.0, 2, 0.0, 20.0, 10.0),
+        (False, -10.0, 9),
+        (True, -12.0, 2),
     ],
 )
-def test_prepbufr_event_and_drift_selection(
-    original_event, balloon_drift, value, quality, hours, lat, lon
-):
+def test_prepbufr_event_and_level_coordinates(original_event, value, quality):
     descriptors, values = _sounding_level()
     base = datetime(2024, 1, 1)
     ((key, _modifier),) = _prepbufr_plan(NNJAObsConvLexicon, "t").values()
@@ -866,11 +862,41 @@ def test_prepbufr_event_and_drift_selection(
         base - timedelta(hours=3),
         base + timedelta(hours=3),
         original_event=original_event,
-        balloon_drift=balloon_drift,
     )
     assert len(rows) == 1
     row = rows[0]
     assert row["observation"] == value
     assert row["quality"] == quality
-    assert row["time"] == base + timedelta(hours=hours)
-    assert (row["lat"], row["lon"]) == (lat, lon)
+    assert row["time"] == base + timedelta(hours=0.5)
+    assert (row["lat"], row["lon"]) == (21.0, 11.0)
+    assert row["report_time"] == base
+    assert (row["report_lat"], row["report_lon"]) == (20.0, 10.0)
+
+
+def test_prepbufr_filters_complete_reports_by_header_time():
+    descriptors, values = _sounding_level()
+    base = datetime(2024, 1, 1)
+    ((key, _modifier),) = _prepbufr_plan(NNJAObsConvLexicon, "t").values()
+
+    kept = utils_ncep._extract_prepbufr_subset(
+        descriptors,
+        values,
+        base,
+        "ADPUPA",
+        [("t", key)],
+        base - timedelta(minutes=15),
+        base + timedelta(minutes=15),
+    )
+    assert len(kept) == 1
+    assert kept[0]["time"] == base + timedelta(minutes=30)
+
+    dropped = utils_ncep._extract_prepbufr_subset(
+        descriptors,
+        values,
+        base,
+        "ADPUPA",
+        [("t", key)],
+        base + timedelta(minutes=15),
+        base + timedelta(minutes=45),
+    )
+    assert dropped == []

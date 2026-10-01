@@ -16,7 +16,7 @@
 
 import re
 from collections import OrderedDict
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from typing import Any
 
 import numpy as np
@@ -131,7 +131,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         self._output_lon = np.linspace(0, 360, NLON, endpoint=False)
 
     @property
-    def sensor_indices(self) -> dict[str, list[int]]:
+    def sensor_indices(self) -> dict[str, Sequence[int]]:
         """IR sounder channels the model reads, for ``NNJAObsSat(sensor_indices=...)``."""
         return self._model.ir_channels
 
@@ -140,8 +140,8 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     ) -> tuple[NNJAObsConv, NNJAObsSatwnd, NNJAObsSat]:
         """The ``(conv_obs, satwnd_obs, sat_obs)`` sources, configured as trained.
 
-        PrepBUFR as the archive the model trained on holds it: each observation's
-        original event, every level of a report at the report's time and position.
+        PrepBUFR provides each observation's original event and complete reports;
+        HealDA uses the report-coordinate columns to reproduce its training input.
         Radiances only for the IR sounder channels the model reads; the full CrIS
         spectrum is about 600M rows per six-hour cycle.
 
@@ -156,7 +156,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
             NNJAObsConv(
                 time_tolerance=time_tolerance,
                 event="original",
-                balloon_drift=False,
                 **kwargs,
             ),
             NNJAObsSatwnd(time_tolerance=time_tolerance, **kwargs),
@@ -306,7 +305,8 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         ----------
         conv_obs : pd.DataFrame | None, optional
             PrepBUFR and GPS-RO observations from
-            ``NNJAObsConv(event="original", balloon_drift=False)``, by default None
+            ``NNJAObsConv(event="original")``; PrepBUFR report coordinates are
+            applied internally, by default None
         satwnd_obs : pd.DataFrame | None, optional
             Satellite winds from ``NNJAObsSatwnd``, by default None
         sat_obs : pd.DataFrame | None, optional
@@ -329,6 +329,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
             )
         request_time = self._request_time(conv_obs, satwnd_obs, sat_obs)
         frames = [_to_pandas(df) for df in (conv_obs, satwnd_obs, sat_obs)]
+        frames[0] = _use_report_coordinates(frames[0])
         (output_coords,) = self.output_coords(
             self.input_coords(), request_time=request_time
         )
@@ -422,3 +423,17 @@ def _to_pandas(df: Any) -> pd.DataFrame | None:
     if cudf is not None and isinstance(df, cudf.DataFrame):
         return df.to_pandas()
     return df
+
+
+def _use_report_coordinates(df: pd.DataFrame | None) -> pd.DataFrame | None:
+    if df is None:
+        return None
+    result = df.copy()
+    for coordinate in ("time", "lat", "lon"):
+        report_coordinate = f"report_{coordinate}"
+        if report_coordinate not in result:
+            continue
+        mask = result[report_coordinate].notna()
+        result.loc[mask, coordinate] = result.loc[mask, report_coordinate]
+    result.attrs = df.attrs.copy()
+    return result

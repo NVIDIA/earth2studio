@@ -97,6 +97,12 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
     [
         E2STUDIO_SCHEMA.field("time"),
         pa.field(
+            "report_time",
+            pa.timestamp("ns"),
+            nullable=True,
+            metadata={"description": "PrepBUFR report-header time (DHR)"},
+        ),
+        pa.field(
             "pres",
             pa.float32(),
             nullable=True,
@@ -139,6 +145,18 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
         E2STUDIO_SCHEMA.field("lon"),
+        pa.field(
+            "report_lat",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "PrepBUFR report-header latitude (YOB)"},
+        ),
+        pa.field(
+            "report_lon",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "PrepBUFR report-header longitude (XOB)"},
+        ),
         E2STUDIO_SCHEMA.field("station"),
         E2STUDIO_SCHEMA.field("station_elev"),
         pa.field(
@@ -217,6 +235,8 @@ _NULL_FLOAT_DTYPES: dict[str, type[np.floating[Any]]] = {
     "geoid_undulation": np.float64,
     "lat": np.float32,
     "lon": np.float32,
+    "report_lat": np.float32,
+    "report_lon": np.float32,
     "observation": np.float32,
 }
 
@@ -303,7 +323,6 @@ def _decode_prepbufr_message(
     dhr_scale: int,
     hrdr_scale: int,
     original_event: bool = False,
-    balloon_drift: bool = True,
 ) -> list[dict[str, Any]]:
     try:
         message = decoder.process(message_bytes)
@@ -333,7 +352,6 @@ def _decode_prepbufr_message(
                 dhr_scale,
                 hrdr_scale,
                 original_event,
-                balloon_drift,
             )
         )
     return rows
@@ -350,7 +368,6 @@ def _extract_prepbufr_subset(
     dhr_scale: int = 5,
     hrdr_scale: int = 5,
     original_event: bool = False,
-    balloon_drift: bool = True,
 ) -> list[dict[str, Any]]:
     """Extract one event per observation from CAT-delimited physical levels.
 
@@ -384,6 +401,13 @@ def _extract_prepbufr_subset(
             break
 
     header_time = _time_from_offset(base_time, header["dhr"], dhr_scale) or base_time
+    if header_time < dt_min or header_time > dt_max:
+        return []
+
+    report_lat = np.float32(header["yob"]) if header["yob"] is not None else None
+    report_lon = (
+        np.float32(float(header["xob"]) % 360.0) if header["xob"] is not None else None
+    )
     needed_ids: dict[str, int] = {}
     need_wind = False
     for variable, key in var_keys:
@@ -394,12 +418,11 @@ def _extract_prepbufr_subset(
 
     base_row: dict[str, Any] = {
         "time": header_time,
-        "lat": np.float32(header["yob"]) if header["yob"] is not None else None,
-        "lon": (
-            np.float32(float(header["xob"]) % 360.0)
-            if header["xob"] is not None
-            else None
-        ),
+        "report_time": header_time,
+        "lat": report_lat,
+        "lon": report_lon,
+        "report_lat": report_lat,
+        "report_lon": report_lon,
         "pres": None,
         "elev": None,
         "type": np.uint16(int(header["typ"])) if header["typ"] is not None else None,
@@ -426,13 +449,10 @@ def _extract_prepbufr_subset(
                     level,
                     base_row,
                     base_time,
-                    dt_min,
-                    dt_max,
                     hrdr_scale,
                     needed_ids,
                     need_wind,
                     var_keys,
-                    balloon_drift,
                 )
             level = {OBS_CAT: value}
             in_level = True
@@ -447,13 +467,10 @@ def _extract_prepbufr_subset(
             level,
             base_row,
             base_time,
-            dt_min,
-            dt_max,
             hrdr_scale,
             needed_ids,
             need_wind,
             var_keys,
-            balloon_drift,
         )
     return rows
 
@@ -463,26 +480,17 @@ def _emit_prepbufr_level(
     level: dict[int, Any],
     base_row: dict[str, Any],
     base_time: datetime,
-    dt_min: datetime,
-    dt_max: datetime,
     hrdr_scale: int,
     needed_ids: dict[str, int],
     need_wind: bool,
     var_keys: Sequence[tuple[str, str]],
-    balloon_drift: bool = True,
 ) -> None:
     common = base_row.copy()
-    # Drift (HRDR/YDR/XDR) places a sounding level where the balloon was; without it
-    # every level keeps the report header's time and position.
-    if balloon_drift:
-        level_time = _time_from_offset(base_time, level.get(OBS_HRDR), hrdr_scale)
-        if level_time is not None:
-            common["time"] = level_time
-    if common["time"] < dt_min or common["time"] > dt_max:
-        return
-
-    level_lat = level.get(OBS_YDR) if balloon_drift else None
-    level_lon = level.get(OBS_XDR) if balloon_drift else None
+    level_time = _time_from_offset(base_time, level.get(OBS_HRDR), hrdr_scale)
+    if level_time is not None:
+        common["time"] = level_time
+    level_lat = level.get(OBS_YDR)
+    level_lon = level.get(OBS_XDR)
     if level_lat is not None:
         common["lat"] = np.float32(level_lat)
     if level_lon is not None:
@@ -884,7 +892,6 @@ def _prepbufr_worker(
     dhr_scale: int,
     hrdr_scale: int,
     original_event: bool,
-    balloon_drift: bool,
 ) -> list[dict[str, Any]]:
     with _silence_bufr_noise():
         return _decode_prepbufr_message(
@@ -897,7 +904,6 @@ def _prepbufr_worker(
             dhr_scale,
             hrdr_scale,
             original_event,
-            balloon_drift,
         )
 
 
@@ -921,7 +927,6 @@ def decode_prepbufr(
     decode_workers: int = 8,
     exclude_message_types: Collection[str] = (),
     original_event: bool = False,
-    balloon_drift: bool = True,
 ) -> pd.DataFrame:
     """Decode a merged NCEP PrepBUFR file into a DataFrame.
 
@@ -932,7 +937,7 @@ def decode_prepbufr(
     plan : Mapping
         Variable decode plan: ``{variable: (mnemonic_key, modifier)}``.
     dt_min, dt_max : datetime
-        Time window for observation filtering.
+        Time window for report-header filtering.
     decode_workers : int
         Number of parallel decode processes (1 disables multiprocessing).
     exclude_message_types : Collection[str]
@@ -941,9 +946,6 @@ def decode_prepbufr(
     original_event : bool
         Emit each observation's original report (event program code 1) instead of
         its latest, quality-controlled event.
-    balloon_drift : bool
-        Place sounding levels at their drifted time and position; False keeps the
-        report header's.
     """
     decode_workers = max(1, decode_workers)
     var_keys = [(variable, key) for variable, (key, _) in plan.items()]
@@ -982,7 +984,6 @@ def decode_prepbufr(
                     dhr_scale,
                     hrdr_scale,
                     original_event,
-                    balloon_drift,
                 )
                 for message_bytes, obs_class in work_items
             ]
@@ -1004,7 +1005,6 @@ def decode_prepbufr(
                     dhr_scale,
                     hrdr_scale,
                     original_event,
-                    balloon_drift,
                 )
             )
     logger.debug(

@@ -22,7 +22,13 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.models.da.healda_v2 import NLAT, NLON, HealDAv2, channel_to_e2s
+from earth2studio.models.da.healda_v2 import (
+    NLAT,
+    NLON,
+    HealDAv2,
+    _use_report_coordinates,
+    channel_to_e2s,
+)
 
 # ---------- Constants ----------
 
@@ -183,6 +189,32 @@ def test_healda_v2_call_missing_request_time():
         model(satwnd_obs=df)
 
 
+def test_healda_v2_uses_report_coordinates_for_prepbufr():
+    request_time = np.array([CYCLE])
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2024-01-05T00:30:00", "2024-01-05T00:15:00"]),
+            "report_time": pd.to_datetime(["2024-01-05T00:00:00", None]),
+            "lat": [11.0, 21.0],
+            "report_lat": [10.0, np.nan],
+            "lon": [31.0, 41.0],
+            "report_lon": [30.0, np.nan],
+        }
+    )
+    frame.attrs = {"request_time": request_time}
+
+    result = _use_report_coordinates(frame)
+
+    assert result is not None
+    assert result["time"].tolist() == [
+        pd.Timestamp("2024-01-05T00:00:00"),
+        pd.Timestamp("2024-01-05T00:15:00"),
+    ]
+    assert result["lat"].tolist() == [10.0, 21.0]
+    assert result["lon"].tolist() == [30.0, 41.0]
+    assert np.array_equal(result.attrs["request_time"], request_time)
+
+
 def test_healda_v2_call_no_inputs():
     model = _build_model()
     with pytest.raises(ValueError, match="At least one"):
@@ -236,7 +268,8 @@ def test_healda_v2_data_sources_match_training():
     assert isinstance(conv, NNJAObsConv) and not isinstance(conv, NNJAObsSatwnd)
     assert isinstance(satwnd, NNJAObsSatwnd)
     assert isinstance(sat, NNJAObsSat)
-    assert conv._original_event and not conv._balloon_drift
+    assert conv._original_event
+    assert {"report_time", "report_lat", "report_lon"} <= set(conv.SCHEMA.names)
     assert sat._sensor_indices == {"cris": frozenset({19, 24})}
 
 
