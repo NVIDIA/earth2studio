@@ -33,7 +33,6 @@ from earth2studio.models.dx import (
     SolarRadiationAFNO1H,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 
@@ -92,6 +91,7 @@ def test_make_input_unique_time_dimension(has_time):
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
+    generator = None
 
     def __init__(
         self,
@@ -111,7 +111,7 @@ class PhooFCN3Preprocessor(torch.nn.Module):
         return self.state
 
     def update_internal_state(self, replace_state=True):
-        self.state = torch.randn((10,), device=self.state.device)
+        self.state = torch.randn((10,), generator=self.generator).to(self.state.device)
 
 
 class PhooFCN3Model(torch.nn.Module):
@@ -138,6 +138,7 @@ class PhooFCN3ModelWrapper(torch.nn.Module):
     def set_rng(self, reset: bool = True, seed: int = 333):
         if reset or self._generator is None:
             self._generator = torch.Generator().manual_seed(seed)
+            self.model.preprocessor.generator = torch.Generator().manual_seed(seed)
 
 
 class PhooAFNOPrecipV2(torch.nn.Module):
@@ -461,11 +462,17 @@ def test_diagnosticwrapper_conformance(tmp_path):
     iterator.close()
     wrapped_model.clear_hooks()
 
-    class SamplingWind(RNGMixin, DerivedWS):
-        @seeded
+    class SamplingWind(DerivedWS):
+        stochastic = True
+        generator = None
+
+        def set_rng(self, seed, reset=True):
+            if reset or self.generator is None:
+                self.generator = torch.Generator().manual_seed(seed)
+
         def __call__(self, x):
             result = super().__call__(x)
-            result.data += torch.randn(result.shape).numpy()
+            result.data += torch.randn(result.shape, generator=self.generator).numpy()
             return result
 
     sampled = DiagnosticWrapper(px_model, SamplingWind(["10m"], grid=grid))

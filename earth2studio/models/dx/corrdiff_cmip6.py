@@ -30,7 +30,6 @@ from earth2studio.models.auto import Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.corrdiff import CorrDiff
-from earth2studio.models.rng import seeded
 from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -776,7 +775,6 @@ class CorrDiffCMIP6(CorrDiff):
         return torch.flip(x, [2])
 
     @torch.inference_mode()
-    @seeded
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
     ) -> torch.Tensor:
@@ -819,7 +817,11 @@ class CorrDiffCMIP6(CorrDiff):
             )
 
         # Compute base seed once (sample index added in loop)
-        seed0 = int(np.random.randint(2**32))
+        seed0 = int(
+            self._sample_rng.integers(2**32)
+            if self._sample_rng is not None
+            else np.random.randint(2**32)
+        )
 
         # Where to accumulate samples (CPU streaming reduces GPU peak memory)
         out_device = (

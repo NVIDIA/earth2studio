@@ -58,6 +58,7 @@ class PhooFCN3Preprocessor(torch.nn.Module):
             ),
         )
         self.refreshes = 0
+        self.generator = None
 
     def set_internal_state(self, state: torch.Tensor):
         self.state = state.to(self.state.device)
@@ -67,7 +68,7 @@ class PhooFCN3Preprocessor(torch.nn.Module):
 
     def update_internal_state(self, replace_state=True):
         self.refreshes += 1
-        self.state = torch.randn((10,), device=self.state.device)
+        self.state = torch.randn((10,), generator=self.generator).to(self.state.device)
 
 
 class PhooFCN3Model(torch.nn.Module):
@@ -94,6 +95,7 @@ class PhooFCN3ModelWrapper(torch.nn.Module):
     def set_rng(self, reset: bool = True, seed: int = 333):
         if reset or self._generator is None:
             self._generator = torch.Generator().manual_seed(seed)
+            self.model.preprocessor.generator = torch.Generator().manual_seed(seed)
 
 
 @pytest.fixture(scope="function")

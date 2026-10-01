@@ -36,7 +36,6 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -68,7 +67,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class StormScopeBase(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormScope diffusion prognostic base model with staged denoising.
 
     Variants should subclass to define dataset/resolution specifics (e.g., grids,
@@ -1006,8 +1005,31 @@ class StormScopeBase(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin)
 
         return torch.cat(parts, dim=1)
 
+    def _randn_like(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.randn(
+            x.shape,
+            dtype=x.dtype,
+            device=x.device if self._noise_generator is None else "cpu",
+            generator=self._noise_generator,
+        ).to(x.device)
+
+    stochastic = True
+    _noise_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed initial latents and per-step EDM churn noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion noise.
+        reset : bool, optional
+            Reset existing noise state, by default True.
+        """
+        if reset or self._noise_generator is None:
+            self._noise_generator = torch.Generator().manual_seed(seed)
+
     @torch.inference_mode()
-    @seeded
     def _forward(
         self,
         x: torch.Tensor,
@@ -1091,9 +1113,7 @@ class StormScopeBase(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin)
             conditioning_coords=conditioning_coords,
         )
 
-        latents = torch.randn(
-            b * t, *x.shape[3:], device=x.device, dtype=x.dtype
-        )  # shape [B*T, C, H, W]
+        latents = self._randn_like(x[:, :, -1].reshape(b * t, *x.shape[3:]))
 
         # Run diffusion sampler. When AMP is enabled, autocast accelerates the
         # DiT forward passes inside the sampler; the latent/state math stays in
@@ -1106,6 +1126,7 @@ class StormScopeBase(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin)
                 condition=condition,
                 sigma_min=self.start_sigma,
                 sigma_max=self.end_sigma,
+                randn_like=self._randn_like,
                 **self.sampler_args,
             ).to(output_dtype)
 

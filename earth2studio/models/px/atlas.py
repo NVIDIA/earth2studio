@@ -30,7 +30,6 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -143,7 +142,7 @@ def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
 
 
 @check_optional_dependencies()
-class Atlas(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Atlas prognostic model for ERA5 variables on a 0.25° global lat-lon grid.
 
     Atlas consumes two input lead times (t-6h and t) and predicts a single step at
@@ -291,8 +290,24 @@ class Atlas(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         result.encoding = x_pred.encoding.copy()
         return result
 
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed Atlas's stochastic interpolant sampling state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for latent sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+
     @torch.inference_mode()
-    @seeded
     def _forward(
         self,
         x: torch.Tensor,
@@ -344,14 +359,32 @@ class Atlas(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         cond = {"x_1": low_res.clone(), "x_2": prev.clone()}
 
         # Stochastic interpolant sampling in latent space
-        prediction_latent = self.sinterpolant.sample(
-            self.model,
-            low_res.clone(),
-            steps=self.sinterpolant_sample_steps,
-            cond=cond,
-            verbose=False,
-            compute_normalization=True,
-        )
+        devices = [x.device] if x.is_cuda else []
+        key = str(x.device)
+        if self._rng_seed is not None and key not in self._rng_states:
+            self._rng_states[key] = (
+                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
+            )
+        # The interpolant draws its own latent noise and accepts no generator.
+        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
+            if self._rng_seed is not None:
+                torch.set_rng_state(self._rng_states["cpu"])
+                if x.is_cuda:
+                    torch.cuda.set_rng_state(self._rng_states[key], x.device)
+            try:
+                prediction_latent = self.sinterpolant.sample(
+                    self.model,
+                    low_res.clone(),
+                    steps=self.sinterpolant_sample_steps,
+                    cond=cond,
+                    verbose=False,
+                    compute_normalization=True,
+                )
+            finally:
+                if self._rng_seed is not None:
+                    self._rng_states["cpu"] = torch.get_rng_state()
+                    if x.is_cuda:
+                        self._rng_states[key] = torch.cuda.get_rng_state(x.device)
 
         # Decode
         pred = self.autoencoders[0](high_res, prediction_latent)

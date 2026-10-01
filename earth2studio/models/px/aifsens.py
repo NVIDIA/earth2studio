@@ -29,7 +29,6 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -171,7 +170,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class AIFSENS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
     probabilistic, ensemble-based forecast model from the European Centre for
     Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a
@@ -799,8 +798,24 @@ class AIFSENS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
 
         return x
 
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set Anemoi's sampling state without changing the caller's Torch RNG.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for Anemoi's noise draws.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+
     @torch.inference_mode()
-    @seeded
     def _forward(
         self,
         x: torch.Tensor,
@@ -809,7 +824,28 @@ class AIFSENS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordinateSystem]:
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=x.device.type, dtype=torch.float16):
-            y = self.model.predict_step(x, fcstep=step)
+            if self._rng_seed is None:
+                y = self.model.predict_step(x, fcstep=step)
+            else:
+                # Anemoi's predict_step does not accept a generator.
+                devices = [x.device] if x.is_cuda else []
+                key = str(x.device)
+                if key not in self._rng_states:
+                    self._rng_states[key] = (
+                        torch.Generator(device=x.device)
+                        .manual_seed(self._rng_seed)
+                        .get_state()
+                    )
+                with torch.random.fork_rng(devices=devices):
+                    torch.set_rng_state(self._rng_states["cpu"])
+                    if x.is_cuda:
+                        torch.cuda.set_rng_state(self._rng_states[key], x.device)
+                    try:
+                        y = self.model.predict_step(x, fcstep=step)
+                    finally:
+                        self._rng_states["cpu"] = torch.get_rng_state()
+                        if x.is_cuda:
+                            self._rng_states[key] = torch.cuda.get_rng_state(x.device)
             out = torch.empty(
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,

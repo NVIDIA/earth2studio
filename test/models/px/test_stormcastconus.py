@@ -27,7 +27,6 @@ from earth2studio.data import Random, Random_FX, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
-from earth2studio.models.rng import seeded
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -45,12 +44,15 @@ def optional_backend(monkeypatch, request):
             pass
 
     monkeypatch.setattr(conus_module, "EDMNoiseScheduler", Scheduler, raising=False)
+    monkeypatch.setattr(
+        conus_module, "sample", lambda denoiser, latents, **kw: latents, raising=False
+    )
     # Exercise public batching/conditioning/ownership when the sampler dependency
     # is absent. Installed backends continue through the actual diffusion path.
     monkeypatch.setattr(
         StormCastCONUS,
         "_forward",
-        seeded(lambda self, x, conditioning, time, **kw: x + torch.randn_like(x)),
+        lambda self, x, conditioning, time, **kw: x + self._sample(x, None),
     )
 
 

@@ -29,7 +29,6 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -53,7 +52,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class AtlasCRPS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Atlas CRPS ensemble prognostic model for ERA5 variables on a 0.25 degree global
     lat-lon grid.
 
@@ -204,8 +203,24 @@ class AtlasCRPS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         result.encoding = x_pred.encoding.copy()
         return result
 
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the latent noise generated internally by Atlas CRPS.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for latent sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+
     @torch.inference_mode()
-    @seeded
     def _forward(
         self,
         x: torch.Tensor,
@@ -256,7 +271,24 @@ class AtlasCRPS(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
             low_res = prev_latents[1].clone()
 
         conditioning = self.model_processor.preprocess_conditioning(high_res, low_res)
-        residual_latent = self.model(prev, conditioning)
+        devices = [x.device] if x.is_cuda else []
+        key = str(x.device)
+        if self._rng_seed is not None and key not in self._rng_states:
+            self._rng_states[key] = (
+                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
+            )
+        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
+            if self._rng_seed is not None:
+                torch.set_rng_state(self._rng_states["cpu"])
+                if x.is_cuda:
+                    torch.cuda.set_rng_state(self._rng_states[key], x.device)
+            try:
+                residual_latent = self.model(prev, conditioning)
+            finally:
+                if self._rng_seed is not None:
+                    self._rng_states["cpu"] = torch.get_rng_state()
+                    if x.is_cuda:
+                        self._rng_states[key] = torch.cuda.get_rng_state(x.device)
 
         # Decode the latent residual and return to state space
         pred = self.autoencoder(high_res, residual_latent)

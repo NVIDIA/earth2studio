@@ -26,7 +26,6 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -138,7 +137,7 @@ VARIABLES = [
 
 
 @check_optional_dependencies()
-class FCN3(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet 3 advances global weather modeling by implementing a scalable,
     geometric machine learning (ML) approach to probabilistic ensemble forecasting.
     The approach is designed to respect spherical geometry and to accurately model the
@@ -187,6 +186,7 @@ class FCN3(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         return "fcn3"
 
     stochastic = True
+    _rng_initialized = False
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the underlying FCN3 model's RNG
@@ -198,10 +198,9 @@ class FCN3(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         reset : bool, optional
             Whether to reset the state of the RNG, by default True
         """
-        if reset or self._rng_generator is None:
-            super().set_rng(seed, reset=reset)
-            with self._rng_context():
-                self.model.set_rng(reset=True, seed=seed)
+        if reset or not self._rng_initialized:
+            self.model.set_rng(reset=True, seed=seed)
+            self._rng_initialized = True
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -385,7 +384,6 @@ class FCN3(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         return x
 
     @batch_func()
-    @seeded
     def _step(self, x: xr.DataArray, reset: bool = False) -> xr.DataArray:
         signature = self.output_coords(x)
         handshake_time(x)

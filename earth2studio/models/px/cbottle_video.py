@@ -30,7 +30,6 @@ from earth2studio.models.auto.mixin import AutoModelMixin
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -77,7 +76,7 @@ class TimeStepperFunction(StrEnum):
 
 
 @check_optional_dependencies()
-class CBottleVideo(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Climate in a bottle video prognostic
     Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
     simulations and reanalysis on the equal-area HEALPix grid. The cBottle video
@@ -238,7 +237,25 @@ class CBottleVideo(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
             input_coords, {"lead_time": lead.values + self._time_step}
         )
 
-    @seeded
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed cBottle's latent and sampler noise state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for video sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._sampler_states = {
+                "cpu": torch.Generator().manual_seed(seed).get_state()
+            }
+
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array
 
@@ -272,7 +289,25 @@ class CBottleVideo(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        out, _ = self.core_model.sample(input_batch, seed=int(np.random.randint(2**32)))
+        devices = [device] if device.type == "cuda" else []
+        key = str(device)
+        if self._rng_seed is not None and key not in self._sampler_states:
+            self._sampler_states[key] = (
+                torch.Generator(device=device).manual_seed(self._rng_seed).get_state()
+            )
+        # cBottle's seed argument covers only initial latents, not sampler noise.
+        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
+            if self._rng_seed is not None:
+                torch.set_rng_state(self._sampler_states["cpu"])
+                if devices:
+                    torch.cuda.set_rng_state(self._sampler_states[key], device)
+            try:
+                out, _ = self.core_model.sample(input_batch, seed=None)
+            finally:
+                if self._rng_seed is not None:
+                    self._sampler_states["cpu"] = torch.get_rng_state()
+                    if devices:
+                        self._sampler_states[key] = torch.cuda.get_rng_state(device)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())

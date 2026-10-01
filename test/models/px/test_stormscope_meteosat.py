@@ -27,7 +27,6 @@ import earth2studio.models.px.stormscope_meteosat as meteosat_module
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
-from earth2studio.models.rng import seeded
 from earth2studio.utils import coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -50,9 +49,15 @@ def optional_backend(monkeypatch, request):
 
     monkeypatch.setattr(meteosat_module, "EDMNoiseScheduler", Scheduler, raising=False)
     monkeypatch.setattr(
+        meteosat_module,
+        "sample",
+        lambda denoiser, latents, **kw: latents,
+        raising=False,
+    )
+    monkeypatch.setattr(
         StormScopeMeteosatEU,
         "_forward",
-        seeded(lambda self, x, zen_azi: torch.randn_like(x[:, -1])),
+        lambda self, x, zen_azi: self._sample(None, x[:, -1].shape, x.dtype, x.device),
     )
     monkeypatch.setattr(
         StormScopeMeteosatEU,

@@ -30,7 +30,6 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -90,7 +89,7 @@ def _same_state(left: xr.DataArray, right: xr.DataArray) -> bool:
 
 
 @check_optional_dependencies()
-class StormScopeMeteosatEU(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.
 
     Predicts MTG Full Combined Imager (FCI) frames from ``len(input_times)``
@@ -491,7 +490,6 @@ class StormScopeMeteosatEU(torch.nn.Module, RNGMixin, AutoModelMixin, Prognostic
         return zen_azi
 
     @torch.no_grad()
-    @seeded
     def _forward(
         self,
         x: torch.Tensor,
@@ -599,23 +597,59 @@ class StormScopeMeteosatEU(torch.nn.Module, RNGMixin, AutoModelMixin, Prognostic
         """
         if num_steps is None:
             num_steps = self.num_diffusion_steps
-        latents = self.sampler_args["sigma_max"] * torch.randn(
-            shape, dtype=dtype, device=device
-        )
+        devices = [device] if device.type == "cuda" else []
+        key = str(device)
+        if self._rng_seed is not None and key not in self._sampler_states:
+            self._sampler_states[key] = (
+                torch.Generator(device=device).manual_seed(self._rng_seed).get_state()
+            )
+        # PhysicsNeMo's stochastic Heun solver has no generator argument.
+        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
+            if self._rng_seed is not None:
+                torch.set_rng_state(self._sampler_states["cpu"])
+                if devices:
+                    torch.cuda.set_rng_state(self._sampler_states[key], device)
+            try:
+                latents = self.sampler_args["sigma_max"] * torch.randn(
+                    shape, dtype=dtype, device=device
+                )
+                return sample(
+                    denoiser,
+                    latents,
+                    noise_scheduler=self.scheduler,
+                    num_steps=num_steps,
+                    solver="edm_stochastic_heun",
+                    solver_options={
+                        "S_churn": self.sampler_args["S_churn"],
+                        "S_min": self.sampler_args["S_min"],
+                        "S_max": self.sampler_args["S_max"],
+                        "S_noise": self.sampler_args["S_noise"],
+                    },
+                )
+            finally:
+                if self._rng_seed is not None:
+                    self._sampler_states["cpu"] = torch.get_rng_state()
+                    if devices:
+                        self._sampler_states[key] = torch.cuda.get_rng_state(device)
 
-        return sample(
-            denoiser,
-            latents,
-            noise_scheduler=self.scheduler,
-            num_steps=num_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
-        )
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed Meteosat latent sampling and EDM churn noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._sampler_states = {
+                "cpu": torch.Generator().manual_seed(seed).get_state()
+            }
 
     @torch.no_grad()
     @batch_func()

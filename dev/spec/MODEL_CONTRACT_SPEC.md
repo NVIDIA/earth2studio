@@ -342,12 +342,14 @@ that stream; only an explicit reset restarts it.
 
 ### Current wrappers
 
-Torch-backed stochastic wrappers use an advancing, model-local generator to seed
-short numerical calls inside a Torch/NumPy RNG fork. Forks never span iterator
-yields. FCN3 also isolates backend RNG initialization and noise-state refresh;
-Aurora resets cached noise without reapplying a constructor seed. GenCast and
-WeatherNext use advancing functional JAX keys. DiagnosticWrapper dispatches
-seeding to its stochastic components. DLESyM retains its native local generator.
+Each wrapper owns its RNG implementation. FCN3 delegates to its backend's RNG
+API; CorrDiff supplies sample seeds to its diffusion backend; StormScope and
+NSRDB use explicit noise generators. GenCast and WeatherNext use advancing
+functional JAX keys. Backends without a generator API run inside a wrapper-local
+Torch RNG fork, saving and advancing their own sampling state. Forks cover only
+the relevant numerical calls and never span iterator yields. Aurora also resets
+its cached noise. DiagnosticWrapper dispatches seeding to its stochastic
+components, and DLESyM retains its native local generator.
 
 ## Conformance
 

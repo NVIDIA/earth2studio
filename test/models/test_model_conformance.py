@@ -226,3 +226,8 @@ def test_diagnostic_models_are_registered() -> None:
         _DIAGNOSTIC_EXEMPT,
         "test/models/test_model_conformance.py",
     )
+
+
+def test_rng_control_is_owned_by_model_wrappers() -> None:
+    for model in [*_PROGNOSTIC_CLASSES.values(), *_DIAGNOSTIC_CLASSES.values()]:
+        assert all(base.__name__ != "RNGMixin" for base in model.__mro__)

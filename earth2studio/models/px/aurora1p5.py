@@ -27,7 +27,6 @@ from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -580,7 +579,7 @@ class Aurora1p5(_Aurora):
 
 
 @check_optional_dependencies()
-class Aurora1p5Ensemble(RNGMixin, _Aurora):
+class Aurora1p5Ensemble(_Aurora):
     """Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to
     :class:`Aurora1p5` except it uses the stochastic ensemble checkpoint, where
     each forward pass injects fresh Gaussian noise into the backbone conditioning
@@ -635,6 +634,7 @@ class Aurora1p5Ensemble(RNGMixin, _Aurora):
         super().__init__(core_model, static_vars)
 
     stochastic = True
+    _rng_seed: int | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the isolated random stream and reset cached noise.
@@ -646,18 +646,36 @@ class Aurora1p5Ensemble(RNGMixin, _Aurora):
         reset : bool, optional
             Reset an existing stream, by default True.
         """
-        if reset or self._rng_generator is None:
-            super().set_rng(seed, reset=reset)
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
             self.model.reset_noise()
 
-    @seeded
     def _forward_sub_steps(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
         lead_time_hours: list[int],
     ) -> list[torch.Tensor]:
-        return super()._forward_sub_steps(x, coords, lead_time_hours)
+        if self._rng_seed is None:
+            return super()._forward_sub_steps(x, coords, lead_time_hours)
+        # Aurora generates and caches noise internally, without a generator API.
+        devices = [x.device] if x.is_cuda else []
+        key = str(x.device)
+        if key not in self._rng_states:
+            self._rng_states[key] = (
+                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
+            )
+        with torch.random.fork_rng(devices=devices):
+            torch.set_rng_state(self._rng_states["cpu"])
+            if x.is_cuda:
+                torch.cuda.set_rng_state(self._rng_states[key], x.device)
+            try:
+                return super()._forward_sub_steps(x, coords, lead_time_hours)
+            finally:
+                self._rng_states["cpu"] = torch.get_rng_state()
+                if x.is_cuda:
+                    self._rng_states[key] = torch.cuda.get_rng_state(x.device)
 
 
 @check_optional_dependencies()

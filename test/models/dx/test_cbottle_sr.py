@@ -34,7 +34,6 @@ from earth2studio.models.conformance import (
 )
 from earth2studio.models.dx import CBottleSR
 from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
-from earth2studio.models.rng import seeded
 from earth2studio.utils import handshake_dim
 
 
@@ -67,27 +66,41 @@ def offline_sr(monkeypatch):
                 w, e, output_resolution[1]
             )
         self.output_grid = SimpleNamespace(lat=lat, lon=lon)
-
-    @seeded
-    def forward(self, x):
-        # Mirror the EDM schedule denominator; one step produces NaN, not a
-        # valid diffusion trajectory, even in the lightweight offline fixture.
-        steps = torch.arange(self.sampler_steps, device=x.device, dtype=torch.float64)
-        schedule = (
-            800 ** (1 / 7)
-            + steps / (self.sampler_steps - 1) * (0.02 ** (1 / 7) - 800 ** (1 / 7))
-        ) ** 7
-        shape = (
+        self.sigma_max = 800
+        self.super_resolution_extents = None
+        self._coords = None
+        self.regrid_input_to_hpx_low_res = lambda x: x
+        self.regrid_hpx_high_res_to_output = lambda x: x
+        self._reorder_to_sr_channels = lambda x: x
+        self._reorder_from_sr_channels = lambda x: x
+        output_shape = (
             (12, len(self.output_grid.lat), len(self.output_grid.lon))
             if self.output_type == "latlon"
             else (12, 12582912)
         )
-        return (
-            (torch.rand((), device=x.device) * schedule[0] / 800).float().expand(shape)
-        )
+
+        class Core:
+            def __call__(self, x, **kwargs):
+                steps = torch.arange(
+                    self.num_steps, device=x.device, dtype=torch.float64
+                )
+                schedule = (
+                    800 ** (1 / 7)
+                    + steps / (self.num_steps - 1) * (0.02 ** (1 / 7) - 800 ** (1 / 7))
+                ) ** 7
+                out = (
+                    (torch.rand((), device=x.device) * schedule[0] / 800)
+                    .float()
+                    .expand(output_shape)
+                )
+                return out[None, :, None], None
+
+        self.sr_model = Core()
 
     monkeypatch.setattr(CBottleSR, "__init__", initialize)
-    monkeypatch.setattr(CBottleSR, "_forward", forward)
+    import earth2studio.models.dx.cbottle_sr as sr_module
+
+    monkeypatch.setattr(sr_module, "replace", lambda x: x)
 
 
 @pytest.fixture(scope="class")

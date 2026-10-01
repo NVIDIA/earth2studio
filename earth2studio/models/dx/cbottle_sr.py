@@ -24,7 +24,6 @@ from earth2studio.grids import LatLonGrid, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -84,7 +83,7 @@ HPX_LEVEL_HR = 10
 
 
 @check_optional_dependencies()
-class CBottleSR(torch.nn.Module, RNGMixin, AutoModelMixin):
+class CBottleSR(torch.nn.Module, AutoModelMixin):
     """Climate in a Bottle Super-Resolution (CBottleSR) model.
 
     CBottleSR is a diffusion-based super-resolution model that learns mappings between
@@ -457,8 +456,26 @@ class CBottleSR(torch.nn.Module, RNGMixin, AutoModelMixin):
         """Reorder channels from the super resolution model"""
         return torch.index_select(x, 0, self._from_sr_index)
 
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed cBottle super-resolution latent and sampler noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for super-resolution sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._sampler_states = {
+                "cpu": torch.Generator().manual_seed(seed).get_state()
+            }
+
     @torch.inference_mode()
-    @seeded
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         """Super resolve the input tensor"""
         x = self._reorder_to_sr_channels(x)
@@ -474,11 +491,29 @@ class CBottleSR(torch.nn.Module, RNGMixin, AutoModelMixin):
 
         x = x.unsqueeze(0).unsqueeze(2)
 
-        out, _ = self.sr_model(
-            x,
-            coords=replace(self._coords),
-            extents=self.super_resolution_extents,
-        )
+        devices = [x.device] if x.is_cuda else []
+        key = str(x.device)
+        if self._rng_seed is not None and key not in self._sampler_states:
+            self._sampler_states[key] = (
+                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
+            )
+        # The super-resolution backend accepts neither seed nor generator.
+        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
+            if self._rng_seed is not None:
+                torch.set_rng_state(self._sampler_states["cpu"])
+                if x.is_cuda:
+                    torch.cuda.set_rng_state(self._sampler_states[key], x.device)
+            try:
+                out, _ = self.sr_model(
+                    x,
+                    coords=replace(self._coords),
+                    extents=self.super_resolution_extents,
+                )
+            finally:
+                if self._rng_seed is not None:
+                    self._sampler_states["cpu"] = torch.get_rng_state()
+                    if x.is_cuda:
+                        self._sampler_states[key] = torch.cuda.get_rng_state(x.device)
 
         out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":

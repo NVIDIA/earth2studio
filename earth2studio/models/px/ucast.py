@@ -32,7 +32,6 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -633,7 +632,7 @@ def _compute_forcings(
     return forcing
 
 
-class UCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """U-CAST 1.5 degree global probabilistic weather model.
 
     U-CAST is a 12-hour autoregressive U-Net forecaster trained on WeatherBench2
@@ -880,8 +879,23 @@ class UCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
     def _denormalize(self, x: torch.Tensor) -> torch.Tensor:
         return x * self.scale.to(dtype=x.dtype) + self.center.to(dtype=x.dtype)
 
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed U-CAST's inference dropout state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for dropout masks.
+        reset : bool, optional
+            Reset existing dropout state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
+
     @torch.inference_mode()
-    @seeded
     def _forward(
         self,
         x: torch.Tensor,
@@ -941,11 +955,33 @@ class UCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
         with torch.autocast(
             device_type=x.device.type, dtype=torch.float16, enabled=use_amp
         ):
-            pred_residual = self.model(
-                model_input,
-                dynamical_condition=forcing,
-                static_condition=static,
-            )
+            # Torch dropout accepts no explicit generator.
+            devices = [x.device] if x.is_cuda else []
+            key = str(x.device)
+            if self._rng_seed is not None and key not in self._rng_states:
+                self._rng_states[key] = (
+                    torch.Generator(device=x.device)
+                    .manual_seed(self._rng_seed)
+                    .get_state()
+                )
+            with torch.random.fork_rng(
+                devices=devices, enabled=self._rng_seed is not None
+            ):
+                if self._rng_seed is not None:
+                    torch.set_rng_state(self._rng_states["cpu"])
+                    if x.is_cuda:
+                        torch.cuda.set_rng_state(self._rng_states[key], x.device)
+                try:
+                    pred_residual = self.model(
+                        model_input,
+                        dynamical_condition=forcing,
+                        static_condition=static,
+                    )
+                finally:
+                    if self._rng_seed is not None:
+                        self._rng_states["cpu"] = torch.get_rng_state()
+                        if x.is_cuda:
+                            self._rng_states[key] = torch.cuda.get_rng_state(x.device)
 
         pred_norm = (
             pred_residual

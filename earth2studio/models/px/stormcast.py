@@ -31,7 +31,6 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -90,7 +89,7 @@ INVARIANTS = ["lsm", "orography"]
 
 
 @check_optional_dependencies()
-class StormCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
+class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast generative convection-allowing model for regional forecasts consists of
     two core models: a regression and diffusion model. Model time step size is 1 hour,
     taking as input:
@@ -358,6 +357,46 @@ class StormCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
+        devices = [x.device] if x.is_cuda else []
+        key = str(x.device)
+        if self._rng_seed is not None and key not in self._sampler_states:
+            self._sampler_states[key] = (
+                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
+            )
+        # The PhysicsNeMo sampler draws churn noise without a generator argument.
+        with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
+            if self._rng_seed is not None:
+                torch.set_rng_state(self._sampler_states["cpu"])
+                if x.is_cuda:
+                    torch.cuda.set_rng_state(self._sampler_states[key], x.device)
+            try:
+                return self._sample(x, conditioning)
+            finally:
+                if self._rng_seed is not None:
+                    self._sampler_states["cpu"] = torch.get_rng_state()
+                    if x.is_cuda:
+                        self._sampler_states[key] = torch.cuda.get_rng_state(x.device)
+
+    stochastic = True
+    _rng_seed: int | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed StormCast's initial latent and stochastic solver noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._sampler_states = {
+                "cpu": torch.Generator().manual_seed(seed).get_state()
+            }
+
+    def _sample(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
 
         # Scale data
         if "conditioning_means" in self._buffers:
@@ -411,7 +450,6 @@ class StormCast(torch.nn.Module, RNGMixin, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     @batch_func()
-    @seeded
     def __call__(
         self,
         x: xr.DataArray,

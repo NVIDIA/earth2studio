@@ -34,7 +34,6 @@ from earth2studio.grids import CurvilinearGrid, GridDefinition, LatLonGrid, reso
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import interp
 from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
@@ -148,7 +147,7 @@ except ImportError:
 
 
 @check_optional_dependencies()
-class CorrDiff(torch.nn.Module, RNGMixin, AutoModelMixin):
+class CorrDiff(torch.nn.Module, AutoModelMixin):
     """CorrDiff is a Corrector Diffusion model that learns mappings between
     low- and high-resolution weather data with high fidelity. This model combines
     regression and diffusion steps to generate high-resolution predictions.
@@ -1074,13 +1073,27 @@ class CorrDiff(torch.nn.Module, RNGMixin, AutoModelMixin):
         """
         return nullcontext()
 
+    _sample_rng: np.random.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the per-sample seeds passed to CorrDiff's diffusion backend.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._sample_rng is None:
+            self._sample_rng = np.random.default_rng(seed)
+
     @property
-    def stochastic(self) -> bool:  # type: ignore[override]
+    def stochastic(self) -> bool:
         """Whether inference includes diffusion sampling."""
         return self.inference_mode != "regression"
 
     @torch.inference_mode()
-    @seeded
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
     ) -> torch.Tensor:
@@ -1133,7 +1146,11 @@ class CorrDiff(torch.nn.Module, RNGMixin, AutoModelMixin):
             torch.Tensor
                 Generated sample
             """
-            seed = int(np.random.randint(2**32))
+            seed = int(
+                self._sample_rng.integers(2**32)
+                if self._sample_rng is not None
+                else np.random.randint(2**32)
+            )
 
             if self.residual_model and self.inference_mode != "regression":
                 mean_hr = image_reg[:1] if self.hr_mean_conditioning else None
@@ -1236,7 +1253,7 @@ OUT_VARIABLES = ["mrr", "t2m", "u10m", "v10m"]
 
 
 @check_optional_dependencies()
-class CorrDiffTaiwan(torch.nn.Module, RNGMixin, AutoModelMixin):
+class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     """
 
     CorrDiff is a Corrector Diffusion model that learns mappings between
@@ -1508,8 +1525,23 @@ class CorrDiffTaiwan(torch.nn.Module, RNGMixin, AutoModelMixin):
             self.out_lon_full,
         )[..., 1:-1, 1:-1]
 
+    stochastic = True
+    _sample_rng: np.random.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the stacked generators used by the Taiwan diffusion sampler.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._sample_rng is None:
+            self._sample_rng = np.random.default_rng(seed)
+
     @torch.inference_mode()
-    @seeded
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.solver not in ["euler", "heun"]:
             raise ValueError(
@@ -1541,7 +1573,11 @@ class CorrDiffTaiwan(torch.nn.Module, RNGMixin, AutoModelMixin):
         x_reg = torch.cat((x, grid), dim=1)
 
         # Create seeds for each sample
-        seed = int(np.random.randint(2**32))
+        seed = int(
+            self._sample_rng.integers(2**32)
+            if self._sample_rng is not None
+            else np.random.randint(2**32)
+        )
         gen = torch.Generator(device=x.device).manual_seed(seed)
         sample_seeds = (
             torch.randint(

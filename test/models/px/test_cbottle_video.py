@@ -33,7 +33,6 @@ from earth2studio.models.conformance import (
     check_prognostic_contract,
 )
 from earth2studio.models.px import CBottleVideo
-from earth2studio.models.rng import seeded
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
@@ -51,14 +50,36 @@ def offline_video(monkeypatch):
         self._time_length = 12
         self._time_step = np.timedelta64(6, "h")
         self.register_buffer("device_buffer", torch.empty(0))
+        self.sigma_min, self.sigma_max, self.sampler_steps = 0.02, 80, 2
+        self.time_stepper = "heun"
+        self.condition_regridder = lambda x: x
+        self.output_regridder = lambda x: x
 
-    @seeded
-    def forward(self, x, times):
-        noise = torch.rand((), device=x.device)
-        return torch.nan_to_num(x).expand(-1, 12, *x.shape[2:]) + noise
+        class Core:
+            def sample(self, batch, seed=None):
+                x = batch["target"]
+                noise = torch.rand((), device=x.device)
+                return (
+                    torch.nan_to_num(x).expand(-1, -1, 12, *x.shape[3:]) + noise,
+                    None,
+                )
+
+        self.core_model = Core()
 
     monkeypatch.setattr(CBottleVideo, "__init__", initialize)
-    monkeypatch.setattr(CBottleVideo, "_forward", forward)
+    monkeypatch.setattr(
+        CBottleVideo, "get_cbottle_input", lambda self, x, times, **kw: {"target": x}
+    )
+    from types import SimpleNamespace
+
+    import earth2studio.models.px.cbottle_video as video_module
+
+    monkeypatch.setattr(
+        video_module,
+        "TimeStepperFunction",
+        lambda value: SimpleNamespace(value=value),
+        raising=False,
+    )
 
 
 @pytest.fixture(scope="class")

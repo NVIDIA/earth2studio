@@ -18,13 +18,7 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.models.rng import RNGMixin, seeded
-
-
-class SamplingModel(RNGMixin):
-    @seeded
-    def sample(self, device: str = "cpu") -> torch.Tensor:
-        return torch.randn(8, device=device) + np.random.random()
+from earth2studio.models.px.stormscope import StormScopeBase
 
 
 @pytest.mark.parametrize(
@@ -40,18 +34,20 @@ class SamplingModel(RNGMixin):
     ],
 )
 def test_rng_stream_reset_and_isolation(device):
-    model = SamplingModel()
+    model = StormScopeBase.__new__(StormScopeBase)
+    torch.nn.Module.__init__(model)
+    template = torch.empty(8, device=device)
     model.set_rng(42, reset=False)
-    first = model.sample(device)
+    first = model._randn_like(template)
     model.set_rng(999, reset=False)
-    second = model.sample(device)
+    second = model._randn_like(template)
     assert not torch.equal(first, second)
     model.set_rng(42)
     cpu_state = torch.get_rng_state()
     numpy_state = np.random.get_state()
     cuda_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []
-    assert torch.equal(first, model.sample(device))
-    assert torch.equal(second, model.sample(device))
+    assert torch.equal(first, model._randn_like(template))
+    assert torch.equal(second, model._randn_like(template))
     assert torch.equal(cpu_state, torch.get_rng_state())
     assert np.array_equal(numpy_state[1], np.random.get_state()[1])
     assert numpy_state[2:] == np.random.get_state()[2:]
@@ -60,21 +56,27 @@ def test_rng_stream_reset_and_isolation(device):
     ):
         assert torch.equal(before, after)
     model.set_rng(43)
-    assert not torch.equal(first, model.sample(device))
+    assert not torch.equal(first, model._randn_like(template))
 
 
 def test_unseeded_model_uses_global_rng():
-    model = SamplingModel()
+    model = StormScopeBase.__new__(StormScopeBase)
+    torch.nn.Module.__init__(model)
     state = torch.get_rng_state()
-    model.sample()
+    model._randn_like(torch.empty(8))
     assert not torch.equal(state, torch.get_rng_state())
 
 
 def test_wrapper_dispatches_rng():
     from earth2studio.models.px import DiagnosticWrapper
 
-    class Component(torch.nn.Module, RNGMixin):
-        pass
+    class Component(torch.nn.Module):
+        stochastic = True
+        _rng_generator = None
+
+        def set_rng(self, seed, reset=True):
+            if reset or self._rng_generator is None:
+                self._rng_generator = torch.Generator().manual_seed(seed)
 
     wrapper = DiagnosticWrapper(Component(), Component())
     assert wrapper.stochastic
@@ -85,3 +87,36 @@ def test_wrapper_dispatches_rng():
     wrapper.set_rng(99, reset=False)
     for model, state in zip([wrapper.px_model, *wrapper.dx_model], states):
         assert torch.equal(model._rng_generator.get_state(), state)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sampler_state_and_exception_isolation(device):
+    from earth2studio.models.px import StormCast
+
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    model = StormCast.__new__(StormCast)
+    torch.nn.Module.__init__(model)
+    x = torch.empty(8, device=device)
+    model._sample = lambda x, conditioning: torch.randn_like(x)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+    model.set_rng(42, reset=False)
+    first = model._forward(x, x)
+    model.set_rng(99, reset=False)
+    second = model._forward(x, x)
+    assert not torch.equal(first, second)
+    model.set_rng(42)
+    assert torch.equal(first, model._forward(x, x))
+    assert torch.equal(second, model._forward(x, x))
+
+    def fail(x, conditioning):
+        torch.randn_like(x)
+        raise RuntimeError("sampler failed")
+
+    model._sample = fail
+    with pytest.raises(RuntimeError, match="sampler failed"):
+        model._forward(x, x)
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))

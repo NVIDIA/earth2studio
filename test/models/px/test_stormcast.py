@@ -37,7 +37,7 @@ def optional_backend(monkeypatch, request):
         pytest.skip("PhysicsNeMo is unavailable")
     monkeypatch.delitem(OptionalDependencyFailure.failures, stormcast_module.__file__)
     monkeypatch.setattr(
-        StormCast, "_forward", lambda self, x, conditioning: x + torch.randn_like(x)
+        StormCast, "_sample", lambda self, x, conditioning: x + torch.randn_like(x)
     )
 
 

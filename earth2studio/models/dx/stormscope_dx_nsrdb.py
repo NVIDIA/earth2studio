@@ -30,7 +30,6 @@ from earth2studio.data import HRRR
 from earth2studio.grids import CurvilinearGrid, GridDefinition, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import (
     coord_array,
     handshake_dataarray,
@@ -67,7 +66,7 @@ class _MaskedModel(nn.Module):
 
 
 @check_optional_dependencies()
-class StormScopeDxNSRDB(torch.nn.Module, RNGMixin, AutoModelMixin):
+class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     """Estimate Global Horizontal Irradiance from GOES imagery.
 
     This diagnostic model is designed to be used with the
@@ -651,7 +650,22 @@ class StormScopeDxNSRDB(torch.nn.Module, RNGMixin, AutoModelMixin):
                 )
         return next_state
 
-    @seeded
+    stochastic = True
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the Gaussian initial noise used by the NSRDB sampler.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the initial-noise stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
     def _forward_sample(self, x: torch.Tensor, coords: np.ndarray) -> torch.Tensor:
         if x.dim() != 5:
             raise ValueError("StormScopeDxNSRDB requires [batch, time, variable, y, x]")
@@ -672,9 +686,10 @@ class StormScopeDxNSRDB(torch.nn.Module, RNGMixin, AutoModelMixin):
         )
         noise = torch.randn(
             (batch_size * time_size, len(self.output_variables), height, width),
-            device=device,
+            device=device if self._rng_generator is None else "cpu",
             dtype=self._SAMPLER_DTYPE,
-        )
+            generator=self._rng_generator,
+        ).to(device)
         initial_state = regression / self.sigma_max + noise
         with torch.autocast(device_type=device.type, enabled=self.amp):
             output = self._edm_sampler(initial_state, condition).to(dtype)

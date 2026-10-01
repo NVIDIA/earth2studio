@@ -61,7 +61,6 @@ from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.models.rng import RNGMixin, seeded
 from earth2studio.utils import interp
 from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.cupy import from_torch
@@ -224,7 +223,7 @@ def _interp_levels_to_height(
 
 
 @check_optional_dependencies()
-class CorrDiffCosmoEra5(torch.nn.Module, RNGMixin, AutoModelMixin):
+class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     """COSMO-REA downscaling model: ERA5 -> high-resolution COSMO-REA.
 
     Diagnostic model that downscales a global ERA5 state to high-resolution
@@ -1332,13 +1331,27 @@ class CorrDiffCosmoEra5(torch.nn.Module, RNGMixin, AutoModelMixin):
             )
         return out.float()
 
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the independent initial-latent draws for COSMO diffusion.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
     @property
-    def stochastic(self) -> bool:  # type: ignore[override]
+    def stochastic(self) -> bool:
         """Whether diffusion sampling is enabled."""
         return self.mode == "diffusion"
 
     @torch.inference_mode()
-    @seeded
     def _forward(
         self,
         era5: torch.Tensor,
@@ -1377,7 +1390,18 @@ class CorrDiffCosmoEra5(torch.nn.Module, RNGMixin, AutoModelMixin):
             out = torch.cat(
                 [
                     self.postprocess_output(
-                        self._denoise(background, None),
+                        self._denoise(
+                            background,
+                            (
+                                int(
+                                    torch.randint(
+                                        2**32, (), generator=self._rng_generator
+                                    )
+                                )
+                                if self._rng_generator is not None
+                                else None
+                            ),
+                        ),
                         valid_time,
                         lat_np,
                         lon_np,
