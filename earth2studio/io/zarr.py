@@ -81,14 +81,16 @@ class ZarrBackend:
         self.chunks = chunks.copy()
         for array in self.root:
             # https://github.com/pydata/xarray/pull/9669
-            dims = self.root[array].metadata.dimension_names
+            # Scalar arrays (e.g. CF grid_mapping) store dimension_names as None
+            dims = self.root[array].metadata.dimension_names or ()
             for dim in dims:
                 if dim not in self.coords:
                     self.coords[dim] = self.root[dim][:]
 
         for array in self.root:
             # https://github.com/pydata/xarray/pull/9669
-            dims = self.root[array].metadata.dimension_names
+            # Scalar arrays (e.g. CF grid_mapping) store dimension_names as None
+            dims = self.root[array].metadata.dimension_names or ()
             if array in self.coords:
                 continue
 
