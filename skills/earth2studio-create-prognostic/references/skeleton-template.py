@@ -39,6 +39,7 @@ See real examples:
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -48,6 +49,7 @@ from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -82,6 +84,15 @@ VARIABLES = [
     "u500",
     "v500",
 ]
+
+
+# Only add this state for mutable rollout state. Stateless wrappers should
+# remove the import and omit the binding below.
+@dataclass
+class _ModelCheckpointState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
 
 
 class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -135,6 +146,9 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("device_buffer", torch.empty(0))
         # TODO: Store time step as timedelta
         self._time_step = np.timedelta64(6, "h")
+        # Remove this binding for a stateless model. Construct the model inside
+        # an active checkpoint context when selected state must be restored.
+        # self.checkpoint = bind_checkpoint_state(_ModelCheckpointState())
 
     # =========================================================================
     # 2. INPUT COORDINATES
@@ -392,6 +406,8 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Predicted state and coordinates at each time step.
         """
         # MUST yield initial condition first (step 0)
+        # On a level-2 restart, restore saved state first and yield the next
+        # step instead of yielding the already committed boundary again.
         yield x, coords
 
         # Time integration loop (runs indefinitely)
@@ -406,6 +422,9 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             # Apply rear hook (for post-processing, etc.)
             current_x, current_coords = self.rear_hook(current_x, current_coords)
+
+            # For stateful models, save current_x/current_coords here after the
+            # successful step. Clone and detach tensors onto checkpoint.device.
 
             yield current_x, current_coords
 
