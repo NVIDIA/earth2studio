@@ -126,7 +126,7 @@ class SingleModelSession:
             and not self._mid_step
         )
 
-    def run(self) -> Generator[OutputEvent, None, None]:
+    def run(self) -> Generator[OutputEvent]:
         """Publish each step until the work item's horizon is reached."""
         if self.component is None:
             self.component = self.plan.component.open(
