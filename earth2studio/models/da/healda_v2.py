@@ -80,8 +80,9 @@ def channel_to_e2s(name: str) -> str:
 
 @check_optional_dependencies()
 class HealDAv2(torch.nn.Module, AutoModelMixin):
-    """HealDA v2 data assimilation model: a 0.25 degree global analysis from NNJA
-    observations.
+    """HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour
+    sequence of satellite and conventional observations to a 104-channel, 0.25 degree
+    atmospheric analysis on a regular latitude-longitude grid.
 
     HealDA v2 is a stateless, deterministic, observation-only assimilation model. One
     analysis at time ``t`` reads an eight-frame, six-hourly window ending at ``t`` and
