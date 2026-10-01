@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+
 ### Changed
+
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
 
 ### Deprecated
 
