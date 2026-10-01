@@ -103,8 +103,17 @@ def test_stormcast_sampler_state_and_exception_isolation(device):
     cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
     model.set_rng(42, reset=False)
     first = model._forward(x, x)
+    reference = torch.Generator(device=device).manual_seed(42)
+    assert torch.equal(first, torch.randn(x.shape, device=device, generator=reference))
+    other = StormCast.__new__(StormCast)
+    torch.nn.Module.__init__(other)
+    other._sample = model._sample
+    other.set_rng(43)
+    other_first = other._forward(x, x)
     model.set_rng(99, reset=False)
     second = model._forward(x, x)
+    assert torch.equal(second, torch.randn(x.shape, device=device, generator=reference))
+    assert not torch.equal(second, other_first)
     assert not torch.equal(first, second)
     model.set_rng(42)
     assert torch.equal(first, model._forward(x, x))

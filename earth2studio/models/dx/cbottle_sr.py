@@ -471,6 +471,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -492,15 +493,29 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # The super-resolution backend accepts neither seed nor generator.
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.random.default_generator.manual_seed(self._rng_seed)
+                torch.set_rng_state(self._rng_states["cpu"])
                 for device in devices:
-                    torch.cuda.default_generators[device].manual_seed(self._rng_seed)
-                self._rng_seed += 1
-            out, _ = self.sr_model(
-                x,
-                coords=replace(self._coords),
-                extents=self.super_resolution_extents,
-            )
+                    key = f"cuda:{device}"
+                    if key not in self._rng_states:
+                        self._rng_states[key] = (
+                            torch.Generator(device=key)
+                            .manual_seed(self._rng_seed)
+                            .get_state()
+                        )
+                    torch.cuda.set_rng_state(self._rng_states[key], device)
+            try:
+                out, _ = self.sr_model(
+                    x,
+                    coords=replace(self._coords),
+                    extents=self.super_resolution_extents,
+                )
+            finally:
+                if self._rng_seed is not None:
+                    self._rng_states["cpu"] = torch.get_rng_state()
+                    for device in devices:
+                        self._rng_states[f"cuda:{device}"] = torch.cuda.get_rng_state(
+                            device
+                        )
 
         out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":

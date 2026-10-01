@@ -113,7 +113,11 @@ def model_domain(request, monkeypatch):
         and not torch.cuda.is_available()
     ):
         pytest.skip("CUDA unavailable")
-    if request.node.originalname in ("test_atlas_iter", "test_atlas_conformance"):
+    if request.node.originalname in (
+        "test_atlas_iter",
+        "test_atlas_conformance",
+        "test_atlas_iterator_rng_stream",
+    ):
         declared = Atlas.input_coords
 
         def small(self):
@@ -136,6 +140,7 @@ def model_domain(request, monkeypatch):
         pytest.importorskip("physicsnemo")
     if request.node.originalname in (
         "test_atlas_conformance",
+        "test_atlas_iterator_rng_stream",
         "test_atlas_iter",
         "test_atlas_input_coords",
         "test_atlas_output_coords",
@@ -219,6 +224,64 @@ def test_atlas_call(time, device, batch_size, atlas_test_components):
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
 
     assert out.dims == ("batch", "time", "lead_time", "variable", "lat", "lon")
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_atlas_iterator_rng_stream(atlas_test_components, device, monkeypatch):
+    p = Atlas(**atlas_test_components).to(device)
+    other = Atlas(**atlas_test_components).to(device)
+    draws = []
+
+    def sample(model, x, **kwargs):
+        noise = torch.randn_like(x)
+        draws.append(noise.clone())
+        return noise
+
+    monkeypatch.setattr(p.sinterpolant, "sample", sample)
+    signature = p.input_coords()
+    x = fetch_data(
+        Random({d: signature.coords[d].values for d in ("lat", "lon")}),
+        np.array([np.datetime64("2020-01-01")]),
+        signature["variable"],
+        signature["lead_time"],
+        device=device,
+    )
+    p.set_rng(1)
+    other.set_rng(2)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if device.startswith("cuda") else None
+    iterator = p.create_iterator(x)
+    next(iterator)
+    next(iterator)
+    first = draws[-1]
+    other(x)
+    other_first = draws[-1]
+    next(iterator)
+    second = draws[-1]
+    iterator.close()
+    reference = torch.Generator(device=device).manual_seed(1)
+    assert torch.equal(
+        first,
+        torch.randn(first.shape, dtype=first.dtype, device=device, generator=reference),
+    )
+    assert torch.equal(
+        second,
+        torch.randn(
+            second.shape, dtype=second.dtype, device=device, generator=reference
+        ),
+    )
+    assert not torch.equal(second, other_first)
+    p.set_rng(1)
+    iterator = p.create_iterator(x)
+    next(iterator)
+    next(iterator)
+    assert torch.equal(first, draws[-1])
+    next(iterator)
+    assert torch.equal(second, draws[-1])
+    iterator.close()
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if cuda_state is not None:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
 
 
 @pytest.mark.parametrize(

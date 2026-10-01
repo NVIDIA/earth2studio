@@ -601,26 +601,40 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # PhysicsNeMo's stochastic Heun solver has no generator argument.
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.random.default_generator.manual_seed(self._rng_seed)
+                torch.set_rng_state(self._rng_states["cpu"])
                 for index in devices:
-                    torch.cuda.default_generators[index].manual_seed(self._rng_seed)
-                self._rng_seed += 1
-            latents = self.sampler_args["sigma_max"] * torch.randn(
-                shape, dtype=dtype, device=device
-            )
-            return sample(
-                denoiser,
-                latents,
-                noise_scheduler=self.scheduler,
-                num_steps=num_steps,
-                solver="edm_stochastic_heun",
-                solver_options={
-                    "S_churn": self.sampler_args["S_churn"],
-                    "S_min": self.sampler_args["S_min"],
-                    "S_max": self.sampler_args["S_max"],
-                    "S_noise": self.sampler_args["S_noise"],
-                },
-            )
+                    key = f"cuda:{index}"
+                    if key not in self._rng_states:
+                        self._rng_states[key] = (
+                            torch.Generator(device=key)
+                            .manual_seed(self._rng_seed)
+                            .get_state()
+                        )
+                    torch.cuda.set_rng_state(self._rng_states[key], index)
+            try:
+                latents = self.sampler_args["sigma_max"] * torch.randn(
+                    shape, dtype=dtype, device=device
+                )
+                return sample(
+                    denoiser,
+                    latents,
+                    noise_scheduler=self.scheduler,
+                    num_steps=num_steps,
+                    solver="edm_stochastic_heun",
+                    solver_options={
+                        "S_churn": self.sampler_args["S_churn"],
+                        "S_min": self.sampler_args["S_min"],
+                        "S_max": self.sampler_args["S_max"],
+                        "S_noise": self.sampler_args["S_noise"],
+                    },
+                )
+            finally:
+                if self._rng_seed is not None:
+                    self._rng_states["cpu"] = torch.get_rng_state()
+                    for index in devices:
+                        self._rng_states[f"cuda:{index}"] = torch.cuda.get_rng_state(
+                            index
+                        )
 
     stochastic = True
     _rng_seed: int | None = None
@@ -637,6 +651,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     @torch.no_grad()
     @batch_func()

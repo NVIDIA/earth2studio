@@ -252,6 +252,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array
@@ -290,11 +291,25 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # cBottle's seed argument covers only initial latents, not sampler noise.
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.random.default_generator.manual_seed(self._rng_seed)
+                torch.set_rng_state(self._rng_states["cpu"])
                 for index in devices:
-                    torch.cuda.default_generators[index].manual_seed(self._rng_seed)
-                self._rng_seed += 1
-            out, _ = self.core_model.sample(input_batch, seed=None)
+                    key = f"cuda:{index}"
+                    if key not in self._rng_states:
+                        self._rng_states[key] = (
+                            torch.Generator(device=key)
+                            .manual_seed(self._rng_seed)
+                            .get_state()
+                        )
+                    torch.cuda.set_rng_state(self._rng_states[key], index)
+            try:
+                out, _ = self.core_model.sample(input_batch, seed=None)
+            finally:
+                if self._rng_seed is not None:
+                    self._rng_states["cpu"] = torch.get_rng_state()
+                    for index in devices:
+                        self._rng_states[f"cuda:{index}"] = torch.cuda.get_rng_state(
+                            index
+                        )
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())

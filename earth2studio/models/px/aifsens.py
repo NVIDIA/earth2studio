@@ -813,6 +813,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     @torch.inference_mode()
     def _forward(
@@ -828,13 +829,25 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 devices=devices, enabled=self._rng_seed is not None
             ):
                 if self._rng_seed is not None:
-                    torch.random.default_generator.manual_seed(self._rng_seed)
+                    torch.set_rng_state(self._rng_states["cpu"])
                     for device in devices:
-                        torch.cuda.default_generators[device].manual_seed(
-                            self._rng_seed
-                        )
-                    self._rng_seed += 1
-                y = self.model.predict_step(x, fcstep=step)
+                        key = f"cuda:{device}"
+                        if key not in self._rng_states:
+                            self._rng_states[key] = (
+                                torch.Generator(device=key)
+                                .manual_seed(self._rng_seed)
+                                .get_state()
+                            )
+                        torch.cuda.set_rng_state(self._rng_states[key], device)
+                try:
+                    y = self.model.predict_step(x, fcstep=step)
+                finally:
+                    if self._rng_seed is not None:
+                        self._rng_states["cpu"] = torch.get_rng_state()
+                        for device in devices:
+                            self._rng_states[f"cuda:{device}"] = (
+                                torch.cuda.get_rng_state(device)
+                            )
             out = torch.empty(
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,

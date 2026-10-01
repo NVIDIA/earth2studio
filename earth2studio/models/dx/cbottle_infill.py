@@ -324,6 +324,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
+            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     @torch.inference_mode()
     @batch_func()
@@ -385,11 +386,25 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
                 devices=devices, enabled=self._rng_seed is not None
             ):
                 if self._rng_seed is not None:
-                    torch.random.default_generator.manual_seed(self._rng_seed)
+                    torch.set_rng_state(self._rng_states["cpu"])
                     for index in devices:
-                        torch.cuda.default_generators[index].manual_seed(self._rng_seed)
-                    self._rng_seed += 1
-                infilled_data, _ = self.core_model.infill(batch_slice)
+                        key = f"cuda:{index}"
+                        if key not in self._rng_states:
+                            self._rng_states[key] = (
+                                torch.Generator(device=key)
+                                .manual_seed(self._rng_seed)
+                                .get_state()
+                            )
+                        torch.cuda.set_rng_state(self._rng_states[key], index)
+                try:
+                    infilled_data, _ = self.core_model.infill(batch_slice)
+                finally:
+                    if self._rng_seed is not None:
+                        self._rng_states["cpu"] = torch.get_rng_state()
+                        for index in devices:
+                            self._rng_states[f"cuda:{index}"] = (
+                                torch.cuda.get_rng_state(index)
+                            )
 
             outputs.append(infilled_data)
 
