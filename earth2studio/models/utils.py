@@ -105,15 +105,21 @@ def fork_rng(
         Model-owned states keyed by ``cpu`` and ``cuda:N``. Updated in place
         with the advanced states, including when sampling raises an exception.
     seed : int | None
-        Initial seed for a previously unused device. None leaves global RNG
-        behavior unchanged. Seeded calls require an initialized CPU state.
+        Initial seed for a previously unused device. If None, this context is
+        a no-op: ``states`` is ignored and no RNG state is saved or restored.
+        Random draws inside the context use and advance the caller's global
+        RNG streams normally. A non-None seed enables RNG isolation and
+        requires an initialized CPU state in ``states``.
     device : torch.device
         Sampling device. CPU state is preserved alongside CUDA state.
 
     Notes
     -----
-    Restores the caller's global state on exit. Do not span iterator yields or
-    use concurrently with other code accessing the same global generators.
+    With a non-None seed, restores the caller's global state on exit, including
+    when sampling raises an exception. With seed=None, global state changes
+    persist after exit, matching normal unseeded sampling. Do not span iterator
+    yields or use concurrently with other code accessing the same global
+    generators when RNG isolation is enabled.
     """
     if seed is None:
         yield
