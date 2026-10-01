@@ -91,7 +91,7 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # %%
 # Fetch Observations
 # ------------------
-# One analysis reads observations spanning ``[t - 45h, t + 3h)``. Any source returning
+# One analysis reads observations spanning ``[t - 45h, t + 3h]``. Any source returning
 # DataFrames that match `HealDAv2.input_coords` works; here the NNJA sources are
 # configured as in training: each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.

@@ -87,7 +87,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     HealDA v2 is a stateless, deterministic, observation-only assimilation model. One
     analysis at time ``t`` reads an eight-frame, six-hourly window ending at ``t`` and
     every observation within three hours of each frame, i.e. observations spanning
-    ``[t - 45h, t + 3h)``, and returns the analysis of the last frame on the 721 x 1440
+    ``[t - 45h, t + 3h]``, and returns the analysis of the last frame on the 721 x 1440
     equiangular grid.
 
     The model takes the NNJA observing system it was trained on as three DataFrames:
@@ -266,7 +266,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
 
         At least one DataFrame must be provided. Each must carry a ``request_time``
         entry in its ``.attrs`` (``earth2studio.data.fetch_dataframe`` sets it) and
-        should cover ``[t - 45h, t + 3h)`` around each analysis time.
+        should cover ``[t - 45h, t + 3h]`` around each analysis time.
 
         Parameters
         ----------
