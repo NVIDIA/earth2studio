@@ -115,6 +115,9 @@ def fork_rng(
     -----
     Provide and reuse a state dictionary to preserve the stream between calls.
     Seeded calls restore global RNG state on exit, including on exceptions.
+
+    Warnings
+    --------
     Do not span iterator yields or concurrent access to the same generators.
     """
     if seed is None:
