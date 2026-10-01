@@ -93,40 +93,29 @@ def create_ort_session(
 
 @contextmanager
 def fork_rng(
-    seed: int | None,
-    device: torch.device,
+    seed: int | None = None,
+    device: torch.device = torch.device("cpu"),
     states: dict[str, torch.Tensor] | None = None,
 ) -> Iterator[None]:
-    """Resume model-owned Torch RNG state for a numerical sampling call.
+    """Run sampling with isolated Torch RNG state when seeded.
 
     Parameters
     ----------
-    seed : int | None
-        If not None, run sampling with the model's saved RNG states, using this
-        seed to create missing CPU and selected CUDA states. Existing states
-        are not reseeded. If None, no RNG state is saved or restored: random
-        draws use and advance the caller's global RNG streams normally. Any
-        supplied ``states`` are completely ignored and left untouched.
-    device : torch.device
-        Sampling device. With RNG isolation enabled, CPU calls manage the CPU
-        RNG; CUDA calls manage both the CPU RNG and the selected GPU's RNG,
-        because a CUDA backend may also draw random values on the CPU.
+    seed : int | None, optional
+        Seed for missing states. None passes through without RNG isolation and
+        ignores supplied states, leaving them untouched, by default None
+    device : torch.device, optional
+        Sampling device. Manages CPU RNG and, for CUDA, the selected GPU's RNG,
+        by default torch.device("cpu")
     states : dict[str, torch.Tensor] | None, optional
-        RNG snapshots keyed by ``cpu`` and ``cuda:N``. Defaults to a fresh empty
-        dictionary for each seeded context when omitted or None. Missing CPU
-        and selected CUDA states are initialized from ``seed``. Supplied states
-        are resumed and updated in place, including when sampling raises an
-        exception. Reuse the dictionary across calls to continue the stream;
-        omitting it starts from ``seed`` each time. If ``seed`` is None, this
-        argument is ignored: no states are read, initialized, or updated.
+        RNG snapshots keyed by ``cpu`` and ``cuda:N``, updated in place. None
+        uses a fresh empty dictionary for each seeded call, by default None
 
     Notes
     -----
-    With a non-None seed, restores the caller's global state on exit, including
-    when sampling raises an exception. With seed=None, global state changes
-    persist after exit, matching normal unseeded sampling. Do not span iterator
-    yields or use concurrently with other code accessing the same global
-    generators when RNG isolation is enabled.
+    Provide and reuse a state dictionary to preserve the stream between calls.
+    Seeded calls restore global RNG state on exit, including on exceptions.
+    Do not span iterator yields or concurrent access to the same generators.
     """
     if seed is None:
         yield
