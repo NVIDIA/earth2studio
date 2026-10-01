@@ -102,19 +102,21 @@ def fork_rng(
     Parameters
     ----------
     states : dict[str, torch.Tensor] | None
-        Model-owned states keyed by ``cpu`` and ``cuda:N``. Updated in place
-        with the advanced states, including when sampling raises an exception.
+        Model-owned RNG snapshots. When ``seed`` is not None, the caller must
+        supply ``states["cpu"]`` (a CPU generator's ``get_state()`` result).
+        For CUDA sampling, ``states["cuda:N"]`` stores the selected GPU's state;
+        this helper creates that entry from ``seed`` if it is missing.
+        Saved states are resumed and updated in place as sampling advances,
+        including when sampling raises an exception. Ignored if ``seed`` is None.
     seed : int | None
-        Seed used to initialize RNG state for ``device`` if it is a CUDA device
-        and its state is missing from ``states``. Existing states are resumed
-        without reseeding; the CPU state must already be initialized.
-        If None, this context is a no-op: ``states`` is ignored and no RNG
-        state is saved or restored.
-        Random draws inside the context use and advance the caller's global
-        RNG streams normally. A non-None seed enables RNG isolation and
-        requires an initialized CPU state in ``states``.
+        If not None, run sampling with the model's saved RNG states, using this
+        seed only to create a missing CUDA state for ``device``. Existing states
+        are not reseeded. If None, no RNG state is saved or restored: random
+        draws use and advance the caller's global RNG streams normally.
     device : torch.device
-        Sampling device. CPU state is preserved alongside CUDA state.
+        Sampling device. With RNG isolation enabled, CPU calls manage the CPU
+        RNG; CUDA calls manage both the CPU RNG and the selected GPU's RNG,
+        because a CUDA backend may also draw random values on the CPU.
 
     Notes
     -----
