@@ -305,8 +305,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         ----------
         conv_obs : pd.DataFrame | None, optional
             PrepBUFR and GPS-RO observations from
-            ``NNJAObsConv(event="original")``; PrepBUFR report coordinates are
-            applied internally, by default None
+            ``NNJAObsConv(event="original")``, by default None
         satwnd_obs : pd.DataFrame | None, optional
             Satellite winds from ``NNJAObsSatwnd``, by default None
         sat_obs : pd.DataFrame | None, optional
@@ -329,7 +328,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
             )
         request_time = self._request_time(conv_obs, satwnd_obs, sat_obs)
         frames = [_to_pandas(df) for df in (conv_obs, satwnd_obs, sat_obs)]
-        frames[0] = _use_report_coordinates(frames[0])
         (output_coords,) = self.output_coords(
             self.input_coords(), request_time=request_time
         )
@@ -423,17 +421,3 @@ def _to_pandas(df: Any) -> pd.DataFrame | None:
     if cudf is not None and isinstance(df, cudf.DataFrame):
         return df.to_pandas()
     return df
-
-
-def _use_report_coordinates(df: pd.DataFrame | None) -> pd.DataFrame | None:
-    if df is None:
-        return None
-    result = df.copy()
-    for coordinate in ("time", "lat", "lon"):
-        report_coordinate = f"report_{coordinate}"
-        if report_coordinate not in result:
-            continue
-        mask = result[report_coordinate].notna()
-        result.loc[mask, coordinate] = result.loc[mask, report_coordinate]
-    result.attrs = df.attrs.copy()
-    return result
