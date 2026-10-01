@@ -179,12 +179,12 @@ while still loading real weights and running a forward pass.
 
 ### Step 9 — Documentation
 
-- Add to `docs/modules/models_px.rst` (alphabetical). This is required for
+- Add to `docs/modules/models_px.md` (alphabetical). This is required for
   every new prognostic model so the API docs include the generated page.
-- Add to `docs/userguide/about/install.md` (alphabetical tab) for the
-  model extra, even when the extra is empty. Include model-specific notes plus
-  both `pip install earth2studio[model-name]` and
-  `uv add earth2studio --extra model-name` instructions.
+- Add an entry to `docs/userguide/about/install_options.yml` for the model
+  extra, even when the extra is empty. Include model-specific notes,
+  source-specific preinstall commands, and `api_refs` for any model classes
+  that should show a View Install Notes button in the generated API docs.
 - Update `CHANGELOG.md` under `### Added`. This is required for every new
   prognostic model.
 
@@ -208,8 +208,9 @@ Follow `references/validation-guide.md` and use:
 - `references/pr-comment-template.md`
 
 Before creating the PR, verify `pyproject.toml` has the model extra, the
-`all` extra includes it, install docs include both pip and uv commands, and
-`docs/modules/models_px.rst` plus `CHANGELOG.md` are updated.
+`all` extra includes it, `docs/userguide/about/install_options.yml` has the
+install entry and `api_refs`, and `docs/modules/models_px.md` plus
+`CHANGELOG.md` are updated.
 
 Do not include machine names, absolute paths, device inventory, or uploaded image
 links in PR text. Use plot placeholders instead.

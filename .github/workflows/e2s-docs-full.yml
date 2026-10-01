@@ -39,6 +39,8 @@ env:
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
+  XLA_PYTHON_CLIENT_ALLOCATOR: vmm
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
 
 jobs:
   metadata:

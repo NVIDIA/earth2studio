@@ -75,7 +75,7 @@ load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
 
@@ -84,7 +84,7 @@ if not torch.cuda.is_available():
     raise RuntimeError("GPU/CUDA required for DLESyM")
 
 # Create the data source
-data = ARCO()
+data = ARCO_ERA5()
 
 
 # Load the default model package

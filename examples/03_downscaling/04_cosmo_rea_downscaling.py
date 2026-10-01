@@ -99,7 +99,7 @@ def geo_axes(ax):
 # the same package; ``mode`` selects which one.
 
 # %%
-from earth2studio.data import ARCO, fetch_data
+from earth2studio.data import ARCO_ERA5, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiffCosmoEra5
 from earth2studio.models.px import SFNO
@@ -126,13 +126,13 @@ dx_mean.amp = amp
 
 # %%
 # Initial condition and global forecast
-# Fetch an ERA5 analysis (ARCO) initial condition and step SFNO forward to the
+# Fetch an ERA5 reanalysis initial condition and step SFNO forward to the
 # requested lead time. SFNO is 6-hourly, so 24 h is four steps.
 
 # %%
 sic = sfno.input_coords()
 x, coords = fetch_data(
-    ARCO(),
+    ARCO_ERA5(),
     time=np.array([np.datetime64(init_time)]),
     variable=sic["variable"],
     lead_time=sic["lead_time"],

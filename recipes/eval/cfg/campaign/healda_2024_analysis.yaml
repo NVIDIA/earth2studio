@@ -29,7 +29,7 @@ nsteps: 0
 ensemble_size: 1
 resume: true
 
-# Verification (ERA5 via ARCO at the analysis times) must be predownloaded
+# Verification (ARCO_ERA5 at the analysis times) must be predownloaded
 # for scoring; there is no gridded IC store in analysis mode.
 predownload:
     verification:

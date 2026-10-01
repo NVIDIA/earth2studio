@@ -791,7 +791,7 @@ class TestBuildConditioningStore:
         assert isinstance(store.source._source, ValidTimeForecastAdapter)
 
     def test_data_source_is_forwarded_directly(self):
-        """ARCO-style ``DataSource`` conditioning — no valid-time adapter needed."""
+        """ARCO_ERA5-style ``DataSource`` conditioning — no valid-time adapter needed."""
         store, ValidTimeForecastAdapter = self._run(
             source_target="_StubDataSource",
             cadence=None,

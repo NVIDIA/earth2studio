@@ -37,7 +37,7 @@ output:
         - sst
 
 scoring:
-    # ERA5 / ARCO provides these directly; skip derived vars (ws10m,
+    # ARCO_ERA5 provides these directly; skip derived vars (ws10m,
     # tau300-700) in scoring unless you're computing them in post.
     variables: [t2m, t850, z500, z1000, tcwv, sst]
     metrics:

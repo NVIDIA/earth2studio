@@ -17,7 +17,7 @@
 import pytest
 import torch
 
-from earth2studio.lexicon import CDSLexicon
+from earth2studio.lexicon import CDS_ERA5Lexicon
 
 
 @pytest.mark.parametrize(
@@ -27,8 +27,18 @@ from earth2studio.lexicon import CDSLexicon
 def test_cds_lexicon(variable, device):
     input = torch.randn(len(variable), 8).to(device)
     for v in variable:
-        label, modifier = CDSLexicon[v]
+        label, modifier = CDS_ERA5Lexicon[v]
         output = modifier(input)
         assert isinstance(label, str)
         assert input.shape == output.shape
         assert input.device == output.device
+
+
+def test_cds_lexicon_deprecation_warning():
+    """The legacy lexicon alias returns the canonical lexicon with a warning."""
+    import earth2studio.lexicon as lexicon
+
+    with pytest.warns(DeprecationWarning, match="CDSLexicon.*will be removed"):
+        data_source_lexicon = lexicon.CDSLexicon
+
+    assert data_source_lexicon is CDS_ERA5Lexicon

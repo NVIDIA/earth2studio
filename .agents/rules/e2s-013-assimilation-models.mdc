@@ -572,6 +572,6 @@ class MyDAModel(torch.nn.Module, AutoModelMixin):
 - **Register `device_buffer`** to track device via a `device` property
 - **Do NOT use `@batch_func` or `@batch_coords`** - these are px/dx conventions only
 - **Do NOT use `@torch.inference_mode()`** if the forward pass requires gradients (e.g., DPS guidance); document the reason if omitted
-- **Documentation**: Add the DA model to [models.rst](mdc:docs/modules/models.rst) in the `earth2studio.models.da` section, maintaining alphabetical order
+- **Documentation**: Add the DA model to [models_da.md](mdc:docs/modules/models_da.md), maintaining alphabetical order, and add an entry to [install_options.yml](mdc:docs/userguide/about/install_options.yml) when the model has an optional dependency extra or needs API install notes
 - DO NOT attempt to make a general base class with intent to reuse the wrapper
 - DO NOT over-populate the `load_model()` API - only expose essential parameters

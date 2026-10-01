@@ -8,7 +8,7 @@ ensemble_size: 16
 batch_size: 2
 
 data_source:
-    _target_: earth2studio.data.CDS
+    _target_: earth2studio.data.CDS_ERA5
 
 store_type: "netcdf"
 store_dir: "./outputs_${project}"

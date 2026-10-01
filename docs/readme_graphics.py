@@ -1485,7 +1485,7 @@ def datasource() -> str:
     source_lanes = [
         (
             "Data sources",
-            "ARCO, CDS, CMIP6, GOES, MRMS",
+            "ARCO_ERA5, CDS_ERA5, CMIP6, GOES, MRMS",
             "GFS, HRRR, IFS, JPSS, WB2ERA5",
             "--signal-green",
         ),
@@ -1703,7 +1703,7 @@ def composability() -> str:
             "Agent-built workflow",
             "assembled recipe",
             [
-                ("DataSource", "ARCO / CDS / WB2ERA5", "--signal-green"),
+                ("DataSource", "ARCO_ERA5 / CDS_ERA5 / WB2ERA5", "--signal-green"),
                 ("Perturbation", "BredVector / LaggedEnsemble", "--signal-purple"),
                 ("PrognosticModel", "GenCast / AIFS2ENS", "--signal-green"),
                 ("IOBackend", "ZarrBackend / XarrayBackend", "--signal-gold"),

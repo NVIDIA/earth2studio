@@ -12,7 +12,7 @@ ensemble_size: 5
 batch_size: 2
 
 data_source:
-    _target_: earth2studio.data.CDS
+    _target_: earth2studio.data.CDS_ERA5
 
 store_type: "none"
 store_dir: "./outputs_${project}"
