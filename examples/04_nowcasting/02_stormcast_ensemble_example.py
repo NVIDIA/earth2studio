@@ -49,7 +49,7 @@ see
 # [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
 
 # %%
-# .. literalinclude:: ../../earth2studio/run.py
+# .. literalinclude:: ../../earth2studio/run/__init__.py
 #    :language: python
 #    :start-after: # sphinx - ensemble start
 #    :end-before: # sphinx - ensemble end
