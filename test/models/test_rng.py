@@ -42,7 +42,7 @@ def test_fork_rng_persistent_state(device, initialized):
             else nullcontext()
         )
         with expectation:
-            with fork_rng(states, 1, device):
+            with fork_rng(1, device, states=states):
                 actual = torch.randn(8, device=device)
                 if fail:
                     raise RuntimeError("sampling failed")
@@ -52,7 +52,9 @@ def test_fork_rng_persistent_state(device, initialized):
             assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
 
 
-def test_fork_rng_unseeded_uses_global_rng(device):
+@pytest.mark.parametrize("states", [None, {}, {"cpu": torch.tensor([123])}])
+def test_fork_rng_unseeded_uses_global_rng(device, states):
+    original = {key: value.clone() for key, value in states.items()} if states else {}
     reference = torch.Generator(device=device)
     state = (
         torch.cuda.get_rng_state(device)
@@ -60,8 +62,20 @@ def test_fork_rng_unseeded_uses_global_rng(device):
         else torch.get_rng_state()
     )
     reference.set_state(state)
-    with fork_rng(None, None, device):
+    with fork_rng(None, device, states=states):
         first = torch.randn(8, device=device)
     second = torch.randn(8, device=device)
     assert torch.equal(first, torch.randn(8, device=device, generator=reference))
     assert torch.equal(second, torch.randn(8, device=device, generator=reference))
+    if states is not None:
+        assert states.keys() == original.keys()
+        for key in states:
+            assert torch.equal(states[key], original[key])
+
+
+def test_fork_rng_default_states_are_fresh(device):
+    reference = torch.Generator(device=device).manual_seed(42)
+    expected = torch.randn(8, device=device, generator=reference)
+    for _ in range(2):
+        with fork_rng(42, device):
+            assert torch.equal(torch.randn(8, device=device), expected)

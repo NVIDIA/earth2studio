@@ -492,7 +492,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         x = x.unsqueeze(0).unsqueeze(2)
 
         # The super-resolution backend accepts neither seed nor generator.
-        with fork_rng(self._rng_states, self._rng_seed, x.device):
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
             out, _ = self.sr_model(
                 x,
                 coords=replace(self._coords),

@@ -599,7 +599,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if num_steps is None:
             num_steps = self.num_diffusion_steps
         # PhysicsNeMo's stochastic Heun solver has no generator argument.
-        with fork_rng(self._rng_states, self._rng_seed, device):
+        with fork_rng(self._rng_seed, device, states=self._rng_states):
             latents = self.sampler_args["sigma_max"] * torch.randn(
                 shape, dtype=dtype, device=device
             )

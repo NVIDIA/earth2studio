@@ -290,7 +290,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, times, dataset_modality=self.dataset_modality, device=device
         )
         # cBottle's seed argument covers only initial latents, not sampler noise.
-        with fork_rng(self._rng_states, self._rng_seed, device):
+        with fork_rng(self._rng_seed, device, states=self._rng_states):
             out, _ = self.core_model.sample(input_batch, seed=None)
         # Regrid if needed
         if self.lat_lon:

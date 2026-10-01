@@ -538,7 +538,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if num_steps is None:
             num_steps = self.num_diffusion_steps
         # PhysicsNeMo's stochastic Heun solver draws global noise internally.
-        with fork_rng(self._rng_states, self._rng_seed, state.device):
+        with fork_rng(self._rng_seed, state.device, states=self._rng_states):
             latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
             return sample(
                 denoiser,

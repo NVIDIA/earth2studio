@@ -494,7 +494,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
             device = batch["target"].device
             # Backend seeds cover only latents; translation and churn use Torch globals.
-            with fork_rng(self._rng_states, self._rng_seed, device):
+            with fork_rng(self._rng_seed, device, states=self._rng_states):
                 output, cb_coords = self.core_model.sample(
                     batch,
                     guidance_pixels=indices_where_tc,

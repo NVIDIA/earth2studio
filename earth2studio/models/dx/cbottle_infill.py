@@ -383,7 +383,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
             # Use CBottle3d infill method
             # Infill draws Brownian increments and sampler noise internally.
-            with fork_rng(self._rng_states, self._rng_seed, device):
+            with fork_rng(self._rng_seed, device, states=self._rng_states):
                 infilled_data, _ = self.core_model.infill(batch_slice)
 
             outputs.append(infilled_data)

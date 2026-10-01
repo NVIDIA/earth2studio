@@ -826,7 +826,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordinateSystem]:
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=x.device.type, dtype=torch.float16):
-            with fork_rng(self._rng_states, self._rng_seed, x.device):
+            with fork_rng(self._rng_seed, x.device, states=self._rng_states):
                 y = self.model.predict_step(x, fcstep=step)
             out = torch.empty(
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),

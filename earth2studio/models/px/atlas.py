@@ -362,7 +362,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Stochastic interpolant sampling in latent space
         # The interpolant draws its own latent noise and accepts no generator.
-        with fork_rng(self._rng_states, self._rng_seed, x.device):
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
             prediction_latent = self.sinterpolant.sample(
                 self.model,
                 low_res.clone(),

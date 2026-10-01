@@ -93,29 +93,32 @@ def create_ort_session(
 
 @contextmanager
 def fork_rng(
-    states: dict[str, torch.Tensor] | None,
     seed: int | None,
     device: torch.device,
+    states: dict[str, torch.Tensor] | None = None,
 ) -> Iterator[None]:
     """Resume model-owned Torch RNG state for a numerical sampling call.
 
     Parameters
     ----------
-    states : dict[str, torch.Tensor] | None
-        Model-owned RNG snapshots keyed by ``cpu`` and ``cuda:N``. Pass an empty
-        dictionary to start a new stream; this helper initializes missing CPU
-        and selected CUDA states from ``seed`` as needed.
-        Saved states are resumed and updated in place as sampling advances,
-        including when sampling raises an exception. Ignored if ``seed`` is None.
     seed : int | None
         If not None, run sampling with the model's saved RNG states, using this
         seed to create missing CPU and selected CUDA states. Existing states
         are not reseeded. If None, no RNG state is saved or restored: random
-        draws use and advance the caller's global RNG streams normally.
+        draws use and advance the caller's global RNG streams normally. Any
+        supplied ``states`` are completely ignored and left untouched.
     device : torch.device
         Sampling device. With RNG isolation enabled, CPU calls manage the CPU
         RNG; CUDA calls manage both the CPU RNG and the selected GPU's RNG,
         because a CUDA backend may also draw random values on the CPU.
+    states : dict[str, torch.Tensor] | None, optional
+        RNG snapshots keyed by ``cpu`` and ``cuda:N``. Defaults to a fresh empty
+        dictionary for each seeded context when omitted or None. Missing CPU
+        and selected CUDA states are initialized from ``seed``. Supplied states
+        are resumed and updated in place, including when sampling raises an
+        exception. Reuse the dictionary across calls to continue the stream;
+        omitting it starts from ``seed`` each time. If ``seed`` is None, this
+        argument is ignored: no states are read, initialized, or updated.
 
     Notes
     -----
@@ -129,7 +132,7 @@ def fork_rng(
         yield
         return
     if states is None:
-        raise ValueError("Seeded sampling requires a state dictionary; use {} to start")
+        states = {}
     devices = []
     if device.type == "cuda":
         devices = [

@@ -273,7 +273,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             low_res = prev_latents[1].clone()
 
         conditioning = self.model_processor.preprocess_conditioning(high_res, low_res)
-        with fork_rng(self._rng_states, self._rng_seed, x.device):
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
             residual_latent = self.model(prev, conditioning)
 
         # Decode the latent residual and return to state space

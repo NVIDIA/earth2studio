@@ -455,7 +455,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         packed, restore = batch_func()._compress_array(self, x)
         signature = self.output_coords(packed)
         tensor, coords = packed.e2s.to_torch()
-        with fork_rng(self._rng_states, self._rng_seed, self.device_buffer.device):
+        with fork_rng(self._rng_seed, self.device_buffer.device, states=self._rng_states):
             predictions = self._forward_sub_steps(
                 tensor.to(self.device_buffer.device).clone(), coords, hours
             )

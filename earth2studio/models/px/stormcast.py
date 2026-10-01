@@ -359,7 +359,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
         # The PhysicsNeMo sampler draws churn noise without a generator argument.
-        with fork_rng(self._rng_states, self._rng_seed, x.device):
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
             return self._sample(x, conditioning)
 
     stochastic = True

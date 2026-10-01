@@ -958,7 +958,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device_type=x.device.type, dtype=torch.float16, enabled=use_amp
         ):
             # Torch dropout accepts no explicit generator.
-            with fork_rng(self._rng_states, self._rng_seed, x.device):
+            with fork_rng(self._rng_seed, x.device, states=self._rng_states):
                 pred_residual = self.model(
                     model_input,
                     dynamical_condition=forcing,
