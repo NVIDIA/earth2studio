@@ -99,9 +99,7 @@ model = HealDAv2.load_model(package).to("cuda:0")
 
 # %%
 analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
-# Source windows include both ends. Reports at exactly t + 3h are also in the next
-# cycle's file, which the model was trained without, so the window stops 1 s short.
-tolerance = (timedelta(hours=-45), timedelta(hours=3) - timedelta(seconds=1))
+tolerance = (timedelta(hours=-45), timedelta(hours=3))
 
 conv_source = NNJAObsConv(
     time_tolerance=tolerance,
