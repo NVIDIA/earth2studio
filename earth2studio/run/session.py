@@ -200,7 +200,7 @@ class ExecutionPlan(Protocol):
 
     Plans declare output schemas and identity before execution. Declarative
     plans also validate static inputs and schedules; custom loops may resolve
-    data-dependent inputs at runtime. Neither requires a component graph.
+    data-dependent inputs at runtime.
 
     The capability properties exist so that supervision can size member groups
     and decide resume policy without walking component metadata or branching on

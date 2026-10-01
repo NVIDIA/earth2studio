@@ -28,15 +28,23 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypeAlias
 
 import numpy as np
 import xarray as xr
 
-from earth2studio.models.px.base import ModelState, PrognosticModel, RNGState
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.run.schedules import FixedCadence, Schedule
 from earth2studio.run.session import CheckpointCapability, OutputPort
 from earth2studio.utils.type import CoordinateSystem
+
+# Provisional: these belong with the explicit-state model capability once that
+# design settles (see the addendum in dev/spec/EXECUTION_CONTRACT_SPEC.md).
+ModelState: TypeAlias = Mapping[str, xr.DataArray]
+"""Named, labelled recurrent model state. Entries may have different grids."""
+
+RNGState: TypeAlias = Mapping[str, xr.DataArray] | None
+"""Explicit serializable RNG state; ``None`` denotes a deterministic model."""
 
 
 @dataclass(frozen=True)

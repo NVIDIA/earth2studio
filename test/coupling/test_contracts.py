@@ -23,7 +23,6 @@ import xarray as xr
 
 from earth2studio.coupling import Binding
 from earth2studio.coupling.contracts import ConnectorSnapshot, GraphSnapshot
-from earth2studio.models.px.base import StepResult
 from earth2studio.run.component import (
     ComponentSnapshot,
     ComponentSpec,
@@ -80,21 +79,6 @@ def test_static_declarations_allocate_nothing() -> None:
             np.datetime64("2024-01-02"),
         )
     ) == [np.datetime64("2024-01-01")]
-
-
-def test_step_result_publishes_one_entry_per_port() -> None:
-    """A model on two grids returns two ports, not one fused array."""
-    atmos = xr.DataArray(np.array([1.0]), dims=("variable",))
-    ocean = xr.DataArray(np.array([2.0, 3.0]), dims=("variable",))
-    result = StepResult(
-        state={"history": atmos},
-        outputs={"atmos": atmos, "ocean": ocean},
-        rng=None,
-    )
-
-    assert set(result.outputs) == {"atmos", "ocean"}
-    assert result.outputs["ocean"].sizes["variable"] == 2
-    assert result.rng is None
 
 
 def test_scientific_state_travels_as_an_opaque_run_snapshot_payload() -> None:

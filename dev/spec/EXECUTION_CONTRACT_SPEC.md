@@ -3,12 +3,9 @@
 Goal: one execution path for single-model and coupled runs, without making the
 single-model case pay for coupling's complexity.
 
-The interface between Pipeline work supervision and the execution of one
-forward run: how to align things between single-model forecasts and coupled
+The interface between Pipeline work supervision and the execution of one  
+forward run: how to align things between single-model forecasts and coupled  
 component graphs.
-
-Pipeline and the graph compiler are not yet implemented. Existing model, source, grid (`GRID_SPEC.md`), and
-time-statistics (`TIME_STATISTICS_SPEC.md`) contracts remain authoritative.
 
 ## Layers
 
@@ -103,6 +100,110 @@ output declarations and a caller-owned identity. No component types required.
 `ExecutionGraph` (users obtain one from `couple()`), `BoundProvider`,
 `ActivationContext`, `GraphSnapshot`,
 `ConnectorSnapshot`.
+
+### Dependency map
+
+```mermaid
+flowchart TB
+  User(["user code"]):::user
+
+  subgraph run_pkg["run"]
+    Workflows["deterministic / diagnostic / ensemble"]:::public
+    Pipeline["Pipeline, Pipeline.from_model"]:::publicPlanned
+  end
+
+  subgraph single["run.single"]
+    SMP["SingleModelPlan"]:::ext
+    OT["OutputTransform"]:::ext
+    SMS["SingleModelSession"]:::internal
+  end
+
+  subgraph coupling["coupling"]
+    couple["couple()"]:::publicPlanned
+    EG["ExecutionGraph"]:::internal
+    Binding["Binding, TransformSpec,<br/>ProviderRegistry"]:::ext
+    GP["compiled graph plan + session"]:::internalPlanned
+    GInt["BoundProvider, ActivationContext,<br/>GraphSnapshot, ConnectorSnapshot"]:::internal
+  end
+
+  subgraph session["run.session"]
+    LP["LoopPlan"]:::ext
+    LS["_LoopSession"]:::internal
+    EP["ExecutionPlan"]:::ext
+    RS["RunSession"]:::ext
+    Out["OutputEvent, RunSnapshot"]:::ext
+    Vals["WorkItem"]:::public
+    Small["PortRef, OutputPort, ResolvedRequest,<br/>CheckpointCapability, SnapshotCompatibility"]:::ext
+  end
+
+  subgraph component["run.component"]
+    PC["PrognosticComponent"]:::ext
+    PCS["PrognosticComponentSession"]:::internal
+    CA["ComponentAdapter"]:::ext
+    CS["ComponentSession"]:::ext
+    CDecl["ComponentSpec, FieldRequirement,<br/>ComponentSnapshot"]:::ext
+  end
+
+  subgraph base["run.schedules / models.px.base"]
+    Sched["Schedule, FixedCadence"]:::ext
+    PM["PrognosticModel"]:::ext
+    SPM["SteppablePrognosticModel"]:::extPlanned
+  end
+
+  Workflows -.->|may later wrap| Pipeline
+  User -->|"Pipeline.from_model(model, source)<br/>or Pipeline(plan).run(items)"| Pipeline
+  User -->|"couple(...).compile(providers)"| couple
+  GP -.->|"returned plan, passed to Pipeline(plan)"| Pipeline
+  Pipeline -->|"drives any plan"| EP
+  Pipeline -->|from_model builds| SMP
+  EP -->|opens| RS
+  RS -->|yields| Out
+
+  SMP -.->|implements| EP
+  SMP --> OT
+  SMP -->|opens| SMS
+  SMS -.->|implements| RS
+  SMP --> PC
+  SMS -->|steps| CS
+
+  LP -.->|implements| EP
+  LP -->|opens| LS
+  LS -.->|implements| RS
+
+  couple -->|builds| EG
+  EG --> Binding
+  EG -->|compile| GP
+  GP --> GInt
+  GP -.->|implements| EP
+  EG -->|holds| CA
+  GP -->|steps| CS
+
+  PC -.->|implements| CA
+  PCS -.->|implements| CS
+  CA -->|declares / opens| CDecl
+  CA --> CS
+  CDecl --> Sched
+  PC --> PM
+  PC -.->|phase 2| SPM
+
+  classDef user fill:#ffffff,stroke:#000000,color:#000
+  classDef public fill:#d4edda,stroke:#2e7d32,color:#000
+  classDef publicPlanned fill:#d4edda,stroke:#2e7d32,stroke-dasharray:5 5,color:#000
+  classDef ext fill:#dbe9f7,stroke:#1f5fa8,color:#000
+  classDef extPlanned fill:#dbe9f7,stroke:#1f5fa8,stroke-dasharray:5 5,color:#000
+  classDef internal fill:#eeeeee,stroke:#777777,color:#000
+  classDef internalPlanned fill:#eeeeee,stroke:#777777,stroke-dasharray:5 5,color:#000
+```
+
+
+
+Fill shows the tier: green is Public, blue is Extension, gray is Internal. A
+dashed border means planned, not yet implemented. A solid arrow means "uses"; a
+dotted arrow labelled `implements` means it satisfies a protocol. Related small
+types are grouped into one box. Every arrow between `coupling` and `run` points
+into `run`, and `Pipeline` reaches a graph plan only through `ExecutionPlan`.
+For a coupled run, user code compiles the graph and hands the resulting plan to
+`Pipeline(plan)`; `Pipeline` drives it exactly like a `SingleModelPlan`.
 
 ## Responsibility boundary
 
@@ -345,10 +446,10 @@ Each phase leaves a working single-model path; none waits on the next.
 
 Shared-type changes land in this spec and the package together.
 
-
 ### Addendum: `SteppablePrognosticModel`
 
 Code sketch:
+
 ```
 
 
@@ -423,3 +524,4 @@ class SteppablePrognosticModel(Protocol):
         """Declare each state entry's coordinate signature without values."""
         ...
 ```
+
