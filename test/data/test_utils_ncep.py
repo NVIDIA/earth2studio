@@ -12,7 +12,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_ncep
+from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_bufr, utils_ncep
 from earth2studio.data.utils_bufr import OBS_TOB, OBS_TQM
 from earth2studio.lexicon import GDASObsConvLexicon, NNJAObsConvLexicon
 
@@ -900,3 +900,19 @@ def test_prepbufr_filters_complete_reports_by_header_time():
         base + timedelta(minutes=45),
     )
     assert dropped == []
+
+
+def test_dx_messages_without_tables_raise(monkeypatch):
+    # One DX-table message (data category 11 at byte 16) that parses with no subsets.
+    message = (
+        b"BUFR" + (24).to_bytes(3, "big") + b"\x04" + bytes(8) + b"\x0b" + bytes(7)
+    )
+    empty = SimpleNamespace(
+        template_data=SimpleNamespace(
+            value=SimpleNamespace(decoded_values_all_subsets=[])
+        )
+    )
+    decoder = SimpleNamespace(process=lambda _: empty)
+    monkeypatch.setattr(utils_bufr, "BufrDecoder", lambda: decoder)
+    with pytest.raises(ValueError, match="gave no tables"):
+        utils_bufr.parse_prepbufr_messages(message)

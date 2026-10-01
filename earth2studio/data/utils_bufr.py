@@ -485,11 +485,11 @@ def parse_prepbufr_messages(
                 raise
             except Exception as e:
                 logger.warning(f"Failed to extract DX tables: {e}")
-        # A malformed DX message is skipped; none decoding means no data message can be
+        # A malformed DX message is skipped; no tables means no data message can be
         # decoded either, which must fail rather than read as an empty file.
-        if not decoded:
+        if not table_b or not table_d:
             raise ValueError(
-                f"None of {len(dx_messages)} DX-table messages could be decoded"
+                f"{len(dx_messages)} DX-table messages ({decoded} parsed) gave no tables"
             ) from first_error
 
     return table_b, table_d, data_messages
