@@ -105,9 +105,9 @@ def fork_rng(
         Model-owned states keyed by ``cpu`` and ``cuda:N``. Updated in place
         with the advanced states, including when sampling raises an exception.
     seed : int | None
-        Seed used to initialize a CUDA generator state when its key (for
-        example, ``cuda:1``) is missing from ``states``. Existing entries are
-        resumed without reseeding; the CPU entry must already be initialized.
+        Seed used to initialize RNG state for ``device`` if it is a CUDA device
+        and its state is missing from ``states``. Existing states are resumed
+        without reseeding; the CPU state must already be initialized.
         If None, this context is a no-op: ``states`` is ignored and no RNG
         state is saved or restored.
         Random draws inside the context use and advance the caller's global
