@@ -242,6 +242,7 @@ def test_healda_v2_data_sources_match_training():
     assert isinstance(satwnd, NNJAObsSatwnd)
     assert isinstance(sat, NNJAObsSat)
     assert conv._original_event
+    assert conv._exclude_message_types == {"SATWND"}
     assert {"report_time", "report_lat", "report_lon"} <= set(conv.SCHEMA.names)
     assert sat._sensor_indices == {"cris": frozenset({19, 24})}
 

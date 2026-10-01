@@ -156,6 +156,8 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
             NNJAObsConv(
                 time_tolerance=time_tolerance,
                 event="original",
+                # Satellite winds come from NNJAObsSatwnd only.
+                exclude_message_types=("SATWND",),
                 **kwargs,
             ),
             NNJAObsSatwnd(time_tolerance=time_tolerance, **kwargs),
