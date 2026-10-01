@@ -902,8 +902,8 @@ def test_prepbufr_filters_complete_reports_by_header_time():
     assert dropped == []
 
 
-def test_dx_messages_without_tables_raise(monkeypatch):
-    # One DX-table message (data category 11 at byte 16) that parses with no subsets.
+def test_dx_messages_that_fail_or_give_no_tables_raise(monkeypatch):
+    # One DX-table message (data category 11 at byte 16).
     message = (
         b"BUFR" + (24).to_bytes(3, "big") + b"\x04" + bytes(8) + b"\x0b" + bytes(7)
     )
@@ -912,7 +912,15 @@ def test_dx_messages_without_tables_raise(monkeypatch):
             value=SimpleNamespace(decoded_values_all_subsets=[])
         )
     )
-    decoder = SimpleNamespace(process=lambda _: empty)
-    monkeypatch.setattr(utils_bufr, "BufrDecoder", lambda: decoder)
-    with pytest.raises(ValueError, match="gave no tables"):
-        utils_bufr.parse_prepbufr_messages(message)
+
+    def broken(_):
+        raise RuntimeError("corrupt")
+
+    for process, match in (
+        (lambda _: empty, "gave no tables"),
+        (broken, "1 of 1 failed"),
+    ):
+        decoder = SimpleNamespace(process=process)
+        monkeypatch.setattr(utils_bufr, "BufrDecoder", lambda: decoder)
+        with pytest.raises(ValueError, match=match):
+            utils_bufr.parse_prepbufr_messages(message)

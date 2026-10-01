@@ -92,7 +92,7 @@ class _NNJASatProduct:
 class _NNJAObsSatIncompleteError(RuntimeError):
     def __init__(self, reason: str, **context: object) -> None:
         self.context = {"reason": reason, **context}
-        super().__init__(f"NNJAObsSat request incomplete: {self.context}")
+        super().__init__(f"NNJA request incomplete: {self.context}")
 
 
 def _raise_task_failure(

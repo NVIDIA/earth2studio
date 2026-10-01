@@ -29,9 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file fails to decode
-  instead of silently returning fewer rows, and when the DX-table messages give no
-  tables.
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
+  messages, or any DX-table message fails to decode, instead of silently returning
+  fewer rows.
 - `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
   instead of failing the whole request.
 

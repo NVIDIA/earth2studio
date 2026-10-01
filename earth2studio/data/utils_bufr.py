@@ -459,38 +459,28 @@ def parse_prepbufr_messages(
             data_messages.append((msg_bytes, data_cat))
         pos = idx + msg_len
 
-    # Decode DX table messages using pybufrkit (they use standard descriptors)
+    # Decode DX table messages using pybufrkit (they use standard descriptors). Every
+    # one that fails is fatal: a table missing from a later message leaves data
+    # messages that cannot decode. A file's last DX message can be empty.
     if dx_messages:
         ctx = silence_bufr_noise() if silence_noise else contextlib.nullcontext()
-        decoded, first_error = 0, None
         with ctx:
-            try:
-                dx_decoder = BufrDecoder()
-                for dx_bytes in dx_messages:
-                    try:
-                        dx_msg = dx_decoder.process(dx_bytes)
-                    except ImportError:
-                        raise
-                    except Exception as exc:  # noqa: S112
-                        first_error = first_error or exc
-                        logger.debug("Skipping unparseable DX-table message")
-                        continue
-                    decoded += 1
-                    td = dx_msg.template_data.value
-                    dvas = td.decoded_values_all_subsets
-                    if not dvas:
-                        continue
-                    extract_dx_tables(dvas[0], table_b, table_d)
-            except ImportError:
-                raise
-            except Exception as e:
-                logger.warning(f"Failed to extract DX tables: {e}")
-        # A malformed DX message is skipped; no tables means no data message can be
-        # decoded either, which must fail rather than read as an empty file.
+            dx_decoder = BufrDecoder()
+            for index, dx_bytes in enumerate(dx_messages):
+                try:
+                    dvas = dx_decoder.process(
+                        dx_bytes
+                    ).template_data.value.decoded_values_all_subsets
+                    if dvas:
+                        extract_dx_tables(dvas[0], table_b, table_d)
+                except ImportError:
+                    raise
+                except Exception as exc:
+                    raise ValueError(
+                        f"DX-table message {index + 1} of {len(dx_messages)} failed"
+                    ) from exc
         if not table_b or not table_d:
-            raise ValueError(
-                f"{len(dx_messages)} DX-table messages ({decoded} parsed) gave no tables"
-            ) from first_error
+            raise ValueError(f"{len(dx_messages)} DX-table messages gave no tables")
 
     return table_b, table_d, data_messages
 

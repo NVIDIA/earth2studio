@@ -324,15 +324,12 @@ def _decode_prepbufr_message(
     hrdr_scale: int,
     original_event: bool = False,
 ) -> list[dict[str, Any]]:
-    try:
-        message = decoder.process(message_bytes)
-    except Exception:
-        return []
+    message = decoder.process(message_bytes)
     if not message.n_subsets.value:
         return []
     base_time = _message_base_time(message)
     if base_time is None:
-        return []
+        raise ValueError("PrepBUFR message has no reference time")
 
     template_data = message.template_data.value
     rows: list[dict[str, Any]] = []
@@ -556,10 +553,7 @@ def _decode_gpsro_message(
     dt_min: datetime,
     dt_max: datetime,
 ) -> list[dict[str, Any]]:
-    try:
-        message = decoder.process(message_bytes)
-    except Exception:
-        return []
+    message = decoder.process(message_bytes)
     if not message.n_subsets.value:
         return []
     template_data = message.template_data.value
@@ -988,8 +982,6 @@ def decode_prepbufr(
                 )
                 for message_bytes, obs_class in work_items
             ]
-            # A message that fails to decode is skipped inside the worker, so a worker
-            # that raises is systematic and fails the file.
             for future in futures:
                 rows.extend(future.result())
     else:
@@ -1065,10 +1057,7 @@ def decode_gpsro(
                 for message_bytes, _data_category in messages
             ]
             for future in futures:
-                try:
-                    rows.extend(future.result())
-                except Exception as error:
-                    logger.debug(f"GPSRO worker failed: {error}")
+                rows.extend(future.result())
     else:
         decoder = _create_decoder(table_b, table_d)
         for message_bytes, _data_category in messages:
@@ -2773,9 +2762,9 @@ def decode_satwnd(
         f"messages in {time.perf_counter() - started:.1f}s"
     )
     if failures:
-        logger.warning(
-            f"{path}: skipped {failures} of {len(message_bytes)} undecodable "
-            "SATWND messages"
+        raise ValueError(
+            f"{path}: {failures} of {len(message_bytes)} SATWND messages failed to "
+            "decode"
         )
     if not columns["time"]:
         return empty_dataframe(NCEP_SATWND_PUBLIC_SCHEMA)
