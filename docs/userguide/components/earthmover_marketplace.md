@@ -210,29 +210,33 @@ initial state.
 
 ## Writing output to Arraylake
 
-Earth2Studio's [`IceChunkBackend`](io.md) IO backend is not integrated with Arraylake:
-it only accepts a plain `icechunk.Storage | str | None` and always calls
-`icechunk.Repository.open_or_create()` itself, so there is no supported way to point it
-at an Arraylake-managed org/repo directly.
-
-To write inference output (or any data) into an Arraylake repository, use the
-`arraylake` client directly instead of an Earth2Studio IO backend:
+An Arraylake repository is an [Icechunk](https://icechunk.io/) repository, so
+Earth2Studio's [`IceChunkBackend`](io.md) writes to it directly. Arraylake owns the
+catalog and vends the bucket credentials, so instead of constructing an
+`icechunk.Storage` yourself, ask the `arraylake` client for the repository's storage
+object and pass it to the backend:
 
 ```python
-import arraylake as al
-import zarr
+import os
 
-client = al.Client()
-repo = client.create_repo("your-org/your-repo")  # or client.get_repo(...)
+import arraylake
+from earth2studio.io import IceChunkBackend
 
-session = repo.writable_session("main")
-root = zarr.group(session.store)
-# write with normal zarr/xarray operations against session.store
-session.commit(message="Add data")
+client = arraylake.Client(token=os.environ["EARTHMOVER_API_KEY"])
+storage = client.get_icechunk_storage("your-org/your-repo")
+
+io = IceChunkBackend(storage=storage, branch="main")
 ```
 
-See [Earthmover's version control guide](https://docs.earthmover.io/guide/version-control)
-for the full writable-session and commit workflow.
+The repository must already exist in your Arraylake organization; create it once with
+`client.create_repo("your-org/your-repo")` or in the Arraylake web UI. From there the
+backend behaves exactly as with any other Icechunk store: `IceChunkBackend` opens a
+writable session on `branch`, each workflow writes through the usual
+`add_array` / `write` calls, and `commit()` records an Icechunk commit that is visible
+in Arraylake's version history. See the [IO Backends](io.md) guide for the backend's
+commit and flush semantics, and
+[Earthmover's version control guide](https://docs.earthmover.io/guide/version-control)
+for how those commits appear on the Arraylake side.
 
 ### Publishing your own Marketplace listing
 
@@ -253,7 +257,8 @@ Earthmover-account-level process, per
    choice" (bring-your-own-bucket), or request Earthmover-managed storage from
    support.
 4. Prepare the data: "create a new Icechunk repo," import existing Icechunk data, or
-   write it with Xarray, using the `writable_session` / `commit` pattern above.
+   write it with Xarray, or write Earth2Studio output into it with `IceChunkBackend`
+   as shown above.
 5. In your org settings, open the **Marketplace** tab and click **"+ Create
    Listing"**, then fill in the repository, listing name and description, thumbnail
    URL, README, license terms, and pricing model.
