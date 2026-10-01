@@ -14,21 +14,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Single-model and custom execution through one contract
-=====================================================
+"""Single-model execution through pipelines
+==============================================
 
-The direct forecast loop shares model metadata with graph execution, but does
-not require a graph. This example shows stateless output transforms and an
-ordinary generator wrapped in ``LoopPlan``. No session subclasses are needed.
+A coupled workflow and a one-model forecast are meant to run down the same
+``ExecutionPlan`` / ``RunSession`` path. The risk is that the coupled vocabulary
+leaks into the simple case. This example measures what the single-model path
+costs a user, at three levels of customization:
 
-Uses FCN with an add-one core and a tiny signature, fed by zeros. No model
-weights, downloads, or GPU are required. Pipeline itself is not implemented yet;
-these plans already share its proposed execution boundary.
+- **Default:** a model and a source. No classes to write.
+- **Tier one:** change how steps are post-processed, keeping inputs and outputs
+  unchanged. Override one method on the default session: 2 lines here.
+- **Tier two:** change what is published. Override that method *and* the
+  matching declaration, on the same session class: 13 lines here, 6 of them the
+  declaration.
+
+For comparison, writing the plan and session from scratch took 94 lines, 61 of
+them boilerplate the plan factory now derives from the model.
+
+The plan is never subclassed at any tier, and ``earth2studio.coupling`` is never
+imported; the last section asserts that mechanically.
+
+Uses FCN's real execution path with an add-one core and a tiny synthetic
+signature, fed by a constant zero source, so step ``k`` holds the value ``k``.
+Needs no model weights, downloads, or GPU.
 """
 
 import sys
 from collections import OrderedDict
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
 import numpy as np
 import torch
@@ -36,14 +50,9 @@ import xarray as xr
 
 from earth2studio.data import Constant
 from earth2studio.models.px.fcn import FCN
-from earth2studio.run.session import (
-    LoopPlan,
-    OutputEvent,
-    OutputPort,
-    PortRef,
-    WorkItem,
-)
-from earth2studio.run.single import OutputTransform, SingleModelPlan
+from earth2studio.run.schedules import FixedCadence
+from earth2studio.run.session import OutputPort, PortRef, WorkItem
+from earth2studio.run.single import SingleModelPlan, SingleModelSession
 from earth2studio.utils import coord_array, coord_array_like
 
 
@@ -117,102 +126,79 @@ for resumed, original in zip(head + tail, events):
     xr.testing.assert_identical(resumed.data, original.data)
 
 # %%
-# Mask published outputs
-# ----------------------
-# A transform receives and returns port-keyed arrays. It must not mutate its
-# inputs or keep simulation state; transformed values never feed back into FCN.
+# Tier one: post-process, same inputs and outputs
+# -----------------------------------------------
+# Masking a region -- the pattern DLESyM's eval pipeline uses to blank invalid
+# ocean -- changes what is published but not what is declared. Override
+# ``outputs`` and nothing else. Its return value never feeds back into the model,
+# so the rollout itself is unaffected.
 
 
-def northern_hemisphere(
-    outputs: Mapping[str, xr.DataArray],
-) -> Mapping[str, xr.DataArray]:
-    """Zero the southern hemisphere without changing the output schema."""
-    x = outputs["forecast"]
-    return {"forecast": x.where(x["lat"] > 0, 0.0)}
+class NorthernHemisphere(SingleModelSession):
+    """Publish only the northern hemisphere; zero elsewhere."""
+
+    def outputs(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
+        return {"forecast": x.where(x["lat"] > 0, 0.0)}
 
 
-mask = OutputTransform(northern_hemisphere, identity="north-mask-v1")
-masked = SingleModelPlan(model, source, transforms=(mask,))
+masked = SingleModelPlan(model, source, session=NorthernHemisphere)
 last = list(masked.open(item).run())[-1]
 np.testing.assert_array_equal(last.data.sel(lat=10).values, 3)
 np.testing.assert_array_equal(last.data.sel(lat=0).values, 0)
 
 # %%
-# Add a derived stream
-# --------------------
-# When a transform changes outputs, it also supplies a declaration function.
-# Both functions compose in the same order. Identity includes configuration and
-# must change when behavior changes; it prevents incompatible checkpoint reuse.
+# Tier two: publish something new
+# -------------------------------
+# Adding a derived stream changes what is published, so the declaration has to
+# change too -- supervision needs every port's schema before anything runs, to
+# lay out output storage. That cost is real and unavoidable. What this design
+# controls is *where* it lands: in one classmethod on the same session class,
+# not in a plan subclass or a separate declaration file.
 
 
-def wind_ports(ports: tuple[OutputPort, ...]) -> tuple[OutputPort, ...]:
-    """Declare forecast and wind-speed streams without computing values."""
-    (forecast,) = ports
-    signature = coord_array_like(forecast.signature, {"variable": ["ws10m"]})
-    return forecast, OutputPort("wind_speed", ("ws10m",), signature, forecast.schedule)
+class WithWindSpeed(SingleModelSession):
+    """Also publish 10 m wind speed on its own port."""
+
+    @classmethod
+    def output_ports(
+        cls, model: TinyFCN, cadence: FixedCadence
+    ) -> tuple[OutputPort, ...]:
+        (forecast,) = super().output_ports(model, cadence)
+        signature = coord_array_like(forecast.signature, {"variable": ["ws10m"]})
+        return forecast, OutputPort("wind_speed", ("ws10m",), signature, cadence)
+
+    def outputs(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
+        u = x.sel(variable="u10m", drop=True)
+        v = x.sel(variable="v10m", drop=True)
+        axis = x.get_axis_num("variable")
+        speed = np.hypot(u, v).expand_dims(variable=["ws10m"], axis=axis)
+        return {"forecast": x, "wind_speed": speed}
 
 
-def wind_speed(outputs: Mapping[str, xr.DataArray]) -> Mapping[str, xr.DataArray]:
-    """Add wind speed to the published forecast."""
-    x = outputs["forecast"]
-    u = x.sel(variable="u10m", drop=True)
-    v = x.sel(variable="v10m", drop=True)
-    speed = np.hypot(u, v).expand_dims(
-        variable=["ws10m"], axis=x.get_axis_num("variable")
-    )
-    return {**outputs, "wind_speed": speed}
-
-
-wind = OutputTransform(wind_speed, identity="wind-speed-v1", ports=wind_ports)
-derived = SingleModelPlan(model, source, transforms=(mask, wind))
+derived = SingleModelPlan(model, source, session=WithWindSpeed)
 np.testing.assert_equal(
     sorted(ref.port for ref in derived.output_ports), ["forecast", "wind_speed"]
 )
-speeds = [event for event in derived.open(item).run() if event.port == "wind_speed"]
-np.testing.assert_allclose(speeds[-1].data.sel(lat=10), np.hypot(3, 3))
-np.testing.assert_array_equal(speeds[-1].data.sel(lat=0), 0)
-np.testing.assert_equal(plan.identity == derived.identity, False)
+speeds = [e for e in derived.open(item).run() if e.port == "wind_speed"]
+np.testing.assert_allclose(speeds[-1].data.values, np.hypot(3, 3))
 
 # %%
-# Own the run loop
-# ----------------
-# A bespoke generator needs only its output schema and a stable identity.
-# Here a synthetic observation is fetched conditionally and stops the forecast
-# early. The request set depends on values, so complete predownload is unknown.
-# LoopPlan defaults to no checkpointing and no member batching. Resumable custom
-# execution can implement ExecutionPlan and RunSession directly.
+# A session class changes plan identity, so a snapshot taken under one session
+# can never resume a different one.
 
-observation_fetches: list[np.datetime64] = []
-
-
-def observation(time: np.datetime64) -> float:
-    """Stand in for a conditional observation fetch."""
-    observation_fetches.append(time)
-    return 1.5
-
-
-def adaptive(work: WorkItem) -> Iterator[OutputEvent]:
-    """Stop when forecast values exceed an observation-derived threshold."""
-    events = plan.open(work).run()
-    try:
-        for event in events:
-            yield event
-            if float(event.data.max()) >= 2:
-                if float(event.data.max()) > observation(event.produced_at):
-                    break
-    finally:
-        events.close()
-
-
-custom = LoopPlan(adaptive, output_ports=plan.output_ports, identity="adaptive-v1")
-np.testing.assert_equal(custom.external_requests(item), None)
-np.testing.assert_equal(observation_fetches, [])  # Planning does not run the loop.
-np.testing.assert_equal(len(list(custom.open(item).run())), 3)
-np.testing.assert_equal(len(observation_fetches), 1)
-np.testing.assert_equal(custom.open(item).checkpoint_boundary, False)
+np.testing.assert_equal(plan.identity == derived.identity, False)
 np.testing.assert_equal(
-    plan.output_ports[PortRef("model", "forecast")].variables, ("u10m", "v10m")
+    derived.output_ports[PortRef("model", "wind_speed")].variables, ("ws10m",)
 )
+
+# %%
+# The measurement. Nothing above imported the component graph package.
+
 np.testing.assert_equal(
     [name for name in sys.modules if name.startswith("earth2studio.coupling")], []
 )
+
+# %%
+# Below tier two sits the full escape hatch: implement ``RunSession`` and
+# ``ExecutionPlan`` directly, for execution the default loop cannot express.
+# Supervision handles those identically. ``test/run/test_session.py`` shows one.
