@@ -17,11 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added an `original_event` option and report time/latitude/longitude columns to
   `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
 - Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
 
 ### Changed
 
 - `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
   is a NaN observation instead of a dropped row, so every footprint appears.
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
 
 ### Deprecated
 
@@ -111,6 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
+- `ZarrBackend` / `IceChunkBackend` can reopen a store containing a scalar
+  array (e.g. a CF `grid_mapping` variable) whose `dimension_names` is `None`
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources
 - `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges
