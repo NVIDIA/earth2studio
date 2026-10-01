@@ -7,10 +7,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.19.0a0] - xxxx-xx-xx
+## [0.20.0a0] - 2026-10-xx
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.19.0] - 2026-09-30
+
+### Added
+
+- Added event scoring to the evaluation recipe and the scorecards.
 - Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
@@ -75,10 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scorecard campaigns score online over 48 initial conditions and the
   score data moved to the HF Earth2Studio assets dataset
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
@@ -105,10 +118,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evaluation recipe: clearing resume markers no longer races between
   ranks. Concurrent removal of the same progress directory retries until
   the directory no longer exists
-
-### Security
-
-### Dependencies
 
 ## [0.18.0] - 2026-08-31
 

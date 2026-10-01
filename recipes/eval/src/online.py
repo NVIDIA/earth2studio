@@ -49,7 +49,9 @@ properties follow:
   ``scoring.regions`` adds a ``region`` axis to every sum (boxes on the
   scored grid, masked into the weights), and evaluating a region outside
   that set requires re-running inference (or offline scoring against a
-  retained forecast store).
+  retained forecast store).  Event boxes (``scoring.events``) join that
+  set; event time windows, by contrast, apply to the per-IC scores after
+  the fact, in the scorecard exporter.
 * Scope limited to a fixed set of metrics amenable to the above patterns.
   Users with custom metrics must still run offline.
 
@@ -96,7 +98,9 @@ from .output import OutputManager
 from .regions import (
     NON_SPATIAL,
     build_spatial_weights,
-    parse_regions,
+    events_to_attrs,
+    parse_events,
+    scoring_regions,
 )
 from .scoring import _apply_valid_ranges
 from .work import (
@@ -223,7 +227,9 @@ class OnlineSettings:
         ``{lat: [min, max], lon: [min, max]}`` box on the scored grid, or
         a list of boxes whose union defines the region; longitude boxes
         may wrap (``min > max`` after normalizing to [0, 360)).
-        Every weighted sum gains a ``region`` axis.
+        Every weighted sum gains a ``region`` axis.  The set includes the
+        boxes that ``scoring.events`` declares (see
+        :func:`src.regions.scoring_regions`).
     pairwise_member_tile : int
         Members per float64 abs-diff tile in :func:`_abs_diff_weighted_sum`
         — the scorer's own dominant memory term, and the one with no other
@@ -386,8 +392,9 @@ def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
             f"{pairwise_member_tile}."
         )
 
-    # Regions live at scoring.regions — shared with the offline pathway.
-    regions = parse_regions(cfg.scoring.get("regions", None))
+    # Regions live at scoring.regions — shared with the offline pathway —
+    # plus the boxes of scoring.events, merged by scoring_regions.
+    regions = scoring_regions(cfg.scoring)
     lsd_cfg = block.get("lsd", False)
     lsd_cutoff = None
     if isinstance(lsd_cfg, (dict, DictConfig)):
@@ -2771,7 +2778,10 @@ def finalize_stats(cfg: DictConfig) -> str:
     ==========================  =========================================
 
     With ``scoring.regions`` configured every array carries a
-    ``region`` axis, labeled with the configured region names.
+    ``region`` axis, labeled with the configured region names.  The
+    store's ``events`` attribute carries the ``scoring.events``
+    definitions, so the scorecard exporter can window the per-IC scores
+    without the campaign file at hand.
 
     Spread and SSR are not written: the report derives them from
     ``ensemble_mean_mse`` and ``ensemble_variance`` with the correct
@@ -2822,6 +2832,9 @@ def finalize_stats(cfg: DictConfig) -> str:
     scores = xr.Dataset(arrays).compute()
     if region_names is not None:
         scores.attrs["regions"] = list(region_names)
+    events = events_to_attrs(parse_events(cfg.scoring.get("events", None)))
+    if events is not None:
+        scores.attrs["events"] = events
     # Rebuild from scratch: the derived metric set depends on what is in
     # stats.zarr (member breakdown, rank counts, climatology), so an
     # in-place overwrite could leave stale arrays from an earlier config.
