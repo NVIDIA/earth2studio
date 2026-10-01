@@ -228,6 +228,73 @@ Distribution, ensemble grouping, retry, progress storage, and output handling ar
 injected strategies; a new execution pattern is a session. Pipeline is never
 subclassed itself.
 
+## What `Pipeline.run` does
+
+Pipeline drives **work**: many items, many ranks, failures, and where outputs go.
+A plan's session -- the coupler, for a graph -- drives **one simulation**: which
+model steps when, and what each model sees from the others. Rule of thumb: "what
+does model B receive from model A, and when?" is the coupler's question. "Which
+rank runs this item, where does its output go, and what happens if it crashes?"
+is Pipeline's.
+
+The sketch below is today's eval recipe loop (`recipes/eval/src/pipelines/base.py`,
+`Pipeline.run`) with `run_item` replaced by the plan/session contract. Names are
+illustrative.
+
+```python
+class Pipeline:
+    def __init__(self, plan, *, output=None, scorer=None, progress=None,
+                 distribution=None, member_group=1, checkpoint=None, retries=0):
+        ...  # every variation point is an injected strategy, not a subclass hook
+
+    def run(self, items):
+        plan = self.plan
+        # Plan metadata only: no components, no bindings, no topology.
+        group = self.member_group if plan.supports_member_batching else 1
+        self.output.prepare(plan.output_ports, items)  # lay out stores from schemas
+        for item in self.distribution.assign(items, group):  # this rank's share
+            if self.progress.is_done(plan.identity, item):  # resume skips finished work
+                continue
+            with self.retry_policy():
+                self._run_one(item)
+
+    def _run_one(self, item):
+        plan = self.plan
+        raw = self.progress.load_snapshot(plan.identity, item)
+        session = plan.open(item, plan.decode_snapshot(raw) if raw else None)
+        for event in session.run():  # one model or a whole graph -- opaque here
+            self.output.write(item, event)  # routed by (event.component, event.port)
+            if self.scorer:
+                self.scorer.update(item, event)
+            if self.checkpoint.due(item, event) and session.checkpoint_boundary:
+                self.output.flush()  # commit outputs before the snapshot that skips them
+                self.progress.save_snapshot(
+                    plan.identity, item, plan.encode_snapshot(session.snapshot())
+                )
+        self.output.flush()
+        self.progress.mark_done(plan.identity, item)
+
+    def predownload(self, items, store):
+        for item in items:
+            requests = self.plan.external_requests(item)
+            if requests is None:
+                raise ValueError("plan cannot enumerate its inputs ahead of time")
+            store.fetch(requests)
+```
+
+
+| Concern                                        | Pipeline                   | Plan / session (coupler, for a graph)            |
+| ---------------------------------------------- | -------------------------- | ------------------------------------------------ |
+| Which items, on which rank                     | owns                       | --                                               |
+| Ensemble member grouping                       | sizes groups               | reports `supports_member_batching`; runs a group |
+| Model step order, multi-rate schedules         | --                         | owns                                             |
+| Exchange between models: bindings, regrid, lag | --                         | owns                                             |
+| Initial conditions and forcing                 | may predownload them       | fetches from bound sources                       |
+| Output storage, scoring, regrid-on-write       | owns                       | only yields `OutputEvent`s                       |
+| Checkpoints                                    | decides when; stores bytes | says where legal; owns contents and codec        |
+| Retry, progress, crash resume                  | owns                       | restores its own state from a snapshot           |
+
+
 ## Plans
 
 A plan is **item-agnostic**: built once, opened per work item, so Pipeline can
