@@ -536,42 +536,28 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if num_steps is None:
             num_steps = self.num_diffusion_steps
-        devices = [state.device] if state.is_cuda else []
-        key = str(state.device)
-        if self._rng_seed is not None and key not in self._sampler_states:
-            self._sampler_states[key] = (
-                torch.Generator(device=state.device)
-                .manual_seed(self._rng_seed)
-                .get_state()
-            )
+        devices = [state.device.index] if state.is_cuda else []
         # PhysicsNeMo's stochastic Heun solver draws global noise internally.
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.set_rng_state(self._sampler_states["cpu"])
-                if state.is_cuda:
-                    torch.cuda.set_rng_state(self._sampler_states[key], state.device)
-            try:
-                latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
-                return sample(
-                    denoiser,
-                    latents,
-                    noise_scheduler=self.scheduler,
-                    num_steps=num_steps,
-                    solver="edm_stochastic_heun",
-                    solver_options={
-                        "S_churn": self.sampler_args["S_churn"],
-                        "S_min": self.sampler_args["S_min"],
-                        "S_max": self.sampler_args["S_max"],
-                        "S_noise": self.sampler_args["S_noise"],
-                    },
-                )
-            finally:
-                if self._rng_seed is not None:
-                    self._sampler_states["cpu"] = torch.get_rng_state()
-                    if state.is_cuda:
-                        self._sampler_states[key] = torch.cuda.get_rng_state(
-                            state.device
-                        )
+                torch.random.default_generator.manual_seed(self._rng_seed)
+                for device in devices:
+                    torch.cuda.default_generators[device].manual_seed(self._rng_seed)
+                self._rng_seed += 1
+            latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
+            return sample(
+                denoiser,
+                latents,
+                noise_scheduler=self.scheduler,
+                num_steps=num_steps,
+                solver="edm_stochastic_heun",
+                solver_options={
+                    "S_churn": self.sampler_args["S_churn"],
+                    "S_min": self.sampler_args["S_min"],
+                    "S_max": self.sampler_args["S_max"],
+                    "S_noise": self.sampler_args["S_noise"],
+                },
+            )
 
     stochastic = True
     _rng_seed: int | None = None
@@ -588,9 +574,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._sampler_states = {
-                "cpu": torch.Generator().manual_seed(seed).get_state()
-            }
 
     def _edm_denoiser(self, condition: TensorDict) -> Any:
         """Build an unconditional EDM denoiser for the given conditioning."""

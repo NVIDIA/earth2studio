@@ -218,7 +218,6 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     @torch.inference_mode()
     def _forward(
@@ -271,24 +270,14 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             low_res = prev_latents[1].clone()
 
         conditioning = self.model_processor.preprocess_conditioning(high_res, low_res)
-        devices = [x.device] if x.is_cuda else []
-        key = str(x.device)
-        if self._rng_seed is not None and key not in self._rng_states:
-            self._rng_states[key] = (
-                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
-            )
+        devices = [x.device.index] if x.is_cuda else []
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.set_rng_state(self._rng_states["cpu"])
-                if x.is_cuda:
-                    torch.cuda.set_rng_state(self._rng_states[key], x.device)
-            try:
-                residual_latent = self.model(prev, conditioning)
-            finally:
-                if self._rng_seed is not None:
-                    self._rng_states["cpu"] = torch.get_rng_state()
-                    if x.is_cuda:
-                        self._rng_states[key] = torch.cuda.get_rng_state(x.device)
+                torch.random.default_generator.manual_seed(self._rng_seed)
+                for device in devices:
+                    torch.cuda.default_generators[device].manual_seed(self._rng_seed)
+                self._rng_seed += 1
+            residual_latent = self.model(prev, conditioning)
 
         # Decode the latent residual and return to state space
         pred = self.autoencoder(high_res, residual_latent)

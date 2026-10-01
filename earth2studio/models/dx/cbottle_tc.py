@@ -409,9 +409,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._sampler_states = {
-                "cpu": torch.Generator().manual_seed(seed).get_state()
-            }
 
     def _prepare_guidance_tensor(self, x: torch.Tensor) -> torch.Tensor:
         """Preparies HPX guidance tensor for model. If inputs are lat lon, will convert
@@ -493,39 +490,27 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
             indices_where_tc = self._prepare_guidance_tensor(x[start_idx:end_idx])
             device = batch["target"].device
-            devices = [device] if device.type == "cuda" else []
-            key = str(device)
-            if self._rng_seed is not None and key not in self._sampler_states:
-                self._sampler_states[key] = (
-                    torch.Generator(device=device)
-                    .manual_seed(self._rng_seed)
-                    .get_state()
-                )
+            devices = [device.index] if device.type == "cuda" else []
             # Backend seeds cover only latents; translation and churn use Torch globals.
             with torch.random.fork_rng(
                 devices=devices, enabled=self._rng_seed is not None
             ):
                 if self._rng_seed is not None:
-                    torch.set_rng_state(self._sampler_states["cpu"])
-                    if devices:
-                        torch.cuda.set_rng_state(self._sampler_states[key], device)
-                try:
-                    output, cb_coords = self.core_model.sample(
-                        batch,
-                        guidance_pixels=indices_where_tc,
-                        seed=None,
-                        guidance_scale=self.guidance_scale,
-                    )
-                    if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
-                        output = self.core_model._normalize(output)
-                        output = self.core_model._reorder(output)
-                        batch["target"] = output
-                        output, _ = self.core_model.translate(batch, dataset="icon")
-                finally:
-                    if self._rng_seed is not None:
-                        self._sampler_states["cpu"] = torch.get_rng_state()
-                        if devices:
-                            self._sampler_states[key] = torch.cuda.get_rng_state(device)
+                    torch.random.default_generator.manual_seed(self._rng_seed)
+                    for index in devices:
+                        torch.cuda.default_generators[index].manual_seed(self._rng_seed)
+                    self._rng_seed += 1
+                output, cb_coords = self.core_model.sample(
+                    batch,
+                    guidance_pixels=indices_where_tc,
+                    seed=None,
+                    guidance_scale=self.guidance_scale,
+                )
+                if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
+                    output = self.core_model._normalize(output)
+                    output = self.core_model._reorder(output)
+                    batch["target"] = output
+                    output, _ = self.core_model.translate(batch, dataset="icon")
 
             outputs.append(output)
 

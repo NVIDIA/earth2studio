@@ -252,9 +252,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._sampler_states = {
-                "cpu": torch.Generator().manual_seed(seed).get_state()
-            }
 
     def _forward(self, x: torch.Tensor, times: TimeArray) -> torch.Tensor:
         """Executes forward sample of the model given conditional tensor and time array
@@ -289,25 +286,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        devices = [device] if device.type == "cuda" else []
-        key = str(device)
-        if self._rng_seed is not None and key not in self._sampler_states:
-            self._sampler_states[key] = (
-                torch.Generator(device=device).manual_seed(self._rng_seed).get_state()
-            )
+        devices = [device.index] if device.type == "cuda" else []
         # cBottle's seed argument covers only initial latents, not sampler noise.
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.set_rng_state(self._sampler_states["cpu"])
-                if devices:
-                    torch.cuda.set_rng_state(self._sampler_states[key], device)
-            try:
-                out, _ = self.core_model.sample(input_batch, seed=None)
-            finally:
-                if self._rng_seed is not None:
-                    self._sampler_states["cpu"] = torch.get_rng_state()
-                    if devices:
-                        self._sampler_states[key] = torch.cuda.get_rng_state(device)
+                torch.random.default_generator.manual_seed(self._rng_seed)
+                for index in devices:
+                    torch.cuda.default_generators[index].manual_seed(self._rng_seed)
+                self._rng_seed += 1
+            out, _ = self.core_model.sample(input_batch, seed=None)
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())

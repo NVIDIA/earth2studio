@@ -357,25 +357,15 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
-        devices = [x.device] if x.is_cuda else []
-        key = str(x.device)
-        if self._rng_seed is not None and key not in self._sampler_states:
-            self._sampler_states[key] = (
-                torch.Generator(device=x.device).manual_seed(self._rng_seed).get_state()
-            )
+        devices = [x.device.index] if x.is_cuda else []
         # The PhysicsNeMo sampler draws churn noise without a generator argument.
         with torch.random.fork_rng(devices=devices, enabled=self._rng_seed is not None):
             if self._rng_seed is not None:
-                torch.set_rng_state(self._sampler_states["cpu"])
-                if x.is_cuda:
-                    torch.cuda.set_rng_state(self._sampler_states[key], x.device)
-            try:
-                return self._sample(x, conditioning)
-            finally:
-                if self._rng_seed is not None:
-                    self._sampler_states["cpu"] = torch.get_rng_state()
-                    if x.is_cuda:
-                        self._sampler_states[key] = torch.cuda.get_rng_state(x.device)
+                torch.random.default_generator.manual_seed(self._rng_seed)
+                for device in devices:
+                    torch.cuda.default_generators[device].manual_seed(self._rng_seed)
+                self._rng_seed += 1
+            return self._sample(x, conditioning)
 
     stochastic = True
     _rng_seed: int | None = None
@@ -392,9 +382,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._sampler_states = {
-                "cpu": torch.Generator().manual_seed(seed).get_state()
-            }
 
     def _sample(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
 

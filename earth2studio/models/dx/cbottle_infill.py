@@ -324,9 +324,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._infill_states = {
-                "cpu": torch.Generator().manual_seed(seed).get_state()
-            }
 
     @torch.inference_mode()
     @batch_func()
@@ -382,29 +379,17 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             }
 
             # Use CBottle3d infill method
-            devices = [device] if device.type == "cuda" else []
-            key = str(device)
-            if self._rng_seed is not None and key not in self._infill_states:
-                self._infill_states[key] = (
-                    torch.Generator(device=device)
-                    .manual_seed(self._rng_seed)
-                    .get_state()
-                )
+            devices = [device.index] if device.type == "cuda" else []
             # Infill draws Brownian increments and sampler noise internally.
             with torch.random.fork_rng(
                 devices=devices, enabled=self._rng_seed is not None
             ):
                 if self._rng_seed is not None:
-                    torch.set_rng_state(self._infill_states["cpu"])
-                    if devices:
-                        torch.cuda.set_rng_state(self._infill_states[key], device)
-                try:
-                    infilled_data, _ = self.core_model.infill(batch_slice)
-                finally:
-                    if self._rng_seed is not None:
-                        self._infill_states["cpu"] = torch.get_rng_state()
-                        if devices:
-                            self._infill_states[key] = torch.cuda.get_rng_state(device)
+                    torch.random.default_generator.manual_seed(self._rng_seed)
+                    for index in devices:
+                        torch.cuda.default_generators[index].manual_seed(self._rng_seed)
+                    self._rng_seed += 1
+                infilled_data, _ = self.core_model.infill(batch_slice)
 
             outputs.append(infilled_data)
 

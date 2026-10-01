@@ -975,7 +975,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if reset or self._rng_seed is None:
             self._rng_seed = seed
-            self._rng_states = {"cpu": torch.Generator().manual_seed(seed).get_state()}
 
     def _forward(
         self,
@@ -985,28 +984,18 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> tuple[torch.Tensor, CoordinateSystem]:
         output_coords = self.output_coords(coords)
         with torch.autocast(device_type=x.device.type, dtype=torch.bfloat16):
-            if self._rng_seed is None:
+            devices = [x.device.index] if x.is_cuda else []
+            with torch.random.fork_rng(
+                devices=devices, enabled=self._rng_seed is not None
+            ):
+                if self._rng_seed is not None:
+                    torch.random.default_generator.manual_seed(self._rng_seed)
+                    for device in devices:
+                        torch.cuda.default_generators[device].manual_seed(
+                            self._rng_seed
+                        )
+                    self._rng_seed += 1
                 y = self.model.predict_step(x, fcstep=step)
-            else:
-                # Anemoi's predict_step does not accept a generator.
-                devices = [x.device] if x.is_cuda else []
-                key = str(x.device)
-                if key not in self._rng_states:
-                    self._rng_states[key] = (
-                        torch.Generator(device=x.device)
-                        .manual_seed(self._rng_seed)
-                        .get_state()
-                    )
-                with torch.random.fork_rng(devices=devices):
-                    torch.set_rng_state(self._rng_states["cpu"])
-                    if x.is_cuda:
-                        torch.cuda.set_rng_state(self._rng_states[key], x.device)
-                    try:
-                        y = self.model.predict_step(x, fcstep=step)
-                    finally:
-                        self._rng_states["cpu"] = torch.get_rng_state()
-                        if x.is_cuda:
-                            self._rng_states[key] = torch.cuda.get_rng_state(x.device)
             out = torch.zeros(
                 (x.shape[0], x.shape[1], x.shape[2], len(self.VARIABLES)),
                 device=x.device,

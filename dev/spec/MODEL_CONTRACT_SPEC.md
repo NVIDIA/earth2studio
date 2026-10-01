@@ -346,7 +346,7 @@ Each wrapper owns its RNG implementation. FCN3 delegates to its backend's RNG
 API; CorrDiff supplies sample seeds to its diffusion backend; StormScope and
 NSRDB use explicit noise generators. GenCast and WeatherNext use advancing
 functional JAX keys. Backends without a generator API run inside a wrapper-local
-Torch RNG fork, saving and advancing their own sampling state. Forks cover only
+Torch RNG fork, advancing a seed per sampling call. Forks cover only
 the relevant numerical calls and never span iterator yields. Aurora also resets
 its cached noise. DiagnosticWrapper dispatches seeding to its stochastic
 components, and DLESyM retains its native local generator.

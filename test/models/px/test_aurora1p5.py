@@ -353,9 +353,9 @@ def test_aurora1p5_ensemble_conformance():
     next(iterator)
     xr.testing.assert_identical(first, next(iterator))
     assert torch.equal(state, torch.get_rng_state())
-    stream = p._rng_states["cpu"].clone()
+    stream = p._rng_seed
     p.set_rng(456, reset=False)
-    assert torch.equal(stream, p._rng_states["cpu"])
+    assert stream == p._rng_seed
 
 
 @pytest.mark.parametrize(
