@@ -881,9 +881,9 @@
         "product:atmos",
         "provider:ecmwf"
       ],
-      "signature": "IFS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "signature": "IFS(source: Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, client_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/data/analysis/IFS.md",
-      "summary": "Integrated forecast system (IFS) HRES initial state (analysis) data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
+      "summary": "Integrated forecast system (IFS) HRES initial state (analysis) data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is available through the AWS and Google Cloud mirrors (sources `aws` and `google`).",
       "symbol": "earth2studio.data.IFS",
       "title": "IFS",
       "url": "modules/generated/data/analysis/IFS/"
@@ -899,9 +899,9 @@
         "product:atmos",
         "provider:ecmwf"
       ],
-      "signature": "IFS_ENS(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "signature": "IFS_ENS(source: Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600, client_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/data/analysis/IFS_ENS.md",
-      "summary": "Integrated forecast system (IFS) ensemble (ENS) initial state data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
+      "summary": "Integrated forecast system (IFS) ensemble (ENS) initial state data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is available through the AWS and Google Cloud mirrors (sources `aws` and `google`).",
       "symbol": "earth2studio.data.IFS_ENS",
       "title": "IFS_ENS",
       "url": "modules/generated/data/analysis/IFS_ENS/"
@@ -1484,9 +1484,9 @@
         "product:atmos",
         "provider:ecmwf"
       ],
-      "signature": "AIFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 0, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "signature": "AIFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws', member: int = 0, cache: bool = True, verbose: bool = True, async_timeout: int = 600, client_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/data/forecast/AIFS_ENS_FX.md",
-      "summary": "Artificial intelligence forecast system (AIFS) ENS forecast data on an equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
+      "summary": "Artificial intelligence forecast system (AIFS) ENS forecast data on an equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is available through the AWS and Google Cloud mirrors (sources `aws` and `google`).",
       "symbol": "earth2studio.data.AIFS_ENS_FX",
       "title": "AIFS_ENS_FX",
       "url": "modules/generated/data/forecast/AIFS_ENS_FX/"
@@ -1502,9 +1502,9 @@
         "product:atmos",
         "provider:ecmwf"
       ],
-      "signature": "AIFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "signature": "AIFS_FX(source: Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, client_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/data/forecast/AIFS_FX.md",
-      "summary": "Artificial intelligence forecast system (AIFS) SINGLE forecast data on an equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
+      "summary": "Artificial intelligence forecast system (AIFS) SINGLE forecast data on an equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is available through the AWS and Google Cloud mirrors (sources `aws` and `google`).",
       "symbol": "earth2studio.data.AIFS_FX",
       "title": "AIFS_FX",
       "url": "modules/generated/data/forecast/AIFS_FX/"
@@ -1813,9 +1813,9 @@
         "product:atmos",
         "provider:ecmwf"
       ],
-      "signature": "IFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "signature": "IFS_ENS_FX(source: Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws', member: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600, client_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/data/forecast/IFS_ENS_FX.md",
-      "summary": "Integrated forecast system (IFS) ensemble (ENS) forecast data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
+      "summary": "Integrated forecast system (IFS) ensemble (ENS) forecast data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is available through the AWS and Google Cloud mirrors (sources `aws` and `google`).",
       "symbol": "earth2studio.data.IFS_ENS_FX",
       "title": "IFS_ENS_FX",
       "url": "modules/generated/data/forecast/IFS_ENS_FX/"
@@ -1831,9 +1831,9 @@
         "product:atmos",
         "provider:ecmwf"
       ],
-      "signature": "IFS_FX(source: Literal['aws', 'ecmwf', 'azure'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600)",
+      "signature": "IFS_FX(source: Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws', cache: bool = True, verbose: bool = True, async_timeout: int = 600, client_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/data/forecast/IFS_FX.md",
-      "summary": "Integrated forecast system (IFS) HRES forecast data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS (source `aws`).",
+      "summary": "Integrated forecast system (IFS) HRES forecast data source on an equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers (source `ecmwf`). Historical data is available through the AWS and Google Cloud mirrors (sources `aws` and `google`).",
       "symbol": "earth2studio.data.IFS_FX",
       "title": "IFS_FX",
       "url": "modules/generated/data/forecast/IFS_FX/"
