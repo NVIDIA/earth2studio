@@ -937,7 +937,8 @@ def decode_prepbufr(
     plan : Mapping
         Variable decode plan: ``{variable: (mnemonic_key, modifier)}``.
     dt_min, dt_max : datetime
-        Time window for report-header filtering.
+        Observation time window. Reports are kept or dropped whole by header time,
+        which is every observation's time except drifting sounding levels.
     decode_workers : int
         Number of parallel decode processes (1 disables multiprocessing).
     exclude_message_types : Collection[str]
