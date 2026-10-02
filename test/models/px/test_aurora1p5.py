@@ -246,7 +246,11 @@ def test_aurora1p5_iter(ensemble, device):
             break
     assert calls == (["front"] + ["rear"] * 6) * 2
     xr.testing.assert_identical(x, saved)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    assert initial.coords["variable"].equals(p.output_coords(x).coords["variable"])
+    assert initial.isel(variable=slice(0, 83)).variable.equals(
+        x.isel(lead_time=slice(-1, None)).variable
+    )
+    assert bool(initial.isel(variable=slice(83, None)).isnull().all())
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -413,7 +417,11 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
 
     iterator = p.create_iterator(x)
     initial = next(iterator)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    assert initial.coords["variable"].equals(p.output_coords(x).coords["variable"])
+    assert initial.isel(variable=slice(0, 83)).variable.equals(
+        x.isel(lead_time=slice(-1, None)).variable
+    )
+    assert bool(initial.isel(variable=slice(83, None)).isnull().all())
     for i in range(12 // step):
         out = next(iterator)
         assert out.lead_time.values[0] == np.timedelta64(12 + (i + 1) * step, "h")

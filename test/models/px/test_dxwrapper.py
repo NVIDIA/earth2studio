@@ -324,7 +324,9 @@ def test_dxwrapper_iter(device, times, number_of_samples):
     x = make_input(wrapped_model, times, device)
     # Get generator
     p_iter = wrapped_model.create_iterator(x)
-    xr.testing.assert_identical(next(p_iter), x)
+    initial = next(p_iter)
+    assert initial.shape == wrapped_model.output_coords(x).shape
+    assert torch.isnan(initial.e2s.to_torch()[0]).all()
     for i, out in enumerate(p_iter):
         expected = wrapped_model.output_coords(x)
         assert out.shape == expected.shape
@@ -379,7 +381,9 @@ def test_dxwrapper_run(device, times, number_of_samples):
 
     field = make_input(wrapped_model, times, device)
     iterator = wrapped_model.create_iterator(field)
-    xr.testing.assert_identical(next(iterator), field)
+    initial = next(iterator)
+    assert initial.shape == wrapped_model.output_coords(field).shape
+    assert torch.isnan(initial.e2s.to_torch()[0]).all()
     for step in range(1, 3):
         output = next(iterator)
         assert output.lead_time.values[0] == np.timedelta64(step * 6, "h")
@@ -477,7 +481,10 @@ def test_diagnosticwrapper_conformance(tmp_path):
     next(iterator)
     xr.testing.assert_identical(first, frozen)
     xr.testing.assert_identical(field, before)
-    xr.testing.assert_identical(initial, before.isel(lead_time=slice(-1, None)))
+    expected = before.isel(lead_time=slice(-1, None)).reindex(
+        variable=wrapped_model.output_coords(before).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
     iterator.close()
     wrapped_model.clear_hooks()
 

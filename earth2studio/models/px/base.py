@@ -59,7 +59,9 @@ class PrognosticModel(Protocol):
         Yields
         ------
         xr.DataArray
-            Initial state followed by successive forecast states.
+            Initial state followed by successive forecast states, all on the
+            output variable list and grid. The initial state uses the last input
+            lead time and fills unavailable output values with NaNs.
         """
         pass
 

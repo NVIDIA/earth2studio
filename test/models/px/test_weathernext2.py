@@ -164,7 +164,10 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
     assert torch.all((delta >= 3) & (delta < 3.021))
     xr.testing.assert_identical(x, saved)
     xr.testing.assert_identical(first, before)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    expected = x.isel(lead_time=slice(-1, None)).reindex(
+        variable=model.output_coords(x).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
     model.clear_hooks()
     iterator = model.create_iterator(x)
     next(iterator)

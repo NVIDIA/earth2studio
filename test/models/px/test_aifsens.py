@@ -250,7 +250,10 @@ def test_aifsens_iter(ensemble, device, backend):
         time = [time]
 
     initial = next(p_iter)
-    assert initial.equals(x.isel(lead_time=slice(-1, None)))
+    expected = x.isel(lead_time=slice(-1, None)).reindex(
+        variable=p.output_coords(x).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
     for i, out in enumerate(p_iter):
         out_coords = out.coords
         assert len(out.shape) == 6
@@ -388,7 +391,10 @@ def test_aifsens_conformance(monkeypatch, device):
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(x, original)
-    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+    expected = original.isel(lead_time=slice(-1, None)).reindex(
+        variable=p.output_coords(original).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
 
     iterator.close()
     # Non-identity interpolation exposes an accidental public-grid round trip.

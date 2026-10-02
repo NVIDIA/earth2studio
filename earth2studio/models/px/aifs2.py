@@ -28,7 +28,7 @@ from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -1047,7 +1047,7 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        yield initial_output(x, self.output_coords(x))
 
         state = None
         step = 0

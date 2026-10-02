@@ -39,7 +39,7 @@ import xarray as xr
 
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils import coord_array_like, handshake_metadata
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, E2S_KIND, E2S_SCHEMA_VERSION
 from earth2studio.utils.cupy import from_torch
@@ -61,7 +61,7 @@ _RULES = {
     "P4": "output_coords() treats its argument as read-only.",
     "P5": "output_coords() raises ValueError for an invalid coordinate system.",
     "P6": "Shifting input lead_time shifts output lead_time by the same offset.",
-    "P7": "create_iterator() yields the initial condition as its 0th step.",
+    "P7": "The initial yield uses the output structure with NaN for unavailable values.",
     "P8": "The 1st yield matches the coordinates declared by output_coords().",
     "P9": "Every yielded tensor shape matches its coordinate system.",
     "P10": "create_iterator() applies both hooks; __call__ applies neither.",
@@ -782,13 +782,18 @@ def _check_rollout(
         _check_immutability(
             report, x, pristine_x, coords, pristine_coords, "create_iterator()"
         )
+        initial_signature = coord_array_like(
+            output_coords, {"lead_time": pristine_x.lead_time.values[-1:]}
+        )
         report.require(
             "P7",
             bool(snapshots_native)
+            and not _mismatched_coord_keys(initial_signature, snapshots_native[0])
             and _same_values(
-                snapshots_native[0], pristine_x.isel(lead_time=slice(-1, None))
+                snapshots_native[0], initial_output(pristine_x, output_coords)
             ),
-            "initial yield must contain the final input history entry",
+            "initial yield must use output coordinates at the final input time, "
+            "preserving available values and padding unavailable values with NaN",
         )
         report.require(
             "P8",
@@ -850,7 +855,8 @@ def _check_rollout(
     for index, ((values, _), snapshot) in enumerate(zip(steps, snapshots)):
         if not report.require(
             "P16",
-            values.shape == snapshot.shape and torch.equal(values, snapshot),
+            values.shape == snapshot.shape
+            and torch.allclose(values, snapshot, rtol=0, atol=0, equal_nan=True),
             f"yield {index} changed after later steps were produced, so the yields "
             "alias one buffer; a caller holding a yield across steps — an async IO "
             "write, a resume buffer — reads the wrong values",
@@ -858,12 +864,13 @@ def _check_rollout(
             break
 
     zeroth_x, zeroth_coords = steps[0]
-    expected = coords.copy()
+    expected = output_coords.copy()
     expected["lead_time"] = coords["lead_time"][-1:]
     report.require(
         "P7",
-        list(zeroth_coords) == list(expected),
-        "the 0th yield must carry the input dimensions in order; expected "
+        list(zeroth_coords) == list(expected)
+        and not _mismatched_coord_keys(expected, zeroth_coords),
+        "the 0th yield must carry the output coordinates at the final input time; expected "
         f"{list(expected)}, got {list(zeroth_coords)}",
     )
     report.require(

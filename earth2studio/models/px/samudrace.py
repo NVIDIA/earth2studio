@@ -29,7 +29,7 @@ from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -804,7 +804,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        yield initial_output(x, self.output_coords(x))
         tensor, coords = self._array_tensor(x)
         b, t = tensor.shape[:2]
         state = self._state_from_tensor(tensor, coords)

@@ -398,7 +398,10 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 
     # First yield should be initial condition
     initial_x = next(iterator)
-    xr.testing.assert_identical(initial_x, field.isel(lead_time=slice(-1, None)))
+    expected = field.isel(lead_time=slice(-1, None)).reindex(
+        variable=model.output_coords(field).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial_x.variable, expected.variable)
     saved = initial_x.copy(deep=True)
     assert events == []
 

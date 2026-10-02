@@ -352,7 +352,10 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
     initial_x = next(iterator)
-    xr.testing.assert_identical(initial_x, field.isel(lead_time=slice(-1, None)))
+    expected = field.isel(lead_time=slice(-1, None)).reindex(
+        variable=model.output_coords(field).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial_x.variable, expected.variable)
 
     for i in range(2):
         out = next(iterator)

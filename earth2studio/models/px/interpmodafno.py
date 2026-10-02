@@ -25,7 +25,7 @@ import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils import (
     coord_array,
     handshake_coords,
@@ -165,7 +165,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     prepare_endpoint : Callable[[xr.DataArray], xr.DataArray], optional
         Prepare the left interpolation endpoint without advancing time, for example
         by computing diagnostics absent from the base input. Applied after front
-        hooks, including restored history. The public initial yield is unchanged.
+        hooks, including restored history. Initial missing outputs are NaN-padded.
 
     Badges
     ------
@@ -603,7 +603,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 )
                 first = False
                 if initial:
-                    yield x1.copy(deep=True)
+                    yield initial_output(x1, self.output_coords(x))
                     continue
                 x1 = self._select_prediction_grid(x1)
                 if self.num_interp_steps > 1:
@@ -626,5 +626,5 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             cast(Generator[xr.DataArray, None, None], iterator).close()
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the latest input before computing interpolated forecasts with hooks."""
+        """Yield the output-shaped initial state, then interpolated forecasts."""
         yield from self._default_generator(x)

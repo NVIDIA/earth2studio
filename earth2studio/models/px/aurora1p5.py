@@ -26,7 +26,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.models.utils import fork_rng
 from earth2studio.utils.coords import (
     coord_array,
@@ -486,7 +486,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_time(x)
         self.output_coords(x)
         self.preds_idx = 0
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        yield initial_output(x, self.output_coords(x))
         while True:
             history = self.front_hook(x.copy(deep=True))
             hours = list(

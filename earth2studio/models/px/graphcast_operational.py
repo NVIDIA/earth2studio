@@ -29,7 +29,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -276,7 +276,7 @@ def _jax_iterator(
         model.get_jax_device_from_tensor(model.device_buffer)
     ):
         rngs = [model._next_rng(t) for t in range(x.sizes["time"])]
-    yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+    yield initial_output(x, model.output_coords(x))
     handshake_time(x)
     iterators: list[Generator[xr.Dataset, Any, None]] = []
     refresh = False

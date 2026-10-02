@@ -727,7 +727,10 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
         iterator = p.create_iterator(field)
         initial = next(iterator)
         retained = [next(iterator) for _ in range(3)]
-        xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+        expected = original.isel(lead_time=slice(-1, None)).reindex(
+            variable=p.output_coords(original).coords["variable"].values
+        )
+        xr.testing.assert_equal(initial.variable, expected.variable)
         iterator.close()
         return retained
 
