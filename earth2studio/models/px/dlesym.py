@@ -437,9 +437,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ("batch", "time", "lead_time", "variable", "face", "height", "width"),
             {
                 "lead_time": self.full_input_times,
-                "variable": np.array(
-                    self.atmos_variables + self.ocean_variables
-                ),
+                "variable": np.array(self.atmos_variables + self.ocean_variables),
             },
             dynamic=("batch", "time"),
             grid=(
@@ -1180,11 +1178,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out = self.rear_hook(self._advance_array(state))
             state = (
                 out.isel(lead_time=slice(-len(self.full_input_times), None))
-                .sel(
-                    variable=np.array(
-                        self.atmos_variables + self.ocean_variables
-                    )
-                )
+                .sel(variable=np.array(self.atmos_variables + self.ocean_variables))
                 .copy(deep=True)
             )
             yield out
@@ -1669,9 +1663,7 @@ class DLESyMLatLon(DLESyM):
             tensor.to(self.center.device).clone(), coords
         )
         signature = self.coords_to_hpx(
-            coord_array_like(
-                x, {"variable": np.array(list(coords["variable"]))}
-            )
+            coord_array_like(x, {"variable": np.array(list(coords["variable"]))})
         )
         result = from_torch(self.to_hpx(tensor), signature)
         result.encoding = x.encoding.copy()
@@ -1709,11 +1701,7 @@ class DLESyMLatLon(DLESyM):
             out = self.rear_hook(self._advance_array(state))
             state = (
                 out.isel(lead_time=slice(-len(self.full_input_times), None))
-                .sel(
-                    variable=np.array(
-                        self.atmos_variables + self.ocean_variables
-                    )
-                )
+                .sel(variable=np.array(self.atmos_variables + self.ocean_variables))
                 .copy(deep=True)
             )
             tensor, _ = out.e2s.to_torch()

@@ -429,6 +429,7 @@ def test_dlesym_conformance():
     model = build_dlesym_model("cpu", nside=8, type="hpx")
     check_prognostic_contract(model)
 
+
 def test_dlesym_latlon_conformance():
     model = build_dlesym_model("cpu", nside=8, type="ll")
     check_prognostic_contract(model)
