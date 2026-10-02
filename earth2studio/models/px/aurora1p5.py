@@ -255,10 +255,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {
                 "lead_time": input_coords.lead_time.values[-1:]
                 + np.timedelta64(self._STEP_HOURS, "h"),
-                "variable": [
-                    f"{v[:-2]}:sum:1h" if v.endswith("1h") else v
-                    for v in OUTPUT_VARIABLES
-                ],
+                "variable": OUTPUT_VARIABLES,
             },
         )
 
