@@ -294,7 +294,9 @@ snapshot, restored or branched without another model instance.
   `torch.Generator`.
 - **Models never fetch** (`P22`). `inputs` aligns with `input_coords()`, with `None`
   in state and static positions, and holds step inputs valid at the state's current
-  lead time. Missing step inputs raise `ValueError` naming the slots.
+  lead time. The mixin checks every step-input slot against `None` before calling
+  `step`, so missing step inputs raise `ValueError` naming the slots without
+  depending on each wrapper's `step` to catch it.
 - **One step is one core computation and one yield.** Models computing several
   lead times per call (DLWP, Aurora1p5, SamudrACE, InterpModAFNO) declare all of
   them in `output_coords()` and return them together. Step input windows cover
@@ -302,7 +304,7 @@ snapshot, restored or branched without another model instance.
   once per step, snapshots never fall mid-chunk, and each yield costs one core call.
   `front_hook_interval` becomes redundant.
 
-Example `State` that captures model-specific internal and RNG state:
+Example `ModelState` subclass carrying model-specific internal and RNG state:
 
 ```python
 @dataclass(frozen=True)
