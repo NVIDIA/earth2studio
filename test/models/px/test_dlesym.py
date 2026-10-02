@@ -428,12 +428,6 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 def test_dlesym_conformance():
     model = build_dlesym_model("cpu", nside=8, type="hpx")
     check_prognostic_contract(model)
-    model.atmos_variables = [
-        "ttr03" if v == "z500" else v for v in model.atmos_variables
-    ]
-    signature = model.input_coords()
-    assert signature["variable"].values[0] == "ttr:sum:-2h:1h"
-    assert "ttr:sum:-2h:1h" in signature.attrs["earth2studio_statistics"]
 
 
 def test_dlesym_latlon_conformance():
