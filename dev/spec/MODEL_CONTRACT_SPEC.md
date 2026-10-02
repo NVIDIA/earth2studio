@@ -175,11 +175,12 @@ See `dev/examples/03_coordinate_signatures.py` for signature planning and
 
 ## Slots, State and Sources (Proposed)
 
-> **Status: proposal for review.** `earth2studio/models/px/base.py` declares the
-> protocol. `PrognosticMixin` supplies `default_sources()`, derived `__call__` and
-> `create_iterator`, and `initialize`/`step` stubs that raise `NotImplementedError`,
-> so unmigrated wrappers still satisfy `P1`. No wrapper is migrated, and
-> `models.conformance` does not yet enforce `P17`–`P23`.
+> **Status: proposal for review.** `earth2studio/models/px/base.py` and
+> `earth2studio/models/dx/base.py` declare the protocols. `PrognosticMixin` supplies
+> `default_sources()`, derived `__call__` and `create_iterator`, and
+> `initialize`/`step` stubs that raise `NotImplementedError`, so unmigrated wrappers
+> still satisfy `P1`. No wrapper is migrated, and `models.conformance` does not yet
+> enforce `P17`–`P23` or check tuple slots.
 
 The current protocol cannot express forced or stateful rollouts. StormCast and
 StormScope fetch conditioning from a model-owned `conditioning_data_source`, which
@@ -212,6 +213,13 @@ class PrognosticModel(Protocol):
         tuple[xr.DataArray | None, ...] | None,   # sent step inputs
         None,
     ]: ...
+```
+
+Model state is represented by a generic, per-model subclassable type:
+```
+@dataclass(frozen=True)
+class ModelState:
+    fields: xr.DataArray | tuple[xr.DataArray, ...]
 ```
 
 ### Slots
@@ -370,7 +378,10 @@ FuXi-S2S's documented behavior (see Open Questions).
 ### Default sources
 
 `default_sources()` recommends one `SourceDefault | None` per input slot,
-including state slots (`P23`). The slot signature remains the requirement.
+including state slots (`P23`). The slot signature remains the requirement. It is
+required for prognostic models (the mixin defaults to no recommendations) and
+optional for diagnostics, which share no base class. Drivers read either through
+`recommended_sources(model)`.
 
 ```python
 @dataclass(frozen=True)
@@ -387,6 +398,23 @@ the slot; nothing regrids implicitly. Callers may keep the default, swap the sou
 with `dataclasses.replace`, or supply any provider matching the slot, such as a
 pre-regridded archive. `regridder` stays loosely typed until the `Regridder` ABC in
 `recipes/eval/src/regrid.py` is upstreamed.
+
+### Diagnostic models
+
+`DiagnosticModel` adopts the same slots: `input_coords()`, `output_coords()` and
+`__call__` take and return one signature or DataArray, or a tuple aligned
+slot-for-slot. Slot order is append-only, and automation matches by content.
+Diagnostics have no state, so roles reduce to time-varying and static inputs, and
+slots split only when coordinates differ. A diagnostic may define
+`default_sources()` with the same meaning as for prognostics. `initialize`,
+`step` and hooks do not apply.
+
+**Migration recommendation:** add a `DiagnosticMixin` supplying `stochastic = False`
+and a `default_sources()` returning no recommendations, and have every diagnostic
+wrapper inherit it. `default_sources()` then becomes a required `DiagnosticModel`
+member, matching `PrognosticModel`, and drivers drop their `getattr` fallbacks for
+both attributes. This touches every diagnostic wrapper, so it belongs in the
+migration rather than this proposal.
 
 ## Rules
 

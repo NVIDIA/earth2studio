@@ -25,49 +25,59 @@ from earth2studio.utils.type import CoordinateSystem
 # --8<-- [start:diagnostic-model-interface]
 @runtime_checkable
 class DiagnosticModel(Protocol):
-    """Diagnostic model interface"""
+    """Diagnostic model interface
+
+    Inputs and outputs are one DataArray or a tuple of DataArrays ("slots"), as for
+    prognostic models. Diagnostics may also define ``default_sources()``, returning
+    one ``SourceDefault | None`` per input slot; it is optional here because
+    diagnostics share no base class. Drivers read it through
+    ``earth2studio.models.px.base.recommended_sources``.
+    """
 
     def __call__(
         self,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
+        x: xr.DataArray | tuple[xr.DataArray, ...],
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
-        x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA data with labeled coordinates
-            and the metadata required by ``input_coords()``.
+        x : xr.DataArray | tuple[xr.DataArray, ...]
+            NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``,
+            one DataArray per input slot.
 
         Returns
         -------
-        xr.DataArray
-            Diagnostic output with labeled coordinates and output metadata.
+        xr.DataArray | tuple[xr.DataArray, ...]
+            Diagnostic output matching ``output_coords()``, one DataArray per output
+            slot.
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem:
+    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray input signature.
+        CoordinateSystem | tuple[CoordinateSystem, ...]
+            Allocation-free DataArray input signature, or one per input slot.
         """
         pass
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(
+        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem
-            Input coordinate signature or DataArray to validate and transform.
+        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
+            Input signature(s) or DataArray(s) to validate and transform.
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray output signature.
+        CoordinateSystem | tuple[CoordinateSystem, ...]
+            Allocation-free DataArray output signature, or one per output slot.
 
         Raises
         ------
