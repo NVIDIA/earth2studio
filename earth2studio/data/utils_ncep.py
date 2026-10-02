@@ -197,6 +197,17 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
         ),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
+        pa.field(
+            "cycle_time",
+            pa.timestamp("ns"),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Cycle of the NCEP file the row was decoded from; an observation "
+                    "at a file's window edge can appear in two files"
+                )
+            },
+        ),
     ]
 )
 
@@ -1333,6 +1344,7 @@ def compile_dataframe(
             f"[{source_id}] decode {idx}/{n_tasks} done : "
             f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
         )
+        df["cycle_time"] = pd.Timestamp(task.datetime_file)
         df.attrs["source"] = source_id
         frames.append(df)
 
@@ -1500,6 +1512,17 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("satellite"),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
+        pa.field(
+            "cycle_time",
+            pa.timestamp("ns"),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Cycle of the NCEP file the row was decoded from; an observation "
+                    "at a file's window edge can appear in two files"
+                )
+            },
+        ),
     ]
 )
 

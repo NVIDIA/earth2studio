@@ -85,6 +85,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
+            "cycle_time": pd.to_datetime(["2024-01-01 00:00:00"] * 2),
         }
     )
 
@@ -249,6 +250,7 @@ def test_nnja_obs_conv_mock_fetch():
             "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
+            "cycle_time": pd.to_datetime(["2024-01-01 00:00:00"] * 2),
         }
     )
 
@@ -300,7 +302,7 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
     monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
     monkeypatch.setattr(source, "cleanup", fake_cleanup)
-    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame.copy())
 
     result = source(
         datetime(2024, 1, 1),
@@ -839,6 +841,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "satellite",
         "observation",
         "variable",
+        "cycle_time",
     ]
     assert list(frame.columns) == NNJAObsSat.SCHEMA.names
     # _rows_to_dataframe delegates to _table_to_dataframe, so every column is

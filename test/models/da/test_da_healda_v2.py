@@ -99,6 +99,7 @@ def _gpsro_df(request_time, n_levels=3):
         }
     )
     df = pd.concat([levels, profile], ignore_index=True)
+    df["cycle_time"] = pd.Timestamp(request_time[0])
     df.attrs = {"request_time": request_time}
     return df
 
@@ -124,6 +125,7 @@ def _satwnd_df(request_time):
     u = winds.assign(observation=[5.0, -3.0], variable="u")
     v = winds.assign(observation=[1.0, 2.0], variable="v")
     df = pd.concat([u, v], ignore_index=True)
+    df["cycle_time"] = pd.Timestamp(request_time[0])
     df.attrs = {"request_time": request_time}
     return df
 
