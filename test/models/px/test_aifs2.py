@@ -863,7 +863,10 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(field, original)
-    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+    expected_initial = original.isel(lead_time=slice(-1, None)).reindex(
+        variable=p.output_coords(original).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected_initial.variable)
     iterator.close()
     p.clear_hooks()
     preparations.clear()

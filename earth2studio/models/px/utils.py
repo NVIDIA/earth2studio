@@ -16,10 +16,91 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
+from typing import Literal
 
+import numpy as np
+import torch
 import xarray as xr
 
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+
 Hook = Callable[[xr.DataArray], xr.DataArray]
+
+
+def initial_output(x: xr.DataArray, output_coords: xr.DataArray) -> xr.DataArray:
+    """Return the last input frame on the output structure, padding absent values.
+
+    Coordinates must match exactly to copy values: this does not interpolate,
+    diagnose missing variables, or advance the model. The returned field owns its
+    data and metadata; the input history remains available for internal rollout.
+    """
+    signature = coord_array_like(
+        output_coords, {"lead_time": x.lead_time.values[-1:]}
+    ).copy(deep=True)
+    source = x.isel(lead_time=slice(-1, None))
+    tensor, _ = source.e2s.to_torch()
+    missing_dims = set(source.dims) - set(signature.dims)
+    compatible = all(source.sizes[d] == 1 for d in missing_dims)
+    # Equal index axes do not identify equal physical curvilinear grids.
+    for name in ("lat", "lon"):
+        if name in source.coords and name in signature.coords:
+            if source.coords[name].ndim > 1 or signature.coords[name].ndim > 1:
+                compatible &= source.coords[name].variable.equals(
+                    signature.coords[name].variable
+                )
+    if compatible:
+        source = source.squeeze(list(missing_dims), drop=True)
+        for dim in signature.dims:
+            if dim not in source.dims:
+                if signature.sizes[dim] != 1:
+                    compatible = False
+                    break
+                source = source.expand_dims(
+                    {
+                        dim: (
+                            signature.coords[dim].values
+                            if dim in signature.coords
+                            else 1
+                        )
+                    }
+                )
+    if not compatible:
+        tensor = tensor.new_full(signature.shape, float("nan"))
+    else:
+        source = source.transpose(*signature.dims)
+        tensor, _ = source.e2s.to_torch()
+        for axis, dim in enumerate(signature.dims):
+            if dim in source.coords and dim in signature.coords:
+                indices = source.get_index(dim).get_indexer(
+                    signature.coords[dim].values
+                )
+            elif source.sizes[dim] == signature.sizes[dim]:
+                indices = np.arange(source.sizes[dim])
+            else:
+                indices = np.full(signature.sizes[dim], -1)
+            if np.array_equal(indices, np.arange(source.sizes[dim])):
+                continue
+            if source.sizes[dim] == 0:
+                tensor = tensor.new_full(signature.shape, float("nan"))
+                break
+            index = torch.as_tensor(indices.clip(min=0), device=tensor.device)
+            tensor = tensor.index_select(axis, index)
+            mask_shape = [1] * tensor.ndim
+            mask_shape[axis] = len(indices)
+            mask = torch.as_tensor(indices < 0, device=tensor.device).reshape(
+                mask_shape
+            )
+            tensor = tensor.masked_fill(mask, float("nan"))
+    backend: Literal["numpy", "cupy", "torch"] = (
+        "numpy"
+        if isinstance(x.data, np.ndarray)
+        else "cupy" if x.e2s.is_cupy else "torch"
+    )
+    result = from_torch(tensor.clone(), signature, backend=backend)
+    result.encoding = deepcopy(x.encoding)
+    return result
 
 
 class PrognosticMixin:

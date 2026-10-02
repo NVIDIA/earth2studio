@@ -177,6 +177,11 @@ See `dev/examples/03_coordinate_signatures.py` for signature planning and
 
 ### Prognostic
 
+The zeroth yield uses the output dimensions, variable ordering and spatial grid,
+with one lead-time entry at the final input time. Copy available initial values
+at matching coordinates and fill unavailable output entries with NaN. Do not
+forecast merely to populate this yield or feed its padding into internal history.
+
 These rules apply to native DataArray execution. The checker retains a separate
 legacy path for dictionary-signature test fixtures.
 
@@ -188,7 +193,7 @@ legacy path for dictionary-signature test fixtures.
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
-| `P7` | `create_iterator()` yields the initial condition as its 0th step |
+| `P7` | The initial yield uses output coordinates, with NaN for unavailable values |
 | `P8` | The 1st yield matches the coordinate system `output_coords()` declared |
 | `P9` | Every forecast matches its planned coordinates and structural metadata |
 | `P10` | `create_iterator()` applies both hooks; `__call__` applies neither |

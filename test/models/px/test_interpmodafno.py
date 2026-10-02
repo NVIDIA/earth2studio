@@ -269,7 +269,13 @@ def test_forecast_interpolation_iter(device):
 
     # Get generator
     initial = next(model_iter)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    signature = model.output_coords(x)
+    expected = x.isel(lead_time=slice(-1, None)).reindex(
+        variable=signature.coords["variable"].values,
+        lat=signature.lat.values,
+        lon=signature.lon.values,
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
     assert not hasattr(model, "sincos_latlon")
 
     # Test interpolation steps
@@ -440,7 +446,9 @@ def test_interpmodafno_conformance():
     field.loc[{"variable": "u10m"}] = 3
     field.loc[{"variable": "v10m"}] = 4
     iterator = model.create_iterator(field)
-    xr.testing.assert_identical(next(iterator), field)
+    initial = next(iterator)
+    assert initial.sizes["variable"] == 3 and initial.sizes["lat"] == 720
+    assert bool(initial.sel(variable="ws10m").isnull().all())
     assert next(iterator).sizes["variable"] == 3
     iterator.close()
     assert model(field).sizes["variable"] == 3

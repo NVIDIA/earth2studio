@@ -25,7 +25,7 @@ import xarray as xr
 from earth2studio.grids import infer_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -434,7 +434,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
                 )
                 first = False
                 if initial:
-                    yield px.copy(deep=True)
+                    yield initial_output(px, self.output_coords(x))
                     continue
                 yield self.rear_hook(self._diagnose(px)).copy(deep=True)
         finally:

@@ -44,7 +44,7 @@ from earth2studio.models.nn.camulator_physics import (
     wind_artifact_filter,
 )
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -600,7 +600,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_time(x)
         self.output_coords(x)
         x = x.copy(deep=True)
-        yield x.copy(deep=True)
+        yield initial_output(x, self.output_coords(x))
         device = self.device_buffer.device
         default_hooks = self._hooks_are_default()
         state_n = None

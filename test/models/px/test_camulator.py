@@ -183,7 +183,8 @@ def test_camulator_iter(ensemble, device):
     p_iter = p.create_iterator(x)
     assert isinstance(p_iter, Iterable)
 
-    xr.testing.assert_identical(next(p_iter), x)
+    expected = x.reindex(variable=p.output_coords(x).coords["variable"].values)
+    xr.testing.assert_equal(next(p_iter).variable, expected.variable)
 
     for i, result in enumerate(p_iter):
         out, out_coords = result.e2s.to_torch()

@@ -503,7 +503,10 @@ def test_samudrace_iter(model, batch):
 
     # First yield is the initial condition
     initial = next(p_iter)
-    xr.testing.assert_identical(initial, field)
+    expected = field.reindex(
+        variable=model.output_coords(field).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
     assert events == []
     out, out_coords = initial.reindex(variable=var_list).e2s.to_torch()
     assert out.shape == (batch, 1, 1, len(OUT_VARS), N_LAT, N_LON)

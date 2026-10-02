@@ -378,7 +378,10 @@ def test_ace2era5_input_dtype(dtype, device):
     assert out.dtype == np.float32
     assert out.e2s.to_torch()[0].device == torch.device(device)
     iterator = model.create_iterator(x)
-    xr.testing.assert_identical(next(iterator).e2s.as_numpy(), before.e2s.as_numpy())
+    expected = before.e2s.as_numpy().reindex(
+        variable=model.output_coords(x).coords["variable"].values
+    )
+    xr.testing.assert_equal(next(iterator).e2s.as_numpy().variable, expected.variable)
     for step in (1, 2):
         out = next(iterator)
         assert out.dtype == np.float32

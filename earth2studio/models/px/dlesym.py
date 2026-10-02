@@ -28,7 +28,7 @@ from earth2studio.grids import HEALPixGrid, LatLonGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, initial_output
 from earth2studio.utils.coords import (
     coord_array,
     coord_array_like,
@@ -1178,7 +1178,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output with one front/rear hook pair (``front_hook_interval = 1``).
         """
         self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        yield initial_output(x, self.output_coords(x))
         state = self._initial_state(x)
         while True:
             state = self.front_hook(state.copy(deep=True))
@@ -1709,7 +1709,7 @@ class DLESyMLatLon(DLESyM):
             if name not in ("lat", "lon")
             and set(coord.dims).intersection(("lat", "lon"))
         }
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
+        yield initial_output(x, signature)
         state = self._initial_state(x)
         while True:
             state = self.front_hook(state.copy(deep=True))

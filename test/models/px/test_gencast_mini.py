@@ -173,7 +173,10 @@ def test_gencast_mini_iter(device, mock_GenCastMini_model):
     assert torch.all((delta >= 3) & (delta < 3.011))
     xr.testing.assert_identical(x, before)
     xr.testing.assert_identical(first, saved)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    expected = x.isel(lead_time=slice(-1, None)).reindex(
+        variable=p.output_coords(x).coords["variable"].values
+    )
+    xr.testing.assert_equal(initial.variable, expected.variable)
 
 
 def test_gencast_mini_exceptions(mock_GenCastMini_model):
@@ -217,7 +220,10 @@ def test_gencast_mini_package(model):
     p = model.to("cuda:0")
     x = _input(p, device="cuda:0")
     iterator = p.create_iterator(x)
-    xr.testing.assert_identical(next(iterator), x.isel(lead_time=slice(-1, None)))
+    expected = x.isel(lead_time=slice(-1, None)).reindex(
+        variable=p.output_coords(x).coords["variable"].values
+    )
+    xr.testing.assert_equal(next(iterator).variable, expected.variable)
     next(iterator)
     out = next(iterator)
     assert out.shape == (1, 1, 84, 181, 360)
