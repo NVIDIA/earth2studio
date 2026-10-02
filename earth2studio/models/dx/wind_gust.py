@@ -150,7 +150,7 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         handshake_dim(input_coords, "lead_time", -4)
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time", allow_dynamic=True)
-        output = coord_array_like(input_coords, {"variable": ["fg10m:max:1h"]})
+        output = coord_array_like(input_coords, {"variable": ["fg10m"]})
         output.encoding = input_coords.encoding.copy()
         return output
 
