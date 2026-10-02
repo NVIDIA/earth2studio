@@ -173,6 +173,219 @@ coordinate DataArrays rather than ordered dictionaries, and fields carry their c
 See `dev/examples/03_coordinate_signatures.py` for signature planning and
 `dev/examples/04_xarray_model_execution.py` for runnable DataArray execution.
 
+## Slots, State and Sources (Proposed)
+
+> **Status: proposal for review.** `earth2studio/models/px/base.py` declares the
+> protocol. `PrognosticMixin` supplies `default_sources()`, derived `__call__` and
+> `create_iterator`, and `initialize`/`step` stubs that raise `NotImplementedError`,
+> so unmigrated wrappers still satisfy `P1`. No wrapper is migrated, and
+> `models.conformance` does not yet enforce `P17`–`P23`.
+
+The current protocol cannot express forced or stateful rollouts. StormCast and
+StormScope fetch conditioning from a model-owned `conditioning_data_source`, which
+callers cannot configure and the GOES+MRMS rollout must bypass. Atlas keeps its
+latent inside the generator frame, so chaining `__call__` is wrong. The proposal
+adds tuple signatures, an explicit-state transition, and recommended sources that
+models never fetch themselves.
+
+```python
+class PrognosticModel(Protocol):
+    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
+    def output_coords(
+        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
+    def initialize(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+    ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]: ...
+    def step(
+        self,
+        state: ModelState,
+        inputs: tuple[xr.DataArray | None, ...] | None = None,
+    ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]: ...
+    def default_sources(self) -> tuple[SourceDefault | None, ...]: ...
+    # Derived by PrognosticMixin from initialize/step:
+    def __call__(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
+    def create_iterator(self, x: xr.DataArray | tuple[xr.DataArray, ...]) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],  # yielded forecasts
+        tuple[xr.DataArray | None, ...] | None,   # sent step inputs
+        None,
+    ]: ...
+```
+
+### Slots
+
+Signatures are one `CoordinateSystem` or a tuple of them, called slots. Payloads
+match: one DataArray or a tuple aligned slot-for-slot. Single-slot models are
+unchanged, and every coordinate rule above applies per slot.
+
+Slots are positional, not keyed:
+
+- **Slot order is public API and append-only.** A signature's `.name` is for
+  display only.
+- **Automation matches by content.** Pipelines and couplers match providers to
+  slots by variable, grid and valid time. Position only aligns tuples within one
+  model: payloads, `step` inputs and `default_sources()` with `input_coords()`.
+
+### Variable roles
+
+Roles are derived, not declared. A variable is identified by its label and its
+slot's grid, ignoring `lead_time`:
+
+| Role | Rule | Example |
+| --- | --- | --- |
+| State | input and output, same grid | SFNO channels; StormScope's GOES window |
+| Step input | input-only, with `lead_time` | StormCast conditioning; MRMS's GOES input |
+| Static | input-only, no `lead_time` | land-sea mask; usually model-internal |
+| Diagnostic | output-only | `tp:sum:6h` from a model not consuming `tp` |
+
+An output variable that also appears in an input is fed back as state, so wrappers
+must not echo exogenous inputs; a nudged external copy of a state variable needs a
+distinct qualified label. Statics shipped with the checkpoint stay inside the
+wrapper; only statics the caller absolutely must fetch get a slot.
+
+```python
+def input_roles(model) -> tuple[str, ...]:
+    ins = as_tuple(model.input_coords())
+    outs = as_tuple(model.output_coords(model.input_coords()))
+    produced = {(v, grid_key(s)) for s in outs for v in s["variable"].values}
+    roles = []
+    for i, s in enumerate(ins):
+        kinds = {"state" if (v, grid_key(s)) in produced
+                 else "step" if "lead_time" in s.dims else "static"
+                 for v in s["variable"].values}
+        if len(kinds) != 1:
+            raise ValueError(f"input slot {i} mixes roles {sorted(kinds)}")
+        roles.append(kinds.pop())
+    return tuple(roles)
+```
+
+`grid_key` is the slot's `earth2studio_grid_id`, or its spatial dimensions if none.
+
+### Splitting rules
+
+- **Input slots split when coordinates or roles differ** (`P17`). StormScopeMRMS
+  declares its MRMS state window and GOES conditioning window as separate slots
+  even on one grid.
+- **Output slots split only when coordinates differ** (`P18`). A diagnostic on the
+  state grid and lead time joins the state output slot.
+
+### Explicit state
+
+`initialize(x)` returns a `ModelState` and the initial condition at the final
+input lead time (the 0th yield). `step(state, inputs)` returns the next state and
+its outputs. Wrappers implement only this transition; the mixin derives `__call__`
+and `create_iterator` from it, so they cannot disagree.
+
+`ModelState` is a frozen dataclass whose public `fields` holds the state slots (the
+rolling input window). Subclasses add private per-rollout data such as Atlas's
+latent, FCN3's noise states and RNG position. Weights, configuration, cached
+statics and the `set_rng` seed stay on the model. Any rollout can therefore be
+snapshot, restored or branched without another model instance.
+
+- **`step` rolls the window.** Callers pass back the returned state and never
+  assemble windows, replacing `next_input`, `prep_next_input` and
+  `_next_step_inputs`.
+- **`step` is pure** (`P19`). It does not modify its input state, and the same state,
+  inputs and seed give the same result.
+- **State is serializable** (`P21`). Subclass fields are arrays, tensors, scalars or
+  nested states. Store RNG position as a counter or generator-state tensor, not a
+  `torch.Generator`.
+- **Models never fetch** (`P22`). `inputs` aligns with `input_coords()`, with `None`
+  in state and static positions, and holds step inputs valid at the state's current
+  lead time. Missing step inputs raise `ValueError` naming the slots.
+- **One step is one core computation and one yield.** Models computing several
+  lead times per call (DLWP, Aurora1p5, SamudrACE, InterpModAFNO) declare all of
+  them in `output_coords()` and return them together. Step input windows cover
+  the whole chunk. Every sent value then feeds a real advance, the front hook runs
+  once per step, snapshots never fall mid-chunk, and each yield costs one core call.
+  `front_hook_interval` becomes redundant.
+
+Example `State` that captures model-specific internal and RNG state:
+
+```python
+@dataclass(frozen=True)
+class AtlasState(ModelState):
+    latent: torch.Tensor
+    rng_step: int
+
+def initialize(self, x):
+    window = self._validate(x)
+    return AtlasState(window, self._encode(window), 0), self._initial(window)
+
+def step(self, state, inputs=None):
+    y, latent = self._forward(state.fields, state.latent, state.rng_step)
+    return AtlasState(roll(state.fields, y), latent, state.rng_step + 1), y
+```
+
+### Derived iteration with `send`
+
+A value sent to the iterator is the step inputs for the next advance. `next(it)`
+is `send(None)`, so unforced models keep plain loops. At the 0th yield, `None`
+reuses the step inputs already in `x`.
+
+```python
+# PrognosticMixin
+def __call__(self, x):
+    state, _ = self.initialize(x)
+    return self.step(state, step_inputs(self, x))[1]
+
+def create_iterator(self, x):
+    state, y0 = self.initialize(x)
+    sent = yield y0
+    pending = step_inputs(self, x) if sent is None else sent   # None if unforced
+    while True:
+        state = replace(state, fields=self.front_hook(state.fields))
+        state, out = self.step(state, pending)
+        pending = yield self.rear_hook(out)
+```
+
+```python
+# Unforced: unchanged
+for y in islice(sfno.create_iterator(x), nsteps + 1): ...
+
+# Forced: the driver fetches conditioning alongside initial conditions
+it = stormcast.create_iterator((x_hrrr, cond_0))
+y = next(it)
+for k in range(nsteps):    # inputs valid at the lead time being advanced from
+    y = it.send((None, provider(stormcast.input_coords()[1], lead=k * step)))
+
+# Coupled: GOES conditions MRMS; neither model owns a data source
+s_goes, _ = goes.initialize(x_goes)
+s_mrms, _ = mrms.initialize((x_mrms, x_goes))
+for _ in range(nsteps):
+    s_goes, y_goes = goes.step(s_goes)
+    s_mrms, y_mrms = mrms.step(s_mrms, (None, s_goes.fields))
+```
+
+Hooks take and return the model's payload type. The front hook edits
+`state.fields`, which already holds the latest prediction. The rear hook edits
+published outputs only, because `step` has already rolled the unhooked prediction
+into the state. Edits meant to feed back belong in the front hook, which changes
+FuXi-S2S's documented behavior (see Open Questions).
+
+### Default sources
+
+`default_sources()` recommends one `SourceDefault | None` per input slot,
+including state slots (`P23`). The slot signature remains the requirement.
+
+```python
+@dataclass(frozen=True)
+class SourceDefault:
+    source: DataSource | ForecastSource      # raw, not pre-composed
+    regridder: Regridder | None = None       # recommended, not applied by the model
+
+def default_sources(self):
+    return (SourceDefault(MRMS()), SourceDefault(GOES(), BilinearRegridder(...)))
+```
+
+Drivers compose source and regridder explicitly and handshake the result against
+the slot; nothing regrids implicitly. Callers may keep the default, swap the source
+with `dataclasses.replace`, or supply any provider matching the slot, such as a
+pre-regridded archive. `regridder` stays loosely typed until the `Regridder` ABC in
+`recipes/eval/src/regrid.py` is upstreamed.
+
 ## Rules
 
 ### Prognostic
@@ -198,6 +411,18 @@ legacy path for dictionary-signature test fixtures.
 | `P14` | After `set_rng()`, seeding and stepping leave global RNG state unperturbed |
 | `P15` | Stepping the model does not modify its input tensor or coordinate system |
 | `P16` | A yielded tensor does not change once a later step is produced |
+
+Proposed, not yet enforced (see Slots, State and Sources):
+
+| Rule | Requirement |
+| --- | --- |
+| `P17` | Every variable in an input slot has the same derived role |
+| `P18` | No two output slots share identical non-variable coordinates |
+| `P19` | `step` leaves its input state unchanged; replaying a saved state reproduces it |
+| `P20` | `__call__(x)` equals the first forecast of `create_iterator(x)` without hooks |
+| `P21` | `ModelState` holds only arrays, tensors, scalars or states; snapshots round-trip |
+| `P22` | The model never fetches; missing step inputs raise `ValueError` naming the slots |
+| `P23` | `default_sources()` has one entry per input slot |
 
 ### Diagnostic
 
@@ -226,7 +451,8 @@ time must shift output equally (`P6`).
 `create_iterator()` first yields the initial condition with `lead_time` and data
 reduced to the final input entry. Complete forecast steps follow, advancing by the
 model's step; `nsteps` forecasts require `nsteps + 1` yields. The model must not
-consume its input before the 0th yield or emit partial steps.
+consume its input before the 0th yield or emit partial steps. Under the proposed
+explicit-state protocol, values sent at a yield are the inputs for the next advance.
 
 ## Hooks
 
@@ -253,6 +479,10 @@ There is no second front-hook call between those two yields because no new
 forecast computation occurs there. The conformance test checks this ordering
 over `2 * front_hook_interval` forecast yields, using the declared interval
 rather than special-casing model names.
+
+The proposed explicit-state protocol removes per-lead-time yields: one step is one
+yield and the rear hook runs once per chunk. `P8`/`P9` still hold because
+`output_coords()` declares the whole chunk.
 
 `PrognosticMixin` hooks each accept and return a single `xr.DataArray`.
 The front hook reaches recurrent state otherwise inaccessible between
@@ -334,6 +564,28 @@ streams reset. Reproducibility checks alone cannot catch this interference: a mo
 may reproduce perfectly in isolation while destroying independence in a cascade.
 The rule constrains the observable effect, not the isolation mechanism.
 
+Forking isolates sequential calls, not concurrent ones: `fork_rng` saves and
+restores process-global RNG state, so concurrent threads can interleave fork
+windows. Drivers must not run a global-RNG component concurrently with another
+stochastic component in the same process.
+
+### RNG with explicit state (proposed)
+
+The seed stays on the model; each rollout's stream position lives in
+`ModelState`. `initialize` draws the rollout's starting point from the model's
+stream, so new rollouts still advance it and only `set_rng(..., reset=True)`
+restarts it. Each `step` derives its draws from the state alone, so replaying a
+saved state is exact (`P19`):
+
+| Mechanism | Per-step stream |
+| --- | --- |
+| Forked global | `fork_rng(devices=...)`, then `manual_seed(mix(seed, state.rng_step))` |
+| Local generator | generator rebuilt from, or restored to, the state's position |
+| Functional key | `fold_in(state.key, state.rng_step)` |
+
+Calling `set_rng` mid-rollout affects only later `initialize` calls, never a live
+trajectory.
+
 ### Seeding is the only entry point
 
 Constructors and `load_model()` do not accept `seed`. Load the model, then call
@@ -408,5 +660,13 @@ dependencies; a dependency skip is not evidence that a model passes conformance.
   `FrameSchema` (ordered column-to-array mappings) supports probe DataFrames, but
   mid-stream `send(None)`, single-call/step equivalence, and generator closure
   ownership remain undecided.
-- Forcing/conditioning declarations require agreement with coupling and
-  labelled-array proposals before inclusion here.
+- Forcing/conditioning declarations need agreement with the coupling and
+  labelled-array proposals; Slots, State and Sources is the candidate.
+- Rear-hook edits no longer feed back. Is moving them to the front hook acceptable
+  for FuXi-S2S and perturbation workflows?
+- Do IO backends and drivers accept yields with several `lead_time` entries? Chunked
+  steps for DLWP, Aurora1p5, SamudrACE and InterpModAFNO depend on it.
+- A front hook editing `state.fields` can leave derived private state (Atlas's
+  latent) stale. Should `step` re-derive from `fields`, or document what it ignores?
+- Should components declare their RNG mechanism (e.g. `rng = "local" | "global"`)
+  so drivers can run global-RNG components serially?

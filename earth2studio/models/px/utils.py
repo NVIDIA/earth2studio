@@ -15,11 +15,77 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from dataclasses import replace
+from typing import Any
 
 import xarray as xr
 
+from earth2studio.models.px.base import ModelState, SourceDefault
+from earth2studio.utils.type import CoordinateSystem
+
 Hook = Callable[[xr.DataArray], xr.DataArray]
+
+
+def _as_tuple(value: Any) -> tuple:
+    return value if isinstance(value, tuple) else (value,)
+
+
+def _grid_key(signature: CoordinateSystem) -> Any:
+    """Grid identity of a slot: its registered grid ID, else its spatial axes."""
+    grid_id = signature.attrs.get("earth2studio_grid_id")
+    if grid_id is not None:
+        return grid_id
+    return tuple(
+        (dim, signature.sizes[dim])
+        for dim in signature.dims
+        if dim not in ("variable", "lead_time") and signature.sizes[dim] > 0
+    )
+
+
+def input_roles(model: Any) -> tuple[str, ...]:
+    """Derive the role of each input slot from a model's signatures.
+
+    A variable is state when an output slot on the same grid produces it, a step
+    input when it is input-only with ``lead_time``, and static otherwise. Every
+    variable in a slot must share one role.
+
+    Parameters
+    ----------
+    model : PrognosticModel
+        Model whose ``input_coords()`` and ``output_coords()`` are inspected.
+
+    Returns
+    -------
+    tuple[str, ...]
+        ``"state"``, ``"step"`` or ``"static"`` for each input slot.
+
+    Raises
+    ------
+    ValueError
+        If an input slot mixes roles.
+    """
+    inputs = _as_tuple(model.input_coords())
+    outputs = _as_tuple(model.output_coords(model.input_coords()))
+    produced = {
+        (variable, _grid_key(signature))
+        for signature in outputs
+        for variable in signature["variable"].values
+    }
+    roles = []
+    for index, signature in enumerate(inputs):
+        kinds = {
+            (
+                "state"
+                if (variable, _grid_key(signature)) in produced
+                else "step" if "lead_time" in signature.dims else "static"
+            )
+            for variable in signature["variable"].values
+        }
+        if len(kinds) != 1:
+            raise ValueError(f"input slot {index} mixes roles {sorted(kinds)}")
+        roles.append(kinds.pop())
+    return tuple(roles)
 
 
 class PrognosticMixin:
@@ -43,6 +109,7 @@ class PrognosticMixin:
 
     #: Number of forecast outputs produced by each front-hook/core advance.
     #: Rear hooks run for every output; multi-output cores declare their cadence.
+    #: Unused by the derived iterator, where one yield carries a whole step.
     front_hook_interval: int = 1
 
     @staticmethod
@@ -59,3 +126,71 @@ class PrognosticMixin:
         for name in ("front_hook", "rear_hook"):
             if name in vars(self):
                 delattr(self, name)
+
+    # Proposed explicit-state protocol. Wrappers that still define their own
+    # ``__call__``/``create_iterator`` override the derived versions below, and
+    # inherit ``initialize``/``step`` stubs until they are migrated.
+
+    def initialize(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+    ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]:
+        """Start a rollout; migrated wrappers implement this."""
+        raise NotImplementedError(
+            f"{type(self).__name__} has not migrated to initialize/step yet"
+        )
+
+    def step(
+        self,
+        state: ModelState,
+        inputs: tuple[xr.DataArray | None, ...] | None = None,
+    ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]:
+        """Advance a rollout; migrated wrappers implement this."""
+        raise NotImplementedError(
+            f"{type(self).__name__} has not migrated to initialize/step yet"
+        )
+
+    def default_sources(self) -> tuple[SourceDefault | None, ...]:
+        """Recommend no source for any input slot."""
+        return (None,) * len(_as_tuple(self.input_coords()))  # type: ignore[attr-defined]
+
+    def _step_inputs(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+    ) -> tuple[xr.DataArray | None, ...] | None:
+        """Select the step input slots already present in initial fields."""
+        if not isinstance(x, tuple):
+            return None
+        roles = input_roles(self)
+        if "step" not in roles:
+            return None
+        return tuple(field if role == "step" else None for field, role in zip(x, roles))
+
+    def __call__(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+        """Advance one step from ``x`` without hooks, via ``initialize``/``step``."""
+        state, _ = self.initialize(x)
+        return self.step(state, self._step_inputs(x))[1]
+
+    # Annotated as an Iterator so unmigrated wrappers returning Iterator still type
+    # check as overrides; the generator still accepts step inputs through ``send``.
+    def create_iterator(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+    ) -> Iterator[xr.DataArray | tuple[xr.DataArray, ...]]:
+        """Roll out via ``initialize``/``step``, receiving step inputs by ``send``.
+
+        Yields the initial condition first. A value sent at a yield is the step
+        inputs for the next advance; sending ``None`` (or calling ``next``) at the
+        0th yield reuses the step input slots in ``x``. Each yield is one ``step``:
+        a model computing several lead times per core call yields them together.
+        """
+        # Hooks see whatever payload type the model declares.
+        front_hook: Callable[[Any], Any] = self.front_hook
+        rear_hook: Callable[[Any], Any] = self.rear_hook
+
+        state, initial = self.initialize(x)
+        sent = yield initial
+        pending = self._step_inputs(x) if sent is None else sent
+        while True:
+            state = replace(state, fields=front_hook(state.fields))
+            state, out = self.step(state, pending)
+            pending = yield rear_hook(out)
