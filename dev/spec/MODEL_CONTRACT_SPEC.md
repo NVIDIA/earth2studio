@@ -396,8 +396,7 @@ def default_sources(self):
 Drivers compose source and regridder explicitly and handshake the result against
 the slot; nothing regrids implicitly. Callers may keep the default, swap the source
 with `dataclasses.replace`, or supply any provider matching the slot, such as a
-pre-regridded archive. `regridder` stays loosely typed until the `Regridder` ABC in
-`recipes/eval/src/regrid.py` is upstreamed.
+pre-regridded archive. `Regridder` follows [REGRID_SPEC.md](REGRID_SPEC.md).
 
 ### Diagnostic models
 
