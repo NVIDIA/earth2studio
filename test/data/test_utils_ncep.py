@@ -12,7 +12,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 
-from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_ncep
+from earth2studio.data import NNJAObsConv, NomadsGDASObsConv, utils_bufr, utils_ncep
 from earth2studio.data.utils_bufr import OBS_TOB, OBS_TQM
 from earth2studio.lexicon import GDASObsConvLexicon, NNJAObsConvLexicon
 
@@ -806,3 +806,121 @@ def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
     NNJAObsConv(cache=False, verbose=False, exclude_message_types=("SATWND",))
     with pytest.raises(ValueError, match="Unknown PrepBUFR message types"):
         NNJAObsConv(cache=False, verbose=False, exclude_message_types=("AMV",))
+
+
+def _sounding_level() -> tuple[list[SimpleNamespace], list[object]]:
+    """One radiosonde level whose temperature carries two events, latest first."""
+    from earth2studio.data.utils_bufr import (
+        HDR_DHR,
+        HDR_SID,
+        HDR_TYP,
+        HDR_XOB,
+        HDR_YOB,
+        OBS_CAT,
+        OBS_HRDR,
+        OBS_POB,
+        OBS_XDR,
+        OBS_YDR,
+    )
+
+    desc_values = [
+        (HDR_SID, b"72393"),
+        (HDR_XOB, 10.0),
+        (HDR_YOB, 20.0),
+        (HDR_DHR, 0.0),
+        (HDR_TYP, 120),
+        (OBS_CAT, 1),
+        (OBS_POB, 500.0),
+        (OBS_HRDR, 0.5),
+        (OBS_YDR, 21.0),
+        (OBS_XDR, 11.0),
+        (OBS_TOB, -10.0),  # latest event
+        (OBS_TQM, 9),
+        (OBS_TOB, -12.0),  # original report, program code 1
+        (OBS_TQM, 2),
+    ]
+    return [SimpleNamespace(id=d) for d, _ in desc_values], [v for _, v in desc_values]
+
+
+@pytest.mark.parametrize(
+    "original_event, value, quality",
+    [
+        (False, -10.0, 9),
+        (True, -12.0, 2),
+    ],
+)
+def test_prepbufr_event_and_level_coordinates(original_event, value, quality):
+    descriptors, values = _sounding_level()
+    base = datetime(2024, 1, 1)
+    ((key, _modifier),) = _prepbufr_plan(NNJAObsConvLexicon, "t").values()
+    rows = utils_ncep._extract_prepbufr_subset(
+        descriptors,
+        values,
+        base,
+        "ADPUPA",
+        [("t", key)],
+        base - timedelta(hours=3),
+        base + timedelta(hours=3),
+        original_event=original_event,
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["observation"] == value
+    assert row["quality"] == quality
+    assert row["time"] == base + timedelta(hours=0.5)
+    assert (row["lat"], row["lon"]) == (21.0, 11.0)
+    assert row["report_time"] == base
+    assert (row["report_lat"], row["report_lon"]) == (20.0, 10.0)
+
+
+def test_prepbufr_filters_complete_reports_by_header_time():
+    descriptors, values = _sounding_level()
+    base = datetime(2024, 1, 1)
+    ((key, _modifier),) = _prepbufr_plan(NNJAObsConvLexicon, "t").values()
+
+    kept = utils_ncep._extract_prepbufr_subset(
+        descriptors,
+        values,
+        base,
+        "ADPUPA",
+        [("t", key)],
+        base - timedelta(minutes=15),
+        base + timedelta(minutes=15),
+    )
+    assert len(kept) == 1
+    assert kept[0]["time"] == base + timedelta(minutes=30)
+
+    dropped = utils_ncep._extract_prepbufr_subset(
+        descriptors,
+        values,
+        base,
+        "ADPUPA",
+        [("t", key)],
+        base + timedelta(minutes=15),
+        base + timedelta(minutes=45),
+    )
+    assert dropped == []
+
+
+def test_dx_messages_that_fail_or_give_no_tables_raise(monkeypatch):
+    # One DX-table message (data category 11 at byte 16).
+    message = (
+        b"BUFR" + (24).to_bytes(3, "big") + b"\x04" + bytes(8) + b"\x0b" + bytes(7)
+    )
+    empty = SimpleNamespace(
+        template_data=SimpleNamespace(
+            value=SimpleNamespace(decoded_values_all_subsets=[])
+        )
+    )
+
+    def broken(_):
+        raise RuntimeError("corrupt")
+
+    for process, match in (
+        (lambda _: empty, "gave no tables"),
+        (broken, "1 of 1 failed"),
+    ):
+        decoder = SimpleNamespace(process=process)
+        monkeypatch.setattr(utils_bufr, "BufrDecoder", lambda: decoder)
+        with pytest.raises(ValueError, match=match):
+            utils_bufr.parse_prepbufr_messages(message)

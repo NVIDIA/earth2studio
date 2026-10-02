@@ -65,6 +65,9 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+            "report_time": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 00:00:00"]
+            ),
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
@@ -72,6 +75,8 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
+            "report_lat": [40.0, 41.0],
+            "report_lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
@@ -80,6 +85,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
+            "cycle_time": pd.to_datetime(["2024-01-01 00:00:00"] * 2),
         }
     )
 
@@ -141,6 +147,14 @@ def test_nnja_obs_conv_exceptions():
     )
     with pytest.raises(TypeError):
         NNJAObsConv.resolve_fields(wrong_type_schema)
+
+
+def test_nnja_obs_conv_original_event():
+    latest = NNJAObsConv(cache=False, verbose=False)
+    original = NNJAObsConv(original_event=True, cache=False, verbose=False)
+
+    assert not latest._original_event
+    assert original._original_event
 
 
 def test_nnja_obs_conv_validate_time():
@@ -216,6 +230,9 @@ def test_nnja_obs_conv_mock_fetch():
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+            "report_time": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 00:00:00"]
+            ),
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
@@ -223,6 +240,8 @@ def test_nnja_obs_conv_mock_fetch():
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
+            "report_lat": [40.0, 41.0],
+            "report_lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
@@ -231,6 +250,7 @@ def test_nnja_obs_conv_mock_fetch():
             "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
+            "cycle_time": pd.to_datetime(["2024-01-01 00:00:00"] * 2),
         }
     )
 
@@ -282,7 +302,7 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
     monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
     monkeypatch.setattr(source, "cleanup", fake_cleanup)
-    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame.copy())
 
     result = source(
         datetime(2024, 1, 1),
@@ -307,6 +327,30 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
             fields=["time", "observation", "variable"],
         )
     assert cleanup_calls["n"] == 2
+
+
+@pytest.mark.parametrize(
+    "cls, variable", [(NNJAObsConv, "t"), (nnja.NNJAObsSatwnd, "u")]
+)
+def test_nnja_obs_conv_decode_failure_raises(tmp_path, monkeypatch, cls, variable):
+    """A file that fails to decode fails the request instead of returning no rows."""
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+    source = cls(cache=True, verbose=False)
+
+    async def fake_fetch_files(uris):
+        pass
+
+    def broken_decode(path, task):
+        raise ModuleNotFoundError("No module named 'bitarray'")
+
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "_decode_file", broken_decode)
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
+        source(datetime(2024, 1, 1), [variable])
+    assert err.value.context["reason"] == "task_failure"
+    assert isinstance(err.value.__cause__, ModuleNotFoundError)
 
 
 def test_nnja_obs_conv_available():
@@ -786,6 +830,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "scan_angle",
         "scan_position",
         "scan_line",
+        "detector",
         "sensor_index",
         "wavenumber",
         "solza",
@@ -796,6 +841,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "satellite",
         "observation",
         "variable",
+        "cycle_time",
     ]
     assert list(frame.columns) == NNJAObsSat.SCHEMA.names
     # _rows_to_dataframe delegates to _table_to_dataframe, so every column is
@@ -1031,7 +1077,9 @@ def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
         sensor="mhs",
     )
 
-    assert len(rows) == 1
+    # The missing channel 2 is a NaN row, so the footprint keeps all its channels
+    assert [row["sensor_index"] for row in rows] == [1, 2]
+    assert np.isnan(rows[1]["observation"])
     assert rows[0]["lat"] == pytest.approx(-1.2286)
     assert rows[0]["lon"] == pytest.approx(357.1021)
     assert rows[0]["satellite"] == "metop-b"
@@ -1228,8 +1276,11 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
         NNJAObsSat.resolve_fields(["unknown"])
     with pytest.raises(TypeError):
         NNJAObsSat.resolve_fields(pa.schema([pa.field("lat", pa.float64())]))
+    # ATMS starts in 2012, AMSU-A in 1998: plan the one that exists
+    tasks = source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+    assert {task.sensor for task in tasks} == {"amsua"}
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
-        source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+        source._create_tasks([datetime(2000, 1, 1)], ["atms", "cris"])
     assert unavailable.value.context["reason"] == "archive_unavailable"
     with pytest.raises(KeyError):
         ncep_microwave.decode_microwave(
@@ -1335,6 +1386,10 @@ def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
 
     # Inside coverage plans normally
     assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
+
+    # A sensor outside its coverage does not stop the others from being planned
+    tasks = source._create_tasks([datetime(2025, 1, 1)], ["airs", "atms", "cris"])
+    assert {task.sensor for task in tasks} == {"atms", "cris"}
 
 
 def test_nnja_obs_sat_decode_file_routes_ir_and_microwave(monkeypatch):
@@ -1469,13 +1524,14 @@ def test_nnja_ir_decode_iasi_scaled_radiance_planck():
     assert rows[0]["wavenumber"] == pytest.approx(645.0)
     assert rows[0]["satellite"] == "metop-b"
 
-    # A channel outside every CHSF band cannot be converted and is skipped
+    # A channel outside every CHSF band cannot be converted: a NaN row, not a drop
     no_band = _ir_scalar_pairs(said=3) + [
         (31002, 1),
         (ncep_microwave._CHANNEL_NUMBER, 1),
         (ncep_microwave._SCRA, scra),
     ]
-    assert not _decode_ir_pairs(no_band, "iasi")
+    (row,) = _decode_ir_pairs(no_band, "iasi")
+    assert np.isnan(row["observation"])
 
 
 def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
