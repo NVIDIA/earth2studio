@@ -240,7 +240,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
-            "hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4",
+            "hf://nvidia/cbottle@368507e5caefe75721f29aaf408d59482626d0c1",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -286,9 +286,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Diagnostic model
         """
         checkpoints = [
-            package.resolve("cBottle-3d/training-state-000512000.checkpoint"),
-            package.resolve("cBottle-3d/training-state-002048000.checkpoint"),
-            package.resolve("cBottle-3d/training-state-009856000.checkpoint"),
+            package.resolve("cBottle-3d-ema/ema-checkpoint-000512000.checkpoint"),
+            package.resolve("cBottle-3d-ema/ema-checkpoint-002048000.checkpoint"),
+            package.resolve("cBottle-3d-ema/ema-checkpoint-009856000.checkpoint"),
         ]
         # https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L106
         core_model = MixtureOfExpertsDenoiser.from_pretrained(
@@ -304,7 +304,7 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
 
         classifier_model = None
         with Checkpoint(
-            package.resolve("cBottle-3d-tc/training-state-002176000.checkpoint")
+            package.resolve("cBottle-3d-tc-ema/ema-checkpoint-002176000.checkpoint")
         ) as c:
             classifier_model = c.read_model(
                 allow_second_order_derivatives=allow_second_order_derivatives,
