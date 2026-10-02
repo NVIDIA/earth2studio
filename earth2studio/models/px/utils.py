@@ -157,19 +157,39 @@ class PrognosticMixin:
         self, x: xr.DataArray | tuple[xr.DataArray, ...]
     ) -> tuple[xr.DataArray | None, ...] | None:
         """Select the step input slots already present in initial fields."""
-        if not isinstance(x, tuple):
-            return None
         roles = input_roles(self)
         if "step" not in roles:
             return None
-        return tuple(field if role == "step" else None for field, role in zip(x, roles))
+        fields = x if isinstance(x, tuple) else (x,)
+        return tuple(
+            field if role == "step" else None for field, role in zip(fields, roles)
+        )
+
+    def _require_step_inputs(
+        self, pending: tuple[xr.DataArray | None, ...] | None
+    ) -> None:
+        """Raise naming any step input slot missing from ``pending``."""
+        roles = input_roles(self)
+        missing = [
+            i
+            for i, role in enumerate(roles)
+            if role == "step" and (pending is None or pending[i] is None)
+        ]
+        if missing:
+            raise ValueError(
+                f"missing step inputs for slot(s) {missing}; send(...) must supply "
+                "them, as next(it)/send(None) is valid only for models without "
+                "step input slots"
+            )
 
     def __call__(
         self, x: xr.DataArray | tuple[xr.DataArray, ...]
     ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Advance one step from ``x`` without hooks, via ``initialize``/``step``."""
         state, _ = self.initialize(x)
-        return self.step(state, self._step_inputs(x))[1]
+        pending = self._step_inputs(x)
+        self._require_step_inputs(pending)
+        return self.step(state, pending)[1]
 
     # Annotated as an Iterator so unmigrated wrappers returning Iterator still type
     # check as overrides; the generator still accepts step inputs through ``send``.
@@ -182,6 +202,8 @@ class PrognosticMixin:
         inputs for the next advance; sending ``None`` (or calling ``next``) at the
         0th yield reuses the step input slots in ``x``. Each yield is one ``step``:
         a model computing several lead times per core call yields them together.
+        Sending ``None`` at a later yield is valid only for models without step
+        input slots; otherwise it raises naming the missing slots.
         """
         # Hooks see whatever payload type the model declares.
         front_hook: Callable[[Any], Any] = self.front_hook
@@ -191,6 +213,7 @@ class PrognosticMixin:
         sent = yield initial
         pending = self._step_inputs(x) if sent is None else sent
         while True:
+            self._require_step_inputs(pending)
             state = replace(state, fields=front_hook(state.fields))
             state, out = self.step(state, pending)
             pending = yield rear_hook(out)
