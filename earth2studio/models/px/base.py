@@ -25,6 +25,7 @@ from earth2studio.utils.type import CoordinateSystem
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource, ForecastSource
+    from earth2studio.grids.regrid import Regridder
 
 
 @dataclass(frozen=True)
@@ -69,14 +70,13 @@ class SourceDefault:
     ----------
     source : DataSource | ForecastSource
         Raw data source, not pre-composed with a regridder.
-    regridder : Any | None, optional
+    regridder : Regridder | None, optional
         Recommended regridder from the source grid onto the slot's grid, for
-        example the bilinear interpolation a model was trained on. Typed loosely
-        until the ``Regridder`` ABC in ``recipes/eval/src/regrid.py`` is upstreamed.
+        example the bilinear interpolation a model was trained on.
     """
 
     source: DataSource | ForecastSource
-    regridder: Any | None = None
+    regridder: Regridder | None = None
 
 
 def recommended_sources(model: Any) -> tuple[SourceDefault | None, ...]:
