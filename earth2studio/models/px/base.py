@@ -79,6 +79,29 @@ class SourceDefault:
     regridder: Any | None = None
 
 
+def recommended_sources(model: Any) -> tuple[SourceDefault | None, ...]:
+    """Recommended source for each input slot of a prognostic or diagnostic model.
+
+    Prognostic models always declare ``default_sources()``; for diagnostics it is
+    optional, and models without it recommend nothing.
+
+    Parameters
+    ----------
+    model : PrognosticModel | DiagnosticModel
+        Model whose input slots need providers.
+
+    Returns
+    -------
+    tuple[SourceDefault | None, ...]
+        One entry per input slot, aligned with ``input_coords()``.
+    """
+    declared = getattr(model, "default_sources", None)
+    if declared is not None:
+        return declared()
+    signature = model.input_coords()
+    return (None,) * (len(signature) if isinstance(signature, tuple) else 1)
+
+
 # --8<-- [start:prognostic-model-interface]
 @runtime_checkable
 class PrognosticModel(Protocol):
