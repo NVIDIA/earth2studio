@@ -76,10 +76,10 @@ class ZarrBackend:
         self._read_store_state(chunks)
 
     def _read_store_state(self, chunks: dict[str, int]) -> None:
-        """Populate coords and chunks from any arrays already in the store."""
+        """Populate root-array coordinates and chunks, leaving subgroups untouched."""
         self.coords: CoordSystem = OrderedDict({})
         self.chunks = chunks.copy()
-        for array in self.root:
+        for array in self.root.array_keys():
             # https://github.com/pydata/xarray/pull/9669
             # Scalar arrays (e.g. CF grid_mapping) store dimension_names as None
             dims = self.root[array].metadata.dimension_names or ()
@@ -87,7 +87,7 @@ class ZarrBackend:
                 if dim not in self.coords:
                     self.coords[dim] = self.root[dim][:]
 
-        for array in self.root:
+        for array in self.root.array_keys():
             # https://github.com/pydata/xarray/pull/9669
             # Scalar arrays (e.g. CF grid_mapping) store dimension_names as None
             dims = self.root[array].metadata.dimension_names or ()
