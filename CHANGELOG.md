@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
   corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
   statistics).
+- Fixed reopening `ZarrBackend` and `IceChunkBackend` stores containing root-level subgroups.
 
 ### Security
 
