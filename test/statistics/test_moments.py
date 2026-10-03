@@ -385,16 +385,28 @@ def test_running_moment_multiple_axes_and_unequal_batches(
 def test_running_moment_weighted_centering_keeps_existing_normalization() -> None:
     """Correct axis placement without changing the running-weight denominator."""
     values = torch.tensor([[1.0, 4.0, 8.0], [11.0, 12.0, 19.0]], dtype=torch.float64)
+    second_values = torch.tensor(
+        [[2.0, 6.0, 10.0], [9.0, 15.0, 21.0]], dtype=torch.float64
+    )
     weights = torch.tensor([1.0, 2.0, 1.0], dtype=torch.float64)
     coords = OrderedDict(site=np.arange(2), time=np.arange(3))
-    result, _ = moments.variance(["time"], weights=weights, batch_update=True)(
-        values, coords
-    )
+    variance = moments.variance(["time"], weights=weights, batch_update=True)
+
+    result, _ = variance(values, coords)
     reference_mean = np.average(values.numpy(), axis=1, weights=weights.numpy())
     reference = ((values.numpy() - reference_mean[:, None]) ** 2 * weights.numpy()).sum(
         axis=1
     ) / 3.0
     torch.testing.assert_close(result, torch.from_numpy(reference))
+
+    result, _ = variance(second_values, coords)
+    pooled = np.concatenate([values.numpy(), second_values.numpy()], axis=1)
+    pooled_weights = np.tile(weights.numpy(), 2)
+    pooled_mean = np.average(pooled, axis=1, weights=pooled_weights)
+    pooled_reference = (
+        (pooled - pooled_mean[:, None]) ** 2 * pooled_weights
+    ).sum(axis=1) / 7.0
+    torch.testing.assert_close(result, torch.from_numpy(pooled_reference))
     torch.testing.assert_close(
         weights, torch.tensor([1.0, 2.0, 1.0], dtype=torch.float64)
     )
