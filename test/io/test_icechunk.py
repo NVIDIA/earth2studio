@@ -17,6 +17,7 @@
 import os
 import tempfile
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -395,3 +396,28 @@ def test_icechunk_nonblocking_write_error_surfaces_on_flush() -> None:
 
     with pytest.raises(ZeroDivisionError):
         io.flush()
+
+
+@pytest.mark.parametrize("blocking", [False, True])
+def test_icechunk_reopen_with_subgroups_preserves_commits(
+    tmp_path: Path, blocking: bool
+) -> None:
+    path = str(tmp_path / "forecast")
+    coords = OrderedDict(lat=np.arange(4))
+    values = torch.arange(4, dtype=torch.float32)
+    original = IceChunkBackend(path, chunks={"lat": 2}, blocking=blocking)
+    original.add_array(coords, "forecast", data=values)
+    nested = original.root.create_group("diagnostics")
+    nested.create_array("values", data=np.asarray([21]), dimension_names=["local_axis"])
+    nested.create_group("empty")
+    original.commit("initial forecast and nested diagnostics")
+    restored = IceChunkBackend(path, blocking=blocking)
+    assert list(restored.coords) == ["lat"]
+    assert restored.chunks["lat"] == 2
+    torch.testing.assert_close(restored.read(coords, "forecast")[0], values)
+    restored.write(values + 3, coords, "forecast")
+    restored.commit("updated root forecast")
+    again = IceChunkBackend(path, blocking=True)
+    torch.testing.assert_close(again.read(coords, "forecast")[0], values + 3)
+    np.testing.assert_array_equal(again.root["diagnostics/values"][:], [21])
+    assert isinstance(again.root["diagnostics/empty"], zarr.Group)

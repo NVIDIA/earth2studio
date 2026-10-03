@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed reopening Zarr and Icechunk stores containing root-level subgroups.
+
 ### Security
 
 ### Dependencies

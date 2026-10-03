@@ -17,6 +17,7 @@
 import os
 import tempfile
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -605,3 +606,45 @@ def test_zarr_write_uninitialized_array(tmp_path: str) -> None:
     assert "newvar" in ds.data_vars
     assert np.allclose(ds["init"].isel(lon=slice(0, 2)).values, 0.0)
     assert np.allclose(ds["newvar"].isel(lon=slice(0, 5)).values, 1.0)
+
+
+@pytest.mark.parametrize("subgroup_only", [False, True])
+def test_zarr_reopen_preserves_root_arrays_and_ignores_subgroups(
+    tmp_path: Path, subgroup_only: bool
+) -> None:
+    path = str(tmp_path / "forecast.zarr")
+    coords = OrderedDict(lat=np.arange(4), lon=np.arange(3))
+    data = torch.arange(12, dtype=torch.float32).reshape(4, 3)
+    original = ZarrBackend(path, chunks={"lat": 2, "lon": 3})
+    if not subgroup_only:
+        original.add_array(coords, "forecast", data=data)
+        original.root.create_array("crs", data=np.asarray(0), dimension_names=None)
+    group = original.root.create_group("diagnostics")
+    group.attrs["description"] = "unrelated nested output"
+    group.create_array(
+        "nested", data=np.asarray([17, 19]), dimension_names=["local_axis"]
+    )
+    group.create_group("deeper")
+
+    restored = ZarrBackend(path, chunks={"custom": 5})
+    np.testing.assert_array_equal(restored.root["diagnostics/nested"][:], [17, 19])
+    assert (
+        restored.root["diagnostics"].attrs["description"] == "unrelated nested output"
+    )
+    assert "local_axis" not in restored.coords
+    assert restored.chunks["custom"] == 5
+    if subgroup_only:
+        assert not restored.coords
+        restored.add_array(coords, "forecast", data=data)
+    else:
+        assert restored.chunks["lat"] == 2
+        assert restored.chunks["lon"] == 3
+        assert restored.root["crs"][()] == 0
+    actual, actual_coords = restored.read(coords, "forecast")
+    torch.testing.assert_close(actual, data)
+    for key in coords:
+        np.testing.assert_array_equal(actual_coords[key], coords[key])
+    restored.write(data + 1, coords, "forecast")
+    again = ZarrBackend(path)
+    torch.testing.assert_close(again.read(coords, "forecast")[0], data + 1)
+    np.testing.assert_array_equal(again.root["diagnostics/nested"][:], [17, 19])
