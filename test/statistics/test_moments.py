@@ -403,9 +403,9 @@ def test_running_moment_weighted_centering_keeps_existing_normalization() -> Non
     pooled = np.concatenate([values.numpy(), second_values.numpy()], axis=1)
     pooled_weights = np.tile(weights.numpy(), 2)
     pooled_mean = np.average(pooled, axis=1, weights=pooled_weights)
-    pooled_reference = (
-        (pooled - pooled_mean[:, None]) ** 2 * pooled_weights
-    ).sum(axis=1) / 7.0
+    pooled_reference = ((pooled - pooled_mean[:, None]) ** 2 * pooled_weights).sum(
+        axis=1
+    ) / 7.0
     torch.testing.assert_close(result, torch.from_numpy(pooled_reference))
     torch.testing.assert_close(
         weights, torch.tensor([1.0, 2.0, 1.0], dtype=torch.float64)
