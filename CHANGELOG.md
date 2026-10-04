@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Honor custom ensemble dimension names in Brier score coordinate validation.
+
 ### Security
 
 ### Dependencies

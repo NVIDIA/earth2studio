@@ -111,7 +111,7 @@ class brier_score:
                 raise ValueError(
                     f"Ensemble dimension '{self.ensemble_dimension}' present in y_coords."
                 )
-            x_coords.pop("ensemble")
+            x_coords.pop(self.ensemble_dimension)
         for (x_dim, x_coord), (y_dim, y_coord) in zip(
             x_coords.items(), y_coords.items()
         ):
