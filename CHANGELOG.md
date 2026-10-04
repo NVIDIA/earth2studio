@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Correct the ensemble reduction axis in Energy Score when multivariate
+  dimensions precede the ensemble dimension.
+
 ### Security
 
 ### Dependencies
