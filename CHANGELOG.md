@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+
 ### Security
 
 ### Dependencies

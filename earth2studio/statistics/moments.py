@@ -258,8 +258,11 @@ class variance:
         # If batch updating then calculate updated mean
         else:
             temp_n = weights_sum
-            temp_sum = torch.sum(weights * x, dim=dims)
-            temp_sum2 = torch.sum(weights * (x - temp_sum / temp_n) ** 2, dim=dims)
+            temp_sum_keepdim = torch.sum(weights * x, dim=dims, keepdim=True)
+            temp_sum2 = torch.sum(
+                weights * (x - temp_sum_keepdim / temp_n) ** 2, dim=dims
+            )
+            temp_sum = temp_sum_keepdim.squeeze(tuple(dims))
 
             # First batch then no correction
             if self.n == 0:
