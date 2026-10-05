@@ -193,22 +193,20 @@ models never fetch themselves.
 class PrognosticModel(Protocol):
     def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
     def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+        self, *input_coords: CoordinateSystem
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
     def initialize(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+        self, *x: xr.DataArray
     ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]: ...
     def step(
         self,
         state: ModelState,
         inputs: tuple[xr.DataArray | None, ...] | None = None,
     ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]: ...
-    def default_sources(self) -> tuple[SourceDefault | None, ...]: ...
+    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]: ...
     # Derived by PrognosticMixin from initialize/step:
-    def __call__(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
-    def create_iterator(self, x: xr.DataArray | tuple[xr.DataArray, ...]) -> Generator[
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
+    def create_iterator(self, *x: xr.DataArray) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],  # yielded forecasts
         tuple[xr.DataArray | None, ...] | None,   # sent step inputs
         None,
@@ -216,7 +214,8 @@ class PrognosticModel(Protocol):
 ```
 
 Model state is represented by a generic, per-model subclassable type:
-```
+
+```python
 @dataclass(frozen=True)
 class ModelState:
     fields: xr.DataArray | tuple[xr.DataArray, ...]
@@ -224,9 +223,10 @@ class ModelState:
 
 ### Slots
 
-Signatures are one `CoordinateSystem` or a tuple of them, called slots. Payloads
-match: one DataArray or a tuple aligned slot-for-slot. Single-slot models are
-unchanged, and every coordinate rule above applies per slot.
+Signatures are one `CoordinateSystem` or a tuple of them, called slots. Inputs are
+passed positionally, one DataArray (or signature, for `output_coords`) per slot:
+`mrms(x_mrms, x_goes)`. Outputs are one DataArray or a tuple aligned slot-for-slot.
+Single-slot models are unchanged, and every coordinate rule above applies per slot.
 
 Slots are positional, not keyed:
 
@@ -281,7 +281,7 @@ def input_roles(model) -> tuple[str, ...]:
 
 ### Explicit state
 
-`initialize(x)` returns a `ModelState` and the initial condition at the final
+`initialize(*x)` returns a `ModelState` and the initial condition at the final
 input lead time (the 0th yield). `step(state, inputs)` returns the next state and
 its outputs. Wrappers implement only this transition; the mixin derives `__call__`
 and `create_iterator` from it, so they cannot disagree.
@@ -300,11 +300,10 @@ snapshot, restored or branched without another model instance.
 - **State is serializable** (`P21`). Subclass fields are arrays, tensors, scalars or
   nested states. Store RNG position as a counter or generator-state tensor, not a
   `torch.Generator`.
-- **Models never fetch** (`P22`). `inputs` aligns with `input_coords()`, with `None`
-  in state and static positions, and holds step inputs valid at the state's current
-  lead time. The mixin checks every step-input slot against `None` before calling
-  `step`, so missing step inputs raise `ValueError` naming the slots without
-  depending on each wrapper's `step` to catch it.
+- **Models never fetch** (`P22`). `inputs` aligns with `input_coords()`. `step`
+  reads only its step input slots, valid at the state's current lead time, and
+  ignores the other entries, which may be `None`. A missing step input raises
+  `ValueError` from `step`, naming the slots.
 - **One step is one core computation and one yield.** Models computing several
   lead times per call (DLWP, Aurora1p5, SamudrACE, InterpModAFNO) declare all of
   them in `output_coords()` and return them together. Step input windows cover
@@ -333,22 +332,23 @@ def step(self, state, inputs=None):
 
 A value sent to the iterator is the step inputs for the next advance. `next(it)`
 is `send(None)`, so unforced models keep plain loops. At the 0th yield, `None`
-reuses the step inputs already in `x`.
+reuses `x`, whose step input slots are already valid at the initial lead time.
+The mixin needs no knowledge of slot roles: `step` picks out what it reads.
 
 ```python
 # PrognosticMixin
-def __call__(self, x):
-    state, _ = self.initialize(x)
-    return self.step(state, step_inputs(self, x))[1]
+def __call__(self, *x):
+    state, _ = self.initialize(*x)
+    return self.step(state, x)[1]
 
-def create_iterator(self, x):
-    state, y0 = self.initialize(x)
+def create_iterator(self, *x):
+    state, y0 = self.initialize(*x)
     sent = yield y0
-    pending = step_inputs(self, x) if sent is None else sent   # None if unforced
+    inputs = x if sent is None else sent
     while True:
         state = replace(state, fields=self.front_hook(state.fields))
-        state, out = self.step(state, pending)
-        pending = yield self.rear_hook(out)
+        state, out = self.step(state, inputs)
+        inputs = yield self.rear_hook(out)
 ```
 
 ```python
@@ -356,14 +356,14 @@ def create_iterator(self, x):
 for y in islice(sfno.create_iterator(x), nsteps + 1): ...
 
 # Forced: the driver fetches conditioning alongside initial conditions
-it = stormcast.create_iterator((x_hrrr, cond_0))
+it = stormcast.create_iterator(x_hrrr, cond_0)
 y = next(it)
 for k in range(nsteps):    # inputs valid at the lead time being advanced from
     y = it.send((None, provider(stormcast.input_coords()[1], lead=k * step)))
 
 # Coupled: GOES conditions MRMS; neither model owns a data source
 s_goes, _ = goes.initialize(x_goes)
-s_mrms, _ = mrms.initialize((x_mrms, x_goes))
+s_mrms, _ = mrms.initialize(x_mrms, x_goes)
 for _ in range(nsteps):
     s_goes, y_goes = goes.step(s_goes)
     s_mrms, y_mrms = mrms.step(s_mrms, (None, s_goes.fields))
@@ -377,35 +377,28 @@ FuXi-S2S's documented behavior (see Open Questions).
 
 ### Default sources
 
-`default_sources()` recommends one `SourceDefault | None` per input slot,
-including state slots (`P23`). The slot signature remains the requirement. It is
-required for prognostic models (the mixin defaults to no recommendations) and
+`default_sources()` recommends one `DataSource | ForecastSource | None` per input
+slot, including state slots (`P23`). The slot signature remains the requirement.
+It is required for prognostic models (the mixin defaults to no recommendations) and
 optional for diagnostics, which share no base class. Drivers read either through
-`recommended_sources(model)`.
+`recommended_sources(model)`, fetch, and handshake the result against the slot.
 
 ```python
-@dataclass(frozen=True)
-class SourceDefault:
-    source: DataSource | ForecastSource      # raw, not pre-composed
-    regridder: Regridder | None = None       # recommended, not applied by the model
-
 def default_sources(self):
-    return (SourceDefault(MRMS()), SourceDefault(GOES(), BilinearRegridder(...)))
+    return (MRMS(), RegriddedSource(GOES(), BilinearRegridder(...)))
 ```
 
-Drivers compose source and regridder explicitly and handshake the result against
-the slot; nothing regrids implicitly. Callers may keep the default, swap the source
-with `dataclasses.replace`, or supply any provider matching the slot, such as a
-pre-regridded archive. `regridder` stays loosely typed until the `Regridder` ABC in
-`recipes/eval/src/regrid.py` is upstreamed.
+A regridder is bound to its source's grid, so the two are recommended as one
+provider rather than separately. Callers may keep the default or supply any
+provider matching the slot, such as a pre-regridded archive.
 
 ### Diagnostic models
 
-`DiagnosticModel` adopts the same slots: `input_coords()`, `output_coords()` and
-`__call__` take and return one signature or DataArray, or a tuple aligned
-slot-for-slot. Slot order is append-only, and automation matches by content.
-Diagnostics have no state, so roles reduce to time-varying and static inputs, and
-slots split only when coordinates differ. A diagnostic may define
+`DiagnosticModel` adopts the same slots: `__call__` and `output_coords()` take one
+positional DataArray or signature per input slot, and outputs are one DataArray or
+signature, or a tuple aligned slot-for-slot. Slot order is append-only, and
+automation matches by content. Diagnostics have no state, so roles reduce to
+time-varying and static inputs, and slots split only when coordinates differ. A diagnostic may define
 `default_sources()` with the same meaning as for prognostics. `initialize`,
 `step` and hooks do not apply.
 
@@ -449,9 +442,9 @@ Proposed, not yet enforced (see Slots, State and Sources):
 | `P17` | Every variable in an input slot has the same derived role |
 | `P18` | No two output slots share identical non-variable coordinates |
 | `P19` | `step` leaves its input state unchanged; replaying a saved state reproduces it |
-| `P20` | `__call__(x)` equals the first forecast of `create_iterator(x)` without hooks |
+| `P20` | `__call__(*x)` equals the first forecast of `create_iterator(*x)` without hooks |
 | `P21` | `ModelState` holds only arrays, tensors, scalars or states; snapshots round-trip |
-| `P22` | The model never fetches; missing step inputs raise `ValueError` naming the slots |
+| `P22` | The model never fetches; `step` raises `ValueError` naming missing step inputs |
 | `P23` | `default_sources()` has one entry per input slot |
 
 ### Diagnostic

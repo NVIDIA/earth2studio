@@ -27,24 +27,22 @@ from earth2studio.utils.type import CoordinateSystem
 class DiagnosticModel(Protocol):
     """Diagnostic model interface
 
-    Inputs and outputs are one DataArray or a tuple of DataArrays ("slots"), as for
-    prognostic models. Diagnostics may also define ``default_sources()``, returning
-    one ``SourceDefault | None`` per input slot; it is optional here because
-    diagnostics share no base class. Drivers read it through
+    Inputs are passed as one positional DataArray per slot and outputs are one
+    DataArray or a tuple of them, as for prognostic models. Diagnostics may also
+    define ``default_sources()``, returning one ``DataSource | ForecastSource |
+    None`` per input slot; it is optional here because diagnostics share no base
+    class. Drivers read it through
     ``earth2studio.models.px.base.recommended_sources``.
     """
 
-    def __call__(
-        self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
-            NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``,
-            one DataArray per input slot.
+        *x : xr.DataArray
+            NumPy-backed CPU or CuPy-backed CUDA data, one per input slot of
+            ``input_coords()``.
 
         Returns
         -------
@@ -65,14 +63,15 @@ class DiagnosticModel(Protocol):
         pass
 
     def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+        self, *input_coords: CoordinateSystem
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
-            Input signature(s) or DataArray(s) to validate and transform.
+        *input_coords : CoordinateSystem
+            Input signatures or DataArrays to validate and transform, one per
+            input slot.
 
         Returns
         -------
