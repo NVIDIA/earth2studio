@@ -56,30 +56,9 @@ class ModelState:
     fields: xr.DataArray | tuple[xr.DataArray, ...]
 
 
-@dataclass(frozen=True)
-class SourceDefault:
-    """Recommended provider for one input slot.
-
-    A recommendation, not a requirement: the slot's signature in ``input_coords()``
-    is the requirement. Drivers compose ``source`` with ``regridder`` explicitly;
-    callers may keep both, replace only the source (for example with
-    ``dataclasses.replace``), or supply their own provider.
-
-    Parameters
-    ----------
-    source : DataSource | ForecastSource
-        Raw data source, not pre-composed with a regridder.
-    regridder : Any | None, optional
-        Recommended regridder from the source grid onto the slot's grid, for
-        example the bilinear interpolation a model was trained on. Typed loosely
-        until the ``Regridder`` ABC in ``recipes/eval/src/regrid.py`` is upstreamed.
-    """
-
-    source: DataSource | ForecastSource
-    regridder: Any | None = None
-
-
-def recommended_sources(model: Any) -> tuple[SourceDefault | None, ...]:
+def recommended_sources(
+    model: Any,
+) -> tuple[DataSource | ForecastSource | None, ...]:
     """Recommended source for each input slot of a prognostic or diagnostic model.
 
     Prognostic models always declare ``default_sources()``; for diagnostics it is
@@ -92,7 +71,7 @@ def recommended_sources(model: Any) -> tuple[SourceDefault | None, ...]:
 
     Returns
     -------
-    tuple[SourceDefault | None, ...]
+    tuple[DataSource | ForecastSource | None, ...]
         One entry per input slot, aligned with ``input_coords()``.
     """
     declared = getattr(model, "default_sources", None)
@@ -112,18 +91,17 @@ class PrognosticModel(Protocol):
     so a wrapper implements the transition once and both entry points agree.
     """
 
-    def __call__(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Forward pass of the prognostic model, time integrating a single time-step
 
-        Equivalent to ``initialize(x)`` followed by one ``step`` using the step
-        input slots already present in ``x``. Applies no hooks.
+        Equivalent to ``initialize(*x)`` followed by one ``step`` with ``x`` as its
+        inputs. Applies no hooks.
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
-            NumPy-backed CPU or CuPy-backed CUDA fields matching ``input_coords()``.
+        *x : xr.DataArray
+            NumPy-backed CPU or CuPy-backed CUDA fields, one per input slot of
+            ``input_coords()``.
 
         Returns
         -------
@@ -132,7 +110,7 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def create_iterator(self, x: xr.DataArray | tuple[xr.DataArray, ...]) -> Generator[
+    def create_iterator(self, *x: xr.DataArray) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],
         tuple[xr.DataArray | None, ...] | None,
         None,
@@ -142,13 +120,13 @@ class PrognosticModel(Protocol):
 
         A value sent at a yield is the step inputs for the next advance, aligned
         with ``input_coords()``. ``next(it)`` is ``send(None)``: at the 0th yield it
-        reuses the step input slots in ``x``; later it is valid only for models
-        without step input slots and otherwise raises naming the missing slots.
+        reuses ``x`` as the step inputs; later it is valid only for models without
+        step input slots, and otherwise ``step`` raises naming the missing slots.
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
-            Initial fields matching ``input_coords()``.
+        *x : xr.DataArray
+            Initial fields, one per input slot of ``input_coords()``.
 
         Yields
         ------
@@ -158,7 +136,7 @@ class PrognosticModel(Protocol):
         pass
 
     def initialize(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+        self, *x: xr.DataArray
     ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]:
         """Start a rollout from initial fields.
 
@@ -167,8 +145,8 @@ class PrognosticModel(Protocol):
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
-            Initial fields matching ``input_coords()``.
+        *x : xr.DataArray
+            Initial fields, one per input slot of ``input_coords()``.
 
         Returns
         -------
@@ -194,8 +172,10 @@ class PrognosticModel(Protocol):
         state : ModelState
             State returned by ``initialize`` or a previous ``step``. Not modified.
         inputs : tuple[xr.DataArray | None, ...] | None, optional
-            Step input slots valid at the state's current lead time, aligned with
-            ``input_coords()``. Required when the model declares step input slots.
+            Fields aligned with ``input_coords()``. ``step`` reads only its step
+            input slots, valid at the state's current lead time, and ignores the
+            other entries, which may be ``None``. Required when the model declares
+            step input slots.
 
         Returns
         -------
@@ -207,7 +187,8 @@ class PrognosticModel(Protocol):
         Raises
         ------
         ValueError
-            If required step inputs are missing or fail their slot handshakes.
+            If step input slots are missing, naming them, or fail their slot
+            handshakes.
         """
         pass
 
@@ -223,14 +204,15 @@ class PrognosticModel(Protocol):
         pass
 
     def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+        self, *input_coords: CoordinateSystem
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
-            Input signature(s) or DataArray(s) to validate and transform.
+        *input_coords : CoordinateSystem
+            Input signatures or DataArrays to validate and transform, one per
+            input slot.
 
         Returns
         -------
@@ -245,16 +227,19 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def default_sources(self) -> tuple[SourceDefault | None, ...]:
+    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
         """Recommended data sources for each input slot.
 
         Aligned with ``input_coords()``, including the initial state slots.
-        ``None`` means no recommendation. Models never fetch from these
-        themselves; drivers fetch next to initial-condition fetching.
+        ``None`` means no recommendation. A source whose native grid differs from
+        the slot's is returned composed with the recommended regridder; transforms
+        intrinsic to the model, whatever the provider, stay inside the wrapper.
+        Models never fetch from these themselves; drivers fetch next to
+        initial-condition fetching.
 
         Returns
         -------
-        tuple[SourceDefault | None, ...]
+        tuple[DataSource | ForecastSource | None, ...]
             One entry per input slot.
         """
         pass

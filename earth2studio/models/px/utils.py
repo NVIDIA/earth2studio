@@ -17,12 +17,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
-from earth2studio.models.px.base import ModelState, SourceDefault
+from earth2studio.models.px.base import ModelState
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource, ForecastSource
 
 Hook = Callable[[xr.DataArray], xr.DataArray]
 
@@ -66,7 +69,7 @@ def input_roles(model: Any) -> tuple[str, ...]:
         If an input slot mixes roles.
     """
     inputs = _as_tuple(model.input_coords())
-    outputs = _as_tuple(model.output_coords(model.input_coords()))
+    outputs = _as_tuple(model.output_coords(*inputs))
     produced = {
         (variable, _grid_key(signature))
         for signature in outputs
@@ -101,6 +104,10 @@ class PrognosticMixin:
     list: a caller with more than one transformation to apply composes them into
     one function and assigns that, so the order they run in is visible at the
     assignment site rather than spread across every place that registered one.
+
+    Wrappers that still define their own ``__call__``/``create_iterator`` override
+    the derived versions below, and inherit ``initialize``/``step`` stubs until they
+    are migrated.
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
@@ -127,12 +134,8 @@ class PrognosticMixin:
             if name in vars(self):
                 delattr(self, name)
 
-    # Proposed explicit-state protocol. Wrappers that still define their own
-    # ``__call__``/``create_iterator`` override the derived versions below, and
-    # inherit ``initialize``/``step`` stubs until they are migrated.
-
     def initialize(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+        self, *x: xr.DataArray
     ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]:
         """Start a rollout; migrated wrappers implement this."""
         raise NotImplementedError(
@@ -149,71 +152,37 @@ class PrognosticMixin:
             f"{type(self).__name__} has not migrated to initialize/step yet"
         )
 
-    def default_sources(self) -> tuple[SourceDefault | None, ...]:
+    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
         """Recommend no source for any input slot."""
         return (None,) * len(_as_tuple(self.input_coords()))  # type: ignore[attr-defined]
 
-    def _step_inputs(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> tuple[xr.DataArray | None, ...] | None:
-        """Select the step input slots already present in initial fields."""
-        roles = input_roles(self)
-        if "step" not in roles:
-            return None
-        fields = x if isinstance(x, tuple) else (x,)
-        return tuple(
-            field if role == "step" else None for field, role in zip(fields, roles)
-        )
-
-    def _require_step_inputs(
-        self, pending: tuple[xr.DataArray | None, ...] | None
-    ) -> None:
-        """Raise naming any step input slot missing from ``pending``."""
-        roles = input_roles(self)
-        missing = [
-            i
-            for i, role in enumerate(roles)
-            if role == "step" and (pending is None or pending[i] is None)
-        ]
-        if missing:
-            raise ValueError(
-                f"missing step inputs for slot(s) {missing}; send(...) must supply "
-                "them, as next(it)/send(None) is valid only for models without "
-                "step input slots"
-            )
-
-    def __call__(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Advance one step from ``x`` without hooks, via ``initialize``/``step``."""
-        state, _ = self.initialize(x)
-        pending = self._step_inputs(x)
-        self._require_step_inputs(pending)
-        return self.step(state, pending)[1]
+        state, _ = self.initialize(*x)
+        return self.step(state, x)[1]
 
     # Annotated as an Iterator so unmigrated wrappers returning Iterator still type
     # check as overrides; the generator still accepts step inputs through ``send``.
     def create_iterator(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+        self, *x: xr.DataArray
     ) -> Iterator[xr.DataArray | tuple[xr.DataArray, ...]]:
         """Roll out via ``initialize``/``step``, receiving step inputs by ``send``.
 
         Yields the initial condition first. A value sent at a yield is the step
         inputs for the next advance; sending ``None`` (or calling ``next``) at the
-        0th yield reuses the step input slots in ``x``. Each yield is one ``step``:
-        a model computing several lead times per core call yields them together.
-        Sending ``None`` at a later yield is valid only for models without step
-        input slots; otherwise it raises naming the missing slots.
+        0th yield reuses ``x``. Each yield is one ``step``: a model computing
+        several lead times per core call yields them together. Sending ``None`` at
+        a later yield is valid only for models without step input slots; otherwise
+        ``step`` raises naming the missing slots.
         """
         # Hooks see whatever payload type the model declares.
         front_hook: Callable[[Any], Any] = self.front_hook
         rear_hook: Callable[[Any], Any] = self.rear_hook
 
-        state, initial = self.initialize(x)
+        state, initial = self.initialize(*x)
         sent = yield initial
-        pending = self._step_inputs(x) if sent is None else sent
+        inputs: tuple[xr.DataArray | None, ...] | None = x if sent is None else sent
         while True:
-            self._require_step_inputs(pending)
             state = replace(state, fields=front_hook(state.fields))
-            state, out = self.step(state, pending)
-            pending = yield rear_hook(out)
+            state, out = self.step(state, inputs)
+            inputs = yield rear_hook(out)
