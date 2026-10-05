@@ -20,9 +20,8 @@ Runnable tutorials for proposed APIs and workflows.
 
 ## Execution contracts
 
-- `05_single_model_session.py`: one model through `SingleModelPlan` and
-  snapshot/resume, composable output transforms, and an adaptive generator
-  wrapped in `LoopPlan` without session subclasses.
+- `06_runner.py`: the built-in `ModelRunner` with a diagnostic stream, and a
+  hand-written runner that stops early.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only

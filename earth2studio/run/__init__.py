@@ -14,13 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Forecast workflow helpers and simulation supervision.
+"""Built-in forecast workflows and work-item runners.
 
-The public surface here is deliberately small: the built-in workflows plus
-:class:`~earth2studio.run.session.WorkItem`, the unit of distributable work.
-Custom generators use ``LoopPlan`` in :mod:`earth2studio.run.session`; resumable
-custom execution implements its plan/session protocols. Graph execution lives in
-:mod:`earth2studio.coupling`, which this package must never import.
+A :class:`~earth2studio.run.runner.Runner` executes one
+:class:`~earth2studio.run.runner.WorkItem`; :class:`ModelRunner` is the built-in
+single-model runner. Coupled runners live with the coupler, never here.
 """
 
 from collections import OrderedDict
@@ -29,7 +27,6 @@ from math import ceil
 
 import numpy as np
 import torch
-import xarray as xr
 from loguru import logger
 from tqdm import tqdm  # type: ignore[import-untyped]
 
@@ -38,13 +35,18 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.run.session import WorkItem
+from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
+    _dimension_coords,
+    _map_field,
+    _output_dimensions,
+)
+from earth2studio.run.runner import DataRequest, ModelRunner, Runner, WorkItem
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
     NullCheckpoint,
 )
-from earth2studio.utils.coords import CoordSystem, coord_array_like, split_coords
+from earth2studio.utils.coords import CoordSystem, split_coords
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
@@ -52,114 +54,14 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 __all__ = [
+    "DataRequest",
+    "ModelRunner",
+    "Runner",
     "WorkItem",
     "deterministic",
     "diagnostic",
     "ensemble",
 ]
-
-
-def _dimension_coords(x: xr.DataArray) -> CoordSystem:
-    """Read dimension labels without materializing a coordinate signature."""
-    return OrderedDict((dim, x.coords[dim].values) for dim in x.dims)
-
-
-def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
-    """Select model variables/domain, retaining runtime times and auxiliary geometry.
-
-    Exact contiguous selections are views; nearest numeric selections preserve the
-    legacy runner's mapping behavior. Curvilinear auxiliaries are never indexed as
-    dimensions. Model validation checks their geometry at the inference boundary.
-    """
-    coordinates = (
-        _dimension_coords(target) if isinstance(target, xr.DataArray) else target
-    )
-    for dim, values in coordinates.items():
-        if dim in ("batch", "time", "lead_time") or len(values) == 0:
-            continue
-        source = x.coords[dim].values
-        if np.array_equal(source, values):
-            continue
-        if source.ndim != 1 or np.asarray(values).ndim != 1:
-            raise ValueError(f"Cannot map multidimensional coordinate {dim}")
-        index = x.get_index(dim).get_indexer(values)
-        if (index < 0).any():
-            if not np.issubdtype(source.dtype, np.number):
-                raise ValueError(f"Missing labels for coordinate {dim}: {values}")
-            index = np.abs(source[:, None] - values[None, :]).argmin(axis=0)
-        selection = (
-            slice(int(index[0]), int(index[-1]) + 1)
-            if np.all(np.diff(index) == 1)
-            else index
-        )
-        x = x.isel({dim: selection}).assign_coords({dim: values})
-        if dim == "variable":
-            statistics = coord_array_like(x).attrs.get("earth2studio_statistics")
-            x.attrs = dict(x.attrs)
-            x.attrs.pop("earth2studio_statistics", None)
-            if statistics:
-                x.attrs["earth2studio_statistics"] = statistics
-    if isinstance(target, xr.DataArray) and "dims" in target.attrs:
-        spatial_dims = set(target.attrs["dims"])
-        for name, coordinate in target.coords.items():
-            if not spatial_dims.intersection(coordinate.dims):
-                continue
-            if (
-                name not in x.coords
-                or x.coords[name].dims != coordinate.dims
-                or not np.array_equal(x.coords[name], coordinate)
-            ):
-                raise ValueError(
-                    f"Source geometry does not match target coordinate {name}"
-                )
-        actual_crs = x.attrs.get("earth2studio_crs")
-        if actual_crs is not None and actual_crs != target.attrs.get(
-            "earth2studio_crs"
-        ):
-            raise ValueError("Source CRS does not match target CRS")
-        x = x.copy(deep=False)
-        for key in (
-            "type",
-            "dims",
-            "shape",
-            "topology",
-            "crs",
-            "earth2studio_crs",
-            "earth2studio_grid_id",
-            "level",
-            "nside",
-            "ordering",
-            "layout",
-            "origin",
-            "clockwise",
-        ):
-            x.attrs.pop(key, None)
-            if key in target.attrs:
-                x.attrs[key] = target.attrs[key]
-    return x
-
-
-def _output_dimensions(
-    prognostic: PrognosticModel, time: np.ndarray, nsteps: int
-) -> CoordSystem:
-    """Plan the legacy IO dimensions from a native model declaration."""
-    signature = prognostic.output_coords(prognostic.input_coords())
-    coords = OrderedDict(
-        (dim, values)
-        for dim, values in _dimension_coords(signature).items()
-        if signature.sizes[dim]
-    )
-    leads = signature.coords["lead_time"].values
-    coords["time"] = time
-    coords["lead_time"] = np.concatenate(
-        [
-            np.zeros(1, dtype=leads.dtype),
-            *(leads + leads[-1] * i for i in range(nsteps)),
-        ]
-    )
-    coords.move_to_end("lead_time", last=False)
-    coords.move_to_end("time", last=False)
-    return coords
 
 
 def deterministic(
