@@ -211,8 +211,9 @@ class fss:
         coords = coords.copy()
         spatial_dims = list(coords)[-2:]
         margin = _get_margin(window_size)
+        stop = -margin[1] if margin[1] else None
         for dim in spatial_dims:
-            coords[dim] = coords[dim][margin[0] : -margin[1]].copy()
+            coords[dim] = coords[dim][margin[0] : stop].copy()
         coords["threshold"] = out_coords["threshold"].copy()
         return coords
 
