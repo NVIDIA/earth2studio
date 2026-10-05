@@ -838,6 +838,9 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "satellite_za",
         "satellite_aza",
         "quality",
+        "scan_quality",
+        "granule_quality",
+        "footprint_quality",
         "satellite",
         "observation",
         "variable",
@@ -850,6 +853,20 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
     assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
     assert str(frame["lat"].dtype) == "float[pyarrow]"
     assert str(frame["observation"].dtype) == "float[pyarrow]"
+
+
+def test_nnja_obs_sat_decode_atms_footprint_quality():
+    pairs = _atms_microwave_pairs()
+    pairs[12:12] = [
+        (ncep_microwave._GRANULE_QUALITY, 2),
+        (ncep_microwave._SCAN_QUALITY, 5),
+    ]
+    rows = _decode_microwave_pairs(
+        pairs, (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),)
+    )
+    assert all(row["scan_quality"] == 5 for row in rows)
+    assert all(row["granule_quality"] == 2 for row in rows)
+    assert all(row["footprint_quality"] is None for row in rows)
 
 
 @pytest.mark.parametrize(
@@ -1580,6 +1597,30 @@ def test_nnja_ir_decode_cris_quality_null_without_band_flags():
     rows = _decode_ir_pairs(pairs, "cris")
     assert len(rows) == 1
     assert rows[0]["quality"] is None
+
+
+def test_nnja_ir_decode_footprint_quality():
+    cris = _ir_scalar_pairs(said=224) + [
+        (ncep_microwave._FORN, 3),
+        (ncep_microwave._CRIS_SCAN_QUALITY, 8),
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, 0.05),
+    ]
+    (row,) = _decode_ir_pairs(cris, "cris")
+    assert row["scan_quality"] == 8
+    assert row["granule_quality"] is None
+    assert row["footprint_quality"] is None
+
+    iasi = _ir_scalar_pairs(said=3) + [
+        (ncep_microwave._IASI_SYSTEM_QUALITY, 1),
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._SCRA, 100),
+    ]
+    (row,) = _decode_ir_pairs(iasi, "iasi")
+    assert row["footprint_quality"] == 1
+    assert row["scan_quality"] is None
 
 
 def test_nnja_ir_decode_cris_guard_block_not_emitted():

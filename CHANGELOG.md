@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added an `original_event` option and report time/latitude/longitude columns to
   `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
 - Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added `scan_quality`, `granule_quality` and `footprint_quality` columns to
+  `NNJAObsSat` carrying the ATMS, CrIS and IASI footprint-level provider flags.
 - Added a `cycle_time` column to the NCEP observation sources (`NNJAObsConv`,
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.

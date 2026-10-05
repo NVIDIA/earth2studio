@@ -1407,6 +1407,10 @@ _CHANNEL_FREQUENCY = 2153
 _ANTENNA_TEMPERATURE = 12066
 _BRIGHTNESS_TEMPERATURE = 12163
 _CHANNEL_QUALITY = 33081
+_IASI_SYSTEM_QUALITY = 33060  # QGFQ
+_CRIS_SCAN_QUALITY = 33075  # NSQF
+_GRANULE_QUALITY = 33079
+_SCAN_QUALITY = 33080
 
 _SCALAR_DESCRIPTORS = {
     _SAID,
@@ -1427,6 +1431,10 @@ _SCALAR_DESCRIPTORS = {
     _SURFACE_ELEVATION,
     _BEARING_OR_AZIMUTH,
     _SOLAR_AZIMUTH,
+    _IASI_SYSTEM_QUALITY,
+    _CRIS_SCAN_QUALITY,
+    _GRANULE_QUALITY,
+    _SCAN_QUALITY,
 }
 
 _CHANNEL_DESCRIPTORS = {
@@ -1509,6 +1517,39 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
                 )
             },
         ),
+        pa.field(
+            "scan_quality",
+            pa.uint32(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Scan-level quality flags as encoded: ATMS 0-33-080, "
+                    "CrIS NSQF 0-33-075; null for other sensors"
+                )
+            },
+        ),
+        pa.field(
+            "granule_quality",
+            pa.uint16(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Granule-level quality flags as encoded (ATMS 0-33-079); "
+                    "null for other sensors"
+                )
+            },
+        ),
+        pa.field(
+            "footprint_quality",
+            pa.uint8(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "IASI system quality flag QGFQ (0-33-060) as encoded; "
+                    "null for other sensors"
+                )
+            },
+        ),
         E2STUDIO_SCHEMA.field("satellite"),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
@@ -1542,6 +1583,16 @@ def _as_optional_int(value: Any) -> int | None:
     if not np.isfinite(number):
         return None
     return int(round(number))
+
+
+def _footprint_quality_values(scalars: Mapping[int, Any]) -> dict[str, int | None]:
+    return {
+        "scan_quality": _as_optional_int(
+            scalars.get(_SCAN_QUALITY, scalars.get(_CRIS_SCAN_QUALITY))
+        ),
+        "granule_quality": _as_optional_int(scalars.get(_GRANULE_QUALITY)),
+        "footprint_quality": _as_optional_int(scalars.get(_IASI_SYSTEM_QUALITY)),
+    }
 
 
 def _nominal_microwave_scan_angle(sensor: str, scan_position: int) -> float:
@@ -1654,6 +1705,7 @@ def _decode_microwave_subset(
         "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
         "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
         "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
+        **_footprint_quality_values(scalars),
         "satellite": satellite,
     }
 
@@ -1854,9 +1906,8 @@ _IR_OBS_DESCRIPTOR: dict[str, int] = {
 
 _IR_QUALITY_DESCRIPTOR: dict[str, int] = {
     "airs": _ACQF,
-    # mtiasi carries no per-channel flag; the footprint-level QGFQ/QGQI/QGQIL/
-    # QGQIR/QGQIS scalars (0-33-060..064) exist but do not fit the per-channel
-    # `quality` column.
+    # mtiasi carries no per-channel flag; its footprint-level QGFQ (0-33-060)
+    # is the `footprint_quality` column.
     "iasi": 0,
     # CrIS quality is handled separately: NFQF (0-33-077) and NCQF (0-33-076)
     # are per-band (×3) and decoded in _decode_ir_subset outside this table.
@@ -2046,6 +2097,7 @@ def _decode_ir_subset(
         "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
         "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
         "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
+        **_footprint_quality_values(scalars),
         "satellite": satellite,
     }
 

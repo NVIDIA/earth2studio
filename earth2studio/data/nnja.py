@@ -703,6 +703,11 @@ class NNJAObsSat:
     granule-local counter that repeats within a cycle file; pair it with
     ``time`` to address a scan.
 
+    ``quality`` carries the per-channel provider flags. The footprint-level
+    flags are ``scan_quality`` (ATMS 0-33-080, CrIS ``NSQF``),
+    ``granule_quality`` (ATMS 0-33-079) and ``footprint_quality`` (IASI
+    ``QGFQ``), each as encoded and null for sensors whose template lacks it.
+
     Parameters
     ----------
     time_tolerance : TimeTolerance, optional
