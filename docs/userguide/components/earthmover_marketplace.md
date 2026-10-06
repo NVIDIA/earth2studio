@@ -3,7 +3,7 @@
 # Earthmover Marketplace { #earthmover_marketplace_userguide }
 
 The [Earthmover Marketplace](https://app.earthmover.io/marketplace) is Earthmover's
-["modern, cloud-native data sharing experience for high-velocity gridded weather,
+["modern, cloud-native data sharing experience for high-value gridded weather,
 climate, and geospatial datasets"](https://docs.earthmover.io/marketplace/data-users),
 stored as [Arraylake](https://docs.earthmover.io/) / [Icechunk](https://icechunk.io/)
 Zarr repositories.
