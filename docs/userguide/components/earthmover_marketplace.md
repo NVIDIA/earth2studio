@@ -13,20 +13,24 @@ from Marketplace repositories, so datasets can be used as initial conditions or
 verification data without writing any custom download or parsing code.
 
 !!! note
-    Arraylake-backed Earthmover data sources require **Python 3.12 or newer** and the
+    Arraylake-backed Earthmover data sources require **Python 3.12 through 3.14** and the
     optional `arraylake` dependency, installed with:
 
     ```bash
     pip install earth2studio[data]
     ```
 
-## Available Marketplace Data Sources
+## Marketplace data sources supported by Earth2Studio
 
 | Data source | Type | Provider | Dataset (hosted repo listing) |
 | --- | --- | --- | --- |
 | [`earth2studio.data.EarthMoverERA5`](../../modules/datasources_analysis.md) | Analysis | `earthmover-public` | [ERA5 0.25° reanalysis](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2) |
 | [`earth2studio.data.EarthMoverBrightBandIFS`](../../modules/datasources_analysis.md) | Analysis | `brightband` | [Brightband ECMWF IFS 0.25° initial conditions](https://app.earthmover.io/marketplace/697162921880507a6587c31b) |
 | [`earth2studio.data.EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | Forecast | `brightband` | [Brightband ECMWF IFS 0.1° (10 km) 15-day forecast](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
+
+This table lists Marketplace datasets with dedicated Earth2Studio data source
+classes. Other Marketplace listings, including listings from other providers, are not
+automatically supported by these classes.
 
 Each dataset name links to its Marketplace listing page, which is where the Arraylake
 repository is hosted and subscribed to. Dataset coverage, license and the
@@ -53,29 +57,19 @@ same page. Per the listing pages themselves:
 
 ## How the data is hosted
 
-The underlying chunk data is **never copied into Earthmover's or your own storage**
-(a paid subscription's own bucket holds only metadata about which chunks you can
-access, not the data itself - see below).
-
-Per [Earthmover's storage docs](https://docs.earthmover.io/concepts/storage), "Arraylake
-works with a wide range of commercial and open-source object storage services,
-including any S3-compatible object store as well as Google Cloud Storage and Microsoft
-Azure Blob Storage," and providers typically use "BYOB - Bring your own bucket": "all
-the data live in your cloud in your own object storage bucket."
-
+Subscribing does not copy the underlying chunk data into your organization's storage.
 [Icechunk](https://icechunk.io/) (the versioned storage format Arraylake is built on)
-tracks it with cryptographically-addressed manifests. Subscribing does not trigger a
-download:
+tracks the data with cryptographically-addressed manifests:
 
 - **Free listings** are a direct subscription. Per
   [Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers),
   "subscribers read data directly from [the provider's] object store" and "see your
   full commit history and can access any version" - no data is copied, your repo just
   points at the provider's storage.
-- **Paid listings** are "filtered subscriptions": your repo stores only metadata (which
-  chunks you're entitled to) in your own organization's bucket, while "the actual chunk
-  data is read from [the provider's] object store" - scoped to what your subscription
-  covers.
+- **Paid listings** are "filtered subscriptions": metadata manifests describing the
+  chunks you are entitled to are stored in your organization's bucket, while "the
+  actual chunk data is read from [the provider's] object store" - scoped to what your
+  subscription covers.
 
 Either way, "due to Icechunk's cryptographically random keys, it is not possible for
 the subscriber to discover any data not explicitly included in their manifests."
@@ -160,6 +154,16 @@ subscription repository name automatically (see below). Alternatively, pass a
 pre-authenticated [`arraylake.AsyncClient`](https://docs.earthmover.io/reference/client)
 directly to the data source via the `client` argument.
 
+```python
+import os
+
+import arraylake
+from earth2studio.data import EarthMoverERA5
+
+client = arraylake.AsyncClient(token=os.environ["EARTHMOVER_API_KEY"])
+ds = EarthMoverERA5(repo="my-org/era5-subscription", client=client)
+```
+
 ## 3. Use the data source
 
 With the repo name derived from `EARTHMOVER_ORGANIZATION`:
@@ -175,28 +179,40 @@ da = ds(time=datetime(2021, 6, 1), variable=["t2m", "u10m", "z500"])
 Or pass an explicit `org/repo` to read a specific repository:
 
 ```python
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from earth2studio.data import EarthMoverBrightBandIFS
 
 ds = EarthMoverBrightBandIFS(repo="my-org/ecmwf-ifs-initial-conditions-open-subscription")
-da = ds(time=datetime(2024, 1, 1), variable=["t2m", "z500", "u850"])
+recent_cycle = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+recent_cycle = recent_cycle.replace(
+    hour=6 * (recent_cycle.hour // 6), minute=0, second=0, microsecond=0
+)
+da = ds(time=recent_cycle, variable=["t2m", "z500", "u850"])
 ```
 
 Forecast sources additionally take a `lead_time`:
 
 ```python
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 from earth2studio.data import EarthMoverBrightBandIFS_FX
 
 ds = EarthMoverBrightBandIFS_FX()
+recent_cycle = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+recent_cycle = recent_cycle.replace(
+    hour=6 * (recent_cycle.hour // 6), minute=0, second=0, microsecond=0
+)
 da = ds(
-    time=datetime(2024, 1, 1),
+    time=recent_cycle,
     lead_time=np.array([np.timedelta64(h, "h") for h in [0, 6, 12]]),
     variable=["t2m", "u10m"],
 )
 ```
+
+The Brightband repositories retain a rolling 15-day window, so fixed historical
+timestamps eventually become unavailable. If the most recent cycle is still being
+ingested, select an earlier six-hour cycle within that window.
 
 !!! note
     Pass `datetime` objects (or a list/array of them) directly to a data source, as
@@ -211,10 +227,10 @@ initial state.
 ## Writing output to Arraylake
 
 An Arraylake repository is an [Icechunk](https://icechunk.io/) repository, so
-Earth2Studio's [`IceChunkBackend`](io.md) writes to it directly. Arraylake owns the
-catalog and vends the bucket credentials, so instead of constructing an
-`icechunk.Storage` yourself, ask the `arraylake` client for the repository's storage
-object and pass it to the backend:
+Earth2Studio's [`IceChunkBackend`](io.md) writes to it directly. The two objects have
+separate roles: the authenticated `arraylake.Client` obtains the repository's
+credentialed `icechunk.Storage`, and `IceChunkBackend` receives that storage object.
+The backend does not accept an Arraylake client directly:
 
 ```python
 import os
@@ -238,35 +254,13 @@ commit and flush semantics, and
 [Earthmover's version control guide](https://docs.earthmover.io/guide/version-control)
 for how those commits appear on the Arraylake side.
 
-### Publishing your own Marketplace listing
+For direct Xarray writes outside an Earth2Studio workflow, see
+[`icechunk.xarray.to_icechunk`](https://icechunk.io/en/stable/reference/xarray/#icechunk.xarray.to_icechunk).
 
-Writing to your own repo is enough to use it as a `repo="org/repo"` data source (see
-[Custom or private Arraylake repositories](#custom-or-private-arraylake-repositories)
-below).
-
-Publishing it as a Marketplace listing so others can subscribe is a separate,
-Earthmover-account-level process, per
-[Earthmover's provider docs](https://docs.earthmover.io/marketplace/data-providers):
-
-1. Create an organization at
-   [app.earthmover.io/orgs/new](https://app.earthmover.io/orgs/new) - "the public face
-   for your data."
-2. Upgrade to the Professional tier by emailing `support@earthmover.io`; this is
-   required to become a provider.
-3. "Configure a storage bucket using Credential Vending in your cloud provider of
-   choice" (bring-your-own-bucket), or request Earthmover-managed storage from
-   support.
-4. Prepare the data: "create a new Icechunk repo," import existing Icechunk data, or
-   write it with Xarray, or write Earth2Studio output into it with `IceChunkBackend`
-   as shown above.
-5. In your org settings, open the **Marketplace** tab and click **"+ Create
-   Listing"**, then fill in the repository, listing name and description, thumbnail
-   URL, README, license terms, and pricing model.
-6. Choose a pricing model: for free listings, "subscribers get access to everything in
-   the repo"; for paid listings, you "select exactly which variables and groups are
-   available to subscribers."
-7. Set the listing status to **Published** (requires a repository attached) - it can
-   otherwise be left **Unpublished** or **Coming Soon**.
+Publishing a repository as a Marketplace listing is a separate
+Earthmover-account-level process. See
+[Earthmover's data-provider documentation](https://docs.earthmover.io/marketplace/data-providers)
+for the current requirements and publishing steps.
 
 ## Variable resolution
 
@@ -295,8 +289,15 @@ as shown above.
     `EarthMoverBrightBandIFS_FX` open the repository's root group. A custom repo with a
     different group layout will fail to connect even if its variable metadata is
     otherwise compatible.
-EarthMoverERA5(repo=your_org/your_custom_repo) # when reading from single|pressure/spatial
-EarthMoverBrightBandIFS(repo=your_org/your_custom_repo) # when reading from root
+
+```python
+# Reads the single/spatial and pressure/spatial groups
+EarthMoverERA5(repo="your-org/your-custom-repo")
+
+# Reads the repository root
+EarthMoverBrightBandIFS(repo="your-org/your-custom-repo")
+```
+
 ## Troubleshooting
 
 | Error | Cause | Fix |

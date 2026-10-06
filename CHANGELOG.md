@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added user guide documentation for the Earthmover Marketplace data sources
   (`EarthMoverERA5`, `EarthMoverBrightBandIFS`, `EarthMoverBrightBandIFS_FX`),
   covering subscribing, authentication, usage, data hosting, writing output to
-  Arraylake and publishing a listing
+  Arraylake and custom repositories
 - Added `NNJAObsSatwnd`, a data source for the raw NCEP atmospheric motion
   vector dumps in the NNJA archive (1979-present), exposing satellite, subset,
   computation method, height assignment, zenith angle and quality indicators
