@@ -409,7 +409,7 @@ onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
-healda = { git = "https://github.com/NVlabs/HealDA.git", rev = "535c6fbf76770c2039ac4f4fcb61bfbad4e65eb3" }
+healda = { git = "https://github.com/NVlabs/HealDA.git", branch = "main" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1"}
 weathernext = { git = "https://github.com/google-deepmind/weathernext.git", rev = "9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" }
 pytest-testmon = { git = "https://github.com/NickGeneva/pytest-testmon.git", rev = "48cd5ed1b67bf2f2bd9f63335389f262db472806" }
