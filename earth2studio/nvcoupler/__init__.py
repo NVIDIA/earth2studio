@@ -31,7 +31,6 @@ from .component import (
     DataComponent,
     DiagnosticComponent,
     Exchange,
-    ExtraTensorAdapter,
     ImportAdapter,
     PrognosticComponent,
     VariableOverwriteAdapter,
@@ -43,11 +42,6 @@ from .dictionary import (
     CellMethod,
     FieldDictionary,
     FieldEntry,
-)
-from .dlesym_split import (
-    DLESYM_DICTIONARY,
-    build_dlesym_driver,
-    split_dlesym,
 )
 from .driver import Driver
 from .errors import (
@@ -63,7 +57,6 @@ from .errors import (
 )
 from .field import Field, State
 from .mediator import AccumulationMediator, Mediator, TrailingAverageMediator
-from .points import PointSet
 from .pull import PullAdapter, StateDataSource
 from .sequence import (
     ConnectAction,
@@ -87,20 +80,15 @@ __all__ = [
     "describe_html",
     "from_yaml",
     "to_yaml",
-    "split_dlesym",
-    "build_dlesym_driver",
-    "DLESYM_DICTIONARY",
     "Component",
     "ConditioningKwargAdapter",
     "Connector",
     "Driver",
     "Exchange",
-    "ExtraTensorAdapter",
     "HybridLevels",
     "ImportAdapter",
     "AccumulationMediator",
     "Mediator",
-    "PointSet",
     "PressureLevels",
     "PrognosticComponent",
     "PullAdapter",

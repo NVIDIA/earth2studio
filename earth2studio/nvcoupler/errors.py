@@ -18,7 +18,7 @@
 
 Every validation error names the components and fields involved and, where
 possible, the concrete fix — so a misconfigured coupled system fails at
-initialize time with an actionable message rather than mid-rollout.
+initialize time with an actionable message rather than during execution.
 """
 
 import difflib

@@ -24,7 +24,7 @@ The core nvcoupler workflow on synthetic components.
 This example builds the smallest complete coupled system: a fast "atmosphere"
 (6 h step, 32x64 grid) and a slow "ocean" (48 h step, 16x32 grid) exchanging
 fields through two connectors — one of them a windowed (trailing 48 h mean)
-reduction — exactly the cadence structure of DLESyM. The system is declared
+reduction — a common atmosphere/ocean cadence structure. The system is declared
 as components plus connections; the run sequence is derived from the coupling
 graph. Every number below is hand-computable.
 
@@ -145,29 +145,6 @@ if not np.isclose(float(sst.values[-1].mean()), 2.180147, atol=1e-6):
     raise ValueError("sst(96h) does not match the hand-computed value")
 if not np.allclose(z48_means, [4.2, 13.8147], atol=1e-4):
     raise ValueError("48h means do not match the hand-computed values")
-
-# %%
-# Plot the Coupled Time Series
-# ----------------------------
-# The same area means, visualized: z1000 grows a little faster after each
-# 48 h coupling event because the ocean warms in response to the mean z1000
-# it received — the coupling feedback is visible as the kinks at 48 h/96 h.
-
-import matplotlib.pyplot as plt
-
-fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
-
-ax0.plot(z.time, z.mean(("lat", "lon")), "o-", color="tab:blue")
-ax0.set_ylabel("z1000 area mean")
-ax0.set_title("Coupled toy system: 6 h atmosphere, 48 h ocean")
-
-ax1.plot(sst.time, sst.mean(("lat", "lon")), "s-", color="tab:red")
-ax1.set_ylabel("sst area mean")
-ax1.set_xlabel("time")
-
-fig.autofmt_xdate()
-plt.tight_layout()
-plt.savefig("outputs/01_coupled_toy_timeseries.jpg")
 
 # %%
 # Probe an Exchange

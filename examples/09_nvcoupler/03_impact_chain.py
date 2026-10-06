@@ -50,10 +50,8 @@ In this example you will learn:
 # Exports 6 h precipitation (1.0 kg m-2 every step) and 2 m temperature
 # (steps upward 1 K per step from 280 K) on a 6 h cadence.
 
-from collections import OrderedDict
-
 import numpy as np
-import torch
+import xarray as xr
 
 import earth2studio.nvcoupler as nvc
 from earth2studio.nvcoupler.testing import grid_coords
@@ -61,9 +59,10 @@ from earth2studio.nvcoupler.testing import grid_coords
 GRID = (16, 32)
 
 
-def weather_step(x, coords):
-    tp06, t2m = x[0], x[1]
-    return torch.stack([tp06, t2m + 1.0]), coords
+def weather_step(array):
+    tp06 = array.sel(variable="tp06", drop=True)
+    t2m = array.sel(variable="t2m", drop=True)
+    return xr.concat([tp06, t2m + 1.0], xr.IndexVariable("variable", ["tp06", "t2m"]))
 
 
 weather = nvc.CallableComponent(
@@ -97,9 +96,9 @@ d = nvc.FieldDictionary(DEFAULT_DICTIONARY)
 d.register(nvc.FieldEntry("flood_risk_index", "", "toy flood index"))
 
 
-def flood_step(x, coords):
-    _index, p48 = x[0], x[1]
-    return torch.stack([0.1 * p48, p48]), coords
+def flood_step(array):
+    p48 = array.sel(variable="p48", drop=True)
+    return xr.concat([0.1 * p48, p48], xr.IndexVariable("variable", ["findex", "p48"]))
 
 
 flood = nvc.CallableComponent(
@@ -142,13 +141,15 @@ print(driver.describe())
 # Run It
 # ------
 
-ic_weather = (
-    torch.stack([torch.full(GRID, 1.0), torch.full(GRID, 280.0)]),
-    OrderedDict({"variable": np.array(["tp06", "t2m"]), **grid_coords(*GRID)}),
+ic_weather = xr.DataArray(
+    np.stack([np.full(GRID, 1.0), np.full(GRID, 280.0)]),
+    dims=("variable", "lat", "lon"),
+    coords={"variable": ["tp06", "t2m"], **grid_coords(*GRID)},
 )
-ic_flood = (
-    torch.zeros(2, *GRID),
-    OrderedDict({"variable": np.array(["findex", "p48"]), **grid_coords(*GRID)}),
+ic_flood = xr.DataArray(
+    np.zeros((2, *GRID)),
+    dims=("variable", "lat", "lon"),
+    coords={"variable": ["findex", "p48"], **grid_coords(*GRID)},
 )
 
 # Note: initialize logs warnings that tmax's and flood's exports have no

@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Synthetic toy components for tests and demos.
+"""Synthetic DataArray-native components for tests and demos.
 
-A deterministic two-component system with the DLESyM cadence structure:
+A deterministic two-component atmosphere/ocean system:
 
 - fake atmosphere, 6 h step, 32x64 lat/lon grid, state [z1000, sst]:
       z1000 <- z1000 + 1.0 + gain * 0.1 * sst        (sst = imported SST)
@@ -25,17 +25,11 @@ A deterministic two-component system with the DLESyM cadence structure:
                                                        mean of atmos z1000)
 
 With spatially-constant initial conditions every intermediate value is
-hand-computable, which the end-to-end driver tests rely on. Pass
-``gain=torch.tensor(1.0, requires_grad=True)`` to check that gradients flow
-across the exchange.
+hand-computable, which the end-to-end driver tests rely on.
 """
 
-from collections import OrderedDict
-
 import numpy as np
-import torch
-
-from earth2studio.utils.type import CoordSystem
+import xarray as xr
 
 from .component import CallableComponent
 
@@ -43,24 +37,24 @@ ATMOS_GRID = (32, 64)
 OCEAN_GRID = (16, 32)
 
 
-def grid_coords(nlat: int, nlon: int) -> CoordSystem:
-    return OrderedDict(
-        {
-            "lat": np.linspace(90.0, -90.0, nlat),
-            "lon": np.linspace(0.0, 360.0, nlon, endpoint=False),
-        }
-    )
+def grid_coords(nlat: int, nlon: int) -> dict[str, np.ndarray]:
+    return {
+        "lat": np.linspace(90.0, -90.0, nlat),
+        "lon": np.linspace(0.0, 360.0, nlon, endpoint=False),
+    }
 
 
-def fake_atmos(
-    gain: torch.Tensor | float = 1.0, timestep: str = "6h"
-) -> CallableComponent:
+def fake_atmos(gain: float = 1.0, timestep: str = "6h") -> CallableComponent:
     """Fast toy component: imports SST, exports z1000."""
 
-    def step(x: torch.Tensor, coords: CoordSystem):
-        z1000, sst = x[0], x[1]
+    def step(x: xr.DataArray) -> xr.DataArray:
+        z1000 = x.sel(variable="z1000", drop=True)
+        sst = x.sel(variable="sst", drop=True)
         z_next = z1000 + 1.0 + gain * 0.1 * sst
-        return torch.stack([z_next, sst]), coords
+        return xr.concat(
+            [z_next, sst],
+            xr.IndexVariable("variable", ["z1000", "sst"]),
+        ).transpose(*x.dims)
 
     return CallableComponent(
         "atmos",
@@ -72,7 +66,7 @@ def fake_atmos(
 
 
 def fake_ocean(
-    gain: torch.Tensor | float = 1.0,
+    gain: float = 1.0,
     timestep: str = "48h",
     with_mask: bool = False,
 ) -> CallableComponent:
@@ -82,15 +76,19 @@ def fake_ocean(
     northern half of the grid (True = valid ocean point).
     """
 
-    def step(x: torch.Tensor, coords: CoordSystem):
-        sst, z48m = x[0], x[1]
+    def step(x: xr.DataArray) -> xr.DataArray:
+        sst = x.sel(variable="sst", drop=True)
+        z48m = x.sel(variable="z48m", drop=True)
         sst_next = sst + gain * 0.01 * z48m
-        return torch.stack([sst_next, z48m]), coords
+        return xr.concat(
+            [sst_next, z48m],
+            xr.IndexVariable("variable", ["sst", "z48m"]),
+        ).transpose(*x.dims)
 
     export_masks = None
     if with_mask:
-        mask = torch.ones(*OCEAN_GRID, dtype=torch.bool)
-        mask[: OCEAN_GRID[0] // 2, :] = False  # northern half is land
+        mask: np.ndarray = np.ones(OCEAN_GRID, dtype=bool)
+        mask[: OCEAN_GRID[0] // 2, :] = False
         export_masks = {"sea_surface_temperature": mask}
 
     return CallableComponent(
@@ -104,17 +102,27 @@ def fake_ocean(
     )
 
 
-def atmos_ic(z0: float = 0.0, sst0: float = 2.0) -> tuple[torch.Tensor, CoordSystem]:
-    coords = OrderedDict(
-        {"variable": np.array(["z1000", "sst"]), **grid_coords(*ATMOS_GRID)}
+def atmos_ic(z0: float = 0.0, sst0: float = 2.0) -> xr.DataArray:
+    return xr.DataArray(
+        np.stack(
+            [
+                np.full(ATMOS_GRID, z0, dtype=np.float32),
+                np.full(ATMOS_GRID, sst0, dtype=np.float32),
+            ]
+        ),
+        dims=("variable", "lat", "lon"),
+        coords={"variable": ["z1000", "sst"], **grid_coords(*ATMOS_GRID)},
     )
-    x = torch.stack([torch.full(ATMOS_GRID, z0), torch.full(ATMOS_GRID, sst0)])
-    return x, coords
 
 
-def ocean_ic(sst0: float = 2.0, z48m0: float = 0.0) -> tuple[torch.Tensor, CoordSystem]:
-    coords = OrderedDict(
-        {"variable": np.array(["sst", "z48m"]), **grid_coords(*OCEAN_GRID)}
+def ocean_ic(sst0: float = 2.0, z48m0: float = 0.0) -> xr.DataArray:
+    return xr.DataArray(
+        np.stack(
+            [
+                np.full(OCEAN_GRID, sst0, dtype=np.float32),
+                np.full(OCEAN_GRID, z48m0, dtype=np.float32),
+            ]
+        ),
+        dims=("variable", "lat", "lon"),
+        coords={"variable": ["sst", "z48m"], **grid_coords(*OCEAN_GRID)},
     )
-    x = torch.stack([torch.full(OCEAN_GRID, sst0), torch.full(OCEAN_GRID, z48m0)])
-    return x, coords
