@@ -43,7 +43,7 @@ same page. Per the listing pages themselves:
 - [![ECMWF IFS Initial Conditions (open) listing](https://app.earthmover.io/marketplace/697162921880507a6587c31b/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/697162921880507a6587c31b)
 
     "Dataset containing variables from the ECMWF IFS atmospheric models necessary for
-    initializing MLWP models, available 4x daily."
+    initializing MLWP models, available 4x daily for a rolling 15-day window."
 
 - [![ECMWF IFS 15-day Forecast (open) listing](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04)
 
