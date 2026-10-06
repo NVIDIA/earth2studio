@@ -197,7 +197,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Input grids
         if self.input_type == "latlon":
             self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                721, 1440, includes_south_pole=False
+                721, 1440, includes_south_pole=True
             )
             self.regrid_input_to_hpx_low_res = earth2grid.get_regridder(
                 self.input_grid, self.hpx_low_res_grid
@@ -273,7 +273,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                     output_resolution[0],
                     output_resolution[1],
-                    includes_south_pole=False,
+                    includes_south_pole=True,
                 )
 
             # Public axes describe the actual interpolation target.

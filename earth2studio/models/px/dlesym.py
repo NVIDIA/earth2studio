@@ -83,11 +83,6 @@ _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 _ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
 
 
-def _variable_labels(variables: list[str]) -> np.ndarray:
-    # ttr03 consists of the three hourly, interval-ending samples through T.
-    return np.array(["ttr:sum:-2h:1h" if v == "ttr03" else v for v in variables])
-
-
 @check_optional_dependencies()
 class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for
@@ -442,9 +437,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ("batch", "time", "lead_time", "variable", "face", "height", "width"),
             {
                 "lead_time": self.full_input_times,
-                "variable": _variable_labels(
-                    self.atmos_variables + self.ocean_variables
-                ),
+                "variable": np.array(self.atmos_variables + self.ocean_variables),
             },
             dynamic=("batch", "time"),
             grid=(
@@ -485,7 +478,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords,
             {
                 "lead_time": lead.values[-1] + self.atmos_output_times,
-                "variable": _variable_labels(
+                "variable": np.array(
                     self.atmos_variables
                     + self.atmos_diagnostic_variables
                     + self.ocean_variables
@@ -1148,7 +1141,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x,
             {
                 "lead_time": x.lead_time.values[-1] + self.atmos_output_times,
-                "variable": _variable_labels(
+                "variable": np.array(
                     self.atmos_variables
                     + self.atmos_diagnostic_variables
                     + self.ocean_variables
@@ -1185,11 +1178,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out = self.rear_hook(self._advance_array(state))
             state = (
                 out.isel(lead_time=slice(-len(self.full_input_times), None))
-                .sel(
-                    variable=_variable_labels(
-                        self.atmos_variables + self.ocean_variables
-                    )
-                )
+                .sel(variable=np.array(self.atmos_variables + self.ocean_variables))
                 .copy(deep=True)
             )
             yield out
@@ -1642,9 +1631,7 @@ class DLESyMLatLon(DLESyM):
         prep_coords = coords.copy()
 
         # Fetch the base variables
-        base_vars = [
-            "ttr03" if v == "ttr:sum:-2h:1h" else v for v in prep_coords["variable"]
-        ]
+        base_vars = list(prep_coords["variable"])
         src_vars = {
             v: x[..., base_vars.index(v) : base_vars.index(v) + 1, :, :]
             for v in base_vars
@@ -1676,9 +1663,7 @@ class DLESyMLatLon(DLESyM):
             tensor.to(self.center.device).clone(), coords
         )
         signature = self.coords_to_hpx(
-            coord_array_like(
-                x, {"variable": _variable_labels(list(coords["variable"]))}
-            )
+            coord_array_like(x, {"variable": np.array(list(coords["variable"]))})
         )
         result = from_torch(self.to_hpx(tensor), signature)
         result.encoding = x.encoding.copy()
@@ -1716,11 +1701,7 @@ class DLESyMLatLon(DLESyM):
             out = self.rear_hook(self._advance_array(state))
             state = (
                 out.isel(lead_time=slice(-len(self.full_input_times), None))
-                .sel(
-                    variable=_variable_labels(
-                        self.atmos_variables + self.ocean_variables
-                    )
-                )
+                .sel(variable=np.array(self.atmos_variables + self.ocean_variables))
                 .copy(deep=True)
             )
             tensor, _ = out.e2s.to_torch()

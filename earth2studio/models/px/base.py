@@ -15,7 +15,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import xarray as xr
@@ -78,27 +78,26 @@ class PrognosticModel(Protocol):
       models without forcing
     - ``y``: outputs, described by ``output_coords()``
     - ``state``: everything else a rollout needs, in a model-defined type
+
+    Until wrappers migrate, the existing members ``__call__``, ``create_iterator``,
+    ``input_coords`` and ``output_coords`` keep single-slot annotations, so current
+    callers type check; they widen to tuples with the migration.
     """
 
-    def __call__(
-        self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Forward pass of the prognostic model, time integrating a single time-step
 
         Equivalent to the outputs of ``initialize(x, forcing)``. Applies no hooks.
+        Forced models also take ``forcing`` as the second positional argument.
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
+        x : xr.DataArray
             NumPy-backed CPU or CuPy-backed CUDA fields matching ``input_coords()``.
-        forcing : xr.DataArray | tuple[xr.DataArray, ...] | None, optional
-            Fields matching ``forcing_coords()``. Required when it is not ``None``.
 
         Returns
         -------
-        xr.DataArray | tuple[xr.DataArray, ...]
+        xr.DataArray
             Outputs one time-step into the future, matching ``output_coords()``.
         """
         pass
@@ -134,15 +133,7 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def create_iterator(
-        self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
-    ) -> Generator[
-        xr.DataArray | tuple[xr.DataArray, ...],
-        xr.DataArray | tuple[xr.DataArray, ...] | None,
-        None,
-    ]:
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Deprecated: use ``rollout_iterator``.
 
         Yields ``initial_condition(x)`` (the 0th step), then the forecasts of
@@ -150,14 +141,12 @@ class PrognosticModel(Protocol):
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
+        x : xr.DataArray
             Initial fields matching ``input_coords()``.
-        forcing : xr.DataArray | tuple[xr.DataArray, ...] | None, optional
-            Initial forcing window matching ``forcing_coords()``.
 
         Yields
         ------
-        xr.DataArray | tuple[xr.DataArray, ...]
+        xr.DataArray
             Initial condition followed by successive forecasts.
         """
         pass
@@ -231,14 +220,14 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
+        CoordinateSystem
             Allocation-free DataArray input signature with lead times relative to
-            initialization, or a tuple of signatures, one per input slot.
+            initialization.
         """
         pass
 
@@ -261,21 +250,18 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
-    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
-            Input signature(s) or DataArray(s) to validate and transform.
+        input_coords : CoordinateSystem
+            Input signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
-            Allocation-free output signature(s), retaining concrete leading
-            dimensions.
+        CoordinateSystem
+            Allocation-free output signature, retaining concrete leading dimensions.
 
         Raises
         ------

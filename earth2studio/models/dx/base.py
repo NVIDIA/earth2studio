@@ -33,50 +33,49 @@ class DiagnosticModel(Protocol):
     ForecastSource | None`` per input slot; it is optional here because diagnostics
     share no base class. Drivers read it through
     ``earth2studio.models.px.base.recommended_sources``.
+
+    Until wrappers migrate, ``__call__``, ``input_coords`` and ``output_coords``
+    keep single-slot annotations, so current callers type check; they widen to
+    tuples with the migration.
     """
 
-    def __call__(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
+        x : xr.DataArray
             NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``.
 
         Returns
         -------
-        xr.DataArray | tuple[xr.DataArray, ...]
-            Diagnostic output matching ``output_coords()``, one DataArray per output
-            slot.
+        xr.DataArray
+            Diagnostic output matching ``output_coords()``.
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
-            Allocation-free DataArray input signature, or one per input slot.
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         pass
 
-    def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
-    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
-            Input signature(s) or DataArray(s) to validate and transform.
+        input_coords : CoordinateSystem
+            Input signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
-            Allocation-free DataArray output signature, or one per output slot.
+        CoordinateSystem
+            Allocation-free DataArray output signature.
 
         Raises
         ------

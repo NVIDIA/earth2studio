@@ -288,7 +288,7 @@ def test_aurora1p5_conformance():
     torch.nn.Module.__init__(p)
     signature = p.input_coords()
     assert signature.shape == (0, 0, 2, 83, _H, _W)
-    assert "tp:sum:1h" in p.output_coords(signature).coords["variable"]
+    assert "tp1h" in p.output_coords(signature).coords["variable"]
     assert p.front_hook_interval == 6
     check_prognostic_contract(p, rollout=False)
     check_prognostic_contract(_make_model())
