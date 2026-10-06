@@ -25,24 +25,32 @@ from earth2studio.utils.type import CoordinateSystem
 # --8<-- [start:diagnostic-model-interface]
 @runtime_checkable
 class DiagnosticModel(Protocol):
-    """Diagnostic model interface"""
+    """Diagnostic model interface
 
-    def __call__(
-        self,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
+    Inputs and outputs are one DataArray or a tuple of DataArrays ("slots"), shaped
+    like ``input_coords()`` and ``output_coords()``, as for prognostic models.
+    Diagnostics may also define ``default_sources()``, returning one ``DataSource |
+    ForecastSource | None`` per input slot; it is optional here because diagnostics
+    share no base class. Drivers read it through
+    ``earth2studio.models.px.base.recommended_sources``.
+
+    Until wrappers migrate, ``__call__``, ``input_coords`` and ``output_coords``
+    keep single-slot annotations, so current callers type check; they widen to
+    tuples with the migration.
+    """
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
         x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA data with labeled coordinates
-            and the metadata required by ``input_coords()``.
+            NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``.
 
         Returns
         -------
         xr.DataArray
-            Diagnostic output with labeled coordinates and output metadata.
+            Diagnostic output matching ``output_coords()``.
         """
         pass
 
@@ -62,7 +70,7 @@ class DiagnosticModel(Protocol):
         Parameters
         ----------
         input_coords : CoordinateSystem
-            Input coordinate signature or DataArray to validate and transform.
+            Input signature or DataArray to validate and transform.
 
         Returns
         -------

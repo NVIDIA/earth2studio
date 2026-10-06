@@ -521,7 +521,8 @@ def _evaluate_prognostic(
         "model does not structurally satisfy the PrognosticModel protocol",
     )
 
-    input_coords = model.input_coords()
+    # Single-slot or legacy signatures only; tuple slots are not yet checked.
+    input_coords: Any = model.input_coords()
     native = isinstance(input_coords, xr.DataArray)
     lead_time = (input_coords.coords if native else input_coords).get("lead_time")
     if lead_time is not None:
@@ -628,7 +629,7 @@ def _check_rebasing(
     shifted = _concretize(input_coords, time=time)
     shifted["lead_time"] = shifted["lead_time"] + offset
     try:
-        rebased = model.output_coords(shifted)
+        rebased: Any = model.output_coords(shifted)
     except Exception as error:  # noqa: BLE001 - reported as a violation
         report.require(
             "P6",
@@ -1115,7 +1116,8 @@ def _check_diagnostic_reproducibility(
 
     def run() -> Any:
         if isinstance(x, xr.DataArray):
-            return model(x.copy(deep=True)).copy(deep=True)
+            # Single-slot diagnostics only; tuple slots are not yet checked.
+            return cast(xr.DataArray, model(x.copy(deep=True))).copy(deep=True)
         out, _ = cast(Callable, model)(x.clone(), coords.copy())
         return out.detach().flatten().clone()
 

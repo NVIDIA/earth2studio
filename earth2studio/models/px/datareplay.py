@@ -72,7 +72,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
             variable = [variable]
 
         self.source = source
-        self.step = step
+        self._step = step
         self._variable = np.asarray(variable).copy()
         grid: str | GridDefinition | None = None
         coordinates: dict[Hashable, np.ndarray] = {}
@@ -127,7 +127,7 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
             input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
             self.input_coords(),
         )
-        return coord_array_like(input_coords, {"lead_time": lead.values + self.step})
+        return coord_array_like(input_coords, {"lead_time": lead.values + self._step})
 
     @torch.inference_mode()
     def _forward(self, x: xr.DataArray) -> xr.DataArray:
