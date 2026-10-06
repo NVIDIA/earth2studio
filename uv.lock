@@ -41,9 +41,6 @@ conflicts = [[
     { package = "earth2studio", extra = "aifsens" },
 ]]
 
-[manifest]
-overrides = [{ name = "earth2grid", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }]
-
 [[package]]
 name = "absl-py"
 version = "2.4.0"
