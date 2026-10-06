@@ -582,6 +582,7 @@ nav:
     - FuXi: scorecard/generated/fuxi.md
     - Pangu: scorecard/generated/pangu.md
     - SFNO: scorecard/generated/sfno.md
+    - StormCast: scorecard/generated/stormcast.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

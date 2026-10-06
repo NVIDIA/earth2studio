@@ -25,6 +25,7 @@ from earth2studio.models.dx.corrdiff import (
 )
 from earth2studio.models.dx.corrdiff_cmip6 import CorrDiffCMIP6
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
+from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5Hrrr
 from earth2studio.models.dx.derived import (
     DerivedRH,
     DerivedRHDewpoint,
@@ -56,6 +57,7 @@ __all__ = [
     "CorrDiff",
     "CorrDiffCMIP6",
     "CorrDiffCosmoEra5",
+    "CorrDiffEra5Hrrr",
     "CorrDiffTaiwan",
     "DLESyMv0_ISCCP_ERA5Precip",
     "PrecipitationAFNO",

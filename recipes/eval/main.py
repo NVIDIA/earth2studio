@@ -149,7 +149,9 @@ def _run_offline(
         data_source = None
 
     with OutputManager(cfg) as output_mgr:
-        output_mgr.validate_output_store(total_coords, output_variables)
+        output_mgr.validate_output_store(
+            total_coords, output_variables, grid_coords=pipeline.grid_coords()
+        )
         if my_items:
             pipeline.run(
                 my_items, data_source, output_mgr, output_variables, device, cfg
@@ -301,7 +303,9 @@ def _run_online(
             stack.enter_context(mgr)
         if raw_mgr is not None:
             stack.enter_context(raw_mgr)
-            raw_mgr.validate_output_store(total_coords, output_variables)
+            raw_mgr.validate_output_store(
+                total_coords, output_variables, grid_coords=pipeline.grid_coords()
+            )
 
         if my_items and comm is not None:
             scorer = build_online_scorers(

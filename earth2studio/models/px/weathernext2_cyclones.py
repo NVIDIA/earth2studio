@@ -98,6 +98,25 @@ def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
     return tracks
 
 
+def _add_tisr_batched(batch: "xr.Dataset") -> None:
+    """Add TISR, tolerating a batch dimension wider than one.
+
+    Upstream's add_tisr_var squeezes `batch` and raises above size one. TISR is
+    a function of (datetime, lat, lon) only, so it is identical across ensemble
+    members: compute it with upstream's own code on one member, then broadcast.
+    """
+    n = int(batch.sizes.get("batch", 1))
+    if n <= 1:
+        data_utils.add_tisr_var(batch)
+        return
+    tisr_name = getattr(data_utils, "TISR", "toa_incident_solar_radiation")
+    if tisr_name in batch.data_vars:
+        return
+    one = batch.isel(batch=slice(0, 1))
+    data_utils.add_tisr_var(one)
+    batch[tisr_name] = one[tisr_name].isel(batch=0, drop=True).expand_dims(batch=n)
+
+
 class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Shared implementation for WeatherNext 2 model variants."""
 
@@ -474,7 +493,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 forcing_variables + ["year_progress", "day_progress"], errors="ignore"
             )
             data_utils.add_derived_vars(batch)
-            data_utils.add_tisr_var(batch)
+            _add_tisr_batched(batch)
             batch = batch.compute()
             forcings = batch.isel(time=slice(-1, None))[forcing_variables]
             forcings = forcings.reset_coords("datetime", drop=True).compute()
@@ -580,14 +599,20 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             datetime=all_datetimes[: len(out_data.time.values)]
         )
         out_data = out_data.assign_coords(time=time_deltas[: len(out_data.time.values)])
-        out_data["datetime"] = out_data.datetime.expand_dims(dict(batch=1))
+        # Width comes from the data: the data variables are already carried at
+        # the caller's batch size, so pinning the coord to 1 conflicts with them.
+        n_batch = int(data.sizes.get("batch", 1))
+        out_data["datetime"] = out_data.datetime.expand_dims(dict(batch=n_batch))
         for var in out_data.data_vars:
             if "batch" not in out_data[var].dims:
-                out_data[var] = out_data[var].expand_dims(dict(batch=1))
+                out_data[var] = out_data[var].expand_dims(dict(batch=n_batch))
 
         out_data = out_data.pad(pad_width=dict(time=(0, len(lead_times))))
         out_data = out_data.assign_coords(
-            coords=dict(time=time_deltas, datetime=(("batch", "time"), [all_datetimes]))
+            coords=dict(
+                time=time_deltas,
+                datetime=(("batch", "time"), [all_datetimes] * n_batch),
+            )
         )
         out_data = out_data.reindex(lat=sorted(out_data.lat.values))
         out_data = out_data.transpose("batch", "time", "level", "lat", "lon", ...)

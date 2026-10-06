@@ -16,7 +16,7 @@ aioitertools==0.13.0
     # via aiobotocore
 aiosignal==1.4.0
     # via aiohttp
-anyio==4.12.1
+anyio==4.14.2
     # via httpx
 attrs==25.4.0
     # via aiohttp
