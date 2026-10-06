@@ -40,6 +40,7 @@ Key features:
   - [Ensemble runs](#ensemble-runs)
   - [Scoring](#scoring)
   - [Regional scoring](#regional-scoring)
+  - [Event scoring](#event-scoring)
   - [Online scoring](#online-scoring)
   - [Report](#report)
 - [Architecture](#architecture)
@@ -711,6 +712,45 @@ region-mask a metric that reduces over all spatial dimensions and takes
 a `weights` argument. Any other metric, such as a spectral one, scores
 the whole grid only.
 
+### Event scoring
+
+`scoring.events` reports skill for one named event: a time window
+paired with a region. An event's box joins `scoring.regions` under the
+event's name, so both pathways score it like any other region. The
+scorecard exporter applies the window when it reads the per-IC scores.
+Time windows cost nothing after a run. Regions, as above, have to be in
+the config before an online run.
+
+```yaml
+scoring:
+    events:
+        storm_eowyn:
+            label: "Storm Éowyn"                    # optional display name
+            start: "2025-01-23 12:00:00"            # inclusive, UTC
+            end: "2025-01-25 00:00:00"
+            region: {lat: [48, 62], lon: [-15, 5]}  # box, list of boxes, or region name
+            window: valid                           # valid (default) | init
+            ics: {step_hours: 12, lookback_hours: 336}
+```
+
+`window: valid` keeps every pair of initial condition and lead time whose
+valid time falls inside the window. Each lead time then averages over a
+different set of forecasts, and lead times that never reach the window
+come out empty. `window: init` keeps whole forecasts by their initial
+time. The optional `ics` block adds initial conditions to the campaign,
+every `step_hours` from `start - lookback_hours` up to `end`. They join
+`start_times` or the `ic_block_*` sweep, or stand alone when the config
+has neither. A `valid` window must state `lookback_hours`. Set it to the
+forecast horizon so every lead time has valid times inside the window.
+Each event's `ics` block adds initial conditions, so a campaign grows with
+every event. Trim it with fewer events, a larger `step_hours`, or a
+smaller `lookback_hours`.
+
+The score stores carry the event definitions in their `events`
+attribute. The scorecard exporter turns them into
+`eval_scores_<model>_events.json`. Refer to the
+[scorecard README](scorecard/README.md#event-campaigns) for the export.
+
 ### Online scoring
 
 The flow above is *store-then-score*: `main.py` writes every
@@ -1055,7 +1095,7 @@ Each source module has a specific scoped responsibilities:
 <!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
 | --- | --- |
-| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope) |
+| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope, Regional) |
 | `assimilation.py` | DA plumbing — `load_assimilation`, `ObsSourceSet`, `AssimilationRunner`, analysis→tensor conversion |
 | `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 | `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |

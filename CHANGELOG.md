@@ -7,10 +7,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.19.0a0] - xxxx-xx-xx
+## [0.20.0a0] - 2026-10-xx
 
 ### Added
 
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+
+### Changed
+
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.19.0] - 2026-09-30
+
+### Added
+
+- Added event scoring to the evaluation recipe and the scorecards.
+- Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
+- Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
+  (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
+  source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
+  artifact filter applied at inference.
 - Added Aurora 1.5 Ensemble, SFNO, Pangu, FengWu, FuXi, DLWP, and FCN to the
   docs scorecard
 - Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
@@ -36,6 +63,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
 - Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
   views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `NNJAObsSatwnd`, a data source for the raw NCEP atmospheric motion
+  vector dumps in the NNJA archive (1979-present), exposing satellite, subset,
+  computation method, height assignment, zenith angle and quality indicators
+- `NNJAObsConv` gains `exclude_message_types` to skip PrepBUFR message families
+  at decode, e.g. `("SATWND",)` when AMVs come from `NNJAObsSatwnd`
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
+  (`GEODU`) columns on GPS-RO rows
 
 ### Changed
 
@@ -61,12 +97,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scorecard campaigns score online over 48 initial conditions and the
   score data moved to the HF Earth2Studio assets dataset
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
+- Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
+- `ZarrBackend` / `IceChunkBackend` can reopen a store containing a scalar
+  array (e.g. a CF `grid_mapping` variable) whose `dimension_names` is `None`
+- `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
+  the whole request, matching `NNJAObsConv` and the UFS sources
+- `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges
+  (`chunked=True`) written atomically, so large aggregates no longer exceed the
+  object store's per-request timeout and an interrupted download cannot leave a
+  truncated cache file
+- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
+  without their own tangent point, placing them at the occultation's reference
+  point instead of dropping them
 - Eval recipe: per-member seeding now works for models whose `set_rng` has no
   `reset` argument (for example `Aurora1p5Ensemble`)
 - `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
@@ -79,10 +123,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evaluation recipe: clearing resume markers no longer races between
   ranks. Concurrent removal of the same progress directory retries until
   the directory no longer exists
-
-### Security
-
-### Dependencies
 
 ## [0.18.0] - 2026-08-31
 
