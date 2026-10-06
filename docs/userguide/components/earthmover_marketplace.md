@@ -47,7 +47,7 @@ same page. Per the listing pages themselves:
 
 - [![ECMWF IFS 15-day Forecast (open) listing](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04/opengraph-image-9dzfy2?b1f408a208b63cfd)](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04)
 
-    "ECMWF IFS 15-day forecast surface fields, available before ECMWF Open Data."
+    "ECMWF IFS 15-day forecast surface fields for a rolling 15-day initialisation every 6 hours window , available before ECMWF Open Data."
 
 </div>
 
