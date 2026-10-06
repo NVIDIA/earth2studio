@@ -31,6 +31,7 @@ from earth2studio.grids.base import (
     E2S_GRID_ID,
     GridDefinition,
     GridTopology,
+    Regridder,
 )
 from earth2studio.grids.curvilinear import CurvilinearGrid
 from earth2studio.grids.healpix import (
@@ -42,7 +43,6 @@ from earth2studio.grids.healpix import (
 from earth2studio.grids.latlon import LatLonGrid
 from earth2studio.grids.point import PointGrid
 from earth2studio.grids.projected import ProjectedGrid
-from earth2studio.grids.regrid import Regridder
 
 _GRID_REGISTRY: dict[str, GridDefinition | None] = {}
 _GRID_ALIASES: dict[str, str] = {}

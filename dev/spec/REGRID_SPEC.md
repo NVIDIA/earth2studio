@@ -11,7 +11,7 @@ GPU accelerated flavors) under a common interface.
 Grid geometry follows [GRID_SPEC.md](GRID_SPEC.md); this
 contract covers only moving field data between two such geometries.
 
-Status: the protocol is mocked up in `earth2studio/grids/regrid.py`, and
+Status: the protocol is mocked up in `earth2studio/grids/base.py`, and
 `RegriddedSource` in `earth2studio/data/utils.py` composes it with a source. No
 regridder implementations are provided yet.
 
@@ -56,7 +56,9 @@ subclassing.
 | `R7` | Target points without source coverage get a documented fill value, NaN by default |
 | `R8` | A regridder never fetches data |
 
-Under `R3`, non-spatial coordinates and attrs pass through unchanged. `R4` means
+Under `R3`, non-spatial coordinates pass through unchanged. Attrs pass through
+except grid-owned keys (`earth2studio_grid_id`, `earth2studio_crs` and the CRS
+attributes), which follow `target_grid` under `R4`. `R4` means
 the output handshakes against a slot declared on `target_grid` with no further
 coordinate assembly.
 
@@ -69,7 +71,7 @@ source's `time_step` for temporal statistics. A model recommending a source off 
 slot's grid returns this composition, so drivers fetch from it like any source:
 
 ```python
-source = model.default_sources()[slot]
+source = model.default_sources()[slot] or my_source  # None: no recommendation
 field = fetch_data(source, time, variable, lead_time)
 ```
 
