@@ -33,6 +33,7 @@ import math
 from collections.abc import Sequence as SequenceABC
 
 import numpy as np
+import xarray as xr
 
 from .clock import Clock, DeltaLike, TimeLike, as_timedelta, fmt_timedelta
 from .component import Component
@@ -121,7 +122,9 @@ def couple(
                 derived.append((comp, imp))
             elif (src.name, comp.name) not in wired:
                 key = (src.name, comp.name)
-                wired[key] = prebuilt.pop(key, None) or Connector(src, comp)
+                wired[key] = (
+                    prebuilt.pop(key) if key in prebuilt else Connector(src, comp)
+                )
 
     # pass 2: derived imports — reduce a base field across the cadence gap
     for comp, imp in derived:
@@ -170,7 +173,7 @@ def coupled(
     time: TimeLike,
     stop_or_nsteps: TimeLike | int,
     components: "SequenceABC[Component] | dict[str, Component]",
-    ics: dict[str, tuple],
+    ics: dict[str, xr.DataArray],
     dt: DeltaLike | None = None,
     collect: bool = True,
     verbose: bool = True,
@@ -185,8 +188,8 @@ def coupled(
         Stop time, or a number of driver (dt) steps.
     components : list[Component] | dict[str, Component]
         Participants; a dict's values are used (keys are cosmetic).
-    ics : dict[str, tuple[torch.Tensor, CoordSystem]]
-        Initial condition per non-mediator component name.
+    ics : dict[str, xarray.DataArray]
+        Initial condition per stateful component name.
     dt : DeltaLike, optional
         Coupling interval; defaults to the GCD of the component timesteps.
     verbose : bool

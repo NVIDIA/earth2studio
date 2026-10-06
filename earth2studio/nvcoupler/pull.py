@@ -37,15 +37,11 @@ pull-coupled components are inference-only (no gradients through the
 exchange). Push-pattern adapters keep autograd intact.
 """
 
-from collections import OrderedDict
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import torch
 import xarray as xr
-
-from earth2studio.utils.type import CoordSystem
 
 from .errors import CouplingError
 from .field import State
@@ -110,11 +106,11 @@ class StateDataSource:
         variables = np.atleast_1d(np.asarray(variable))
         fields = [self.state[self._resolve(str(v))] for v in variables]
 
-        grid = fields[0].coords
-        if list(grid.keys()) != ["lat", "lon"]:
+        grid = fields[0].array
+        if grid.dims != ("lat", "lon"):
             raise CouplingError(
                 "StateDataSource serves (lat, lon) fields; got dims "
-                f"{list(grid.keys())} for {fields[0].standard_name!r} — "
+                f"{list(grid.dims)} for {fields[0].standard_name!r} — "
                 "exchange-shaped Fields are expected (leading singleton dims "
                 "are squeezed by the publishing component)"
             )
@@ -128,21 +124,12 @@ class StateDataSource:
                         "the pulling component in the same slot)"
                     )
 
-        # IO boundary of the pull path: the model's own fetch machinery is
-        # xarray-based, so this conversion is unavoidable (inference-only).
-        data = np.stack([f.data.detach().cpu().numpy() for f in fields], axis=0)[
-            np.newaxis
-        ].repeat(len(times), axis=0)
-        return xr.DataArray(
-            data,
-            dims=["time", "variable", "lat", "lon"],
-            coords={
-                "time": times,
-                "variable": variables,
-                "lat": np.asarray(grid["lat"]),
-                "lon": np.asarray(grid["lon"]),
-            },
+        array = xr.concat(
+            [field.array for field in fields],
+            xr.IndexVariable("variable", variables),
+            join="exact",
         )
+        return array.expand_dims(time=times).transpose("time", "variable", "lat", "lon")
 
 
 class PullAdapter:
@@ -174,9 +161,7 @@ class PullAdapter:
         self.strict_time = strict_time
         self.dictionary = dictionary
 
-    def __call__(
-        self, model: Any, exchange: "Exchange"
-    ) -> tuple[torch.Tensor, "CoordSystem"]:
+    def __call__(self, model: Any, exchange: "Exchange") -> xr.DataArray:
         if not hasattr(model, self.attribute):
             raise CouplingError(
                 f"PullAdapter: model {type(model).__name__!r} has no "
@@ -196,4 +181,4 @@ class PullAdapter:
                 dictionary=self.dictionary,
             ),
         )
-        return model(exchange.x, OrderedDict(exchange.coords))
+        return model(exchange.state)

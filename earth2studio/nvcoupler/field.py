@@ -14,29 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Field and State: the exchange currency of the coupler (ESMF analogs).
+"""DataArray exchange objects used by the coupler."""
 
-A :class:`Field` is one physical quantity — a torch tensor plus its
-CoordSystem, canonical identity (standard name + units), validity time, and
-optional mask / vertical-coordinate metadata. A :class:`State` is a named
-bag of Fields keyed by standard name; every component owns an import State
-and an export State, and Connectors move Fields between them.
-
-Field data stays a torch tensor end-to-end (never round-tripped through
-numpy) so autograd graphs survive the exchange — a hard requirement for
-coupled fine-tuning.
-"""
-
-from collections import OrderedDict
 from collections.abc import Iterable, Iterator, MutableMapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import torch
+import xarray as xr
 
-from earth2studio.utils.coords import cat_coords, split_coords
-from earth2studio.utils.type import CoordSystem
+from earth2studio.grids import infer_grid
 
 from .dictionary import FieldDictionary
 from .errors import CouplingError
@@ -45,9 +32,7 @@ if TYPE_CHECKING:
     from .vertical import VerticalCoordinate
 
 # Dims regarded as spatial when choosing where to (re)insert a variable axis.
-# "point" is a scattered sample-location dim (see .points.PointSet) rather
-# than a mesh dim, but it plays the same role here: it marks where a Field's
-# spatial content lives.
+# ``point`` is a scattered sample-location dimension.
 _SPATIAL_DIMS = (
     "level",
     "face",
@@ -68,78 +53,95 @@ class Field:
 
     Parameters
     ----------
-    data : torch.Tensor
-        Field values; dimension order given by `coords` insertion order.
-        Must NOT contain a "variable" dimension — a Field is one variable.
-    coords : CoordSystem
-        earth2studio coordinate dictionary describing `data`.
+    array : xarray.DataArray
+        Labeled field values. Must not contain a ``variable`` dimension.
     standard_name : str
         Canonical name from the FieldDictionary.
     units : str
-        Units of `data` (checked, not converted, in v1).
+        Units of ``array`` (checked, not converted).
     valid_time : np.datetime64, optional
         Time the data is valid for.
     source : str, optional
         Name of the producing component (provenance).
-    mask : torch.Tensor, optional
-        Boolean validity mask broadcastable to `data` (True = valid),
+    mask : xarray.DataArray, optional
+        Boolean validity mask broadcastable to ``array`` (True = valid),
         e.g. ocean points for SST.
     vertical : VerticalCoordinate, optional
         Vertical coordinate description when `coords` contains a "level"
         dimension (see :mod:`earth2studio.nvcoupler.vertical`).
     """
 
-    data: torch.Tensor
-    coords: CoordSystem
+    array: xr.DataArray
     standard_name: str
     units: str
     valid_time: np.datetime64 | None = None
     source: str | None = None
-    mask: torch.Tensor | None = None
+    mask: xr.DataArray | None = None
     vertical: "VerticalCoordinate | None" = None
 
     def __post_init__(self) -> None:
-        if "variable" in self.coords:
-            raise CouplingError(
-                f"Field {self.standard_name!r} coords must not contain a "
-                "'variable' dimension; use State.from_tensor to split a "
-                "multi-variable tensor into Fields"
+        if not isinstance(self.array, xr.DataArray):
+            raise TypeError(
+                f"Field {self.standard_name!r} array must be an xarray.DataArray"
             )
-        ndim_coords = len(self.coords)
-        if self.data.ndim != ndim_coords:
+        if "variable" in self.array.dims:
             raise CouplingError(
-                f"Field {self.standard_name!r}: data has {self.data.ndim} dims "
-                f"but coords describe {ndim_coords} "
-                f"({list(self.coords.keys())})"
+                f"Field {self.standard_name!r} array must not contain a "
+                "'variable' dimension; use State.from_dataarray to split a "
+                "multi-variable DataArray into Fields"
             )
+        if self.mask is not None:
+            try:
+                self.mask.broadcast_like(self.array)
+            except ValueError as error:
+                raise CouplingError(
+                    f"Field {self.standard_name!r} mask is not broadcastable "
+                    f"to dimensions {self.array.dims}"
+                ) from error
 
-    def to(self, device: Any) -> "Field":
-        return replace(
-            self,
-            data=self.data.to(device),
-            mask=self.mask.to(device) if self.mask is not None else None,
-        )
+    @property
+    def data(self) -> Any:
+        """The NumPy/CuPy payload of :attr:`array`."""
+        return self.array.data
+
+    def with_array(self, array: xr.DataArray) -> "Field":
+        return replace(self, array=array)
+
+    def to_backend(self, backend: str) -> "Field":
+        if backend == "numpy":
+            array = self.array.e2s.as_numpy()
+            mask = self.mask.e2s.as_numpy() if self.mask is not None else None
+        elif backend == "cupy":
+            array = self.array.e2s.as_cupy()
+            mask = self.mask.e2s.as_cupy() if self.mask is not None else None
+        else:
+            raise CouplingError(
+                f"Unsupported array backend {backend!r}; choose 'numpy' or 'cupy'"
+            )
+        return replace(self, array=array, mask=mask)
 
     def clone(self) -> "Field":
         return replace(
             self,
-            data=self.data.clone(),
-            coords=OrderedDict({k: v.copy() for k, v in self.coords.items()}),
-            mask=self.mask.clone() if self.mask is not None else None,
+            array=self.array.copy(deep=True),
+            mask=self.mask.copy(deep=True) if self.mask is not None else None,
         )
 
     def grid_signature(self) -> tuple:
         """Hashable signature of the spatial grid, for regridder caching."""
+        try:
+            return (infer_grid(self.array).fingerprint(),)
+        except ValueError:
+            pass
         parts: list[tuple] = []
-        for key, value in self.coords.items():
+        for key in self.array.dims:
             if key in _SPATIAL_DIMS:
+                value = np.asarray(self.array.coords[key])
                 parts.append((key, value.shape, value.tobytes()))
         return tuple(parts)
 
     def __repr__(self) -> str:
-        dims = ", ".join(
-            f"{k}: {len(v) if v.ndim else 0}" for k, v in self.coords.items()
-        )
+        dims = ", ".join(f"{name}: {size}" for name, size in self.array.sizes.items())
         t = f", valid_time={self.valid_time}" if self.valid_time is not None else ""
         return f"Field({self.standard_name!r} [{self.units}], {dims}{t})"
 
@@ -191,13 +193,8 @@ class State(MutableMapping):
     def subset(self, names: Iterable[str]) -> "State":
         return State(self.name, (self[n] for n in names))
 
-    def to(self, device: Any) -> "State":
-        return State(self.name, (f.to(device) for f in self._fields.values()))
-
-    def as_tensor(
-        self, names: list[str] | None = None
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Stack fields along a new "variable" dimension.
+    def stack(self, names: list[str] | None = None) -> xr.DataArray:
+        """Stack fields along a ``variable`` dimension.
 
         All selected fields must share identical coords (same grid); use a
         Connector to bring fields onto one grid first. The variable axis is
@@ -208,49 +205,48 @@ class State(MutableMapping):
         if not names:
             raise CouplingError(f"State {self.name!r}: no fields to stack")
         fields = [self[n] for n in names]
-        ref = fields[0].coords
-        dims = list(ref.keys())
+        dims = list(fields[0].array.dims)
         insert_at = next(
             (i for i, d in enumerate(dims) if d in _SPATIAL_DIMS), len(dims)
         )
-        tensors, coord_list = [], []
-        for f in fields:
-            c = OrderedDict()
-            for i, (k, v) in enumerate(f.coords.items()):
-                if i == insert_at:
-                    c["variable"] = np.array([f.standard_name])
-                c[k] = v
-            if "variable" not in c:
-                c["variable"] = np.array([f.standard_name])
-            tensors.append(f.data.unsqueeze(insert_at))
-            coord_list.append(c)
-        # cat_coords validates all non-variable dims match across fields
-        return cat_coords(tuple(tensors), tuple(coord_list), dim="variable")
+        try:
+            stacked = xr.concat(
+                [field.array for field in fields],
+                xr.IndexVariable("variable", names),
+                join="exact",
+            )
+        except (ValueError, KeyError) as error:
+            raise CouplingError(
+                f"State {self.name!r}: fields cannot be stacked because their "
+                f"dimensions or coordinates differ: {error}"
+            ) from error
+        order = list(stacked.dims)
+        order.remove("variable")
+        order.insert(insert_at, "variable")
+        return stacked.transpose(*order)
 
     @classmethod
-    def from_tensor(
+    def from_dataarray(
         cls,
         name: str,
-        x: torch.Tensor,
-        coords: CoordSystem,
+        array: xr.DataArray,
         dictionary: FieldDictionary,
         valid_time: np.datetime64 | None = None,
         source: str | None = None,
         strict: bool = True,
     ) -> "State":
-        """Split a multi-variable tensor into a State of Fields.
+        """Split a multi-variable DataArray into a State of Fields.
 
         Raw variable names in ``coords["variable"]`` are resolved to standard
         names (and canonical units) through the dictionary. Unknown names
         raise unless ``strict=False``, in which case they are skipped.
         """
-        if "variable" not in coords:
+        if "variable" not in array.dims:
             raise CouplingError(
-                f"from_tensor for state {name!r}: coords have no 'variable' dim"
+                f"from_dataarray for state {name!r}: array has no 'variable' dim"
             )
-        tensors, reduced_coords, values = split_coords(x, coords, dim="variable")
         state = cls(name)
-        for tensor, raw_name in zip(tensors, values):
+        for raw_name in np.asarray(array.coords["variable"]):
             if raw_name not in dictionary:
                 if strict:
                     dictionary.resolve(str(raw_name))  # raises UnknownFieldError
@@ -258,8 +254,7 @@ class State(MutableMapping):
             entry = dictionary.resolve(str(raw_name))
             state.add(
                 Field(
-                    data=tensor,
-                    coords=OrderedDict(reduced_coords),
+                    array=array.sel(variable=raw_name, drop=True),
                     standard_name=entry.standard_name,
                     units=entry.canonical_units,
                     valid_time=valid_time,

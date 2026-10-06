@@ -51,10 +51,8 @@ In this example you will learn:
 # 1000 hPa the levels realize at 300 / 700 / 1000 hPa. The ozone profile is
 # f = log(p), so interpolation results are exact and checkable.
 
-from collections import OrderedDict
-
 import numpy as np
-import torch
+import xarray as xr
 
 import earth2studio.nvcoupler as nvc
 from earth2studio.nvcoupler.dictionary import DEFAULT_DICTIONARY
@@ -70,8 +68,8 @@ hybrid = nvc.HybridLevels(a=(30000.0, 20000.0, 0.0), b=(0.0, 0.5, 1.0))
 target = nvc.PressureLevels((500.0, 850.0))
 
 
-def identity(x, coords):
-    return x, coords
+def identity(array):
+    return array
 
 
 met = nvc.CallableComponent(
@@ -99,33 +97,34 @@ chem = nvc.CallableComponent(
 
 grid = grid_coords(NLAT, NLON)
 p_src = np.array(hybrid.a) + np.array(hybrid.b) * PS  # [30000, 70000, 100000] Pa
-o3 = (
-    torch.tensor(np.log(p_src), dtype=torch.float64)
-    .view(1, 3, 1, 1)
-    .expand(1, 3, NLAT, NLON)
-    .clone()
+o3 = xr.DataArray(
+    np.broadcast_to(np.log(p_src)[None, :, None, None], (1, 3, NLAT, NLON)),
+    dims=("variable", "level", "lat", "lon"),
+    coords={"variable": ["o3"], "level": np.arange(3.0), **grid},
 )
 clock = nvc.Clock("2024-01-01", "2024-01-02", "6h")
 met.realize(clock)
 chem.realize(clock)
-met.initialize(
-    o3, OrderedDict({"variable": np.array(["o3"]), "level": np.arange(3.0), **grid})
-)
+met.initialize(o3)
 met.export_state.add(
     nvc.Field(
-        torch.full((NLAT, NLON), PS, dtype=torch.float64),
-        OrderedDict(grid),
-        "surface_pressure",
-        "Pa",
+        xr.DataArray(
+            np.full((NLAT, NLON), PS),
+            dims=("lat", "lon"),
+            coords=grid,
+        ),
+        standard_name="surface_pressure",
+        units="Pa",
         valid_time=clock.start,
         source="met",
     )
 )
 chem.initialize(
-    torch.zeros(1, 2, NLAT, NLON, dtype=torch.float64),
-    OrderedDict(
-        {"variable": np.array(["o3"]), "level": np.array([500.0, 850.0]), **grid}
-    ),
+    xr.DataArray(
+        np.zeros((1, 2, NLAT, NLON)),
+        dims=("variable", "level", "lat", "lon"),
+        coords={"variable": ["o3"], "level": [500.0, 850.0], **grid},
+    )
 )
 
 conn = nvc.Connector(met, chem, fields=["ozone_mixing_ratio"])
@@ -136,12 +135,12 @@ conn.execute(clock.start)
 # ----------------
 # Linear-in-log-p interpolation of f = log(p) must return log(p_target).
 
-got = chem.import_state["ozone_mixing_ratio"]
+got = chem.import_state["ozone_mixing_ratio"].array
 expected = np.log(np.array([50000.0, 85000.0]))
-print(f"received on levels {list(got.coords['level'])} hPa")
-print(f"column values: {got.data[:, 0, 0].numpy()}")
+print(f"received on levels {list(got.coords['level'].values)} hPa")
+print(f"column values: {got.data[:, 0, 0]}")
 print(f"expected:      {expected}")
-if not np.allclose(got.data[:, 0, 0].numpy(), expected):
+if not np.allclose(got.data[:, 0, 0], expected):
     raise ValueError("hybrid -> pressure interpolation did not match log(p)")
 print("hybrid -> pressure interpolation exact ✓")
 
@@ -149,7 +148,7 @@ print("hybrid -> pressure interpolation exact ✓")
 # The Failure Mode
 # ----------------
 # Remove surface pressure from the source and the connector refuses with a
-# fix, at the exchange — not as NaNs three days into a rollout.
+# fix, at the exchange — not as NaNs three days into a run.
 
 del met.export_state["surface_pressure"]
 try:

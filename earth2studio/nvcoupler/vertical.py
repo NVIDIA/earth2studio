@@ -1,43 +1,27 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
-# SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
-"""Vertical coordinate descriptors and differentiable level interpolation.
+"""Vertical-coordinate descriptors and DataArray pressure interpolation."""
 
-Most earth2studio models encode pressure levels in variable names (z500,
-t850) and never see this module. It exists for components with an explicit
-"level" dimension — chiefly chemistry emulators on hybrid sigma-pressure
-model levels (p_k = a_k + b_k * p_s) coupled to met components on pressure
-levels. Interpolation is linear in log-pressure via torch.searchsorted and
-gathers, so gradients flow through it (values, not indices).
-"""
+from __future__ import annotations
 
-from collections import OrderedDict
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
-import torch
-
-from earth2studio.utils.type import CoordSystem
+import xarray as xr
 
 from .errors import VerticalMismatchError
+
+try:
+    import cupy as cp
+except ImportError:  # pragma: no cover
+    cp = None
 
 
 @dataclass(frozen=True)
 class PressureLevels:
-    """Constant pressure levels in hPa, ordered top to bottom (increasing)."""
+    """Constant pressure levels in hPa, ordered top to bottom."""
 
     levels: tuple[float, ...]
 
@@ -51,13 +35,7 @@ class PressureLevels:
 
 @dataclass(frozen=True)
 class HybridLevels:
-    """Hybrid sigma-pressure levels: p_k = a_k + b_k * p_s.
-
-    `a` in Pa, `b` dimensionless, ordered top to bottom. `ps_field` names the
-    surface-pressure field (Pa) required to realize the levels; a Connector
-    performing a hybrid->pressure transform takes it from the source
-    component's exports automatically.
-    """
+    """Hybrid levels ``p_k = a_k + b_k * p_s``."""
 
     a: tuple[float, ...]
     b: tuple[float, ...]
@@ -66,25 +44,12 @@ class HybridLevels:
     def __post_init__(self) -> None:
         if len(self.a) != len(self.b):
             raise ValueError("Hybrid coefficients a and b must have equal length")
-        # Levels must be strictly increasing in pressure (top to bottom) for
-        # every plausible surface pressure, else interpolation would pair
-        # level slices with wrong pressures. p_k(ps) = a_k + b_k * ps is
-        # linear in ps, so strict monotonicity at both ends of the plausible
-        # Earth surface-pressure range [50000, 110000] Pa (high terrain to
-        # strong anticyclone) is sufficient for every ps inside that range;
-        # ps values outside it are re-checked at interpolation time.
-        for ps in (50000.0, 110000.0):
-            p = (
-                np.asarray(self.a, dtype=np.float64)
-                + np.asarray(self.b, dtype=np.float64) * ps
-            )
-            if np.any(np.diff(p) <= 0):
+        for surface_pressure in (50000.0, 110000.0):
+            pressure = np.asarray(self.a) + np.asarray(self.b) * surface_pressure
+            if np.any(np.diff(pressure) <= 0):
                 raise ValueError(
-                    f"Hybrid coefficients a={list(self.a)}, b={list(self.b)} "
-                    f"produce non-increasing pressures {p.tolist()} Pa at "
-                    f"surface pressure {ps:.0f} Pa. Order a and b top to "
-                    "bottom so p_k = a_k + b_k * ps strictly increases for "
-                    "all surface pressures in [50000, 110000] Pa."
+                    "Hybrid coefficients must produce strictly increasing "
+                    "pressure from top to bottom"
                 )
 
     def __len__(self) -> int:
@@ -94,96 +59,86 @@ class HybridLevels:
 VerticalCoordinate = PressureLevels | HybridLevels
 
 
-def _log_source_pressure(
-    vertical: VerticalCoordinate,
-    ps: torch.Tensor | None,
-    like: torch.Tensor,
-) -> torch.Tensor:
-    """Log source pressure with shape (..., L) broadcastable to `like`
-    (which has the level axis moved to last)."""
-    if isinstance(vertical, PressureLevels):
-        p = torch.as_tensor(
-            vertical.pressure_pa(), dtype=like.dtype, device=like.device
-        )
-        return torch.log(p).expand(like.shape)
-    if ps is None:
-        raise VerticalMismatchError(
-            f"Hybrid->pressure interpolation requires the surface pressure "
-            f"field {vertical.ps_field!r}, which was not available"
-        )
-    a = torch.as_tensor(vertical.a, dtype=like.dtype, device=like.device)
-    b = torch.as_tensor(vertical.b, dtype=like.dtype, device=like.device)
-    p = a + b * ps.to(dtype=like.dtype, device=like.device).unsqueeze(-1)
-    if torch.any(p <= 0):
-        raise VerticalMismatchError("Non-positive pressure from hybrid coefficients")
-    if torch.any(p[..., 1:] <= p[..., :-1]):
-        raise VerticalMismatchError(
-            f"Hybrid levels a + b * ps are not strictly increasing along the "
-            f"level axis for the given surface pressure field "
-            f"{vertical.ps_field!r} — interpolation would pair level slices "
-            "with wrong pressures. Check that the hybrid coefficients a and b "
-            "are ordered top to bottom and that the surface pressure values "
-            "are physical (Pa)."
-        )
-    return torch.log(p).expand(like.shape)
+def _namespace(data: Any) -> Any:
+    if cp is not None and isinstance(data, cp.ndarray):
+        return cp
+    return np
 
 
 def interp_to_pressure(
-    x: torch.Tensor,
-    coords: CoordSystem,
+    array: xr.DataArray,
     src: VerticalCoordinate,
     dst: PressureLevels,
-    ps: torch.Tensor | None = None,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Interpolate a field with a "level" dim onto constant pressure levels.
-
-    Linear in log-pressure; clamped to the source column ends (no
-    extrapolation beyond top/bottom values). `ps` (Pa) must broadcast to the
-    field with the level dim removed and is required for hybrid sources. For
-    :class:`PressureLevels` sources the data's ``level`` coordinate (hPa)
-    must match `src.levels` exactly, so the level axis is guaranteed to be
-    paired with the declared pressures.
-    """
-    if "level" not in coords:
+    surface_pressure: xr.DataArray | None = None,
+) -> xr.DataArray:
+    """Interpolate a DataArray linearly in log pressure."""
+    if "level" not in array.dims:
         raise VerticalMismatchError(
-            f"interp_to_pressure: coords have no 'level' dim ({list(coords)})"
+            f"interp_to_pressure: array has no 'level' dimension ({array.dims})"
         )
     if isinstance(src, PressureLevels):
-        lev = np.asarray(coords["level"], dtype=np.float64)
-        src_lev = np.asarray(src.levels, dtype=np.float64)
-        if lev.shape != src_lev.shape or not np.allclose(lev, src_lev):
+        levels = np.asarray(array.coords["level"], dtype=np.float64)
+        declared = np.asarray(src.levels, dtype=np.float64)
+        if levels.shape != declared.shape or not np.allclose(levels, declared):
             raise VerticalMismatchError(
-                f"interp_to_pressure: data 'level' coordinate {lev.tolist()} "
-                f"does not match the declared PressureLevels source "
-                f"{list(src.levels)} (hPa). Reorder the data so levels "
-                "increase top to bottom, or fix the source component's "
-                "export_vertical declaration to match its 'level' coordinate."
+                "DataArray level coordinate does not match declared source levels"
             )
-    if isinstance(src, PressureLevels) and tuple(src.levels) == tuple(dst.levels):
-        return x, coords
-    lev_axis = list(coords).index("level")
-    n_src = len(coords["level"])
-    xp = x.movedim(lev_axis, -1)  # (..., L)
-    if n_src != xp.shape[-1]:
-        raise VerticalMismatchError(
-            f"'level' coord length {n_src} != tensor level size {xp.shape[-1]}"
+        if src.levels == dst.levels:
+            return array
+
+    axis = array.get_axis_num("level")
+    data = array.data
+    xp = _namespace(data)
+    values = xp.moveaxis(data, axis, -1)
+    if isinstance(src, PressureLevels):
+        pressure = xp.asarray(src.pressure_pa(), dtype=values.dtype)
+        pressure = xp.broadcast_to(pressure, values.shape)
+    else:
+        if surface_pressure is None:
+            raise VerticalMismatchError(
+                f"Hybrid interpolation requires {src.ps_field!r}"
+            )
+        target = array.isel(level=0, drop=True)
+        try:
+            ps = surface_pressure.broadcast_like(target).transpose(*target.dims).data
+        except ValueError as error:
+            raise VerticalMismatchError(
+                "Surface pressure is not aligned with the field"
+            ) from error
+        pressure = (
+            xp.asarray(src.a, dtype=values.dtype)
+            + xp.asarray(src.b, dtype=values.dtype) * ps[..., None]
         )
-    logp_src = _log_source_pressure(src, ps, xp)
-    logp_dst = torch.log(
-        torch.as_tensor(dst.pressure_pa(), dtype=xp.dtype, device=xp.device)
-    ).expand(*xp.shape[:-1], len(dst.levels))
+        if bool(xp.any(pressure <= 0)) or bool(
+            xp.any(pressure[..., 1:] <= pressure[..., :-1])
+        ):
+            raise VerticalMismatchError(
+                "Hybrid levels are not positive and strictly increasing"
+            )
 
-    idx_hi = torch.searchsorted(logp_src.contiguous(), logp_dst.contiguous())
-    idx_hi = idx_hi.clamp(1, xp.shape[-1] - 1)
-    idx_lo = idx_hi - 1
-    x_lo = torch.gather(xp, -1, idx_lo)
-    x_hi = torch.gather(xp, -1, idx_hi)
-    p_lo = torch.gather(logp_src, -1, idx_lo)
-    p_hi = torch.gather(logp_src, -1, idx_hi)
-    w = ((logp_dst - p_lo) / (p_hi - p_lo)).clamp(0.0, 1.0)
-    out = x_lo * (1.0 - w) + x_hi * w
-
-    out = out.movedim(-1, lev_axis)
-    new_coords = OrderedDict(coords)
-    new_coords["level"] = np.asarray(dst.levels, dtype=np.float64)
-    return out, new_coords
+    log_source = xp.log(pressure)
+    log_target = xp.log(xp.asarray(dst.pressure_pa(), dtype=values.dtype))
+    target = xp.broadcast_to(log_target, (*values.shape[:-1], len(dst.levels)))
+    high = xp.sum(log_source[..., None, :] < target[..., :, None], axis=-1)
+    high = xp.clip(high, 1, values.shape[-1] - 1)
+    low = high - 1
+    low_value = xp.take_along_axis(values, low, axis=-1)
+    high_value = xp.take_along_axis(values, high, axis=-1)
+    low_pressure = xp.take_along_axis(log_source, low, axis=-1)
+    high_pressure = xp.take_along_axis(log_source, high, axis=-1)
+    weight = xp.clip((target - low_pressure) / (high_pressure - low_pressure), 0.0, 1.0)
+    output = low_value * (1 - weight) + high_value * weight
+    output = xp.moveaxis(output, -1, axis)
+    coords = {
+        name: coordinate
+        for name, coordinate in array.coords.items()
+        if "level" not in coordinate.dims
+    }
+    coords["level"] = np.asarray(dst.levels, dtype=np.float64)
+    return xr.DataArray(
+        output,
+        dims=array.dims,
+        coords=coords,
+        attrs=dict(array.attrs),
+        name=array.name,
+    )

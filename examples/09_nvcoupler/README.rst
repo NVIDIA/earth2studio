@@ -10,7 +10,6 @@ hand-verifiable numbers. They cover the coupled atmos/ocean loop declared as
 a coupling graph (with a windowed-reduction connector), coupling order
 experiments via explicit run sequences, impact chains mixing windowed
 connectors and accumulation mediators, vertical (hybrid to pressure)
-coupling for chemistry, gradient flow across the exchange for coupled
-fine-tuning, pull-pattern (StormCast-style) conditioning via
+coupling for chemistry, pull-pattern (StormCast-style) conditioning via
 ``PullAdapter``, and grid-to-point sampling (``sample=``) for
 station-level applications.

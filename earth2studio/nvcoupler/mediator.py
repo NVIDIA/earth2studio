@@ -22,16 +22,15 @@ transfer into it) and, when its compute action runs, exporting a windowed reduct
 — the trailing 48 h mean an ocean model was trained on, a precipitation sum
 a flood model needs, a temperature max for impact indices.
 
-Reductions are running torch ops (add / maximum / minimum), so memory is one
-accumulator per field regardless of window length, and gradients flow
-through mean and sum (max/min propagate to the extremal sample).
+Reductions use labeled DataArray operations, so memory is one accumulator
+per field regardless of window length.
 """
 
-from collections import OrderedDict
+from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
-import torch
+import xarray as xr
 
 from .component import Component
 from .dictionary import CellMethod
@@ -45,14 +44,12 @@ class _RunningReduction:
     One accumulator tensor per key regardless of window length; mean divides
     by the sample count at emit time. Wire in the same valid_time twice
     (e.g. two connectors or a re-executed slot) and the second arrival is
-    ignored rather than double-counted. Pure torch ops, so gradients flow
-    through mean and sum (max/min propagate to the extremal sample).
+    ignored rather than double-counted.
     """
 
     def __init__(self) -> None:
-        self._acc: dict[str, torch.Tensor] = {}
+        self._acc: dict[str, xr.DataArray] = {}
         self._count: dict[str, int] = {}
-        self._coords: dict[str, OrderedDict] = {}
         self._last_time: dict[str, np.datetime64] = {}
 
     def add(self, key: str, field: Field, method: str) -> None:
@@ -61,20 +58,20 @@ class _RunningReduction:
             field.valid_time
         ):
             return  # duplicate arrival for the same time
-        self._last_time[key] = field.valid_time
+        if field.valid_time is not None:
+            self._last_time[key] = field.valid_time
         if key not in self._acc:
-            self._acc[key] = field.data
+            self._acc[key] = field.array
             self._count[key] = 1
         else:
             acc = self._acc[key]
             if method in ("mean", "sum"):
-                self._acc[key] = acc + field.data
+                self._acc[key] = acc + field.array
             elif method == "max":
-                self._acc[key] = torch.maximum(acc, field.data)
+                self._acc[key] = xr.where(acc >= field.array, acc, field.array)
             else:  # min
-                self._acc[key] = torch.minimum(acc, field.data)
+                self._acc[key] = xr.where(acc <= field.array, acc, field.array)
             self._count[key] += 1
-        self._coords[key] = OrderedDict(field.coords)
 
     def __contains__(self, key: str) -> bool:
         return key in self._acc
@@ -83,17 +80,16 @@ class _RunningReduction:
         """Samples folded in per key since the last reset."""
         return dict(self._count)
 
-    def emit(self, key: str, method: str) -> tuple[torch.Tensor, OrderedDict]:
-        """Reduced (data, coords) for `key`; mean divides by the count."""
-        data = self._acc[key]
+    def emit(self, key: str, method: str) -> xr.DataArray:
+        """Reduced DataArray for `key`; mean divides by the count."""
+        array = self._acc[key]
         if method == "mean":
-            data = data / self._count[key]
-        return data, self._coords[key]
+            array = array / self._count[key]
+        return array
 
     def reset(self) -> None:
         self._acc.clear()
         self._count.clear()
-        self._coords.clear()
         self._last_time.clear()
 
 
@@ -119,11 +115,18 @@ class Mediator(Component):
 
     requires_ic = False  # mediators need no initial condition
 
-    def __init__(self, name: str, timestep: Any, imports=(), exports=(), **kwargs: Any):
+    def __init__(
+        self,
+        name: str,
+        timestep: Any,
+        imports: Iterable[str] = (),
+        exports: Iterable[str] = (),
+        **kwargs: Any,
+    ):
         super().__init__(name, timestep, imports, exports, **kwargs)
         self.import_state = _AccumulatingState(f"{name}.imports", self)
 
-    def initialize(self, x: torch.Tensor | None = None, coords=None) -> None:
+    def initialize(self, state: xr.DataArray | None = None) -> None:
         """Mediators need no initial condition."""
 
     def accumulate(self, field: Field) -> None:
@@ -153,9 +156,8 @@ class AccumulationMediator(Mediator):
         Override the reduction window; defaults to the (common) cell-method
         window of `fields`.
 
-    This is the generalization of PhysicsNeMo's TrailingAverageCoupler and
-    DLESyM's ``_make_ocean_coupling`` chunk-mean, plus the sum/max/min
-    reductions impact chains need.
+    This generalizes trailing-average coupling to the sum/max/min reductions
+    that impact chains need.
     """
 
     def __init__(self, name: str, fields: list[str], window: Any = None, **kwargs: Any):
@@ -205,12 +207,11 @@ class AccumulationMediator(Mediator):
                     f"accumulated before compute at {time} — is a connector "
                     "feeding this mediator in a faster slot?"
                 )
-            data, coords = self._reduction.emit(derived, cm.method)
+            array = self._reduction.emit(derived, cm.method)
             entry = self.dictionary.resolve(derived)
             self.export_state.add(
                 Field(
-                    data=data,
-                    coords=coords,
+                    array=array,
                     standard_name=derived,
                     units=entry.canonical_units,
                     valid_time=time,
@@ -223,8 +224,7 @@ class AccumulationMediator(Mediator):
 
 class TrailingAverageMediator(AccumulationMediator):
     """AccumulationMediator restricted to mean reductions — the exact
-    semantics of DLESyM's ocean coupling and PhysicsNeMo's
-    TrailingAverageCoupler."""
+    semantics of a trailing-average coupler."""
 
     def __init__(self, name: str, fields: list[str], window: Any = None, **kwargs: Any):
         super().__init__(name, fields, window, **kwargs)

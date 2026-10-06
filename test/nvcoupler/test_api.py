@@ -23,7 +23,6 @@ import carried by a windowed connector instead of a mediator.
 
 import numpy as np
 import pytest
-import torch
 import xarray as xr
 
 from earth2studio.nvcoupler.api import couple, coupled, describe, describe_html
@@ -33,14 +32,7 @@ from earth2studio.nvcoupler.errors import (
     UnmatchedImportError,
 )
 from earth2studio.nvcoupler.mediator import AccumulationMediator
-from earth2studio.nvcoupler.testing import (
-    ATMOS_GRID,
-    OCEAN_GRID,
-    atmos_ic,
-    fake_atmos,
-    fake_ocean,
-    ocean_ic,
-)
+from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, ocean_ic
 
 T0 = "2024-01-01"
 T96 = "2024-01-05"
@@ -79,9 +71,9 @@ def test_couple_synthesizes_windowed_connector():
     driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
     driver.run()
     z = driver.components["atmos"].export_state["geopotential_at_1000hpa"]
-    assert torch.allclose(z.data, torch.full(ATMOS_GRID, 19.2336), atol=1e-4)
+    assert np.allclose(z.array, 19.2336, atol=1e-4)
     sst = driver.components["ocean"].export_state["sea_surface_temperature"]
-    assert torch.allclose(sst.data, torch.full(OCEAN_GRID, 2.180147), atol=1e-4)
+    assert np.allclose(sst.array, 2.180147, atol=1e-4)
 
 
 def test_couple_synthesizes_mediator_when_pair_also_transfers_plainly():

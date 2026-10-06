@@ -1,241 +1,192 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
-# SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
-"""Connector: moves Fields from one component's exports to another's imports.
+"""DataArray-native field exchange and spatial transformation pipeline."""
 
-The NUOPC_Connector analog. Matching is by standard name; each transfer runs
-a pipeline of (1) time policy, (2) vertical interpolation when source and
-destination vertical coordinates differ, (3) mask fill, (4) spatial regrid
-onto the destination grid. Regridders and mask fillers are built lazily and
-cached per grid signature (the dxwrapper.py pattern). All tensor math is
-torch, so autograd graphs survive the exchange.
-"""
+from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import replace
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
-import torch
+import xarray as xr
 from loguru import logger
 
-from earth2studio.utils.interp import latlon_interpolation_regular
-from earth2studio.utils.type import CoordSystem
+from earth2studio.grids import PointGrid
 
 from .clock import DeltaLike, as_datetime, as_timedelta, fmt_timedelta
 from .component import Component
-from .errors import (
-    CouplingError,
-    IncompatibleFieldError,
-    VerticalMismatchError,
-)
-from .field import _SPATIAL_DIMS, Field
+from .errors import CouplingError, IncompatibleFieldError, VerticalMismatchError
+from .field import Field
 from .mediator import _RunningReduction
-from .points import PointSet
 from .vertical import HybridLevels, PressureLevels, interp_to_pressure
 
-Regridder = Callable[[torch.Tensor], torch.Tensor]
+try:
+    import cupy as cp
+except ImportError:  # pragma: no cover - CPU installations
+    cp = None
+
+Regridder = Callable[[xr.DataArray], xr.DataArray]
 
 
-def _is_regular(v: np.ndarray) -> bool:
-    return v.ndim == 1 and len(v) > 1 and np.allclose(np.diff(v), v[1] - v[0])
+def _array_namespace(data: Any) -> Any:
+    if cp is not None and isinstance(data, cp.ndarray):
+        return cp
+    return np
 
 
-def _build_latlon_regridder(src: CoordSystem, dst: CoordSystem) -> Regridder:
-    """Bilinear lat/lon regridder using earth2studio's regular-grid kernel.
-
-    Requires 1D equally-spaced source lat/lon (the common case for global
-    models); index clamping at the grid edge stands in for extrapolation.
-    """
-    src_lat, src_lon = np.asarray(src["lat"]), np.asarray(src["lon"])
-    if not (_is_regular(src_lat) and _is_regular(src_lon)):
-        raise IncompatibleFieldError(
-            "Auto regrid requires a regular 1D source lat/lon grid; pass a "
-            "custom regridder=... to the Connector for curvilinear or "
-            "unstructured source grids"
-        )
-    flip_lat = src_lat[0] > src_lat[-1]
-    lat0 = torch.as_tensor(src_lat[::-1].copy() if flip_lat else src_lat)
-    lon0 = torch.as_tensor(src_lon)
-    lat1g, lon1g = np.meshgrid(
-        np.asarray(dst["lat"]), np.asarray(dst["lon"]), indexing="ij"
+def _is_regular(values: np.ndarray) -> bool:
+    return (
+        values.ndim == 1
+        and values.size > 1
+        and np.allclose(np.diff(values), values[1] - values[0])
     )
-    lat1 = torch.as_tensor(lat1g)
-    lon1 = torch.as_tensor(lon1g)
-
-    def regrid(data: torch.Tensor) -> torch.Tensor:
-        if flip_lat:
-            data = torch.flip(data, dims=(-2,))
-        return latlon_interpolation_regular(
-            data,
-            lat0.to(device=data.device, dtype=data.dtype),
-            lon0.to(device=data.device, dtype=data.dtype),
-            lat1.to(device=data.device, dtype=data.dtype),
-            lon1.to(device=data.device, dtype=data.dtype),
-        )
-
-    return regrid
 
 
-def _build_point_sampler(
-    src: CoordSystem, points: PointSet, method: Literal["nearest", "bilinear"]
-) -> Regridder:
-    """Grid-to-point sampler: a regular lat/lon field -> PointSet locations.
+def _bilinear_indices(
+    source: np.ndarray, target: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    upper = np.searchsorted(source, target, side="right")
+    upper = np.clip(upper, 1, len(source) - 1)
+    lower = upper - 1
+    span = source[upper] - source[lower]
+    weight = np.divide(
+        target - source[lower],
+        span,
+        out=np.zeros_like(target, dtype=np.float64),
+        where=span != 0,
+    )
+    return lower, upper, weight
 
-    "bilinear" reuses the same regular-grid kernel as the mesh regridder,
-    just evaluated at scattered (lat, lon) pairs instead of a destination
-    mesh (an [N, 1] "mesh" degenerates to per-point bilinear interpolation).
-    "nearest" is a great-circle nearest-neighbor gather, matching the mask
-    filler's KDTree approach.
-    """
-    src_lat, src_lon = np.asarray(src["lat"]), np.asarray(src["lon"])
-    if not (_is_regular(src_lat) and _is_regular(src_lon)):
+
+def _regular_latlon_interpolate(
+    array: xr.DataArray,
+    target_lat: np.ndarray,
+    target_lon: np.ndarray,
+    target_dims: tuple[str, ...],
+) -> xr.DataArray:
+    if array.dims[-2:] != ("lat", "lon"):
         raise IncompatibleFieldError(
-            "Auto sample requires a regular 1D source lat/lon grid; pass a "
-            "custom regridder=... for curvilinear or unstructured source "
-            "grids"
+            f"Automatic interpolation requires trailing ('lat', 'lon') "
+            f"dimensions, got {array.dims}"
         )
-    if method == "bilinear":
-        flip_lat = src_lat[0] > src_lat[-1]
-        lat0 = torch.as_tensor(src_lat[::-1].copy() if flip_lat else src_lat)
-        lon0 = torch.as_tensor(src_lon)
-        # [N] point locations reshaped as an [N, 1] "mesh" so the existing
-        # regular-grid kernel evaluates one interpolated value per point.
-        lat1 = torch.as_tensor(points.lat).unsqueeze(-1)
-        lon1 = torch.as_tensor(points.lon).unsqueeze(-1)
-
-        def sample(data: torch.Tensor) -> torch.Tensor:
-            if flip_lat:
-                data = torch.flip(data, dims=(-2,))
-            out = latlon_interpolation_regular(
-                data,
-                lat0.to(device=data.device, dtype=data.dtype),
-                lon0.to(device=data.device, dtype=data.dtype),
-                lat1.to(device=data.device, dtype=data.dtype),
-                lon1.to(device=data.device, dtype=data.dtype),
-            )
-            return out.squeeze(-1)
-
-        return sample
-
-    if method != "nearest":
-        raise CouplingError(
-            f"Unsupported sample={method!r}; choose 'nearest' or 'bilinear'"
+    source_lat = np.asarray(array.coords["lat"])
+    source_lon = np.asarray(array.coords["lon"])
+    if not (_is_regular(source_lat) and _is_regular(source_lon)):
+        raise IncompatibleFieldError(
+            "Automatic interpolation requires regular 1D source lat/lon"
         )
+    data = array.data
+    if source_lat[0] > source_lat[-1]:
+        source_lat = source_lat[::-1]
+        data = data[..., ::-1, :]
+    flat_lat = np.asarray(target_lat).reshape(-1)
+    flat_lon = np.asarray(target_lon).reshape(-1)
+    il, iu, wy = _bilinear_indices(source_lat, flat_lat)
+    jl, ju, wx = _bilinear_indices(source_lon, flat_lon)
+    xp = _array_namespace(data)
+    ilx, iux = xp.asarray(il), xp.asarray(iu)
+    jlx, jux = xp.asarray(jl), xp.asarray(ju)
+    wyx, wxx = xp.asarray(wy), xp.asarray(wx)
+    v00 = data[..., ilx, jlx]
+    v01 = data[..., ilx, jux]
+    v10 = data[..., iux, jlx]
+    v11 = data[..., iux, jux]
+    output = (
+        v00 * (1 - wyx) * (1 - wxx)
+        + v01 * (1 - wyx) * wxx
+        + v10 * wyx * (1 - wxx)
+        + v11 * wyx * wxx
+    )
+    shape = (*output.shape[:-1], *np.asarray(target_lat).shape)
+    output = output.reshape(shape)
+    leading = array.dims[:-2]
+    coords = {name: array.coords[name] for name in leading}
+    for axis, name in enumerate(target_dims):
+        coords[name] = np.arange(shape[len(leading) + axis])
+    result = xr.DataArray(
+        output,
+        dims=(*leading, *target_dims),
+        coords=coords,
+        attrs=dict(array.attrs),
+        name=array.name,
+    )
+    if target_dims == ("lat", "lon"):
+        latitude = (
+            np.asarray(target_lat)[:, 0]
+            if np.asarray(target_lat).ndim == 2
+            else np.asarray(target_lat)
+        )
+        longitude = (
+            np.asarray(target_lon)[0, :]
+            if np.asarray(target_lon).ndim == 2
+            else np.asarray(target_lon)
+        )
+        result = result.assign_coords(lat=latitude, lon=longitude)
+    elif target_dims == ("x",):
+        result = result.assign_coords(
+            lat=("x", np.asarray(target_lat)),
+            lon=("x", np.asarray(target_lon)),
+        )
+    return result
 
+
+def _nearest_indices(
+    source_lat: np.ndarray,
+    source_lon: np.ndarray,
+    target_lat: np.ndarray,
+    target_lon: np.ndarray,
+) -> np.ndarray:
+    lat2d: np.ndarray
+    lon2d: np.ndarray
+    lat2d, lon2d = np.meshgrid(source_lat, source_lon, indexing="ij")
+    return _nearest_point_indices(lat2d.ravel(), lon2d.ravel(), target_lat, target_lon)
+
+
+def _nearest_point_indices(
+    source_lat: np.ndarray,
+    source_lon: np.ndarray,
+    target_lat: np.ndarray,
+    target_lon: np.ndarray,
+) -> np.ndarray:
     from scipy.spatial import cKDTree
 
-    lat2d, lon2d = np.meshgrid(src_lat, src_lon, indexing="ij")
-    phi, lam = np.deg2rad(lat2d).ravel(), np.deg2rad(lon2d).ravel()
-    src_xyz = np.stack(
-        [np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)], axis=1
-    )
-    tree = cKDTree(src_xyz)
-    dst_phi, dst_lam = np.deg2rad(points.lat), np.deg2rad(points.lon)
-    dst_xyz = np.stack(
-        [
-            np.cos(dst_phi) * np.cos(dst_lam),
-            np.cos(dst_phi) * np.sin(dst_lam),
-            np.sin(dst_phi),
-        ],
+    phi = np.deg2rad(np.asarray(source_lat)).ravel()
+    lam = np.deg2rad(np.asarray(source_lon)).ravel()
+    source_xyz = np.stack(
+        [np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)],
         axis=1,
     )
-    _, nearest_flat = tree.query(dst_xyz, k=1)
-    index = torch.as_tensor(nearest_flat, dtype=torch.long)
-
-    def sample(data: torch.Tensor) -> torch.Tensor:
-        flat = data.reshape(*data.shape[:-2], -1)
-        return torch.index_select(flat, -1, index.to(data.device))
-
-    return sample
-
-
-def _build_mask_filler(coords: CoordSystem, mask: torch.Tensor) -> Regridder:
-    """Nearest-valid fill on the source grid: every invalid point takes the
-    value of its nearest valid neighbor (great-circle metric via unit-sphere
-    KDTree). Differentiable (pure gather)."""
-    from scipy.spatial import cKDTree
-
-    lat = np.asarray(coords["lat"], dtype=np.float64)
-    lon = np.asarray(coords["lon"], dtype=np.float64)
-    lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
-    phi, lam = np.deg2rad(lat2d).ravel(), np.deg2rad(lon2d).ravel()
-    xyz = np.stack(
-        [np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)], axis=1
+    phi, lam = np.deg2rad(target_lat).ravel(), np.deg2rad(target_lon).ravel()
+    target_xyz = np.stack(
+        [np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi)],
+        axis=1,
     )
-    valid = mask.reshape(-1).cpu().numpy().astype(bool)
-    if not valid.any():
-        raise IncompatibleFieldError("Mask fill impossible: no valid source points")
-    tree = cKDTree(xyz[valid])
-    _, nearest = tree.query(xyz, k=1)
-    valid_index = np.flatnonzero(valid)[nearest]
-    index = torch.as_tensor(valid_index, dtype=torch.long)
+    return cKDTree(source_xyz).query(target_xyz, k=1)[1]
 
-    def fill(data: torch.Tensor) -> torch.Tensor:
-        flat = data.reshape(*data.shape[:-2], -1)
-        filled = torch.index_select(flat, -1, index.to(data.device))
-        return filled.reshape(data.shape)
 
-    return fill
+def _sample_nearest(array: xr.DataArray, grid: PointGrid) -> xr.DataArray:
+    source_lat = np.asarray(array.coords["lat"])
+    source_lon = np.asarray(array.coords["lon"])
+    index = _nearest_indices(source_lat, source_lon, grid.latitude, grid.longitude)
+    data = array.data.reshape(*array.shape[:-2], -1)
+    xp = _array_namespace(data)
+    sampled = xp.take(data, xp.asarray(index), axis=-1)
+    return xr.DataArray(
+        sampled,
+        dims=(*array.dims[:-2], "x"),
+        coords={
+            **{name: array.coords[name] for name in array.dims[:-2]},
+            **dict(grid.coords()),
+        },
+        attrs=dict(array.attrs),
+        name=array.name,
+    )
 
 
 class Connector:
-    """Moves matched Fields src.exports -> dst.imports each time it executes.
-
-    Parameters
-    ----------
-    src, dst : Component
-    fields : list[str], optional
-        Standard names to transfer; defaults to the intersection of src's
-        advertised exports and dst's advertised imports.
-    time_policy : "constant" | "linear"
-        What the destination sees between source updates: hold the latest
-        export (constant, the PhysicsNeMo ConstantCoupler behavior), or
-        linearly extrapolate from the two most recent exports.
-    fill : "none" | "zero" | "nearest"
-        Treatment of masked (invalid) source points before regridding.
-    regridder : callable, optional
-        Override the spatial regrid for all fields of this connector
-        (signature: tensor[..., H, W] -> tensor[..., H', W']). Required when
-        the grids differ and the auto path cannot handle them (HEALPix
-        'face' dims, curvilinear grids); identical grids — including
-        identical face grids — pass through as identity without one.
-    sample : "nearest" | "bilinear", optional
-        Grid-to-point sampling: set when the destination is a scattered
-        sample-location target (``dst.points`` is a :class:`.points.PointSet`
-        — stations, sites, arbitrary query coordinates) rather than a mesh.
-        "bilinear" reuses the mesh regridder's kernel per point; "nearest"
-        is a great-circle nearest-neighbor lookup. Mutually exclusive with
-        `regridder=`; a point-target destination with neither set raises at
-        `execute()` time rather than guessing.
-    window, reduce : optional
-        Set both to make this a *windowed* connector: each execute folds the
-        source fields into a running reduction ("mean" | "sum" | "max" |
-        "min"), and delivery happens only at execute times aligned to
-        `window`. The delivered Field carries the DERIVED standard name — the
-        destination must import a dictionary entry whose CellMethod is
-        (base=source export, method=`reduce`, window=`window`). Between
-        window boundaries the destination's previous import is untouched.
-        The window origin is the valid_time of the first execute's source
-        field (the clock start under lagged coupling, where the connector
-        runs before the source in its slot), so no driver hook is needed.
-        This replaces a single-source AccumulationMediator; `time_policy`
-        does not apply on the windowed path.
-    """
+    """Move matched fields from one component to another."""
 
     def __init__(
         self,
@@ -249,396 +200,271 @@ class Connector:
         window: DeltaLike | None = None,
         reduce: Literal["mean", "sum", "max", "min"] | None = None,
     ):
-        self.src = src
-        self.dst = dst
-        self.time_policy = time_policy
-        self.fill = fill
+        self.src, self.dst = src, dst
+        self.time_policy, self.fill = time_policy, fill
         if sample is not None and regridder is not None:
             raise CouplingError(
-                f"Connector {src.name}->{dst.name}: sample= and regridder= "
-                "are mutually exclusive — pass one or the other"
+                f"Connector {self.name}: sample= and regridder= are exclusive"
             )
-        if sample is not None and sample not in ("nearest", "bilinear"):
-            raise CouplingError(
-                f"Connector {src.name}->{dst.name}: unsupported sample="
-                f"{sample!r}; choose 'nearest' or 'bilinear'"
-            )
-        self.sample = sample
+        if sample not in (None, "nearest", "bilinear"):
+            raise CouplingError(f"Connector {self.name}: unsupported sample={sample!r}")
         if (window is None) != (reduce is None):
             raise CouplingError(
-                f"Connector {src.name}->{dst.name}: window= and reduce= must "
-                "be set together — a windowed reduction needs both the window "
-                "length and the reduction method"
+                f"Connector {self.name}: window= and reduce= must be set together"
             )
-        if reduce is not None and reduce not in ("mean", "sum", "max", "min"):
-            raise CouplingError(
-                f"Connector {src.name}->{dst.name}: unsupported reduce="
-                f"{reduce!r}; choose 'mean', 'sum', 'max' or 'min'"
-            )
+        if reduce not in (None, "mean", "sum", "max", "min"):
+            raise CouplingError(f"Connector {self.name}: unsupported reduce={reduce!r}")
+        self.sample = sample
         self.window = as_timedelta(window) if window is not None else None
         self.reduce = reduce
-        self._reduction = _RunningReduction()
-        self._derived: dict[str, str] = {}  # src export name -> derived dst name
-        self._origin: np.datetime64 | None = None  # window alignment origin
         self._user_regridder = regridder
         self._fields = list(fields) if fields is not None else None
         self._matched: list[str] | None = None
-        self._regridders: dict[tuple, Regridder] = {}
-        self._fillers: dict[tuple, Regridder] = {}
-        self._samplers: dict[tuple, Regridder] = {}
-        # 2-deep export history per field: (previous, latest), rotated only
-        # when a genuinely new export (different valid_time) arrives
+        self._derived: dict[str, str] = {}
         self._history: dict[str, tuple[Field | None, Field]] = {}
         self._linear_warned: set[str] = set()
+        self._reduction = _RunningReduction()
+        self._origin: np.datetime64 | None = None
         self.last_transfer: dict[str, Field] = {}
 
     @property
     def name(self) -> str:
         return f"{self.src.name}->{self.dst.name}"
 
-    # -- matching --------------------------------------------------------------
     def match(self) -> list[str]:
-        """Resolve matched standard names (cached).
-
-        Plain connectors match by name intersection. Windowed connectors
-        match each source export against a destination import whose
-        CellMethod derives from it; the returned list then contains both the
-        consumed source names and the delivered derived names, so driver-side
-        bookkeeping (fed imports, consumed exports) sees the full mapping.
-        """
         if self._matched is not None:
             return self._matched
-        _, src_exports = self.src.advertise()
-        dst_imports, _ = self.dst.advertise()
+        _, exports = self.src.advertise()
+        imports, _ = self.dst.advertise()
         if self.window is not None:
-            return self._match_windowed(src_exports, dst_imports)
-        if self._fields is not None:
-            missing = [
-                f for f in self._fields if f not in src_exports or f not in dst_imports
+            return self._match_windowed(exports, imports)
+        if self._fields is None:
+            matched = [name for name in imports if name in exports]
+        else:
+            matched = [
+                name for name in self._fields if name in imports and name in exports
             ]
+            missing = set(self._fields) - set(matched)
             if missing:
                 raise IncompatibleFieldError(
-                    f"Connector {self.name}: fields {missing} are not in both "
-                    f"{self.src.name!r} exports ({src_exports}) and "
-                    f"{self.dst.name!r} imports ({dst_imports})"
+                    f"Connector {self.name}: fields {sorted(missing)} are not "
+                    "advertised by both endpoints"
                 )
-            self._matched = list(self._fields)
-        else:
-            self._matched = [n for n in dst_imports if n in src_exports]
-        if not self._matched:
+        if not matched:
             raise IncompatibleFieldError(
-                f"Connector {self.name}: no fields match — {self.src.name!r} "
-                f"exports {src_exports}, {self.dst.name!r} imports {dst_imports}"
+                f"Connector {self.name}: no fields match; source exports "
+                f"{exports}, destination imports {imports}"
             )
-        # units validation against the (shared) dictionary
-        for n in self._matched:
-            entry_src = self.src.dictionary.resolve(n)
-            entry_dst = self.dst.dictionary.resolve(n)
+        for name in matched:
             self.dst.dictionary.check_units(
-                n, entry_src.canonical_units, src=self.src.name, dst=self.dst.name
-            )
-            del entry_dst
-        return self._matched
-
-    def _match_windowed(
-        self, src_exports: list[str], dst_imports: list[str]
-    ) -> list[str]:
-        """Pair source exports with the destination's derived imports.
-
-        A source export `base` maps to a destination import whose dictionary
-        entry carries CellMethod(base, self.reduce, self.window); the field
-        is delivered under that derived name. No matching derived import is
-        an error — the coupler never invents names.
-        """
-        wanted = self._fields if self._fields is not None else src_exports
-        for name in dst_imports:
-            cm = self.dst.dictionary.resolve(name).cell_method
-            if (
-                cm is not None
-                and cm.method == self.reduce
-                and as_timedelta(cm.window) == self.window
-                and cm.base in wanted
-                and cm.base in src_exports
-            ):
-                self._derived[cm.base] = name
-        unmatched = [f for f in wanted if f not in self._derived]
-        if not self._derived or (self._fields is not None and unmatched):
-            w, r = fmt_timedelta(self.window), self.reduce
-            raise CouplingError(
-                f"Connector {self.name}: window={w!r}/reduce={r!r} is set but "
-                f"{self.dst.name!r} imports no derived field for "
-                f"{unmatched or src_exports} — register a "
-                f"FieldEntry(cell_method=CellMethod(base, {r!r}, window={w!r})) "
-                f"in the destination's dictionary and add its standard name to "
-                f"{self.dst.name!r}'s imports (destination imports: "
-                f"{dst_imports})"
-            )
-        for base, derived in self._derived.items():
-            self.dst.dictionary.check_units(
-                derived,
-                self.src.dictionary.resolve(base).canonical_units,
+                name,
+                self.src.dictionary.resolve(name).canonical_units,
                 src=self.src.name,
                 dst=self.dst.name,
             )
-        self._matched = list(self._derived) + list(self._derived.values())
+        self._matched = matched
+        return matched
+
+    def _match_windowed(self, exports: list[str], imports: list[str]) -> list[str]:
+        wanted = self._fields if self._fields is not None else exports
+        for name in imports:
+            method = self.dst.dictionary.resolve(name).cell_method
+            if (
+                method is not None
+                and method.base in wanted
+                and method.base in exports
+                and method.method == self.reduce
+                and as_timedelta(method.window) == self.window
+            ):
+                self._derived[method.base] = name
+        missing = [name for name in wanted if name not in self._derived]
+        if not self._derived or (self._fields is not None and missing):
+            raise CouplingError(
+                f"Connector {self.name}: destination has no matching derived "
+                f"imports for {missing or exports}"
+            )
+        self._matched = [*self._derived, *self._derived.values()]
         return self._matched
 
-    # -- pipeline stages ---------------------------------------------------------
     def _apply_time_policy(self, field: Field, time: np.datetime64) -> Field:
-        prev, latest = self._history.get(field.standard_name, (None, None))
-        # Rotate the (prev, latest) history only when the incoming export is
-        # genuinely new (different valid_time); re-seeing the same export on
-        # subsequent executes must not collapse the extrapolation baseline.
-        is_new = (
+        previous, latest = self._history.get(field.standard_name, (None, None))
+        if (
             latest is None
             or field.valid_time is None
             or latest.valid_time is None
             or as_datetime(field.valid_time) != as_datetime(latest.valid_time)
-        )
-        if is_new:
-            prev = latest
-            self._history[field.standard_name] = (prev, field)
-        if self.time_policy == "constant" or prev is None:
+        ):
+            previous, latest = latest, field
+            self._history[field.standard_name] = (previous, latest)
+        if self.time_policy == "constant" or previous is None:
             return field
-        if "lead_time" in field.coords or "window" in field.coords:
-            # a lead-time-resolved field carries many valid times; a single
-            # valid_time extrapolation is ill-defined for it
+        if "lead_time" in field.array.dims or "window" in field.array.dims:
             if field.standard_name not in self._linear_warned:
-                self._linear_warned.add(field.standard_name)
                 logger.warning(
-                    "Connector {}: time_policy='linear' is undefined for "
-                    "field {!r} with a lead_time/window dimension — falling "
-                    "back to 'constant' for it",
+                    "Connector {}: linear time policy is undefined for "
+                    "lead/window-resolved field {!r}; using constant",
                     self.name,
                     field.standard_name,
                 )
+                self._linear_warned.add(field.standard_name)
             return field
-        if prev.valid_time is None or field.valid_time is None:
+        if previous.valid_time is None or field.valid_time is None:
             return field
-        dt_hist = (
-            (as_datetime(field.valid_time) - as_datetime(prev.valid_time))
+        history = (
+            (as_datetime(field.valid_time) - as_datetime(previous.valid_time))
             .astype("timedelta64[ns]")
             .astype(np.int64)
         )
-        if dt_hist <= 0:
-            return field
-        dt_ahead = (
+        ahead = (
             (as_datetime(time) - as_datetime(field.valid_time))
             .astype("timedelta64[ns]")
             .astype(np.int64)
         )
-        if dt_ahead == 0:
+        if history <= 0 or ahead == 0:
             return field
-        w = dt_ahead / dt_hist
-        data = field.data + (field.data - prev.data) * w
-        return replace(field, data=data, valid_time=as_datetime(time))
+        array = field.array + (field.array - previous.array) * (ahead / history)
+        return replace(field, array=array, valid_time=as_datetime(time))
 
     def _apply_vertical(self, field: Field) -> Field:
-        want = self.dst.import_vertical.get(field.standard_name)
-        if want is None:
+        wanted = self.dst.import_vertical.get(field.standard_name)
+        if wanted is None or wanted == field.vertical:
             return field
-        have = field.vertical
-        if have == want:
-            return field
-        if have is None:
+        if field.vertical is None or not isinstance(wanted, PressureLevels):
             raise VerticalMismatchError(
-                f"Connector {self.name}: {self.dst.name!r} expects "
-                f"{field.standard_name!r} on {want}, but the source field has "
-                "no vertical coordinate"
+                f"Connector {self.name}: incompatible vertical coordinates"
             )
-        if not isinstance(want, PressureLevels):
-            raise VerticalMismatchError(
-                f"Connector {self.name}: only interpolation onto PressureLevels "
-                f"is supported in v1 (destination wants {type(want).__name__})"
-            )
-        ps = None
-        if isinstance(have, HybridLevels):
-            ps_std = self.src.dictionary.standard_name(have.ps_field)
-            if ps_std not in self.src.export_state:
+        surface_pressure = None
+        if isinstance(field.vertical, HybridLevels):
+            standard = self.src.dictionary.standard_name(field.vertical.ps_field)
+            if standard not in self.src.export_state:
                 raise VerticalMismatchError(
-                    f"Connector {self.name}: hybrid->pressure interpolation of "
-                    f"{field.standard_name!r} needs {ps_std!r} in "
-                    f"{self.src.name!r} exports — add it to the source's "
-                    "export list"
+                    f"Connector {self.name}: hybrid interpolation needs {standard!r}"
                 )
-            ps = self.src.export_state[ps_std].data
-        data, coords = interp_to_pressure(field.data, field.coords, have, want, ps)
-        return replace(field, data=data, coords=coords, vertical=want)
+            surface_pressure = self.src.export_state[standard].array
+        array = interp_to_pressure(
+            field.array, field.vertical, wanted, surface_pressure
+        )
+        return replace(field, array=array, vertical=wanted)
 
     def _apply_fill(self, field: Field) -> Field:
         if field.mask is None or self.fill == "none":
             return field
+        mask = field.mask.broadcast_like(field.array)
         if self.fill == "zero":
-            data = torch.where(field.mask.to(field.data.device), field.data, 0.0)
-            return replace(field, data=data, mask=None)
-        key = (field.grid_signature(), field.mask.cpu().numpy().tobytes())
-        if key not in self._fillers:
-            self._fillers[key] = _build_mask_filler(field.coords, field.mask)
-        return replace(field, data=self._fillers[key](field.data), mask=None)
+            return replace(field, array=field.array.where(mask, 0), mask=None)
+        if field.array.dims[-2:] != ("lat", "lon"):
+            raise IncompatibleFieldError(
+                f"Connector {self.name}: nearest fill needs trailing lat/lon"
+            )
+        lat = np.asarray(field.array.coords["lat"])
+        lon = np.asarray(field.array.coords["lon"])
+        lat2d: np.ndarray
+        lon2d: np.ndarray
+        lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
+        spatial_size = lat2d.size
+        data = field.array.data.reshape(-1, spatial_size)
+        xp = _array_namespace(data)
+        masks = np.asarray(mask).reshape(-1, spatial_size).astype(bool)
+        rows = []
+        for row, valid in zip(data, masks, strict=True):
+            if not valid.any():
+                raise IncompatibleFieldError("Mask fill impossible: no valid points")
+            valid_flat = np.flatnonzero(valid)
+            nearest = _nearest_point_indices(
+                lat2d.ravel()[valid],
+                lon2d.ravel()[valid],
+                lat2d,
+                lon2d,
+            )
+            rows.append(xp.take(row, xp.asarray(valid_flat[nearest]), axis=-1))
+        filled = xp.stack(rows).reshape(field.array.shape)
+        return replace(
+            field,
+            array=field.array.copy(data=filled),
+            mask=None,
+        )
 
     def _apply_regrid(self, field: Field) -> Field:
-        dst_grid = self.dst.grid_coords()
-        if dst_grid is None:
-            return field  # destination has no grid of its own (e.g. mediator)
-        src_spatial = OrderedDict(
-            (k, v) for k, v in field.coords.items() if k in _SPATIAL_DIMS
-        )
-        # Identity fast path: every spatial dim of the field (lat/lon, but
-        # also HEALPix-style face/height/width) exists in the destination
-        # grid with an equal coordinate array — nothing to regrid.
-        same = bool(src_spatial) and all(
-            k in dst_grid and np.array_equal(np.asarray(v), np.asarray(dst_grid[k]))
-            for k, v in src_spatial.items()
-        )
+        destination = self.dst.grid_definition()
+        if destination is None:
+            return field
+        try:
+            source_fingerprint = field.grid_signature()
+            same = source_fingerprint == (destination.fingerprint(),)
+        except (AttributeError, ValueError):
+            same = False
         if same and self._user_regridder is None:
             return field
-        if "point" in dst_grid:
-            return self._apply_sample(field, src_spatial, dst_grid)
-        if ("face" in field.coords or "face" in dst_grid) and (
-            self._user_regridder is None
-        ):
-            raise IncompatibleFieldError(
-                f"Connector {self.name}: source and destination HEALPix "
-                "'face' grids differ — pass a custom regridder= (e.g. built "
-                "with earth2grid, see models/px/dlesym.py)"
-            )
         if self._user_regridder is not None:
-            # Explicit override: apply the user regridder to the trailing
-            # spatial dims of ANY layout (lat/lon, HEALPix face/height/width,
-            # curvilinear y/x) and rebuild coords from the destination grid.
-            data = self._user_regridder(field.data)
-            coords = OrderedDict(
-                (k, v) for k, v in field.coords.items() if k not in _SPATIAL_DIMS
-            )
-            for k, v in dst_grid.items():
-                coords[k] = np.asarray(v).copy()
-            return replace(field, data=data, coords=coords)
-        key = (field.grid_signature(),)
-        if not (
-            "lat" in src_spatial
-            and "lon" in src_spatial
-            and "lat" in dst_grid
-            and "lon" in dst_grid
-        ):
+            output = self._user_regridder(field.array)
+            if not isinstance(output, xr.DataArray):
+                raise TypeError("Custom regridder must return an xarray.DataArray")
+            return replace(field, array=output)
+        if isinstance(destination, PointGrid):
+            return replace(field, array=self._sample(field.array, destination))
+        coordinates = destination.coords()
+        if "lat" not in coordinates or "lon" not in coordinates:
             raise IncompatibleFieldError(
-                f"Connector {self.name}: auto regrid needs lat/lon on both "
-                f"grids (source dims {list(src_spatial)}, destination dims "
-                f"{list(dst_grid)}) — pass a custom regridder="
+                f"Connector {self.name}: automatic regrid supports lat/lon "
+                "and point grids only; pass regridder="
             )
-        if key not in self._regridders:
-            self._regridders[key] = _build_latlon_regridder(src_spatial, dst_grid)
-        regrid = self._regridders[key]
-        # regrid acts on the trailing two (lat, lon) dims
-        spatial_last = list(field.coords)[-2:] == ["lat", "lon"]
-        if not spatial_last:
+        lat = np.asarray(coordinates["lat"])
+        lon = np.asarray(coordinates["lon"])
+        if lat.ndim != 1 or lon.ndim != 1:
             raise IncompatibleFieldError(
-                f"Connector {self.name}: field {field.standard_name!r} must "
-                f"have (lat, lon) as trailing dims, got {list(field.coords)}"
+                f"Connector {self.name}: curvilinear destination needs regridder="
             )
-        data = regrid(field.data)
-        # preserve original dim order: everything except lat/lon, then dst grid
-        coords = OrderedDict(
-            (k, v) for k, v in field.coords.items() if k not in ("lat", "lon")
+        return replace(
+            field,
+            array=_regular_latlon_interpolate(
+                field.array, *np.meshgrid(lat, lon, indexing="ij"), ("lat", "lon")
+            ),
         )
-        coords["lat"] = np.asarray(dst_grid["lat"]).copy()
-        coords["lon"] = np.asarray(dst_grid["lon"]).copy()
-        return replace(field, data=data, coords=coords)
 
-    def _apply_sample(
-        self, field: Field, src_spatial: CoordSystem, dst_grid: CoordSystem
-    ) -> Field:
-        """Grid-to-point delivery: destination advertises a "point" dim.
-
-        Mirrors `_apply_regrid`'s user-override / auto-build split, but the
-        destination's actual (lat, lon) locations live on `self.dst.points`
-        (`dst_grid["point"]` is only the dim's own labels, same as any other
-        CoordSystem entry — it does not carry coordinates by itself).
-        """
-        if self._user_regridder is not None:
-            data = self._user_regridder(field.data)
-            coords = OrderedDict(
-                (k, v) for k, v in field.coords.items() if k not in _SPATIAL_DIMS
-            )
-            coords["point"] = np.asarray(dst_grid["point"]).copy()
-            return replace(field, data=data, coords=coords)
+    def _sample(self, array: xr.DataArray, grid: PointGrid) -> xr.DataArray:
         if self.sample is None:
             raise CouplingError(
-                f"Connector {self.name}: destination {self.dst.name!r} is a "
-                "point target (a scattered sample-location grid) but this "
-                "connector has neither sample= nor regridder= set — pass "
-                "sample='nearest' or sample='bilinear', or a custom "
-                "regridder= for non-lat/lon sources"
+                f"Connector {self.name}: point destination requires sample="
             )
-        points: PointSet | None = self.dst.points
-        if points is None:
-            raise CouplingError(
-                f"Connector {self.name}: destination {self.dst.name!r} "
-                "advertises a 'point' dim but has no points= location "
-                "metadata set — construct it with points=PointSet(lat=..., "
-                "lon=...)"
-            )
-        if not ("lat" in src_spatial and "lon" in src_spatial):
+        if "lat" not in array.coords or "lon" not in array.coords:
             raise IncompatibleFieldError(
-                f"Connector {self.name}: auto sample needs lat/lon on the "
-                f"source grid (source dims {list(src_spatial)}) — pass a "
-                "custom regridder= for non-lat/lon sources"
+                f"Connector {self.name}: point sampling requires lat/lon source"
             )
-        spatial_last = list(field.coords)[-2:] == ["lat", "lon"]
-        if not spatial_last:
-            raise IncompatibleFieldError(
-                f"Connector {self.name}: field {field.standard_name!r} must "
-                f"have (lat, lon) as trailing dims, got {list(field.coords)}"
-            )
-        key = (field.grid_signature(), points.signature(), self.sample)
-        if key not in self._samplers:
-            self._samplers[key] = _build_point_sampler(src_spatial, points, self.sample)
-        data = self._samplers[key](field.data)
-        coords = OrderedDict(
-            (k, v) for k, v in field.coords.items() if k not in ("lat", "lon")
-        )
-        coords["point"] = points.labels().copy()
-        return replace(field, data=data, coords=coords)
+        if self.sample == "nearest":
+            return _sample_nearest(array, grid)
+        return _regular_latlon_interpolate(
+            array, grid.latitude, grid.longitude, ("x",)
+        ).assign_coords(x=grid.x)
 
-    # -- execution ----------------------------------------------------------------
     def execute(self, time: np.datetime64) -> None:
-        self.match()
+        matched = self.match()
         if self.window is not None:
             self._execute_windowed(as_datetime(time))
             return
-        for name in self._matched:
-            field = self._apply_time_policy(self._source_field(name), time)
-            self._deliver(field)
+        for name in matched:
+            if name in self._derived.values():
+                continue
+            self._deliver(self._apply_time_policy(self._source_field(name), time))
 
     def _source_field(self, name: str) -> Field:
         if name not in self.src.export_state:
             raise CouplingError(
-                f"Connector {self.name}: {self.src.name!r} has not produced "
-                f"{name!r} yet — check the run sequence ordering"
+                f"Connector {self.name}: source has not produced {name!r}"
             )
         return self.src.export_state[name]
 
     def _deliver(self, field: Field) -> None:
-        """Run the spatial pipeline and hand the field to the destination."""
         field = self._apply_vertical(field)
         field = self._apply_fill(field)
         field = self._apply_regrid(field)
         self.dst.import_state.add(field)
         self.last_transfer[field.standard_name] = field
-        logger.debug(
-            "exchange {}: {} (valid {})",
-            self.name,
-            field.standard_name,
-            field.valid_time,
-        )
 
     def _execute_windowed(self, time: np.datetime64) -> None:
-        """Fold sources into the running reduction; deliver on window boundaries.
-
-        The origin for boundary alignment is the valid_time of the first
-        execute's source field — under lagged coupling (connector before the
-        source's RunAction in the slot) that is the clock start, so the first
-        delivery lands exactly one window after t0 with no driver hook.
-        """
+        if self.window is None or self.reduce is None:
+            raise CouplingError(
+                f"Connector {self.name}: windowed execution is not configured"
+            )
         for base in self._derived:
             field = self._source_field(base)
             if self._origin is None:
@@ -648,18 +474,19 @@ class Connector:
                     else time
                 )
             self._reduction.add(base, field, self.reduce)
-        elapsed_ns = (time - self._origin).astype("timedelta64[ns]").astype(np.int64)
-        if elapsed_ns <= 0 or elapsed_ns % self.window.astype(np.int64) != 0:
-            return  # mid-window: accumulate only, previous import stands
+        elapsed: np.int64 = (
+            (time - self._origin).astype("timedelta64[ns]").astype(np.int64)
+        )
+        if elapsed <= 0 or elapsed % self.window.astype(np.int64):
+            return
         for base, derived in self._derived.items():
-            data, coords = self._reduction.emit(base, self.reduce)
+            array = self._reduction.emit(base, self.reduce)
             entry = self.dst.dictionary.resolve(derived)
             self._deliver(
                 Field(
-                    data=data,
-                    coords=coords,
-                    standard_name=derived,
-                    units=entry.canonical_units,
+                    array,
+                    derived,
+                    entry.canonical_units,
                     valid_time=time,
                     source=self.src.name,
                 )
@@ -667,7 +494,6 @@ class Connector:
         self._reduction.reset()
 
     def reset(self) -> None:
-        """Clear per-run exchange state (history, running reduction, probes)."""
         self._history.clear()
         self.last_transfer.clear()
         self._reduction.reset()
@@ -675,14 +501,9 @@ class Connector:
 
     def __repr__(self) -> str:
         fields = self._matched or self._fields or "auto"
-        windowed = (
+        window = (
             f", window={fmt_timedelta(self.window)!r}, reduce={self.reduce!r}"
             if self.window is not None
             else ""
         )
-        sampled = f", sample={self.sample!r}" if self.sample is not None else ""
-        return (
-            f"Connector({self.name}, fields={fields}, "
-            f"time_policy={self.time_policy!r}, fill={self.fill!r}"
-            f"{sampled}{windowed})"
-        )
+        return f"Connector({self.name}, fields={fields}{window})"
