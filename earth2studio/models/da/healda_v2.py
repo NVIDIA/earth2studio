@@ -98,10 +98,11 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",))``,
     ``NNJAObsSatwnd`` and ``NNJAObsSat(sensor_indices=model.sensor_indices)``.
 
-    Any stream may be omitted; the analysis then uses the others alone. HealDA
-    filters the observations by its own inference policy
-    (``healda.observations.system.inference_filters``), which reads the provider
-    quality columns of ``sat_obs``.
+    Any stream may be omitted; the analysis then uses the others alone. Beyond the
+    trained recipe, HealDA removes observations by its inference policy
+    (``healda.observations.system.inference_filters``): channels inside dated
+    denial windows, and footprints flagged by the provider quality columns of
+    ``sat_obs``.
 
     Parameters
     ----------
