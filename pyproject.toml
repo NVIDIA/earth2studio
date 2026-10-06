@@ -388,11 +388,7 @@ conflicts = [
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
-# healda sources earth2grid from a GitHub tarball; without this override uv refuses
-# two sources for one package. Keep the rev identical to [tool.uv.sources].
-override-dependencies = [
-    "earth2grid @ git+https://github.com/NVlabs/earth2grid.git@11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3",
-]
+override-dependencies = []
 
 [[tool.uv.index]]
 name = "ort-cuda-13-nightly"
