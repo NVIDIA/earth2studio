@@ -295,7 +295,8 @@ as shown above.
     `EarthMoverBrightBandIFS_FX` open the repository's root group. A custom repo with a
     different group layout will fail to connect even if its variable metadata is
     otherwise compatible.
-
+EarthMoverERA5(repo=your_org/your_custom_repo) # when reading from single|pressure/spatial
+EarthMoverBrightBandIFS(repo=your_org/your_custom_repo) # when reading from root
 ## Troubleshooting
 
 | Error | Cause | Fix |
