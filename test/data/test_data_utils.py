@@ -29,8 +29,11 @@ import xarray as xr
 
 from earth2studio.data import (
     DataArrayFile,
+    DataSource,
+    ForecastSource,
     Random,
     RandomDataFrame,
+    RegriddedSource,
     datasource_to_file,
     fetch_data,
     fetch_dataframe,
@@ -241,6 +244,106 @@ def test_fetch_data(time, lead_time, device):
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
     assert not np.isnan(x.data).any()
+
+
+_NATIVE_GRID = LatLonGrid(np.array([10.0, 0.0]), np.arange(0.0, 360.0, 90.0))
+_COARSE_GRID = LatLonGrid(np.array([10.0, 0.0]), np.arange(0.0, 360.0, 180.0))
+
+
+class _CoarseningRegridder:
+    """Keep every other longitude of the native grid."""
+
+    source_grid = _NATIVE_GRID
+    target_grid = _COARSE_GRID
+
+    def __call__(self, x):
+        if x.sizes["lon"] != self.source_grid.shape[1]:
+            raise ValueError("Field is not on the source grid")
+        return x.isel(lon=slice(None, None, 2))
+
+    def to(self, device):
+        return self
+
+
+class _NativeSource:
+    time_step = np.timedelta64(6, "h")
+
+    def _field(self, time, variable, lead_time=None):
+        time, variable = np.atleast_1d(time), np.atleast_1d(variable)
+        dims, coords = ["time", "variable"], {"time": time, "variable": variable}
+        if lead_time is not None:
+            lead_time = np.atleast_1d(lead_time)
+            dims.insert(1, "lead_time")
+            coords["lead_time"] = lead_time
+        coords |= {"lat": _NATIVE_GRID.latitude, "lon": _NATIVE_GRID.longitude}
+        shape = [len(coords[dim]) for dim in dims] + list(_NATIVE_GRID.shape)
+        return xr.DataArray(np.ones(shape), dims=(*dims, "lat", "lon"), coords=coords)
+
+    def __call__(self, time, variable):
+        return self._field(time, variable)
+
+    async def fetch(self, time, variable):
+        return self._field(time, variable)
+
+
+class _NativeForecastSource(_NativeSource):
+    def __call__(self, time, lead_time, variable):
+        return self._field(time, variable, lead_time)
+
+    async def fetch(self, time, lead_time, variable):
+        return self._field(time, variable, lead_time)
+
+
+def test_regridded_source():
+    time = np.array([np.datetime64("2024-01-01")])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    variable = np.array(["a", "b"])
+
+    analysis = RegriddedSource(_NativeSource(), _CoarseningRegridder())
+    assert isinstance(analysis, DataSource)
+    assert analysis.time_step == np.timedelta64(6, "h")
+    for array in (
+        analysis(time, variable),
+        asyncio.run(analysis.fetch(time, variable=variable)),
+    ):
+        assert array.dims == ("time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
+
+    forecast = RegriddedSource(_NativeForecastSource(), _CoarseningRegridder())
+    assert isinstance(forecast, ForecastSource)
+    for array in (
+        forecast(time, lead_time, variable),
+        asyncio.run(forecast.fetch(time, lead_time, variable)),
+    ):
+        assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(array["lead_time"], lead_time)
+        np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
+
+    # fetch_data reads the wrapped source's cadence for temporal statistics.
+    array = fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
+    assert array.sizes["lon"] == _COARSE_GRID.shape[1]
+    np.testing.assert_allclose(array, 1)
+
+
+def test_regridded_source_errors():
+    with pytest.raises(TypeError, match="Regridder protocol"):
+        RegriddedSource(_NativeSource(), lambda x: x)
+
+    class _SyncSource:
+        def __call__(self, time, variable):
+            return _NativeSource()(time, variable)
+
+    wrapped = RegriddedSource(_SyncSource(), _CoarseningRegridder())
+    with pytest.raises(AttributeError, match="async fetch"):
+        asyncio.run(wrapped.fetch(np.datetime64("2024-01-01"), "a"))
+
+    # Swapping in a source on another grid fails in the regridder.
+    coarse = RegriddedSource(
+        RegriddedSource(_NativeSource(), _CoarseningRegridder()),
+        _CoarseningRegridder(),
+    )
+    with pytest.raises(ValueError, match="source grid"):
+        coarse(np.datetime64("2024-01-01"), "a")
 
 
 @pytest.mark.parametrize(

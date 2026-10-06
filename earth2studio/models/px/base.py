@@ -24,7 +24,6 @@ from earth2studio.utils.type import CoordinateSystem
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource, ForecastSource
-    from earth2studio.grids.regrid import Regridder
 
 
 def recommended_sources(

@@ -3,16 +3,17 @@
 ## Goal
 
 Provide one contract for mapping a field from one grid onto another, so models can
-recommend a regridder for an input slot (`SourceDefault.regridder`; see
-[MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)) and drivers can apply it without
+recommend a source on another grid for an input slot (`RegriddedSource`; see
+[MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)) and drivers can fetch it without
 knowing the method. This also allows arbitrary regridders to be used (internal/external
 GPU accelerated flavors) under a common interface.
 
 Grid geometry follows [GRID_SPEC.md](GRID_SPEC.md); this
 contract covers only moving field data between two such geometries.
 
-Status: the protocol is mocked up in `earth2studio/grids/regrid.py`. No
-implementations are provided yet.
+Status: the protocol is mocked up in `earth2studio/grids/regrid.py`, and
+`RegriddedSource` in `earth2studio/data/utils.py` composes it with a source. No
+regridder implementations are provided yet.
 
 ## Interface
 
@@ -61,17 +62,19 @@ coordinate assembly.
 
 ## Composition
 
-Models recommend; drivers compose. Nothing regrids implicitly:
+`RegriddedSource(source, regridder)` composes a data or forecast source with a
+regridder. It forwards each request to the source and regrids the result, so it
+satisfies whichever source protocol the wrapped source does, and forwards the
+source's `time_step` for temporal statistics. A model recommending a source off its
+slot's grid returns this composition, so drivers fetch from it like any source:
 
 ```python
-recommended = recommended_sources(model)[slot]
-field = fetch_data(recommended.source, time, variable, lead_time)
-if recommended.regridder is not None:
-    field = recommended.regridder(field)
+source = model.default_sources()[slot]
+field = fetch_data(source, time, variable, lead_time)
 ```
 
-A recommended regridder is bound to its source's grid, so a caller replacing the
-source must also replace or drop the regridder (R2 raises otherwise).
+Nothing regrids implicitly. A regridder is bound to its source's grid, so a caller
+replacing the source must replace the whole composition (R2 raises otherwise).
 
 ## Migration
 
@@ -80,8 +83,10 @@ The eval recipe's `Regridder` ABC (`recipes/eval/src/regrid.py`) is tensor-nativ
 `apply_dataarray` CPU adapter. Its `NearestNeighborRegridder` and
 `BilinearRegridder` move here as implementations of this protocol. The tensor
 `apply` stays as an implementation detail behind `__call__`, which accepts CuPy
-fields without a host round trip. `RegriddedSource` becomes unnecessary once
-drivers compose regridders as above.
+fields without a host round trip. The recipe's `RegriddedSource` moves to
+`earth2studio.data` as above; its eval-specific `apply_dataarray` hook is replaced by
+the protocol's `__call__`, and `fetch` awaits the wrapped source instead of
+blocking on it.
 
 ## Open Questions
 
