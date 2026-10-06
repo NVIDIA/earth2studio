@@ -787,12 +787,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             target_grid=self.grid,
             regridder="linear",
         )
-        field = field.transpose("time", "lead_time", "variable", "lat", "lon")
+        field = field.transpose("time", "lead_time", "variable", ...)
         source = (field.lat.values, field.lon.values)
         if self._conditioning_grid is None or any(
             not np.array_equal(a, b) for a, b in zip(source, self._conditioning_grid)
         ):
-            lat, lon = np.meshgrid(*source, indexing="ij")
+            lat, lon = (
+                np.meshgrid(*source, indexing="ij") if source[0].ndim == 1 else source
+            )
             self._conditioning_interp = LatLonInterpolation(
                 lat, lon, self.lat, self.lon
             )

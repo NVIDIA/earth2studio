@@ -114,7 +114,7 @@ def test_solarradiation_afno(shape, device, model_class):
     before = x.copy(deep=True)
     out = model(x)
     assert out.shape == (*shape, 1, 4, 6)
-    assert out.coords["variable"].values.tolist() == [f"ssrd:sum:{model.freq}"]
+    assert out.coords["variable"].values.tolist() == ["ssrd"]
     handshake_dataarray(out, model.output_coords(x))
     tensor, _ = out.e2s.to_torch()
     assert torch.all(tensor >= 0)
