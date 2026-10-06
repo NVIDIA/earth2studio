@@ -1329,8 +1329,8 @@ def compile_dataframe(
         try:
             df = decode_task(path, task)
         except Exception as exc:
-            # A skipped file reads as a gap in the observations, so it is skipped only
-            # when the caller asks for that through on_error.
+            # A skipped file is indistinguishable from missing observations, so files
+            # are skipped only when the caller passes on_error.
             if on_error is None:
                 raise
             on_error(uri, idx, n_tasks, exc)
