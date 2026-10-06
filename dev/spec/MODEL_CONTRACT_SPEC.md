@@ -656,6 +656,13 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
   it before every wrapper migrates. Once no wrapper overrides them, the mixin's derived
   `__call__`/`create_iterator` drop their `*args`/`**kwargs` signatures for
   `(x, forcing=None)`.
+- **Protocol annotations.** `PrognosticModel` and `DiagnosticModel` annotate the
+  existing members (`__call__`, `create_iterator`, `input_coords`, `output_coords`)
+  with single DataArrays and signatures, without `forcing`, so current callers type
+  check. The members added by this contract carry the full tuple types. Migration
+  widens the existing members to match, together with the callers in
+  `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and the recipes
+  that index their results.
 - **`create_iterator` is deprecated.** The mixin keeps it as a shim yielding
   `initial_condition(x)` and then the forecasts of `rollout_iterator`, so existing
   loops counting `nsteps + 1` yields keep their lead times. Unlike before, its front
