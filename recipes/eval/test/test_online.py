@@ -1130,6 +1130,26 @@ class TestStatsSchema:
         assert not os.path.exists(stats_path + ".bak")
         assert not os.path.exists(stats_path + ".compacting")
 
+    def test_compacted_store_can_be_resumed(self, tmp_path):
+        # A resumed run reopens the store through the recipe's backend, which
+        # reads coordinate arrays raw; xarray decodes them and would hide a change.
+        cfg = _base_cfg(tmp_path)
+        stats = build_statistics(1, has_climatology=False)
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
+            with open_stats_store(cfg, stats, VARIABLES, IC_TIMES, LEAD_TIMES, 1):
+                pass
+            compact_stats_store(cfg)
+            cfg.resume = True
+            cfg.output.overwrite = False
+            with open_stats_store(
+                cfg, stats, VARIABLES, IC_TIMES, LEAD_TIMES, 1
+            ) as mgr:
+                assert np.array_equal(mgr.io.coords["time"], IC_TIMES)
+                assert np.array_equal(mgr.io.coords["lead_time"], LEAD_TIMES)
+
     def test_climatology_switches_moment_field_names(self):
         anom = build_statistics(1, has_climatology=True)
         raw = build_statistics(1, has_climatology=False)

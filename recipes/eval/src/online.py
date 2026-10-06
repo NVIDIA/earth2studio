@@ -87,6 +87,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import xarray as xr
+import zarr
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
@@ -2902,36 +2903,46 @@ def compact_stats_store(cfg: DictConfig) -> tuple[int, int] | None:
             shutil.rmtree(path)
 
     files_before = _count_files(stats_path)
-    with xr.open_zarr(stats_path) as ds:
-        # The source chunking rides along in each variable's encoding and wins
-        # over any rechunking, so it has to be dropped explicitly.
-        encoding = {}
-        for name, var in ds.variables.items():
-            var.encoding = {}
-            encoding[name] = {"chunks": var.shape}
-        ds.chunk({dim: -1 for dim in ds.sizes}).to_zarr(
-            tmp_path, mode="w", consolidated=True, encoding=encoding
+    # Copy array by array with zarr rather than xarray: xarray would CF-encode the
+    # time and lead_time coordinates, which the recipe's store backend reads raw, so
+    # a resumed run could no longer open the store.
+    source = zarr.open_group(stats_path, mode="r")
+    copy = zarr.open_group(tmp_path, mode="w", attributes=dict(source.attrs))
+    for name, array in source.arrays():
+        out = copy.create_array(
+            name,
+            shape=array.shape,
+            dtype=array.dtype,
+            chunks=array.shape,
+            fill_value=array.fill_value,
+            attributes=dict(array.attrs),
+            dimension_names=array.metadata.dimension_names,
+            compressors=array.compressors,
+            serializer=array.serializer,
         )
+        out[...] = array[...]
+    zarr.consolidate_metadata(tmp_path)
 
-    with xr.open_zarr(stats_path) as original, xr.open_zarr(tmp_path) as compacted:
-        mismatch = original.sizes != compacted.sizes or any(
-            not np.array_equal(
-                original[name].values, compacted[name].values, equal_nan=True
-            )
-            for name in original.data_vars
-        )
-        expected = compacted.sizes
+    compacted = zarr.open_group(tmp_path, mode="r")
+    mismatch = sorted(n for n, _ in source.arrays()) != sorted(
+        n for n, _ in compacted.arrays()
+    ) or any(
+        compacted[name].dtype != array.dtype
+        or not np.array_equal(array[...], compacted[name][...], equal_nan=True)
+        for name, array in source.arrays()
+    )
     if mismatch:
         shutil.rmtree(tmp_path)
         raise RuntimeError(
             f"Compacted copy of '{stats_path}' does not match the original; "
             "left the original store untouched."
         )
+    expected = {name: array.shape for name, array in compacted.arrays()}
 
     os.rename(stats_path, backup_path)
     os.rename(tmp_path, stats_path)
-    with xr.open_zarr(stats_path) as reopened:
-        swapped_ok = reopened.sizes == expected
+    reopened = zarr.open_group(stats_path, mode="r")
+    swapped_ok = {name: array.shape for name, array in reopened.arrays()} == expected
     if not swapped_ok:
         shutil.rmtree(stats_path)
         os.rename(backup_path, stats_path)
