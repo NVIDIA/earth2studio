@@ -27,24 +27,23 @@ from earth2studio.utils.type import CoordinateSystem
 class DiagnosticModel(Protocol):
     """Diagnostic model interface
 
-    Inputs and outputs are one DataArray or a tuple of DataArrays ("slots"), as for
-    prognostic models. Diagnostics may also define ``default_sources()``, returning
-    one ``SourceDefault | None`` per input slot; it is optional here because
-    diagnostics share no base class. Drivers read it through
+    Inputs and outputs are one DataArray or a tuple of DataArrays ("slots"), shaped
+    like ``input_coords()`` and ``output_coords()``, as for prognostic models.
+    Diagnostics may also define ``default_sources()``, returning one ``DataSource |
+    ForecastSource | None`` per input slot; it is optional here because diagnostics
+    share no base class. Drivers read it through
     ``earth2studio.models.px.base.recommended_sources``.
     """
 
     def __call__(
-        self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
+        self, x: xr.DataArray | tuple[xr.DataArray, ...]
     ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
         x : xr.DataArray | tuple[xr.DataArray, ...]
-            NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``,
-            one DataArray per input slot.
+            NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``.
 
         Returns
         -------

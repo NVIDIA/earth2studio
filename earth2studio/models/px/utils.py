@@ -15,92 +15,68 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from dataclasses import replace
-from typing import Any
+import warnings
+from collections.abc import Callable, Generator, Iterator
+from typing import TYPE_CHECKING, Any
 
 import xarray as xr
 
-from earth2studio.models.px.base import ModelState, SourceDefault
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource, ForecastSource
 
 Hook = Callable[[xr.DataArray], xr.DataArray]
 
 
-def _as_tuple(value: Any) -> tuple:
-    return value if isinstance(value, tuple) else (value,)
+def _count(signature: Any) -> int:
+    if signature is None:
+        return 0
+    return len(signature) if isinstance(signature, tuple) else 1
 
 
-def _grid_key(signature: CoordinateSystem) -> Any:
-    """Grid identity of a slot: its registered grid ID, else its spatial axes."""
-    grid_id = signature.attrs.get("earth2studio_grid_id")
-    if grid_id is not None:
-        return grid_id
-    return tuple(
-        (dim, signature.sizes[dim])
-        for dim in signature.dims
-        if dim not in ("variable", "lead_time") and signature.sizes[dim] > 0
-    )
+def initial_condition(
+    x: xr.DataArray | tuple[xr.DataArray, ...],
+) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    """Initial condition of a rollout: each input slot at its final lead time.
 
-
-def input_roles(model: Any) -> tuple[str, ...]:
-    """Derive the role of each input slot from a model's signatures.
-
-    A variable is state when an output slot on the same grid produces it, a step
-    input when it is input-only with ``lead_time``, and static otherwise. Every
-    variable in a slot must share one role.
+    ``rollout_iterator`` yields forecasts only; drivers that publish the starting
+    fields take them from the inputs with this helper.
 
     Parameters
     ----------
-    model : PrognosticModel
-        Model whose ``input_coords()`` and ``output_coords()`` are inspected.
+    x : xr.DataArray | tuple[xr.DataArray, ...]
+        Initial fields matching ``input_coords()``.
 
     Returns
     -------
-    tuple[str, ...]
-        ``"state"``, ``"step"`` or ``"static"`` for each input slot.
-
-    Raises
-    ------
-    ValueError
-        If an input slot mixes roles.
+    xr.DataArray | tuple[xr.DataArray, ...]
+        ``x`` reduced to its final ``lead_time`` entry, keeping the dimension.
     """
-    inputs = _as_tuple(model.input_coords())
-    outputs = _as_tuple(model.output_coords(model.input_coords()))
-    produced = {
-        (variable, _grid_key(signature))
-        for signature in outputs
-        for variable in signature["variable"].values
-    }
-    roles = []
-    for index, signature in enumerate(inputs):
-        kinds = {
-            (
-                "state"
-                if (variable, _grid_key(signature)) in produced
-                else "step" if "lead_time" in signature.dims else "static"
-            )
-            for variable in signature["variable"].values
-        }
-        if len(kinds) != 1:
-            raise ValueError(f"input slot {index} mixes roles {sorted(kinds)}")
-        roles.append(kinds.pop())
-    return tuple(roles)
+    if isinstance(x, tuple):
+        return tuple(slot.isel(lead_time=[-1]) for slot in x)
+    return x.isel(lead_time=[-1])
 
 
 class PrognosticMixin:
     """DataArray iterator hooks around core advances and forecast outputs.
 
-    Hooks take and return one DataArray in the original leading dimensions.
-    Hooks belong to the iterator, which is the only path that owns a rollout loop.
-    ``__call__`` is the single-step primitive and does not apply them: a caller
-    holding a single step can transform the DataArray itself, whereas nothing outside
-    ``create_iterator`` can reach the state fed back between steps.
+    Hooks take and return the model's output payload (``y``) in the original
+    leading dimensions. Hooks belong to the iterator, which is the only path that
+    owns a rollout loop. ``__call__`` is the single-step primitive and does not apply
+    them: a caller holding a single step can transform the DataArray itself, whereas
+    nothing outside ``rollout_iterator`` can reach the outputs fed back between
+    steps.
 
     ``front_hook``/``rear_hook`` are single callable slots, not a registration
     list: a caller with more than one transformation to apply composes them into
     one function and assigns that, so the order they run in is visible at the
     assignment site rather than spread across every place that registered one.
+
+    Wrappers that still define their own ``__call__``/``create_iterator`` override
+    the derived versions below, and inherit ``initialize``/``step`` stubs until they
+    are migrated. ``rollout_iterator`` wraps such a ``create_iterator``, dropping its
+    initial-condition yield.
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
@@ -127,13 +103,11 @@ class PrognosticMixin:
             if name in vars(self):
                 delattr(self, name)
 
-    # Proposed explicit-state protocol. Wrappers that still define their own
-    # ``__call__``/``create_iterator`` override the derived versions below, and
-    # inherit ``initialize``/``step`` stubs until they are migrated.
-
     def initialize(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]:
+        self,
+        x: xr.DataArray | tuple[xr.DataArray, ...],
+        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Start a rollout; migrated wrappers implement this."""
         raise NotImplementedError(
             f"{type(self).__name__} has not migrated to initialize/step yet"
@@ -141,79 +115,108 @@ class PrognosticMixin:
 
     def step(
         self,
-        state: ModelState,
-        inputs: tuple[xr.DataArray | None, ...] | None = None,
-    ) -> tuple[ModelState, xr.DataArray | tuple[xr.DataArray, ...]]:
+        y: xr.DataArray | tuple[xr.DataArray, ...],
+        state: Any,
+        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Advance a rollout; migrated wrappers implement this."""
         raise NotImplementedError(
             f"{type(self).__name__} has not migrated to initialize/step yet"
         )
 
-    def default_sources(self) -> tuple[SourceDefault | None, ...]:
-        """Recommend no source for any input slot."""
-        return (None,) * len(_as_tuple(self.input_coords()))  # type: ignore[attr-defined]
+    def forcing_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...] | None:
+        """Declare no forcing."""
+        return None
 
-    def _step_inputs(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> tuple[xr.DataArray | None, ...] | None:
-        """Select the step input slots already present in initial fields."""
-        roles = input_roles(self)
-        if "step" not in roles:
-            return None
-        fields = x if isinstance(x, tuple) else (x,)
-        return tuple(
-            field if role == "step" else None for field, role in zip(fields, roles)
+    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
+        """Recommend no source for any input or forcing slot."""
+        count = _count(self.input_coords()) + _count(  # type: ignore[attr-defined]
+            self.forcing_coords()
         )
+        return (None,) * count
 
-    def _require_step_inputs(
-        self, pending: tuple[xr.DataArray | None, ...] | None
-    ) -> None:
-        """Raise naming any step input slot missing from ``pending``."""
-        roles = input_roles(self)
-        missing = [
-            i
-            for i, role in enumerate(roles)
-            if role == "step" and (pending is None or pending[i] is None)
-        ]
-        if missing:
-            raise ValueError(
-                f"missing step inputs for slot(s) {missing}; send(...) must supply "
-                "them, as next(it)/send(None) is valid only for models without "
-                "step input slots"
-            )
+    # The derived ``__call__``/``create_iterator`` take ``forcing`` through
+    # ``*args``/``**kwargs`` only so that unmigrated wrappers defining
+    # ``__call__(x)``/``create_iterator(x)`` still type check as overrides. The
+    # protocol declares the real signature ``(x, forcing=None)``; restore it here
+    # once no wrapper overrides these.
 
     def __call__(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
+        self, x: xr.DataArray | tuple[xr.DataArray, ...], *args: Any, **kwargs: Any
     ) -> xr.DataArray | tuple[xr.DataArray, ...]:
-        """Advance one step from ``x`` without hooks, via ``initialize``/``step``."""
-        state, _ = self.initialize(x)
-        pending = self._step_inputs(x)
-        self._require_step_inputs(pending)
-        return self.step(state, pending)[1]
+        """Advance one step from ``x`` without hooks, via ``initialize``."""
+        forcing = args[0] if args else kwargs.get("forcing")
+        if forcing is None and self.forcing_coords() is not None:
+            raise ValueError(f"{type(self).__name__} requires forcing")
+        return self.initialize(x, forcing)[0]
 
-    # Annotated as an Iterator so unmigrated wrappers returning Iterator still type
-    # check as overrides; the generator still accepts step inputs through ``send``.
-    def create_iterator(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...]
-    ) -> Iterator[xr.DataArray | tuple[xr.DataArray, ...]]:
-        """Roll out via ``initialize``/``step``, receiving step inputs by ``send``.
+    def rollout_iterator(
+        self,
+        x: xr.DataArray | tuple[xr.DataArray, ...],
+        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+    ) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
+        None,
+    ]:
+        """Roll out from input ``x`` and forcing ``forcing`` via ``initialize``/``step``.
+        Subseqeuent rollout steps receive forcing at later lead times by ``send``.
 
-        Yields the initial condition first. A value sent at a yield is the step
-        inputs for the next advance; sending ``None`` (or calling ``next``) at the
-        0th yield reuses the step input slots in ``x``. Each yield is one ``step``:
-        a model computing several lead times per core call yields them together.
-        Sending ``None`` at a later yield is valid only for models without step
-        input slots; otherwise it raises naming the missing slots.
+        Yields forecasts only, starting with the output of ``initialize``; take the
+        initial condition from ``initial_condition(x)``. ``forcing`` is the initial
+        window, consumed by ``initialize``. A value sent at a yield is the forcing
+        for the next ``step``; sending ``None`` (or calling ``next``) is valid only
+        for models without forcing. Each yield is one core computation: a model
+        computing several lead times per core call yields them together.
+
+        The front hook edits ``y`` before it is fed into the next step, so it never
+        sees the initial condition; edit ``x`` before calling instead. The rear hook
+        edits only the published output, including the first forecast.
         """
+        if (
+            type(self).initialize is PrognosticMixin.initialize
+            and type(self).create_iterator is not PrognosticMixin.create_iterator
+        ):
+            # Unmigrated wrapper: drop the initial condition its own iterator yields.
+            legacy = self.create_iterator(x)
+            next(legacy)
+            yield from legacy
+            return
+
         # Hooks see whatever payload type the model declares.
         front_hook: Callable[[Any], Any] = self.front_hook
         rear_hook: Callable[[Any], Any] = self.rear_hook
+        forced = self.forcing_coords() is not None
+        if forced and forcing is None:
+            raise ValueError(f"{type(self).__name__} requires forcing")
 
-        state, initial = self.initialize(x)
-        sent = yield initial
-        pending = self._step_inputs(x) if sent is None else sent
+        y, state = self.initialize(x, forcing)
         while True:
-            self._require_step_inputs(pending)
-            state = replace(state, fields=front_hook(state.fields))
-            state, out = self.step(state, pending)
-            pending = yield rear_hook(out)
+            forcing = yield rear_hook(y)
+            if forced and forcing is None:
+                raise ValueError(
+                    f"{type(self).__name__} requires forcing: send(...) it at each "
+                    "yield"
+                )
+            y, state = self.step(front_hook(y), state, forcing)
+
+    # Annotated as an Iterator for the same reason as ``__call__``; the generator
+    # still accepts forcing through ``send``.
+    def create_iterator(
+        self, x: xr.DataArray | tuple[xr.DataArray, ...], *args: Any, **kwargs: Any
+    ) -> Iterator[xr.DataArray | tuple[xr.DataArray, ...]]:
+        """Deprecated: yield ``initial_condition(x)``, then ``rollout_iterator``.
+
+        Kept so existing loops counting ``nsteps + 1`` yields keep their lead
+        times. The front hook no longer runs on the initial condition, and a value
+        sent at the 0th yield is ignored: the first forecast uses ``forcing``.
+        """
+        warnings.warn(
+            "create_iterator is deprecated; use rollout_iterator, which yields "
+            "forecasts only, and initial_condition(x) for the starting fields",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        forcing = args[0] if args else kwargs.get("forcing")
+        yield initial_condition(x)
+        yield from self.rollout_iterator(x, forcing)
