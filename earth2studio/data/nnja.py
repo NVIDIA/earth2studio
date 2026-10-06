@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import shutil
@@ -228,7 +229,8 @@ class NNJAObsConv:
     verbose : bool, optional
         Show progress bars, by default True.
     async_timeout : int, optional
-        Total timeout in seconds for the async fetch, by default 600.
+        Timeout in seconds for downloading the files, by default 600. Decoding
+        them is not bounded.
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
@@ -338,9 +340,8 @@ class NNJAObsConv:
     ) -> pd.DataFrame:
         """Fetch observations for a set of timestamps."""
         try:
-            df = _sync_async(
-                self.fetch, time, variable, fields, timeout=self.async_timeout
-            )
+            # async_timeout bounds the download inside fetch; decode is not bounded.
+            df = _sync_async(self.fetch, time, variable, fields)
         finally:
             self.cleanup()
 
@@ -358,7 +359,9 @@ class NNJAObsConv:
         schema = self.resolve_fields(fields)
 
         tasks = self._create_tasks(time_list, variable_list)
-        await self.fetch_files(list({task.uri for task in tasks}))
+        await asyncio.wait_for(
+            self.fetch_files(list({task.uri for task in tasks})), self.async_timeout
+        )
 
         return compile_dataframe(
             tasks,
@@ -563,7 +566,8 @@ class NNJAObsSatwnd(NNJAObsConv):
     verbose : bool, optional
         Show progress bars, by default True.
     async_timeout : int, optional
-        Total timeout in seconds for the async fetch, by default 600.
+        Timeout in seconds for downloading the files, by default 600. Decoding
+        them is not bounded.
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
@@ -722,7 +726,8 @@ class NNJAObsSat:
     verbose : bool, optional
         Show progress bars, by default True.
     async_timeout : int, optional
-        Total timeout in seconds for the async fetch, by default 600.
+        Timeout in seconds for downloading the files, by default 600. Decoding
+        them is not bounded.
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 8.
     decode_workers : int, optional
@@ -869,9 +874,8 @@ class NNJAObsSat:
     ) -> pd.DataFrame:
         """Fetch observations for a set of timestamps."""
         try:
-            df = _sync_async(
-                self.fetch, time, variable, fields, timeout=self.async_timeout
-            )
+            # async_timeout bounds the download inside fetch; decode is not bounded.
+            df = _sync_async(self.fetch, time, variable, fields)
         finally:
             self.cleanup()
 
@@ -891,7 +895,7 @@ class NNJAObsSat:
         tasks = self._create_tasks(time_list, variable_list)
         uris = list({task.uri for task in tasks})
         try:
-            await self.fetch_files(uris)
+            await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
         except Exception as exc:
             self._handle_fetch_failure(uris, exc)
 

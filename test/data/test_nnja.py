@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import shutil
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -1980,3 +1982,38 @@ def test_nnja_ir_decode_respects_channel_replication_count():
     ]
     rows = _decode_ir_pairs(pairs, "airs")
     assert [row["sensor_index"] for row in rows] == [1]
+
+
+def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
+    tmp_path, monkeypatch
+):
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2024-01-01 00:00:00"]),
+            "observation": [273.15],
+            "variable": ["t"],
+        }
+    )
+    source = NNJAObsConv(cache=True, verbose=False, async_timeout=1)
+
+    async def quick_fetch(uris):
+        return None
+
+    def slow_decode(path, task):
+        time.sleep(1.5)
+        return frame.copy()
+
+    monkeypatch.setattr(source, "fetch_files", quick_fetch)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "_decode_file", slow_decode)
+    fields = ["time", "observation", "variable"]
+    assert len(source(datetime(2024, 1, 1), ["t"], fields=fields)) == 1
+
+    async def slow_fetch(uris):
+        await asyncio.sleep(1.5)
+
+    monkeypatch.setattr(source, "fetch_files", slow_fetch)
+    with pytest.raises(TimeoutError):
+        source(datetime(2024, 1, 1), ["t"], fields=fields)
