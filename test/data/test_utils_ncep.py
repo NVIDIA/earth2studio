@@ -924,3 +924,28 @@ def test_dx_messages_that_fail_or_give_no_tables_raise(monkeypatch):
         monkeypatch.setattr(utils_bufr, "BufrDecoder", lambda: decoder)
         with pytest.raises(ValueError, match=match):
             utils_bufr.parse_prepbufr_messages(message)
+
+
+def test_compile_dataframe_raises_a_decode_error_unless_handled(tmp_path):
+    good, bad = tmp_path / "good.bufr", tmp_path / "bad.bufr"
+    good.write_bytes(b"")
+    bad.write_bytes(b"")
+    tasks = [
+        SimpleNamespace(uri=str(good), datetime_file=datetime(2024, 1, 1)),
+        SimpleNamespace(uri=str(bad), datetime_file=datetime(2024, 1, 1, 6)),
+    ]
+    schema = pa.schema([("value", pa.float64())])
+
+    def decode(path, task):
+        if path == str(bad):
+            raise ValueError("DX-table message 2 of 3 failed")
+        return pd.DataFrame({"value": [1.0]})
+
+    with pytest.raises(ValueError, match="DX-table message"):
+        utils_ncep.compile_dataframe(tasks, schema, "test", str, decode)
+
+    errors = []
+    frame = utils_ncep.compile_dataframe(
+        tasks, schema, "test", str, decode, on_error=lambda *args: errors.append(args)
+    )
+    assert len(frame) == 1 and len(errors) == 1

@@ -1311,8 +1311,8 @@ def compile_dataframe(
         Decodes one local file given ``(path, task)``.
     on_error : Callable[[str, int, int, Exception], None] | None
         Optional error callback invoked as ``on_error(uri, idx, n_tasks, exc)``
-        when ``decode_task`` raises.  If ``None`` the error is logged and the
-        task is skipped.
+        when ``decode_task`` raises, after which the task is skipped. If ``None``
+        the error propagates.
     """
     frames: list[pd.DataFrame] = []
     n_tasks = len(tasks)
@@ -1328,9 +1328,10 @@ def compile_dataframe(
         t0 = time.perf_counter()
         try:
             df = decode_task(path, task)
-        except Exception as exc:  # pragma: no cover - defensive
-            if on_error is not None:
-                on_error(uri, idx, n_tasks, exc)
+        except Exception as exc:
+            if on_error is None:
+                raise
+            on_error(uri, idx, n_tasks, exc)
             logger.error(f"Failed to decode {path}: {exc}")
             continue
         elapsed = time.perf_counter() - t0
