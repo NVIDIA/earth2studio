@@ -54,19 +54,17 @@ class DiagnosticModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
-            Allocation-free DataArray input signature, or one per input slot.
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         pass
 
-    def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
-    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the diagnostic model.
 
         Parameters
@@ -76,8 +74,8 @@ class DiagnosticModel(Protocol):
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
-            Allocation-free DataArray output signature, or one per output slot.
+        CoordinateSystem
+            Allocation-free DataArray output signature.
 
         Raises
         ------

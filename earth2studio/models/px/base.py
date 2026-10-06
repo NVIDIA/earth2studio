@@ -56,40 +56,6 @@ def recommended_sources(
             count += len(signature) if isinstance(signature, tuple) else 1
     return (None,) * count
 
-if TYPE_CHECKING:
-    from earth2studio.data.base import DataSource, ForecastSource
-
-
-def recommended_sources(
-    model: Any,
-) -> tuple[DataSource | ForecastSource | None, ...]:
-    """Recommended source for each input and forcing slot of a model.
-
-    Prognostic models always declare ``default_sources()``; for diagnostics it is
-    optional, and models without it recommend nothing.
-
-    Parameters
-    ----------
-    model : PrognosticModel | DiagnosticModel
-        Model whose slots need providers.
-
-    Returns
-    -------
-    tuple[DataSource | ForecastSource | None, ...]
-        One entry per ``input_coords()`` slot, then one per ``forcing_coords()``
-        slot.
-    """
-    declared = getattr(model, "default_sources", None)
-    if declared is not None:
-        return declared()
-    count = 0
-    for name in ("input_coords", "forcing_coords"):
-        method = getattr(model, name, None)
-        signature = method() if method is not None else None
-        if signature is not None:
-            count += len(signature) if isinstance(signature, tuple) else 1
-    return (None,) * count
-
 
 # --8<-- [start:prognostic-model-interface]
 @runtime_checkable
@@ -253,7 +219,7 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
@@ -283,9 +249,7 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
-    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
@@ -302,22 +266,6 @@ class PrognosticModel(Protocol):
         ------
         ValueError
             If the input coordinates are not valid.
-        """
-        pass
-
-    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
-        """Recommended data sources for each input and forcing slot.
-
-        One entry per ``input_coords()`` slot, then one per ``forcing_coords()``
-        slot. ``None`` means no recommendation. A source whose native grid differs
-        from the slot's is returned composed with the recommended regridder;
-        transforms intrinsic to the model, whatever the provider, stay inside the
-        wrapper. Models never fetch from these themselves.
-
-        Returns
-        -------
-        tuple[DataSource | ForecastSource | None, ...]
-            One entry per input slot, then one per forcing slot.
         """
         pass
 
