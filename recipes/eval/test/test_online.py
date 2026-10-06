@@ -1118,6 +1118,20 @@ class TestMultiReference:
         # The chunk is shared, not copied per reference.
         assert a.updates[0] is b.updates[0] is chunk
 
+    def test_ic_is_marked_once_after_every_reference_wrote(self):
+        log = []
+        a, b = _RecordingScorer(log), _RecordingScorer(log)
+        MultiRefScorer({"era5": a, "ifs": b}).finish_item(object())
+        assert log == [("finish", a, False), ("finish", b, False), ("mark", a)]
+
+    def test_crash_before_the_last_reference_leaves_the_ic_unmarked(self):
+        log = []
+        a, b = _RecordingScorer(log), _RecordingScorer(log, fail_finish=True)
+        with pytest.raises(RuntimeError):
+            MultiRefScorer({"era5": a, "ifs": b}).finish_item(object())
+        # Resume rescoring this IC is what fills the reference that never wrote.
+        assert ("mark", a) not in log
+
     def test_fan_out_requires_a_child(self):
         with pytest.raises(ValueError, match="at least one"):
             MultiRefScorer({})
@@ -1136,10 +1150,12 @@ class _StubPipeline:
 class _RecordingScorer:
     """Records the fan-out calls a MultiRefScorer makes to each child."""
 
-    def __init__(self):
+    def __init__(self, log=None, fail_finish=False):
         self.begun = []
         self.updates = []
         self.finished = []
+        self.log = [] if log is None else log
+        self.fail_finish = fail_finish
 
     def begin_item(self, item):
         self.begun.append(item)
@@ -1147,8 +1163,14 @@ class _RecordingScorer:
     def update(self, x, coords):
         self.updates.append(x)
 
-    def finish_item(self, item):
+    def finish_item(self, item, mark_done=True):
+        if self.fail_finish:
+            raise RuntimeError("crash while writing this reference")
         self.finished.append(item)
+        self.log.append(("finish", self, mark_done))
+
+    def mark_done(self, item):
+        self.log.append(("mark", self))
 
 
 class TestStatsSchema:

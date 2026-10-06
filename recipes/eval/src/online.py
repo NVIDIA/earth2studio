@@ -2342,13 +2342,22 @@ class OnlineScorer:
         for i, lead in enumerate(lead_times):
             self._step(x[i], lead)
 
-    def finish_item(self, item: WorkItem) -> None:
+    def finish_item(self, item: WorkItem, mark_done: bool = True) -> None:
         """Complete deferred work, write the IC's slab, and mark it done.
 
         The group is already synchronized by the final lead step's
         reduction, so no extra barrier is needed — but the flush below
         *is* collective (it drains the deferred CRPS exchange), so every
         rank of the group runs it before the root writes.
+
+        Parameters
+        ----------
+        item : WorkItem
+            The IC being finished.
+        mark_done : bool, optional
+            Write the resume marker after the slab. :class:`MultiRefScorer`
+            passes ``False`` and marks the IC once every reference has
+            written, by default True
         """
         missing = self._expected_leads - self._seen_leads
         if missing:
@@ -2362,8 +2371,14 @@ class OnlineScorer:
         if self._comm.is_root:
             self._write_slab(item.time)
             self._stats_mgr.flush()
-            write_online_marker(item.time, self._cfg)
+        if mark_done:
+            self.mark_done(item)
         self._item = None
+
+    def mark_done(self, item: WorkItem) -> None:
+        """Write the IC's resume marker (group root only)."""
+        if self._comm.is_root:
+            write_online_marker(item.time, self._cfg)
 
     def _flush_statistics(self) -> None:
         """Let statistics finish deferred work at the end of an IC.
@@ -3147,8 +3162,16 @@ class MultiRefScorer:
             scorer.update(x, coords)
 
     def finish_item(self, item: WorkItem) -> None:
+        """Write every reference's slab, then mark the IC done once.
+
+        The marker is shared by all references, and resume skips a marked
+        IC. Written after the last slab, a crash part-way through leaves the
+        IC unmarked, so it is rescored rather than left NaN in the
+        references that had not yet written.
+        """
         for scorer in self._scorers.values():
-            scorer.finish_item(item)
+            scorer.finish_item(item, mark_done=False)
+        next(iter(self._scorers.values())).mark_done(item)
 
 
 def build_online_scorers(

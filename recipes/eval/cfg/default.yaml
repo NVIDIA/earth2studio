@@ -282,10 +282,10 @@ scoring:
         # verification_sources:
         #     era5:
         #         _target_: src.data.PredownloadedSource
-        #         path: ${output.path}/verification.zarr
+        #         store_path: ${output.path}/verification.zarr
         #     ifs:
         #         _target_: src.data.PredownloadedSource
-        #         path: /data/ifs_analysis.zarr   # staged by you, see below
+        #         store_path: /data/ifs_analysis.zarr   # predownload.py does not stage this
         #     self_analysis: null   # reuse the pipeline's default resolution
         verification_sources: null
 
