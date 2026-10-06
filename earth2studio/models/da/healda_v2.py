@@ -98,8 +98,11 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",))``,
     ``NNJAObsSatwnd`` and ``NNJAObsSat(sensor_indices=model.sensor_indices)``.
 
-    Any stream may be omitted; the analysis then uses the others alone. Operational
-    channel denials (``healda.inference.DENIALS``) apply by analysis time.
+    Any stream may be omitted; the analysis then uses the others alone. HealDA's
+    inference observation policy (``healda.observations.system.inference_filters``)
+    applies: dated channel denials, footprints marked by the provider quality flags
+    (``scan_quality``, ``granule_quality``, ``footprint_quality``), and radiosonde
+    wind heights filled from pressure.
 
     Parameters
     ----------
