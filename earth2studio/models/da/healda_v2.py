@@ -227,7 +227,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         checkpoint_name: str = "healda_v2.checkpoint",
-        loop_name: str = "v2-nnja-latlon-final",
     ) -> AssimilationModel:
         """Load HealDA v2 from package.
 
@@ -243,9 +242,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         checkpoint_name : str, optional
             Name of the checkpoint file inside the package, by default
             "healda_v2.checkpoint"
-        loop_name : str, optional
-            healda training preset to fall back to when the checkpoint carries no
-            ``loop.json``, by default "v2-nnja-latlon-final"
 
         Returns
         -------
@@ -254,7 +250,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         """
         path = package.resolve(checkpoint_name)
         logger.info(f"Building HealDA v2 from {checkpoint_name}")
-        model = healda_inference.load_da_model(path, "cpu", loop_name=loop_name)
+        model = healda_inference.load_da_model(path, "cpu")
         return cls(model)
 
     def __call__(
