@@ -62,9 +62,10 @@ def recommended_sources(
 class PrognosticModel(Protocol):
     """Prognostic model interface
 
-    ``initialize`` and ``step`` are the primitives. ``__call__`` and
-    ``create_iterator`` derive from them and are supplied by ``PrognosticMixin``,
-    so a wrapper implements the transition once and both entry points agree.
+    ``initialize`` and ``step`` are the primitives, each one core computation.
+    ``__call__`` and ``rollout_iterator`` derive from them and are supplied by
+    ``PrognosticMixin``, so a wrapper implements the transition once and every entry
+    point agrees. ``create_iterator`` is deprecated.
 
     Each argument group is one argument shaped like the coordinate method that
     describes it: a DataArray when that method returns one ``CoordinateSystem``,
@@ -85,8 +86,7 @@ class PrognosticModel(Protocol):
     ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Forward pass of the prognostic model, time integrating a single time-step
 
-        Equivalent to ``initialize(x, forcing)`` followed by one ``step`` with the
-        same ``forcing``. Applies no hooks.
+        Equivalent to the outputs of ``initialize(x, forcing)``. Applies no hooks.
 
         Parameters
         ----------
@@ -102,6 +102,37 @@ class PrognosticModel(Protocol):
         """
         pass
 
+    def rollout_iterator(
+        self,
+        x: xr.DataArray | tuple[xr.DataArray, ...],
+        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+    ) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
+        None,
+    ]:
+        """Creates an iterator which time-integrates the prognostic model.
+
+        Yields forecasts only, starting with the outputs of ``initialize``; drivers
+        publishing the initial condition take it manually from ``x``.
+        ``nsteps`` forecasts take ``nsteps`` yields. A value sent at a yield is the
+        forcing for the next ``step``; ``next(it)`` is ``send(None)``, valid only for
+        models without forcing.
+
+        Parameters
+        ----------
+        x : xr.DataArray | tuple[xr.DataArray, ...]
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray | tuple[xr.DataArray, ...] | None, optional
+            Initial forcing window matching ``forcing_coords()``.
+
+        Yields
+        ------
+        xr.DataArray | tuple[xr.DataArray, ...]
+            Successive forecasts, each matching ``output_coords()``.
+        """
+        pass
+
     def create_iterator(
         self,
         x: xr.DataArray | tuple[xr.DataArray, ...],
@@ -111,12 +142,10 @@ class PrognosticModel(Protocol):
         xr.DataArray | tuple[xr.DataArray, ...] | None,
         None,
     ]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+        """Deprecated: use ``rollout_iterator``.
 
-        A value sent at a yield is the forcing for the next advance, as ``step``
-        takes it. ``next(it)`` is ``send(None)``: at the 0th yield it reuses
-        ``forcing``; later it is valid only for models without forcing.
+        Yields ``initial_condition(x)`` (the 0th step), then the forecasts of
+        ``rollout_iterator``.
 
         Parameters
         ----------
@@ -139,10 +168,10 @@ class PrognosticModel(Protocol):
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Start a rollout from initial fields and forcing.
 
-        Splits the input window into the latest fields, returned as ``y``, and a
-        model-defined state holding everything else the rollout needs: older
-        input and forcing frames, statics, latents, noise states and the RNG
-        position derived from the model's seed. The state must be serializable
+        Computes the first forecast, returned as ``y``, and a model-defined state
+        holding everything else the rollout needs: older input and forcing frames,
+        statics, latents, noise states and the RNG position, drawn from the
+        model's seed. Applies no hooks. The state must be serializable
         (arrays, tensors, scalars, DataArrays, or dataclasses and tuples of them),
         or ``None``.
 
@@ -157,9 +186,7 @@ class PrognosticModel(Protocol):
         Returns
         -------
         tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]
-            ``y``, the initial condition reduced to the final input lead time (the
-            iterator's 0th yield), and the state. Later ``y`` match
-            ``output_coords()``, so ``step`` accepts both forms.
+            ``y``, the first forecast matching ``output_coords()``, and the state.
         """
         pass
 
