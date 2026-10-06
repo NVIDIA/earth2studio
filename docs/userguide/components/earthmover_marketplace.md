@@ -104,11 +104,11 @@ Per [Earthmover's own docs](https://docs.earthmover.io/marketplace/data-users):
 "When you subscribe to a dataset, a read-only repo appears in your Arraylake
 organization."
 
-The repo name is set by the provider and varies per listing - e.g.
-`<org>/era5-subscription` for ERA5, or
-`<org>/ecmwf-ifs-initial-conditions-open-subscription` for Brightband's IFS initial
+The subscribed repo name is set by the provider and varies per listing - e.g.
+`<your_org>/era5-subscription` for ERA5, or
+`<your_org>/ecmwf-ifs-initial-conditions-open-subscription` for Brightband's IFS initial
 conditions - so check the listing page or the data source's docstring for the exact
-name.
+name. It's highly recommended to not change the repo name when subscribing to keep the default repo naming convention `<your_org>/<source_repo>-subscription`.
 
 "Many datasets on the Marketplace are freely available. Anyone with an Arraylake
 account can subscribe to free listings instantly." Free listings "use direct
