@@ -6,7 +6,7 @@ The [Earthmover Marketplace](https://app.earthmover.io/marketplace) is Earthmove
 ["modern, cloud-native data sharing experience for high-value gridded weather,
 climate, and geospatial datasets"](https://docs.earthmover.io/marketplace/data-users),
 stored as [Arraylake](https://docs.earthmover.io/) / [Icechunk](https://icechunk.io/)
-Zarr repositories.
+repositories using [Zarr](https://zarr.readthedocs.io/en/stable/) as a true database for array data.
 
 Earth2Studio ships a set of data sources under `earth2studio.data` that read directly
 from Marketplace repositories, so datasets can be used as initial conditions or
