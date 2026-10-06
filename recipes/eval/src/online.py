@@ -3154,10 +3154,12 @@ class MultiRefScorer:
         self._scorers = scorers
 
     def begin_item(self, item: WorkItem) -> None:
+        """Start a new initial condition in every reference's scorer."""
         for scorer in self._scorers.values():
             scorer.begin_item(item)
 
     def update(self, x: torch.Tensor, coords: CoordSystem) -> None:
+        """Hand the same forecast chunk to every reference's scorer."""
         for scorer in self._scorers.values():
             scorer.update(x, coords)
 
