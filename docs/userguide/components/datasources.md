@@ -126,8 +126,9 @@ data source.
 Earth2Studio includes data sources that read directly from the
 [Earthmover Marketplace](https://app.earthmover.io/marketplace), a catalog of
 analysis-ready weather/climate datasets stored as Arraylake/Icechunk Zarr
-repositories. See [Earthmover Marketplace](earthmover_marketplace.md) for subscription,
-authentication and usage details.
+repositories. See
+[Access Earthmover Marketplace Data with Earth2Studio](../../blog/posts/earthmover-marketplace.md)
+for subscription, authentication and usage details.
 
 ## Contributing a Datasource
 
