@@ -17,6 +17,7 @@ argument-hint: URL or local path to reference inference script (optional)
 
 - [ ] Read this SKILL.md completely first
 - [ ] Get reference script (Step 0)
+- [ ] Decide whether the model has mutable rollout state and apply checkpoint guidance
 - [ ] Create `earth2studio/models/px/<name>.py` with triple inheritance
 - [ ] Create `test/models/px/test_<name>.py` with mock tests
 - [ ] Run: `uv run pytest test/models/px/test_<name>.py -v`
@@ -55,6 +56,7 @@ Load on demand during the matching step:
 | `references/skeleton-template.py` | Full model skeleton with FILL comments | Steps 3–6 |
 | `references/method-templates.py` | Canonical method implementations | Steps 4–6 |
 | `references/testing-guide.py` | Test skeleton and mock patterns | Step 7 |
+| `references/checkpointing.md` | Checkpoint state and restart patterns | Steps 1, 5, 7 |
 | `references/validation-guide.md` | Comparison scripts, PR, code review | Steps 10–11 |
 
 ---
@@ -68,7 +70,9 @@ If `$ARGUMENTS` provided, use it. Otherwise ask:
 
 ### Step 1 — Analyze & Propose Dependencies
 
-Analyze: packages, architecture, I/O shapes, time step, resolution, checkpoint.
+Analyze: packages, architecture, I/O shapes, time step, resolution, and whether
+the wrapper has mutable rollout state that must survive a restart. Read
+`references/checkpointing.md` before choosing a state representation.
 
 Propose `pyproject.toml` group (alphabetical, add to `all`). Every
 prognostic model must have an optional dependency extra, even when no packages
@@ -105,6 +109,7 @@ from earth2studio.models.px.base import PrognosticMixin
 from earth2studio.models.utils import create_coords_from_lat_lon, handshake_dim
 from earth2studio.lexicon import E2STUDIO_VOCAB
 from earth2studio.utils import check_optional_dependencies
+from earth2studio.utils.checkpoint import bind_checkpoint_state  # stateful models only
 from loguru import logger
 ```
 
@@ -141,6 +146,15 @@ Reshape to model format → call model → reshape back.
 **`create_iterator`:** MUST yield initial condition first (step 0).
 Use `front_hook`/`rear_hook` for perturbation injection.
 
+If the wrapper has mutable rollout state, bind a dataclass with
+`bind_checkpoint_state` in `__init__`. Restore only when a selected checkpoint
+contains state at the requested level, save state after each successful forward
+step and rear hook, and stage tensor state on `self.checkpoint.device`. A fresh
+iterator yields the initial condition; a resumed iterator yields the next state
+after the saved boundary. Construct restart-aware models inside the active
+checkpoint context. Stateless wrappers should explicitly document that no
+component checkpoint state is required.
+
 ### Step 6 — Implement Model Loading
 
 **`load_default_package`:** Lock HuggingFace URLs: `hf://org/repo@commit`
@@ -161,6 +175,11 @@ decorate with `@check_optional_dependencies()`.
 | `test_<model>_package` | Real weights (`@pytest.mark.package`) |
 
 Create `PhooModelName` dummy matching interface for mock tests.
+
+For stateful models, add a checkpoint round-trip test using a temporary
+`Checkpoint(..., level=2)`: write a completed lead time, construct the model
+under `with checkpoint.select(-1):`, and verify that the next output matches an
+uninterrupted rollout. Do not force checkpoint fields into stateless models.
 
 **Run tests:**
 ```bash
@@ -293,6 +312,7 @@ def create_iterator(self, x, coords):
 - Inherit `torch.nn.Module + AutoModelMixin + PrognosticMixin`
 - Yield initial condition first in `create_iterator`
 - Use `front_hook()`/`rear_hook()` in `_default_generator`
+- Bind only required mutable rollout state with `bind_checkpoint_state`; test restart behavior
 - Include SPDX header in every .py file
 
 **DON'T:**
