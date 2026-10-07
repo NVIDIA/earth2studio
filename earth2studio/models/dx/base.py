@@ -15,11 +15,14 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import xarray as xr
 
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource, ForecastSource
 
 
 @runtime_checkable
@@ -31,9 +34,8 @@ class DiagnosticModel(Protocol):
     names; generic callers use slot order rather than parameter names. One output
     is returned directly; multiple outputs are returned as a tuple in the order
     declared by ``output_coords()``. Diagnostics have no forcing slots.
-    Diagnostics may also define ``default_sources()``, returning one ``DataSource |
-    ForecastSource | None`` per input slot; it is optional here because diagnostics
-    share no base class. Drivers read it through
+    Diagnostics define ``default_sources()``, returning one ``DataSource |
+    ForecastSource | None`` per input slot. Drivers read it through
     ``earth2studio.models.utils.recommended_sources``.
     """
 
@@ -87,6 +89,22 @@ class DiagnosticModel(Protocol):
         ------
         ValueError
             If the input coordinates are not valid.
+        """
+        pass
+
+    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
+        """Recommended data sources for each input slot.
+
+        One entry per ``input_coords()`` slot, in declared order. ``None`` means
+        no recommendation. A source whose native grid differs from the slot's is
+        returned composed with the recommended regridder; transforms intrinsic
+        to the model, whatever the provider, stay inside the wrapper. Models
+        never fetch from these themselves.
+
+        Returns
+        -------
+        tuple[DataSource | ForecastSource | None, ...]
+            One entry per input slot.
         """
         pass
 

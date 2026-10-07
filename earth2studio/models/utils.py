@@ -38,8 +38,8 @@ def recommended_sources(
 ) -> tuple["DataSource | ForecastSource | None", ...]:
     """Recommended source for each input and forcing slot of a model.
 
-    Prognostic models always declare ``default_sources()``; for diagnostics it is
-    optional, and models without it recommend nothing.
+    Prognostic and diagnostic models declare ``default_sources()``. Models that
+    have not yet implemented it recommend nothing.
 
     Parameters
     ----------

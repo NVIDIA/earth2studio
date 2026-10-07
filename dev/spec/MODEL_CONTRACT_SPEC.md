@@ -404,8 +404,8 @@ hook, which changes FuXi-S2S's documented behavior (see Open Questions).
 
 `default_sources()` recommends one `DataSource | ForecastSource | None` per
 `input_coords()` slot, then one per `forcing_coords()` slot (`P23`); the slot
-signature remains the requirement. It is required for prognostic models (the mixin
-recommends nothing) and optional for diagnostics, which share no base class. Drivers
+signature remains the requirement. It is required for prognostic and diagnostic
+models (the prognostic mixin recommends nothing). Drivers
 read either through `earth2studio.models.utils.recommended_sources(model)`, fetch,
 and handshake the result
 against the slot.
@@ -428,7 +428,7 @@ use declared slot order, not parameter names. Coordinate methods retain
 single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
 a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
-coordinates differ. A diagnostic may define `default_sources()`, one entry per input
+coordinates differ. A diagnostic defines `default_sources()`, one entry per input
 slot. Forcing, `initialize`, `step` and hooks do not apply.
 
 ## Rules
