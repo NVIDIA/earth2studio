@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Inference-only DiT compatible with the bundled StormCast PDD checkpoints."""
+"""Inference-only DiT compatible with the bundled StormScope Flash checkpoints."""
 
 from __future__ import annotations
 
@@ -228,7 +228,7 @@ class DiTBlock(nn.Module):
         if kv is not None:
             raise ValueError("the StormScope Flash DiT does not use cross attention")
         if training or p_dropout not in (None, 0, 0.0):
-            raise ValueError("the packaged PDD DiT supports inference only")
+            raise ValueError("the packaged Flash DiT supports inference only")
 
         shift, scale, gate, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(
             cond
@@ -571,7 +571,7 @@ class DiT(nn.Module):
         state_channels: int,
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
-        """Project static condition channels once for a PDD trajectory."""
+        """Project static condition channels once for a Flash trajectory."""
 
         if condition.ndim != 4:
             raise ValueError(
@@ -604,7 +604,7 @@ class DiT(nn.Module):
     ) -> torch.Tensor:
         """Run the shared transformer on prepared tokens at the given noise level."""
         if training:
-            raise ValueError("the packaged PDD DiT supports inference only")
+            raise ValueError("the packaged Flash DiT supports inference only")
         if time_step_cond is None:
             time_step_cond = torch.zeros(
                 tokens.shape[0], device=tokens.device, dtype=tokens.dtype

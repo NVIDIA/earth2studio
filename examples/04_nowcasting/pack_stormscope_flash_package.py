@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Package the selected rotary GOES PDD-5 and MRMS/GLM PDD-7 checkpoints."""
+"""Package the selected StormScope Flash GOES and MRMS/GLM checkpoints."""
 
 import argparse
 import hashlib
@@ -30,7 +30,7 @@ from typing import Any
 import torch
 
 from earth2studio.models.auto import Package
-from earth2studio.models.px._stormscope_flash.preconditioner import PDDModel
+from earth2studio.models.px._stormscope_flash.preconditioner import FlashModel
 from earth2studio.models.px.stormscope_flash import (
     FLASH_CALLS,
     GOES_VARIABLES,
@@ -90,7 +90,17 @@ def convert_checkpoint(
 ) -> dict[str, Any]:
     """Convert selected training weights to a strictly verified .mdlus model."""
     checkpoint = torch.load(source, map_location="cpu", weights_only=True, mmap=True)
-    raw = checkpoint["pdd_metadata"]
+    # Training archives use historical metadata names. Identify the supported
+    # schema without carrying those names into the deployment package.
+    metadata_fields = {"sigma_grid", "block_boundaries", "model_config", "config"}
+    candidates = [
+        value
+        for value in checkpoint.values()
+        if isinstance(value, dict) and metadata_fields.issubset(value)
+    ]
+    if len(candidates) != 1:
+        raise ValueError("Expected exactly one Flash training metadata record")
+    raw = candidates[0]
     # Persist inference requirements, not training data paths or optimizer settings.
     meta = {
         key: raw[key]
@@ -120,13 +130,13 @@ def convert_checkpoint(
         "rope_theta": 10000.0,
         "use_nan_mask_tokens": kind == "goes",
     }
-    model = PDDModel(config, meta)
+    model = FlashModel(config, meta)
     state = clean_state_dict(checkpoint["model_state_dict"])
     model.load_state_dict(state, strict=True)
     _validate_flash_expert(model, kind, region)
     model.save(str(destination))
     # Round-trip every tensor, including the packed heads and schedule buffers.
-    restored = PDDModel.from_checkpoint(str(destination), strict=True)
+    restored = FlashModel.from_checkpoint(str(destination), strict=True)
     _validate_flash_expert(restored, kind, region)
     actual = restored.state_dict()
     if state.keys() != actual.keys():
@@ -140,7 +150,7 @@ def convert_checkpoint(
         "source_size_bytes": source.stat().st_size,
         "deployment_sha256": sha256_file(destination),
         "deployment_size_bytes": destination.stat().st_size,
-        "deployment_format": "pdd-mdlus-v1",
+        "deployment_format": "flash-mdlus-v1",
         "tensor_parity": "exact",
     }
 
@@ -216,7 +226,7 @@ def main() -> None:
                 flash=True,
                 region_calls=FLASH_CALLS[kind],
                 checkpoints=[],
-                description=f"Rotary StormScope {kind} flash PDD",
+                description=f"StormScope Flash {kind}",
             )
             for region, filename in CHECKPOINTS[kind].items():
                 original = (args.checkpoints_root / filename).resolve()
@@ -241,7 +251,7 @@ def main() -> None:
             loaded = load_flash_experts(Package(str(staging)), entry, kind)
             del loaded
             print(
-                f"Strictly validated {kind} rotary architecture and PDD schedule",
+                f"Strictly validated StormScope Flash {kind} architecture and schedule",
                 flush=True,
             )
         registry["flash_provenance"] = {

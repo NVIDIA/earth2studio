@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Packed-head EDM-to-flow preconditioner for PDD inference."""
+"""Packed-head EDM-to-flow preconditioner for Flash inference."""
 
 from __future__ import annotations
 
@@ -81,8 +81,8 @@ def flow_state_to_edm_state(y_t: torch.Tensor, time: Any) -> torch.Tensor:
     return y_t / time_tensor
 
 
-class PDDPrecond(nn.Module):
-    """Inference-only regional PDD expert backed by a DiT trunk."""
+class FlashPrecond(nn.Module):
+    """Inference-only regional Flash expert backed by a DiT trunk."""
 
     sigma_grid: torch.Tensor
     time_grid: torch.Tensor
@@ -120,10 +120,12 @@ class PDDPrecond(nn.Module):
         if sigma_data != 0.5:
             raise ValueError("StormScope Flash experts require sigma_data=0.5")
         if not hasattr(model, "forward_features") or not hasattr(model, "unpatchify"):
-            raise TypeError("PDD model must expose DiT feature and unpatchify methods")
+            raise TypeError(
+                "Flash model must expose DiT feature and unpatchify methods"
+            )
         final_layer = getattr(model, "_final_layer", None)
         if final_layer is None or not hasattr(final_layer, "linear"):
-            raise TypeError("PDD model must expose _final_layer.linear")
+            raise TypeError("Flash model must expose _final_layer.linear")
 
         self.model = model
         self.sigma_data = float(sigma_data)
@@ -168,7 +170,7 @@ class PDDPrecond(nn.Module):
         else:
             raise ValueError("sigma must be scalar or contain one value per sample")
         if not torch.compiler.is_compiling() and bool((values <= 0).any()):
-            raise ValueError("PDD block-start sigma must be positive")
+            raise ValueError("Flash block-start sigma must be positive")
         return values
 
     def _trunk_dtype(self) -> torch.dtype:
@@ -189,7 +191,7 @@ class PDDPrecond(nn.Module):
             or end_index <= start_index
             or end_index > self.num_intervals
         ):
-            raise IndexError("invalid PDD inference block")
+            raise IndexError("invalid Flash inference block")
         coefficients = (
             self.time_grid[start_index + 1 : end_index + 1]
             - self.time_grid[start_index:end_index]
@@ -310,10 +312,10 @@ class PDDPrecond(nn.Module):
         condition_patch: torch.Tensor | None = None,
         training: bool = False,
     ) -> torch.Tensor:
-        """Evaluate one pre-fused PDD block."""
+        """Evaluate one pre-fused Flash block."""
 
         if training:
-            raise ValueError("packaged PDD experts support inference only")
+            raise ValueError("packaged Flash experts support inference only")
         height, width = state.shape[-2:]
         features, state, velocity_skip, velocity_out = self._features_and_coefficients(
             state, sigma, condition, condition_patch
@@ -331,14 +333,14 @@ class PDDPrecond(nn.Module):
 
 
 @check_optional_dependencies()
-class PDDModel(PDDPrecond, Module):
-    """Reconstructible PhysicsNeMo deployment model for a packed PDD expert.
+class FlashModel(FlashPrecond, Module):
+    """Reconstructible PhysicsNeMo deployment model for a packed Flash expert.
 
     Parameters
     ----------
     model_config : dict[str, Any]
         JSON-serializable constructor arguments for the checkpoint-compatible DiT.
-    pdd_metadata : dict[str, Any]
+    flash_metadata : dict[str, Any]
         Trained sigma grid, block boundaries, and deployment compatibility metadata.
 
     Notes
@@ -348,27 +350,27 @@ class PDDModel(PDDPrecond, Module):
     """
 
     def __init__(
-        self, model_config: dict[str, Any], pdd_metadata: dict[str, Any]
+        self, model_config: dict[str, Any], flash_metadata: dict[str, Any]
     ) -> None:
         with torch.device("meta"):
             trunk = DiT(**model_config)
         super().__init__(
             trunk,
-            pdd_metadata["sigma_grid"],
-            pdd_metadata["block_boundaries"],
-            sigma_data=pdd_metadata["config"]["student"]["sigma_data"],
+            flash_metadata["sigma_grid"],
+            flash_metadata["block_boundaries"],
+            sigma_data=flash_metadata["config"]["student"]["sigma_data"],
         )
         self.model_config = deepcopy(model_config)
-        self.pdd_metadata = deepcopy(pdd_metadata)
+        self.flash_metadata = deepcopy(flash_metadata)
 
     def load_state_dict(
         self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = True
     ) -> Any:
         """Assign checkpoint tensors without allocating a second initialized trunk."""
         if not assign:
-            raise ValueError("PDD deployment weights require assign=True")
+            raise ValueError("Flash deployment weights require assign=True")
         result = super().load_state_dict(state_dict, strict=strict, assign=True)
         if any(t.is_meta for t in self.parameters()):
-            raise ValueError("PDD checkpoint left uninitialized model parameters")
+            raise ValueError("Flash checkpoint left uninitialized model parameters")
         self.eval().requires_grad_(False)
         return result

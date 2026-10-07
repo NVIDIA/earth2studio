@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Validated schedules and cached deployment plans for PDD inference."""
+"""Validated schedules and cached deployment plans for Flash inference."""
 
 from __future__ import annotations
 
@@ -29,15 +29,15 @@ from earth2studio.models.px._stormscope_flash.preconditioner import (
     sigma_to_flow_time,
 )
 
-PDD_EXPERT_ORDER = ("high", "middle", "low")
-PDD_REGION_INTERVALS = {"high": 16, "middle": 32, "low": 80}
-PDD_ROUTING_BOUNDARY_INDICES = (2, 36)
-PDD_GLOBAL_NUM_INTERVALS = 128
-PDD_SIGMA_MAX = 800.0
+FLASH_EXPERT_ORDER = ("high", "middle", "low")
+FLASH_REGION_INTERVALS = {"high": 16, "middle": 32, "low": 80}
+FLASH_ROUTING_BOUNDARY_INDICES = (2, 36)
+FLASH_GLOBAL_NUM_INTERVALS = 128
+FLASH_SIGMA_MAX = 800.0
 
 
-class PDDExpert(Protocol):
-    """Inference surface needed to build a PDD chain plan."""
+class FlashExpert(Protocol):
+    """Inference surface needed to build a Flash chain plan."""
 
     sigma_grid: torch.Tensor
 
@@ -61,8 +61,8 @@ class PDDExpert(Protocol):
 
 
 @dataclass(frozen=True)
-class PDDInferenceBlock:
-    """Device-resident, pre-fused data for one PDD model invocation."""
+class FlashInferenceBlock:
+    """Device-resident, pre-fused data for one Flash model invocation."""
 
     start: int
     end: int
@@ -73,20 +73,20 @@ class PDDInferenceBlock:
 
 
 @dataclass(frozen=True)
-class PDDExpertPlan:
+class FlashExpertPlan:
     """Cached inference blocks for one regional expert."""
 
     name: str
     sigmas: torch.Tensor
-    blocks: tuple[PDDInferenceBlock, ...]
+    blocks: tuple[FlashInferenceBlock, ...]
 
 
 @dataclass(frozen=True)
-class PDDChainPlan:
+class FlashChainPlan:
     """Validated immutable high-to-low plan reused by forecast steps."""
 
     total_nfe: int
-    experts: Mapping[str, PDDExpertPlan]
+    experts: Mapping[str, FlashExpertPlan]
     first_time: torch.Tensor
 
 
@@ -128,17 +128,17 @@ def uniform_flow_time_sigma_grid(
 
 def regional_sigma_grids(
     *,
-    num_intervals: int = PDD_GLOBAL_NUM_INTERVALS,
-    sigma_max: float = PDD_SIGMA_MAX,
-    boundary_indices: tuple[int, int] = PDD_ROUTING_BOUNDARY_INDICES,
+    num_intervals: int = FLASH_GLOBAL_NUM_INTERVALS,
+    sigma_max: float = FLASH_SIGMA_MAX,
+    boundary_indices: tuple[int, int] = FLASH_ROUTING_BOUNDARY_INDICES,
     region_intervals: Mapping[str, int] | None = None,
     device: torch.device | str | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> dict[str, torch.Tensor]:
     """Build the three regional grids from one global routing reference."""
 
-    interval_counts = region_intervals or PDD_REGION_INTERVALS
-    if set(interval_counts) != set(PDD_EXPERT_ORDER):
+    interval_counts = region_intervals or FLASH_REGION_INTERVALS
+    if set(interval_counts) != set(FLASH_EXPERT_ORDER):
         raise ValueError("region_intervals must define high, middle, and low")
     global_grid = uniform_flow_time_sigma_grid(
         num_intervals=num_intervals,
@@ -149,7 +149,7 @@ def regional_sigma_grids(
     )
     high_middle_index, middle_low_index = boundary_indices
     if not 0 < high_middle_index < middle_low_index < num_intervals:
-        raise ValueError("invalid PDD routing boundary indices")
+        raise ValueError("invalid Flash routing boundary indices")
     high_middle = float(global_grid[high_middle_index].detach().cpu())
     middle_low = float(global_grid[middle_low_index].detach().cpu())
     return {
@@ -184,7 +184,7 @@ def inference_block_boundaries(
     alignment: int = 1,
     device: torch.device | str | None = None,
 ) -> torch.Tensor:
-    """Return balanced PDD block boundaries for a regional call budget."""
+    """Return balanced Flash block boundaries for a regional call budget."""
 
     if isinstance(nfe, bool) or not isinstance(nfe, int) or nfe < 1:
         raise ValueError("nfe must be a positive integer")
@@ -201,28 +201,30 @@ def inference_block_boundaries(
     return torch.tensor(boundaries, device=device, dtype=torch.long)
 
 
-def _unwrap_expert(expert: PDDExpert) -> PDDExpert:
+def _unwrap_expert(expert: FlashExpert) -> FlashExpert:
     module = getattr(expert, "module", expert)
     return getattr(module, "_orig_mod", module)
 
 
-def build_pdd_chain_plan(
-    experts: Mapping[str, PDDExpert],
+def build_flash_chain_plan(
+    experts: Mapping[str, FlashExpert],
     *,
     total_nfe: int,
     region_calls: Mapping[str, int],
     alignment: int = 16,
-) -> PDDChainPlan:
+) -> FlashChainPlan:
     """Validate handoffs and pre-fuse a high/middle/low deployment schedule."""
 
-    if set(experts) != set(PDD_EXPERT_ORDER):
-        raise ValueError("PDD chain must contain exactly high, middle, and low experts")
+    if set(experts) != set(FLASH_EXPERT_ORDER):
+        raise ValueError(
+            "Flash chain must contain exactly high, middle, and low experts"
+        )
 
     calls = region_calls
-    if set(calls) != set(PDD_EXPERT_ORDER) or sum(calls.values()) != total_nfe:
+    if set(calls) != set(FLASH_EXPERT_ORDER) or sum(calls.values()) != total_nfe:
         raise ValueError("regional calls must sum to the requested total NFE")
-    plans: dict[str, PDDExpertPlan] = {}
-    for name in PDD_EXPERT_ORDER:
+    plans: dict[str, FlashExpertPlan] = {}
+    for name in FLASH_EXPERT_ORDER:
         module = _unwrap_expert(experts[name])
         sigmas = torch.as_tensor(
             module.sigma_grid,
@@ -236,7 +238,7 @@ def build_pdd_chain_plan(
         for start, end in zip(boundaries[:-1], boundaries[1:]):
             sigma, weight, bias, delta = module.prepare_inference_block(start, end)
             blocks.append(
-                PDDInferenceBlock(
+                FlashInferenceBlock(
                     start=start,
                     end=end,
                     sigma=sigma,
@@ -245,29 +247,29 @@ def build_pdd_chain_plan(
                     delta=delta,
                 )
             )
-        plans[name] = PDDExpertPlan(name, sigmas, tuple(blocks))
+        plans[name] = FlashExpertPlan(name, sigmas, tuple(blocks))
 
     if not torch.isclose(
         plans["high"].sigmas[0],
-        plans["high"].sigmas.new_tensor(PDD_SIGMA_MAX),
+        plans["high"].sigmas.new_tensor(FLASH_SIGMA_MAX),
         rtol=1e-6,
         atol=1e-6,
     ):
-        raise ValueError(f"high PDD expert must start at sigma={PDD_SIGMA_MAX}")
-    for left, right in zip(PDD_EXPERT_ORDER[:-1], PDD_EXPERT_ORDER[1:]):
+        raise ValueError(f"high Flash expert must start at sigma={FLASH_SIGMA_MAX}")
+    for left, right in zip(FLASH_EXPERT_ORDER[:-1], FLASH_EXPERT_ORDER[1:]):
         if not torch.isclose(
             plans[left].sigmas[-1],
             plans[right].sigmas[0],
             rtol=1e-6,
             atol=1e-6,
         ):
-            raise ValueError(f"invalid PDD handoff between {left} and {right}")
+            raise ValueError(f"invalid Flash handoff between {left} and {right}")
     if float(plans["low"].sigmas[-1].detach().cpu()) != 0.0:
-        raise ValueError("low PDD expert must terminate at sigma=0")
+        raise ValueError("low Flash expert must terminate at sigma=0")
     if sum(len(plan.blocks) for plan in plans.values()) != total_nfe:
-        raise RuntimeError("PDD chain plan does not match the requested NFE budget")
+        raise RuntimeError("Flash chain plan does not match the requested NFE budget")
 
-    return PDDChainPlan(
+    return FlashChainPlan(
         total_nfe=total_nfe,
         experts=plans,
         first_time=sigma_to_flow_time(plans["high"].sigmas[0]),
@@ -280,10 +282,10 @@ def _require_finite(tensor: torch.Tensor, label: str) -> None:
 
 
 def _advance_blocks(
-    expert: PDDExpert,
+    expert: FlashExpert,
     state: torch.Tensor,
     condition: torch.Tensor | None,
-    plan: PDDExpertPlan,
+    plan: FlashExpertPlan,
 ) -> torch.Tensor:
     module = _unwrap_expert(expert)
     condition_patch = (
@@ -308,48 +310,48 @@ def _advance_blocks(
             training=False,
         )
         if not isinstance(state, torch.Tensor):
-            raise TypeError("each PDD block must return a tensor")
+            raise TypeError("each Flash block must return a tensor")
         if hasattr(expert, "_orig_mod"):
             state = state.clone()
     return state
 
 
 @torch.no_grad()
-def pdd_sampler_chain(
-    experts: Mapping[str, PDDExpert],
+def flash_sampler_chain(
+    experts: Mapping[str, FlashExpert],
     latents: torch.Tensor,
     condition: torch.Tensor | None = None,
     *,
     total_nfe: int,
-    plan: PDDChainPlan,
+    plan: FlashChainPlan,
 ) -> torch.Tensor:
-    """Run the prepared high-to-low PDD chain without intermediate noise injection."""
+    """Run the prepared high-to-low Flash chain without intermediate noise injection."""
 
     if latents.ndim != 4 or not latents.dtype.is_floating_point:
         raise ValueError(
             "latents must be a floating [batch, channel, height, width] tensor"
         )
-    _require_finite(latents, "PDD latents")
+    _require_finite(latents, "Flash latents")
     if condition is not None:
         if condition.ndim != 4:
             raise ValueError(
                 "condition must be a [batch, channel, height, width] tensor"
             )
-        _require_finite(condition, "PDD condition")
+        _require_finite(condition, "Flash condition")
 
     if plan.total_nfe != total_nfe:
         raise ValueError(
-            f"PDD plan NFE={plan.total_nfe} does not match requested {total_nfe}"
+            f"Flash plan NFE={plan.total_nfe} does not match requested {total_nfe}"
         )
 
     state = latents.float() * (1 - plan.first_time).to(
         device=latents.device, dtype=latents.dtype
     )
-    for name in PDD_EXPERT_ORDER:
+    for name in FLASH_EXPERT_ORDER:
         state = _advance_blocks(experts[name], state, condition, plan.experts[name])
         if state.shape != latents.shape:
             raise ValueError(
-                f"PDD {name} expert returned {tuple(state.shape)}, "
+                f"Flash {name} expert returned {tuple(state.shape)}, "
                 f"expected {tuple(latents.shape)}"
             )
     return state

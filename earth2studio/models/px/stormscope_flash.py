@@ -26,17 +26,17 @@ import torch
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.models.auto import Package
 from earth2studio.models.px._stormscope_flash.preconditioner import (
-    PDDModel,
-    PDDPrecond,
+    FlashModel,
+    FlashPrecond,
     sigma_to_flow_time,
 )
 from earth2studio.models.px._stormscope_flash.region import RegionInfo, resolve_region
 from earth2studio.models.px._stormscope_flash.sampler import (
-    PDDChainPlan,
-    PDDExpert,
-    build_pdd_chain_plan,
+    FlashChainPlan,
+    FlashExpert,
+    build_flash_chain_plan,
+    flash_sampler_chain,
     inference_block_boundaries,
-    pdd_sampler_chain,
     regional_sigma_grids,
 )
 from earth2studio.models.px.stormscope import (
@@ -102,8 +102,8 @@ def validate_flash_entry(entry: Mapping[str, Any], kind: str) -> None:
         raise ValueError("flash MRMS requires the training coverage mask")
 
 
-def _validate_flash_expert(model: PDDModel, kind: str, region: str) -> None:
-    meta = model.pdd_metadata
+def _validate_flash_expert(model: FlashModel, kind: str, region: str) -> None:
+    meta = model.flash_metadata
     config = meta["model_config"]
     expected_grids = regional_sigma_grids(region_intervals=FLASH_INTERVALS[kind])
     expected_model = {
@@ -141,7 +141,7 @@ def _validate_flash_expert(model: PDDModel, kind: str, region: str) -> None:
         or meta.get("inference_block_alignment") != 16
         or meta["config"]["student"]["sigma_data"] != 0.5
     ):
-        raise ValueError(f"{region}: incompatible PDD metadata")
+        raise ValueError(f"{region}: incompatible Flash metadata")
     state = model.state_dict()
     sigmas = torch.as_tensor(meta["sigma_grid"], dtype=torch.float32)
     if sigmas.shape != expected_grids[region].shape or not torch.allclose(
@@ -187,7 +187,7 @@ def _validate_flash_expert(model: PDDModel, kind: str, region: str) -> None:
 
 
 def _validate_checkpoint_file(path: Path, spec: Mapping[str, Any]) -> None:
-    if path.suffix != ".mdlus" or spec.get("deployment_format") != "pdd-mdlus-v1":
+    if path.suffix != ".mdlus" or spec.get("deployment_format") != "flash-mdlus-v1":
         raise ValueError(
             "Flash requires a .mdlus deployment package; run the package converter"
         )
@@ -195,7 +195,7 @@ def _validate_checkpoint_file(path: Path, spec: Mapping[str, Any]) -> None:
         raise ValueError(f"Packaged checkpoint size mismatch: {path}")
     expected_hash = spec["deployment_sha256"]
     if expected_hash[:16] not in path.stem:
-        raise ValueError(f"PDD checkpoint is not content-addressed: {path}")
+        raise ValueError(f"Flash checkpoint is not content-addressed: {path}")
     if os.environ.get("EARTH2STUDIO_VERIFY_CHECKPOINT_HASH", "0").lower() in (
         "1",
         "true",
@@ -223,8 +223,8 @@ def load_flash_experts(
         path = Path(package.resolve(spec["path"]))
         _validate_checkpoint_file(path, spec)
         model = Module.from_checkpoint(str(path), strict=True)
-        if not isinstance(model, PDDModel):
-            raise TypeError("Flash checkpoint must contain a PDDModel")
+        if not isinstance(model, FlashModel):
+            raise TypeError("Flash checkpoint must contain a FlashModel")
         _validate_flash_expert(model, kind, region)
         model.eval().requires_grad_(False)
         stages.append(
@@ -238,7 +238,7 @@ def load_flash_experts(
     return stages
 
 
-class _FlashPDD(StormScopeBase):
+class _StormScopeFlash(StormScopeBase):
     _FLASH_KIND: str
     latitudes: torch.Tensor
     longitudes: torch.Tensor
@@ -249,7 +249,7 @@ class _FlashPDD(StormScopeBase):
     x: np.ndarray
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self._flash_plan: PDDChainPlan | None = None
+        self._flash_plan: FlashChainPlan | None = None
         self.region_info: RegionInfo
         super().__init__(*args, **kwargs)
         self.sampler_args: dict[str, float | int] = {}
@@ -341,7 +341,9 @@ class _FlashPDD(StormScopeBase):
         self._lat_cpu_copy = self.latitudes.cpu().numpy()
         self._lon_cpu_copy = self.longitudes.cpu().numpy()
         for expert in self.stage_models:
-            cast(PDDPrecond, expert).model.set_image_size(*self.region_info.input_shape)
+            cast(FlashPrecond, expert).model.set_image_size(
+                *self.region_info.input_shape
+            )
         self._flash_plan = None
 
     def crop_output(
@@ -356,7 +358,7 @@ class _FlashPDD(StormScopeBase):
             # The source DiT learned mask tokens for missing observation patches.
             missing = torch.isnan(x).flatten(0, 1).any(dim=(1, 2)) | ~self.valid_mask
             for expert in self.stage_models:
-                module = cast(PDDPrecond, getattr(expert, "_orig_mod", expert))
+                module = cast(FlashPrecond, getattr(expert, "_orig_mod", expert))
                 module.model.set_nan_pixel_mask(missing)
             normalized = torch.where(torch.isnan(normalized), 0.0, normalized)
         return normalized
@@ -380,13 +382,13 @@ class _FlashPDD(StormScopeBase):
         **kwargs: Any,
     ) -> torch.Tensor:
         experts = {
-            name: cast(PDDExpert, expert)
+            name: cast(FlashExpert, expert)
             for name, expert in zip(("high", "middle", "low"), self.stage_models)
         }
         if self._flash_plan is None:
             # Packed heads and flow coordinates must remain FP32 under ambient AMP.
             with torch.autocast(device_type=latents.device.type, enabled=False):
-                self._flash_plan = build_pdd_chain_plan(
+                self._flash_plan = build_flash_chain_plan(
                     experts,
                     total_nfe=self.total_nfe,
                     region_calls=self.region_calls,
@@ -395,7 +397,7 @@ class _FlashPDD(StormScopeBase):
         with torch.autocast(
             device_type=latents.device.type, dtype=self.amp_dtype, enabled=self.amp
         ):
-            result = pdd_sampler_chain(
+            result = flash_sampler_chain(
                 experts,
                 latents,
                 condition,
@@ -407,8 +409,8 @@ class _FlashPDD(StormScopeBase):
         return result
 
 
-class StormScopeGOESFlash(_FlashPDD, StormScopeGOES):
-    """StormScope Flash satellite forecasts: five PDD calls per ten-minute lead.
+class StormScopeGOESFlash(_StormScopeFlash, StormScopeGOES):
+    """StormScope Flash satellite forecasts: five backbone calls per ten-minute lead.
 
     Uses the baseline physical-unit and six-frame-history interfaces. Download
     the package with :meth:`load_default_package`. A geographic
@@ -436,7 +438,7 @@ class StormScopeGOESFlash(_FlashPDD, StormScopeGOES):
         padding: int = 25,
         amp_dtype: torch.dtype = torch.bfloat16,
     ) -> "StormScopeGOESFlash":
-        """Load GOES PDD5 on the full grid or a latitude/longitude rectangle.
+        """Load StormScope GOES Flash on the full grid or a latitude/longitude rectangle.
 
         Parameters
         ----------
@@ -482,8 +484,8 @@ class StormScopeGOESFlash(_FlashPDD, StormScopeGOES):
         return model
 
 
-class StormScopeMRMSFlash(_FlashPDD, StormScopeMRMS):
-    """StormScope Flash MRMS/GLM forecasts: seven PDD calls per ten-minute lead.
+class StormScopeMRMSFlash(_StormScopeFlash, StormScopeMRMS):
+    """StormScope Flash MRMS/GLM forecasts: seven backbone calls per ten-minute lead.
 
     State variables are ``refc``, ``refc_base`` and ``glm_density``. GOES history
     provides external conditioning. GLM uses the baseline order: bilinear raw
@@ -511,7 +513,7 @@ class StormScopeMRMSFlash(_FlashPDD, StormScopeMRMS):
         padding: int = 25,
         amp_dtype: torch.dtype = torch.bfloat16,
     ) -> "StormScopeMRMSFlash":
-        """Load MRMS/GLM PDD7, optionally with real regional context.
+        """Load StormScope MRMS/GLM Flash, optionally with real regional context.
 
         Parameters
         ----------

@@ -128,7 +128,8 @@ uncropped predictions for `next_input`; context must persist across every lead.
   inputs and non-finite radar/GLM values inside valid coverage still fail checks.
 
 `recipes/eval/cfg/model/stormscope_flash.yaml` selects both Flash classes in the
-coupled evaluation recipe. Use a fresh output path when changing region so cached input grids cannot mix.
+coupled evaluation recipe. Use a fresh output path when changing region so cached
+input grids cannot mix.
 Regional skill must be assessed separately from full-domain skill; additional
 context can materially affect forecasts.
 

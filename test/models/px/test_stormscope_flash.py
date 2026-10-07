@@ -28,13 +28,16 @@ from physicsnemo import Module
 
 from earth2studio.models.auto import Package
 from earth2studio.models.px._stormscope_flash.dit import DiT
-from earth2studio.models.px._stormscope_flash.preconditioner import PDDModel, PDDPrecond
+from earth2studio.models.px._stormscope_flash.preconditioner import (
+    FlashModel,
+    FlashPrecond,
+)
 from earth2studio.models.px._stormscope_flash.region import resolve_region
 from earth2studio.models.px._stormscope_flash.rope import RoPE2D
 from earth2studio.models.px._stormscope_flash.sampler import (
-    build_pdd_chain_plan,
+    build_flash_chain_plan,
+    flash_sampler_chain,
     inference_block_boundaries,
-    pdd_sampler_chain,
     regional_sigma_grids,
 )
 from earth2studio.models.px.stormscope import StormScopeMRMS
@@ -101,10 +104,10 @@ def test_flash_aligned_budget_and_no_noise_reset(kind):
         ).items()
     }
     nfe = sum(FLASH_CALLS[kind].values())
-    plan = build_pdd_chain_plan(
+    plan = build_flash_chain_plan(
         experts, total_nfe=nfe, region_calls=FLASH_CALLS[kind], alignment=16
     )
-    output = pdd_sampler_chain(
+    output = flash_sampler_chain(
         experts, torch.ones(1, 1, 2, 2), total_nfe=nfe, plan=plan
     )
     torch.testing.assert_close(output, torch.full_like(output, 800 / 801))
@@ -124,7 +127,7 @@ def test_flash_aligned_budget_and_no_noise_reset(kind):
 
 def test_flash_fused_update_matches_individual_heads():
     torch.manual_seed(8)
-    expert = PDDPrecond(_TinyDiT(), [3.0, 1.0, 0.01, 0.0], [0, 3])
+    expert = FlashPrecond(_TinyDiT(), [3.0, 1.0, 0.01, 0.0], [0, 3])
     expert.head_weight.data.normal_()
     expert.head_bias.data.normal_()
     state = torch.randn(2, 1, 3, 4)
@@ -374,7 +377,7 @@ def test_flash_rejects_mismatched_handoff():
     experts = {name: _FakeExpert(grid) for name, grid in regional_sigma_grids().items()}
     experts["middle"].sigma_grid[0] *= 0.9
     with pytest.raises(ValueError, match="handoff"):
-        build_pdd_chain_plan(experts, total_nfe=5, region_calls=FLASH_CALLS["goes"])
+        build_flash_chain_plan(experts, total_nfe=5, region_calls=FLASH_CALLS["goes"])
 
 
 def test_curvilinear_request_outside_perimeter_is_rejected():
@@ -403,18 +406,18 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
         block_boundaries=[0, 2],
         config={"student": {"sigma_data": 0.5}},
     )
-    reference = PDDPrecond(DiT(**config), [3.0, 1.0, 0.0], [0, 2]).eval()
+    reference = FlashPrecond(DiT(**config), [3.0, 1.0, 0.0], [0, 2]).eval()
     with torch.no_grad():
         reference.head_weight.normal_(std=0.02)
         reference.head_bias.normal_(std=0.02)
-    model = PDDModel(config, metadata)
+    model = FlashModel(config, metadata)
     model.load_state_dict(reference.state_dict(), strict=True)
     path = tmp_path / "tiny.mdlus"
     model.save(str(path))
     restored = Module.from_checkpoint(str(path), strict=True)
-    assert isinstance(restored, PDDModel)
+    assert isinstance(restored, FlashModel)
     assert restored.model_config == config
-    assert restored.pdd_metadata == metadata
+    assert restored.flash_metadata == metadata
     assert not any(p.is_meta or p.requires_grad for p in restored.parameters())
     assert restored.state_dict().keys() == reference.state_dict().keys()
     for key, tensor in reference.state_dict().items():
@@ -428,12 +431,12 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
     with zipfile.ZipFile(path) as archive:
         assert "model.pt" in archive.namelist()
-        assert json.loads(archive.read("args.json"))["__name__"] == "PDDModel"
+        assert json.loads(archive.read("args.json"))["__name__"] == "FlashModel"
         assert not any("optimizer" in name for name in archive.namelist())
     incomplete = dict(reference.state_dict())
     incomplete.pop("head_weight")
     with pytest.raises(RuntimeError, match="head_weight"):
-        PDDModel(config, metadata).load_state_dict(incomplete, strict=True)
+        FlashModel(config, metadata).load_state_dict(incomplete, strict=True)
 
 
 def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
@@ -444,7 +447,7 @@ def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
     path = tmp_path / f"model-{digest[:16]}.mdlus"
     path.write_bytes(payload)
     spec = dict(
-        deployment_format="pdd-mdlus-v1",
+        deployment_format="flash-mdlus-v1",
         deployment_sha256=digest,
         deployment_size_bytes=len(payload),
     )
@@ -456,7 +459,7 @@ def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="size mismatch"):
         _validate_checkpoint_file(path, {**spec, "deployment_size_bytes": 1})
     with pytest.raises(ValueError, match="requires a .mdlus"):
-        _validate_checkpoint_file(path, {**spec, "deployment_format": "pdd-pt-v1"})
+        _validate_checkpoint_file(path, {**spec, "deployment_format": "flash-pt-v1"})
 
 
 @pytest.fixture

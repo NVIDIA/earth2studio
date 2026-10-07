@@ -324,7 +324,7 @@ categories:
         api_refs:
           - earth2studio.models.px.StormScopeGOESFlash
           - earth2studio.models.px.StormScopeMRMSFlash
-        summary: GOES PDD5 and MRMS/GLM PDD7 with full or regional inputs.
+        summary: GOES and MRMS/GLM Flash models with full or regional inputs.
         warnings:
           - Requires NATTEN matching the installed PyTorch/CUDA. The selected
             .mdlus checkpoints download automatically from Hugging Face and are cached.
