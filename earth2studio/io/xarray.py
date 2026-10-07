@@ -14,261 +14,157 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Hashable, Iterator, Mapping
 from typing import Any
 
 import numpy as np
 import torch
 import xarray as xr
-from loguru import logger
+from numpy.typing import ArrayLike, DTypeLike
 
-from earth2studio.utils.coords import convert_multidim_to_singledim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.io.utils import (
+    fill_value,
+    merge_coords,
+    plan_arrays,
+    plan_read,
+    plan_write,
+    read_selection,
+    stack_fields,
+    to_device,
+    to_host,
+)
 
 
 class XarrayBackend:
-    """An xarray backed IO object.
+    """An in-memory IO backend holding an :class:`xarray.Dataset`.
+
+    Stored arrays are NumPy-backed regardless of the payload written. The dataset
+    is available as :attr:`root`.
 
     Parameters
     ----------
-    coords : CoordSystem
-        Coordinates to initialize the xarray Dataset with. Must be a
-        complete set of coordinates, i.e., the Dataset object should
-        be viewed as (mostly) immutable with the given set of coordinates.
-    xr_kwargs : dict
-        Optional keyword arguments to pass to the xarray.Dataset constructor.
-
+    xr_kwargs : Any
+        Optional keyword arguments passed to the :class:`xarray.Dataset`
+        constructor, such as global ``attrs``.
     """
 
-    def __init__(self, coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any) -> None:
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
-
-        data_vars: dict[str, tuple[list[str], np.ndarray]] = {}
-        if not mapping:
-            self.root = xr.Dataset(
-                data_vars=data_vars, coords=adjusted_coords, **xr_kwargs
-            )
-        else:
-            for k in mapping:
-                data_vars[k] = (mapping[k], coords[k])
-
-            self.root = xr.Dataset(
-                data_vars=data_vars, coords=adjusted_coords, **xr_kwargs
-            )
-
-        self.coords = adjusted_coords
+    def __init__(self, **xr_kwargs: Any) -> None:
+        self.root = xr.Dataset(**xr_kwargs)
+        self._closed = False
 
     def __contains__(self, item: str) -> bool:
-        """Checks if item in xarray Dataset.
+        """Checks if item is an array or coordinate of the dataset.
 
         Parameters
         ----------
         item : str
         """
-        return self.root.__contains__(item)
+        return item in self.root
 
-    def __getitem__(self, item: str) -> torch.Tensor | np.ndarray:
-        """Gets item in xarray Dataset.
+    def __getitem__(self, item: str) -> xr.DataArray:
+        """Gets an array or coordinate of the dataset.
 
         Parameters
         ----------
         item : str
         """
-        return self.root.__getitem__(item)
+        return self.root[item]
 
-    def __len__(
-        self,
-    ) -> int:
-        """Gets number of variables in xarray Dataset."""
-        return self.root.__len__() + self.coords.__len__()
+    def __len__(self) -> int:
+        """Gets the number of stored arrays."""
+        return len(self.root.data_vars)
 
-    def __iter__(
-        self,
-    ) -> Iterator:
-        """Return an iterator over xarray DataSet variable names."""
-        return self.root.__iter__()
+    def __iter__(self) -> Iterator[Hashable]:
+        """Return an iterator over stored array names."""
+        return iter(self.root.data_vars)
 
-    def add_array(
-        self,
-        coords: CoordSystem,
-        array_name: str | list[str],
-        data: torch.Tensor | list[torch.Tensor] = None,
-        **xr_kwargs: Any,
-    ) -> None:
-        """Add an array to the existing xarray Dataset.
+    def add_array(self, schema: xr.DataArray) -> None:
+        """Create the arrays a schema describes.
 
         Parameters
         ----------
-        coords: CoordSystem
-            Ordered dict of coordinate information.
-        array_name : str
-            Name to add to xarray Dataset for the new array.
-        data: torch.Tensor | list[torch.Tensor], optional
-            Optional data to initialize the array with. If None, then
-            the array is NaN initialized (xarray default).
-            Can also pass a list of tensors, which must match in length to the
-            list of array_names passed. If a list of tensors is passed, it is assumed
-            that each tensor share `coords`.
-        xr_kwargs: Any
-            Optional keyword arguments passed to xr.DataArray constructor.
+        schema : xr.DataArray
+            Concrete coordinate signature; field values are never read.
         """
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if isinstance(data, torch.Tensor):
-            data = [data]
-        elif data is None:
-            data = [None] * len(array_name)
-
-        if not (len(data) == len(array_name)):
-            raise ValueError(
-                f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
-            )
-
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
-
-        for c, v in adjusted_coords.items():
-            if c not in self.coords:
-                self.coords[c] = v
-
-        for k in mapping:
-            if k not in self.root:
-                self.root[k] = xr.DataArray(
-                    data=coords[k],
-                    dims=mapping[k],
-                    coords={ki: adjusted_coords[ki] for ki in mapping[k]},
-                    **xr_kwargs,
+        plan = plan_arrays(schema)
+        existing = {key: value.variable for key, value in self.root.coords.items()}
+        missing = merge_coords(existing, plan.coords)
+        for name in plan.names:
+            if name in self.root.data_vars and self.root[name].dims != plan.dims:
+                raise ValueError(
+                    f"Array '{name}' exists with dimensions {self.root[name].dims}"
                 )
-
-        for name, di in zip(array_name, data):
-            if name in self.root:
-                logger.warning(
-                    "{} is already in xarray Dataset. Skipping add_array.", name
-                )
+        self.root = self.root.assign_coords(missing)
+        for name in plan.names:
+            if name in self.root.data_vars:
                 continue
+            data = np.full(plan.shape, fill_value(plan.dtype), dtype=plan.dtype)
+            self.root[name] = xr.Variable(plan.dims, data, dict(plan.attrs))
 
-            if di is not None:
-                self.root[name] = xr.DataArray(
-                    data=di.cpu().numpy(),
-                    coords=adjusted_coords,
-                    dims=list(adjusted_coords),
-                    **xr_kwargs,
-                )
-            else:
-                self.root[name] = xr.DataArray(
-                    coords=adjusted_coords, dims=list(adjusted_coords), **xr_kwargs
-                )
-
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """
-        Write data to the current xarray Dataset using the passed array_name.
+    def write(self, x: xr.DataArray) -> None:
+        """Write a field at the positions its coordinate labels identify.
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to xarray dataset.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
+        x : xr.DataArray
+            NumPy-, CuPy- or Torch-backed field. It is never modified.
         """
-
-        # Input checking
-        if isinstance(x, torch.Tensor):
-            x = [x]
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if not (len(x) == len(array_name)):
-            raise ValueError(
-                f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
-            )
-
-        # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
-
-        for dim in adjusted_coords:
-            if dim not in self.root:
-                raise AssertionError("Coordinate dimension not in xarray dataset.")
-
-        # Check to see if multidimensions are passed in full, otherwise error
-        for key in mapping:
-            if key not in self.root:
-                raise AssertionError(
-                    f"Multidimension coordinate {key} not in xarray store."
-                )
-
-            if coords[key].shape != self.root[key].shape:
-                raise AssertionError(
-                    "Currently writing data with multidimension arrays is only supported when"
-                    + "the multidimension coordinates are passed in full."
-                )
-
-        for xi, name in zip(x, array_name):
-            if name not in self.root:
-                self.add_array(adjusted_coords, array_name)
-
-            # Get indices as list of arrays and set torch tensor
-            self.root[name][
-                tuple(
-                    [
-                        np.where(np.isin(self.coords[dim], value))[0]
-                        for dim, value in adjusted_coords.items()
-                    ]
-                )
-            ] = xi.to("cpu").numpy()
+        if self._closed:
+            raise RuntimeError("Cannot write to a closed XarrayBackend")
+        for name, indexers, field in plan_write(x, *self._layout()):
+            self.root[name].variable[
+                tuple(indexers[dim] for dim in self.root[name].dims)
+            ] = to_host(field)
 
     def read(
         self,
-        coords: CoordSystem,
-        array_name: str,
-        device: torch.device = "cpu",
-        dtype: torch.dtype = torch.float32,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """
-        Read data from the current xarray dataset using the passed array_name.
+        selection: xr.DataArray | Mapping[Hashable, ArrayLike],
+        device: torch.device | str = "cpu",
+        dtype: DTypeLike | None = None,
+    ) -> xr.DataArray:
+        """Read a field by coordinate label, the inverse of :meth:`write`.
 
         Parameters
         ----------
-        coords : OrderedDict
-            Coordinates of the data to be read.
-        array_name : str | list[str]
-            Name(s) of the array(s) to read from.
-        device : torch.device
-            device to place the read data from, by default 'cpu'
+        selection : xr.DataArray | Mapping[Hashable, ArrayLike]
+            Schema or field, or an ordered mapping from every dimension to its
+            labels. ``variable`` labels select arrays; without a ``variable``
+            dimension, a DataArray's name does. Labels may be any subset, in any
+            order; field values are never read.
+        device : torch.device | str, optional
+            Destination: NumPy-backed on CPU, CuPy-backed on CUDA, by default "cpu"
+        dtype : DTypeLike, optional
+            Output dtype, by default the stored dtype
+
+        Returns
+        -------
+        xr.DataArray
+            Field with the selection's dimensions and label order, stored
+            coordinates and the attributes shared by the selected arrays.
         """
+        selection = read_selection(selection)
+        names, indexers = plan_read(selection, *self._layout())
+        fields = [self.root[name].isel(indexers) for name in names]
+        field = stack_fields(selection, names, fields)
+        if dtype is not None:
+            field = field.astype(dtype)
+        return to_device(field, device)
 
-        # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+    def _layout(
+        self,
+    ) -> tuple[dict[str, tuple[Hashable, ...]], dict[Hashable, np.ndarray]]:
+        """Stored array dimensions and dimension labels."""
+        arrays = {str(name): self.root[name].dims for name in self.root.data_vars}
+        coords = {
+            dim: self.root.indexes[dim].values
+            for dim in self.root.dims
+            if dim in self.root.indexes
+        }
+        return arrays, coords
 
-        for dim in adjusted_coords:
-            if dim not in self.root:
-                raise AssertionError(f"Coordinate dimension {dim} not in xarray store.")
+    def flush(self) -> None:
+        """Writes are synchronous; nothing to flush."""
 
-        # Check to see if multidimensions are passed in full, otherwise error
-        for key in mapping:
-            if key not in self.root:
-                raise AssertionError(
-                    f"Multidimension coordinate {key} not in xarray store."
-                )
-
-            if coords[key].shape != self.root[key].shape:
-                raise AssertionError(
-                    "Currently reading data with multidimension arrays is only supported when"
-                    + "the multidimension coordinates are passed in full."
-                )
-
-        x = self.root[array_name].values[
-            np.ix_(
-                *[
-                    np.where(np.isin(self.coords[dim], value))[0]
-                    for dim, value in adjusted_coords.items()
-                ]
-            )
-        ]
-
-        return torch.as_tensor(x, dtype=dtype, device=device), coords
+    def close(self) -> None:
+        """Reject later writes. The dataset remains readable."""
+        self._closed = True

@@ -25,7 +25,8 @@ from loguru import logger
 from tqdm import tqdm
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.io import IOBackend
+from earth2studio.io.base import _LegacyIOBackend
+from earth2studio.io.utils import output_schema
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
@@ -127,22 +128,15 @@ def _output_dimensions(
 ) -> CoordSystem:
     """Plan the legacy IO dimensions from a native model declaration."""
     signature = prognostic.output_coords(prognostic.input_coords())
-    coords = OrderedDict(
-        (dim, values)
-        for dim, values in _dimension_coords(signature).items()
-        if signature.sizes[dim]
-    )
     leads = signature.coords["lead_time"].values
-    coords["time"] = time
-    coords["lead_time"] = np.concatenate(
+    lead_time = np.concatenate(
         [
             np.zeros(1, dtype=leads.dtype),
             *(leads + leads[-1] * i for i in range(nsteps)),
         ]
     )
-    coords.move_to_end("lead_time", last=False)
-    coords.move_to_end("time", last=False)
-    return coords
+    schema = output_schema(signature, {"time": time}, {"lead_time": lead_time})
+    return _dimension_coords(schema)
 
 
 def deterministic(
@@ -150,12 +144,12 @@ def deterministic(
     nsteps: int,
     prognostic: PrognosticModel,
     data: DataSource,
-    io: IOBackend,
+    io: _LegacyIOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
-) -> IOBackend:
+) -> _LegacyIOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
     prediction using a prognostic model.
@@ -287,12 +281,12 @@ def diagnostic(
     prognostic: PrognosticModel,
     diagnostic: DiagnosticModel,
     data: DataSource | ForecastSource,
-    io: IOBackend,
+    io: _LegacyIOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
-) -> IOBackend:
+) -> _LegacyIOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
     model with a diagnostic model.
@@ -432,14 +426,14 @@ def ensemble(
     nensemble: int,
     prognostic: PrognosticModel,
     data: DataSource,
-    io: IOBackend,
+    io: _LegacyIOBackend,
     perturbation: Perturbation,
     batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
-) -> IOBackend:
+) -> _LegacyIOBackend:
     """Built in ensemble workflow.
 
     Parameters

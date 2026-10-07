@@ -25,7 +25,7 @@ from typing import Literal
 import pytest
 from pydantic import ValidationError
 
-from earth2studio.io import IOBackend
+from earth2studio.io.base import _LegacyIOBackend as IOBackend
 from earth2studio.serve.server.e2workflow import Earth2Workflow, func_to_model
 
 # Set environment variable before importing workflows

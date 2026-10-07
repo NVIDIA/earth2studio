@@ -17,6 +17,7 @@
 from typing import Any, Protocol, runtime_checkable
 
 import torch
+import xarray as xr
 
 from earth2studio.utils.type import CoordSystem
 
@@ -24,24 +25,57 @@ from earth2studio.utils.type import CoordSystem
 # --8<-- [start:io-backend-interface]
 @runtime_checkable
 class IOBackend(Protocol):
-    """Interface for a generic IO backend."""
+    """Interface for a DataArray IO backend.
+
+    See ``dev/spec/IO_SPEC.md`` for the full contract.
+    """
+
+    def add_array(self, schema: xr.DataArray) -> None:
+        """Create storage for the arrays a schema describes.
+
+        Parameters
+        ----------
+        schema : xr.DataArray
+            Concrete coordinate signature; field values are never read. Each
+            ``variable`` label names one array over the remaining dimensions;
+            without a ``variable`` dimension, the schema's name does.
+        """
+        pass
+
+    def write(self, x: xr.DataArray) -> None:
+        """Write a field at the positions its coordinate labels identify.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy-, CuPy- or Torch-backed field holding a subset of the store's
+            labels along each dimension. It is never modified.
+        """
+        pass
+
+    def flush(self) -> None:
+        """Block until every earlier write is visible to readers of the store."""
+        pass
+
+    def close(self) -> None:
+        """Flush and release resources; later writes raise."""
+        pass
+
+
+# --8<-- [end:io-backend-interface]
+
+
+@runtime_checkable
+class _LegacyIOBackend(Protocol):
+    """Tensor and coordinate-dictionary IO interface of unmigrated backends.
+
+    Temporary: removed once every backend implements :class:`IOBackend`.
+    """
 
     def add_array(
         self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
     ) -> None:
-        """
-        Add an array with `array_name` to the existing IO backend object.
-
-        Parameters
-        ----------
-        coords : OrderedDict
-            Ordered dictionary of representing the dimensions and coordinate data
-            of x.
-        array_name : str
-            Name of the arrays that will be initialized with coordinates as dimensions.
-        kwargs : dict[str, Any], optional
-            Optional keyword arguments that will be passed to the IO backend constructor.
-        """
+        """Add arrays with the given coordinates."""
         pass
 
     def write(
@@ -50,19 +84,5 @@ class IOBackend(Protocol):
         coords: CoordSystem,
         array_name: str | list[str],
     ) -> None:
-        """
-        Write data to the current backend using the passed array_name.
-
-        Parameters
-        ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to zarr store.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
-        """
+        """Write tensors to the named arrays."""
         pass
-
-
-# --8<-- [end:io-backend-interface]

@@ -1,144 +1,101 @@
 # Output Handling { #output_handling_userguide }
 
-IO backends handle writing model outputs to disk or memory. Use them when saving
-forecast results, ensemble data, or other workflow outputs.
-While input data handling is primarily managed by the data sources in
-`earth2studio.data`, output handling is managed by the IO backends available
-in `earth2studio.io`.
-These backends are designed to balance the ability for you to customize the arrays and
-metadata within the exposed backend while also simplifying the design of reusable
-workflows.
+IO backends in `earth2studio.io` write workflow outputs to memory or storage. They
+take the same `xr.DataArray` fields that models and data sources produce, so
+workflows write model outputs directly.
 
-The key extension of the typical `(x, coords)` data structure movement throughout
-the rest of the `earth2studio` code and output store compatibility is the notion of
-an `array_name`. Names distinguish between different arrays within the backend and
-are currently a requirement for storing `Datasets` in `xarray`, `zarr`, and `netcdf`.
-This means that you must supply a name when adding an array to a store or when
-writing an array. A frequent pattern is to extract one dimension of an array,
-such as `"variable"` to act as individual arrays in the backend.
+!!! note
+    Backends are migrating to this interface. Until they do, `ZarrBackend`,
+    `NetCDF4Backend`, `KVBackend`, `IceChunkBackend` and `AsyncZarrBackend` keep
+    the previous tensor-based `add_array(coords, array_name)` and
+    `write(x, coords, array_name)`.
 
 ## IO Backend Interface
-
-The full requirements for a standard IO backend are defined explicitly in the
-`earth2studio/io/base.py`.
 
 ```python
 --8<-- "earth2studio/io/base.py:io-backend-interface"
 ```
 
-!!! note
-    IO Backends do not need to inherit this protocol; this is used to define
-    the required APIs. Some built-in IO backends may also offer additional functionality
-    that is not universally supported (and hence not required).
+- `add_array` creates the arrays a schema describes.
+- `write` stores a field at the positions its coordinate labels identify.
+- `flush` waits until earlier writes are visible to readers.
+- `close` flushes and releases resources. `earth2studio.run` workflows do not close
+  the backend for you.
 
-There are two important methods that must be supported:
+Backends do not need to inherit this protocol, and many offer more, such as `read`,
+`__contains__`, `__getitem__`, `__len__` and `__iter__`.
 
-- `add_array`, which adds an array to the underlying store and any attached coordinates
-- `write`, which explicitly stores the provided data in the backend
+`ZarrBackend` is the recommended default. `NetCDF4Backend` writes netCDF files,
+`AsyncZarrBackend` writes without blocking inference and supports sharding and
+cloud stores, `XarrayBackend` keeps outputs in memory, and `IceChunkBackend` adds
+versioning.
 
-The `write` command can induce synchronization when the input tensor resides on the GPU
-and the store.
+## Creating Arrays
 
-The `earth2studio.io.kv` backend has the option for storing data on the GPU, which
-can be done asynchronously.
+A schema is a DataArray describing the store: its dimensions, coordinates, dtype
+and metadata. Its values are never read. Each `variable` label becomes one array
+over the remaining dimensions, named verbatim, including statistic labels such as
+`tp:sum:6h`.
 
-Most stores make a conversion from PyTorch to numpy in this process, and offer several
-additional utilities such as `__contains__`, `__getitem__`, `__len__`, and `__iter__`.
-Refer to the implementation in `earth2studio.io.ZarrBackend`:
-
-```python
---8<-- "earth2studio/io/zarr.py:zarr-backend-read"
-```
-
-Common backends include `earth2studio.io.ZarrBackend`,
-`earth2studio.io.NetCDF4Backend`, and
-`earth2studio.io.AsyncZarrBackend`.
-Because of `datetime` compatibility, we recommend using the `ZarrBackend` as a default.
-
-## Initializing a Store
-
-A common data pattern seen throughout our example workflows is to initialize the
-variables and dimensions of a backend using a complete `CoordSystem`, refer to
-[Data Movement](../about/overview.md#data_userguide) for the structure. For example:
+Plan the schema from a model's output coordinates with `output_schema`. It
+replaces the model's dynamic leading dimensions, such as `batch`, with the run's:
 
 ```python
-# Build a complete CoordSystem
-total_coords = OrderedDict(
-    dict(
-        'ensemble': ...,
-        'time': ...,
-        'lead_time': ...,
-        'variable': ...,
-        'lat': ...,
-        'lon': ...
-    )
+from earth2studio.io.utils import output_schema
+
+# (batch, lead_time, variable, lat, lon)
+signature = model.output_coords(model.input_coords())
+schema = output_schema(
+    signature,
+    leading={"time": times},  # replaces batch
+    coords={"lead_time": lead_times},  # the full forecast horizon
 )
-
-# Give an informative array name
-array_name = 'fields'
-
-# Initialize all dimensions in total_coords and the array 'fields'
-io.add_array(total_coords, 'fields')
+io.add_array(schema)  # one (time, lead_time, lat, lon) array per variable
 ```
 
-It can be tedious to define each coordinate and dimension. However, if we have
-a prognostic or diagnostic model, most of this information is already available.
-Here is a robust example of such a use-case:
-
-```python
-# Set up IO backend
-# assume we have `prognostic model`, `time`, and `array_name`
-# Copy prognostic model output coordinates
-total_coords = OrderedDict(
-    {
-        str(k): v.values
-        for k, v in prognostic.output_coords(prognostic.input_coords()).coords.items()
-        if v.dims == (k,) and v.size > 0
-    }
-)
-total_coords["time"] = time
-total_coords["lead_time"] = np.asarray(
-    [total_coords["lead_time"] * i for i in range(nsteps + 1)]
-).flatten()
-total_coords.move_to_end("lead_time", last=False)
-total_coords.move_to_end("time", last=False)
-io.add_array(total_coords, array_name)
-```
-
-Prognostic models, diagnostic models, statistics, and metrics are required to have an
-`output_coords` method, which maps from an input coordinate to a corresponding output
-coordinate. This method is meant to simulate the result of `__call__` without having
-to actually compute the forward call of the method. Review the API documentation for more details.
-
-Another common IO use-case is to extract a particular dimension (usually `variable`) as
-the array names.
-
-```python
-# A modification of the previous example:
-var_names = total_coords.pop("variable")
-io.add_array(total_coords, var_names)
-```
+- Schemas must be concrete: no dynamic or empty dimensions.
+- Adding the same schema again does nothing, so restarted runs can call `add_array`
+  unconditionally. Coordinates that conflict with the store raise a `ValueError`.
+- Auxiliary coordinates, such as 2-D latitude and longitude, and grid metadata are
+  stored with the arrays, so `earth2studio.grids.infer_grid` recovers the grid
+  from the output.
+- A schema without a `variable` dimension creates one array named after the
+  schema.
 
 ## Writing to the Store
 
-After the data arrays have been initialized in the backend, writing to those arrays
-is a single line of code.
-
 ```python
-x = model(x)
-tensor, coords = x.e2s.to_torch()  # Convert only at the tensor-based IO boundary
-io.write(tensor, coords, array_name)
+for y in islice(model.create_iterator(x), nsteps):
+    io.write(y)
+io.close()
 ```
 
-If, as above, you are extracting a dimension of the tensor to use as array names
-then you can make use of `earth2studio.utils.coords.split_coords`:
+`write` locates a field by its coordinate labels. A field may hold any subset of
+the store's labels, in any order, including several lead times at once. Its
+dimensions must match the arrays' in order. Unknown labels or arrays raise a
+`ValueError` before anything is written; writes never create arrays.
+
+Fields may be NumPy-, CuPy- or Torch-backed, on CPU or GPU. The backend moves data
+to storage itself and never modifies the field.
+
+## Reading from the Store
+
+Backends that can read, such as `XarrayBackend`, implement `read`, the inverse of
+`write`. Pass a schema, or a mapping from every dimension to the labels you want:
 
 ```python
-io.write(*split_coords(*x.e2s.to_torch(), dim="variable"))
+everything = io.read(schema)
+selection = {
+    "variable": ["t2m"],
+    "time": times[:1],
+    "lead_time": lead_times,
+    "lat": lat,
+    "lon": lon,
+}
+subset = io.read(selection, device="cuda")  # CuPy-backed; NumPy-backed on CPU
 ```
 
-For a complete workflow that uses IO backends, refer to `earth2studio.run.deterministic`
-or the deterministic workflow example in the gallery.
+Any store can also be opened with Xarray, for example `xr.open_zarr(path)`.
 
 ## Versioned Output with the Icechunk Backend
 
@@ -162,8 +119,8 @@ from earth2studio.io import IceChunkBackend
 # or an `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`)
 io = IceChunkBackend("/path/to/repo")
 
-io.add_array(total_coords, array_name)
-io.write(x, coords, array_name)
+io.add_array(schema)
+io.write(x)
 
 # Writes are visible through `read`/`__getitem__`/`commit` immediately (each
 # flushes pending writes first), but are only persisted to the Icechunk
@@ -380,9 +337,9 @@ Such a layout is only safe when every rank's slice happens to be shard aligned, 
 depends on the item count, the rank count, and the shard size all lining up. It can pass
 at one rank count and silently lose data at another, so prefer the first layout.
 
-Separately, and independent of sharding: arrays are created lazily on the first write, so
-several ranks writing a new array at once can race on its creation. Have one rank
-establish the arrays before the others begin writing.
+Separately, and independent of sharding: several ranks creating the same new array at
+once can race on its creation. Have one rank call `add_array` before the others begin
+writing.
 
 ### Writing to cloud object storage
 

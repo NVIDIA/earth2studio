@@ -144,8 +144,9 @@ front-hook edits feed the next rolling state, rear-hook edits are published only
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
 preparation and units follow `TIME_STATISTICS_SPEC.md` (calendar-day means).
 
-The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains for tensor-based
-IO, statistics, perturbations and private numerical helpers; convert explicitly with
+The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains for statistics,
+perturbations, private numerical helpers and, until backends migrate
+([IO_SPEC.md](IO_SPEC.md)), tensor-based IO; convert explicitly with
 `.e2s.to_torch()` and `from_torch()`. `fetch_data()` returns one field DataArray,
 not a tensor/coordinate pair. Random/Random_FX keep their data-source API, and
 assimilation protocols are outside this migration. Regional prognostic wrappers also
@@ -709,8 +710,9 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
   ownership remain undecided.
 - Rear-hook edits no longer feed back. Is moving them to the front hook acceptable
   for FuXi-S2S and perturbation workflows?
-- Do IO backends and drivers accept yields with several `lead_time` entries? Chunked
-  steps for DLWP, Aurora1p5, SamudrACE and InterpModAFNO depend on it.
+- Do drivers accept yields with several `lead_time` entries? IO backends do
+  ([IO_SPEC.md](IO_SPEC.md)); chunked steps for DLWP, Aurora1p5, SamudrACE and
+  InterpModAFNO depend on drivers as well.
 - A front hook editing `y` can leave derived private state (Atlas's latent) stale.
   Should `step` re-derive from `y`, or document what it ignores?
 - Front hooks no longer see frames older than `y`, nor the initial condition, so

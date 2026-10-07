@@ -36,7 +36,8 @@ except ImportError:
     Field = None  # type: ignore[assignment]
     create_model = None  # type: ignore[assignment]
 
-from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
+from earth2studio.io import NetCDF4Backend, ZarrBackend
+from earth2studio.io.base import _LegacyIOBackend
 from earth2studio.serve.server.config import get_config
 from earth2studio.serve.server.workflow import (
     Workflow,
@@ -119,7 +120,7 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
         self.execution_id: str | None = None
 
     @abstractmethod
-    def __call__(self, io: IOBackend) -> None:
+    def __call__(self, io: _LegacyIOBackend) -> None:
         """Subclasses must implement the workflow logic in the __call__ method.
         The method must accept an IOBackend in the ``io`` argument to store
         the results.
@@ -182,7 +183,7 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             output_dir = self.get_output_path(execution_id)
             if output_format == "zarr":
                 output_path = str(output_dir / "results.zarr")
-                results_io: IOBackend = ZarrBackend(output_path)
+                results_io: _LegacyIOBackend = ZarrBackend(output_path)
             elif output_format == "netcdf4":
                 output_path = str(output_dir / "results.nc")
                 results_io = NetCDF4Backend(output_path)  # type: ignore[assignment]
@@ -265,7 +266,7 @@ class BackendProgress:
 
     def __init__(
         self,
-        io: IOBackend,
+        io: _LegacyIOBackend,
         workflow: Earth2Workflow,
         execution_id: str,
         progress_dim: str = "lead_time",

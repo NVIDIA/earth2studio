@@ -40,7 +40,6 @@ from earth2studio.serve.client.models import (
     OutputFile,
     RequestStatus,
 )
-from earth2studio.utils.coords import split_coords
 
 
 class TestRemoteEarth2WorkflowInitialization:
@@ -552,10 +551,8 @@ class TestInferenceOutputModel:
         stored.coords["ensemble"].attrs["description"] = "stored members"
         stored = stored.expand_dims(lead_time=np.array([0], dtype="timedelta64[h]"))
         backend = XarrayBackend(attrs=stored.attrs.copy())
-        tensors, coords, names = split_coords(*stored.e2s.to_torch())
-        backend.add_array(coords, names, data=tensors)
-        backend.root = backend.root.assign_coords(seed=stored.seed)
-        backend.root.ensemble.attrs = stored.ensemble.attrs.copy()
+        backend.add_array(stored)
+        backend.write(stored)
         assert "earth2studio_statistics" not in backend.root.attrs
         source = InferenceOutputSource(backend.root)
         source.da = source.da.transpose("ensemble", "time", "variable", "lat", "lon")
