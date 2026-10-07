@@ -7,7 +7,7 @@ RNG semantics for model-independent execution.
 
 This document is the source of truth for the model contract. Prognostic models follow
 the explicit-state protocol in Model Interface: wrappers implement `initialize` and
-`step`, and `PrognosticMixin` derives `__call__` and `rollout_iterator`. Where
+`step`, and `PrognosticMixin` optionally derives `__call__` and `create_iterator`. Where
 wrappers or the checker do not match yet, this spec governs and Migration lists the
 gap.
 
@@ -166,7 +166,9 @@ for dictionary signatures; the rule identifiers apply to both. See
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
 `default_sources()` (no recommendation), `stochastic = False`, hooks, and the derived
-`__call__` and `rollout_iterator`.
+`__call__` and `create_iterator`. The protocol is the requirement; inheriting the
+mixin or deriving these methods from the primitives is optional. Direct
+implementations must satisfy the same behavioral rules.
 
 A single-DataArray protocol cannot express forced or stateful rollouts. StormCast and
 StormScope fetched conditioning from a model-owned `conditioning_data_source` that
@@ -184,36 +186,41 @@ class PrognosticModel(Protocol):
     def output_coords(
         self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
-    def initialize(self, x, forcing=None) -> tuple[y, Any]: ...
-    def step(self, y, state: Any, forcing=None) -> tuple[y, Any]: ...
+    def initialize(
+        self, *x: xr.DataArray
+    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]: ...
+    def step(
+        self, *y: xr.DataArray, state: Any
+    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]: ...
     def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]: ...
-    # Derived by PrognosticMixin from initialize/step:
-    def __call__(self, x, forcing=None) -> y: ...
-    def rollout_iterator(self, x, forcing=None) -> Generator[y, forcing | None, None]: ...
-    # Deprecated, see Migration:
-    def create_iterator(self, x, forcing=None) -> Generator[y, forcing | None, None]: ...
+    def __call__(
+        self, *x: xr.DataArray
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
+    def create_iterator(self, *x: xr.DataArray) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...], tuple[xr.DataArray, ...] | None, None
+    ]: ...
 ```
 
-`x`, `forcing` and `y` each stand for `xr.DataArray | tuple[xr.DataArray, ...]`.
+### Argument slots
 
-### Argument groups
+Each signature is a slot supplied as a separate positional DataArray (`P17`).
+Initial arguments `*x` concatenate input slots and forcing slots, if any exist.
+Step arguments `*y` concatenate preceding output slots and time-varying forcing
+slots, if any exist. This concatenates argument sequences, not array contents.
+Within each sequence, declared slot order is preserved. Simple models use `x`
+and `y`; complex models may name individual parameters descriptively.
 
-Each argument is one group, shaped like the coordinate method describing it: a
-DataArray when that method returns one `CoordinateSystem`, a tuple of the same
-length when it returns a tuple (`P17`). Each signature in a tuple is a slot.
-
-| Group | Described by | Contents |
+| Slots | Described by | Contents |
 | --- | --- | --- |
 | `x` | `input_coords()` | Initial fields, fetched once at initialization |
 | `forcing` | `forcing_coords()` | External fields: full window at first, then newest frames |
 | `y` | `output_coords()` | Outputs, fed back into the next `step` |
 | `state` | the model | Everything else a rollout needs; see Explicit state |
 
-Groups are never splatted. Callers would have to flatten each group to a tuple first,
-since splatting a single DataArray iterates its leading dimension, and the model would
-split the arguments again by slot count. One argument per group keeps
-`step(y, state, forcing)` unambiguous. Every group is positional; examples pass
-`forcing` by position, e.g. `stormcast(x, f)` and `model.step(y, state, f)`.
+One output is returned directly; multiple outputs form a tuple. Callers unpack
+that tuple for the next step, but pass a single DataArray directly (splatting a
+DataArray would iterate its leading dimension). State is keyword-only:
+`model.step(y, f, state=state)` or `model.step(*outputs, f, state=state)`.
 
 - **Forcing is declared, not inferred.** StormCast declares its conditioning in
   `forcing_coords()` with plain labels such as `u10m`, though `u10m` is also a state
@@ -222,10 +229,10 @@ split the arguments again by slot count. One argument per group keeps
   `step` only the newest frames, as with `x` and `y`. The model keeps older frames in
   its state, so callers never assemble windows.
 - **Caller-supplied statics are forcing slots without `lead_time`.** `initialize`
-  stores them in the state; later steps may pass `None` for them. Statics shipped
+  stores them in the state; later steps omit these slots. Statics shipped
   with the checkpoint stay in the wrapper.
 - **Models without forcing** return `None` from `forcing_coords()` (the mixin
-  default) and take `forcing=None`.
+  default) and take no additional forcing arguments.
 
 Slots are positional, not keyed:
 
@@ -260,12 +267,12 @@ takes the `t + 6h` frame per step.
 
 ### Explicit state
 
-`initialize(x, forcing)` runs the first core computation from the input window and
+`initialize(*x)` runs the first core computation from the input window and
 forcing window. It returns `y`, the first forecast, and a model-defined state holding
 everything else needed for a rollout: older input and forcing frames, statics,
-latents, noise states and the RNG position. `step(y, state, forcing)` returns
-the next `y` and state. Wrappers implement only these two; the mixin derives
-`__call__` and `rollout_iterator`, so they cannot disagree. Weights,
+latents, noise states and the RNG position. `step(*y, state=state)` returns
+the next forecast and state. Wrappers may use the mixin to derive
+`__call__` and `create_iterator`, or implement the same contract directly. Weights,
 configuration, cached statics and the `set_rng` seed stay on the model.
 
 For a two-frame model, `initialize([x(-6h), x(0h)])` returns `y = x(+6h)` and keeps
@@ -292,8 +299,8 @@ forcing, and is pure in its state.
   variables by label and lead times from the end, never by position: the window is the
   state's older frames followed by `y`, keeping the last `N` lead times.
 - **Models never fetch** (`P22`). Missing forcing raises `ValueError`; the derived
-  methods check `forcing` against `forcing_coords()` before calling `initialize` or
-  `step`.
+  methods check slot counts before calling `initialize` or `step`; model-specific
+  implementations validate the arrays against the declared coordinates.
 - **`initialize` and `step` are each one core computation,** so `initialize` is
   as expensive as a `step`.
 - **One step is one core computation and one yield.** Models computing several lead
@@ -311,12 +318,12 @@ class AtlasState:
     latent: torch.Tensor
     rng_step: int
 
-def initialize(self, x, forcing=None):
+def initialize(self, x):
     window = self._validate(x)
     state = AtlasState(window.isel(lead_time=[0]), self._encode(window), 0)
     return self._advance(window.isel(lead_time=[-1]), state)
 
-def step(self, y, state, forcing=None):
+def step(self, y, *, state):
     return self._advance(y, state)
 
 def _advance(self, latest, state):
@@ -326,49 +333,57 @@ def _advance(self, latest, state):
 
 ### Derived iteration with `send`
 
-`rollout_iterator` yields forecasts only: its first yield is the output of
+`create_iterator` yields forecasts only: its first yield is the output of
 `initialize`, and `nsteps` forecasts take `nsteps` yields. The initial forcing window
 is consumed by `initialize`, so a value sent to the iterator is always the forcing for
-the next `step`. `next(it)` is `send(None)`, so unforced models keep plain loops.
+the next `step`, as a tuple of time-varying forcing slots in declared order.
+Static slots are omitted after initialization. `next(it)` is `send(None)`, so
+models requiring no new forcing keep plain loops.
 
 ```python
 # PrognosticMixin
-def __call__(self, x, forcing=None):
-    return self.initialize(x, forcing)[0]
+def __call__(self, *x):
+    return self.initialize(*x)[0]
 
-def rollout_iterator(self, x, forcing=None):
-    y, state = self.initialize(x, forcing)
+def create_iterator(self, *x):
+    y, state = self.initialize(*x)
     while True:
-        forcing = yield self.rear_hook(y)
-        y, state = self.step(self.front_hook(y), state, forcing)
+        forcing = yield self.rear_hook(copy_payload(y))
+        outputs = self.front_hook(copy_payload(y))
+        outputs = outputs if isinstance(outputs, tuple) else (outputs,)
+        y, state = self.step(*outputs, *(forcing or ()), state=state)
 ```
+
+This sketch omits slot validation. `copy_payload` copies each DataArray before a
+potentially in-place hook; identity hooks need no copies. Rear-hook writes must
+not affect recurrence, and front-hook writes must not change earlier yields.
 
 ```python
 # Unforced
-for y in islice(sfno.rollout_iterator(x), nsteps): ...
+for y in islice(sfno.create_iterator(x), nsteps): ...
 
 # Forced: the driver fetches conditioning alongside initial conditions
-it = stormcast.rollout_iterator(x_hrrr, fetch(stormcast.forcing_coords(), t0))
+it = stormcast.create_iterator(x_hrrr, fetch(stormcast.forcing_coords(), t0))
 y = next(it)
 for _ in range(nsteps - 1):
-    y = it.send(fetch(stormcast.forcing_coords(), t0 + y.lead_time))
+    y = it.send((fetch(stormcast.forcing_coords(), t0 + y.lead_time),))
 
 # Publishing the initial condition is the driver's choice
 io.write(initial_condition(x))
-for y in islice(sfno.rollout_iterator(x), nsteps):
+for y in islice(sfno.create_iterator(x), nsteps):
     io.write(y)
 
 # Explicit loop over two state slots
-(atm, ocn), state = model.initialize((x_atm, x_ocn), forcing)
+(atm, ocn), state = model.initialize(x_atm, x_ocn, forcing)
 for _ in range(nsteps - 1):
-    (atm, ocn), state = model.step((atm, ocn), state, forcing)
+    (atm, ocn), state = model.step(atm, ocn, forcing, state=state)
 
 # Coupled: GOES output conditions MRMS; neither model owns a data source
 y_goes, s_goes = goes.initialize(x_goes)
 y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)  # GOES window
 for _ in range(nsteps - 1):
-    y_mrms, s_mrms = mrms.step(y_mrms, s_mrms, y_goes)  # newest frame
-    y_goes, s_goes = goes.step(y_goes, s_goes)
+    y_mrms, s_mrms = mrms.step(y_mrms, y_goes, state=s_mrms)  # newest frame
+    y_goes, s_goes = goes.step(y_goes, state=s_goes)
 ```
 
 The same GOES window initializes both models, and each iteration's `y_goes` has the
@@ -425,20 +440,20 @@ path for dictionary-signature fixtures.
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
-| `P7` | `rollout_iterator()` yields forecasts only, the first being `initialize`'s output |
+| `P7` | `create_iterator()` yields forecasts only, the first being `initialize`'s output |
 | `P8` | The 1st yield matches the coordinate system `output_coords()` declared |
 | `P9` | Every forecast matches its planned coordinates and structural metadata |
-| `P10` | `rollout_iterator()` applies both hooks; `__call__`, `initialize` and `step` apply none |
+| `P10` | `create_iterator()` applies both hooks; `__call__`, `initialize` and `step` apply none |
 | `P11` | The model declares a boolean `stochastic` attribute |
 | `P12` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `P13` | Seeding determines a rollout, and different seeds give different rollouts |
 | `P14` | After `set_rng()`, seeding and stepping leave global RNG state unperturbed |
 | `P15` | Stepping the model does not modify its input tensor or coordinate system |
 | `P16` | A yielded tensor does not change once a later step is produced |
-| `P17` | Groups are tuples iff their coordinate methods are |
+| `P17` | One positional DataArray per slot; fields precede forcing, in declared order |
 | `P18` | No two output slots share identical non-variable coordinates |
 | `P19` | `step` modifies neither `y` nor `state`; replaying `(y, state)` reproduces it |
-| `P20` | `__call__(x, f)` equals the first yield of `rollout_iterator(x, f)` without hooks |
+| `P20` | Call, initialization forecast and first iterator yield agree without hooks |
 | `P21` | The state is serializable, and a saved `(y, state)` round-trips |
 | `P22` | The model never fetches; missing forcing raises `ValueError` |
 | `P23` | `default_sources()` has one entry per input slot, then one per forcing slot |
@@ -467,7 +482,7 @@ time shifts output equally (`P6`). `forcing_coords()` follows the same conventio
 
 ## Iteration
 
-`rollout_iterator()` yields complete forecasts only, starting with the output of
+`create_iterator()` yields complete forecasts only, starting with the output of
 `initialize`; `nsteps` forecasts take `nsteps` yields, and no yield is a partial
 step. A value sent at a yield is the forcing for the next `step`. Drivers that publish
 the initial condition take it from `initial_condition(x)`, which reduces each input
@@ -476,7 +491,7 @@ slot to its final lead time.
 ## Hooks
 
 **Hooks belong to the iterator (`P10`).** `__call__`, `initialize` and `step` apply
-none, and neither hook sees the initial condition. `rollout_iterator` applies the rear
+none, and neither hook sees the initial condition. `create_iterator` applies the rear
 hook to every forecast, starting with the output of `initialize`, and the front hook
 before every `step`: front hook → `step` → rear hook → yield.
 
@@ -506,7 +521,7 @@ preserving native recurrence when numerical inputs are unchanged.
 ## Ownership of Tensors
 
 A model borrows its input and owns its output. None of `__call__`, `initialize`,
-`step` and `rollout_iterator()` may modify caller input tensors or coordinates (`P15`,
+`step` and `create_iterator()` may modify caller input tensors or coordinates (`P15`,
 `D6`),
 and earlier yields must not change after later steps (`P16`); views are allowed only
 if their buffers will not be overwritten. This protects asynchronous IO, resume
@@ -651,39 +666,30 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
 
 - **Wrappers.** Unmigrated wrappers override `__call__` and `create_iterator` with
   their single-DataArray implementations and inherit `initialize`/`step` stubs that
-  raise `NotImplementedError`, so they still satisfy `P1`. `rollout_iterator` wraps
-  such a `create_iterator`, dropping its initial-condition yield, so drivers can adopt
-  it before every wrapper migrates. Once no wrapper overrides them, the mixin's derived
-  `__call__`/`create_iterator` drop their `*args`/`**kwargs` signatures for
-  `(x, forcing=None)`.
-- **Protocol annotations.** `PrognosticModel` and `DiagnosticModel` annotate the
-  existing members (`__call__`, `create_iterator`, `input_coords`, `output_coords`)
-  with single DataArrays and signatures, without `forcing`, so current callers type
-  check. The members added by this contract carry the full tuple types. Migration
-  widens the existing members to match, together with the callers in
-  `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and the recipes
-  that index their results.
-- **`create_iterator` is deprecated.** The mixin keeps it as a shim yielding
-  `initial_condition(x)` and then the forecasts of `rollout_iterator`, so existing
-  loops counting `nsteps + 1` yields keep their lead times. Unlike before, its front
-  hook does not run on the initial condition, and a value sent at its 0th yield is
-  ignored. Removing it outright would also be safe, since stale calls then fail
-  loudly; keeping the name with the new semantics would not, because positional
-  consumers would silently mislabel every forecast by one step.
+  raise `NotImplementedError`, so they still satisfy structural `P1`. Their legacy
+  initial-condition-first behavior remains until each wrapper migrates.
+- **Protocol annotations.** `PrognosticModel` now declares variadic DataArray
+  arguments and single-or-tuple output signatures. Wrappers and callers in
+  `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and recipes must
+  migrate together; structural protocol membership does not validate signatures.
+- **One iterator API.** `create_iterator` remains the public name and is not
+  deprecated. Migrated implementations yield forecasts only. Coordinate the
+  transition with consumers that currently count `nsteps + 1` yields, so their
+  forecasts retain the correct lead-time labels.
 - **Chunked yields.** Unmigrated DLWP, Aurora1p5, SamudrACE and InterpModAFNO yield
   one lead time at a time and declare `front_hook_interval`, the number of yields per
   front-hook call (DLWP: 2, front hook → compute +6h and +12h → rear hook and yield
   each). Migrated, they yield whole chunks and `front_hook_interval` is removed.
 - **Conformance.** The checker probes `create_iterator` for `P7`–`P10`, expecting an
   initial-condition 0th yield and enforcing `front_hook_interval` ordering. It moves
-  these rules to `rollout_iterator` (`P7` then checks the first yield against
-  `initialize`) and adds `P17`–`P23` and tuple slots.
+  to the forecasts-only semantics (`P7` checks the first yield against
+  `initialize`) and adds `P17`–`P23` and multiple slots.
 - **Diagnostics.** Add a `DiagnosticMixin` supplying `stochastic = False` and a
   `default_sources()` recommending nothing, inherited by every diagnostic wrapper.
   `default_sources()` then becomes a required `DiagnosticModel` member, as for
   `PrognosticModel`, and drivers drop their `getattr` fallbacks for both attributes.
 - **Examples and drivers.** `earth2studio.run`, `examples/` and `dev/examples/` call
-  `create_iterator` and count `nsteps + 1` yields; they move to `rollout_iterator`,
+  `create_iterator` and count `nsteps + 1` yields; they move to `nsteps` yields,
   writing `initial_condition(x)` where they publish the initial condition.
 
 ## Open Questions
