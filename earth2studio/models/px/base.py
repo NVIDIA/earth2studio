@@ -33,54 +33,6 @@ class PrognosticModel(Protocol):
     Implementations must satisfy this protocol's interface and behavior.
     ``PrognosticMixin`` optionally implements ``__call__`` using ``initialize``;
     ``create_iterator`` is currently a stub. Inheriting the mixin is not required.
-
-    Notes
-    -----
-    The authoritative requirements are in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
-
-    **Arguments and slots (P17)**
-        Each declared slot is a separate positional DataArray. Initial arguments
-        ``*x`` follow input-slot order, then forcing-slot order, if forcing exists.
-        Step arguments ``*y`` follow output-slot order, then time-varying forcing
-        slot order; initialization-only static slots are omitted.
-        Simple models use ``x`` and ``y``; complex models may give individual
-        parameters descriptive names. One output is returned directly; multiple
-        outputs are returned as a tuple in declared order.
-
-    **Forecasts and iteration (P7-P9, P20)**
-        ``initialize`` computes the first forecast; ``step`` computes the next.
-        Each performs one core computation and returns all its lead times together.
-        ``create_iterator`` yields complete forecasts, starting with the output of
-        ``initialize``. Drivers publish the initial condition separately if needed.
-        Without hooks, ``__call__(*x)``, the forecast from ``initialize(*x)``, and
-        the first iterator yield agree. Outputs match declared coordinates and
-        structural metadata.
-
-    **Hooks (P10)**
-        Only iteration applies hooks. The front hook acts on forecast outputs
-        before each ``step``, never before ``initialize``; its edits feed back.
-        The rear hook changes published outputs only, including the first forecast.
-
-    **Continuation and ownership (P15, P16, P19, P21)**
-        The forecast and model-defined state together form a complete continuation.
-        State is serializable and holds additional history, latents or RNG state;
-        no state base class is required. It avoids duplicating outputs unless their
-        published representation is unsuitable for recurrence. Execution borrows
-        arrays and coordinates without modifying them. ``step`` also preserves its
-        supplied state; replaying the same continuation and external arrays gives
-        the same result. Earlier outputs remain stable after later advances.
-
-    **Forcing and sources (P22, P23)**
-        Models never fetch data. Callers supply complete forcing windows for
-        initialization and new frames for subsequent steps, if forcing exists.
-        Missing required forcing raises ``ValueError``. Iterator ``send`` supplies
-        forcing for the next step; unforced models support ordinary ``next``.
-        Default sources follow input-slot order, then forcing-slot order.
-
-    **Randomness (P11-P14)**
-        Models declare ``stochastic``. Stochastic models expose ``set_rng``;
-        seeded rollouts are reproducible without perturbing global RNG state.
-        Continuation state captures the rollout's RNG state for replay and resume.
     """
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
