@@ -137,8 +137,9 @@ class PrognosticModel(Protocol):
             frames and initialization-only statics are retained in ``state``.
             Omit static forcing slots after initialization.
         state : Any
-            State returned alongside the forecast. Keyword-only after ``*y`` here;
-            fixed-arity implementations may also accept it positionally.
+            State returned alongside the forecast. Concrete implementations should
+            declare it as a fixed positional-or-keyword parameter after the arrays;
+            it is keyword-only here because it follows ``*y``.
 
         Returns
         -------

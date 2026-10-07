@@ -392,7 +392,7 @@ for _ in range(nsteps - 1):
     (atm, ocn), state = model.step(atm, ocn, forcing, state=state)
 
 # Coupled: GOES output conditions MRMS; neither model owns a data source
-# These fixed-arity implementations also accept state positionally.
+# Concrete implementations should declare state as a fixed positional-or-keyword parameter.
 y_goes, s_goes = goes.initialize(x_goes)
 y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)  # GOES window
 for _ in range(nsteps - 1):
