@@ -239,6 +239,35 @@ class StormScopePipeline(Pipeline):
             ]
         )
 
+        # Flash retains padded histories internally; only the yielded products
+        # and their spatial reference use the requested output rectangle.
+        self._output_region = getattr(self.model_goes, "region_info", None)
+        mrms_region = getattr(self.model_mrms, "region_info", None)
+        if self._output_region is not None:
+            if (
+                mrms_region is None
+                or self._output_region.input_bounds != mrms_region.input_bounds
+                or self._output_region.output_bounds != mrms_region.output_bounds
+                or self._output_region.requested_bounds != mrms_region.requested_bounds
+            ):
+                raise ValueError(
+                    "Coupled Flash models must use the same input and output regions"
+                )
+            if self._output_region.requested_bounds is None:
+                self._output_region = None
+            else:
+                ys, xs = self._output_region.output_slices
+                self._spatial_ref["y"] = self._spatial_ref["y"][ys]
+                self._spatial_ref["x"] = self._spatial_ref["x"][xs]
+
+    def _crop_product(
+        self, tensor: torch.Tensor, coords: CoordSystem
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        region = getattr(self, "_output_region", None)
+        if region is None:
+            return tensor, coords
+        return region.crop_output(tensor, coords)
+
     # ------------------------------------------------------------------
     # Output schema
     # ------------------------------------------------------------------
@@ -328,7 +357,7 @@ class StormScopePipeline(Pipeline):
                 "variable",
             )
 
-            yield combined, combined_coords
+            yield self._crop_product(combined, combined_coords)
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).
@@ -416,7 +445,8 @@ class StormScopePipeline(Pipeline):
                 (pred_goes_coords, pred_mrms_coords),
                 "variable",
             )
-            yield _rename_batch_to_ensemble(combined, combined_coords, member_ids)
+            product, product_coords = self._crop_product(combined, combined_coords)
+            yield _rename_batch_to_ensemble(product, product_coords, member_ids)
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).

@@ -318,6 +318,17 @@ categories:
         warnings:
           - Depends on natten for Python versions before 3.14, which can take a long
             time to build.
+      - id: stormscope-flash
+        label: StormScope Flash
+        extra: stormscope-flash
+        api_refs:
+          - earth2studio.models.px.StormScopeGOESFlash
+          - earth2studio.models.px.StormScopeMRMSFlash
+        summary: GOES PDD5 and MRMS/GLM PDD7 with full or regional inputs.
+        warnings:
+          - Requires NATTEN matching the installed PyTorch/CUDA. The selected
+            .mdlus checkpoints download automatically from Hugging Face and are cached.
+
       - id: stormscope
         label: StormScope
         extra: stormscope

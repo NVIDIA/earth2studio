@@ -1,0 +1,50 @@
+# Fixed GOES PDD5 + MRMS/GLM PDD7. Uses the unchanged coupled evaluation pipeline.
+# Downloads and caches the pinned Flash package from Hugging Face.
+# Use a separate output.path when changing region to keep cached grids distinct.
+goes:
+    architecture: earth2studio.models.px.StormScopeGOESFlash
+    load_args:
+        model_name: 3km_10min
+        amp: true
+        compile: false
+        region: null  # Or {lat: [35, 41], lon: [-102, -94]}; match MRMS below.
+        padding: 25
+    ic_source:
+        _target_: earth2studio.data.GOES
+        satellite: goes19
+        scan_mode: C
+        cache: false
+    ic_grid:
+        _target_: src.grids.goes_grid
+        satellite: goes19
+        scan_mode: C
+mrms:
+    architecture: earth2studio.models.px.StormScopeMRMSFlash
+    load_args:
+        model_name: 3km_10min
+        amp: true
+        compile: false
+        region: ${model.goes.load_args.region}
+        padding: ${model.goes.load_args.padding}
+        conditioning_data_source:
+            _target_: earth2studio.data.GOES
+            satellite: goes19
+            scan_mode: C
+            cache: false
+        glm_data_source:
+            _target_: earth2studio.data.GOESGLMGrid
+            satellite: east
+            cache: false
+    ic_source:
+        _target_: earth2studio.data.MRMS
+        cache: false
+    ic_grid:
+        _target_: src.grids.mrms_grid
+    glm_grid:
+        _target_: src.grids.glm_grid
+        satellite: east
+    conditioning_grid:
+        _target_: src.grids.goes_grid
+        satellite: goes19
+        scan_mode: C
+max_dist_km: 30.0

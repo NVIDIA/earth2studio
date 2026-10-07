@@ -254,6 +254,9 @@ stormscope = [
     "omegaconf>=2.3.0",
     "earth2studio[utils]",
 ]
+stormscope-flash = [
+    "earth2studio[stormscope]",
+]
 ucast = []
 # DX Models
 cbottle = [
@@ -328,7 +331,7 @@ da-stormcast = [
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
+    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,stormscope-flash,graphcast,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,corrdiff-era5-hrrr,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-cosmo]",
 ]

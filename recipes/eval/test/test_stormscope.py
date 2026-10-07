@@ -412,6 +412,37 @@ class TestStormScopeRunItem:
             pipeline.model_goes.variables
         )
 
+    def test_regional_products_do_not_crop_autoregressive_history(self, pipeline):
+        from earth2studio.models.px._stormscope_flash.region import RegionInfo
+
+        pipeline._output_region = RegionInfo(
+            requested_bounds=(35.0, 36.0, -99.0, -98.0),
+            input_bounds=(0, 4, 0, 5),
+            output_bounds=(1, 3, 1, 4),
+            requested_mask=np.ones((2, 3), dtype=bool),
+            padding=(1, 1, 1, 1),
+        )
+        item = WorkItem(
+            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
+        )
+        outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
+        assert len(outputs) == 2
+        for tensor, coords in outputs:
+            assert tensor.shape[-2:] == (2, 3)
+            np.testing.assert_array_equal(coords["y"], [1, 2])
+            np.testing.assert_array_equal(coords["x"], [1, 2, 3])
+        assert pipeline.model_mrms.last_conditioning.shape[-2:] == (4, 5)
+        assert len(pipeline._goes_ic_coords["y"]) == 4
+        assert pipeline.model_goes.next_input_calls == 2
+        assert pipeline.model_mrms.next_input_calls == 2
+
+    def test_baseline_products_are_unchanged(self, pipeline):
+        tensor = torch.ones(1, 1, 1, 3, 4, 5)
+        coords = pipeline.model_goes.input_coords()
+        output, output_coords = pipeline._crop_product(tensor, coords)
+        assert output is tensor
+        assert output_coords is coords
+
 
 # ---------------------------------------------------------------------------
 # resolve_ic_source — predownloaded-cache preference (StormScope call path)
