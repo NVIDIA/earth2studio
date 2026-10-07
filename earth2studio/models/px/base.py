@@ -63,8 +63,8 @@ class PrognosticModel(Protocol):
     """DataArray-based prognostic model interface.
 
     Implementations must satisfy this protocol's interface and behavior.
-    ``PrognosticMixin`` optionally implements ``__call__`` and ``create_iterator``
-    using ``initialize`` and ``step``; inheriting it is not required.
+    ``PrognosticMixin`` optionally implements ``__call__`` using ``initialize``;
+    ``create_iterator`` is currently a stub. Inheriting the mixin is not required.
 
     Notes
     -----

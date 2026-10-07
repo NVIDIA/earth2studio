@@ -73,9 +73,9 @@ class PrognosticMixin:
     assignment site rather than spread across every place that registered one.
 
     Wrappers that still define their own ``__call__``/``create_iterator`` override
-    the derived versions below, and inherit ``initialize``/``step`` stubs until they
-    are migrated. Inheriting this mixin is optional; implementations must satisfy
-    the prognostic protocol regardless of how their methods are implemented.
+    the methods below. ``initialize``, ``step`` and ``create_iterator`` are stubs
+    for wrappers to implement. Inheriting this mixin is optional; implementations
+    must satisfy the prognostic protocol regardless of how their methods are implemented.
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
@@ -150,64 +150,7 @@ class PrognosticMixin:
         tuple[xr.DataArray, ...] | None,
         None,
     ]:
-        """Roll out from positional input and forcing arrays via ``initialize``/``step``.
-        Subsequent advances receive external arrays through ``send`` as a tuple.
-
-        Yields forecasts only, starting with the output of ``initialize``; take the
-        initial condition from ``initial_condition`` applied to the input slots.
-        Initial forcing windows, if any exist, follow the input slots in ``x``.
-        A value sent at a yield supplies the time-varying forcing slots for the next
-        ``step``, in declared order; static slots are retained in state and omitted.
-        Sending ``None`` is valid when no time-varying forcing is required.
-        Each yield is one core computation: a model
-        computing several lead times per core call yields them together.
-
-        The front hook edits ``y`` before it is fed into the next step, so it never
-        sees the initial condition; edit ``x`` before calling instead. The rear hook
-        edits only the published output, including the first forecast.
-        """
-        # Hooks see whatever payload type the model declares.
-        front_hook: Callable[[Any], Any] = self.front_hook
-        rear_hook: Callable[[Any], Any] = self.rear_hook
-        forcing_coords = self.forcing_coords()
-        slots: tuple[CoordinateSystem, ...]
-        if forcing_coords is None:
-            slots = ()
-        elif isinstance(forcing_coords, tuple):
-            slots = forcing_coords
-        else:
-            slots = (forcing_coords,)
-        expected = _count(self.input_coords()) + len(slots)  # type: ignore[attr-defined]
-        if len(x) != expected:
-            raise ValueError(
-                f"{type(self).__name__} requires {expected} input and forcing arrays; "
-                f"received {len(x)}"
-            )
-        forcing_count = sum("lead_time" in slot.dims for slot in slots)
-        y, state = self.initialize(*x)
-        while True:
-            # Protect recurrence from in-place publication hooks. Identity hooks
-            # need no copy because model steps borrow, rather than overwrite, y.
-            published = y
-            if rear_hook is not self._default_hook:
-                published = (
-                    tuple(slot.copy(deep=True) for slot in y)
-                    if isinstance(y, tuple)
-                    else y.copy(deep=True)
-                )
-            sent = yield rear_hook(published)
-            forcing = () if sent is None else sent
-            if not isinstance(forcing, tuple) or len(forcing) != forcing_count:
-                raise ValueError(
-                    f"{type(self).__name__} requires {forcing_count} forcing arrays "
-                    "as a tuple sent at each yield"
-                )
-            if front_hook is not self._default_hook:
-                y = (
-                    tuple(slot.copy(deep=True) for slot in y)
-                    if isinstance(y, tuple)
-                    else y.copy(deep=True)
-                )
-            y = front_hook(y)
-            outputs = y if isinstance(y, tuple) else (y,)
-            y, state = self.step(*outputs, *forcing, state=state)
+        """Create a forecast iterator; wrappers implement this."""
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement create_iterator"
+        )

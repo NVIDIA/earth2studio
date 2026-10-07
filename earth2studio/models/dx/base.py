@@ -27,55 +27,62 @@ from earth2studio.utils.type import CoordinateSystem
 class DiagnosticModel(Protocol):
     """Diagnostic model interface
 
-    Inputs and outputs are one DataArray or a tuple of DataArrays ("slots"), shaped
-    like ``input_coords()`` and ``output_coords()``, as for prognostic models.
+    Each input slot is a separate positional DataArray, in the order declared by
+    ``input_coords()``. Concrete models may give individual parameters descriptive
+    names; generic callers use slot order rather than parameter names. One output
+    is returned directly; multiple outputs are returned as a tuple in the order
+    declared by ``output_coords()``. Diagnostics have no forcing slots.
     Diagnostics may also define ``default_sources()``, returning one ``DataSource |
     ForecastSource | None`` per input slot; it is optional here because diagnostics
     share no base class. Drivers read it through
     ``earth2studio.models.px.base.recommended_sources``.
-
-    Until wrappers migrate, ``__call__``, ``input_coords`` and ``output_coords``
-    keep single-slot annotations, so current callers type check; they widen to
-    tuples with the migration.
     """
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Execution of the diagnostic model that transforms physical data
 
         Parameters
         ----------
-        x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA data matching ``input_coords()``.
+        *x : xr.DataArray
+            NumPy-backed CPU or CuPy-backed CUDA arrays: one positional argument
+            per ``input_coords()`` slot, in declared order. Pass multiple slots as
+            separate arguments, not as a single tuple argument.
 
         Returns
         -------
-        xr.DataArray
-            Diagnostic output matching ``output_coords()``.
+        xr.DataArray | tuple[xr.DataArray, ...]
+            Diagnostic output matching ``output_coords()``, or a tuple of outputs
+            in declared output-slot order.
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem:
+    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray input signature.
+        CoordinateSystem | tuple[CoordinateSystem, ...]
+            Allocation-free DataArray input signature, or a tuple of signatures
+            in input-slot order.
         """
         pass
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(
+        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem
-            Input signature or DataArray to validate and transform.
+        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
+            Input signature or DataArray to validate and transform, or a tuple
+            aligned with the slots declared by ``input_coords()``.
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free DataArray output signature.
+        CoordinateSystem | tuple[CoordinateSystem, ...]
+            Allocation-free DataArray output signature, or a tuple of signatures
+            in output-slot order.
 
         Raises
         ------

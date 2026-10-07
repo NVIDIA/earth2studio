@@ -43,30 +43,21 @@ class CoupledModel(PrognosticMixin):
         return (atmosphere + forcing, ocean + forcing), state + 1
 
 
-def test_variadic_call_and_iterator() -> None:
+def test_variadic_call() -> None:
     model = CoupledModel()
     x, ocean, forcing = (xr.DataArray(value) for value in (1, 10, 2))
-    expected = model(x, ocean, forcing)
-    iterator = model.create_iterator(x, ocean, forcing)
-    first = next(iterator)
-    for actual, reference in zip(first, expected):
+    outputs = model(x, ocean, forcing)
+    expected, _ = model.initialize(x, ocean, forcing)
+    for actual, reference in zip(outputs, expected):
         xr.testing.assert_identical(actual, reference)
-    second = iterator.send((xr.DataArray(3),))
-    assert tuple(value.item() for value in second) == (6, 15)
-    assert tuple(value.item() for value in first) == (3, 12)
-    with pytest.raises(ValueError, match="forcing"):
-        next(iterator)
+    assert tuple(value.item() for value in outputs) == (3, 12)
 
 
-@pytest.mark.parametrize("iterator", [False, True])
-def test_missing_initial_forcing(iterator: bool) -> None:
+def test_missing_initial_forcing() -> None:
     with pytest.raises(ValueError, match="forcing"):
         model = CoupledModel()
         x = (xr.DataArray(1), xr.DataArray(2))
-        if iterator:
-            next(model.create_iterator(*x))
-        else:
-            model(*x)
+        model(*x)
 
 
 class SimpleModel(PrognosticMixin):
@@ -80,7 +71,7 @@ class SimpleModel(PrognosticMixin):
         return y + 1, state
 
 
-def test_unforced_iterator_hooks_and_ownership() -> None:
+def test_unforced_call_does_not_apply_hooks() -> None:
     model = SimpleModel()
     events = []
 
@@ -98,28 +89,12 @@ def test_unforced_iterator_hooks_and_ownership() -> None:
     x = xr.DataArray(0)
     assert model(x).item() == 1
     assert not events
-    iterator = model.create_iterator(x)
-    first = next(iterator)
-    assert first.item() == 101
-    assert events == ["rear"]
-    assert next(iterator).item() == 112
-    assert events == ["rear", "front", "rear"]
-    assert first.item() == 101
     assert x.item() == 0
 
 
-def test_front_hook_preserves_previous_yield() -> None:
-    model = SimpleModel()
-
-    def front(y: xr.DataArray) -> xr.DataArray:
-        y += 10
-        return y
-
-    model.front_hook = front
-    iterator = model.create_iterator(xr.DataArray(0))
-    first = next(iterator)
-    assert next(iterator).item() == 12
-    assert first.item() == 1
+def test_create_iterator_requires_implementation() -> None:
+    with pytest.raises(NotImplementedError, match="create_iterator"):
+        SimpleModel().create_iterator(xr.DataArray(0))
 
 
 class StaticModel(SimpleModel):
@@ -139,17 +114,8 @@ class StaticModel(SimpleModel):
 
 def test_static_forcing_is_only_supplied_at_initialization() -> None:
     model = StaticModel()
-    iterator = model.create_iterator(xr.DataArray(1), xr.DataArray(2))
-    assert next(iterator).item() == 3
-    assert next(iterator).item() == 5
+    y, state = model.initialize(xr.DataArray(1), xr.DataArray(2))
+    assert y.item() == 3
+    y, state = model.step(y, state=state)
+    assert y.item() == 5
     assert model.default_sources() == (None, None)
-
-
-@pytest.mark.parametrize("forcing", [(), (xr.DataArray(1), xr.DataArray(2))])
-def test_iterator_rejects_wrong_forcing_count(
-    forcing: tuple[xr.DataArray, ...],
-) -> None:
-    iterator = CoupledModel().create_iterator(*(xr.DataArray(1) for _ in range(3)))
-    next(iterator)
-    with pytest.raises(ValueError, match="forcing"):
-        iterator.send(forcing)

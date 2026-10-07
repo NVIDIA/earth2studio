@@ -7,7 +7,7 @@ RNG semantics for model-independent execution.
 
 This document is the source of truth for the model contract. Prognostic models follow
 the explicit-state protocol in Model Interface: wrappers implement `initialize` and
-`step`, and `PrognosticMixin` optionally derives `__call__` and `create_iterator`. Where
+`step`, and `PrognosticMixin` optionally derives `__call__`. Where
 wrappers or the checker do not match yet, this spec governs and Migration lists the
 gap.
 
@@ -166,7 +166,8 @@ for dictionary signatures; the rule identifiers apply to both. See
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
 `default_sources()` (no recommendation), `stochastic = False`, hooks, and the derived
-`__call__` and `create_iterator`. The protocol is the requirement; inheriting the
+`__call__`. Its `create_iterator` currently raises `NotImplementedError`; wrappers
+provide their own iterator. The protocol is the requirement; inheriting the
 mixin or deriving these methods from the primitives is optional. Direct
 implementations must satisfy the same behavioral rules.
 
@@ -272,7 +273,8 @@ forcing window. It returns `y`, the first forecast, and a model-defined state ho
 everything else needed for a rollout: older input and forcing frames, statics,
 latents, noise states and the RNG position. `step(*y, state=state)` returns
 the next forecast and state. Wrappers may use the mixin to derive
-`__call__` and `create_iterator`, or implement the same contract directly. Weights,
+`__call__`, or implement the same contract directly. Iterators are currently
+implemented by wrappers. Weights,
 configuration, cached statics and the `set_rng` seed stay on the model.
 
 For a two-frame model, `initialize([x(-6h), x(0h)])` returns `y = x(+6h)` and keeps
@@ -341,7 +343,7 @@ Static slots are omitted after initialization. `next(it)` is `send(None)`, so
 models requiring no new forcing keep plain loops.
 
 ```python
-# PrognosticMixin
+# Illustrative derivation; the mixin currently leaves create_iterator unimplemented.
 def __call__(self, *x):
     return self.initialize(*x)[0]
 
@@ -418,9 +420,12 @@ such as a pre-regridded archive.
 
 ### Diagnostic models
 
-`DiagnosticModel` uses the same shapes: `__call__(x)` and
-`output_coords(input_coords)` take one DataArray or signature, or a tuple aligned
-with `input_coords()`, and return one or a tuple aligned with `output_coords()`.
+`DiagnosticModel.__call__(*x)` takes one positional DataArray per input slot in
+`input_coords()` order, and returns a single DataArray or a tuple in output-slot
+order. Concrete models may name their parameters descriptively; generic callers
+use declared slot order, not parameter names. Coordinate methods retain
+single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
+a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
 coordinates differ. A diagnostic may define `default_sources()`, one entry per input
 slot. Forcing, `initialize`, `step` and hooks do not apply.
