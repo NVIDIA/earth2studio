@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/modules/generated/data/dataframe/NNJAObsConv/">
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/examples/05_data_assimilation/04_healda_v2/">
       
       
       
@@ -18,19 +18,19 @@
         
       
       
-      <link rel="icon" href="../../../../../_static/favicon.ico">
+      <link rel="icon" href="../../../_static/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>NNJAObsConv - Earth2Studio</title>
+        <title>HealDA v2 Global Data Assimilation - Earth2Studio</title>
       
     
     
-      <link rel="stylesheet" href="../../../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -49,17 +49,17 @@
       
     
     
-      <link rel="stylesheet" href="../../../../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     
-      <link rel="stylesheet" href="../../../../../assets/stylesheets/nvidia-material.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
     
-      <link rel="stylesheet" href="../../../../../assets/stylesheets/earth2studio-gallery.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
     
-      <link rel="stylesheet" href="../../../../../assets/stylesheets/mkdocs-badges.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
     
-    <script>__md_scope=new URL("../../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#nnjaobsconv" class="md-skip">
+        <a href="#healda-v2-global-data-assimilation" class="md-skip">
           Skip to content
         </a>
       
@@ -127,9 +127,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
       
-  <img src="../../../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -146,7 +146,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              NNJAObsConv
+              HealDA v2 Global Data Assimilation
             
           </span>
         </div>
@@ -253,7 +253,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../../.." class="md-tabs__link">
+      <a href="../../.." class="md-tabs__link">
         
   
   
@@ -274,7 +274,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../../userguide/about/install/" class="md-tabs__link">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
           
   
   
@@ -296,7 +296,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../" class="md-tabs__link">
+        <a href="../../../modules/" class="md-tabs__link">
           
   
   
@@ -318,7 +318,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../../examples/" class="md-tabs__link">
+        <a href="../../" class="md-tabs__link">
           
   
   
@@ -340,7 +340,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../../blog/" class="md-tabs__link">
+        <a href="../../../blog/" class="md-tabs__link">
           
   
   
@@ -362,7 +362,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../../../scorecard/generated/" class="md-tabs__link">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
           
   
   
@@ -423,9 +423,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
       
-  <img src="../../../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
 
     </a>
     Earth2Studio
@@ -452,7 +452,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -545,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/about/install/" class="md-nav__link">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
         
   
   
@@ -573,7 +573,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/about/overview/" class="md-nav__link">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
         
   
   
@@ -601,7 +601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/about/catalog/" class="md-nav__link">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
         
   
   
@@ -664,7 +664,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../userguide/components/" class="md-nav__link ">
+            <a href="../../../userguide/components/" class="md-nav__link ">
               
   
   
@@ -708,7 +708,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/prognostic/" class="md-nav__link">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
         
   
   
@@ -736,7 +736,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/diagnostic/" class="md-nav__link">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
         
   
   
@@ -764,7 +764,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/data_assimilation/" class="md-nav__link">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
         
   
   
@@ -792,7 +792,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/datasources/" class="md-nav__link">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
         
   
   
@@ -820,7 +820,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/perturbation/" class="md-nav__link">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
         
   
   
@@ -848,7 +848,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/io/" class="md-nav__link">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
         
   
   
@@ -876,7 +876,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/components/statistics/" class="md-nav__link">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
         
   
   
@@ -943,7 +943,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../userguide/advanced/" class="md-nav__link ">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
               
   
   
@@ -987,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/advanced/checkpointing/" class="md-nav__link">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
         
   
   
@@ -1015,7 +1015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/advanced/batch/" class="md-nav__link">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
         
   
   
@@ -1043,7 +1043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/advanced/auto/" class="md-nav__link">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
         
   
   
@@ -1071,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/advanced/lexicon/" class="md-nav__link">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
         
   
   
@@ -1122,7 +1122,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../userguide/notes/" class="md-nav__link ">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
               
   
   
@@ -1166,7 +1166,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/notes/surface_pressure/" class="md-nav__link">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
         
   
   
@@ -1247,7 +1247,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../userguide/developer/" class="md-nav__link ">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
               
   
   
@@ -1291,7 +1291,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/overview/" class="md-nav__link">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
         
   
   
@@ -1319,7 +1319,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/dependency/" class="md-nav__link">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
         
   
   
@@ -1347,7 +1347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/style/" class="md-nav__link">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
         
   
   
@@ -1375,7 +1375,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/documentation/" class="md-nav__link">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
         
   
   
@@ -1403,7 +1403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/testing/" class="md-nav__link">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
         
   
   
@@ -1431,7 +1431,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/build/" class="md-nav__link">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
         
   
   
@@ -1459,7 +1459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/recipes/" class="md-nav__link">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
         
   
   
@@ -1487,7 +1487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/developer/skills/" class="md-nav__link">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
         
   
   
@@ -1548,7 +1548,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../userguide/support/" class="md-nav__link ">
+            <a href="../../../userguide/support/" class="md-nav__link ">
               
   
   
@@ -1592,7 +1592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/support/troubleshooting/" class="md-nav__link">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
         
   
   
@@ -1620,7 +1620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../userguide/support/faq/" class="md-nav__link">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
         
   
   
@@ -1706,7 +1706,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../" class="md-nav__link ">
+            <a href="../../../modules/" class="md-nav__link ">
               
   
   
@@ -1750,7 +1750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../models_px/" class="md-nav__link">
+      <a href="../../../modules/models_px/" class="md-nav__link">
         
   
   
@@ -1778,7 +1778,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../models_dx/" class="md-nav__link">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
         
   
   
@@ -1806,7 +1806,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../models_da/" class="md-nav__link">
+      <a href="../../../modules/models_da/" class="md-nav__link">
         
   
   
@@ -1834,7 +1834,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../datasources_analysis/" class="md-nav__link">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
         
   
   
@@ -1862,7 +1862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../datasources_forecast/" class="md-nav__link">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
         
   
   
@@ -1890,7 +1890,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../datasources_dataframe/" class="md-nav__link">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
         
   
   
@@ -1918,7 +1918,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../io/" class="md-nav__link">
+      <a href="../../../modules/io/" class="md-nav__link">
         
   
   
@@ -1946,7 +1946,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../perturbation/" class="md-nav__link">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
         
   
   
@@ -1974,7 +1974,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../statistics/" class="md-nav__link">
+      <a href="../../../modules/statistics/" class="md-nav__link">
         
   
   
@@ -2002,7 +2002,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../utils_all/" class="md-nav__link">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
         
   
   
@@ -2030,7 +2030,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../workflows/" class="md-nav__link">
+      <a href="../../../modules/workflows/" class="md-nav__link">
         
   
   
@@ -2088,7 +2088,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../examples/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -2132,7 +2132,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../recipes/" class="md-nav__link">
+      <a href="../../../recipes/" class="md-nav__link">
         
   
   
@@ -2198,7 +2198,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../blog/" class="md-nav__link ">
+            <a href="../../../blog/" class="md-nav__link ">
               
   
   
@@ -2298,7 +2298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
         
   
   
@@ -2326,7 +2326,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/2026/08/11/earth2-soil-health-prediction/" class="md-nav__link">
+      <a href="../../../blog/2026/08/11/earth2-soil-health-prediction/" class="md-nav__link">
         
   
   
@@ -2362,7 +2362,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/archive/" class="md-nav__link">
+      <a href="../../../blog/archive/" class="md-nav__link">
         
   
   
@@ -2446,7 +2446,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/categories/" class="md-nav__link">
+      <a href="../../../blog/categories/" class="md-nav__link">
         
   
   
@@ -2474,7 +2474,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/categories/documentation/" class="md-nav__link">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
         
   
   
@@ -2566,7 +2566,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/archive/2026/" class="md-nav__link">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
         
   
   
@@ -2660,7 +2660,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/category/documentation/" class="md-nav__link">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
         
   
   
@@ -2690,7 +2690,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../blog/category/earth-2/" class="md-nav__link">
+      <a href="../../../blog/category/earth-2/" class="md-nav__link">
         
   
   
@@ -2756,7 +2756,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../../scorecard/generated/" class="md-nav__link ">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
               
   
   
@@ -2876,7 +2876,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/fcn3/" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
         
   
   
@@ -2904,7 +2904,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/aurora/" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
         
   
   
@@ -2932,7 +2932,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/graphcast/" class="md-nav__link">
+      <a href="../../../scorecard/generated/graphcast/" class="md-nav__link">
         
   
   
@@ -2960,7 +2960,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/atlas_crps/" class="md-nav__link">
+      <a href="../../../scorecard/generated/atlas_crps/" class="md-nav__link">
         
   
   
@@ -2988,7 +2988,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/aurora1p5ens/" class="md-nav__link">
+      <a href="../../../scorecard/generated/aurora1p5ens/" class="md-nav__link">
         
   
   
@@ -3016,7 +3016,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/dlwp/" class="md-nav__link">
+      <a href="../../../scorecard/generated/dlwp/" class="md-nav__link">
         
   
   
@@ -3044,7 +3044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/fcn/" class="md-nav__link">
+      <a href="../../../scorecard/generated/fcn/" class="md-nav__link">
         
   
   
@@ -3072,7 +3072,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/fengwu/" class="md-nav__link">
+      <a href="../../../scorecard/generated/fengwu/" class="md-nav__link">
         
   
   
@@ -3100,7 +3100,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/fuxi/" class="md-nav__link">
+      <a href="../../../scorecard/generated/fuxi/" class="md-nav__link">
         
   
   
@@ -3128,7 +3128,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/pangu/" class="md-nav__link">
+      <a href="../../../scorecard/generated/pangu/" class="md-nav__link">
         
   
   
@@ -3156,7 +3156,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/sfno/" class="md-nav__link">
+      <a href="../../../scorecard/generated/sfno/" class="md-nav__link">
         
   
   
@@ -3184,7 +3184,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../scorecard/generated/stormcast/" class="md-nav__link">
+      <a href="../../../scorecard/generated/stormcast/" class="md-nav__link">
         
   
   
@@ -3274,52 +3274,46 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#documentation" class="md-nav__link">
+  <a href="#set-up" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Documentation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Documentation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#earth2studio.data.NNJAObsConv.__call__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
+        Set Up
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#earth2studio.data.NNJAObsConv.fetch" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#fetch-observations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;fetch
+        Fetch Observations
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#earth2studio.data.NNJAObsConv.available" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#run-the-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;available
+        Run the Model
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#healda-v2-vs-era5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HealDA v2 vs ERA5
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3343,349 +3337,137 @@
   
 
 
-<h1 id="nnjaobsconv"><code>NNJAObsConv</code><a class="headerlink" href="#nnjaobsconv" title="Permanent link">&para;</a></h1>
-<p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="dataclass:observation" data-badge-group="dataclass" style="--badge-color:#15803d;--badge-text-color:#fff" title="Direct Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-binoculars"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:insitu" data-badge-group="product" style="--badge-color:#2f9e44;--badge-text-color:#fff" title="In-Situ Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-tower-observation"></i></span></span></span></p>
-<p><strong>Import path:</strong> <code>earth2studio.data.NNJAObsConv</code></p>
-<p><a href="" id="earth2studio.data.NNJAObsConv"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L178-L534" title="earth2studio/data/nnja.py:178">View source on GitHub</a></p>
-<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
-
-
-<div class="doc doc-object doc-class">
-
-
-
-
-    <div class="doc doc-contents first">
-
-
-
-        <p>NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
-Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
-developing observation-driven weather forecasting tools, as it includes a wide
-cross-section of data from a plethora of sensing platforms (satellites, surface
-stations, weather balloons, and more) and features data from 1979 to the present.</p>
-<p>PrepBUFR reports are selected by report-header time to preserve complete
-profiles. <code>time</code>, <code>lat</code>, and <code>lon</code> contain level coordinates;
-<code>report_time</code>, <code>report_lat</code>, and <code>report_lon</code> contain header coordinates.</p>
-<p>GPSRO rows use the shared columns with product-specific meanings:
-<code>type</code> is receiver <code>SAID</code>, <code>station</code> combines receiver/transmitter
-identifiers, <code>quality</code> is the QFRO flag table, <code>pres</code> is null, and
-<code>elev</code> is impact parameter minus Earth radius of curvature for <code>gps</code>
-rows. The <code>gps_refractivity</code> variable exposes the message's refractivity
-levels (<code>ARFR</code>, N-units) with <code>elev</code> set to the level height (<code>HEIT</code>)
-so consumers can derive their own vertical coordinate. Both carry the
-occultation's <code>radius_curvature</code> (<code>ELRC</code>) and <code>geoid_undulation</code>
-(<code>GEODU</code>); a level without its own tangent point sits at the
-occultation's reference point. No retrieval
-product is read.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>source</code></b>
-              (<code>(&#39;prepbufr&#39;, &#39;prepbufr.acft_profiles&#39;)</code>, default:
-                  <code>&#34;prepbufr&#34;</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Which encoding family of the NNJA conventional archive to read,
-by default <code>"prepbufr"</code>. These sources are different stages of the
-NCEP observation-processing pipeline, not independent replacement
-datasets:</p>
+<h1 id="healda-v2-global-data-assimilation">HealDA v2 Global Data Assimilation<a class="headerlink" href="#healda-v2-global-data-assimilation" title="Permanent link">&para;</a></h1>
+<p>Producing a 0.25 degree global analysis from the NNJA observing system.</p>
+<p>This example runs the HealDA v2 data assimilation model on NNJA observations. The
+model is observation-only: it reads an eight-frame, six-hourly window ending at the
+analysis time and every observation within three hours of each frame, and returns
+the analysis of the last frame on the 721 x 1440 equiangular grid.</p>
+<p>In this example you will learn:</p>
 <ul>
-<li><code>"convbufr"</code> points at raw dump streams grouped by family, such as
-  <code>aircft</code>/<code>aircar</code>/<code>adpupa</code>/<code>adpsfc</code>. These files preserve
-  source-native schemas and require family-specific decoding and QC
-  before they resemble GSI-ready observations. The generic PrepBUFR
-  decoder does not implement those raw family schemas, so this source
-  raises <code>NotImplementedError</code>.</li>
-<li><code>"prepbufr"</code> points at the merged PrepBUFR cycle file. This is the
-  preferred source for GSI-like conventional observations because
-  upstream obsproc has already merged dump families, standardized many
-  mnemonics, and attached report types / quality marks.</li>
-<li><code>"prepbufr.acft_profiles"</code> points at an aircraft-only PrepBUFR
-  profile product. It groups aircraft points into flight-level,
-  ascending, and descending profile report types that GSI remaps back
-  to ordinary aircraft report types during processing.</li>
+<li>How to load the HealDA v2 model with the <code>healda</code> package as its backend</li>
+<li>Fetching NNJA conventional, satellite-wind and radiance DataFrames over the model's
+  48 hour window</li>
+<li>Running the model and comparing the analysis against ERA5</li>
 </ul>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>time_tolerance</code></b>
-              (<code><span title="earth2studio.utils.type.TimeTolerance">TimeTolerance</span></code>, default:
-                  <code><a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a>(0, &#39;m&#39;)</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Time tolerance window for filtering observations. Accepts a single
-value (symmetric ± window) or a tuple <code>(lower, upper)</code> for
-asymmetric windows, by default <code>np.timedelta64(0, 'm')</code>.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>cache</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
-                  <code>True</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Cache downloaded files in the local filesystem cache, by default True.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>verbose</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
-                  <code>True</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Show progress bars, by default True.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>async_timeout</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
-                  <code>600</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Timeout in seconds for downloading the files, by default 600. Decoding
-them is not bounded.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>async_workers</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
-                  <code>24</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Maximum number of concurrent async fetch tasks, by default 24.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>decode_workers</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
-                  <code>8</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Number of parallel processes for BUFR message decoding. Higher values
-speed up decoding of large PrepBUFR files at the cost of more memory.
-Set to 1 to disable multiprocessing, by default 8.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>retries</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></code>, default:
-                  <code>3</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Number of retry attempts per failed fetch task with exponential
-backoff, by default 3.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>exclude_message_types</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]</code>, default:
-                  <code>()</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>PrepBUFR message families to skip at decode, e.g. <code>("SATWND",)</code> when
-atmospheric motion vectors come from <code>NNJAObsSatwnd</code> instead. By
-default every family is decoded.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>original_event</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
-                  <code>False</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Return the report as first ingested (program code 1) instead of the latest
-quality-controlled event, by default False</p>
-          </div>
-        </li>
-    </ul>
-
-
-<details class="warning" open>
-  <summary>Warning</summary>
-  <p>This is a remote data source and can potentially download a large amount of data
-to your local machine for large requests.</p>
-</details>
-
-<details class="note" open>
-  <summary>Note</summary>
-  <p>Additional information on the data repository can be referenced here:</p>
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<p>This example requires the following components:</p>
 <ul>
-<li><a href="https://www.brightband.com/data/nnja-ai/">www.brightband.com/data/nnja-ai/</a></li>
-<li><a href="https://psl.noaa.gov/data/nnja_obs/">psl.noaa.gov/data/nnja_obs/</a></li>
-<li><a href="https://registry.opendata.aws/noaa-reanalyses-pds/">registry.opendata.aws/noaa-reanalyses-pds/</a></li>
-<li><a href="https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm">www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm</a></li>
+<li>Assimilation Model: HealDA v2 <a href="../../../modules/generated/models/da/HealDAv2/#earth2studio.models.da.HealDAv2"><code>earth2studio.models.da.HealDAv2</code></a>.</li>
+<li>Datasource (PrepBUFR and GPS-RO): NNJA conventional observations
+  <a href="../../../modules/generated/data/dataframe/NNJAObsConv/#earth2studio.data.NNJAObsConv"><code>earth2studio.data.NNJAObsConv</code></a>.</li>
+<li>Datasource (winds): NNJA satellite winds
+  <a href="../../../modules/generated/data/dataframe/NNJAObsSatwnd/#earth2studio.data.NNJAObsSatwnd"><code>earth2studio.data.NNJAObsSatwnd</code></a>.</li>
+<li>Datasource (radiances): NNJA satellite radiances
+  <a href="../../../modules/generated/data/dataframe/NNJAObsSat/#earth2studio.data.NNJAObsSat"><code>earth2studio.data.NNJAObsSat</code></a>.</li>
 </ul>
-</details>
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="earth2studio.data.NNJAObsConv.__call__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__call__</span>
-
-
-<a href="#earth2studio.data.NNJAObsConv.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.TimeArray">TimeArray</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">variable</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.VariableArray">VariableArray</span></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="pyarrow.Schema">Schema</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span>
+<p>Decoding 48 hours of NNJA BUFR takes a long time on first use; the raw files are
+cached, so later runs over the same window skip the download.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">load_dotenv</span><span class="p">()</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timedelta</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">logger</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">colorize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">NCAR_ERA5</span><span class="p">,</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">NNJAObsConv</span><span class="p">,</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">NNJAObsSat</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">NNJAObsSatwnd</span><span class="p">,</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">fetch_dataframe</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">)</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.da</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealDAv2</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># The network runs on a CUDA device only; building the 0.25 degree recipe fetches the</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="c1"># ERA5 static fields into the healda cache the first time.</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">package</span> <span class="o">=</span> <span class="n">HealDAv2</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="n">model</span> <span class="o">=</span> <span class="n">HealDAv2</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 </code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Fetch observations for a set of timestamps.</p>
-
-
-    </div>
-
-</div>
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="earth2studio.data.NNJAObsConv.fetch" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">fetch</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-async"><code>async</code></small>
-  </span>
-
-<a href="#earth2studio.data.NNJAObsConv.fetch" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">fetch</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.TimeArray">TimeArray</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">variable</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="earth2studio.utils.type.VariableArray">VariableArray</span></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><span title="pyarrow.Schema">Schema</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span>
+<h2 id="fetch-observations">Fetch Observations<a class="headerlink" href="#fetch-observations" title="Permanent link">&para;</a></h2>
+<p>One analysis reads observations spanning <code>[t - 45h, t + 3h]</code>. Any source returning
+DataFrames that match <code>HealDAv2.input_coords</code> works; here the NNJA sources are
+configured as in training: each PrepBUFR observation's original event, satellite
+winds from <code>NNJAObsSatwnd</code> only, and only the IR sounder channels the model reads.
+<code>fetch_dataframe</code> attaches the <code>request_time</code> metadata the model requires.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">analysis_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2024-01-05T00:00&quot;</span><span class="p">)])</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">tolerance</span> <span class="o">=</span> <span class="p">(</span><span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=-</span><span class="mi">45</span><span class="p">),</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">conv_source</span> <span class="o">=</span> <span class="n">NNJAObsConv</span><span class="p">(</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">time_tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">original_event</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">exclude_message_types</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;SATWND&quot;</span><span class="p">,),</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">satwnd_source</span> <span class="o">=</span> <span class="n">NNJAObsSatwnd</span><span class="p">(</span><span class="n">time_tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">sat_source</span> <span class="o">=</span> <span class="n">NNJAObsSat</span><span class="p">(</span><span class="n">time_tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">,</span> <span class="n">sensor_indices</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">sensor_indices</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">conv_schema</span><span class="p">,</span> <span class="n">satwnd_schema</span><span class="p">,</span> <span class="n">sat_schema</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">frames</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">schema</span> <span class="ow">in</span> <span class="p">(</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="p">(</span><span class="s2">&quot;conv_obs&quot;</span><span class="p">,</span> <span class="n">conv_source</span><span class="p">,</span> <span class="n">conv_schema</span><span class="p">),</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="p">(</span><span class="s2">&quot;satwnd_obs&quot;</span><span class="p">,</span> <span class="n">satwnd_source</span><span class="p">,</span> <span class="n">satwnd_schema</span><span class="p">),</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="p">(</span><span class="s2">&quot;sat_obs&quot;</span><span class="p">,</span> <span class="n">sat_source</span><span class="p">,</span> <span class="n">sat_schema</span><span class="p">),</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="p">):</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">frames</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">fetch_dataframe</span><span class="p">(</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>        <span class="n">source</span><span class="p">,</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="n">time</span><span class="o">=</span><span class="n">analysis_time</span><span class="p">,</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="n">variable</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">schema</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]),</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="n">fields</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="p">)</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">frames</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> rows&quot;</span><span class="p">)</span>
 </code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Async function to get data.</p>
-
-
-    </div>
-
-</div>
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="earth2studio.data.NNJAObsConv.available" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">available</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
-  </span>
-
-<a href="#earth2studio.data.NNJAObsConv.available" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">available</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.datetime64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.datetime64">datetime64</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
+<h2 id="run-the-model">Run the Model<a class="headerlink" href="#run-the-model" title="Permanent link">&para;</a></h2>
+<p>The direct call returns the analysis as an <code>xr.DataArray</code> on the model's device.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">analysis</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">frames</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Analysis shape: </span><span class="si">{</span><span class="n">analysis</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Check if given date time is available.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>time</code></b>
-              (<code><a class="autorefs autorefs-external" title="datetime.datetime" href="https://docs.python.org/3/library/datetime.html#datetime.datetime">datetime</a> | <a class="autorefs autorefs-external" title="numpy.datetime64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.datetime64">datetime64</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>Date time to check</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
-          –
-          <div class="doc-md-description">
-            <p>If date time is available</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-
-
-
-  </div>
-
-    </div>
-
-</div><!-- e2sg-backreferences: earth2studio.data.NNJAObsConv -->
-<!-- e2sg-backreferences-generated:start -->
-<!-- markdownlint-disable MD033 -->
-<section class="e2sg-backreferences" data-e2sg-object="earth2studio.data.NNJAObsConv">
-<h2>Examples using <code>earth2studio.data.NNJAObsConv</code></h2>
-<div class="e2sg-gallery-grid">
-<a class="e2sg-gallery-card" href="../../../../../examples/05_data_assimilation/04_healda_v2/"><div class="e2sg-card-placeholder" aria-hidden="true"><span class="e2sg-card-placeholder-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/></svg></span></div><span class="e2sg-card-body"><strong>HealDA v2 Global Data Assimilation</strong><span class="e2sg-card-summary">Producing a 0.25 degree global analysis from the NNJA observing system.</span></span></a>
-</div>
-</section>
-<!-- markdownlint-enable MD033 -->
-<!-- e2sg-backreferences-generated:end -->
+<h2 id="healda-v2-vs-era5">HealDA v2 vs ERA5<a class="headerlink" href="#healda-v2-vs-era5" title="Permanent link">&para;</a></h2>
+<p>The output already uses Earth2Studio variable names on the 0.25 degree grid, so ERA5
+from the NCAR archive can be queried and compared without regridding.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cartopy.crs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ccrs</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">cupy</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">plot_vars</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;t2m&quot;</span><span class="p">,</span> <span class="s2">&quot;z500&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">era5</span> <span class="o">=</span> <span class="n">NCAR_ERA5</span><span class="p">()(</span><span class="n">analysis_time</span><span class="p">,</span> <span class="n">plot_vars</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">lat</span> <span class="o">=</span> <span class="n">analysis</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">lon</span> <span class="o">=</span> <span class="n">analysis</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="mi">2</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">),</span> <span class="n">subplot_kw</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;projection&quot;</span><span class="p">:</span> <span class="n">ccrs</span><span class="o">.</span><span class="n">Robinson</span><span class="p">()},</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plot_vars</span><span class="p">):</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">field</span> <span class="o">=</span> <span class="n">cupy</span><span class="o">.</span><span class="n">asnumpy</span><span class="p">(</span><span class="n">analysis</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">truth</span> <span class="o">=</span> <span class="n">era5</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> MAE vs ERA5: </span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">field</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">truth</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(((</span><span class="s2">&quot;HealDA v2&quot;</span><span class="p">,</span> <span class="n">field</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;ERA5&quot;</span><span class="p">,</span> <span class="n">truth</span><span class="p">))):</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">ccrs</span><span class="o">.</span><span class="n">PlateCarree</span><span class="p">())</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">ax</span><span class="o">.</span><span class="n">coastlines</span><span class="p">(</span><span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>        <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;HealDA v2 analysis </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">analysis_time</span><span class="p">[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">16</span><span class="p">]</span><span class="si">}</span><span class="s2"> UTC&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_healda_v2_analysis.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-04_healda_v2/04_healda_v2.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-04_healda_v2/04_healda_v2.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta"></span></div>
 
 
 
 
 
 
-
-  
-  
 
 
 
@@ -3754,24 +3536,24 @@ to your local machine for large requests.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../../../../../assets/javascripts/e2s-landing.js"></script>
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
       
-        <script src="../../../../../assets/javascripts/e2s-install-selector.js"></script>
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
       
-        <script src="../../../../../assets/javascripts/e2s-catalog.js"></script>
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
       
-        <script src="../../../../../assets/javascripts/mathjax.js"></script>
+        <script src="../../../assets/javascripts/mathjax.js"></script>
       
         <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
       
-        <script src="../../../../../assets/javascripts/mkdocs-badges-data.js"></script>
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
       
-        <script src="../../../../../assets/javascripts/mkdocs-badges.js"></script>
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
       
     
   </body>

@@ -3347,7 +3347,7 @@
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="dataclass:observation" data-badge-group="dataclass" style="--badge-color:#15803d;--badge-text-color:#fff" title="Direct Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-binoculars"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:sat" data-badge-group="product" style="--badge-color:#1c7ed6;--badge-text-color:#fff" title="Satellite"><span class="mkdocs-badge__icon"><i class="fa-solid fa-satellite"></i></span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.data.NNJAObsSat</code></p>
 <p><a href="" id="earth2studio.data.NNJAObsSat"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L615-L1086" title="earth2studio/data/nnja.py:615">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/nnja.py#L652-L1124" title="earth2studio/data/nnja.py:652">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3396,8 +3396,9 @@ downstream transform can apply the appropriate convention explicitly.</p>
 <p><code>scan_position</code> is the one-based cross-track position: the encoded
 <code>FOVN</code> for the microwave sensors, AIRS (1-90), and IASI (1-120, a
 composite of 30 fields of regard x 4 detectors), and the encoded
-<code>FORN</code> (1-30) for CrIS, whose <code>FOVN</code> is the 1-9 detector index
-within the 3x3 field of regard and is not carried. <code>scan_angle</code> is
+<code>FORN</code> (1-30) for CrIS, whose <code>FOVN</code>, the 1-9 detector index within
+the 3x3 field of regard, is the <code>detector</code> column (null for the other
+sensors). <code>scan_angle</code> is
 the signed nominal instrument look angle derived from the FOV for the
 microwave sensors; it is always NaN for the IR sounders, whose scan
 geometry is sensor-specific — use <code>satellite_za</code> (the unsigned
@@ -3409,6 +3410,10 @@ platform's orbital altitude, ~700-840 km, and must not be mistaken for
 surface elevation.) <code>scan_line</code> is the encoded <code>SLNM</code>, a
 granule-local counter that repeats within a cycle file; pair it with
 <code>time</code> to address a scan.</p>
+<p><code>quality</code> carries the per-channel provider flags. The footprint-level
+flags are <code>scan_quality</code> (ATMS 0-33-080, CrIS <code>NSQF</code>),
+<code>granule_quality</code> (ATMS 0-33-079) and <code>footprint_quality</code> (IASI
+<code>QGFQ</code>), each as encoded and null for sensors whose template lacks it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3463,7 +3468,8 @@ the requested aggregate files.</p>
 )
           –
           <div class="doc-md-description">
-            <p>Total timeout in seconds for the async fetch, by default 600.</p>
+            <p>Timeout in seconds for downloading the files, by default 600. Decoding
+them is not bounded.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3689,6 +3695,16 @@ policy.</p>
     </div>
 
 </div><!-- e2sg-backreferences: earth2studio.data.NNJAObsSat -->
+<!-- e2sg-backreferences-generated:start -->
+<!-- markdownlint-disable MD033 -->
+<section class="e2sg-backreferences" data-e2sg-object="earth2studio.data.NNJAObsSat">
+<h2>Examples using <code>earth2studio.data.NNJAObsSat</code></h2>
+<div class="e2sg-gallery-grid">
+<a class="e2sg-gallery-card" href="../../../../../examples/05_data_assimilation/04_healda_v2/"><div class="e2sg-card-placeholder" aria-hidden="true"><span class="e2sg-card-placeholder-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/></svg></span></div><span class="e2sg-card-body"><strong>HealDA v2 Global Data Assimilation</strong><span class="e2sg-card-summary">Producing a 0.25 degree global analysis from the NNJA observing system.</span></span></a>
+</div>
+</section>
+<!-- markdownlint-enable MD033 -->
+<!-- e2sg-backreferences-generated:end -->
 
 
 

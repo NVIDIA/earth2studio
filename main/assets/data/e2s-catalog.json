@@ -2378,7 +2378,7 @@
     },
     "group": "DataFrame Source",
     "kind": "data",
-    "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = ())",
+    "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False)",
     "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
     "title": "NNJAObsConv",
     "tone": "observation",
@@ -3712,6 +3712,63 @@
     "title": "HealDA",
     "tone": "satellite",
     "url": "../../../modules/generated/models/da/HealDA"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:data-assimilation",
+      "product:wind",
+      "product:temp",
+      "product:atmos",
+      "product:insitu",
+      "product:sat",
+      "year:2026",
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Data Assimilation",
+      "NVIDIA",
+      "PyTorch",
+      "Surface Winds",
+      "Surface Temperature",
+      "Atmosphere"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation"
+      ],
+      "gpu": [
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Temperature",
+        "Atmosphere",
+        "In-Situ Observations",
+        "Satellite"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Data Assimilation",
+    "kind": "model",
+    "signature": "HealDAv2(model: Any)",
+    "summary": "HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour sequence of satellite and conventional observations to a 104-channel, 0.25 degree atmospheric analysis on a regular latitude-longitude grid.",
+    "title": "HealDAv2",
+    "tone": "satellite",
+    "url": "../../../modules/generated/models/da/HealDAv2"
   },
   {
     "badges": [

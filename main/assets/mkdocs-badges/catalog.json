@@ -273,6 +273,15 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "examples/05_data_assimilation/04_healda_v2.md",
+      "summary": "This example runs the HealDA v2 data assimilation model on NNJA observations.",
+      "symbol": "",
+      "title": "HealDA v2 Global Data Assimilation",
+      "url": "examples/05_data_assimilation/04_healda_v2/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "examples/06_seasonal/01_seasonal_statistics.md",
       "summary": "This example will demonstrate how to run a simple inference workflow to generate a forecast and then to save a statistic of that data.",
       "symbol": "",
@@ -1384,7 +1393,7 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = ())",
+      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False)",
       "source": "modules/generated/data/dataframe/NNJAObsConv.md",
       "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
       "symbol": "earth2studio.data.NNJAObsConv",
@@ -1952,6 +1961,27 @@
       "symbol": "earth2studio.models.da.HealDA",
       "title": "HealDA",
       "url": "modules/generated/models/da/HealDA/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:data-assimilation",
+        "product:wind",
+        "product:temp",
+        "product:atmos",
+        "product:insitu",
+        "product:sat",
+        "year:2026",
+        "gpu:80gb",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "HealDAv2(model: Any)",
+      "source": "modules/generated/models/da/HealDAv2.md",
+      "summary": "HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour sequence of satellite and conventional observations to a 104-channel, 0.25 degree atmospheric analysis on a regular latitude-longitude grid.",
+      "symbol": "earth2studio.models.da.HealDAv2",
+      "title": "HealDAv2",
+      "url": "modules/generated/models/da/HealDAv2/"
     },
     {
       "classifiers": [
