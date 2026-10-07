@@ -194,10 +194,8 @@ class PrognosticMixin:
         expected = sum("lead_time" in slot.dims for slot in forcing_slots)
         y, state = self.initialize(*x)
         while True:
-            # Custom hooks may write in place; isolate publication and feedback.
-            forcing = yield self.rear_hook(
-                y if self.rear_hook is self._default_hook else deepcopy(y)
-            )
+            y = self.rear_hook(y)
+            forcing = yield y
             forcing = (
                 ()
                 if forcing is None
@@ -208,6 +206,7 @@ class PrognosticMixin:
                     f"{type(self).__name__} requires {expected} forcing arrays per step; "
                     f"received {len(forcing)}"
                 )
+            # In-place front-hook edits must not change earlier yields.
             feedback = self.front_hook(
                 y if self.front_hook is self._default_hook else deepcopy(y)
             )

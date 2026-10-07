@@ -137,11 +137,11 @@ dimensions, coordinate values/attrs, name, attrs and encoding. Restarts call `st
 the saved pair, so they yield the step after the saved state rather than repeating
 it.
 
-FuXi-S2S declares two consecutive daily means with start-of-day timestamps:
+A daily-mean model can declare two consecutive inputs with start-of-day timestamps:
 `mean:0h:24h` for ordinary channels and `mean:1h:25h` for hourly interval-ending `tp`
 and `ttr`, with matching statistics metadata. Its initial condition is the latest
 input day, and its iterator yields daily predictions. Hooks see one prediction;
-front-hook edits feed the next rolling state, rear-hook edits are published only (see
+front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
 preparation and units follow `TIME_STATISTICS_SPEC.md` (calendar-day means).
 
@@ -375,9 +375,10 @@ def create_iterator(self, x):
     return self._default_create_iterator(x)
 ```
 
-The helpers validate input and forcing slot counts. The iterator copies the payload
-before custom hooks; default identity hooks need no copies. Rear-hook writes do not
-affect recurrence, and front-hook writes do not change earlier yields.
+The helpers validate input and forcing slot counts. The iterator publishes the
+rear-hook result and feeds it into the next step. It copies the payload before a
+custom front hook so in-place writes do not change earlier yields; the default
+identity front hook needs no copy.
 
 ```python
 # Unforced
@@ -416,9 +417,9 @@ the coupler aligns lead times.
 Hooks take and return `y`, which always matches `output_coords()`. The front hook
 runs before every `step` and its edits feed the rollout, so per-step perturbation and
 noise injection work as before. The front hook does
-not run before `initialize`: perturb `x` to edit the initial window. The rear hook edits published outputs
-only, starting with the first forecast; edits meant to feed back belong in the front
-hook, which changes FuXi-S2S's documented behavior (see Open Questions).
+not run before `initialize`: perturb `x` to edit the initial window. The rear hook
+edits forecasts before publication, starting with the first forecast; its returned
+output also feeds the next front hook and `step`.
 
 ### Default sources
 
@@ -530,8 +531,8 @@ before every `step`: front hook → `step` → rear hook → yield.
 
 - `front_hook` transforms `y` just before the model computes from it; its edits feed
   the rollout.
-- `rear_hook` transforms each forecast before it is yielded; its edits are published
-  only.
+- `rear_hook` transforms each forecast before it is yielded; its returned output
+  is both published and fed into the next advance.
 
 A step computing several lead times yields them together, so each hook runs once per
 chunk, and `P8`/`P9` hold because `output_coords()` declares the whole chunk.
@@ -749,14 +750,12 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
   `FrameSchema` (ordered column-to-array mappings) supports probe DataFrames, but
   mid-stream `send(None)`, single-call/step equivalence and generator closure
   ownership remain undecided.
-- Rear-hook edits no longer feed back. Is moving them to the front hook acceptable
-  for FuXi-S2S and perturbation workflows?
 - Do IO backends and drivers accept yields with several `lead_time` entries? Chunked
   steps for DLWP, Aurora1p5, SamudrACE and InterpModAFNO depend on it.
-- A front hook editing `y` can leave derived private state (Atlas's latent) stale.
+- A hook editing `y` can leave derived private state (Atlas's latent) stale.
   Should `step` re-derive from `y`, or document what it ignores?
 - Front hooks no longer see frames older than `y`, nor the initial condition, so
-  they cannot apply fresh noise to a whole history window at once, and rear-hook edits
-  no longer feed back. Is this a limitation for FuXi-S2S/perturbation workflows?
+  they cannot apply fresh noise to a whole history window at once. Is this a
+  limitation for history-window perturbation workflows?
 - Should components declare their RNG mechanism (e.g. `rng = "local" | "global"`) so
   drivers can run global-RNG components serially?
