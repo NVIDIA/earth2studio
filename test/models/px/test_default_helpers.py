@@ -77,7 +77,7 @@ def test_default_call_and_forecasts_only_iterator():
 
 @pytest.mark.parametrize("multiple", [False, True])
 @pytest.mark.parametrize("in_place", [False, True])
-def test_hooks_feed_recurrence_and_preserve_earlier_yields(multiple, in_place):
+def test_hooks_feed_recurrence_and_front_hook_mutates_yield(multiple, in_place):
     def front(y):
         for slot in y if isinstance(y, tuple) else (y,):
             slot.values[...] += 10
@@ -99,9 +99,11 @@ def test_hooks_feed_recurrence_and_preserve_earlier_yields(multiple, in_place):
     assert (direct[0] if multiple else direct).item() == 1
     it = model.create_iterator(*args)
     first = next(it)
-    second = it.send(xr.DataArray(1)) if multiple else next(it)
     for slot in first if multiple else (first,):
         assert slot.item() == 101
+    second = it.send(xr.DataArray(1)) if multiple else next(it)
+    for slot in first if multiple else (first,):
+        assert slot.item() == 111
     for slot in second if multiple else (second,):
         assert slot.item() == 212
     assert x.item() == 0

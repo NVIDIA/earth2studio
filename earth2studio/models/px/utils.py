@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
-from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import xarray as xr
@@ -206,9 +205,6 @@ class PrognosticMixin:
                     f"{type(self).__name__} requires {expected} forcing arrays per step; "
                     f"received {len(forcing)}"
                 )
-            # In-place front-hook edits must not change earlier yields.
-            feedback = self.front_hook(
-                y if self.front_hook is self._default_hook else deepcopy(y)
-            )
-            outputs = feedback if isinstance(feedback, tuple) else (feedback,)
+            y = self.front_hook(y)
+            outputs = y if isinstance(y, tuple) else (y,)
             y, state = self.step(*outputs, *forcing, state=state)

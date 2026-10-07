@@ -376,9 +376,9 @@ def create_iterator(self, x):
 ```
 
 The helpers validate input and forcing slot counts. The iterator publishes the
-rear-hook result and feeds it into the next step. It copies the payload before a
-custom front hook so in-place writes do not change earlier yields; the default
-identity front hook needs no copy.
+rear-hook result and feeds it into the next step. Both hooks receive the payload
+directly, without copies. In-place front-hook edits also modify the previously
+yielded payload; hooks can return new arrays when that is undesirable.
 
 ```python
 # Unforced
@@ -481,7 +481,7 @@ path for dictionary-signature fixtures.
 | `P13` | Seeding determines a rollout, and different seeds give different rollouts |
 | `P14` | After `set_rng()`, seeding and stepping leave global RNG state unperturbed |
 | `P15` | Stepping the model does not modify its input tensor or coordinate system |
-| `P16` | A yielded tensor does not change once a later step is produced |
+| `P16` | Model advances do not overwrite earlier yields; explicit in-place hook edits are allowed |
 | `P17` | One positional DataArray per slot; fields precede forcing, in declared order |
 | `P18` | No two output slots share identical non-variable coordinates |
 | `P19` | `step` modifies neither `y` nor `state`; replaying `(y, state)` reproduces it |
@@ -557,9 +557,11 @@ preserving native recurrence when numerical inputs are unchanged.
 A model borrows its input and owns its output. None of `__call__`, `initialize`,
 `step` and `create_iterator()` may modify caller input tensors or coordinates (`P15`,
 `D6`),
-and earlier yields must not change after later steps (`P16`); views are allowed only
-if their buffers will not be overwritten. This protects asynchronous IO, resume
-buffers and accumulators without defensive copies. The motivating failure was
+and model advances must not overwrite earlier yields (`P16`); views are allowed only
+if their buffers will not be overwritten by the model. Hooks receive the payload
+directly and may explicitly edit it in place, including a previously yielded array.
+Callers retaining snapshots with such hooks must copy them before advancing.
+The motivating failure was
 `stormcast` overwriting the caller's initial condition
 ([issue #1133](https://github.com/NVIDIA/earth2studio/issues/1133), fixed in
 PR #1134). `AsyncZarrBackend` still copies every non-blocking write defensively;
