@@ -72,10 +72,13 @@ class PrognosticMixin:
     one function and assigns that, so the order they run in is visible at the
     assignment site rather than spread across every place that registered one.
 
-    Wrappers that still define their own ``__call__``/``create_iterator`` override
-    the methods below. ``initialize``, ``step`` and ``create_iterator`` are stubs
-    for wrappers to implement. Inheriting this mixin is optional; implementations
-    must satisfy the prognostic protocol regardless of how their methods are implemented.
+    Wrappers must declare explicit, fixed signatures for ``__call__``,
+    ``initialize``, ``step`` and ``create_iterator`` (contract rule P24).
+    The variadic methods below are generic helpers or stubs, not concrete wrapper
+    signatures. An explicit ``__call__`` may delegate to the helper below;
+    ``initialize``, ``step`` and ``create_iterator`` are stubs to override.
+    Inheriting this mixin is optional; implementations must satisfy the prognostic
+    protocol regardless of how their methods are implemented.
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
@@ -137,7 +140,7 @@ class PrognosticMixin:
         return None
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
-        """Advance one step from ``x`` without hooks, via ``initialize``."""
+        """Delegate an explicitly declared wrapper call to ``initialize``, without hooks."""
         expected = _count(self.input_coords()) + _count(self.forcing_coords())  # type: ignore[attr-defined]
         if len(x) != expected:
             raise ValueError(

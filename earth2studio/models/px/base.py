@@ -31,12 +31,15 @@ class PrognosticModel(Protocol):
     """DataArray-based prognostic model interface.
 
     Implementations must satisfy this protocol's interface and behavior.
-    ``PrognosticMixin`` optionally implements ``__call__`` using ``initialize``;
-    ``create_iterator`` is currently a stub. Inheriting the mixin is not required.
+    An explicitly declared ``__call__`` may delegate to ``PrognosticMixin``, which
+    uses ``initialize``; ``create_iterator`` is currently a stub. Inheriting the
+    mixin is not required.
 
     Concrete models must declare a fixed number of named parameters for each
     execution method, not variadic inputs. The protocol uses ``*x`` and ``*y``
     only to represent fixed signatures whose arity differs between models.
+    Wrappers must override variadic mixin methods with explicit signatures; see
+    rule P24 in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
     """
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:

@@ -7,7 +7,7 @@ RNG semantics for model-independent execution.
 
 This document is the source of truth for the model contract. Prognostic models follow
 the explicit-state protocol in Model Interface: wrappers implement `initialize` and
-`step`, and `PrognosticMixin` optionally derives `__call__`. Where
+`step`, and may delegate an explicitly declared `__call__` to `PrognosticMixin`. Where
 wrappers or the checker do not match yet, this spec governs and Migration lists the
 gap.
 
@@ -110,8 +110,8 @@ standard handshakes for validation.
 ### Execution boundary
 
 The public `PrognosticModel` and `DiagnosticModel` protocols (see Model Interface)
-take and return DataArrays: one per slot, grouped in a tuple when a model has several
-slots. **All exported prognostic and diagnostic wrappers take and return
+take and return DataArrays: one positional argument per input slot, with multiple
+outputs grouped in a tuple. **All exported prognostic and diagnostic wrappers take and return
 DataArrays.** Fields are NumPy-backed on CPU or CuPy-backed on CUDA; wrappers
 document whether inputs must be on the model device or are moved at the core
 boundary. At the Torch boundary, `.e2s.to_torch()` and
@@ -166,7 +166,8 @@ for dictionary signatures; the rule identifiers apply to both. See
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
 `default_sources()` (no recommendation), `stochastic = False`, hooks, and the derived
-`__call__`. Its `create_iterator` currently raises `NotImplementedError`; wrappers
+`__call__` helper. Wrappers declare explicit execution signatures even when delegating
+to that helper. Its `create_iterator` currently raises `NotImplementedError`; wrappers
 provide their own iterator. The protocol is the requirement; inheriting the
 mixin or deriving these methods from the primitives is optional. Direct
 implementations must satisfy the same behavioral rules.
@@ -217,10 +218,18 @@ slots, if any exist. This concatenates argument sequences, not array contents.
 Within each sequence, declared slot order is preserved. Simple models use `x`
 and `y`; complex models may name individual parameters descriptively.
 
-Concrete models must declare a fixed number of named parameters for each execution
-method, not variadic inputs. The protocol uses `*x` and `*y` only to represent fixed
-signatures whose arity differs between models. This applies to `__call__`,
-`initialize`, `step`, and `create_iterator`.
+**Wrappers must declare explicit execution signatures** (`P24`, `D11`): a fixed
+number of named parameters, one per declared array slot, rather than `*args`, `*x`
+or `*y`. For prognostic wrappers this applies to `__call__`, `initialize`, `step`
+and `create_iterator`; for diagnostics it applies to `__call__`. The protocols use
+`*x` and `*y` only to describe different fixed arities across models, not a variable
+number of inputs to any one wrapper.
+
+Generic forwarding helpers may use variadic arguments internally, but wrappers must
+expose explicit signatures instead of inheriting a variadic execution method as their
+public interface. A wrapper may delegate its explicitly declared method to a mixin
+helper. Generic callers may unpack a slot tuple when calling a wrapper; this does not
+make the wrapper's signature variadic.
 
 | Described by | Contents |
 | --- | --- |
@@ -285,8 +294,8 @@ takes the `t + 6h` frame per step.
 forcing window. It returns `y`, the first forecast, and a model-defined state holding
 everything else needed for a rollout: older input and forcing frames, statics,
 latents, noise states and the RNG position. `step(*y, state=state)` returns
-the next forecast and state. Wrappers may use the mixin to derive
-`__call__`, or implement the same contract directly. Iterators are currently
+the next forecast and state. Wrappers may delegate an explicitly declared
+`__call__` to the mixin, or implement the same contract directly. Iterators are currently
 implemented by wrappers. Weights,
 configuration, cached statics and the `set_rng` seed stay on the model.
 
@@ -338,7 +347,7 @@ def initialize(self, x):
     state = AtlasState(window.isel(lead_time=[0]), self._encode(window), 0)
     return self._advance(window.isel(lead_time=[-1]), state)
 
-def step(self, y, *, state):
+def step(self, y, state):
     return self._advance(y, state)
 
 def _advance(self, latest, state):
@@ -357,21 +366,17 @@ Static slots are omitted after initialization. `next(it)` is `send(None)`, so
 models requiring no new forcing keep plain loops.
 
 ```python
-# Illustrative derivation; the mixin currently leaves create_iterator unimplemented.
+# Single-input, single-output, unforced wrapper.
+# The mixin currently leaves create_iterator unimplemented.
 def __call__(self, x):
     return self.initialize(x)[0]
 
 def create_iterator(self, x):
     y, state = self.initialize(x)
     while True:
-        forcing = yield self.rear_hook(copy_payload(y))
-        outputs = self.front_hook(copy_payload(y))
-        outputs = outputs if isinstance(outputs, tuple) else (outputs,)
-        if forcing is None:
-            forcing = ()
-        elif not isinstance(forcing, tuple):
-            forcing = (forcing,)
-        y, state = self.step(*outputs, *forcing, state=state)
+        yield self.rear_hook(copy_payload(y))
+        y_next = self.front_hook(copy_payload(y))
+        y, state = self.step(y_next, state)
 ```
 
 This sketch omits slot validation. `copy_payload` copies each DataArray before a
@@ -445,8 +450,9 @@ such as a pre-regridded archive.
 
 `DiagnosticModel.__call__(*x)` takes one positional DataArray per input slot in
 `input_coords()` order, and returns a single DataArray or a tuple in output-slot
-order. Concrete models must declare fixed, named input parameters, not variadic
-inputs; generic callers use declared slot order, not parameter names. Coordinate methods retain
+order. Wrappers must declare fixed, named input parameters (`D11`); the protocol's
+variadic notation only describes differing arities across wrappers. Generic callers
+use declared slot order, not parameter names. Coordinate methods retain
 single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
 a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
@@ -486,6 +492,7 @@ path for dictionary-signature fixtures.
 | `P21` | The state is serializable, and a saved `(y, state)` round-trips |
 | `P22` | The model never fetches; missing forcing raises `ValueError` |
 | `P23` | `default_sources()` follows the single/tuple/None contract in Default sources |
+| `P24` | Wrappers declare fixed, named execution parameters (see Argument slots) |
 
 ### Diagnostic
 
@@ -501,6 +508,7 @@ path for dictionary-signature fixtures.
 | `D8` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `D9` | Seeding determines the output, and different seeds give different output |
 | `D10` | After `set_rng()`, seeding and calling leave global RNG state unperturbed |
+| `D11` | Wrappers declare fixed, named `__call__` parameters (see Argument slots) |
 
 ## Lead Time
 
@@ -698,7 +706,9 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
   raise `NotImplementedError`, so they still satisfy structural `P1`. Their legacy
   initial-condition-first behavior remains until each wrapper migrates.
 - **Protocol annotations.** `PrognosticModel` now declares variadic DataArray
-  arguments and single-or-tuple output signatures. Wrappers and callers in
+  arguments and single-or-tuple output signatures. Migrated wrappers declare explicit
+  fixed signatures (`P24`, `D11`), including overrides of variadic mixin methods.
+  Wrappers and callers in
   `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and recipes must
   migrate together; structural protocol membership does not validate signatures.
 - **One iterator API.** `create_iterator` remains the public name and is not
@@ -712,7 +722,8 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
 - **Conformance.** The checker probes `create_iterator` for `P7`–`P10`, expecting an
   initial-condition 0th yield and enforcing `front_hook_interval` ordering. It moves
   to the forecasts-only semantics (`P7` checks the first yield against
-  `initialize`) and adds `P17`–`P23` and multiple slots.
+  `initialize`) and adds `P17`–`P24`, `D11` and multiple slots. Signature checks
+  inspect the wrapped method's declared signature, following decorators that preserve it.
 - **Diagnostics.** Add a `DiagnosticMixin` supplying `stochastic = False` and a
   `default_sources()` recommending nothing, inherited by every diagnostic wrapper.
   `default_sources()` then becomes a required `DiagnosticModel` member, as for

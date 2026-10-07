@@ -133,6 +133,14 @@ for step, x in enumerate(model_iterator):
 ## Custom Prognostic Models
 
 To integrate your own prognostic, satisfy the interface above.
+Declare explicit, fixed named parameters for `__call__`, `initialize`, `step` and
+`create_iterator`, one per array slot in declared order. For example, an unforced
+single-slot model uses `initialize(self, x)` and `step(self, y, state)`; a model
+with one forcing slot uses `initialize(self, x, forcing)` and
+`step(self, y, forcing, state)`. The protocol's `*x`/`*y` notation describes different
+fixed arities across models. Wrappers must provide explicit signatures even when
+delegating to a variadic mixin helper.
+
 We recommend that you review the [extension examples](../../examples/index.md#extend)
 examples, which walk you through implementing a custom prognostic.
 

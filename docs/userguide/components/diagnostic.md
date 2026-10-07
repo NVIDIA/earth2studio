@@ -66,6 +66,11 @@ x = model(x)  # Input and output are field DataArrays
 ## Custom Diagnostic Models
 
 To integrate your own diagnostic, satisfy the interface above.
+Declare explicit, fixed named parameters for `__call__`, one per input slot in
+declared order: for example, `__call__(self, x)` or
+`__call__(self, atmosphere, ocean)`. The protocol's `*x` notation describes different
+fixed arities across models; concrete wrappers must name their inputs explicitly.
+
 We recommend reviewing the [extension examples](../../examples/index.md#extend)
 examples, which walk you through implementing a custom diagnostic model.
 
