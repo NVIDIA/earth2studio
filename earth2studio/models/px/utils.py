@@ -127,7 +127,12 @@ class PrognosticMixin:
 
     def default_sources(
         self,
-    ) -> DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None:
+    ) -> (
+        DataSource
+        | ForecastSource
+        | tuple[DataSource | ForecastSource | None, ...]
+        | None
+    ):
         """Recommend no source for any input or forcing slot."""
         return None
 

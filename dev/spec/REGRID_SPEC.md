@@ -76,6 +76,8 @@ if sources is None:
     source = my_source
 else:
     source = sources[slot] if isinstance(sources, tuple) else sources
+    if source is None:
+        source = my_source
 field = fetch_data(source, time, variable, lead_time)
 ```
 

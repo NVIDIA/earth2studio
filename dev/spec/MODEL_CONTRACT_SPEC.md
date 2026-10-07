@@ -195,7 +195,9 @@ class PrognosticModel(Protocol):
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]: ...
     def default_sources(
         self,
-    ) -> DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None: ...
+    ) -> (
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+    ): ...
     def __call__(
         self, *x: xr.DataArray
     ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
@@ -405,8 +407,9 @@ hook, which changes FuXi-S2S's documented behavior (see Open Questions).
 ### Default sources
 
 `default_sources()` returns a `DataSource | ForecastSource` directly for a single
-slot, a tuple of sources for multiple slots, or `None` for no recommendations.
-Tuple entries must be sources, ordered by `input_coords()` slots followed by
+slot, a tuple of sources or `None` for multiple slots, or `None` for no recommendations.
+A `None` tuple entry means no recommendation for that slot.
+Tuple entries are ordered by `input_coords()` slots followed by
 `forcing_coords()` slots (`P23`); the slot
 signature remains the requirement. It is required for prognostic and diagnostic
 models (the prognostic mixin recommends nothing). Drivers

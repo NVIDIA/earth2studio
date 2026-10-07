@@ -35,7 +35,7 @@ class DiagnosticModel(Protocol):
     is returned directly; multiple outputs are returned as a tuple in the order
     declared by ``output_coords()``. Diagnostics have no forcing slots.
     Diagnostics define ``default_sources()``, returning a source for one input
-    slot, a tuple of sources for multiple slots, or ``None`` for no recommendation.
+    slot, a tuple of sources or ``None`` per slot, or ``None`` for no recommendations.
     Drivers read it through
     ``earth2studio.models.utils.recommended_sources``.
     """
@@ -95,12 +95,18 @@ class DiagnosticModel(Protocol):
 
     def default_sources(
         self,
-    ) -> DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None:
+    ) -> (
+        DataSource
+        | ForecastSource
+        | tuple[DataSource | ForecastSource | None, ...]
+        | None
+    ):
         """Recommended data sources for each input slot.
 
         Return one source directly for a single input slot, or a tuple in
         ``input_coords()`` order for multiple slots. ``None`` means no
-        recommendations for the model; tuple entries must be sources.
+        recommendations for the model; a ``None`` tuple entry means no
+        recommendation for that slot.
         A source whose native grid differs from the slot's is
         returned composed with the recommended regridder; transforms intrinsic
         to the model, whatever the provider, stay inside the wrapper. Models
@@ -108,8 +114,8 @@ class DiagnosticModel(Protocol):
 
         Returns
         -------
-        DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None
-            A single source, one source per input slot, or no recommendations.
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+            A single source, one source or ``None`` per input slot, or no recommendations.
         """
         pass
 

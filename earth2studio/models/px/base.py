@@ -256,21 +256,26 @@ class PrognosticModel(Protocol):
 
     def default_sources(
         self,
-    ) -> DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None:
+    ) -> (
+        DataSource
+        | ForecastSource
+        | tuple[DataSource | ForecastSource | None, ...]
+        | None
+    ):
         """Recommended data sources for each input and forcing slot.
 
         Return one source directly for a single slot, or a tuple with one source
         per ``input_coords()`` slot, then one per ``forcing_coords()`` slot.
-        ``None`` means no recommendations for the model; tuple entries must be
-        sources. A source whose native grid differs
+        ``None`` means no recommendations for the model; a ``None`` tuple entry
+        means no recommendation for that slot. A source whose native grid differs
         from the slot's is returned composed with the recommended regridder;
         transforms intrinsic to the model, whatever the provider, stay inside the
         wrapper. Models never fetch from these themselves.
 
         Returns
         -------
-        DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None
-            A single source, sources in input-then-forcing slot order, or no
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+            A single source, sources or ``None`` in input-then-forcing slot order, or no
             recommendations.
         """
         pass
