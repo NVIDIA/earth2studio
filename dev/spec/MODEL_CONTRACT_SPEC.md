@@ -222,12 +222,12 @@ method, not variadic inputs. The protocol uses `*x` and `*y` only to represent f
 signatures whose arity differs between models. This applies to `__call__`,
 `initialize`, `step`, and `create_iterator`.
 
-| Slots | Described by | Contents |
-| --- | --- | --- |
-| `x` | `input_coords()` | Initial fields, fetched once at initialization |
-| `forcing` | `forcing_coords()` | External fields: full window at first, then newest frames |
-| `y` | `output_coords()` | Outputs, fed back into the next `step` |
-| `state` | the model | Everything else a rollout needs; see Explicit state |
+| Described by | Contents |
+| --- | --- |
+| `input_coords()` | Initial fields, fetched once at initialization |
+| `forcing_coords()` | External fields: full window at first, then newest frames |
+| `output_coords()` | Outputs, fed back into the next `step` |
+| the model | Everything else a rollout needs; see Explicit state |
 
 One output is returned directly; multiple outputs form a tuple. Callers unpack
 that tuple for the next step, but pass a single DataArray directly (splatting a
