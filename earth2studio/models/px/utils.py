@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 import xarray as xr
@@ -75,8 +76,11 @@ class PrognosticMixin:
     Wrappers must declare explicit, fixed signatures for ``__call__``,
     ``initialize``, ``step`` and ``create_iterator`` (contract rule P24).
     The variadic methods below are generic helpers or stubs, not concrete wrapper
-    signatures. An explicit ``__call__`` may delegate to the helper below;
-    ``initialize``, ``step`` and ``create_iterator`` are stubs to override.
+    signatures. All four public execution methods are stubs to override.
+    Explicit ``__call__`` and ``create_iterator`` methods may delegate to
+    ``_default_call`` and ``_default_create_iterator``, respectively. These helpers
+    use ``initialize``/``step``; the iterator yields forecasts only and accepts
+    time-varying forcing through ``send``. Static forcing is initialization-only.
     Inheriting this mixin is optional; implementations must satisfy the prognostic
     protocol regardless of how their methods are implemented.
     """
@@ -140,13 +144,21 @@ class PrognosticMixin:
         return None
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
-        """Delegate an explicitly declared wrapper call to ``initialize``, without hooks."""
+        """Predict a forecast; wrappers implement this, optionally via ``_default_call``."""
+        raise NotImplementedError(f"{type(self).__name__} must implement __call__")
+
+    def _validate_initial_inputs(self, *x: xr.DataArray) -> None:
         expected = _count(self.input_coords()) + _count(self.forcing_coords())  # type: ignore[attr-defined]
         if len(x) != expected:
             raise ValueError(
                 f"{type(self).__name__} requires {expected} input and forcing arrays; "
                 f"received {len(x)}"
             )
+
+    def _default_call(
+        self, *x: xr.DataArray
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+        self._validate_initial_inputs(*x)
         return self.initialize(*x)[0]
 
     def create_iterator(
@@ -161,3 +173,40 @@ class PrognosticMixin:
         raise NotImplementedError(
             f"{type(self).__name__} must implement create_iterator"
         )
+
+    def _default_create_iterator(self, *x: xr.DataArray) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
+        None,
+    ]:
+        self._validate_initial_inputs(*x)
+        signatures = self.forcing_coords()
+        forcing_slots = (
+            ()
+            if signatures is None
+            else signatures if isinstance(signatures, tuple) else (signatures,)
+        )
+        expected = sum("lead_time" in slot.dims for slot in forcing_slots)
+        y, state = self.initialize(*x)
+        while True:
+            # Custom hooks may write in place; isolate publication and feedback.
+            rear_hook: Callable[[Any], Any] = self.rear_hook
+            forcing = yield rear_hook(
+                y if rear_hook is self._default_hook else deepcopy(y)
+            )
+            forcing = (
+                ()
+                if forcing is None
+                else forcing if isinstance(forcing, tuple) else (forcing,)
+            )
+            if len(forcing) != expected:
+                raise ValueError(
+                    f"{type(self).__name__} requires {expected} forcing arrays per step; "
+                    f"received {len(forcing)}"
+                )
+            front_hook: Callable[[Any], Any] = self.front_hook
+            feedback = front_hook(
+                y if front_hook is self._default_hook else deepcopy(y)
+            )
+            outputs = feedback if isinstance(feedback, tuple) else (feedback,)
+            y, state = self.step(*outputs, *forcing, state=state)

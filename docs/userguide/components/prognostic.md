@@ -141,6 +141,12 @@ with one forcing slot uses `initialize(self, x, forcing)` and
 fixed arities across models. Wrappers must provide explicit signatures even when
 delegating to a variadic mixin helper.
 
+`PrognosticMixin.__call__` and `create_iterator` raise `NotImplementedError`.
+Document both methods on the wrapper; their bodies can simply return
+`self._default_call(x)` and `self._default_create_iterator(x)`, respectively.
+The private helpers use the wrapper's `initialize` and `step`. The iterator yields
+forecasts only and accepts new forcing through `send`.
+
 We recommend that you review the [extension examples](../../examples/index.md#extend)
 examples, which walk you through implementing a custom prognostic.
 

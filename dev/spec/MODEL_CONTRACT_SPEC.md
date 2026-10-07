@@ -7,7 +7,8 @@ RNG semantics for model-independent execution.
 
 This document is the source of truth for the model contract. Prognostic models follow
 the explicit-state protocol in Model Interface: wrappers implement `initialize` and
-`step`, and may delegate an explicitly declared `__call__` to `PrognosticMixin`. Where
+`step`, and may delegate explicit `__call__`/`create_iterator` methods to private
+`PrognosticMixin` helpers. Where
 wrappers or the checker do not match yet, this spec governs and Migration lists the
 gap.
 
@@ -165,10 +166,10 @@ for dictionary signatures; the rule identifiers apply to both. See
 
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
-`default_sources()` (no recommendation), `stochastic = False`, hooks, and the derived
-`__call__` helper. Wrappers declare explicit execution signatures even when delegating
-to that helper. Its `create_iterator` currently raises `NotImplementedError`; wrappers
-provide their own iterator. The protocol is the requirement; inheriting the
+`default_sources()` (no recommendation), `stochastic = False`, hooks, and private
+`_default_call`/`_default_create_iterator` helpers. Its public execution methods raise
+`NotImplementedError`. Wrappers declare and document explicit execution signatures,
+optionally delegating to the private helpers. The protocol is the requirement; inheriting the
 mixin or deriving these methods from the primitives is optional. Direct
 implementations must satisfy the same behavioral rules.
 
@@ -295,8 +296,8 @@ forcing window. It returns `y`, the first forecast, and a model-defined state ho
 everything else needed for a rollout: older input and forcing frames, statics,
 latents, noise states and the RNG position. `step(*y, state=state)` returns
 the next forecast and state. Wrappers may delegate an explicitly declared
-`__call__` to the mixin, or implement the same contract directly. Iterators are currently
-implemented by wrappers. Weights,
+`__call__` or `create_iterator` to the mixin's private helpers, or implement the same
+contract directly. Weights,
 configuration, cached statics and the `set_rng` seed stay on the model.
 
 For a two-frame model, `initialize([x(-6h), x(0h)])` returns `y = x(+6h)` and keeps
@@ -367,21 +368,16 @@ models requiring no new forcing keep plain loops.
 
 ```python
 # Single-input, single-output, unforced wrapper.
-# The mixin currently leaves create_iterator unimplemented.
 def __call__(self, x):
-    return self.initialize(x)[0]
+    return self._default_call(x)
 
 def create_iterator(self, x):
-    y, state = self.initialize(x)
-    while True:
-        yield self.rear_hook(copy_payload(y))
-        y_next = self.front_hook(copy_payload(y))
-        y, state = self.step(y_next, state)
+    return self._default_create_iterator(x)
 ```
 
-This sketch omits slot validation. `copy_payload` copies each DataArray before a
-potentially in-place hook; identity hooks need no copies. Rear-hook writes must
-not affect recurrence, and front-hook writes must not change earlier yields.
+The helpers validate input and forcing slot counts. The iterator copies the payload
+before custom hooks; default identity hooks need no copies. Rear-hook writes do not
+affect recurrence, and front-hook writes do not change earlier yields.
 
 ```python
 # Unforced
