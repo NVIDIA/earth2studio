@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 def recommended_sources(
     model: Any,
-) -> tuple["DataSource | ForecastSource | None", ...]:
+) -> "DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None":
     """Recommended source for each input and forcing slot of a model.
 
     Prognostic and diagnostic models declare ``default_sources()``. Models that
@@ -48,20 +48,14 @@ def recommended_sources(
 
     Returns
     -------
-    tuple[DataSource | ForecastSource | None, ...]
-        One entry per ``input_coords()`` slot, then one per ``forcing_coords()``
-        slot.
+    DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None
+        A source for a single slot, a tuple in input-then-forcing slot order, or
+        ``None`` for no recommendations. Tuple entries must be sources.
     """
     declared = getattr(model, "default_sources", None)
     if declared is not None:
         return declared()
-    count = 0
-    for name in ("input_coords", "forcing_coords"):
-        method = getattr(model, name, None)
-        signature = method() if method is not None else None
-        if signature is not None:
-            count += len(signature) if isinstance(signature, tuple) else 1
-    return (None,) * count
+    return None
 
 
 def create_ort_session(

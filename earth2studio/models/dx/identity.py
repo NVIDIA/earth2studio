@@ -62,15 +62,15 @@ class Identity(torch.nn.Module):
         """
         return coord_array_like(input_coords)
 
-    def default_sources(self) -> tuple[None]:
+    def default_sources(self) -> None:
         """Return no recommended data source for the input slot.
 
         Returns
         -------
-        tuple[None]
-            One entry for the input slot, with no recommendation.
+        None
+            No recommended data source.
         """
-        return (None,)
+        return None
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:

@@ -118,4 +118,4 @@ def test_static_forcing_is_only_supplied_at_initialization() -> None:
     assert y.item() == 3
     y, state = model.step(y, state=state)
     assert y.item() == 5
-    assert model.default_sources() == (None, None)
+    assert model.default_sources() is None

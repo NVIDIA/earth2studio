@@ -71,7 +71,11 @@ source's `time_step` for temporal statistics. A model recommending a source off 
 slot's grid returns this composition, so drivers fetch from it like any source:
 
 ```python
-source = model.default_sources()[slot] or my_source  # None: no recommendation
+sources = model.default_sources()
+if sources is None:
+    source = my_source
+else:
+    source = sources[slot] if isinstance(sources, tuple) else sources
 field = fetch_data(source, time, variable, lead_time)
 ```
 

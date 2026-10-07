@@ -193,7 +193,9 @@ class PrognosticModel(Protocol):
     def step(
         self, *y: xr.DataArray, state: Any
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]: ...
-    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]: ...
+    def default_sources(
+        self,
+    ) -> DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None: ...
     def __call__(
         self, *x: xr.DataArray
     ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
@@ -402,8 +404,10 @@ hook, which changes FuXi-S2S's documented behavior (see Open Questions).
 
 ### Default sources
 
-`default_sources()` recommends one `DataSource | ForecastSource | None` per
-`input_coords()` slot, then one per `forcing_coords()` slot (`P23`); the slot
+`default_sources()` returns a `DataSource | ForecastSource` directly for a single
+slot, a tuple of sources for multiple slots, or `None` for no recommendations.
+Tuple entries must be sources, ordered by `input_coords()` slots followed by
+`forcing_coords()` slots (`P23`); the slot
 signature remains the requirement. It is required for prognostic and diagnostic
 models (the prognostic mixin recommends nothing). Drivers
 read either through `earth2studio.models.utils.recommended_sources(model)`, fetch,
@@ -428,8 +432,9 @@ use declared slot order, not parameter names. Coordinate methods retain
 single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
 a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
-coordinates differ. A diagnostic defines `default_sources()`, one entry per input
-slot. Forcing, `initialize`, `step` and hooks do not apply.
+coordinates differ. A diagnostic defines `default_sources()`, returning a source
+for a single input slot, a tuple in input-slot order, or `None` for no recommendations.
+Forcing, `initialize`, `step` and hooks do not apply.
 
 ## Rules
 
@@ -462,7 +467,7 @@ path for dictionary-signature fixtures.
 | `P20` | Call, initialization forecast and first iterator yield agree without hooks |
 | `P21` | The state is serializable, and a saved `(y, state)` round-trips |
 | `P22` | The model never fetches; missing forcing raises `ValueError` |
-| `P23` | `default_sources()` has one entry per input slot, then one per forcing slot |
+| `P23` | `default_sources()` follows the single/tuple/None contract in Default sources |
 
 ### Diagnostic
 

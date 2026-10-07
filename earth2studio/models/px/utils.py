@@ -125,12 +125,11 @@ class PrognosticMixin:
         """Declare no forcing."""
         return None
 
-    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
+    def default_sources(
+        self,
+    ) -> DataSource | ForecastSource | tuple[DataSource | ForecastSource, ...] | None:
         """Recommend no source for any input or forcing slot."""
-        count = _count(self.input_coords()) + _count(  # type: ignore[attr-defined]
-            self.forcing_coords()
-        )
-        return (None,) * count
+        return None
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Advance one step from ``x`` without hooks, via ``initialize``."""
