@@ -33,6 +33,10 @@ class PrognosticModel(Protocol):
     Implementations must satisfy this protocol's interface and behavior.
     ``PrognosticMixin`` optionally implements ``__call__`` using ``initialize``;
     ``create_iterator`` is currently a stub. Inheriting the mixin is not required.
+
+    Concrete models must declare a fixed number of named parameters for each
+    execution method, not variadic inputs. The protocol uses ``*x`` and ``*y``
+    only to represent fixed signatures whose arity differs between models.
     """
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
@@ -137,7 +141,7 @@ class PrognosticModel(Protocol):
             frames and initialization-only statics are retained in ``state``.
             Omit static forcing slots after initialization.
         state : Any
-            State returned alongside the forecast. Concrete implementations should
+            State returned alongside the forecast. Concrete implementations must
             declare it as a fixed positional-or-keyword parameter after the arrays;
             it is keyword-only here because it follows ``*y``.
 

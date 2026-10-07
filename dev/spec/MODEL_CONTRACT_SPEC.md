@@ -217,6 +217,11 @@ slots, if any exist. This concatenates argument sequences, not array contents.
 Within each sequence, declared slot order is preserved. Simple models use `x`
 and `y`; complex models may name individual parameters descriptively.
 
+Concrete models must declare a fixed number of named parameters for each execution
+method, not variadic inputs. The protocol uses `*x` and `*y` only to represent fixed
+signatures whose arity differs between models. This applies to `__call__`,
+`initialize`, `step`, and `create_iterator`.
+
 | Slots | Described by | Contents |
 | --- | --- | --- |
 | `x` | `input_coords()` | Initial fields, fetched once at initialization |
@@ -226,7 +231,9 @@ and `y`; complex models may name individual parameters descriptively.
 
 One output is returned directly; multiple outputs form a tuple. Callers unpack
 that tuple for the next step, but pass a single DataArray directly (splatting a
-DataArray would iterate its leading dimension). State is keyword-only:
+DataArray would iterate its leading dimension). State is keyword-only in the
+variadic protocol; concrete implementations must declare it as a fixed
+positional-or-keyword parameter after the arrays. Generic callers use its keyword:
 `model.step(y, f, state=state)` or `model.step(*outputs, f, state=state)`.
 
 - **Forcing is declared, not inferred.** StormCast declares its conditioning in
@@ -392,7 +399,7 @@ for _ in range(nsteps - 1):
     (atm, ocn), state = model.step(atm, ocn, forcing, state=state)
 
 # Coupled: GOES output conditions MRMS; neither model owns a data source
-# Concrete implementations should declare state as a fixed positional-or-keyword parameter.
+# Concrete implementations declare state as a fixed positional-or-keyword parameter.
 y_goes, s_goes = goes.initialize(x_goes)
 y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)  # GOES window
 for _ in range(nsteps - 1):
@@ -438,8 +445,8 @@ such as a pre-regridded archive.
 
 `DiagnosticModel.__call__(*x)` takes one positional DataArray per input slot in
 `input_coords()` order, and returns a single DataArray or a tuple in output-slot
-order. Concrete models may name their parameters descriptively; generic callers
-use declared slot order, not parameter names. Coordinate methods retain
+order. Concrete models must declare fixed, named input parameters, not variadic
+inputs; generic callers use declared slot order, not parameter names. Coordinate methods retain
 single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
 a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
