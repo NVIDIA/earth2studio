@@ -43,7 +43,7 @@ class PrognosticModel(Protocol):
         Parameters
         ----------
         *x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA arrays: one argument per
+            xarray DataArrays with array data on the model's device: one argument per
             ``input_coords()`` slot, followed by one per ``forcing_coords()`` slot,
             if any exist, in declared order. Forcing uses complete initial windows.
             This concatenates argument sequences, not array contents.

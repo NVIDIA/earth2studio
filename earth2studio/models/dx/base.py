@@ -46,8 +46,8 @@ class DiagnosticModel(Protocol):
         Parameters
         ----------
         *x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA arrays: one positional argument
-            per ``input_coords()`` slot, in declared order. Pass multiple slots as
+            xarray DataArrays with array data on the model's device: one positional
+            argument per ``input_coords()`` slot, in declared order. Pass multiple slots as
             separate arguments, not as a single tuple argument.
 
         Returns
