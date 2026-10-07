@@ -392,11 +392,12 @@ for _ in range(nsteps - 1):
     (atm, ocn), state = model.step(atm, ocn, forcing, state=state)
 
 # Coupled: GOES output conditions MRMS; neither model owns a data source
+# These fixed-arity implementations also accept state positionally.
 y_goes, s_goes = goes.initialize(x_goes)
 y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)  # GOES window
 for _ in range(nsteps - 1):
-    y_mrms, s_mrms = mrms.step(y_mrms, y_goes, state=s_mrms)  # newest frame
-    y_goes, s_goes = goes.step(y_goes, state=s_goes)
+    y_mrms, s_mrms = mrms.step(y_mrms, y_goes, s_mrms)  # newest frame
+    y_goes, s_goes = goes.step(y_goes, s_goes)
 ```
 
 The same GOES window initializes both models, and each iteration's `y_goes` has the
