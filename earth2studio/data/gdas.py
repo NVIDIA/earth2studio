@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import shutil
@@ -98,7 +99,8 @@ class NomadsGDASObsConv:
     verbose : bool, optional
         Print download progress, by default True.
     async_timeout : int, optional
-        Total timeout in seconds for the entire fetch, by default 600.
+        Timeout in seconds for downloading the files, by default 600. Decoding
+        them is not bounded.
     async_workers : int, optional
         Maximum concurrent async download tasks, by default 4.
     decode_workers : int, optional
@@ -193,9 +195,8 @@ class NomadsGDASObsConv:
             If requested time is out of valid range.
         """
         try:
-            df = _sync_async(
-                self.fetch, time, variable, fields, timeout=self.async_timeout
-            )
+            # async_timeout bounds the download inside fetch; decode is not bounded.
+            df = _sync_async(self.fetch, time, variable, fields)
         finally:
             if not self._cache:
                 shutil.rmtree(self.cache, ignore_errors=True)
@@ -243,11 +244,14 @@ class NomadsGDASObsConv:
             )
             for t in tasks
         ]
-        await gather_with_concurrency(
-            coros,
-            max_workers=self._async_workers,
-            desc="Fetching GDAS conventional observations",
-            verbose=(not self._verbose),
+        await asyncio.wait_for(
+            gather_with_concurrency(
+                coros,
+                max_workers=self._async_workers,
+                desc="Fetching GDAS conventional observations",
+                verbose=(not self._verbose),
+            ),
+            self.async_timeout,
         )
 
         # Decode and compile

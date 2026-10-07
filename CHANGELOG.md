@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.20.0a0] - 2026-10-xx
 
 ### Added
 
@@ -15,10 +15,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   .mdlus downloads pinned to Hugging Face, fixed schedules, and regional inputs
   with clipped context padding.
 
-## [0.19.0a0] - xxxx-xx-xx
+- Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
+  maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
+  0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+- Added an `original_event` option and report time/latitude/longitude columns to
+  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
+- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added `scan_quality`, `granule_quality` and `footprint_quality` columns to
+  `NNJAObsSat` carrying the ATMS, CrIS and IASI footprint-level provider flags.
+- Added a `cycle_time` column to the NCEP observation sources (`NNJAObsConv`,
+  `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
+  was decoded from, since an observation at a file's window edge can be in two files.
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+
+### Changed
+
+- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
+  is a NaN observation instead of a dropped row, so every footprint appears.
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
+  messages, or any DX-table message fails to decode, instead of silently returning
+  fewer rows.
+- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
+  instead of failing the whole request.
+- `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
+  corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
+  statistics).
+
+### Security
+
+### Dependencies
+
+## [0.19.0] - 2026-09-30
 
 ### Added
 
+- Added event scoring to the evaluation recipe and the scorecards.
 - Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
@@ -83,13 +123,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scorecard campaigns score online over 48 initial conditions and the
   score data moved to the HF Earth2Studio assets dataset
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
+- `ZarrBackend` / `IceChunkBackend` can reopen a store containing a scalar
+  array (e.g. a CF `grid_mapping` variable) whose `dimension_names` is `None`
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources
 - `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges
@@ -111,10 +149,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evaluation recipe: clearing resume markers no longer races between
   ranks. Concurrent removal of the same progress directory retries until
   the directory no longer exists
-
-### Security
-
-### Dependencies
 
 ## [0.18.0] - 2026-08-31
 
