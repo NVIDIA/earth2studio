@@ -31,6 +31,7 @@ from earth2studio.grids.base import (
     E2S_GRID_ID,
     GridDefinition,
     GridTopology,
+    Regridder,
 )
 from earth2studio.grids.curvilinear import CurvilinearGrid
 from earth2studio.grids.healpix import (
@@ -280,6 +281,7 @@ __all__ = [
     "LatLonGrid",
     "PointGrid",
     "ProjectedGrid",
+    "Regridder",
     "infer_grid",
     "list_grids",
     "register_grid",

@@ -54,7 +54,7 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
-from earth2studio.grids import GridDefinition
+from earth2studio.grids import GridDefinition, Regridder
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -404,6 +404,82 @@ def fetch_dataframe(
         return result
     else:
         return df
+
+
+class RegriddedSource:
+    """Data or forecast source whose fields are regridded onto a target grid.
+
+    Composes a source with a :class:`~earth2studio.grids.Regridder` so the pair
+    stands in for the source wherever a ``DataSource`` or ``ForecastSource`` is
+    accepted, for example as a model's recommended source for a slot on another
+    grid. Requests pass through unchanged; only the spatial dimensions of the
+    result are mapped.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to wrap, whose native grid is the regridder's ``source_grid``.
+    regridder : Regridder
+        Regridder applied to every fetched field. Sources return NumPy-backed
+        fields, so it must accept them.
+    """
+
+    def __init__(
+        self, source: DataSource | ForecastSource, regridder: Regridder
+    ) -> None:
+        if not isinstance(regridder, Regridder):
+            raise TypeError("regridder must implement the Regridder protocol")
+        self.source = source
+        self.regridder = regridder
+
+    @property
+    def time_step(self) -> np.timedelta64 | None:
+        """Cadence of the wrapped source, used for temporal statistics."""
+        return getattr(self.source, "time_step", None)
+
+    # Requests are forwarded as given, so one wrapper serves both source protocols:
+    # ``(time, variable)`` for a DataSource, ``(time, lead_time, variable)`` for a
+    # ForecastSource.
+
+    def __call__(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+        """
+        return self.regridder(self.source(*args, **kwargs))
+
+    async def fetch(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Asynchronously fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+
+        Raises
+        ------
+        AttributeError
+            If the wrapped source does not support async fetch.
+        """
+        if not hasattr(self.source, "fetch"):
+            raise AttributeError(
+                f"Wrapped source {type(self.source).__name__} does not support "
+                "async fetch"
+            )
+        return self.regridder(await self.source.fetch(*args, **kwargs))
 
 
 def prep_data_array(
