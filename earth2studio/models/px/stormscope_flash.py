@@ -267,7 +267,7 @@ class _StormScopeFlash(StormScopeBase):
         to the verified checkpoint commit.
         """
         if revision is None:
-            revision = "969969bdeef83aaa5a4e1c323f9a02ed9ecfe65b"
+            revision = "d506867d7f0e2eec5f7806266d3fb0f4107a76c6"
         return Package(
             f"hf://nvidia/stormscope-goes-mrms@{revision}",
             cache_options={
