@@ -151,7 +151,7 @@ class PrognosticMixin:
         *x: xr.DataArray,
     ) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],
-        tuple[xr.DataArray, ...] | None,
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
         None,
     ]:
         """Create a forecast iterator; wrappers implement this."""

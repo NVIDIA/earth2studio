@@ -202,7 +202,9 @@ class PrognosticModel(Protocol):
         self, *x: xr.DataArray
     ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
     def create_iterator(self, *x: xr.DataArray) -> Generator[
-        xr.DataArray | tuple[xr.DataArray, ...], tuple[xr.DataArray, ...] | None, None
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
+        None,
     ]: ...
 ```
 
@@ -342,7 +344,8 @@ def _advance(self, latest, state):
 `create_iterator` yields forecasts only: its first yield is the output of
 `initialize`, and `nsteps` forecasts take `nsteps` yields. The initial forcing window
 is consumed by `initialize`, so a value sent to the iterator is always the forcing for
-the next `step`, as a tuple of time-varying forcing slots in declared order.
+the next `step`, as a single DataArray or a tuple of time-varying forcing slots
+in declared order.
 Static slots are omitted after initialization. `next(it)` is `send(None)`, so
 models requiring no new forcing keep plain loops.
 
@@ -357,7 +360,11 @@ def create_iterator(self, *x):
         forcing = yield self.rear_hook(copy_payload(y))
         outputs = self.front_hook(copy_payload(y))
         outputs = outputs if isinstance(outputs, tuple) else (outputs,)
-        y, state = self.step(*outputs, *(forcing or ()), state=state)
+        if forcing is None:
+            forcing = ()
+        elif not isinstance(forcing, tuple):
+            forcing = (forcing,)
+        y, state = self.step(*outputs, *forcing, state=state)
 ```
 
 This sketch omits slot validation. `copy_payload` copies each DataArray before a

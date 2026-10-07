@@ -109,7 +109,7 @@ class PrognosticModel(Protocol):
         *x: xr.DataArray,
     ) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],
-        tuple[xr.DataArray, ...] | None,
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
         None,
     ]:
         """Creates an iterator which time-integrates the prognostic model.
@@ -117,7 +117,7 @@ class PrognosticModel(Protocol):
         Yields forecasts only, starting with the outputs of ``initialize``; drivers
         publishing the initial condition take it manually from ``x``.
         ``nsteps`` forecasts take ``nsteps`` yields. A value sent at a yield is the
-        forcing arrays for the next ``step``, if any exist, as a tuple in declared
+        forcing for the next ``step``: a single DataArray or a tuple in declared
         forcing-slot order, omitting initialization-only static slots.
         ``next(it)`` is ``send(None)``, valid when no new forcing is required.
 
