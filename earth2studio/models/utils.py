@@ -17,7 +17,7 @@
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 try:
     import onnxruntime as ort
@@ -28,6 +28,40 @@ except ImportError:
     ort = None
     InferenceSession = TypeVar("InferenceSession")  # type: ignore
 import torch
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource, ForecastSource
+
+
+def recommended_sources(
+    model: Any,
+) -> tuple["DataSource | ForecastSource | None", ...]:
+    """Recommended source for each input and forcing slot of a model.
+
+    Prognostic models always declare ``default_sources()``; for diagnostics it is
+    optional, and models without it recommend nothing.
+
+    Parameters
+    ----------
+    model : PrognosticModel | DiagnosticModel
+        Model whose slots need providers.
+
+    Returns
+    -------
+    tuple[DataSource | ForecastSource | None, ...]
+        One entry per ``input_coords()`` slot, then one per ``forcing_coords()``
+        slot.
+    """
+    declared = getattr(model, "default_sources", None)
+    if declared is not None:
+        return declared()
+    count = 0
+    for name in ("input_coords", "forcing_coords"):
+        method = getattr(model, name, None)
+        signature = method() if method is not None else None
+        if signature is not None:
+            count += len(signature) if isinstance(signature, tuple) else 1
+    return (None,) * count
 
 
 def create_ort_session(

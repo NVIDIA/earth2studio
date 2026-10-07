@@ -406,7 +406,8 @@ hook, which changes FuXi-S2S's documented behavior (see Open Questions).
 `input_coords()` slot, then one per `forcing_coords()` slot (`P23`); the slot
 signature remains the requirement. It is required for prognostic models (the mixin
 recommends nothing) and optional for diagnostics, which share no base class. Drivers
-read either through `recommended_sources(model)`, fetch, and handshake the result
+read either through `earth2studio.models.utils.recommended_sources(model)`, fetch,
+and handshake the result
 against the slot.
 
 ```python

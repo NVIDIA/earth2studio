@@ -22,7 +22,6 @@ import xarray as xr
 from earth2studio.utils.type import CoordinateSystem
 
 
-# --8<-- [start:diagnostic-model-interface]
 @runtime_checkable
 class DiagnosticModel(Protocol):
     """Diagnostic model interface
@@ -35,7 +34,7 @@ class DiagnosticModel(Protocol):
     Diagnostics may also define ``default_sources()``, returning one ``DataSource |
     ForecastSource | None`` per input slot; it is optional here because diagnostics
     share no base class. Drivers read it through
-    ``earth2studio.models.px.base.recommended_sources``.
+    ``earth2studio.models.utils.recommended_sources``.
     """
 
     def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
@@ -106,6 +105,3 @@ class DiagnosticModel(Protocol):
             Returns instance of diagnostic
         """
         pass
-
-
-# --8<-- [end:diagnostic-model-interface]
