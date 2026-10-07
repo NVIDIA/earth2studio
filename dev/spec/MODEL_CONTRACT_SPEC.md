@@ -358,11 +358,11 @@ models requiring no new forcing keep plain loops.
 
 ```python
 # Illustrative derivation; the mixin currently leaves create_iterator unimplemented.
-def __call__(self, *x):
-    return self.initialize(*x)[0]
+def __call__(self, x):
+    return self.initialize(x)[0]
 
-def create_iterator(self, *x):
-    y, state = self.initialize(*x)
+def create_iterator(self, x):
+    y, state = self.initialize(x)
     while True:
         forcing = yield self.rear_hook(copy_payload(y))
         outputs = self.front_hook(copy_payload(y))
