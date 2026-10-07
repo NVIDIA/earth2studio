@@ -22,6 +22,7 @@ from typing import Any, cast
 
 import numpy as np
 import torch
+from fsspec.implementations.cache_mapper import BasenameCacheMapper
 
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.models.auto import Package
@@ -194,8 +195,6 @@ def _validate_checkpoint_file(path: Path, spec: Mapping[str, Any]) -> None:
     if path.stat().st_size != spec["deployment_size_bytes"]:
         raise ValueError(f"Packaged checkpoint size mismatch: {path}")
     expected_hash = spec["deployment_sha256"]
-    if expected_hash[:16] not in path.stem:
-        raise ValueError(f"Flash checkpoint is not content-addressed: {path}")
     if os.environ.get("EARTH2STUDIO_VERIFY_CHECKPOINT_HASH", "0").lower() in (
         "1",
         "true",
@@ -267,12 +266,12 @@ class _StormScopeFlash(StormScopeBase):
         to the verified checkpoint commit.
         """
         if revision is None:
-            revision = "d506867d7f0e2eec5f7806266d3fb0f4107a76c6"
+            revision = "34a61472c7c0eadc914fb73021b11017b97328fa"
         return Package(
             f"hf://nvidia/stormscope-goes-mrms@{revision}",
             cache_options={
                 "cache_storage": Package.default_cache(f"stormscope_flash/{revision}"),
-                "same_names": True,
+                "cache_mapper": BasenameCacheMapper(directory_levels=2),
             },
         )
 

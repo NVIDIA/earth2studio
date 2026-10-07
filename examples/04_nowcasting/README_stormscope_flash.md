@@ -15,6 +15,8 @@ checkpoints from `nvidia/stormscope-goes-mrms` on Hugging Face and caches them.
 The download is pinned to a verified revision. GOES and MRMS/GLM Flash weights
 are selected from their respective `checkpoints/*/3km_10min_flash/` directories;
 the existing teacher checkpoints are not downloaded by the Flash loader.
+Each Flash directory contains `expert_0.mdlus` (low sigma), `expert_1.mdlus`
+(middle sigma), and `expert_2.mdlus` (high sigma), matching the baseline naming.
 
 Run the example using the installed branch environment. It uses the **full
 domain by default**:

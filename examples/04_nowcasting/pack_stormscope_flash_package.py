@@ -232,20 +232,24 @@ def main() -> None:
                 original = (args.checkpoints_root / filename).resolve()
                 if sha256_file(original) != SOURCE_HASHES[kind][region]:
                     raise ValueError(f"Source checkpoint hash mismatch: {original}")
-                destination = staging / f"{kind}_{region}.mdlus"
-                info = convert_checkpoint(original, destination, kind, region)
-                content_path = destination.with_name(
-                    f"{kind}_{region}-{info['deployment_sha256'][:16]}.mdlus"
+                expert_index = ("low", "middle", "high").index(region)
+                relative_path = (
+                    Path("checkpoints")
+                    / kind
+                    / "3km_10min_flash"
+                    / f"expert_{expert_index}.mdlus"
                 )
-                destination.rename(content_path)
+                destination = staging / relative_path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                info = convert_checkpoint(original, destination, kind, region)
                 entry["checkpoints"].append(
                     {
                         "name": region,
-                        "path": content_path.name,
+                        "path": relative_path.as_posix(),
                         **info,
                     }
                 )
-                print(f"Packaged {kind}/{region}: {content_path.name}", flush=True)
+                print(f"Packaged {kind}/{region}: {relative_path}", flush=True)
             name = "3km_10min"
             registry[kind] = {"models": {name: entry}, "aliases": {}}
             loaded = load_flash_experts(Package(str(staging)), entry, kind)

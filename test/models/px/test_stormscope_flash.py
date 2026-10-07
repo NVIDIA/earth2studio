@@ -444,7 +444,7 @@ def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
 
     payload = b"checkpoint integrity test"
     digest = hashlib.sha256(payload).hexdigest()
-    path = tmp_path / f"model-{digest[:16]}.mdlus"
+    path = tmp_path / "expert_0.mdlus"
     path.write_bytes(payload)
     spec = dict(
         deployment_format="flash-mdlus-v1",
@@ -629,7 +629,7 @@ def test_flash_local_package_remains_compatible(tmp_path, flash_class):
 def test_flash_hub_package_uses_revision_and_separate_cache(
     monkeypatch, flash_class, tmp_path
 ):
-    from unittest.mock import Mock
+    from unittest.mock import ANY, Mock
 
     import earth2studio.models.px.stormscope_flash as module
 
@@ -644,7 +644,7 @@ def test_flash_hub_package_uses_revision_and_separate_cache(
         f"hf://nvidia/stormscope-goes-mrms@{revision}",
         cache_options={
             "cache_storage": str(tmp_path / "flash-cache"),
-            "same_names": True,
+            "cache_mapper": ANY,
         },
     )
     constructor.default_cache.assert_called_once_with(f"stormscope_flash/{revision}")
@@ -673,5 +673,39 @@ def test_flash_default_package_is_pinned():
     package = StormScopeGOESFlash.load_default_package()
     revision = package.root.rsplit("@", 1)[1]
     assert len(revision) == 40 and all(c in "0123456789abcdef" for c in revision)
-    assert package.cache_options["same_names"] is True
+    mapper = package.cache_options["cache_mapper"]
+    assert mapper("checkpoints/goes/3km_10min_flash/expert_0.mdlus") != mapper(
+        "checkpoints/mrms/3km_10min_flash/expert_0.mdlus"
+    )
     assert revision in package.cache_options["cache_storage"]
+
+
+def test_flash_cache_separates_numbered_model_experts(tmp_path):
+    import fsspec
+
+    mapper = StormScopeGOESFlash.load_default_package().cache_options["cache_mapper"]
+    fs = fsspec.filesystem("memory")
+    root = f"/flash-{tmp_path.name}"
+    paths = [
+        f"checkpoints/{kind}/3km_10min_flash/expert_0.mdlus"
+        for kind in ("goes", "mrms")
+    ]
+    for path, payload in zip(paths, (b"goes weights", b"mrms weights")):
+        fs.pipe(f"{root}/{path}", payload)
+    package = Package(
+        root,
+        fs=fs,
+        cache=True,
+        cache_options={
+            "cache_storage": str(tmp_path / "cache"),
+            "cache_mapper": mapper,
+        },
+    )
+    resolved = [Path(package.resolve(path)) for path in paths]
+    assert resolved[0] != resolved[1]
+    for path, local, payload in zip(
+        paths, resolved, (b"goes weights", b"mrms weights")
+    ):
+        assert local.suffix == ".mdlus"
+        assert local.read_bytes() == payload
+        assert Path(package.resolve(path)).read_bytes() == payload
