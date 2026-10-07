@@ -32,8 +32,7 @@ class DiagnosticModel(Protocol):
     Each input slot is a separate positional DataArray, in the order declared by
     ``input_coords()``. Concrete models must declare a fixed number of named input
     parameters, not variadic inputs. The protocol uses ``*x`` only to represent
-    fixed signatures whose arity differs between models; see rule D11 in
-    ``dev/spec/MODEL_CONTRACT_SPEC.md``. Generic callers use
+    fixed signatures whose arity differs between models. Generic callers use
     slot order rather than parameter names. One output
     is returned directly; multiple outputs are returned as a tuple in the order
     declared by ``output_coords()``. Diagnostics have no forcing slots.
