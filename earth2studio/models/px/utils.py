@@ -26,7 +26,10 @@ from earth2studio.utils.type import CoordinateSystem
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource, ForecastSource
 
-Hook = Callable[[xr.DataArray], xr.DataArray]
+Hook = Callable[
+    [xr.DataArray | tuple[xr.DataArray, ...]],
+    xr.DataArray | tuple[xr.DataArray, ...],
+]
 
 
 def _count(signature: Any) -> int:
@@ -95,7 +98,9 @@ class PrognosticMixin:
     front_hook_interval: int = 1
 
     @staticmethod
-    def _default_hook(x: xr.DataArray) -> xr.DataArray:
+    def _default_hook(
+        x: xr.DataArray | tuple[xr.DataArray, ...],
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         return x
 
     # Typed as the Hook signature so assigning a plain function — the normal use
@@ -190,9 +195,8 @@ class PrognosticMixin:
         y, state = self.initialize(*x)
         while True:
             # Custom hooks may write in place; isolate publication and feedback.
-            rear_hook: Callable[[Any], Any] = self.rear_hook
-            forcing = yield rear_hook(
-                y if rear_hook is self._default_hook else deepcopy(y)
+            forcing = yield self.rear_hook(
+                y if self.rear_hook is self._default_hook else deepcopy(y)
             )
             forcing = (
                 ()
@@ -204,9 +208,8 @@ class PrognosticMixin:
                     f"{type(self).__name__} requires {expected} forcing arrays per step; "
                     f"received {len(forcing)}"
                 )
-            front_hook: Callable[[Any], Any] = self.front_hook
-            feedback = front_hook(
-                y if front_hook is self._default_hook else deepcopy(y)
+            feedback = self.front_hook(
+                y if self.front_hook is self._default_hook else deepcopy(y)
             )
             outputs = feedback if isinstance(feedback, tuple) else (feedback,)
             y, state = self.step(*outputs, *forcing, state=state)
