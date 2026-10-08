@@ -7,7 +7,8 @@ RNG semantics for model-independent execution.
 
 This document is the source of truth for the model contract. Prognostic models follow
 the explicit-state protocol in Model Interface: wrappers implement `initialize` and
-`step`, and `PrognosticMixin` derives `__call__` and `rollout_iterator`. Where
+`step`, and may delegate explicit `__call__`/`create_iterator` methods to private
+`PrognosticMixin` helpers. Where
 wrappers or the checker do not match yet, this spec governs and Migration lists the
 gap.
 
@@ -110,8 +111,8 @@ standard handshakes for validation.
 ### Execution boundary
 
 The public `PrognosticModel` and `DiagnosticModel` protocols (see Model Interface)
-take and return DataArrays: one per slot, grouped in a tuple when a model has several
-slots. **All exported prognostic and diagnostic wrappers take and return
+take and return DataArrays: one positional argument per input slot, with multiple
+outputs grouped in a tuple. **All exported prognostic and diagnostic wrappers take and return
 DataArrays.** Fields are NumPy-backed on CPU or CuPy-backed on CUDA; wrappers
 document whether inputs must be on the model device or are moved at the core
 boundary. At the Torch boundary, `.e2s.to_torch()` and
@@ -136,11 +137,11 @@ dimensions, coordinate values/attrs, name, attrs and encoding. Restarts call `st
 the saved pair, so they yield the step after the saved state rather than repeating
 it.
 
-FuXi-S2S declares two consecutive daily means with start-of-day timestamps:
+A daily-mean model can declare two consecutive inputs with start-of-day timestamps:
 `mean:0h:24h` for ordinary channels and `mean:1h:25h` for hourly interval-ending `tp`
 and `ttr`, with matching statistics metadata. Its initial condition is the latest
 input day, and its iterator yields daily predictions. Hooks see one prediction;
-front-hook edits feed the next rolling state, rear-hook edits are published only (see
+front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
 preparation and units follow `TIME_STATISTICS_SPEC.md` (calendar-day means).
 
@@ -165,8 +166,12 @@ for dictionary signatures; the rule identifiers apply to both. See
 
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
-`default_sources()` (no recommendation), `stochastic = False`, hooks, and the derived
-`__call__` and `rollout_iterator`.
+`default_sources()` (no recommendation), `stochastic = False`, hooks, and private
+`_default_call`/`_default_create_iterator` helpers. Its public execution methods raise
+`NotImplementedError`. Wrappers declare and document explicit execution signatures,
+optionally delegating to the private helpers. The protocol is the requirement; inheriting the
+mixin or deriving these methods from the primitives is optional. Direct
+implementations must satisfy the same behavioral rules.
 
 A single-DataArray protocol cannot express forced or stateful rollouts. StormCast and
 StormScope fetched conditioning from a model-owned `conditioning_data_source` that
@@ -184,36 +189,62 @@ class PrognosticModel(Protocol):
     def output_coords(
         self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
-    def initialize(self, x, forcing=None) -> tuple[y, Any]: ...
-    def step(self, y, state: Any, forcing=None) -> tuple[y, Any]: ...
-    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]: ...
-    # Derived by PrognosticMixin from initialize/step:
-    def __call__(self, x, forcing=None) -> y: ...
-    def rollout_iterator(self, x, forcing=None) -> Generator[y, forcing | None, None]: ...
-    # Deprecated, see Migration:
-    def create_iterator(self, x, forcing=None) -> Generator[y, forcing | None, None]: ...
+    def initialize(
+        self, *x: xr.DataArray
+    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]: ...
+    def step(
+        self, *y: xr.DataArray, state: Any
+    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]: ...
+    def default_sources(
+        self,
+    ) -> (
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+    ): ...
+    def __call__(
+        self, *x: xr.DataArray
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]: ...
+    def create_iterator(self, *x: xr.DataArray) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
+        None,
+    ]: ...
 ```
 
-`x`, `forcing` and `y` each stand for `xr.DataArray | tuple[xr.DataArray, ...]`.
+### Argument slots
 
-### Argument groups
+Each signature is a slot supplied as a separate positional DataArray (`P17`).
+Initial arguments `*x` concatenate input slots and forcing slots, if any exist.
+Step arguments `*y` concatenate preceding output slots and time-varying forcing
+slots, if any exist. This concatenates argument sequences, not array contents.
+Within each sequence, declared slot order is preserved. Simple models use `x`
+and `y`; complex models may name individual parameters descriptively.
 
-Each argument is one group, shaped like the coordinate method describing it: a
-DataArray when that method returns one `CoordinateSystem`, a tuple of the same
-length when it returns a tuple (`P17`). Each signature in a tuple is a slot.
+**Wrappers must declare explicit execution signatures** (`P24`, `D11`): a fixed
+number of named parameters, one per declared array slot, rather than `*args`, `*x`
+or `*y`. For prognostic wrappers this applies to `__call__`, `initialize`, `step`
+and `create_iterator`; for diagnostics it applies to `__call__`. The protocols use
+`*x` and `*y` only to describe different fixed arities across models, not a variable
+number of inputs to any one wrapper.
 
-| Group | Described by | Contents |
-| --- | --- | --- |
-| `x` | `input_coords()` | Initial fields, fetched once at initialization |
-| `forcing` | `forcing_coords()` | External fields: full window at first, then newest frames |
-| `y` | `output_coords()` | Outputs, fed back into the next `step` |
-| `state` | the model | Everything else a rollout needs; see Explicit state |
+Generic forwarding helpers may use variadic arguments internally, but wrappers must
+expose explicit signatures instead of inheriting a variadic execution method as their
+public interface. A wrapper may delegate its explicitly declared method to a mixin
+helper. Generic callers may unpack a slot tuple when calling a wrapper; this does not
+make the wrapper's signature variadic.
 
-Groups are never splatted. Callers would have to flatten each group to a tuple first,
-since splatting a single DataArray iterates its leading dimension, and the model would
-split the arguments again by slot count. One argument per group keeps
-`step(y, state, forcing)` unambiguous. Every group is positional; examples pass
-`forcing` by position, e.g. `stormcast(x, f)` and `model.step(y, state, f)`.
+| Described by | Contents |
+| --- | --- |
+| `input_coords()` | Initial fields, fetched once at initialization |
+| `forcing_coords()` | External fields: full window at first, then newest frames |
+| `output_coords()` | Outputs, fed back into the next `step` |
+| the model | Everything else a rollout needs; see Explicit state |
+
+One output is returned directly; multiple outputs form a tuple. Callers unpack
+that tuple for the next step, but pass a single DataArray directly (splatting a
+DataArray would iterate its leading dimension). State is keyword-only in the
+variadic protocol; concrete implementations must declare it as a fixed
+positional-or-keyword parameter after the arrays. Generic callers use its keyword:
+`model.step(y, f, state=state)` or `model.step(*outputs, f, state=state)`.
 
 - **Forcing is declared, not inferred.** StormCast declares its conditioning in
   `forcing_coords()` with plain labels such as `u10m`, though `u10m` is also a state
@@ -222,10 +253,10 @@ split the arguments again by slot count. One argument per group keeps
   `step` only the newest frames, as with `x` and `y`. The model keeps older frames in
   its state, so callers never assemble windows.
 - **Caller-supplied statics are forcing slots without `lead_time`.** `initialize`
-  stores them in the state; later steps may pass `None` for them. Statics shipped
+  stores them in the state; later steps omit these slots. Statics shipped
   with the checkpoint stay in the wrapper.
 - **Models without forcing** return `None` from `forcing_coords()` (the mixin
-  default) and take `forcing=None`.
+  default) and take no additional forcing arguments.
 
 Slots are positional, not keyed:
 
@@ -260,12 +291,13 @@ takes the `t + 6h` frame per step.
 
 ### Explicit state
 
-`initialize(x, forcing)` runs the first core computation from the input window and
+`initialize(*x)` runs the first core computation from the input window and
 forcing window. It returns `y`, the first forecast, and a model-defined state holding
 everything else needed for a rollout: older input and forcing frames, statics,
-latents, noise states and the RNG position. `step(y, state, forcing)` returns
-the next `y` and state. Wrappers implement only these two; the mixin derives
-`__call__` and `rollout_iterator`, so they cannot disagree. Weights,
+latents, noise states and the RNG position. `step(*y, state=state)` returns
+the next forecast and state. Wrappers may delegate an explicitly declared
+`__call__` or `create_iterator` to the mixin's private helpers, or implement the same
+contract directly. Weights,
 configuration, cached statics and the `set_rng` seed stay on the model.
 
 For a two-frame model, `initialize([x(-6h), x(0h)])` returns `y = x(+6h)` and keeps
@@ -292,8 +324,8 @@ forcing, and is pure in its state.
   variables by label and lead times from the end, never by position: the window is the
   state's older frames followed by `y`, keeping the last `N` lead times.
 - **Models never fetch** (`P22`). Missing forcing raises `ValueError`; the derived
-  methods check `forcing` against `forcing_coords()` before calling `initialize` or
-  `step`.
+  methods check slot counts before calling `initialize` or `step`; model-specific
+  implementations validate the arrays against the declared coordinates.
 - **`initialize` and `step` are each one core computation,** so `initialize` is
   as expensive as a `step`.
 - **One step is one core computation and one yield.** Models computing several lead
@@ -311,12 +343,12 @@ class AtlasState:
     latent: torch.Tensor
     rng_step: int
 
-def initialize(self, x, forcing=None):
+def initialize(self, x):
     window = self._validate(x)
     state = AtlasState(window.isel(lead_time=[0]), self._encode(window), 0)
     return self._advance(window.isel(lead_time=[-1]), state)
 
-def step(self, y, state, forcing=None):
+def step(self, y, state):
     return self._advance(y, state)
 
 def _advance(self, latest, state):
@@ -326,48 +358,54 @@ def _advance(self, latest, state):
 
 ### Derived iteration with `send`
 
-`rollout_iterator` yields forecasts only: its first yield is the output of
+`create_iterator` yields forecasts only: its first yield is the output of
 `initialize`, and `nsteps` forecasts take `nsteps` yields. The initial forcing window
 is consumed by `initialize`, so a value sent to the iterator is always the forcing for
-the next `step`. `next(it)` is `send(None)`, so unforced models keep plain loops.
+the next `step`, as a single DataArray or a tuple of time-varying forcing slots
+in declared order.
+Static slots are omitted after initialization. `next(it)` is `send(None)`, so
+models requiring no new forcing keep plain loops.
 
 ```python
-# PrognosticMixin
-def __call__(self, x, forcing=None):
-    return self.initialize(x, forcing)[0]
+# Single-input, single-output, unforced wrapper.
+def __call__(self, x):
+    return self._default_call(x)
 
-def rollout_iterator(self, x, forcing=None):
-    y, state = self.initialize(x, forcing)
-    while True:
-        forcing = yield self.rear_hook(y)
-        y, state = self.step(self.front_hook(y), state, forcing)
+def create_iterator(self, x):
+    return self._default_create_iterator(x)
 ```
+
+The helpers validate input and forcing slot counts. The iterator publishes the
+rear-hook result and feeds it into the next step. Both hooks receive the payload
+directly, without copies. In-place front-hook edits also modify the previously
+yielded payload; hooks can return new arrays when that is undesirable.
 
 ```python
 # Unforced
-for y in islice(sfno.rollout_iterator(x), nsteps): ...
+for y in islice(sfno.create_iterator(x), nsteps): ...
 
 # Forced: the driver fetches conditioning alongside initial conditions
-it = stormcast.rollout_iterator(x_hrrr, fetch(stormcast.forcing_coords(), t0))
+it = stormcast.create_iterator(x_hrrr, fetch(stormcast.forcing_coords(), t0))
 y = next(it)
 for _ in range(nsteps - 1):
-    y = it.send(fetch(stormcast.forcing_coords(), t0 + y.lead_time))
+    y = it.send((fetch(stormcast.forcing_coords(), t0 + y.lead_time),))
 
 # Publishing the initial condition is the driver's choice
 io.write(initial_condition(x))
-for y in islice(sfno.rollout_iterator(x), nsteps):
+for y in islice(sfno.create_iterator(x), nsteps):
     io.write(y)
 
 # Explicit loop over two state slots
-(atm, ocn), state = model.initialize((x_atm, x_ocn), forcing)
+(atm, ocn), state = model.initialize(x_atm, x_ocn, forcing)
 for _ in range(nsteps - 1):
-    (atm, ocn), state = model.step((atm, ocn), state, forcing)
+    (atm, ocn), state = model.step(atm, ocn, forcing, state=state)
 
 # Coupled: GOES output conditions MRMS; neither model owns a data source
+# Concrete implementations declare state as a fixed positional-or-keyword parameter.
 y_goes, s_goes = goes.initialize(x_goes)
 y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)  # GOES window
 for _ in range(nsteps - 1):
-    y_mrms, s_mrms = mrms.step(y_mrms, s_mrms, y_goes)  # newest frame
+    y_mrms, s_mrms = mrms.step(y_mrms, y_goes, s_mrms)  # newest frame
     y_goes, s_goes = goes.step(y_goes, s_goes)
 ```
 
@@ -379,17 +417,21 @@ the coupler aligns lead times.
 Hooks take and return `y`, which always matches `output_coords()`. The front hook
 runs before every `step` and its edits feed the rollout, so per-step perturbation and
 noise injection work as before. The front hook does
-not run before `initialize`: perturb `x` to edit the initial window. The rear hook edits published outputs
-only, starting with the first forecast; edits meant to feed back belong in the front
-hook, which changes FuXi-S2S's documented behavior (see Open Questions).
+not run before `initialize`: perturb `x` to edit the initial window. The rear hook
+edits forecasts before publication, starting with the first forecast; its returned
+output also feeds the next front hook and `step`.
 
 ### Default sources
 
-`default_sources()` recommends one `DataSource | ForecastSource | None` per
-`input_coords()` slot, then one per `forcing_coords()` slot (`P23`); the slot
-signature remains the requirement. It is required for prognostic models (the mixin
-recommends nothing) and optional for diagnostics, which share no base class. Drivers
-read either through `recommended_sources(model)`, fetch, and handshake the result
+`default_sources()` returns a `DataSource | ForecastSource` directly for a single
+slot, a tuple of sources or `None` for multiple slots, or `None` for no recommendations.
+A `None` tuple entry means no recommendation for that slot.
+Tuple entries are ordered by `input_coords()` slots followed by
+`forcing_coords()` slots (`P23`); the slot
+signature remains the requirement. It is required for prognostic and diagnostic
+models (the prognostic mixin recommends nothing). Drivers
+read either through `earth2studio.models.utils.recommended_sources(model)`, fetch,
+and handshake the result
 against the slot.
 
 ```python
@@ -403,12 +445,17 @@ such as a pre-regridded archive.
 
 ### Diagnostic models
 
-`DiagnosticModel` uses the same shapes: `__call__(x)` and
-`output_coords(input_coords)` take one DataArray or signature, or a tuple aligned
-with `input_coords()`, and return one or a tuple aligned with `output_coords()`.
+`DiagnosticModel.__call__(*x)` takes one positional DataArray per input slot in
+`input_coords()` order, and returns a single DataArray or a tuple in output-slot
+order. Wrappers must declare fixed, named input parameters (`D11`); the protocol's
+variadic notation only describes differing arities across wrappers. Generic callers
+use declared slot order, not parameter names. Coordinate methods retain
+single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
+a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
-coordinates differ. A diagnostic may define `default_sources()`, one entry per input
-slot. Forcing, `initialize`, `step` and hooks do not apply.
+coordinates differ. A diagnostic defines `default_sources()`, returning a source
+for a single input slot, a tuple in input-slot order, or `None` for no recommendations.
+Forcing, `initialize`, `step` and hooks do not apply.
 
 ## Rules
 
@@ -425,23 +472,24 @@ path for dictionary-signature fixtures.
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
-| `P7` | `rollout_iterator()` yields forecasts only, the first being `initialize`'s output |
+| `P7` | `create_iterator()` yields forecasts only, the first being `initialize`'s output |
 | `P8` | The 1st yield matches the coordinate system `output_coords()` declared |
 | `P9` | Every forecast matches its planned coordinates and structural metadata |
-| `P10` | `rollout_iterator()` applies both hooks; `__call__`, `initialize` and `step` apply none |
+| `P10` | `create_iterator()` applies both hooks; `__call__`, `initialize` and `step` apply none |
 | `P11` | The model declares a boolean `stochastic` attribute |
 | `P12` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `P13` | Seeding determines a rollout, and different seeds give different rollouts |
 | `P14` | After `set_rng()`, seeding and stepping leave global RNG state unperturbed |
 | `P15` | Stepping the model does not modify its input tensor or coordinate system |
-| `P16` | A yielded tensor does not change once a later step is produced |
-| `P17` | Groups are tuples iff their coordinate methods are |
+| `P16` | Model advances do not overwrite earlier yields; explicit in-place hook edits are allowed |
+| `P17` | One positional DataArray per slot; fields precede forcing, in declared order |
 | `P18` | No two output slots share identical non-variable coordinates |
 | `P19` | `step` modifies neither `y` nor `state`; replaying `(y, state)` reproduces it |
-| `P20` | `__call__(x, f)` equals the first yield of `rollout_iterator(x, f)` without hooks |
+| `P20` | Call, initialization forecast and first iterator yield agree without hooks |
 | `P21` | The state is serializable, and a saved `(y, state)` round-trips |
 | `P22` | The model never fetches; missing forcing raises `ValueError` |
-| `P23` | `default_sources()` has one entry per input slot, then one per forcing slot |
+| `P23` | `default_sources()` follows the single/tuple/None contract in Default sources |
+| `P24` | Wrappers declare fixed, named execution parameters (see Argument slots) |
 
 ### Diagnostic
 
@@ -457,6 +505,7 @@ path for dictionary-signature fixtures.
 | `D8` | A stochastic model implements `set_rng(seed, reset=True)` |
 | `D9` | Seeding determines the output, and different seeds give different output |
 | `D10` | After `set_rng()`, seeding and calling leave global RNG state unperturbed |
+| `D11` | Wrappers declare fixed, named `__call__` parameters (see Argument slots) |
 
 ## Lead Time
 
@@ -467,7 +516,7 @@ time shifts output equally (`P6`). `forcing_coords()` follows the same conventio
 
 ## Iteration
 
-`rollout_iterator()` yields complete forecasts only, starting with the output of
+`create_iterator()` yields complete forecasts only, starting with the output of
 `initialize`; `nsteps` forecasts take `nsteps` yields, and no yield is a partial
 step. A value sent at a yield is the forcing for the next `step`. Drivers that publish
 the initial condition take it from `initial_condition(x)`, which reduces each input
@@ -476,14 +525,14 @@ slot to its final lead time.
 ## Hooks
 
 **Hooks belong to the iterator (`P10`).** `__call__`, `initialize` and `step` apply
-none, and neither hook sees the initial condition. `rollout_iterator` applies the rear
+none, and neither hook sees the initial condition. `create_iterator` applies the rear
 hook to every forecast, starting with the output of `initialize`, and the front hook
 before every `step`: front hook → `step` → rear hook → yield.
 
 - `front_hook` transforms `y` just before the model computes from it; its edits feed
   the rollout.
-- `rear_hook` transforms each forecast before it is yielded; its edits are published
-  only.
+- `rear_hook` transforms each forecast before it is yielded; its returned output
+  is both published and fed into the next advance.
 
 A step computing several lead times yields them together, so each hook runs once per
 chunk, and `P8`/`P9` hold because `output_coords()` declares the whole chunk.
@@ -506,11 +555,13 @@ preserving native recurrence when numerical inputs are unchanged.
 ## Ownership of Tensors
 
 A model borrows its input and owns its output. None of `__call__`, `initialize`,
-`step` and `rollout_iterator()` may modify caller input tensors or coordinates (`P15`,
+`step` and `create_iterator()` may modify caller input tensors or coordinates (`P15`,
 `D6`),
-and earlier yields must not change after later steps (`P16`); views are allowed only
-if their buffers will not be overwritten. This protects asynchronous IO, resume
-buffers and accumulators without defensive copies. The motivating failure was
+and model advances must not overwrite earlier yields (`P16`); views are allowed only
+if their buffers will not be overwritten by the model. Hooks receive the payload
+directly and may explicitly edit it in place, including a previously yielded array.
+Callers retaining snapshots with such hooks must copy them before advancing.
+The motivating failure was
 `stormcast` overwriting the caller's initial condition
 ([issue #1133](https://github.com/NVIDIA/earth2studio/issues/1133), fixed in
 PR #1134). `AsyncZarrBackend` still copies every non-blocking write defensively;
@@ -651,39 +702,33 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
 
 - **Wrappers.** Unmigrated wrappers override `__call__` and `create_iterator` with
   their single-DataArray implementations and inherit `initialize`/`step` stubs that
-  raise `NotImplementedError`, so they still satisfy `P1`. `rollout_iterator` wraps
-  such a `create_iterator`, dropping its initial-condition yield, so drivers can adopt
-  it before every wrapper migrates. Once no wrapper overrides them, the mixin's derived
-  `__call__`/`create_iterator` drop their `*args`/`**kwargs` signatures for
-  `(x, forcing=None)`.
-- **Protocol annotations.** `PrognosticModel` and `DiagnosticModel` annotate the
-  existing members (`__call__`, `create_iterator`, `input_coords`, `output_coords`)
-  with single DataArrays and signatures, without `forcing`, so current callers type
-  check. The members added by this contract carry the full tuple types. Migration
-  widens the existing members to match, together with the callers in
-  `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and the recipes
-  that index their results.
-- **`create_iterator` is deprecated.** The mixin keeps it as a shim yielding
-  `initial_condition(x)` and then the forecasts of `rollout_iterator`, so existing
-  loops counting `nsteps + 1` yields keep their lead times. Unlike before, its front
-  hook does not run on the initial condition, and a value sent at its 0th yield is
-  ignored. Removing it outright would also be safe, since stale calls then fail
-  loudly; keeping the name with the new semantics would not, because positional
-  consumers would silently mislabel every forecast by one step.
+  raise `NotImplementedError`, so they still satisfy structural `P1`. Their legacy
+  initial-condition-first behavior remains until each wrapper migrates.
+- **Protocol annotations.** `PrognosticModel` now declares variadic DataArray
+  arguments and single-or-tuple output signatures. Migrated wrappers declare explicit
+  fixed signatures (`P24`, `D11`), including overrides of variadic mixin methods.
+  Wrappers and callers in
+  `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and recipes must
+  migrate together; structural protocol membership does not validate signatures.
+- **One iterator API.** `create_iterator` remains the public name and is not
+  deprecated. Migrated implementations yield forecasts only. Coordinate the
+  transition with consumers that currently count `nsteps + 1` yields, so their
+  forecasts retain the correct lead-time labels.
 - **Chunked yields.** Unmigrated DLWP, Aurora1p5, SamudrACE and InterpModAFNO yield
   one lead time at a time and declare `front_hook_interval`, the number of yields per
   front-hook call (DLWP: 2, front hook → compute +6h and +12h → rear hook and yield
   each). Migrated, they yield whole chunks and `front_hook_interval` is removed.
 - **Conformance.** The checker probes `create_iterator` for `P7`–`P10`, expecting an
   initial-condition 0th yield and enforcing `front_hook_interval` ordering. It moves
-  these rules to `rollout_iterator` (`P7` then checks the first yield against
-  `initialize`) and adds `P17`–`P23` and tuple slots.
+  to the forecasts-only semantics (`P7` checks the first yield against
+  `initialize`) and adds `P17`–`P24`, `D11` and multiple slots. Signature checks
+  inspect the wrapped method's declared signature, following decorators that preserve it.
 - **Diagnostics.** Add a `DiagnosticMixin` supplying `stochastic = False` and a
   `default_sources()` recommending nothing, inherited by every diagnostic wrapper.
   `default_sources()` then becomes a required `DiagnosticModel` member, as for
   `PrognosticModel`, and drivers drop their `getattr` fallbacks for both attributes.
 - **Examples and drivers.** `earth2studio.run`, `examples/` and `dev/examples/` call
-  `create_iterator` and count `nsteps + 1` yields; they move to `rollout_iterator`,
+  `create_iterator` and count `nsteps + 1` yields; they move to `nsteps` yields,
   writing `initial_condition(x)` where they publish the initial condition.
 
 ## Open Questions
@@ -707,14 +752,12 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
   `FrameSchema` (ordered column-to-array mappings) supports probe DataFrames, but
   mid-stream `send(None)`, single-call/step equivalence and generator closure
   ownership remain undecided.
-- Rear-hook edits no longer feed back. Is moving them to the front hook acceptable
-  for FuXi-S2S and perturbation workflows?
 - Do IO backends and drivers accept yields with several `lead_time` entries? Chunked
   steps for DLWP, Aurora1p5, SamudrACE and InterpModAFNO depend on it.
-- A front hook editing `y` can leave derived private state (Atlas's latent) stale.
+- A hook editing `y` can leave derived private state (Atlas's latent) stale.
   Should `step` re-derive from `y`, or document what it ignores?
 - Front hooks no longer see frames older than `y`, nor the initial condition, so
-  they cannot apply fresh noise to a whole history window at once, and rear-hook edits
-  no longer feed back. Is this a limitation for FuXi-S2S/perturbation workflows?
+  they cannot apply fresh noise to a whole history window at once. Is this a
+  limitation for history-window perturbation workflows?
 - Should components declare their RNG mechanism (e.g. `rng = "local" | "global"`) so
   drivers can run global-RNG components serially?

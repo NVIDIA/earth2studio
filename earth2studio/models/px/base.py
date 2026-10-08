@@ -15,7 +15,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import xarray as xr
@@ -26,85 +26,43 @@ if TYPE_CHECKING:
     from earth2studio.data.base import DataSource, ForecastSource
 
 
-def recommended_sources(
-    model: Any,
-) -> tuple[DataSource | ForecastSource | None, ...]:
-    """Recommended source for each input and forcing slot of a model.
-
-    Prognostic models always declare ``default_sources()``; for diagnostics it is
-    optional, and models without it recommend nothing.
-
-    Parameters
-    ----------
-    model : PrognosticModel | DiagnosticModel
-        Model whose slots need providers.
-
-    Returns
-    -------
-    tuple[DataSource | ForecastSource | None, ...]
-        One entry per ``input_coords()`` slot, then one per ``forcing_coords()``
-        slot.
-    """
-    declared = getattr(model, "default_sources", None)
-    if declared is not None:
-        return declared()
-    count = 0
-    for name in ("input_coords", "forcing_coords"):
-        method = getattr(model, name, None)
-        signature = method() if method is not None else None
-        if signature is not None:
-            count += len(signature) if isinstance(signature, tuple) else 1
-    return (None,) * count
-
-
-# --8<-- [start:prognostic-model-interface]
 @runtime_checkable
 class PrognosticModel(Protocol):
-    """Prognostic model interface
+    """DataArray-based prognostic model interface.
 
-    ``initialize`` and ``step`` are the primitives, each one core computation.
-    ``__call__`` and ``rollout_iterator`` derive from them and are supplied by
-    ``PrognosticMixin``, so a wrapper implements the transition once and every entry
-    point agrees. ``create_iterator`` is deprecated.
+    Implementations must satisfy this protocol's interface and behavior.
+    ``PrognosticMixin`` optionally implements ``__call__`` using ``initialize``;
+    ``create_iterator`` is currently a stub. Inheriting the mixin is not required.
 
-    Each argument group is one argument shaped like the coordinate method that
-    describes it: a DataArray when that method returns one ``CoordinateSystem``,
-    a tuple when it returns a tuple.
-
-    - ``x``: initial fields, described by ``input_coords()``
-    - ``forcing``: external fields, described by ``forcing_coords()``: the full
-      window at ``initialize``, the newest frames at each ``step``; ``None`` for
-      models without forcing
-    - ``y``: outputs, described by ``output_coords()``
-    - ``state``: everything else a rollout needs, in a model-defined type
-
-    Until wrappers migrate, the existing members ``__call__``, ``create_iterator``,
-    ``input_coords`` and ``output_coords`` keep single-slot annotations, so current
-    callers type check; they widen to tuples with the migration.
+    Concrete models must declare a fixed number of named parameters for each
+    execution method, not variadic inputs. The protocol uses ``*x`` and ``*y``
+    only to represent fixed signatures whose arity differs between models.
     """
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Forward pass of the prognostic model, time integrating a single time-step
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
+        """Advance the prognostic model by one core computation.
 
-        Equivalent to the outputs of ``initialize(x, forcing)``. Applies no hooks.
-        Forced models also take ``forcing`` as the second positional argument.
+        Equivalent to the forecast from ``initialize(*x)``. Applies no hooks.
 
         Parameters
         ----------
-        x : xr.DataArray
-            NumPy-backed CPU or CuPy-backed CUDA fields matching ``input_coords()``.
+        *x : xr.DataArray
+            xarray DataArrays with array data on the model's device: one argument per
+            ``input_coords()`` slot, followed by one per ``forcing_coords()`` slot,
+            if any exist, in declared order. Forcing uses complete initial windows.
+            This concatenates argument sequences, not array contents.
 
         Returns
         -------
-        xr.DataArray
-            Outputs one time-step into the future, matching ``output_coords()``.
+        xr.DataArray | tuple[xr.DataArray, ...]
+            Forecast outputs matching ``output_coords()``, including all lead times
+            produced by this core computation.
         """
         pass
 
-    def rollout_iterator(
+    def create_iterator(
         self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+        *x: xr.DataArray,
     ) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],
         xr.DataArray | tuple[xr.DataArray, ...] | None,
@@ -115,15 +73,16 @@ class PrognosticModel(Protocol):
         Yields forecasts only, starting with the outputs of ``initialize``; drivers
         publishing the initial condition take it manually from ``x``.
         ``nsteps`` forecasts take ``nsteps`` yields. A value sent at a yield is the
-        forcing for the next ``step``; ``next(it)`` is ``send(None)``, valid only for
-        models without forcing.
+        forcing for the next ``step``: a single DataArray or a tuple in declared
+        forcing-slot order, omitting initialization-only static slots.
+        ``next(it)`` is ``send(None)``, valid when no new forcing is required.
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
-            Initial fields matching ``input_coords()``.
-        forcing : xr.DataArray | tuple[xr.DataArray, ...] | None, optional
-            Initial forcing window matching ``forcing_coords()``.
+        *x : xr.DataArray
+            Same arguments as ``__call__`` and ``initialize``: one array per
+            ``input_coords()`` slot, followed by the full initialization windows
+            for ``forcing_coords()`` slots, if any exist, in declared order.
 
         Yields
         ------
@@ -132,28 +91,9 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Deprecated: use ``rollout_iterator``.
-
-        Yields ``initial_condition(x)`` (the 0th step), then the forecasts of
-        ``rollout_iterator``.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Initial fields matching ``input_coords()``.
-
-        Yields
-        ------
-        xr.DataArray
-            Initial condition followed by successive forecasts.
-        """
-        pass
-
     def initialize(
         self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+        *x: xr.DataArray,
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Start a rollout from initial fields and forcing.
 
@@ -166,11 +106,11 @@ class PrognosticModel(Protocol):
 
         Parameters
         ----------
-        x : xr.DataArray | tuple[xr.DataArray, ...]
-            Initial fields matching ``input_coords()``.
-        forcing : xr.DataArray | tuple[xr.DataArray, ...] | None, optional
-            Initial forcing window matching ``forcing_coords()``. Required when it
-            is not ``None``.
+        *x : xr.DataArray
+            One argument per ``input_coords()`` slot, followed by one per
+            ``forcing_coords()`` slot, if any exist, in declared order. Forcing
+            arrays contain the complete initialization windows. This concatenates
+            argument sequences, not array contents.
 
         Returns
         -------
@@ -181,9 +121,8 @@ class PrognosticModel(Protocol):
 
     def step(
         self,
-        y: xr.DataArray | tuple[xr.DataArray, ...],
+        *y: xr.DataArray,
         state: Any,
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Advance a rollout by one core computation.
 
@@ -193,16 +132,18 @@ class PrognosticModel(Protocol):
 
         Parameters
         ----------
-        y : xr.DataArray | tuple[xr.DataArray, ...]
-            Outputs of ``initialize`` or the previous ``step``.
+        *y : xr.DataArray
+            One argument per ``output_coords()`` slot from ``initialize`` or the
+            preceding ``step``, followed by one per ``forcing_coords()`` slot,
+            if any exist, in declared order. Unpack multiple outputs into separate
+            arguments. Forcing supplies at least its final declared lead time
+            shifted by each forecast lead time; extra frames are ignored. Older
+            frames and initialization-only statics are retained in ``state``.
+            Omit static forcing slots after initialization.
         state : Any
-            State returned alongside ``y``.
-        forcing : xr.DataArray | tuple[xr.DataArray, ...] | None, optional
-            Newest forcing frames, shaped like ``forcing_coords()``: at least its
-            final lead time shifted by each lead time of ``y``. ``step`` selects
-            by lead time and keeps older frames in ``state``, so extra frames are
-            ignored. Static slots were read at ``initialize`` and may be ``None``.
-            Required when ``forcing_coords()`` is not ``None``.
+            State returned alongside the forecast. Concrete implementations must
+            declare it as a fixed positional-or-keyword parameter after the arrays;
+            it is keyword-only here because it follows ``*y``.
 
         Returns
         -------
@@ -219,14 +160,14 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> CoordinateSystem:
+    def input_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordinateSystem
+        CoordinateSystem | tuple[CoordinateSystem, ...]
             Allocation-free DataArray input signature with lead times relative to
-            initialization.
+            initialization, or a tuple of signatures in input-slot order.
         """
         pass
 
@@ -249,18 +190,20 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(
+        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem
-            Input signature or DataArray to validate and transform.
+        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
+            Input signatures or DataArrays to validate and transform.
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free output signature, retaining concrete leading dimensions.
+        CoordinateSystem | tuple[CoordinateSystem, ...]
+            Allocation-free output signatures, retaining concrete leading dimensions.
 
         Raises
         ------
@@ -269,19 +212,29 @@ class PrognosticModel(Protocol):
         """
         pass
 
-    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
+    def default_sources(
+        self,
+    ) -> (
+        DataSource
+        | ForecastSource
+        | tuple[DataSource | ForecastSource | None, ...]
+        | None
+    ):
         """Recommended data sources for each input and forcing slot.
 
-        One entry per ``input_coords()`` slot, then one per ``forcing_coords()``
-        slot. ``None`` means no recommendation. A source whose native grid differs
+        Return one source directly for a single slot, or a tuple with one source
+        per ``input_coords()`` slot, then one per ``forcing_coords()`` slot.
+        ``None`` means no recommendations for the model; a ``None`` tuple entry
+        means no recommendation for that slot. A source whose native grid differs
         from the slot's is returned composed with the recommended regridder;
         transforms intrinsic to the model, whatever the provider, stay inside the
         wrapper. Models never fetch from these themselves.
 
         Returns
         -------
-        tuple[DataSource | ForecastSource | None, ...]
-            One entry per input slot, then one per forcing slot.
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+            A single source, sources or ``None`` in input-then-forcing slot order, or no
+            recommendations.
         """
         pass
 
@@ -300,6 +253,3 @@ class PrognosticModel(Protocol):
             Returns instance of prognostic
         """
         pass
-
-
-# --8<-- [end:prognostic-model-interface]
