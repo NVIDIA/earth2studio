@@ -48,7 +48,7 @@ In this example you will learn:
 # [`earth2studio.run.deterministic`][earth2studio.run.deterministic].
 
 # %%
-# .. literalinclude:: ../../earth2studio/run.py
+# .. literalinclude:: ../../earth2studio/run/__init__.py
 #    :language: python
 #    :start-after: # sphinx - deterministic start
 #    :end-before: # sphinx - deterministic end
