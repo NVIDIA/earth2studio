@@ -91,17 +91,12 @@ def test_model_conformance(model):
     # Structural protocol checks do not validate signatures or runtime behavior.
     assert isinstance(model, PrognosticModel)
     assert isinstance(model.stochastic, bool)
-    # The current checker assumes IC-first rollouts. Check supported planning
-    # rules only, and use direct tests below for forecasts-only/state behavior.
-    # For multi-slot models, test planning directly too: the probe is single-slot.
-    skipped = check_prognostic_contract(model, rollout=False)
+    # Probes forecasts-only iteration, explicit state/replay, slots and forcing.
+    # Keep numerical wrapper tests too; generic probes cannot validate core math.
+    skipped = check_prognostic_contract(model)
     expected = (
         [] if model.stochastic else ["P14: model does not declare itself stochastic"]
     )
-    expected += [
-        f"{rule}: rollout checks disabled"
-        for rule in ("P7", "P8", "P9", "P10", "P13", "P15", "P16")
-    ]
     assert skipped == expected
 
 
@@ -125,8 +120,7 @@ def test_model_replay(model):
 
 
 def test_model_signatures(model):
-    # P24 is not yet enforced by check_prognostic_contract. inspect.signature
-    # follows __wrapped__ so decorators do not hide the public fixed signature.
+    # P24: also document the wrapper's intended fixed signature explicitly.
     for name in ("__call__", "initialize", "step", "create_iterator"):
         parameters = inspect.signature(getattr(model, name)).parameters
         assert all(

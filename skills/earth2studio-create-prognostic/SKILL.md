@@ -54,11 +54,10 @@ helpers.
 7. **Test** in `test/models/px/test_<name>.py` using
    [testing patterns](references/testing-guide.py). Cover numerical values,
    initialization/step/iterator equivalence, replay, hooks, ownership, metadata,
-   invalid coordinates and forcing, slots and seeding. The current conformance
-    checker still expects legacy iteration; include the sample
-    `test_model_conformance` using `check_prognostic_contract(model, rollout=False)`
-    and retain the direct iterator, replay and signature tests for rules it does
-    not yet cover. Assert the exact expected skips. Mock tests require no downloads;
+   invalid coordinates and forcing, slots and seeding. Include the sample
+   `test_model_conformance` using `check_prognostic_contract(model)` for the new
+   forecasts-only, explicit-state contract. Retain direct numerical tests and
+   assert the exact expected skips. Mock tests require no downloads;
    real-weight tests use `@pytest.mark.package`.
 8. **Integrate public models.** Add alphabetical exports in
    `earth2studio/models/px/__init__.py`, API entries in

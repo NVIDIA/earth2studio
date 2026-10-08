@@ -214,13 +214,13 @@ threads; run those components serially within a process.
 | P23 | Single/tuple/None default sources in input-then-forcing order |
 | P24 | Fixed named execution parameters |
 
-The current checker is single-slot and still expects initial-condition-first
-iteration. Use `check_prognostic_contract(model, rollout=False)` for supported
-planning/seeding checks on single-slot models. It returns unevaluated rules with
-reasons; pin those explicitly. Direct tests cover new execution rules, forcing,
-state serialization/replay, multi-slot behavior and fixed signatures (inspect
-through decorators). Do not change a new wrapper back to legacy behavior just to
-pass the old rollout probe. Update drivers that count `nsteps + 1` yields when
+Use `check_prognostic_contract(model)` with mock weights. It probes single/multiple
+slots, fixed signatures through decorators, forecasts-only iteration, forcing,
+state serialization/replay, hooks and ownership. It returns unevaluated rules with
+reasons; pin those explicitly. `rollout=False` intentionally disables execution
+checks and is not a substitute for full conformance. Keep model-specific tests for
+numerical correctness, source ordering and absence of internal fetching, which
+generic probes cannot prove. Update drivers that count `nsteps + 1` yields when
 integrating migrated models; runtime protocol checks alone cannot catch this.
 
 Tests use mock weights, numerical expectations, invalid/empty inputs, shifted

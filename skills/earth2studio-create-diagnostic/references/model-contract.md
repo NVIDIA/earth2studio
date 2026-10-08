@@ -100,9 +100,9 @@ isolate sequential execution, not concurrent threads.
 | D10 | Seeded execution and seeding preserve global RNG state |
 | D11 | Fixed named public `__call__` parameters |
 
-Use `check_diagnostic_contract` with existing mock fixtures for supported checks.
-The checker is still single-slot and does not enforce D11; test multi-slot
-behavior and `inspect.signature` directly. For single-slot deterministic models,
+Use `check_diagnostic_contract` with existing mock fixtures for single/multiple
+slots, fixed signatures (D11), planning, ownership and stochastic behavior.
+For deterministic models,
 the expected skip is `D10: model does not declare itself stochastic`, not an empty
 list. Pin legitimate skips with reasons, never suppress actual violations.
 Verify numerical results, invalid/empty inputs, arbitrary leading axes, metadata,

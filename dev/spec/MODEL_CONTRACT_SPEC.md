@@ -157,8 +157,8 @@ those coordinates.
 
 Runtime protocol membership checks method presence, not signatures, so it does not
 detect the execution API or whether `initialize`/`step` are implemented.
-`models.conformance` runs native checks for DataArray signatures and legacy checks
-for dictionary signatures; the rule identifiers apply to both. See
+`models.conformance` checks native DataArray signatures and the explicit-state
+execution API; dictionary signatures and initial-condition-first iterators fail. See
 `dev/examples/03_coordinate_signatures.py` for signature planning and
 `dev/examples/04_xarray_model_execution.py` for DataArray execution.
 
@@ -461,8 +461,7 @@ Forcing, `initialize`, `step` and hooks do not apply.
 
 ### Prognostic
 
-These rules apply to native DataArray execution; the checker keeps a separate legacy
-path for dictionary-signature fixtures.
+These rules apply to native DataArray execution and explicit continuation state.
 
 | Rule | Requirement |
 | --- | --- |
@@ -666,19 +665,19 @@ and DiagnosticWrapper dispatches seeding to its stochastic components.
 ## Conformance
 
 `earth2studio.models.conformance.check_prognostic_contract(model)` evaluates every
-applicable rule before failing, reporting all violations and returning unevaluated
-rules with reasons. `rollout=False` runs only `P1`–`P6`, `P11`, `P12` and the seeding
-half of `P14`; `check_diagnostic_contract(model, forward=False)` likewise runs
-`D1`–`D4`, `D7`, `D8` and the seeding half of `D10`. Seeding is checked separately
-from stepping, so seeding violations need no forward pass.
+applicable probe before failing, reporting collected violations and returning
+unevaluated rules with reasons. `rollout=False` retains declarations/planning
+(`P1`–`P6`), stochastic declarations and seeding (`P11`, `P12`, the seeding half of
+`P14`), slot/signature checks (`P17`, `P18`, `P24`) and sources (`P23`).
+`check_diagnostic_contract(model, forward=False)` retains `D1`–`D4`, `D7`, `D8`,
+`D11` and the seeding half of `D10`. Behavioral `reset=False` checks need execution.
 
-Native probes concretize dynamic dimensions and use the signature's `.shape`,
-auxiliary coordinates and grid/statistics metadata. Legacy probe shapes follow
-`convert_multidim_to_singledim`: a 1-D coordinate contributes its length, and an n-D
-entry needs n−1 following partners of identical shape, the group contributing that
-shape once. Invalid groupings prevent probe creation and skip `P7`–`P10` and
-`P13`–`P16`. Pseudo-random probes expose input mutation; models rejecting
-unphysical data need realistic initial-condition fixtures.
+Probes concretize dynamic dimensions for every declared slot and use each
+signature's `.shape`, auxiliary coordinates and grid/statistics metadata.
+Execution passes separate arrays; planning passes a grouped coordinate signature.
+Pseudo-random probes expose input mutation; models rejecting unphysical data need
+realistic initial-condition fixtures. Generic probes cannot prove numerical
+correctness, semantic source ordering or absence of internal fetching.
 
 Every forecast in the probed rollout is checked against independently planned
 coordinates. The checker rebases the declared input history at the previous planned
@@ -698,7 +697,7 @@ dependencies; a dependency skip is not evidence of conformance.
 
 ## Migration
 
-Wrappers and the checker migrate to this contract in a follow-up. Until then:
+The checker implements this contract. Wrappers and consumers migrate separately:
 
 - **Wrappers.** Unmigrated wrappers override `__call__` and `create_iterator` with
   their single-DataArray implementations and inherit `initialize`/`step` stubs that
@@ -718,11 +717,10 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
   one lead time at a time and declare `front_hook_interval`, the number of yields per
   front-hook call (DLWP: 2, front hook → compute +6h and +12h → rear hook and yield
   each). Migrated, they yield whole chunks and `front_hook_interval` is removed.
-- **Conformance.** The checker probes `create_iterator` for `P7`–`P10`, expecting an
-  initial-condition 0th yield and enforcing `front_hook_interval` ordering. It moves
-  to the forecasts-only semantics (`P7` checks the first yield against
-  `initialize`) and adds `P17`–`P24`, `D11` and multiple slots. Signature checks
-  inspect the wrapped method's declared signature, following decorators that preserve it.
+- **Conformance.** The checker rejects initial-condition-first iteration and probes
+  `P17`–`P24`, `D11` and multiple slots. Signature checks follow decorators that
+  preserve the wrapped method's declared signature. Unmigrated wrappers fail the
+  checker until they implement the new execution and declaration requirements.
 - **Diagnostics.** Add a `DiagnosticMixin` supplying `stochastic = False` and a
   `default_sources()` recommending nothing, inherited by every diagnostic wrapper.
   `default_sources()` then becomes a required `DiagnosticModel` member, as for
@@ -733,7 +731,7 @@ Wrappers and the checker migrate to this contract in a follow-up. Until then:
 
 ## Open Questions
 
-- Should `P13`'s `torch.allclose` tolerance be configurable for nondeterministic GPU
+- Should `P13`'s exact comparison allow a configurable tolerance for nondeterministic GPU
   kernels that make deterministic models appear stochastic?
 - An opaque, unseedable dependency would need a separate `seedable` declaration and
   would skip `P13` while keeping `P14`. No current wrapper needs this split.

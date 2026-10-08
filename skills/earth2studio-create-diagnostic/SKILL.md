@@ -49,11 +49,10 @@ Diagnostics transform fields without a rollout, forcing API or iterator hooks.
 6. **Test** in `test/models/dx/test_<name>.py` using
    [testing patterns](references/testing-guide.py). Cover numerical results,
    coordinate errors, leading axes, input ownership, fixed signatures, source
-    slots and conformance. Include the sample `test_model_conformance` using
-    `check_diagnostic_contract(model)` and the fixed-signature test; assert the
-    exact expected skips. The checker currently probes single-slot models; cover
-    multi-slot rules directly using the sample slot test. Add seeded sampling
-    cases when relevant.
+   slots and conformance. Include the sample `test_model_conformance` using
+   `check_diagnostic_contract(model)` for both single- and multi-slot models;
+   assert the exact expected skips. Retain the sample slot test for per-output
+   numerical assertions. Add seeded sampling cases when relevant.
    Mock tests need no downloads; real-weight tests use `@pytest.mark.package`.
 7. **Integrate public models.** Add alphabetical exports in
    `earth2studio/models/dx/__init__.py` and API entries in

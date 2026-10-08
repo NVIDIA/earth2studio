@@ -63,7 +63,7 @@ def test_model_exceptions(model):
 
 def test_model_conformance(model):
     # D1/D7: require the public members; a structural check alone does not test
-    # call signatures or behavior. This checker currently probes single slots.
+    # call signatures or behavior; the checker covers single and multiple slots.
     assert isinstance(model, DiagnosticModel)
     assert isinstance(model.stochastic, bool)
     skipped = check_diagnostic_contract(model)
@@ -85,8 +85,7 @@ def test_model_deterministic_seed(model):
 
 
 def test_model_signature(model):
-    # D11 is not yet enforced by check_diagnostic_contract. inspect.signature
-    # follows __wrapped__ so decorators do not hide the public fixed signature.
+    # D11: also document the wrapper's intended fixed signature explicitly.
     parameters = inspect.signature(model.__call__).parameters.values()
     assert all(p.kind != inspect.Parameter.VAR_POSITIONAL for p in parameters)
     assert callable(model.default_sources)
@@ -106,5 +105,5 @@ def test_multislot_call(model, inputs):
     for field, saved in zip(inputs, before):
         xr.testing.assert_identical(field, saved)
     # Add numerical expectations for every slot, and source-order assertions
-    # when the wrapper recommends providers. Do not run the current single-slot
-    # conformance probe on a tuple signature; cover its rules directly instead.
+    # when the wrapper recommends providers. Run test_model_conformance on this
+    # multi-slot model too; the checker invokes each input as a separate argument.
