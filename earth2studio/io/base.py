@@ -30,15 +30,15 @@ class IOBackend(Protocol):
     See ``dev/spec/IO_SPEC.md`` for the full contract.
     """
 
-    def add_array(self, schema: xr.DataArray) -> None:
-        """Create storage for the arrays a schema describes.
+    def add_array(self, template: xr.DataArray) -> None:
+        """Create storage for the arrays a template describes.
 
         Parameters
         ----------
-        schema : xr.DataArray
+        template : xr.DataArray
             Concrete coordinate signature; field values are never read. Each
             ``variable`` label names one array over the remaining dimensions;
-            without a ``variable`` dimension, the schema's name does.
+            without a ``variable`` dimension, the template's name does.
         """
         pass
 

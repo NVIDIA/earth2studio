@@ -18,20 +18,10 @@ from collections import OrderedDict
 
 import numpy as np
 import pytest
-import torch
 import xarray as xr
 
 from earth2studio.grids import E2S_CRS, LatLonGrid
-from earth2studio.io.utils import (
-    merge_coords,
-    output_schema,
-    persisted_attrs,
-    plan_arrays,
-    plan_read,
-    plan_write,
-    read_selection,
-    to_host,
-)
+from earth2studio.io.utils import output_template, plan_arrays, plan_read, plan_write
 from earth2studio.models.px import Persistence
 from earth2studio.run import _output_dimensions
 from earth2studio.utils.coords import (
@@ -39,7 +29,6 @@ from earth2studio.utils.coords import (
     E2S_STATISTICS,
     coord_array,
 )
-from earth2studio.utils.cupy import from_torch
 
 GRID = LatLonGrid(np.array([1.0, 0.0, -1.0]), np.arange(4.0))
 TIMES = np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[s]")
@@ -52,13 +41,13 @@ def signature() -> xr.DataArray:
     return model.output_coords(model.input_coords())
 
 
-def test_output_schema(signature: xr.DataArray) -> None:
+def test_output_template(signature: xr.DataArray) -> None:
     assert signature.attrs[E2S_DYNAMIC_DIMS] == ("batch",)
-    schema = output_schema(
+    template = output_template(
         signature, {"ensemble": [0, 1], "time": TIMES}, {"lead_time": LEADS}
     )
-    assert schema.dims == ("ensemble", "time", "lead_time", "variable", "lat", "lon")
-    assert dict(schema.sizes) == {
+    assert template.dims == ("ensemble", "time", "lead_time", "variable", "lat", "lon")
+    assert dict(template.sizes) == {
         "ensemble": 2,
         "time": 2,
         "lead_time": 3,
@@ -66,29 +55,29 @@ def test_output_schema(signature: xr.DataArray) -> None:
         "lat": 3,
         "lon": 4,
     }
-    assert schema.attrs[E2S_DYNAMIC_DIMS] == ()
-    assert schema.attrs[E2S_CRS] == signature.attrs[E2S_CRS]
-    assert set(schema.attrs[E2S_STATISTICS]) == {"tp:sum:6h"}
-    np.testing.assert_array_equal(schema.lat, GRID.coords()["lat"])
+    assert template.attrs[E2S_DYNAMIC_DIMS] == ()
+    assert template.attrs[E2S_CRS] == signature.attrs[E2S_CRS]
+    assert set(template.attrs[E2S_STATISTICS]) == {"tp:sum:6h"}
+    np.testing.assert_array_equal(template.lat, GRID.coords()["lat"])
     with pytest.raises(TypeError, match="field values"):
-        schema.values  # allocation-free
+        template.values  # allocation-free
 
 
-def test_output_schema_without_dynamic_dims() -> None:
+def test_output_template_without_dynamic_dims() -> None:
     concrete = coord_array(("variable",), {"variable": ["t2m"]})
-    schema = output_schema(concrete, {"time": TIMES})
-    assert schema.dims == ("time", "variable")
+    template = output_template(concrete, {"time": TIMES})
+    assert template.dims == ("time", "variable")
 
 
-def test_output_schema_rejects(signature: xr.DataArray) -> None:
+def test_output_template_rejects(signature: xr.DataArray) -> None:
     with pytest.raises(ValueError, match="already fixed"):
-        output_schema(signature, {"lead_time": LEADS})
+        output_template(signature, {"lead_time": LEADS})
     with pytest.raises(ValueError, match="unknown"):
-        output_schema(signature, {"time": TIMES}, {"level": [500]})
+        output_template(signature, {"time": TIMES}, {"level": [500]})
     with pytest.raises(ValueError, match="spatial"):
-        output_schema(signature, {"time": TIMES}, {"lat": [0.0]})
+        output_template(signature, {"time": TIMES}, {"lat": [0.0]})
     with pytest.raises(ValueError, match="nonempty"):
-        output_schema(signature, {"time": TIMES[:0]})
+        output_template(signature, {"time": TIMES[:0]})
 
 
 def test_output_dimensions_matches_legacy_plan() -> None:
@@ -101,33 +90,43 @@ def test_output_dimensions_matches_legacy_plan() -> None:
 
 
 def test_plan_arrays(signature: xr.DataArray) -> None:
-    schema = output_schema(signature, {"time": TIMES}, {"lead_time": LEADS})
-    plan = plan_arrays(schema)
+    template = output_template(signature, {"time": TIMES}, {"lead_time": LEADS})
+    plan = plan_arrays(template)
     assert plan.names == ("t2m", "tp:sum:6h")
     assert plan.dims == ("time", "lead_time", "lat", "lon")
     assert plan.shape == (2, 3, 3, 4)
     assert "variable" not in plan.coords
     assert plan.coords["time"].dtype == np.dtype("datetime64[ns]")
     assert plan.dtype == np.float32
+    assert np.isnan(plan.fill_value)
     assert E2S_STATISTICS not in plan.attrs
+    assert E2S_DYNAMIC_DIMS not in plan.attrs
     assert plan.attrs[E2S_CRS] == signature.attrs[E2S_CRS]
 
 
-def test_persisted_attrs() -> None:
-    attrs = persisted_attrs({E2S_DYNAMIC_DIMS: (), E2S_STATISTICS: {}, "units": "K"})
-    assert attrs == {"units": "K"}
-
-
-def test_merge_coords() -> None:
+def test_plan_arrays_existing_coords() -> None:
+    template = coord_array(("lat", "lon"), {"lat": [0.0, np.nan], "lon": [1]}, name="a")
     existing = {"lat": xr.Variable("lat", [0.0, np.nan])}
-    new = {"lat": xr.Variable("lat", [0.0, np.nan]), "lon": xr.Variable("lon", [1])}
-    assert list(merge_coords(existing, new)) == ["lon"]
+    assert list(plan_arrays(template, existing).coords) == ["lon"]
     with pytest.raises(ValueError, match="lat"):
-        merge_coords(existing, {"lat": xr.Variable("lat", [0.0, 1.0])})
+        plan_arrays(template, {"lat": xr.Variable("lat", [0.0, 1.0])})
+
+
+def test_plan_arrays_rejects() -> None:
+    with pytest.raises(ValueError, match="collide"):
+        plan_arrays(coord_array(("sample",), {"sample": [0, 1]}, name="sample"))
+    with pytest.raises(ValueError, match="collide"):
+        plan_arrays(
+            coord_array(("x",), {"x": [0]}, name="lat"),
+            {"lat": xr.Variable("lat", [0.0])},
+        )
+    repeated = np.array(["2024-01-01"] * 2, dtype="datetime64[ns]")
+    with pytest.raises(ValueError, match="unique"):
+        plan_arrays(coord_array(("time",), {"time": repeated}, name="a"))
 
 
 def test_plan_write_indexers() -> None:
-    arrays = {"t2m": ("time", "lat")}
+    arrays = {"t2m": {"time": 2, "lat": 3}}
     coords = {"time": TIMES.astype("datetime64[ns]"), "lat": np.array([1.0, 0.0, -1.0])}
 
     contiguous = xr.DataArray(
@@ -153,33 +152,26 @@ def test_plan_write_indexers() -> None:
 
 
 def test_plan_write_unlabelled_dimensions() -> None:
-    arrays = {"t2m": ("sample",)}
+    arrays = {"t2m": {"sample": 3}}
     full = xr.DataArray(np.zeros(3), dims="sample", name="t2m")
     [(_, indexers, _)] = plan_write(full, arrays, {})
     assert indexers == {"sample": slice(None)}
     with pytest.raises(ValueError, match="no labels"):
         plan_write(full.assign_coords(sample=[0, 1, 2]), arrays, {})
-    with pytest.raises(ValueError, match="in full"):
-        plan_write(full, arrays, {"sample": np.arange(4)})
-
-
-def test_to_host() -> None:
-    values = np.arange(3.0)
-    array = xr.DataArray(values, dims="x")
-    assert np.shares_memory(to_host(array), values)
-    torch_array = from_torch(torch.arange(3.0), {"x": np.arange(3)}, backend="torch")
-    np.testing.assert_array_equal(to_host(torch_array), values)
+    with pytest.raises(ValueError, match="span all 3"):
+        plan_write(full.isel(sample=[0]), arrays, {})
+    with pytest.raises(ValueError, match="span all 3"):
+        plan_write(full.isel(sample=[0]), arrays, {"sample": np.arange(3)})
 
 
 def test_plan_read() -> None:
-    arrays = {"t2m": ("time", "lat"), "u10m": ("time", "lat")}
+    arrays = {"t2m": {"time": 2, "lat": 3}, "u10m": {"time": 2, "lat": 3}}
     coords = {"time": TIMES.astype("datetime64[ns]"), "lat": np.array([1.0, 0.0, -1.0])}
-    selection = read_selection(
-        {"lat": [-1.0, 1.0], "variable": ["u10m"], "time": TIMES}
-    )
-    names, indexers = plan_read(selection, arrays, coords)
+    selection = {"lat": [-1.0, 1.0], "variable": ["u10m"], "time": TIMES}
+    selection, names, indexers = plan_read(selection, arrays, coords)
+    assert selection.dims == ("lat", "variable", "time")
     assert names == ("u10m",)
     assert indexers["time"] == slice(0, 2)
     np.testing.assert_array_equal(indexers["lat"], [2, 0])  # requested order
     with pytest.raises(ValueError, match="differ"):
-        plan_read(read_selection({"variable": ["t2m"], "lat": [0.0]}), arrays, coords)
+        plan_read({"variable": ["t2m"], "lat": [0.0]}, arrays, coords)

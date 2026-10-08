@@ -56,7 +56,7 @@ def backend(request: pytest.FixtureRequest) -> tuple[IOBackend, Callable]:
     return factory(), read
 
 
-def make_schema(
+def make_template(
     variables: list[str] = VARIABLES, grid: object = GRID, **attrs: object
 ) -> xr.DataArray:
     return coord_array(
@@ -95,7 +95,7 @@ def test_protocol(backend: tuple[IOBackend, Callable]) -> None:
 def test_add_array_from_signature(backend: tuple[IOBackend, Callable]) -> None:
     # I1, I3: allocation-free signatures work, labels name arrays verbatim
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     io.flush()
     stored = read(io)
     assert set(stored.data_vars) == set(VARIABLES)
@@ -106,7 +106,7 @@ def test_add_array_from_signature(backend: tuple[IOBackend, Callable]) -> None:
 
 
 def test_add_array_named(backend: tuple[IOBackend, Callable]) -> None:
-    # I3: without a variable dimension, the schema name names the array
+    # I3: without a variable dimension, the template name names the array
     io, read = backend
     seed = coord_array(("ensemble",), {"ensemble": [0, 1]}, dtype=np.int64, name="seed")
     io.add_array(seed)
@@ -123,7 +123,7 @@ def test_add_array_named(backend: tuple[IOBackend, Callable]) -> None:
 
 
 @pytest.mark.parametrize(
-    "schema",
+    "template",
     [
         coord_array(
             ("batch", "variable", "lat", "lon"),
@@ -136,22 +136,22 @@ def test_add_array_named(backend: tuple[IOBackend, Callable]) -> None:
     ids=["dynamic", "empty"],
 )
 def test_add_array_rejects_unresolved(
-    backend: tuple[IOBackend, Callable], schema: xr.DataArray
+    backend: tuple[IOBackend, Callable], template: xr.DataArray
 ) -> None:
     # I2
     io, _ = backend
     with pytest.raises(ValueError):
-        io.add_array(schema)
+        io.add_array(template)
 
 
 def test_add_array_shared_coords(backend: tuple[IOBackend, Callable]) -> None:
     # I4: identical re-adds keep data; conflicting coordinates raise
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     field = make_field()
     io.write(field)
-    io.add_array(make_schema())
-    io.add_array(make_schema(["u10m"]))
+    io.add_array(make_template())
+    io.add_array(make_template(["u10m"]))
     io.flush()
     stored = read(io)
     np.testing.assert_array_equal(
@@ -159,17 +159,17 @@ def test_add_array_shared_coords(backend: tuple[IOBackend, Callable]) -> None:
     )
     assert "u10m" in stored.data_vars
 
-    shifted = make_schema().assign_coords(time=TIMES + np.timedelta64(1, "h"))
+    shifted = make_template().assign_coords(time=TIMES + np.timedelta64(1, "h"))
     with pytest.raises(ValueError, match="time"):
         io.add_array(shifted)
     with pytest.raises(ValueError, match="dimensions"):
-        io.add_array(make_schema().isel(lead_time=0, drop=True))
+        io.add_array(make_template().isel(lead_time=0, drop=True))
 
 
 def test_write_by_label(backend: tuple[IOBackend, Callable]) -> None:
     # I5, I6: unordered, noncontiguous subsets with several lead times
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     field = make_field(
         time=TIMES[::-1], lead_time=LEADS[[2, 0]], variables=VARIABLES[::-1]
     )
@@ -199,7 +199,7 @@ def test_write_rejects_before_writing(
 ) -> None:
     # I5: invalid writes raise and leave the store unchanged
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     with pytest.raises(ValueError):
         io.write(field)
     io.flush()
@@ -211,7 +211,7 @@ def test_write_rejects_before_writing(
 def test_write_borrows(backend: tuple[IOBackend, Callable]) -> None:
     # I7: the input is not modified, and the store does not alias it
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     field = make_field(time=TIMES[::-1])
     original = field.copy(deep=True)
     io.write(field)
@@ -227,7 +227,7 @@ def test_write_borrows(backend: tuple[IOBackend, Callable]) -> None:
 def test_write_torch_backed(backend: tuple[IOBackend, Callable]) -> None:
     # I8: Torch-adapter payloads are transferred by the backend
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     field = make_field()
     torch_field = from_torch(torch.from_numpy(field.values), field, backend="torch")
     io.write(torch_field)
@@ -243,7 +243,7 @@ def test_write_cupy_backed(backend: tuple[IOBackend, Callable]) -> None:
         pytest.skip("CUDA is unavailable")
     pytest.importorskip("cupy")
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     field = make_field()
     io.write(field.e2s.as_cupy())
     io.flush()
@@ -256,15 +256,15 @@ def test_round_trip_metadata(backend: tuple[IOBackend, Callable]) -> None:
     # I9, I10: coordinates, auxiliaries and persisted attributes survive
     latitude = np.arange(12.0).reshape(3, 4)
     grid = CurvilinearGrid(latitude, latitude + 100.0)
-    schema = coord_array(
+    template = coord_array(
         ("time", "lead_time", "variable", "y", "x"),
         {"time": TIMES, "lead_time": LEADS, "variable": VARIABLES},
         grid=grid,
         attrs={"units": "K"},
     )
-    schema.coords["lead_time"].attrs["long_name"] = "forecast lead time"
+    template.coords["lead_time"].attrs["long_name"] = "forecast lead time"
     io, read = backend
-    io.add_array(schema)
+    io.add_array(template)
     io.flush()
     stored = read(io)
     assert stored["time"].dtype == np.dtype("datetime64[ns]")
@@ -285,7 +285,7 @@ def test_round_trip_metadata(backend: tuple[IOBackend, Callable]) -> None:
 def test_close(backend: tuple[IOBackend, Callable]) -> None:
     # I11
     io, read = backend
-    io.add_array(make_schema())
+    io.add_array(make_template())
     io.write(make_field())
     io.close()
     io.close()
@@ -303,13 +303,13 @@ def readable(backend: tuple[IOBackend, Callable]) -> IOBackend:
 
 
 def test_read_round_trip(readable: IOBackend) -> None:
-    # Reading a schema returns what was written, with stored metadata
+    # Reading a template returns what was written, with stored metadata
     io = readable
-    schema = make_schema()
-    io.add_array(schema)
+    template = make_template()
+    io.add_array(template)
     field = make_field()
     io.write(field)
-    result = io.read(schema)  # type: ignore[attr-defined]
+    result = io.read(template)  # type: ignore[attr-defined]
     assert result.dims == field.dims
     np.testing.assert_array_equal(result.values, field.values)
     np.testing.assert_array_equal(result.coords["variable"], VARIABLES)
@@ -320,7 +320,7 @@ def test_read_round_trip(readable: IOBackend) -> None:
 def test_read_by_label(readable: IOBackend) -> None:
     # Mapping selections choose dimension order, label order and arrays
     io = readable
-    io.add_array(make_schema())
+    io.add_array(make_template())
     field = make_field()
     io.write(field)
     selection = {
@@ -361,7 +361,34 @@ def test_read_cupy(readable: IOBackend) -> None:
         pytest.skip("CUDA is unavailable")
     pytest.importorskip("cupy")
     io = readable
-    io.add_array(make_schema())
+    io.add_array(make_template())
     io.write(make_field())
-    result = io.read(make_schema(), device="cuda:0")  # type: ignore[attr-defined]
+    result = io.read(make_template(), device="cuda:0")  # type: ignore[attr-defined]
     assert result.e2s.is_cupy
+
+
+def test_add_array_rejects_name_collisions(backend: tuple[IOBackend, Callable]) -> None:
+    # Array names share a namespace with coordinates
+    io, read = backend
+    io.add_array(make_template())
+    with pytest.raises(ValueError, match="collide"):
+        io.add_array(coord_array(("lat",), {"lat": GRID.coords()["lat"]}, name="lat"))
+    io.flush()
+    np.testing.assert_array_equal(read(io)["lat"].values, GRID.coords()["lat"].values)
+
+
+def test_add_array_rejects_repeated_labels(backend: tuple[IOBackend, Callable]) -> None:
+    io, _ = backend
+    with pytest.raises(ValueError, match="unique"):
+        io.add_array(make_template().assign_coords(time=TIMES[[0, 0]]))
+
+
+def test_write_unlabelled_dims_in_full(backend: tuple[IOBackend, Callable]) -> None:
+    # Fields without labels must span the stored axis, never broadcast into it
+    io, read = backend
+    io.add_array(coord_array(("sample",), sizes={"sample": 3}, name="seed"))
+    with pytest.raises(ValueError, match="span all 3"):
+        io.write(xr.DataArray([7.0], dims="sample", name="seed"))
+    io.write(xr.DataArray([1.0, 2.0, 3.0], dims="sample", name="seed"))
+    io.flush()
+    np.testing.assert_array_equal(read(io)["seed"].values, [1.0, 2.0, 3.0])

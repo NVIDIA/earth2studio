@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.io.base import _LegacyIOBackend
-from earth2studio.io.utils import output_schema
+from earth2studio.io.utils import output_template
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
@@ -135,8 +135,8 @@ def _output_dimensions(
             *(leads + leads[-1] * i for i in range(nsteps)),
         ]
     )
-    schema = output_schema(signature, {"time": time}, {"lead_time": lead_time})
-    return _dimension_coords(schema)
+    template = output_template(signature, {"time": time}, {"lead_time": lead_time})
+    return _dimension_coords(template)
 
 
 def deterministic(

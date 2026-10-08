@@ -16,7 +16,7 @@ workflows write model outputs directly.
 --8<-- "earth2studio/io/base.py:io-backend-interface"
 ```
 
-- `add_array` creates the arrays a schema describes.
+- `add_array` creates the arrays a template describes.
 - `write` stores a field at the positions its coordinate labels identify.
 - `flush` waits until earlier writes are visible to readers.
 - `close` flushes and releases resources. `earth2studio.run` workflows do not close
@@ -32,35 +32,35 @@ versioning.
 
 ## Creating Arrays
 
-A schema is a DataArray describing the store: its dimensions, coordinates, dtype
+A template is a DataArray describing the store: its dimensions, coordinates, dtype
 and metadata. Its values are never read. Each `variable` label becomes one array
 over the remaining dimensions, named verbatim, including statistic labels such as
 `tp:sum:6h`.
 
-Plan the schema from a model's output coordinates with `output_schema`. It
+Plan the template from a model's output coordinates with `output_template`. It
 replaces the model's dynamic leading dimensions, such as `batch`, with the run's:
 
 ```python
-from earth2studio.io.utils import output_schema
+from earth2studio.io.utils import output_template
 
 # (batch, lead_time, variable, lat, lon)
 signature = model.output_coords(model.input_coords())
-schema = output_schema(
+template = output_template(
     signature,
     leading={"time": times},  # replaces batch
     coords={"lead_time": lead_times},  # the full forecast horizon
 )
-io.add_array(schema)  # one (time, lead_time, lat, lon) array per variable
+io.add_array(template)  # one (time, lead_time, lat, lon) array per variable
 ```
 
-- Schemas must be concrete: no dynamic or empty dimensions.
-- Adding the same schema again does nothing, so restarted runs can call `add_array`
+- Templates must be concrete: no dynamic or empty dimensions.
+- Adding the same template again does nothing, so restarted runs can call `add_array`
   unconditionally. Coordinates that conflict with the store raise a `ValueError`.
 - Auxiliary coordinates, such as 2-D latitude and longitude, and grid metadata are
   stored with the arrays, so `earth2studio.grids.infer_grid` recovers the grid
   from the output.
-- A schema without a `variable` dimension creates one array named after the
-  schema.
+- A template without a `variable` dimension creates one array named after the
+  template.
 
 ## Writing to the Store
 
@@ -81,10 +81,10 @@ to storage itself and never modifies the field.
 ## Reading from the Store
 
 Backends that can read, such as `XarrayBackend`, implement `read`, the inverse of
-`write`. Pass a schema, or a mapping from every dimension to the labels you want:
+`write`. Pass a template, or a mapping from every dimension to the labels you want:
 
 ```python
-everything = io.read(schema)
+everything = io.read(template)
 selection = {
     "variable": ["t2m"],
     "time": times[:1],
@@ -119,8 +119,8 @@ from earth2studio.io import IceChunkBackend
 # or an `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`)
 io = IceChunkBackend("/path/to/repo")
 
-io.add_array(schema)
-io.write(x)
+io.add_array(total_coords, array_name)
+io.write(x, coords, array_name)
 
 # Writes are visible through `read`/`__getitem__`/`commit` immediately (each
 # flushes pending writes first), but are only persisted to the Icechunk

@@ -9,7 +9,7 @@ make stored fields self-describing. Models, sources and regridders already excha
 moves IO onto the same payload so drivers write what models yield:
 
 ```python
-io.add_array(schema)
+io.add_array(template)
 for y in islice(model.create_iterator(x), nsteps):
     io.write(y)
 io.close()
@@ -23,13 +23,13 @@ DataArray writes and finalization together.
 ```python
 @runtime_checkable
 class IOBackend(Protocol):
-    def add_array(self, schema: xr.DataArray) -> None: ...
+    def add_array(self, template: xr.DataArray) -> None: ...
     def write(self, x: xr.DataArray) -> None: ...
     def flush(self) -> None: ...
     def close(self) -> None: ...
 ```
 
-- `add_array` creates storage for the arrays described by `schema`: dimension and
+- `add_array` creates storage for the arrays described by `template`: dimension and
 auxiliary coordinates, then one array per variable.
 - `write` stores `x` at the positions its coordinate labels identify.
 - `flush` blocks until every earlier write is visible to readers of the store. The
@@ -37,35 +37,38 @@ backend stays writable.
 - `close` flushes and releases resources. Later writes raise; repeated `close` calls
 are no-ops.
 
-Reading is optional (see Reading). Other backend-specific methods (`__getitem__`,
-commits, `to_xarray`) remain on the implementations and are not part of the
-protocol. Any store can also be opened with Xarray (see Round Trip).
+Backend-specific methods (`read`, `__getitem__`, commits, `to_xarray`) remain on
+the implementations and are not part of the protocol. Any store can be opened with
+Xarray (see Round Trip).
 
-## Schemas
+## Templates
 
-A schema is a DataArray whose field values are never read: normally an
+A template is a DataArray whose field values are never read: normally an
 allocation-free `coord_array` signature, though any DataArray works. `add_array`
 reads only its dimensions, coordinates, dtype, name and attributes.
 
 ```python
 signature = model.output_coords(model.input_coords())  # (batch, lead_time, ...)
-schema = output_schema(
+template = output_template(
     signature,
     leading={"ensemble": members, "time": times},  # replaces the dynamic prefix
     coords={"lead_time": leads},                   # run extent of fixed dims
 )
-io.add_array(schema)  # (ensemble, time, lead_time, variable, lat, lon)
+io.add_array(template)  # (ensemble, time, lead_time, variable, lat, lon)
 ```
 
-- **Concrete.** Every dimension is nonempty and none is dynamic. Planning
-signatures must be concretized first (see `output_schema` under Shared Helpers);
+- **Concrete.** Every dimension is nonempty, none is dynamic, and dimension labels
+are unique. Planning
+signatures must be concretized first (see `output_template` under Shared Helpers);
 `add_array` raises `ValueError` otherwise.
 - **Naming.** With a `variable` dimension, each label becomes one stored array over
-the remaining dimensions, in schema order. Without one, the schema's `name` names a
-single array; a schema with neither raises `ValueError`. Labels are used
+the remaining dimensions, in template order. Without one, the template's `name` names a
+single array; a template with neither raises `ValueError`. Array names share a
+namespace with coordinates, so a name matching a coordinate raises `ValueError`.
+Labels are used
 verbatim, including temporal-statistic qualifiers such as `tp:sum:6h` (see Array
 Names).
-- **dtype.** Arrays take the schema's dtype; `coord_array` defaults to `float32`.
+- **dtype.** Arrays take the template's dtype; `coord_array` defaults to `float32`.
 Unwritten positions hold the backend's fill value, NaN for floating dtypes.
 - **One extent per dimension.** Arrays in one backend share each dimension's
 coordinates. Adding an array whose shared dimension or auxiliary coordinates
@@ -86,7 +89,8 @@ may hold several slots only when their shared dimensions agree.
 - `x` has the dimensions of its target arrays in the same order. Missing,
 additional or reordered dimensions raise `ValueError`.
 - Along each dimension, `x` holds any nonempty subset of the store's labels, in any
-order and without duplicates. An unknown label raises `ValueError` before anything
+order and without duplicates. Dimensions without labels must span the whole stored
+axis; they never broadcast. An unknown label raises `ValueError` before anything
 is written. Several `lead_time` entries in one write are allowed, so chunked model
 steps write directly.
 - `x` writes one array per `variable` label, or the array named `x.name` when it has
@@ -130,7 +134,7 @@ Mapping is never the default.
 - auxiliary coordinates (curvilinear and projected latitude/longitude, point
 geometry) as arrays over their own dimensions. Each data array lists them in a
 CF `coordinates` attribute so Xarray opens them as coordinates;
-- the schema's attributes on every data array, including grid metadata
+- the template's attributes on every data array, including grid metadata
 (`earth2studio_grid_id`, `earth2studio_crs` and the definition's attributes) and
 user metadata such as `units`.
 
@@ -145,52 +149,26 @@ After `flush`, opening the store with Xarray (`xr.open_zarr`, `xr.open_dataset`,
 the in-memory dataset) yields, for each array:
 
 - the written values, with fill values at unwritten positions;
-- dimension coordinates equal to the schema's: `time` as `datetime64[ns]`,
+- dimension coordinates equal to the template's: `time` as `datetime64[ns]`,
 `lead_time` as `timedelta64[ns]`, and other labels unchanged;
-- the schema's auxiliary coordinates and coordinate attributes;
-- the persisted attributes above, so `infer_grid` recovers the schema's grid.
-
-## Reading
-
-Backends that can read implement the inverse of `write`:
-
-```python
-def read(
-    self,
-    selection: xr.DataArray | Mapping[Hashable, ArrayLike],
-    device: torch.device | str = "cpu",
-    dtype: DTypeLike | None = None,
-) -> xr.DataArray: ...
-```
-
-- `selection` is a schema or field, or an ordered mapping from every dimension to
-  its labels. `variable` labels select arrays; without a `variable` dimension, a
-  DataArray's name does. Field values are never read.
-- Labels may be any subset, in any order, and dimensions may be in any order. The
-  result follows the selection's dimension and label order.
-- Unknown arrays, labels or dimensions raise `ValueError`.
-- The result is NumPy-backed on CPU and CuPy-backed on CUDA, cast to `dtype` when
-  given. It carries the stored coordinates and the attributes shared by the
-  selected arrays.
-
-Reading is not part of the protocol because some backends are write-only, such as
-`AsyncZarrBackend`.
+- the template's auxiliary coordinates and coordinate attributes;
+- the persisted attributes above, so `infer_grid` recovers the template's grid.
 
 ## Rules
 
-| Rule  | Requirement                                                                          |
-| ----- | ------------------------------------------------------------------------------------ |
-| `I1`  | `add_array` never reads field values from the schema                                 |
-| `I2`  | `add_array` rejects dynamic or zero-sized dimensions with `ValueError`               |
-| `I3`  | Each `variable` label, verbatim, names one array; otherwise the schema's `name` does |
-| `I4`  | A backend's arrays share coordinates; re-adding an identical array is a no-op        |
-| `I5`  | `write` locates by label; unknown labels, arrays or dims raise `ValueError` first    |
-| `I6`  | `write` accepts any label subset, including several `lead_time` entries              |
-| `I7`  | `write` never modifies `x`; non-blocking backends copy before returning              |
-| `I8`  | `write` accepts NumPy-, CuPy- and Torch-adapter-backed arrays                        |
-| `I9`  | After `flush`, the store round-trips values, coordinates and persisted attributes    |
-| `I10` | Signature markers and `earth2studio_statistics` are not persisted                    |
-| `I11` | `close` flushes; later writes raise and repeated closes are no-ops                   |
+| Rule  | Requirement                                                                            |
+| ----- | -------------------------------------------------------------------------------------- |
+| `I1`  | `add_array` never reads field values from the template                                 |
+| `I2`  | `add_array` rejects dynamic or zero-sized dimensions with `ValueError`                 |
+| `I3`  | Each `variable` label, verbatim, names one array; otherwise the template's `name` does |
+| `I4`  | A backend's arrays share coordinates; re-adding an identical array is a no-op          |
+| `I5`  | `write` locates by label; unknown labels, arrays or dims raise `ValueError` first      |
+| `I6`  | `write` accepts any label subset, including several `lead_time` entries                |
+| `I7`  | `write` never modifies `x`; non-blocking backends copy before returning                |
+| `I8`  | `write` accepts NumPy-, CuPy- and Torch-adapter-backed arrays                          |
+| `I9`  | After `flush`, the store round-trips values, coordinates and persisted attributes      |
+| `I10` | Signature markers and `earth2studio_statistics` are not persisted                      |
+| `I11` | `close` flushes; later writes raise and repeated closes are no-ops                     |
 
 A shared test suite in `test/io/` checks these rules for every migrated backend.
 There is no runtime conformance checker: backends are few and rarely added.
@@ -198,15 +176,15 @@ There is no runtime conformance checker: backends are few and rarely added.
 ## Shared Helpers
 
 `earth2studio/io/utils.py` holds the logic previously duplicated in each backend:
-schema validation and array planning, label-to-position location (contiguous runs
-become slices), host transfer for NumPy, CuPy and Torch-adapter payloads, and
-attribute filtering and encoding. Backends implement only storage.
+`plan_arrays` validates a template against the store and lists what to create, and
+`plan_write`/`plan_read` validate a field or selection and map its labels to stored
+positions (contiguous runs become slices). Backends implement only storage.
 
-It also plans schemas for drivers, replacing per-driver and per-recipe output
+It also plans templates for drivers, replacing per-driver and per-recipe output
 coordinate assembly:
 
 ```python
-def output_schema(
+def output_template(
     signature: xr.DataArray,
     leading: Mapping[str, ArrayLike],
     coords: Mapping[str, ArrayLike] | None = None,
@@ -226,7 +204,7 @@ The legacy tensor protocol is replaced, not deprecated alongside. Development wi
 proceed in two steps:
 
 1. **Protocol and foundation.** This spec, the protocol, shared helpers, the shared
-  test suite and `XarrayBackend`. `run.py` plans its schema with a DataArray helper
+  test suite and `XarrayBackend`. `run.py` plans its template with a DataArray helper
    replacing `_output_dimensions`. Unmigrated backends keep the legacy signature, and
    `run.py` annotates `io` with a private copy of the legacy protocol so drivers and
    CI keep working.
@@ -238,25 +216,23 @@ proceed in two steps:
 
 Breaking changes for users:
 
-- `add_array(coords, array_name, data=...)` becomes `add_array(schema)`; initialize
+- `add_array(coords, array_name, data=...)` becomes `add_array(template)`; initialize
 values with a `write` instead of `data=`.
 - `write(tensor, coords, array_name)` becomes `write(x)`.
 - Writes no longer create arrays implicitly.
-- Curvilinear stores hold native auxiliary latitude/longitude instead of
-`ilat`/`ilon` dimensions, so readers of existing stores change.
+- Curvilinear stores no longer add synthetic `ilat`/`ilon` dimensions. Arrays use
+the grid's own dimensions (`y`, `x`; see [GRID_SPEC.md](GRID_SPEC.md)) with
+latitude/longitude as auxiliary coordinates, so readers of existing stores change.
 
 ## Open Questions
 
 - Should stores grow along a dimension (`time` for operational cycling, or runs
-whose extent is discovered rather than declared)?
-- Should the protocol answer whether data is already written (`exists`), and at
-what granularity? Resume is item-granular and owned by the planned `Pipeline`
-progress store, so this is deferred to that work.
+whose extent is discovered rather than declared)? Zarr supports resizing, but
+growing a store from several ranks needs coordinated position assignment.
 - `AsyncZarrBackend` takes its parallel dimensions and their full values at
-construction. Should it derive them from the first `add_array` schema instead?
+construction. Should it derive them from the first `add_array` template instead?
 - Chunking options differ by backend (`chunks`, `chunked_coords`, `shard_coords`).
 Should they share one name and meaning?
 - Should backends export statistics as CF `cell_methods` and time bounds, alongside
-the qualified labels?
-- Should `read` join the protocol, requiring every backend to read, for predownload
-caches and post-processing?
+the qualified labels? CF would name `t2m` and `t2m:mean:24h` the same, so they
+could not share a store.

@@ -17,7 +17,7 @@ Runnable tutorials for proposed APIs and workflows.
   iterator hooks, and the Torch bridge with a small CPU-only synthetic core.
 - `05_array_backends.py`: environment defaults, scoped backend overrides, and
   gradient-preserving Torch handoffs with optional CUDA/CuPy examples.
-- `07_io_backends.py`: IO schemas planned from model signatures, label-based
+- `07_io_backends.py`: IO templates planned from model signatures, label-based
   DataArray writes, and metadata round trips with the in-memory XarrayBackend.
 
 Run the signature tutorial from the repository root with

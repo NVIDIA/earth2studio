@@ -22,7 +22,6 @@ from typing import Any, TypeAlias
 
 import numpy as np
 import pandas as pd
-import torch
 import xarray as xr
 from numpy.typing import ArrayLike
 
@@ -36,27 +35,30 @@ from earth2studio.utils.coords import (
 from earth2studio.utils.type import CoordinateSystem
 
 # Attributes determined by the signature or its variable labels; never stored
-DROPPED_ATTRS = (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS, E2S_STATISTICS)
+_DROPPED_ATTRS = (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS, E2S_STATISTICS)
 
 Indexer: TypeAlias = slice | np.ndarray
 
 
 @dataclass(frozen=True)
 class ArrayPlan:
-    """Storage layout described by an IO schema.
+    """Storage an IO template requires.
 
     Attributes
     ----------
     names : tuple[str, ...]
-        Stored array names, one per ``variable`` label or the schema name.
+        Stored array names, one per ``variable`` label or the template name.
     dims : tuple[Hashable, ...]
-        Dimensions of each stored array, in schema order without ``variable``.
+        Dimensions of each stored array, in template order without ``variable``.
     shape : tuple[int, ...]
         Size of each dimension in ``dims``.
     coords : dict[Hashable, xr.Variable]
-        Dimension and auxiliary coordinates to store, with their attributes.
+        Dimension and auxiliary coordinates missing from the store, with their
+        attributes.
     dtype : np.dtype
         Field dtype.
+    fill_value : Any
+        Value of unwritten positions: NaN for inexact dtypes, otherwise zero.
     attrs : dict[Hashable, Any]
         Attributes to persist on every stored array.
     """
@@ -66,15 +68,16 @@ class ArrayPlan:
     shape: tuple[int, ...]
     coords: dict[Hashable, xr.Variable]
     dtype: np.dtype
+    fill_value: Any
     attrs: dict[Hashable, Any]
 
 
-def output_schema(
+def output_template(
     signature: xr.DataArray,
     leading: Mapping[str, ArrayLike],
     coords: Mapping[str, ArrayLike] | None = None,
 ) -> CoordinateSystem:
-    """Concretize a planning signature into an IO schema.
+    """Concretize a planning signature into an IO template.
 
     Parameters
     ----------
@@ -93,7 +96,7 @@ def output_schema(
     Returns
     -------
     CoordinateSystem
-        Allocation-free schema with no dynamic dimensions, preserving grid
+        Allocation-free template with no dynamic dimensions, preserving grid
         metadata, auxiliary coordinates, dtype, name and attributes.
 
     Raises
@@ -130,7 +133,7 @@ def output_schema(
     coordinates.update({key: np.asarray(value) for key, value in leading.items()})
     coordinates.update({key: np.asarray(value) for key, value in replacements.items()})
     sizes = {dim: size for dim, size in signature.sizes.items() if dim not in removed}
-    schema = coord_array(
+    template = coord_array(
         (*leading, *fixed),
         coordinates,
         sizes=sizes,
@@ -138,233 +141,76 @@ def output_schema(
         name=signature.name,
         attrs=signature.attrs,
     )
-    validate_schema(schema)
-    return schema
+    _validate_template(template)
+    return template
 
 
-def validate_schema(schema: xr.DataArray) -> None:
-    """Require a concrete IO schema.
-
-    Parameters
-    ----------
-    schema : xr.DataArray
-        Schema to check. Only dimensions and attributes are inspected.
-
-    Raises
-    ------
-    ValueError
-        If a dimension is dynamic or empty.
-    """
-    dynamic = tuple(schema.attrs.get(E2S_DYNAMIC_DIMS, ()))
-    if dynamic:
-        raise ValueError(
-            f"IO schemas must be concrete; resolve dynamic dimensions {dynamic} first"
-        )
-    for dim, size in schema.sizes.items():
-        if size == 0:
-            raise ValueError(f"IO schema dimension '{dim}' must be nonempty")
-
-
-def array_names(x: xr.DataArray) -> tuple[str, ...]:
-    """Name the stored arrays a schema or field maps to.
+def plan_arrays(
+    template: xr.DataArray, existing: Mapping[Hashable, xr.Variable] | None = None
+) -> ArrayPlan:
+    """Describe and validate the storage an IO template requires.
 
     Parameters
     ----------
-    x : xr.DataArray
-        Schema or field.
-
-    Returns
-    -------
-    tuple[str, ...]
-        ``variable`` labels verbatim, or the array name without a ``variable``
-        dimension.
-
-    Raises
-    ------
-    ValueError
-        If ``x`` has neither a labelled ``variable`` dimension nor a name.
-    """
-    if "variable" in x.dims:
-        if "variable" not in x.coords:
-            raise ValueError("The variable dimension must have labels")
-        names = tuple(str(name) for name in x.coords["variable"].values)
-        if len(set(names)) != len(names):
-            raise ValueError("Variable labels must be unique")
-        return names
-    if x.name is None:
-        raise ValueError("Arrays without a variable dimension must be named")
-    return (str(x.name),)
-
-
-def field_dims(x: xr.DataArray) -> tuple[Hashable, ...]:
-    """Return the dimensions of the stored arrays for a schema or field."""
-    return tuple(dim for dim in x.dims if dim != "variable")
-
-
-def persisted_attrs(attrs: Mapping[Hashable, Any]) -> dict[Hashable, Any]:
-    """Drop signature markers and label-derived statistics from attributes."""
-    return {key: value for key, value in attrs.items() if key not in DROPPED_ATTRS}
-
-
-def _normalize_labels(values: np.ndarray) -> np.ndarray:
-    """Store datetime and timedelta labels at nanosecond precision."""
-    if np.issubdtype(values.dtype, np.datetime64):
-        return values.astype("datetime64[ns]")
-    if np.issubdtype(values.dtype, np.timedelta64):
-        return values.astype("timedelta64[ns]")
-    return values
-
-
-def plan_arrays(schema: xr.DataArray) -> ArrayPlan:
-    """Describe the storage an IO schema requires.
-
-    Parameters
-    ----------
-    schema : xr.DataArray
-        Concrete schema. Field values are never read.
+    template : xr.DataArray
+        Concrete template. Field values are never read.
+    existing : Mapping[Hashable, xr.Variable], optional
+        Coordinates already in the store.
 
     Returns
     -------
     ArrayPlan
-        Array names, dimensions, coordinates, dtype and attributes to store.
+        Array names, dimensions, missing coordinates, dtype and attributes.
         Coordinates depending on ``variable`` cannot be stored per array and are
         omitted.
-    """
-    validate_schema(schema)
-    names = array_names(schema)
-    dims = field_dims(schema)
-    coords: dict[Hashable, xr.Variable] = {}
-    for key, value in schema.coords.items():
-        if key == "variable" or "variable" in value.dims:
-            continue
-        variable = value.variable
-        coords[key] = xr.Variable(
-            variable.dims,
-            _normalize_labels(np.asarray(variable.values)),
-            variable.attrs,
-        )
-    return ArrayPlan(
-        names=names,
-        dims=dims,
-        shape=tuple(schema.sizes[dim] for dim in dims),
-        coords=coords,
-        dtype=np.dtype(schema.dtype),
-        attrs=persisted_attrs(schema.attrs),
-    )
-
-
-def merge_coords(
-    existing: Mapping[Hashable, xr.Variable], new: Mapping[Hashable, xr.Variable]
-) -> dict[Hashable, xr.Variable]:
-    """Check new coordinates against a store and return those to create.
-
-    Parameters
-    ----------
-    existing : Mapping[Hashable, xr.Variable]
-        Coordinates already in the store.
-    new : Mapping[Hashable, xr.Variable]
-        Coordinates a schema requires.
-
-    Returns
-    -------
-    dict[Hashable, xr.Variable]
-        Coordinates missing from the store.
 
     Raises
     ------
     ValueError
-        If a coordinate exists with different dimensions or values.
+        If the template is not concrete, has repeated labels, names an array after a
+        coordinate, or has coordinates that differ from the store.
     """
-    missing = {}
-    for key, value in new.items():
-        if key not in existing:
-            missing[key] = value
+    _validate_template(template)
+    existing = dict(existing or {})
+    names = _array_names(template)
+    dims = _field_dims(template)
+    coords: dict[Hashable, xr.Variable] = {}
+    for key, value in template.coords.items():
+        if key == "variable" or "variable" in value.dims:
             continue
-        current = existing[key]
-        same = current.dims == value.dims and current.shape == value.shape
-        if same:
-            left, right = np.asarray(current.values), np.asarray(value.values)
-            same = bool(
-                np.array_equal(left, right, equal_nan=True)
-                if np.issubdtype(left.dtype, np.inexact)
-                else np.array_equal(left, right)
-            )
-        if not same:
-            raise ValueError(f"Coordinate '{key}' differs from the store")
-    return missing
-
-
-def fill_value(dtype: np.dtype) -> Any:
-    """Return the value of unwritten positions: NaN for inexact dtypes, else zero."""
-    return np.nan if np.issubdtype(dtype, np.inexact) else 0
-
-
-def _positions(dim: Hashable, labels: np.ndarray, store: np.ndarray) -> np.ndarray:
-    """Map unique, nonempty labels to their store positions."""
-    if labels.size == 0:
-        raise ValueError(f"Expected at least one label along '{dim}'")
-    if len(pd.unique(labels)) != len(labels):
-        raise ValueError(f"Labels along '{dim}' must be unique")
-    positions = pd.Index(store).get_indexer(labels)
-    if (positions < 0).any():
-        unknown = [str(label) for label in pd.Index(labels[positions < 0])]
-        raise ValueError(f"Labels along '{dim}' are not in the store: {unknown}")
-    return positions
-
-
-def _indexer(positions: np.ndarray) -> Indexer:
-    """Use a slice for an ascending contiguous run of positions."""
-    if np.all(np.diff(positions) == 1):
-        return slice(int(positions[0]), int(positions[-1]) + 1)
-    return positions
-
-
-def _check_arrays(
-    names: tuple[str, ...],
-    dims: tuple[Hashable, ...],
-    arrays: Mapping[str, tuple[Hashable, ...]],
-    ordered: bool = True,
-) -> None:
-    """Require stored arrays with the given dimensions, in order if ``ordered``."""
-    for name in names:
-        if name not in arrays:
-            raise ValueError(f"Array '{name}' was not created with add_array")
-        stored = arrays[name]
-        same = stored == dims if ordered else set(stored) == set(dims)
-        if not same or len(stored) != len(dims):
-            raise ValueError(
-                f"Dimensions {dims} differ from array '{name}' dimensions {stored}"
-            )
-
-
-def _locate(
-    x: xr.DataArray,
-    dims: tuple[Hashable, ...],
-    coords: Mapping[Hashable, np.ndarray],
-    operation: str,
-) -> dict[Hashable, np.ndarray | None]:
-    """Map the labels of ``x`` to store positions; None selects a whole axis."""
-    positions: dict[Hashable, np.ndarray | None] = {}
-    for dim in dims:
-        if dim not in coords:
-            if dim in x.coords:
-                raise ValueError(f"The store has no labels along '{dim}'")
-            positions[dim] = None
-        elif dim not in x.coords:
-            if x.sizes[dim] != len(coords[dim]):
-                raise ValueError(
-                    f"Unlabelled dimension '{dim}' must be {operation} in full"
-                )
-            positions[dim] = None
+        variable = value.variable
+        variable = xr.Variable(
+            variable.dims,
+            _normalize_labels(np.asarray(variable.values)),
+            variable.attrs,
+        )
+        if key in existing:
+            if not _same_variable(existing[key], variable):
+                raise ValueError(f"Coordinate '{key}' differs from the store")
         else:
-            labels = _normalize_labels(np.asarray(x.coords[dim].values))
-            positions[dim] = _positions(dim, labels, coords[dim])
-    return positions
+            coords[key] = variable
+    clashes = set(names) & (set(template.coords) | set(existing))
+    if clashes:
+        raise ValueError(f"Array names collide with coordinates: {sorted(clashes)}")
+    dtype = np.dtype(template.dtype)
+    return ArrayPlan(
+        names=names,
+        dims=dims,
+        shape=tuple(template.sizes[dim] for dim in dims),
+        coords=coords,
+        dtype=dtype,
+        fill_value=np.nan if np.issubdtype(dtype, np.inexact) else 0,
+        attrs={
+            key: value
+            for key, value in template.attrs.items()
+            if key not in _DROPPED_ATTRS
+        },
+    )
 
 
 def plan_write(
     x: xr.DataArray,
-    arrays: Mapping[str, tuple[Hashable, ...]],
+    arrays: Mapping[str, Mapping[Hashable, int]],
     coords: Mapping[Hashable, np.ndarray],
 ) -> list[tuple[str, dict[Hashable, Indexer], xr.DataArray]]:
     """Validate a write and locate it in a store before anything is written.
@@ -373,8 +219,8 @@ def plan_write(
     ----------
     x : xr.DataArray
         Field to write. It is never modified.
-    arrays : Mapping[str, tuple[Hashable, ...]]
-        Stored array names and their dimensions.
+    arrays : Mapping[str, Mapping[Hashable, int]]
+        Stored array names and their dimension sizes, in dimension order.
     coords : Mapping[Hashable, np.ndarray]
         Stored dimension labels. Dimensions without labels must be written in
         full.
@@ -392,13 +238,13 @@ def plan_write(
         If an array is unknown, dimensions differ, or a label is unknown or
         duplicated.
     """
-    names = array_names(x)
-    dims = field_dims(x)
-    _check_arrays(names, dims, arrays)
+    names = _array_names(x)
+    dims = _field_dims(x)
+    sizes = _check_arrays(names, dims, arrays, ordered=True)
 
     indexers: dict[Hashable, Indexer] = {}
     reorder: dict[Hashable, np.ndarray] = {}
-    for dim, positions in _locate(x, dims, coords, "written").items():
+    for dim, positions in _locate(x, dims, sizes, coords).items():
         if positions is None:
             indexers[dim] = slice(None)
             continue
@@ -416,49 +262,31 @@ def plan_write(
     ]
 
 
-def read_selection(
-    selection: xr.DataArray | Mapping[Hashable, ArrayLike],
-) -> xr.DataArray:
-    """Normalize a read selection to a coordinate signature.
-
-    Parameters
-    ----------
-    selection : xr.DataArray | Mapping[Hashable, ArrayLike]
-        Schema, field or ordered mapping from every dimension to its labels. A
-        mapping selects arrays with its ``variable`` labels.
-
-    Returns
-    -------
-    xr.DataArray
-        The selection itself, or an allocation-free signature of the mapping.
-    """
-    if isinstance(selection, xr.DataArray):
-        return selection
-    return coord_array(tuple(selection), dict(selection))
-
-
 def plan_read(
-    selection: xr.DataArray,
-    arrays: Mapping[str, tuple[Hashable, ...]],
+    selection: xr.DataArray | Mapping[Hashable, ArrayLike],
+    arrays: Mapping[str, Mapping[Hashable, int]],
     coords: Mapping[Hashable, np.ndarray],
-) -> tuple[tuple[str, ...], dict[Hashable, Indexer]]:
+) -> tuple[xr.DataArray, tuple[str, ...], dict[Hashable, Indexer]]:
     """Validate a read and locate its labels in a store.
 
     Parameters
     ----------
-    selection : xr.DataArray
-        Schema or field whose dimensions, labels and arrays to read, in any
-        dimension order. Field values are never read.
-    arrays : Mapping[str, tuple[Hashable, ...]]
-        Stored array names and their dimensions.
+    selection : xr.DataArray | Mapping[Hashable, ArrayLike]
+        Template or field, or an ordered mapping from every dimension to its
+        labels, in any dimension order. ``variable`` labels select arrays;
+        without a ``variable`` dimension, a DataArray's name does. Field values
+        are never read.
+    arrays : Mapping[str, Mapping[Hashable, int]]
+        Stored array names and their dimension sizes, in dimension order.
     coords : Mapping[Hashable, np.ndarray]
         Stored dimension labels. Dimensions without labels are read in full.
 
     Returns
     -------
-    tuple[tuple[str, ...], dict[Hashable, Indexer]]
-        Array names to read, and positional indexers in the selection's label
-        order (slices for ascending contiguous runs).
+    tuple[xr.DataArray, tuple[str, ...], dict[Hashable, Indexer]]
+        The selection as a DataArray, the array names to read, and positional
+        indexers in the selection's label order (slices for ascending contiguous
+        runs).
 
     Raises
     ------
@@ -466,85 +294,137 @@ def plan_read(
         If an array is unknown, dimensions differ, or a label is unknown or
         duplicated.
     """
-    names = array_names(selection)
-    dims = field_dims(selection)
-    _check_arrays(names, dims, arrays, ordered=False)
+    if not isinstance(selection, xr.DataArray):
+        selection = coord_array(tuple(selection), dict(selection))
+    names = _array_names(selection)
+    dims = _field_dims(selection)
+    sizes = _check_arrays(names, dims, arrays, ordered=False)
     indexers: dict[Hashable, Indexer] = {
         dim: slice(None) if positions is None else _indexer(positions)
-        for dim, positions in _locate(selection, dims, coords, "read").items()
+        for dim, positions in _locate(selection, dims, sizes, coords).items()
     }
-    return names, indexers
+    return selection, names, indexers
 
 
-def stack_fields(
-    selection: xr.DataArray, names: tuple[str, ...], fields: list[xr.DataArray]
-) -> xr.DataArray:
-    """Assemble per-array reads into one field in the selection's layout.
+def _validate_template(template: xr.DataArray) -> None:
+    """Require concrete, nonempty dimensions with unique labels."""
+    dynamic = tuple(template.attrs.get(E2S_DYNAMIC_DIMS, ()))
+    if dynamic:
+        raise ValueError(
+            f"IO templates must be concrete; resolve dynamic dimensions {dynamic} first"
+        )
+    for dim, size in template.sizes.items():
+        if size == 0:
+            raise ValueError(f"IO template dimension '{dim}' must be nonempty")
+        if dim in template.indexes and not template.indexes[dim].is_unique:
+            raise ValueError(f"IO template labels along '{dim}' must be unique")
 
-    Parameters
-    ----------
-    selection : xr.DataArray
-        Read selection, giving dimension order and the ``variable`` dimension.
-    names : tuple[str, ...]
-        Array names, aligned with ``fields``.
-    fields : list[xr.DataArray]
-        Selected stored arrays.
 
-    Returns
-    -------
-    xr.DataArray
-        Field with the selection's dimensions. Attributes shared by every array
-        are kept.
+def _array_names(x: xr.DataArray) -> tuple[str, ...]:
+    """Stored array names: ``variable`` labels verbatim, otherwise the name."""
+    if "variable" in x.dims:
+        if "variable" not in x.coords:
+            raise ValueError("The variable dimension must have labels")
+        names = tuple(str(name) for name in x.coords["variable"].values)
+        if len(set(names)) != len(names):
+            raise ValueError("Variable labels must be unique")
+        return names
+    if x.name is None:
+        raise ValueError("Arrays without a variable dimension must be named")
+    return (str(x.name),)
+
+
+def _field_dims(x: xr.DataArray) -> tuple[Hashable, ...]:
+    """Dimensions of the stored arrays for a template or field."""
+    return tuple(dim for dim in x.dims if dim != "variable")
+
+
+def _normalize_labels(values: np.ndarray) -> np.ndarray:
+    """Store datetime and timedelta labels at nanosecond precision."""
+    if np.issubdtype(values.dtype, np.datetime64):
+        return values.astype("datetime64[ns]")
+    if np.issubdtype(values.dtype, np.timedelta64):
+        return values.astype("timedelta64[ns]")
+    return values
+
+
+def _same_variable(left: xr.Variable, right: xr.Variable) -> bool:
+    """Compare coordinate dimensions and values, treating NaNs as equal."""
+    if left.dims != right.dims or left.shape != right.shape:
+        return False
+    a, b = np.asarray(left.values), np.asarray(right.values)
+    if np.issubdtype(a.dtype, np.inexact):
+        return bool(np.array_equal(a, b, equal_nan=True))
+    return bool(np.array_equal(a, b))
+
+
+def _check_arrays(
+    names: tuple[str, ...],
+    dims: tuple[Hashable, ...],
+    arrays: Mapping[str, Mapping[Hashable, int]],
+    ordered: bool,
+) -> Mapping[Hashable, int]:
+    """Require stored arrays with the given dimensions; return their sizes."""
+    for name in names:
+        if name not in arrays:
+            raise ValueError(f"Array '{name}' was not created with add_array")
+        stored = tuple(arrays[name])
+        same = stored == dims if ordered else set(stored) == set(dims)
+        if not same or len(stored) != len(dims):
+            raise ValueError(
+                f"Dimensions {dims} differ from array '{name}' dimensions {stored}"
+            )
+    return arrays[names[0]]
+
+
+def _locate(
+    x: xr.DataArray,
+    dims: tuple[Hashable, ...],
+    sizes: Mapping[Hashable, int],
+    coords: Mapping[Hashable, np.ndarray],
+) -> dict[Hashable, np.ndarray | None]:
+    """Map the labels of ``x`` to stored positions; None selects a whole axis.
+
+    Labelled dimensions are matched label by label. Unlabelled dimensions must
+    span the whole stored axis.
     """
-    if "variable" not in selection.dims:
-        return fields[0].transpose(*selection.dims).rename(names[0])
-    field = xr.concat(
-        fields,
-        dim=pd.Index(names, name="variable"),
-        coords="minimal",
-        compat="override",
-        combine_attrs="drop_conflicts",
-    )
-    return field.transpose(*selection.dims).rename(selection.name)
+    positions: dict[Hashable, np.ndarray | None] = {}
+    for dim in dims:
+        if dim not in x.coords:
+            if x.sizes[dim] != sizes[dim]:
+                raise ValueError(
+                    f"Dimension '{dim}' has no labels, so it must span all "
+                    f"{sizes[dim]} stored positions"
+                )
+            positions[dim] = None
+        elif dim not in coords:
+            raise ValueError(f"The store has no labels along '{dim}'")
+        else:
+            labels = _normalize_labels(np.asarray(x.coords[dim].values))
+            positions[dim] = _label_positions(dim, labels, coords[dim])
+    return positions
 
 
-def to_device(x: xr.DataArray, device: torch.device | str = "cpu") -> xr.DataArray:
-    """Place field values on a device: NumPy on CPU, CuPy on CUDA.
+def _label_positions(
+    dim: Hashable, labels: np.ndarray, store: np.ndarray
+) -> np.ndarray:
+    """Find the stored index of each label, e.g. lead times [12h, 6h] -> [2, 1].
 
-    Parameters
-    ----------
-    x : xr.DataArray
-        NumPy-, CuPy- or Torch-backed field.
-    device : torch.device | str, optional
-        Destination, by default "cpu".
-
-    Returns
-    -------
-    xr.DataArray
-        Field on ``device``.
+    Raises if labels are empty, repeated or missing from the store.
     """
-    device = torch.device(device)
-    if device.type == "cpu":
-        return x.e2s.as_numpy()
-    if device.type == "cuda":
-        return x.e2s.as_cupy(device.index)
-    raise ValueError(f"Unsupported device '{device}'")
+    if labels.size == 0:
+        raise ValueError(f"Expected at least one label along '{dim}'")
+    if len(pd.unique(labels)) != len(labels):
+        raise ValueError(f"Labels along '{dim}' must be unique")
+    positions = pd.Index(store).get_indexer(labels)
+    if (positions < 0).any():
+        unknown = [str(label) for label in pd.Index(labels[positions < 0])]
+        raise ValueError(f"Labels along '{dim}' are not in the store: {unknown}")
+    return positions
 
 
-def to_host(x: xr.DataArray) -> np.ndarray:
-    """Return the field values as a NumPy array.
-
-    NumPy payloads are returned without copying; CuPy and Torch payloads are
-    transferred to the host.
-
-    Parameters
-    ----------
-    x : xr.DataArray
-        NumPy-, CuPy- or Torch-backed field.
-
-    Returns
-    -------
-    np.ndarray
-        Host values. Callers must not modify them in place.
-    """
-    return np.asarray(x.e2s.as_numpy().data)
+def _indexer(positions: np.ndarray) -> Indexer:
+    """Use a slice for an ascending contiguous run of positions."""
+    if np.all(np.diff(positions) == 1):
+        return slice(int(positions[0]), int(positions[-1]) + 1)
+    return positions

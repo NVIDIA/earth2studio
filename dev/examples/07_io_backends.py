@@ -37,16 +37,16 @@ import xarray as xr
 
 from earth2studio.grids import LatLonGrid, infer_grid
 from earth2studio.io import XarrayBackend
-from earth2studio.io.utils import output_schema
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import Persistence
 
 # %%
 # Plan the Store
 # --------------
 # A model's output signature has a dynamic leading ``batch`` dimension and the
-# lead times of one step. ``output_schema`` replaces the dynamic prefix with the
+# lead times of one step. ``output_template`` replaces the dynamic prefix with the
 # run's leading dimensions and sets the run's lead-time extent. Nothing is
-# allocated: the schema holds only coordinates and metadata.
+# allocated: the template holds only coordinates and metadata.
 
 # %%
 grid = LatLonGrid(np.linspace(10.0, -10.0, 5), np.linspace(0.0, 20.0, 9))
@@ -57,20 +57,20 @@ print("Signature:", signature.dims)
 nsteps = 3
 times = np.array(["2024-01-01T00", "2024-01-01T12"], dtype="datetime64[h]")
 leads = np.arange(nsteps + 1) * np.timedelta64(6, "h")
-schema = output_schema(signature, {"time": times}, {"lead_time": leads})
-print("Schema:", dict(schema.sizes))
+template = output_template(signature, {"time": times}, {"lead_time": leads})
+print("Template:", dict(template.sizes))
 
 # %%
 # Create Arrays
 # -------------
 # ``add_array`` creates one array per variable label. Labels are used verbatim,
-# including statistic qualifiers such as ``tp:sum:6h``. Re-adding the same schema
+# including statistic qualifiers such as ``tp:sum:6h``. Re-adding the same template
 # is a no-op, so resumed runs can call it unconditionally.
 
 # %%
 io = XarrayBackend()
-io.add_array(schema)
-io.add_array(schema)
+io.add_array(template)
+io.add_array(template)
 print("Arrays:", list(io))
 
 # %%
@@ -78,10 +78,10 @@ print("Arrays:", list(io))
 # -------------------
 # Writes locate each field by its coordinate labels, so drivers pass yields
 # straight through. Every output here already matches a planned lead time. The
-# synthetic initial condition reuses ``output_schema`` on the input signature.
+# synthetic initial condition reuses ``output_template`` on the input signature.
 
 # %%
-initial = output_schema(model.input_coords(), {"time": times})
+initial = output_template(model.input_coords(), {"time": times})
 x = xr.DataArray(
     np.random.default_rng(0).standard_normal(initial.shape).astype(np.float32),
     dims=initial.dims,
@@ -101,7 +101,7 @@ io.close()
 
 # %%
 io = XarrayBackend()
-io.add_array(schema)
+io.add_array(template)
 chunk = xr.zeros_like(x.isel(lead_time=0, drop=True)).expand_dims(
     lead_time=leads[[2, 1]], axis=2
 )

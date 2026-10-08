@@ -18,21 +18,12 @@ from collections.abc import Hashable, Iterator, Mapping
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 import xarray as xr
 from numpy.typing import ArrayLike, DTypeLike
 
-from earth2studio.io.utils import (
-    fill_value,
-    merge_coords,
-    plan_arrays,
-    plan_read,
-    plan_write,
-    read_selection,
-    stack_fields,
-    to_device,
-    to_host,
-)
+from earth2studio.io.utils import plan_arrays, plan_read, plan_write
 
 
 class XarrayBackend:
@@ -78,27 +69,31 @@ class XarrayBackend:
         """Return an iterator over stored array names."""
         return iter(self.root.data_vars)
 
-    def add_array(self, schema: xr.DataArray) -> None:
-        """Create the arrays a schema describes.
+    def add_array(self, template: xr.DataArray) -> None:
+        """Create the arrays a template describes.
 
         Parameters
         ----------
-        schema : xr.DataArray
+        template : xr.DataArray
             Concrete coordinate signature; field values are never read.
         """
-        plan = plan_arrays(schema)
         existing = {key: value.variable for key, value in self.root.coords.items()}
-        missing = merge_coords(existing, plan.coords)
+        plan = plan_arrays(template, existing)
+        clashes = set(plan.coords).intersection(self.root.data_vars)
+        if clashes:
+            raise ValueError(
+                f"Coordinates collide with arrays: {sorted(map(str, clashes))}"
+            )
         for name in plan.names:
             if name in self.root.data_vars and self.root[name].dims != plan.dims:
                 raise ValueError(
                     f"Array '{name}' exists with dimensions {self.root[name].dims}"
                 )
-        self.root = self.root.assign_coords(missing)
+        self.root = self.root.assign_coords(plan.coords)
         for name in plan.names:
             if name in self.root.data_vars:
                 continue
-            data = np.full(plan.shape, fill_value(plan.dtype), dtype=plan.dtype)
+            data = np.full(plan.shape, plan.fill_value, dtype=plan.dtype)
             self.root[name] = xr.Variable(plan.dims, data, dict(plan.attrs))
 
     def write(self, x: xr.DataArray) -> None:
@@ -114,7 +109,7 @@ class XarrayBackend:
         for name, indexers, field in plan_write(x, *self._layout()):
             self.root[name].variable[
                 tuple(indexers[dim] for dim in self.root[name].dims)
-            ] = to_host(field)
+            ] = field.e2s.as_numpy().values
 
     def read(
         self,
@@ -127,7 +122,7 @@ class XarrayBackend:
         Parameters
         ----------
         selection : xr.DataArray | Mapping[Hashable, ArrayLike]
-            Schema or field, or an ordered mapping from every dimension to its
+            Template or field, or an ordered mapping from every dimension to its
             labels. ``variable`` labels select arrays; without a ``variable``
             dimension, a DataArray's name does. Labels may be any subset, in any
             order; field values are never read.
@@ -142,19 +137,30 @@ class XarrayBackend:
             Field with the selection's dimensions and label order, stored
             coordinates and the attributes shared by the selected arrays.
         """
-        selection = read_selection(selection)
-        names, indexers = plan_read(selection, *self._layout())
+        selection, names, indexers = plan_read(selection, *self._layout())
         fields = [self.root[name].isel(indexers) for name in names]
-        field = stack_fields(selection, names, fields)
+        if "variable" in selection.dims:
+            field = xr.concat(
+                fields,
+                dim=pd.Index(names, name="variable"),
+                coords="minimal",
+                compat="override",
+                combine_attrs="drop_conflicts",
+            ).rename(selection.name)
+        else:
+            field = fields[0].rename(names[0])
+        field = field.transpose(*selection.dims)
         if dtype is not None:
             field = field.astype(dtype)
-        return to_device(field, device)
+        if torch.device(device).type == "cuda":
+            return field.e2s.as_cupy(torch.device(device).index)
+        return field
 
     def _layout(
         self,
-    ) -> tuple[dict[str, tuple[Hashable, ...]], dict[Hashable, np.ndarray]]:
-        """Stored array dimensions and dimension labels."""
-        arrays = {str(name): self.root[name].dims for name in self.root.data_vars}
+    ) -> tuple[dict[str, Mapping[Hashable, int]], dict[Hashable, np.ndarray]]:
+        """Stored array dimension sizes and dimension labels."""
+        arrays = {str(name): self.root[name].sizes for name in self.root.data_vars}
         coords = {
             dim: self.root.indexes[dim].values
             for dim in self.root.dims
