@@ -293,6 +293,16 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
 

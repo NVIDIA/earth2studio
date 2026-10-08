@@ -223,6 +223,22 @@ def test_diagnostic_models_are_registered() -> None:
     )
 
 
+@pytest.mark.parametrize("model", _DIAGNOSTIC_CLASSES.values())
+def test_diagnostic_protocol_declarations(model: type) -> None:
+    # Check every export even when its optional backend cannot be constructed.
+    parameters = inspect.signature(model.__call__).parameters
+    assert len(parameters) >= 2
+    assert all(
+        parameter.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+        for parameter in parameters.values()
+    )
+    assert isinstance(inspect.getattr_static(model, "stochastic"), (bool, property))
+    source_parameters = inspect.signature(model.default_sources).parameters
+    assert list(source_parameters) == ["self"]
+    instance = object.__new__(model)
+    assert model.default_sources(instance) is None
+
+
 def test_rng_control_is_owned_by_model_wrappers() -> None:
     for model in [*_PROGNOSTIC_CLASSES.values(), *_DIAGNOSTIC_CLASSES.values()]:
         assert all(base.__name__ != "RNGMixin" for base in model.__mro__)

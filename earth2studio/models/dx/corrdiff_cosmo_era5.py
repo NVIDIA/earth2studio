@@ -798,6 +798,16 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
 

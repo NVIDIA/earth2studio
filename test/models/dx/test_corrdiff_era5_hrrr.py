@@ -83,7 +83,7 @@ def rng_model(monkeypatch):
 
 
 def test_corrdiff_era5_hrrr_conformance(rng_model):
-    check_diagnostic_contract(rng_model)
+    assert check_diagnostic_contract(rng_model) == []
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

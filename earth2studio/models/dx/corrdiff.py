@@ -601,6 +601,16 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 
@@ -1340,6 +1350,16 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.number_of_steps = number_of_steps
         self.solver = solver
         self.output_variables = OUT_VARIABLES  # Default set of output variables
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

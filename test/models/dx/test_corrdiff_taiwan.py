@@ -206,7 +206,7 @@ def test_corrdiff_taiwan_conformance():
         out_lat,
         out_lon,
     )
-    check_diagnostic_contract(dx)
+    assert check_diagnostic_contract(dx) == []
 
 
 @pytest.mark.package

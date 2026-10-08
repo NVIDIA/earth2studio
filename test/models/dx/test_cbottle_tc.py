@@ -464,8 +464,11 @@ class TestCBottleTCMock:
             "cuda:0"
         )
         dx.sampler_steps = 2  # Speed up sampler
-        check_diagnostic_contract(
-            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+        assert (
+            check_diagnostic_contract(
+                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+            )
+            == []
         )
 
 

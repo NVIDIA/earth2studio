@@ -35,6 +35,8 @@ class Identity(torch.nn.Module):
     def __str__(self) -> str:
         return "identity"
 
+    stochastic = False
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 

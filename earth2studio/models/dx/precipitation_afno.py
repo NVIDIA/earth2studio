@@ -108,6 +108,18 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
         self.eps = 1e-5
 
+    stochastic = False
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 

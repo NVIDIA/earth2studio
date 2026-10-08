@@ -132,6 +132,18 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             (orography),
         )
 
+    stochastic = False
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 

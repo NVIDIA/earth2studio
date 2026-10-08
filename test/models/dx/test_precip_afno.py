@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import PrecipitationAFNO
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.cupy import from_torch
@@ -77,6 +78,15 @@ def test_afno_precip(x, device):
     assert out.shape == torch.Size([x.shape[0], 1, 720, 1440])
     assert out_coords["variable"] == dx.output_coords(coords)["variable"]
     assert result.dims == ("batch", "variable", "lat", "lon")
+
+
+def test_precipitationafno_conformance():
+    model = PrecipitationAFNO(
+        PhooAFNOPrecip(), torch.zeros(20, 1, 1), torch.ones(20, 1, 1)
+    )
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
 
 
 def test_precipitationafno_output_signature():

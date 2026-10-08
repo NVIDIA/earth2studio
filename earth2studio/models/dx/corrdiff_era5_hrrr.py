@@ -304,6 +304,16 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     def __str__(self) -> str:
         return "CorrDiffEra5Hrrr"
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system: the native ERA5 CONUS footprint.
 

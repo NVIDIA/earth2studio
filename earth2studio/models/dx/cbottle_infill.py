@@ -204,6 +204,16 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             varidx.append(idx[0])
         return np.array(varidx)
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
 

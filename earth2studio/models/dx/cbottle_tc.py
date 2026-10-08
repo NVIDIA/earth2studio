@@ -175,6 +175,16 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
 

@@ -236,6 +236,16 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
         )
 
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 

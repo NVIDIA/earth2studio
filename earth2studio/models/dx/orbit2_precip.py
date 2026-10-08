@@ -302,6 +302,18 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.div = div
         self.overlap = overlap
 
+    stochastic = False
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
 
