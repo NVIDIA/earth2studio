@@ -89,9 +89,11 @@ store per stream; that is the main IO change.
 
 **`PrognosticRunner(prognostic, source=None, *, forcing=None, diagnostics=None)`**
 in `run`. Sources default to the model's `default_sources()`. The runner drives
-`rollout_iterator`, which yields forecasts only, so it publishes the initial
-condition itself as the first step, matching `run.deterministic`. Declared
-forcing is fetched and sent at every step, and appears in `data_requests`. The
+`create_iterator`, which yields forecasts only, so it publishes the initial
+condition itself as the first step, matching `run.deterministic`. Until every
+wrapper migrates, it skips the initial-condition yield of unmigrated iterators.
+Declared forcing is fetched initially and its time-varying slots are sent at
+every step; all of it appears in `data_requests`. The
 prognostic stream is `forecast`; each diagnostic adds a stream under the name the
 caller gives it. Member batching is not yet supported.
 

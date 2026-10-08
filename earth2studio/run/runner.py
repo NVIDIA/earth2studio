@@ -37,8 +37,8 @@ import xarray as xr
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.models.px.base import recommended_sources
-from earth2studio.models.px.utils import initial_condition
+from earth2studio.models.px.utils import PrognosticMixin, initial_condition
+from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _map_field, _output_dimensions
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.type import CoordinateSystem
@@ -105,6 +105,12 @@ def _slots(signature: CoordinateSystem | tuple | None) -> tuple:
     return signature if isinstance(signature, tuple) else (signature,)
 
 
+def _yields_initial_condition(model: object) -> bool:
+    """Whether an unmigrated wrapper's iterator still yields the initial condition."""
+    initialize = getattr(type(model), "initialize", PrognosticMixin.initialize)
+    return initialize is PrognosticMixin.initialize
+
+
 def _module_device(model: object) -> torch.device:
     if isinstance(model, torch.nn.Module):
         for tensor in chain(model.parameters(), model.buffers()):
@@ -150,6 +156,9 @@ class PrognosticRunner:
             raise ValueError("PrognosticRunner supports single-input-slot models")
         self.forcing_signatures = _slots(prognostic.forcing_coords())
         recommended = recommended_sources(prognostic)
+        nslots = 1 + len(self.forcing_signatures)
+        if not isinstance(recommended, tuple):
+            recommended = (recommended,) + (None,) * (nslots - 1)
         self.source = source if source is not None else recommended[0]
         self.forcing = forcing if forcing is not None else tuple(recommended[1:])
         if self.source is None or any(s is None for s in self.forcing):
@@ -207,19 +216,26 @@ class PrognosticRunner:
         return coords
 
     def _forcing_requests(
-        self, item: WorkItem, output_leads: np.ndarray | None
-    ) -> tuple[DataRequest, ...]:
-        """Initial forcing windows, or the newest frames for ``output_leads``."""
+        self, item: WorkItem, output_leads: np.ndarray | None = None
+    ) -> tuple[tuple[DataRequest, CoordinateSystem], ...]:
+        """Initial forcing windows, or each time-varying slot's newest frames.
+
+        Static slots, those without ``lead_time``, are fetched only initially.
+        """
         requests = []
         for source, signature in zip(self.forcing, self.forcing_signatures):
-            leads = signature["lead_time"].values
-            if output_leads is not None:
-                leads = leads[-1] + output_leads
-            requests.append(
-                DataRequest(
-                    source, np.array([item.time]), signature["variable"].values, leads
-                )
+            static = "lead_time" not in signature.dims
+            if static and output_leads is not None:
+                continue
+            leads = np.array([np.timedelta64(0, "h")])
+            if not static:
+                leads = signature["lead_time"].values
+                if output_leads is not None:
+                    leads = leads[-1] + output_leads
+            request = DataRequest(
+                source, np.array([item.time]), signature["variable"].values, leads
             )
+            requests.append((request, signature))
         return tuple(requests)
 
     def _initial_request(self, item: WorkItem) -> DataRequest:
@@ -235,10 +251,13 @@ class PrognosticRunner:
         steps = range(max(self.nsteps(item.horizon) - 1, 0))
         return (
             self._initial_request(item),
-            *self._forcing_requests(item, None),
-            *chain.from_iterable(
-                self._forcing_requests(item, self.output_leads + k * self.step)
+            *(request for request, _ in self._forcing_requests(item)),
+            *(
+                request
                 for k in steps
+                for request, _ in self._forcing_requests(
+                    item, self.output_leads + k * self.step
+                )
             ),
         )
 
@@ -253,18 +272,14 @@ class PrognosticRunner:
             target_grid=signature if interp_method else None,
             regridder=interp_method or "nearest",
         )
+        if "lead_time" not in signature.dims:
+            x = x.isel(lead_time=0, drop=True)
         return _map_field(x, signature)
 
     def _fetch_forcing(
-        self, requests: tuple[DataRequest, ...]
-    ) -> xr.DataArray | tuple[xr.DataArray, ...] | None:
-        fields = tuple(
-            self._fetch(r, s) for r, s in zip(requests, self.forcing_signatures)
-        )
-        if not fields:
-            return None
-        declared = self.prognostic.forcing_coords()
-        return fields if isinstance(declared, tuple) else fields[0]
+        self, requests: tuple[tuple[DataRequest, CoordinateSystem], ...]
+    ) -> tuple[xr.DataArray, ...]:
+        return tuple(self._fetch(request, signature) for request, signature in requests)
 
     def _publish(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
         outputs = {"forecast": x}
@@ -281,16 +296,17 @@ class PrognosticRunner:
         yield self._publish(initial_condition(x))
         if nsteps == 0:
             return
-        forcing = self._fetch_forcing(self._forcing_requests(item, None))
-        iterator = self.prognostic.rollout_iterator(x, forcing)
+        forcing = self._fetch_forcing(self._forcing_requests(item))
+        iterator = self.prognostic.create_iterator(x, *forcing)
         try:
+            if _yields_initial_condition(self.prognostic):
+                next(iterator)  # Already published above.
             y = next(iterator)
             yield self._publish(y)
             for _ in range(nsteps - 1):
                 leads = y.coords["lead_time"].values
-                y = iterator.send(
-                    self._fetch_forcing(self._forcing_requests(item, leads))
-                )
+                step_forcing = self._fetch_forcing(self._forcing_requests(item, leads))
+                y = iterator.send(step_forcing or None)
                 yield self._publish(y)
         finally:
             iterator.close()

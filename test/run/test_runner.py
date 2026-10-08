@@ -20,6 +20,8 @@ The model is FCN's real DataArray execution path with an add-one core, and the
 source returns zeros, so step ``k`` holds the value ``k`` everywhere.
 """
 
+from collections.abc import Iterator
+
 import numpy as np
 import pytest
 import torch
@@ -93,11 +95,20 @@ class _Forced(PrognosticMixin):
         y = x + 1 + float(forcing.values.mean())
         return y.assign_coords(lead_time=x["lead_time"] + np.timedelta64(6, "h"))
 
-    def initialize(self, x, forcing=None):  # type: ignore[no-untyped-def]
+    def initialize(  # type: ignore[override]
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, None]:
         return self._advance(x, forcing), None
 
-    def step(self, y, state, forcing=None):  # type: ignore[no-untyped-def]
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, forcing: xr.DataArray, state: None = None
+    ) -> tuple[xr.DataArray, None]:
         return self._advance(y, forcing), None
+
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> Iterator[xr.DataArray]:
+        return self._default_create_iterator(x, forcing)
 
 
 def _model() -> _TinyFCN:
