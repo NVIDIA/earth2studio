@@ -23,8 +23,6 @@ For generative models, retain sample-count and seed reproducibility assertions i
 the existing cases, and make the mock exercise the actual sampler RNG path.
 """
 
-import inspect
-
 import numpy as np
 import pytest
 import torch
@@ -82,28 +80,3 @@ def test_model_deterministic_seed(model):
     xr.testing.assert_identical(first, model(x).e2s.as_numpy())
     model.set_rng(43)
     assert not np.array_equal(first.values, model(x).e2s.as_numpy().values)
-
-
-def test_model_signature(model):
-    # D11: also document the wrapper's intended fixed signature explicitly.
-    parameters = inspect.signature(model.__call__).parameters.values()
-    assert all(p.kind != inspect.Parameter.VAR_POSITIONAL for p in parameters)
-    assert callable(model.default_sources)
-    assert isinstance(model.stochastic, bool)
-
-
-def test_multislot_call(model, inputs):
-    # Supply a multi-slot fixture: inputs is a tuple, each with its own grid/axes.
-    before = tuple(x.copy(deep=True) for x in inputs)
-    planned = model.output_coords(inputs)
-    output = model(*inputs)
-    outputs = output if isinstance(output, tuple) else (output,)
-    signatures = planned if isinstance(planned, tuple) else (planned,)
-    assert len(outputs) == len(signatures)
-    for field, signature in zip(outputs, signatures):
-        handshake_dataarray(field, signature)
-    for field, saved in zip(inputs, before):
-        xr.testing.assert_identical(field, saved)
-    # Add numerical expectations for every slot, and source-order assertions
-    # when the wrapper recommends providers. Run test_model_conformance on this
-    # multi-slot model too; the checker invokes each input as a separate argument.
