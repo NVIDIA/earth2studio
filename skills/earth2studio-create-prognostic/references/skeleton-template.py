@@ -16,13 +16,13 @@
 
 """Native one-frame prognostic template; adapt core shapes, grid and package assets.
 
-For multi-frame history, retain the complete rolling state but yield only its last
-frame initially. See Persistence and FCN for checkpoint continuation, and DLWP for
-multi-output hook cadence. Keep optional imports behind OptionalDependencyFailure
-and apply check_optional_dependencies to the packaged loader when appropriate.
+Initialization computes the first forecast; this one-frame core needs no extra
+state. See method-templates.py for explicit history. Keep optional imports behind
+OptionalDependencyFailure and guard packaged loaders for their actual backend.
 """
 
-from collections.abc import Iterator
+from collections.abc import Generator
+from typing import cast
 
 import numpy as np
 import torch
@@ -32,7 +32,12 @@ from earth2studio.grids import GridDefinition
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
@@ -100,22 +105,85 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         core.eval()
         return cls(core, grid="latlon-0.25deg")
 
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Compute the first forecast without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial field on the configured grid.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast, with a six-hour lead-time advance.
+        """
+        return cast(xr.DataArray, self._default_call(x))
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        """Compute the first forecast and its empty continuation state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial field, moved to the model device at the core boundary.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Forecast and state; this model needs only its preceding output.
+        """
+        return self._advance(x), None
+
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        """Advance a preceding forecast without modifying it.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast matching the output signature.
+        state : None
+            Empty state returned alongside that forecast.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next forecast and empty state.
+        """
+        if state is not None:
+            raise ValueError("This single-frame model expects state=None")
+        return self._advance(y), None
+
     @torch.inference_mode()
     @batch_func()
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance a field without invoking iterator hooks or modifying input."""
+    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+        # Batch only the array-to-array numerical boundary, not (y, state).
+        handshake_nonempty(x)
         signature = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         tensor = tensor.to(self.device_buffer.device).clone()
         output = self.model(tensor[:, 0]).unsqueeze(1)
         return from_torch(output, signature)
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial frame, then forecasts with original-dimension hooks."""
-        self.output_coords(x)
-        state = x.copy(deep=True)
-        yield state.isel(lead_time=slice(-1, None)).copy(deep=True)
-        while True:
-            state = self.front_hook(state.copy(deep=True))
-            state = self.rear_hook(self(state))
-            yield state.copy(deep=True)
+    def create_iterator(
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield complete forecasts with hooks in original leading dimensions.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial field. No forcing slots are declared for this model.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts at +6h, +12h, and so on relative to the final input lead.
+            Resume with ``next``; supplied forcing is rejected by the helper.
+        """
+        return cast(
+            Generator[
+                xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None
+            ],
+            self._default_create_iterator(x),
+        )
