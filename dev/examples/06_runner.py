@@ -37,7 +37,7 @@ import xarray as xr
 from earth2studio.data import Constant
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
-from earth2studio.run import DataRequest, ModelRunner, Runner, WorkItem
+from earth2studio.run import DataRequest, PrognosticRunner, Runner, WorkItem
 from earth2studio.utils import coord_array
 from earth2studio.utils.coords import CoordSystem
 
@@ -77,7 +77,7 @@ item = WorkItem(np.datetime64("2026-01-01"), np.timedelta64(18, "h"))
 # Built once from a model and a source, run once per item. Each step yields one
 # output per stream; diagnostics add streams next to ``forecast``.
 
-runner = ModelRunner(model, source, diagnostics={"copy": Identity()})
+runner = PrognosticRunner(model, source, diagnostics={"copy": Identity()})
 steps = list(runner.run_item(item))
 np.testing.assert_equal(len(steps), 4)  # initial condition plus three steps
 np.testing.assert_array_equal(steps[-1]["forecast"].values, 3)
@@ -89,7 +89,7 @@ np.testing.assert_array_equal(steps[-1]["forecast"].values, 3)
 print(
     {name: list(coords) for name, coords in runner.output_coords(item.horizon).items()}
 )
-(request,) = runner.requests(item)
+(request,) = runner.data_requests(item)
 print(request.variable, request.lead_time)
 
 # %%
@@ -107,7 +107,7 @@ class StopAtThreshold:
     supports_member_batching = False
 
     def __init__(self, model: TinyFCN, source: Constant, threshold: float) -> None:
-        self.inner = ModelRunner(model, source)
+        self.inner = PrognosticRunner(model, source)
         self.threshold = threshold
 
     def to(self, device: torch.device) -> "StopAtThreshold":
@@ -119,7 +119,7 @@ class StopAtThreshold:
         """Return the wrapped schema; an upper bound."""
         return self.inner.output_coords(horizon)
 
-    def requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None:
+    def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None:
         """Declare requests unknown upfront."""
         return None
 

@@ -20,7 +20,7 @@ Runnable tutorials for proposed APIs and workflows.
 
 ## Execution contracts
 
-- `06_runner.py`: the built-in `ModelRunner` with a diagnostic stream, and a
+- `06_runner.py`: the built-in `PrognosticRunner` with a diagnostic stream, and a
   hand-written runner that stops early.
 
 Run the signature tutorial from the repository root with

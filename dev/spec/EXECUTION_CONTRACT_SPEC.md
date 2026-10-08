@@ -35,7 +35,7 @@ class Runner(Protocol):
     supports_member_batching: bool
     def to(self, device) -> Runner
     def output_coords(self, horizon) -> Mapping[str, CoordSystem]
-    def requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None
+    def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]
 ```
 
@@ -45,14 +45,15 @@ class Runner(Protocol):
   that published at that step. Streams separate outputs with different grids or
   cadences, such as DLESyM's atmosphere and ocean.
 - **Schemas.** `output_coords(horizon)` gives each stream's coordinates for one
-  item, excluding `time` and `ensemble`, which `Pipeline` adds. Runs may stop
-  early; the schema is an upper bound.
-- **Requests.** `requests(item)` lists every `fetch_data` call as a
-  `DataRequest`, for predownload. `()` means no inputs; `None` means not knowable
+  item, including `lead_time` but excluding `time` and `ensemble`, which
+  `Pipeline` adds. Runs may stop early; the schema is an upper bound.
+- **Requests.** `data_requests(item)` describes every `fetch_data` call as a
+  `DataRequest` without fetching, for predownload. `()` means no inputs; `None` means not knowable
   upfront, which disables complete predownload but not execution.
 - **Members.** `WorkItem.member_ids` carries a member group. A runner with
-  `supports_member_batching = False` gets groups of one and seeds itself from
-  the item.
+  `supports_member_batching = False` gets groups of one. Runners seed stochastic
+  models with `set_rng` before each rollout, from a seed derived from the item's
+  time and member ID; a value sent into the model iterator is already forcing.
 
 ## Pipeline (planned)
 
@@ -67,7 +68,7 @@ class Pipeline:
 
     @classmethod
     def from_model(cls, prognostic, source, *, diagnostics=None, **kwargs):
-        return cls(ModelRunner(prognostic, source, diagnostics=diagnostics), **kwargs)
+        return cls(PrognosticRunner(prognostic, source, diagnostics=diagnostics), **kwargs)
 
     def run(self, items):
         self.output.prepare(self.runner, items)       # via runner.output_coords
@@ -86,10 +87,16 @@ store per stream; that is the main IO change.
 
 ## Built-in runners
 
-**`ModelRunner(prognostic, source, *, diagnostics=None)`** in `run`. Yields the
-prognostic output as `forecast` from the initial condition through the horizon,
-matching `run.deterministic`. Each diagnostic adds a stream under its own name.
-Member batching is not yet supported.
+**`PrognosticRunner(prognostic, source=None, *, forcing=None, diagnostics=None)`**
+in `run`. Sources default to the model's `default_sources()`. The runner drives
+`rollout_iterator`, which yields forecasts only, so it publishes the initial
+condition itself as the first step, matching `run.deterministic`. Declared
+forcing is fetched and sent at every step, and appears in `data_requests`. The
+prognostic stream is `forecast`; each diagnostic adds a stream under the name the
+caller gives it. Member batching is not yet supported.
+
+**`DiagnosticRunner`** (planned) applies diagnostics directly to source data at
+each item's time, replacing the diagnostic-only paths in recipes.
 
 **Coupled runner**, with the coupler. Wraps the impact-modeling `Driver`. Per
 item it builds a driver for the item's window, fetches each component's initial
@@ -101,6 +108,8 @@ components and resolves exchanges. This needs a few Driver changes:
 - initial conditions fetched from sources rather than passed as tensors;
 - no ensemble support at first, so `supports_member_batching = False`.
 
+Its streams are named after components.
+
 ## Not part of this boundary
 
 Explicit model state, `initialize`/`step` protocols, components, ports, and
@@ -109,10 +118,10 @@ can become an optional runner capability once models expose explicit state.
 
 ## Phasing
 
-1. **Done.** `Runner`, `WorkItem`, `DataRequest`, and `ModelRunner`.
+1. **Done.** `Runner`, `WorkItem`, `DataRequest`, and `PrognosticRunner`.
 2. **Pipeline.** Upstream `Pipeline`, work distribution, `OutputManager`, and
    progress markers. Replace the eval `forecast`, `diagnostic`, and `dlesym`
-   pipelines with `ModelRunner` configurations.
+   pipelines with `PrognosticRunner` configurations.
 3. **Coupled runner.** Express StormScope GOES and MRMS as Driver components and
    replace the eval `stormscope` pipeline.
 4. **Workflows.** Make `run.deterministic`, `run.diagnostic`, and `run.ensemble`
@@ -122,18 +131,16 @@ can become an optional runner capability once models expose explicit state.
 
 1. **Dependent work items**, such as warm-start cycling: support in v1 or
    declare out of scope?
-2. **Ensembles:** perturbation and seeding in `ModelRunner`, and member batching
-   for coupled runs.
-3. **Stream names** for coupled runners: component name or component and port.
-4. **Diagnostic-only runner** applying diagnostics directly to source data.
-5. **Async fetching:** if needed, change runner and `Pipeline` loop together.
+2. **Ensembles:** where perturbations are configured, likely a runner constructor
+   argument, and member batching for coupled runs.
+3. **Async fetching:** if needed, change runner and `Pipeline` loop together.
 
 ## Integration checks
 
-1. `ModelRunner` matches `run.deterministic` — `test/run/test_runner.py`.
-2. A hand-written runner stops early and returns `None` requests —
+1. `PrognosticRunner` matches `run.deterministic` — `test/run/test_runner.py`.
+2. A hand-written runner stops early and returns `None` data requests —
    `dev/examples/06_runner.py`.
-3. `Pipeline` drives `ModelRunner` and a coupled runner identically, writing one
+3. `Pipeline` drives `PrognosticRunner` and a coupled runner identically, writing one
    store per stream.
 4. Split DLESyM through the coupled runner reproduces the fused model.
 5. The StormScope coupled runner matches the eval `stormscope` pipeline.

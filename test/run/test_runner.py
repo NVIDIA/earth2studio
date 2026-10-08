@@ -29,8 +29,9 @@ import earth2studio.run as run
 from earth2studio.io import KVBackend
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
-from earth2studio.run import ModelRunner, Runner, WorkItem
-from earth2studio.utils import coord_array
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.run import PrognosticRunner, Runner, WorkItem
+from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.type import CoordinateSystem
 
 T0 = np.datetime64("2026-01-01T00")
@@ -70,6 +71,35 @@ class _Zeros:
         )
 
 
+class _Forced(PrognosticMixin):
+    """Migrated model adding its forcing; records the forcing leads it receives."""
+
+    def __init__(self) -> None:
+        self.seen: list[list[np.timedelta64]] = []
+
+    def input_coords(self) -> CoordinateSystem:
+        return _model().input_coords()
+
+    def forcing_coords(self) -> CoordinateSystem:
+        return coord_array_like(self.input_coords(), {"variable": ["sst"]})
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        return coord_array_like(
+            input_coords, {"lead_time": np.array([6], dtype="timedelta64[h]")}
+        )
+
+    def _advance(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        self.seen.append(list(forcing["lead_time"].values))
+        y = x + 1 + float(forcing.values.mean())
+        return y.assign_coords(lead_time=x["lead_time"] + np.timedelta64(6, "h"))
+
+    def initialize(self, x, forcing=None):  # type: ignore[no-untyped-def]
+        return self._advance(x, forcing), None
+
+    def step(self, y, state, forcing=None):  # type: ignore[no-untyped-def]
+        return self._advance(y, forcing), None
+
+
 def _model() -> _TinyFCN:
     return _TinyFCN(_AddOne(), torch.zeros(2, 1, 1), torch.ones(2, 1, 1))
 
@@ -79,7 +109,7 @@ def _item(hours: int = 18) -> WorkItem:
 
 
 def test_steps_through_horizon() -> None:
-    runner: Runner = ModelRunner(_model(), _Zeros())
+    runner: Runner = PrognosticRunner(_model(), _Zeros())
     steps = list(runner.run_item(_item()))
     assert [set(s) for s in steps] == [{"forecast"}] * 4
     for k, step in enumerate(steps):
@@ -93,7 +123,7 @@ def test_steps_through_horizon() -> None:
 def test_matches_deterministic_workflow() -> None:
     model, source = _model(), _Zeros()
     io = run.deterministic([T0], 3, model, source, KVBackend(), verbose=False)
-    steps = list(ModelRunner(model, source).run_item(_item()))
+    steps = list(PrognosticRunner(model, source).run_item(_item()))
     written = io["u10m"][0]  # time, lead_time, lat, lon
     for k, step in enumerate(steps):
         np.testing.assert_array_equal(
@@ -102,7 +132,7 @@ def test_matches_deterministic_workflow() -> None:
 
 
 def test_diagnostics_publish_their_own_streams() -> None:
-    runner = ModelRunner(_model(), _Zeros(), diagnostics={"copy": Identity()})
+    runner = PrognosticRunner(_model(), _Zeros(), diagnostics={"copy": Identity()})
     coords = runner.output_coords(_item().horizon)
     assert set(coords) == {"forecast", "copy"}
     np.testing.assert_array_equal(
@@ -114,7 +144,7 @@ def test_diagnostics_publish_their_own_streams() -> None:
 
 def test_requests_are_per_item_and_match_fetch() -> None:
     later = WorkItem(np.datetime64("2026-02-01"), np.timedelta64(6, "h"))
-    (request,) = ModelRunner(_model(), _Zeros()).requests(later)
+    (request,) = PrognosticRunner(_model(), _Zeros()).data_requests(later)
     np.testing.assert_array_equal(request.time, [later.time])
     np.testing.assert_array_equal(request.variable, ["u10m", "v10m"])
 
@@ -128,9 +158,41 @@ def test_requests_are_per_item_and_match_fetch() -> None:
 )
 def test_rejects_unsupported_items(item: WorkItem) -> None:
     with pytest.raises(ValueError):
-        list(ModelRunner(_model(), _Zeros()).run_item(item))
+        list(PrognosticRunner(_model(), _Zeros()).run_item(item))
 
 
 def test_forecast_stream_name_is_reserved() -> None:
     with pytest.raises(ValueError):
-        ModelRunner(_model(), _Zeros(), diagnostics={"forecast": Identity()})
+        PrognosticRunner(_model(), _Zeros(), diagnostics={"forecast": Identity()})
+
+
+def test_initial_condition_only_for_zero_horizon() -> None:
+    steps = list(PrognosticRunner(_model(), _Zeros()).run_item(_item(0)))
+    assert len(steps) == 1
+    np.testing.assert_array_equal(steps[0]["forecast"].values, 0)
+
+
+def test_forcing_is_fetched_requested_and_sent_each_step() -> None:
+    model = _Forced()
+    runner = PrognosticRunner(model, _Zeros(), forcing=(_Zeros(),))
+    steps = list(runner.run_item(_item(18)))
+    assert len(steps) == 4
+    hours = [[int(v / np.timedelta64(1, "h")) for v in leads] for leads in model.seen]
+    assert hours == [[0], [6], [12]]
+    requests = runner.data_requests(_item(18))
+    requested = [list(r.lead_time // np.timedelta64(1, "h")) for r in requests[1:]]
+    assert requested == hours
+
+
+def test_missing_forcing_source_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        PrognosticRunner(_Forced(), _Zeros())
+
+
+def test_negative_horizon_is_rejected_before_fetching() -> None:
+    with pytest.raises(ValueError):
+        PrognosticRunner(_model(), _Zeros()).nsteps(np.timedelta64(-6, "h"))
+
+
+def test_device_follows_the_model() -> None:
+    assert PrognosticRunner(_model(), _Zeros()).device == torch.device("cpu")
