@@ -33,7 +33,8 @@ from loguru import logger
 from tqdm import tqdm  # type: ignore[import-untyped]
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.io import IOBackend
+from earth2studio.io.base import _LegacyIOBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
@@ -78,12 +79,12 @@ def deterministic(
     nsteps: int,
     prognostic: PrognosticModel,
     data: DataSource,
-    io: IOBackend,
+    io: _LegacyIOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
-) -> IOBackend:
+) -> _LegacyIOBackend:
     """Built in deterministic workflow.
     This workflow creates a determinstic inference pipeline to produce a forecast
     prediction using a prognostic model.
@@ -215,12 +216,12 @@ def diagnostic(
     prognostic: PrognosticModel,
     diagnostic: DiagnosticModel,
     data: DataSource | ForecastSource,
-    io: IOBackend,
+    io: _LegacyIOBackend,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
-) -> IOBackend:
+) -> _LegacyIOBackend:
     """Built in diagnostic workflow.
     This workflow creates a determinstic inference pipeline that couples a prognostic
     model with a diagnostic model.
@@ -360,14 +361,14 @@ def ensemble(
     nensemble: int,
     prognostic: PrognosticModel,
     data: DataSource,
-    io: IOBackend,
+    io: _LegacyIOBackend,
     perturbation: Perturbation,
     batch_size: int | None = None,
     output_coords: CoordSystem = OrderedDict({}),
     device: torch.device | None = None,
     verbose: bool = True,
     checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint(),
-) -> IOBackend:
+) -> _LegacyIOBackend:
     """Built in ensemble workflow.
 
     Parameters

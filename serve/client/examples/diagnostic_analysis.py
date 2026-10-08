@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import torch
 import xarray as xr
 
-from earth2studio.io import XarrayBackend  # type: ignore[import-untyped]
+from earth2studio.io import ZarrBackend  # type: ignore[import-untyped]
 from earth2studio.models.dx import PrecipitationAFNO  # type: ignore[import-untyped]
 from earth2studio.run import diagnostic  # type: ignore[import-untyped]
 from earth2studio.serve.client.e2client import RemoteEarth2Workflow
@@ -94,7 +94,7 @@ def main(
         return
 
     precip_afno = PrecipitationAFNO.from_pretrained()
-    io = XarrayBackend()
+    io = ZarrBackend()
     data = NullDataSource()
 
     diagnostic(
@@ -102,7 +102,7 @@ def main(
     )
 
     # Extract total precipitation for the specified location
-    ds = io.root
+    ds = xr.open_zarr(io.store, consolidated=False)
     tp = ds["tp"].sel(lat=lat, lon=lon, method="nearest").values.ravel()
 
     # Extract time coordinate
