@@ -164,7 +164,12 @@ def test_steps_through_horizon() -> None:
 
 def test_matches_deterministic_workflow() -> None:
     model, source = _model(), _Zeros()
-    io = run.deterministic([T0], 3, model, source, KVBackend(), verbose=False)
+    # Pin CPU: deterministic moves the shared model to CUDA when available, and the
+    # runner then follows the model's device.
+    io = run.deterministic(
+        [T0], 3, model, source, KVBackend(), device=torch.device("cpu"), verbose=False
+    )
+    assert PrognosticRunner(model, source).device == torch.device("cpu")
     steps = list(PrognosticRunner(model, source).run_item(_item()))
     written = io["u10m"][0]  # time, lead_time, lat, lon
     for k, step in enumerate(steps):
