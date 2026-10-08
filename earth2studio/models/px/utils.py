@@ -15,8 +15,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-import warnings
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
 import xarray as xr
@@ -26,7 +25,10 @@ from earth2studio.utils.type import CoordinateSystem
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource, ForecastSource
 
-Hook = Callable[[xr.DataArray], xr.DataArray]
+Hook = Callable[
+    [xr.DataArray | tuple[xr.DataArray, ...]],
+    xr.DataArray | tuple[xr.DataArray, ...],
+]
 
 
 def _count(signature: Any) -> int:
@@ -40,7 +42,7 @@ def initial_condition(
 ) -> xr.DataArray | tuple[xr.DataArray, ...]:
     """Initial condition of a rollout: each input slot at its final lead time.
 
-    ``rollout_iterator`` yields forecasts only; drivers that publish the starting
+    ``create_iterator`` yields forecasts only; drivers that publish the starting
     fields take them from the inputs with this helper.
 
     Parameters
@@ -65,7 +67,7 @@ class PrognosticMixin:
     leading dimensions. Hooks belong to the iterator, which is the only path that
     owns a rollout loop. ``__call__`` is the single-step primitive and does not apply
     them: a caller holding a single step can transform the DataArray itself, whereas
-    nothing outside ``rollout_iterator`` can reach the outputs fed back between
+    nothing outside ``create_iterator`` can reach the outputs fed back between
     steps.
 
     ``front_hook``/``rear_hook`` are single callable slots, not a registration
@@ -73,10 +75,16 @@ class PrognosticMixin:
     one function and assigns that, so the order they run in is visible at the
     assignment site rather than spread across every place that registered one.
 
-    Wrappers that still define their own ``__call__``/``create_iterator`` override
-    the derived versions below, and inherit ``initialize``/``step`` stubs until they
-    are migrated. ``rollout_iterator`` wraps such a ``create_iterator``, dropping its
-    initial-condition yield.
+    Wrappers must declare explicit, fixed signatures for ``__call__``,
+    ``initialize``, ``step`` and ``create_iterator`` (contract rule P24).
+    The variadic methods below are generic helpers or stubs, not concrete wrapper
+    signatures. All four public execution methods are stubs to override.
+    Explicit ``__call__`` and ``create_iterator`` methods may delegate to
+    ``_default_call`` and ``_default_create_iterator``, respectively. These helpers
+    use ``initialize``/``step``; the iterator yields forecasts only and accepts
+    time-varying forcing through ``send``. Static forcing is initialization-only.
+    Inheriting this mixin is optional; implementations must satisfy the prognostic
+    protocol regardless of how their methods are implemented.
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
@@ -89,7 +97,9 @@ class PrognosticMixin:
     front_hook_interval: int = 1
 
     @staticmethod
-    def _default_hook(x: xr.DataArray) -> xr.DataArray:
+    def _default_hook(
+        x: xr.DataArray | tuple[xr.DataArray, ...],
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         return x
 
     # Typed as the Hook signature so assigning a plain function — the normal use
@@ -105,8 +115,7 @@ class PrognosticMixin:
 
     def initialize(
         self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+        *x: xr.DataArray,
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Start a rollout; migrated wrappers implement this."""
         raise NotImplementedError(
@@ -115,9 +124,8 @@ class PrognosticMixin:
 
     def step(
         self,
-        y: xr.DataArray | tuple[xr.DataArray, ...],
+        *y: xr.DataArray,
         state: Any,
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
     ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
         """Advance a rollout; migrated wrappers implement this."""
         raise NotImplementedError(
@@ -128,95 +136,75 @@ class PrognosticMixin:
         """Declare no forcing."""
         return None
 
-    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
-        """Recommend no source for any input or forcing slot."""
-        count = _count(self.input_coords()) + _count(  # type: ignore[attr-defined]
-            self.forcing_coords()
-        )
-        return (None,) * count
-
-    # The derived ``__call__``/``create_iterator`` take ``forcing`` through
-    # ``*args``/``**kwargs`` only so that unmigrated wrappers defining
-    # ``__call__(x)``/``create_iterator(x)`` still type check as overrides. The
-    # protocol declares the real signature ``(x, forcing=None)``; restore it here
-    # once no wrapper overrides these.
-
-    def __call__(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...], *args: Any, **kwargs: Any
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
-        """Advance one step from ``x`` without hooks, via ``initialize``."""
-        forcing = args[0] if args else kwargs.get("forcing")
-        if forcing is None and self.forcing_coords() is not None:
-            raise ValueError(f"{type(self).__name__} requires forcing")
-        return self.initialize(x, forcing)[0]
-
-    def rollout_iterator(
+    def default_sources(
         self,
-        x: xr.DataArray | tuple[xr.DataArray, ...],
-        forcing: xr.DataArray | tuple[xr.DataArray, ...] | None = None,
+    ) -> (
+        DataSource
+        | ForecastSource
+        | tuple[DataSource | ForecastSource | None, ...]
+        | None
+    ):
+        """Recommend no source for any input or forcing slot."""
+        return None
+
+    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
+        """Predict a forecast; wrappers implement this, optionally via ``_default_call``."""
+        raise NotImplementedError(f"{type(self).__name__} must implement __call__")
+
+    def _validate_initial_inputs(self, *x: xr.DataArray) -> None:
+        expected = _count(self.input_coords()) + _count(self.forcing_coords())  # type: ignore[attr-defined]
+        if len(x) != expected:
+            raise ValueError(
+                f"{type(self).__name__} requires {expected} input and forcing arrays; "
+                f"received {len(x)}"
+            )
+
+    def _default_call(
+        self, *x: xr.DataArray
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+        self._validate_initial_inputs(*x)
+        return self.initialize(*x)[0]
+
+    def create_iterator(
+        self,
+        *x: xr.DataArray,
     ) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],
         xr.DataArray | tuple[xr.DataArray, ...] | None,
         None,
     ]:
-        """Roll out from input ``x`` and forcing ``forcing`` via ``initialize``/``step``.
-        Subseqeuent rollout steps receive forcing at later lead times by ``send``.
-
-        Yields forecasts only, starting with the output of ``initialize``; take the
-        initial condition from ``initial_condition(x)``. ``forcing`` is the initial
-        window, consumed by ``initialize``. A value sent at a yield is the forcing
-        for the next ``step``; sending ``None`` (or calling ``next``) is valid only
-        for models without forcing. Each yield is one core computation: a model
-        computing several lead times per core call yields them together.
-
-        The front hook edits ``y`` before it is fed into the next step, so it never
-        sees the initial condition; edit ``x`` before calling instead. The rear hook
-        edits only the published output, including the first forecast.
-        """
-        if (
-            type(self).initialize is PrognosticMixin.initialize
-            and type(self).create_iterator is not PrognosticMixin.create_iterator
-        ):
-            # Unmigrated wrapper: drop the initial condition its own iterator yields.
-            legacy = self.create_iterator(x)
-            next(legacy)
-            yield from legacy
-            return
-
-        # Hooks see whatever payload type the model declares.
-        front_hook: Callable[[Any], Any] = self.front_hook
-        rear_hook: Callable[[Any], Any] = self.rear_hook
-        forced = self.forcing_coords() is not None
-        if forced and forcing is None:
-            raise ValueError(f"{type(self).__name__} requires forcing")
-
-        y, state = self.initialize(x, forcing)
-        while True:
-            forcing = yield rear_hook(y)
-            if forced and forcing is None:
-                raise ValueError(
-                    f"{type(self).__name__} requires forcing: send(...) it at each "
-                    "yield"
-                )
-            y, state = self.step(front_hook(y), state, forcing)
-
-    # Annotated as an Iterator for the same reason as ``__call__``; the generator
-    # still accepts forcing through ``send``.
-    def create_iterator(
-        self, x: xr.DataArray | tuple[xr.DataArray, ...], *args: Any, **kwargs: Any
-    ) -> Iterator[xr.DataArray | tuple[xr.DataArray, ...]]:
-        """Deprecated: yield ``initial_condition(x)``, then ``rollout_iterator``.
-
-        Kept so existing loops counting ``nsteps + 1`` yields keep their lead
-        times. The front hook no longer runs on the initial condition, and a value
-        sent at the 0th yield is ignored: the first forecast uses ``forcing``.
-        """
-        warnings.warn(
-            "create_iterator is deprecated; use rollout_iterator, which yields "
-            "forecasts only, and initial_condition(x) for the starting fields",
-            DeprecationWarning,
-            stacklevel=2,
+        """Create a forecast iterator; wrappers implement this."""
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement create_iterator"
         )
-        forcing = args[0] if args else kwargs.get("forcing")
-        yield initial_condition(x)
-        yield from self.rollout_iterator(x, forcing)
+
+    def _default_create_iterator(self, *x: xr.DataArray) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
+        None,
+    ]:
+        self._validate_initial_inputs(*x)
+        signatures = self.forcing_coords()
+        forcing_slots = (
+            ()
+            if signatures is None
+            else signatures if isinstance(signatures, tuple) else (signatures,)
+        )
+        expected = sum("lead_time" in slot.dims for slot in forcing_slots)
+        y, state = self.initialize(*x)
+        while True:
+            y = self.rear_hook(y)
+            forcing = yield y
+            forcing = (
+                ()
+                if forcing is None
+                else forcing if isinstance(forcing, tuple) else (forcing,)
+            )
+            if len(forcing) != expected:
+                raise ValueError(
+                    f"{type(self).__name__} requires {expected} forcing arrays per step; "
+                    f"received {len(forcing)}"
+                )
+            y = self.front_hook(y)
+            outputs = y if isinstance(y, tuple) else (y,)
+            y, state = self.step(*outputs, *forcing, state=state)

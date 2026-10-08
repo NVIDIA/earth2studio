@@ -11,6 +11,15 @@ before implementing a new wrapper; its reference skeleton is native DataArray co
 
 ## Public interface
 
+Wrappers must declare explicit, fixed named parameters for `__call__`, `initialize`,
+`step` and `create_iterator` (contract rule `P24`), one per array slot in declared
+order. `step` places positional-or-keyword `state` after the arrays. The protocol's
+`*x`/`*y` notation represents differing fixed arities across models; do not copy it
+into a wrapper or inherit variadic mixin execution methods without explicit overrides.
+An explicit method may delegate to a generic mixin helper.
+
+Single-input, single-output signatures include:
+
 - `__call__(x: xr.DataArray) -> xr.DataArray`
 - `create_iterator(x: xr.DataArray) -> Iterator[xr.DataArray]`
 - `input_coords() -> CoordinateSystem`
