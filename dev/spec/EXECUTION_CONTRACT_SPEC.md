@@ -26,6 +26,22 @@ Pipeline(driver.to_runner(ics={...})).run(items)
 
 `earth2studio.run` never imports the coupler; coupled runners live with it.
 
+## Work items
+
+A `WorkItem` is the unit `Pipeline` distributes, runs, and marks done:
+
+```python
+@dataclass(frozen=True)
+class WorkItem:
+    time: np.datetime64          # reference time: initialization, or first valid time
+    horizon: np.timedelta64      # last lead time to produce; 0 runs one step
+    member_ids: tuple[int, ...] = ()  # ensemble members; empty when deterministic
+```
+
+Items are immutable and hashable, so they key resume progress. `Pipeline` builds
+them; runners only read them. The horizon must be a multiple of the runner's
+step.
+
 ## Runner
 
 `earth2studio.run.runner`:
@@ -41,9 +57,12 @@ class Runner(Protocol):
 
 - **Built once, run per item.** A runner binds sources, never data; initial
   conditions and forcing are fetched inside `run_item`.
-- **Streams.** Each yielded mapping is one step, holding one output per stream
-  that published at that step. Streams separate outputs with different grids or
-  cadences, such as DLESyM's atmosphere and ocean.
+- **Streams.** A stream is a named sequence of outputs sharing one schema:
+  variables, grid, and lead-time pattern. `Pipeline` writes each to its own
+  store. Each yielded mapping is one step, holding one output per stream that
+  published at it. Outputs with different grids or cadences, such as DLESyM's
+  atmosphere and ocean, need separate streams. Names follow the producing model
+  or component and stay stable across runs.
 - **Schemas.** `output_coords(horizon)` gives each stream's coordinates for one
   item, including `lead_time` but excluding `time` and `ensemble`, which
   `Pipeline` adds. Runs may stop early; the schema is an upper bound.
@@ -87,7 +106,7 @@ store per stream; that is the main IO change.
 
 ## Built-in runners
 
-**`PrognosticRunner(prognostic, source=None, *, forcing=None, diagnostics=None)`**
+**`PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None)`**
 in `run`. Sources default to the model's `default_sources()`. The runner drives
 `create_iterator`, which yields forecasts only, so it publishes the initial
 condition itself as the first step, matching `run.deterministic`. Until every
@@ -97,8 +116,13 @@ every step; all of it appears in `data_requests`. The
 prognostic stream is `forecast`; each diagnostic adds a stream under the name the
 caller gives it. Member batching is not yet supported.
 
-**`DiagnosticRunner`** (planned) applies diagnostics directly to source data at
-each item's time, replacing the diagnostic-only paths in recipes.
+**`DiagnosticRunner(diagnostics, source=None, step=None)`** in `run` applies
+diagnostics directly to source data, as in downscaling an analysis. Step `k`
+fetches each diagnostic's inputs at the item's time plus `k * step`, so a
+`ForecastSource` supplies lead times and a `DataSource` supplies later valid
+times. Without `step`, an item is one step at lead time zero. Each diagnostic's
+stream is named by the caller, and sources default to each diagnostic's
+`default_sources()`.
 
 **Coupled runner**, with the coupler. Wraps the impact-modeling `Driver`. Per
 item it builds a driver for the item's window, fetches each component's initial
@@ -120,7 +144,8 @@ can become an optional runner capability once models expose explicit state.
 
 ## Phasing
 
-1. **Done.** `Runner`, `WorkItem`, `DataRequest`, and `PrognosticRunner`.
+1. **Done.** `Runner`, `WorkItem`, `DataRequest`, `PrognosticRunner`, and
+   `DiagnosticRunner`.
 2. **Pipeline.** Upstream `Pipeline`, work distribution, `OutputManager`, and
    progress markers. Replace the eval `forecast`, `diagnostic`, and `dlesym`
    pipelines with `PrognosticRunner` configurations.

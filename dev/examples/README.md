@@ -20,8 +20,8 @@ Runnable tutorials for proposed APIs and workflows.
 
 ## Execution contracts
 
-- `06_runner.py`: the built-in `PrognosticRunner` with a diagnostic stream, and a
-  hand-written runner that stops early.
+- `06_runner.py`: the built-in `PrognosticRunner` with a diagnostic stream,
+  `DiagnosticRunner` on source data, and a hand-written runner that stops early.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only

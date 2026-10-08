@@ -73,6 +73,18 @@ class Runner(Protocol):
     A runner is built once and reused across items. It binds sources, never
     data: field values, including initial conditions and forcing, are fetched
     inside :meth:`run_item`.
+
+    A stream is a named sequence of outputs sharing one structure: the same
+    variables, grid, and lead-time pattern. Supervision writes each stream to its
+    own store, keyed by its name. When implementing a runner:
+
+    - Give outputs with different grids or cadences separate streams, as with
+      DLESyM's atmosphere and ocean.
+    - Name streams after the model or component producing them, and keep names
+      stable across items and runs; they key output stores and resume.
+    - Declare every stream in :meth:`output_coords`. Each output must match its
+      stream's declaration.
+    - A stream may skip steps, as a slower component does; a step then omits it.
     """
 
     supports_member_batching: bool
@@ -118,6 +130,48 @@ def _module_device(model: object) -> torch.device:
     return torch.device("cpu")
 
 
+def _nsteps(horizon: np.timedelta64, step: np.timedelta64) -> int:
+    if horizon < np.timedelta64(0, "s"):
+        raise ValueError(f"Horizon {horizon} must be non-negative")
+    if horizon % step:
+        raise ValueError(f"Horizon {horizon} is not a multiple of {step}")
+    return int(horizon // step)
+
+
+def _fetch(
+    request: DataRequest,
+    signature: CoordinateSystem,
+    device: torch.device,
+    interp_method: str | None,
+) -> xr.DataArray:
+    x = fetch_data(
+        source=request.source,
+        time=request.time,
+        variable=request.variable,
+        lead_time=request.lead_time,
+        device=device,
+        target_grid=signature if interp_method else None,
+        regridder=interp_method or "nearest",
+    )
+    return _map_field(x, signature)
+
+
+def _diagnostic_coords(
+    diagnostic: DiagnosticModel, signature: CoordinateSystem, leads: np.ndarray
+) -> CoordSystem:
+    """Stream coordinates for ``diagnostic`` applied to fields like ``signature``."""
+    # Selects the diagnostic's variables and domain; never regrids.
+    output = diagnostic.output_coords(_map_field(signature, diagnostic.input_coords()))
+    return OrderedDict(
+        [("lead_time", leads)]
+        + [
+            (dim, output.coords[dim].values)
+            for dim in output.dims
+            if dim not in ("time", "lead_time") and output.sizes[dim]
+        ]
+    )
+
+
 class PrognosticRunner:
     """Roll one prognostic model forward, optionally applying diagnostics.
 
@@ -146,7 +200,6 @@ class PrognosticRunner:
         self,
         prognostic: PrognosticModel,
         source: Source | None = None,
-        *,
         forcing: tuple[Source, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
     ) -> None:
@@ -182,11 +235,7 @@ class PrognosticRunner:
 
     def nsteps(self, horizon: np.timedelta64) -> int:
         """Return the number of model steps needed to reach ``horizon``."""
-        if horizon < np.timedelta64(0, "s"):
-            raise ValueError(f"Horizon {horizon} must be non-negative")
-        if horizon % self.step:
-            raise ValueError(f"Horizon {horizon} is not a multiple of {self.step}")
-        return int(horizon // self.step)
+        return _nsteps(horizon, self.step)
 
     def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordSystem]:
         """Return each stream's coordinates for one item.
@@ -201,18 +250,7 @@ class PrognosticRunner:
         coords: dict[str, CoordSystem] = {"forecast": forecast}
         oc = self.prognostic.output_coords(self.input_signature)
         for name, diagnostic in self.diagnostics.items():
-            # Selects the diagnostic's variables and domain; never regrids.
-            signature = diagnostic.output_coords(
-                _map_field(oc, diagnostic.input_coords())
-            )
-            coords[name] = OrderedDict(
-                [("lead_time", forecast["lead_time"])]
-                + [
-                    (dim, signature.coords[dim].values)
-                    for dim in signature.dims
-                    if dim not in ("time", "lead_time") and signature.sizes[dim]
-                ]
-            )
+            coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
         return coords
 
     def _forcing_requests(
@@ -261,25 +299,17 @@ class PrognosticRunner:
             ),
         )
 
-    def _fetch(self, request: DataRequest, signature: CoordinateSystem) -> xr.DataArray:
-        interp_method = getattr(self.prognostic, "interp_method", None)
-        x = fetch_data(
-            source=request.source,
-            time=request.time,
-            variable=request.variable,
-            lead_time=request.lead_time,
-            device=self.device,
-            target_grid=signature if interp_method else None,
-            regridder=interp_method or "nearest",
-        )
-        if "lead_time" not in signature.dims:
-            x = x.isel(lead_time=0, drop=True)
-        return _map_field(x, signature)
-
     def _fetch_forcing(
         self, requests: tuple[tuple[DataRequest, CoordinateSystem], ...]
     ) -> tuple[xr.DataArray, ...]:
-        return tuple(self._fetch(request, signature) for request, signature in requests)
+        interp_method = getattr(self.prognostic, "interp_method", None)
+        fields = []
+        for request, signature in requests:
+            x = _fetch(request, signature, self.device, interp_method)
+            if "lead_time" not in signature.dims:  # Static slot.
+                x = x.isel(lead_time=0, drop=True)
+            fields.append(x)
+        return tuple(fields)
 
     def _publish(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
         outputs = {"forecast": x}
@@ -292,7 +322,12 @@ class PrognosticRunner:
         if len(item.member_ids) > 1:
             raise ValueError("PrognosticRunner does not batch ensemble members")
         nsteps = self.nsteps(item.horizon)
-        x = self._fetch(self._initial_request(item), self.input_signature)
+        x = _fetch(
+            self._initial_request(item),
+            self.input_signature,
+            self.device,
+            getattr(self.prognostic, "interp_method", None),
+        )
         yield self._publish(initial_condition(x))
         if nsteps == 0:
             return
@@ -310,3 +345,117 @@ class PrognosticRunner:
                 yield self._publish(y)
         finally:
             iterator.close()
+
+
+class DiagnosticRunner:
+    """Apply diagnostics directly to source data, without a prognostic model.
+
+    Step ``k`` fetches each diagnostic's inputs at the item's time plus
+    ``k * step`` and yields its output under the diagnostic's stream name, from
+    lead time zero through the item's horizon. A
+    :class:`~earth2studio.data.ForecastSource` supplies forecast lead times; a
+    :class:`~earth2studio.data.DataSource` supplies later valid times.
+
+    Parameters
+    ----------
+    diagnostics : Mapping[str, DiagnosticModel]
+        Diagnostics keyed by stream name. Each single-input-slot diagnostic
+        fetches its own inputs.
+    source : DataSource | ForecastSource, optional
+        Source for every diagnostic, by default each diagnostic's recommendation
+    step : np.timedelta64, optional
+        Spacing between steps, by default none: each item is one step and its
+        horizon must be zero
+    """
+
+    supports_member_batching = False  # Member seeding is not implemented.
+
+    def __init__(
+        self,
+        diagnostics: Mapping[str, DiagnosticModel],
+        source: Source | None = None,
+        step: np.timedelta64 | None = None,
+    ) -> None:
+        if not diagnostics:
+            raise ValueError("DiagnosticRunner needs at least one diagnostic")
+        self.diagnostics = dict(diagnostics)
+        self.signatures: dict[str, CoordinateSystem] = {}
+        self.sources: dict[str, Source] = {}
+        for name, diagnostic in self.diagnostics.items():
+            signature = diagnostic.input_coords()
+            if isinstance(signature, tuple):
+                raise ValueError("DiagnosticRunner supports single-input-slot models")
+            if "variable" not in signature.dims or not signature.sizes["variable"]:
+                raise ValueError(f"Diagnostic {name!r} declares no input variables")
+            recommended = recommended_sources(diagnostic)
+            if isinstance(recommended, tuple):
+                recommended = recommended[0]
+            chosen = source if source is not None else recommended
+            if chosen is None:
+                raise ValueError(f"Diagnostic {name!r} needs a source")
+            self.signatures[name] = signature
+            self.sources[name] = chosen
+        self.step = step
+        self.device = _module_device(next(iter(self.diagnostics.values())))
+
+    def to(self, device: torch.device) -> DiagnosticRunner:
+        """Move every diagnostic to ``device`` and fetch onto it."""
+        self.device = torch.device(device)
+        self.diagnostics = {k: v.to(self.device) for k, v in self.diagnostics.items()}
+        return self
+
+    def lead_times(self, horizon: np.timedelta64) -> np.ndarray:
+        """Return the lead time of every step through ``horizon``."""
+        if self.step is None:
+            if horizon != np.timedelta64(0, "s"):
+                raise ValueError("A nonzero horizon needs a step")
+            return np.array([np.timedelta64(0, "h")])
+        return np.arange(_nsteps(horizon, self.step) + 1) * self.step
+
+    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordSystem]:
+        """Return each stream's coordinates for one item.
+
+        Includes ``lead_time``; excludes ``time`` and ``ensemble``, which
+        supervision adds.
+        """
+        leads = self.lead_times(horizon)
+        return {
+            name: _diagnostic_coords(diagnostic, self.signatures[name], leads)
+            for name, diagnostic in self.diagnostics.items()
+        }
+
+    def _requests(self, item: WorkItem, lead: np.timedelta64) -> dict[str, DataRequest]:
+        return {
+            name: DataRequest(
+                self.sources[name],
+                np.array([item.time]),
+                signature["variable"].values,
+                np.array([lead]),
+            )
+            for name, signature in self.signatures.items()
+        }
+
+    def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
+        """Describe every diagnostic's fetch at every step of ``item``."""
+        return tuple(
+            request
+            for lead in self.lead_times(item.horizon)
+            for request in self._requests(item, lead).values()
+        )
+
+    def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
+        """Fetch inputs and apply every diagnostic at each step."""
+        if len(item.member_ids) > 1:
+            raise ValueError("DiagnosticRunner does not batch ensemble members")
+        for lead in self.lead_times(item.horizon):
+            outputs = {}
+            for name, request in self._requests(item, lead).items():
+                diagnostic = self.diagnostics[name]
+                x = _fetch(
+                    request,
+                    self.signatures[name],
+                    self.device,
+                    getattr(diagnostic, "interp_method", None),
+                )
+                outputs[name] = diagnostic(x)
+            yield outputs

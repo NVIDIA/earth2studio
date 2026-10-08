@@ -17,8 +17,10 @@
 """Built-in forecast workflows and work-item runners.
 
 A :class:`~earth2studio.run.runner.Runner` executes one
-:class:`~earth2studio.run.runner.WorkItem`; :class:`PrognosticRunner` is the built-in
-single-model runner. Coupled runners live with the coupler, never here.
+:class:`~earth2studio.run.runner.WorkItem`. The built-ins are
+:class:`PrognosticRunner`, which rolls out one prognostic model, and
+:class:`DiagnosticRunner`, which applies diagnostics to source data. Coupled
+runners live with the coupler, never here.
 """
 
 from collections import OrderedDict
@@ -40,7 +42,13 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     _map_field,
     _output_dimensions,
 )
-from earth2studio.run.runner import DataRequest, PrognosticRunner, Runner, WorkItem
+from earth2studio.run.runner import (
+    DataRequest,
+    DiagnosticRunner,
+    PrognosticRunner,
+    Runner,
+    WorkItem,
+)
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
@@ -55,6 +63,7 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 __all__ = [
     "DataRequest",
+    "DiagnosticRunner",
     "PrognosticRunner",
     "Runner",
     "WorkItem",

@@ -19,8 +19,8 @@
 
 A runner holds models and bound sources and executes one work item. ``Pipeline``
 will drive any runner the same way: distribute items, filter and write each
-yielded stream, and resume at item granularity. This example covers the built-in
-single-model runner and a hand-written one.
+yielded stream, and resume at item granularity. This example covers both built-in
+runners and a hand-written one.
 
 Uses FCN's real execution path with an add-one core and a tiny synthetic
 signature, fed by a constant zero source, so step ``k`` holds the value ``k``.
@@ -35,9 +35,15 @@ import torch
 import xarray as xr
 
 from earth2studio.data import Constant
-from earth2studio.models.dx import Identity
+from earth2studio.models.dx import DerivedWS, Identity
 from earth2studio.models.px.fcn import FCN
-from earth2studio.run import DataRequest, PrognosticRunner, Runner, WorkItem
+from earth2studio.run import (
+    DataRequest,
+    DiagnosticRunner,
+    PrognosticRunner,
+    Runner,
+    WorkItem,
+)
 from earth2studio.utils import coord_array
 from earth2studio.utils.coords import CoordSystem
 
@@ -91,6 +97,22 @@ print(
 )
 (request,) = runner.data_requests(item)
 print(request.variable, request.lead_time)
+
+# %%
+# Diagnostics on source data
+# --------------------------
+# ``DiagnosticRunner`` skips the prognostic model and applies diagnostics to
+# fetched data. Step ``k`` reads the source at the item's time plus ``k * step``.
+
+global_source = Constant(
+    OrderedDict(lat=np.linspace(90, -90, 721), lon=np.linspace(0, 359.75, 1440)), 1
+)
+wind = DiagnosticRunner(
+    {"ws10m": DerivedWS(levels=["10m"])}, global_source, step=np.timedelta64(6, "h")
+)
+wind_steps = list(wind.run_item(item))
+np.testing.assert_equal(len(wind_steps), 4)
+np.testing.assert_allclose(wind_steps[-1]["ws10m"].values, np.hypot(1, 1), rtol=1e-6)
 
 # %%
 # A hand-written runner

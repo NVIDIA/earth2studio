@@ -32,7 +32,7 @@ from earth2studio.io import KVBackend
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.run import PrognosticRunner, Runner, WorkItem
+from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner, WorkItem
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.type import CoordinateSystem
 
@@ -59,10 +59,16 @@ class _TinyFCN(FCN):
 
 
 class _Zeros:
+    fill = 0.0
+
+    def __init__(self) -> None:
+        self.times: list[np.datetime64] = []
+
     def __call__(self, time: np.ndarray, variable: np.ndarray) -> xr.DataArray:
         time, variable = np.atleast_1d(time), np.atleast_1d(variable)
+        self.times.extend(time)
         return xr.DataArray(
-            np.zeros((len(time), len(variable), 2, 3), dtype=np.float32),
+            np.full((len(time), len(variable), 2, 3), self.fill, dtype=np.float32),
             dims=("time", "variable", "lat", "lon"),
             coords={
                 "time": time,
@@ -71,6 +77,31 @@ class _Zeros:
                 "lon": [0, 10, 20],
             },
         )
+
+
+class _Ones(_Zeros):
+    fill = 1.0
+
+
+class _WindSpeed:
+    """Diagnostic computing 10 m wind speed from its components."""
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": ["u10m", "v10m"], "lat": [10, 0], "lon": [0, 10, 20]},
+            dynamic=("batch",),
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        return coord_array_like(input_coords, {"variable": ["ws10m"]})
+
+    def to(self, device: torch.device) -> "_WindSpeed":
+        return self
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        speed = np.hypot(x.sel(variable="u10m"), x.sel(variable="v10m"))
+        return speed.expand_dims(variable=["ws10m"], axis=x.get_axis_num("variable"))
 
 
 class _Forced(PrognosticMixin):
@@ -207,3 +238,42 @@ def test_negative_horizon_is_rejected_before_fetching() -> None:
 
 def test_device_follows_the_model() -> None:
     assert PrognosticRunner(_model(), _Zeros()).device == torch.device("cpu")
+
+
+def test_diagnostic_runner_steps_through_source_times() -> None:
+    source = _Ones()
+    runner: Runner = DiagnosticRunner(
+        {"wind": _WindSpeed()}, source, step=np.timedelta64(6, "h")
+    )
+    steps = list(runner.run_item(_item(12)))
+    assert [set(s) for s in steps] == [{"wind"}] * 3
+    np.testing.assert_allclose(steps[-1]["wind"].values, np.hypot(1, 1))
+    np.testing.assert_array_equal(steps[-1]["wind"]["variable"], ["ws10m"])
+    hours = [int((t - T0) / np.timedelta64(1, "h")) for t in source.times]
+    assert hours == [0, 6, 12]
+    coords = runner.output_coords(_item(12).horizon)["wind"]
+    np.testing.assert_array_equal(
+        coords["lead_time"], np.array([0, 6, 12], dtype="timedelta64[h]")
+    )
+    assert list(coords["variable"]) == ["ws10m"]
+    requests = runner.data_requests(_item(12))
+    assert [r.lead_time.tolist() for r in requests] == [
+        [lead] for lead in coords["lead_time"].tolist()
+    ]
+
+
+def test_diagnostic_runner_without_step_runs_one_step() -> None:
+    runner = DiagnosticRunner({"wind": _WindSpeed()}, _Ones())
+    assert len(list(runner.run_item(_item(0)))) == 1
+    with pytest.raises(ValueError):
+        list(runner.run_item(_item(6)))
+
+
+def test_diagnostic_runner_needs_a_source() -> None:
+    with pytest.raises(ValueError):
+        DiagnosticRunner({"wind": _WindSpeed()})
+
+
+def test_diagnostic_runner_needs_declared_input_variables() -> None:
+    with pytest.raises(ValueError):
+        DiagnosticRunner({"copy": Identity()}, _Ones())
