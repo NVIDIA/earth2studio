@@ -181,9 +181,4 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Forecasts at +6h, +12h, and so on relative to the final input lead.
             Resume with ``next``; supplied forcing is rejected by the helper.
         """
-        return cast(
-            Generator[
-                xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None
-            ],
-            self._default_create_iterator(x),
-        )
+        yield from self._default_create_iterator(x)

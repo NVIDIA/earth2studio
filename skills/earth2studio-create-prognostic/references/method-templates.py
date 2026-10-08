@@ -146,4 +146,4 @@ def create_iterator_template(self, x: xr.DataArray) -> Generator[
     None,
 ]:
     """Delegate forecasts-only iteration; history lives in returned state."""
-    return self._default_create_iterator(x)
+    yield from self._default_create_iterator(x)
