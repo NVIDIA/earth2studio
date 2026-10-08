@@ -250,8 +250,10 @@ threads; run those components serially within a process.
 
 Use `check_prognostic_contract(model)` with mock weights. It probes single/multiple
 slots, fixed signatures through decorators, forecasts-only iteration, forcing,
-state serialization/replay, hooks and ownership. It returns unevaluated rules with
-reasons; pin those explicitly. `rollout=False` intentionally disables execution
+state replay, hooks and ownership. Serialization (`P21`) is skipped and needs
+component-specific tests when checkpoint integration is requested. The checker
+returns unevaluated rules with reasons; pin those explicitly.
+`rollout=False` intentionally disables execution
 checks and is not a substitute for full conformance. Keep model-specific tests for
 numerical correctness, source ordering and absence of internal fetching, which
 generic probes cannot prove. Update drivers that count `nsteps + 1` yields when

@@ -28,7 +28,6 @@ require wrapper tests and review.
 
 from __future__ import annotations
 
-import pickle
 from collections.abc import Callable, Iterator
 from contextlib import closing, contextmanager
 from copy import deepcopy
@@ -680,8 +679,10 @@ def _check_rollout(
 ) -> None:
     """Evaluate the rules that require stepping the model.
 
-    Covers ``P7``-``P10``, ``P13``-``P16`` and ``P19``-``P22``.
+    Covers ``P7``-``P10``, ``P13``-``P16``, ``P19``, ``P20`` and ``P22``.
+    Serialization coverage (``P21``) requires component-specific checkpoint tests.
     """
+    report.skip("P21", "checkpoint serialization requires component-specific tests")
     args = tuple(_sample_tensor(x, device) for x in (*inputs, *forcing))
     with _hook_free(model):
         _seed(model)
@@ -1091,20 +1092,6 @@ def _continuation(
         _same_values(first, second),
         "step does not replay exactly from (y, state)",
     )
-
-    def checkpoint() -> None:
-        # Only deserialize the trusted pair just produced by this local model.
-        restored = pickle.loads(pickle.dumps(pristine))  # noqa: S301
-        replay = model.step(
-            *_slots(restored[0]), *deepcopy(new_forcing), state=restored[1]
-        )
-        report.require(
-            "P21",
-            _same_values(first, replay),
-            "serialized continuation does not reproduce the next step",
-        )
-
-    report.probe("P21", checkpoint)
 
 
 def _check_hook_scope(

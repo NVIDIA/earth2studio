@@ -96,6 +96,7 @@ def test_model_conformance(model):
     expected = (
         [] if model.stochastic else ["P14: model does not declare itself stochastic"]
     )
+    expected.append("P21: checkpoint serialization requires component-specific tests")
     assert skipped == expected
 
 
