@@ -605,8 +605,11 @@ def _signatures(
             parameters = list(signature(getattr(model, name)).parameters.values())
             report.require(
                 rule,
-                all(p.kind != Parameter.VAR_POSITIONAL for p in parameters),
-                f"{name} must declare fixed named array parameters",
+                all(
+                    p.kind not in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
+                    for p in parameters
+                ),
+                f"{name} must declare explicit parameters without *args or **kwargs",
             )
             positional = [
                 p
@@ -1055,13 +1058,12 @@ def _call_readonly(
     function: Callable[..., Any],
     args: tuple[Any, ...],
     rule: str,
-    **kwargs: Any,
 ) -> Any:
-    saved = deepcopy((args, kwargs))
-    result = function(*args, **kwargs)
+    saved = deepcopy(args)
+    result = function(*args)
     _check_immutability(
         report,
-        (args, kwargs),
+        args,
         saved,
         function.__name__ if hasattr(function, "__name__") else "__call__",
         rule,
@@ -1080,9 +1082,7 @@ def _continuation(
     y, state = pair
     new_forcing = _forcing(forcing, _slots(y), device)
     pristine = deepcopy(pair)
-    first = _call_readonly(
-        report, model.step, (*_slots(y), *new_forcing), "P19", state=state
-    )
+    first = _call_readonly(report, model.step, (*_slots(y), *new_forcing, state), "P19")
     _matches(report, first[0], expected, "P9")
     # Reseeding the model must not affect a rollout whose RNG position is in state.
     _seed(model, 17)

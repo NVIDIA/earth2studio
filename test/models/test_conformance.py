@@ -329,9 +329,15 @@ def test_initialization_must_advance_lead():
 @pytest.mark.parametrize(
     "method", ["__call__", "initialize", "step", "create_iterator"]
 )
-def test_variadic_wrappers_rejected(method):
+@pytest.mark.parametrize("variadic", ["positional", "keyword"])
+def test_variadic_wrappers_rejected(method, variadic):
     model = ToyPrognostic()
-    setattr(model, method, lambda *args, **kwargs: None)
+    if variadic == "positional":
+        setattr(model, method, lambda *args: None)
+    elif method == "step":
+        setattr(model, method, lambda y, state, **kwargs: None)
+    else:
+        setattr(model, method, lambda x, **kwargs: None)
     assert "P24" in violations(model, rollout=False)
 
 
