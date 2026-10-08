@@ -27,13 +27,26 @@ import xarray as xr
 
 from earth2studio.grids import GridDefinition
 from earth2studio.models.batch import batch_func
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
 class SimpleDiagnostic(torch.nn.Module):
-    """Compute wind speed on a configured grid without model weights."""
+    """Compute wind speed on the input device without model weights.
+
+    Parameters
+    ----------
+    grid : GridDefinition | str, optional
+        Configured lat/lon grid, by default "latlon-0.25deg".
+    """
+
+    stochastic: bool = False
 
     def __init__(self, grid: GridDefinition | str = "latlon-0.25deg") -> None:
         super().__init__()
@@ -53,10 +66,26 @@ class SimpleDiagnostic(torch.nn.Module):
         handshake_dataarray(input_coords, self.input_coords())
         return coord_array_like(input_coords, {"variable": ["ws10m"]})
 
+    def default_sources(self) -> None:
+        """Recommend no input provider; the caller supplies the field."""
+        return None
+
     @torch.inference_mode()
     @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Return labelled wind speed on the input device."""
+        """Return labelled wind speed on the input device.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Zonal and meridional wind, with arbitrary leading dimensions.
+
+        Returns
+        -------
+        xr.DataArray
+            Wind speed matching ``output_coords(x)``.
+        """
+        handshake_nonempty(x)
         signature = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         output = torch.sqrt(tensor[:, :1] ** 2 + tensor[:, 1:2] ** 2)

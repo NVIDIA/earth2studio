@@ -23,12 +23,15 @@ only when explicitly enabled. Never replace core numerical assertions with shape
 checks alone. Stochastic mocks must exercise the wrapper's real seeding mechanism.
 """
 
+import inspect
+
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 
 from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.px.base import PrognosticModel
 from earth2studio.utils.coords import coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 
@@ -58,12 +61,19 @@ def test_model_call(model, device):
 
 def test_model_iter(model):
     x = make_input(model)
+    if model.stochastic:
+        model.set_rng(42)
+    expected, state = model.initialize(x)
+    if model.stochastic:
+        model.set_rng(42)
     iterator = model.create_iterator(x)
     first = next(iterator)
     saved = first.copy(deep=True)
-    xr.testing.assert_identical(first, x.isel(lead_time=slice(-1, None)))
+    xr.testing.assert_identical(first, expected)
+    handshake_dataarray(first, model.output_coords(x))
     prediction = next(iterator)
-    handshake_dataarray(prediction, model.output_coords(x))
+    expected_next, _ = model.step(expected, state=state)
+    xr.testing.assert_identical(prediction, expected_next)
     next(iterator)
     xr.testing.assert_identical(first, saved)
     iterator.close()
@@ -76,9 +86,37 @@ def test_model_exceptions(model):
 
 
 def test_model_conformance(model):
-    # The returned list contains structurally unevaluated rules. Pin any expected
-    # entries specifically; actual violations raise and must not be suppressed.
+    # P1/P11: check the required public members, including sources and forcing.
+    # Structural protocol checks do not validate signatures or runtime behavior.
+    assert isinstance(model, PrognosticModel)
+    assert isinstance(model.stochastic, bool)
+    # Probes forecasts-only iteration, explicit state/replay, slots and forcing.
+    # Keep numerical wrapper tests too; generic probes cannot validate core math.
     skipped = check_prognostic_contract(model)
-    assert skipped == (
+    expected = (
         [] if model.stochastic else ["P14: model does not declare itself stochastic"]
     )
+    expected.append("P21: checkpoint serialization requires component-specific tests")
+    assert skipped == expected
+
+
+def test_model_signatures(model):
+    # P24: also document the wrapper's intended fixed signature explicitly.
+    for name in ("__call__", "initialize", "step", "create_iterator"):
+        parameters = inspect.signature(getattr(model, name)).parameters
+        assert all(
+            p.kind != inspect.Parameter.VAR_POSITIONAL for p in parameters.values()
+        )
+        if name == "step":
+            assert parameters["state"].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+
+
+# Forced/multi-slot cases: supply input slots then full forcing windows to
+# initialize/create_iterator. Compare send(new_forcing) with step(*outputs,
+# *dynamic_forcing, state=state); normalize a single array to (array,) first.
+# Cover static forcing omitted after initialization, missing/wrong forcing,
+# additional available frames, complete multi-lead chunks, and source slot order.
+# Hook tests: rear runs on first forecast; front starts only before step; both
+# results feed recurrence. In-place front edits intentionally change prior yields.
+# Seeded tests: compare reset rollouts, differing seeds, reset=False continuation,
+# global RNG before/after, and replay unaffected by model.set_rng mid-rollout.
