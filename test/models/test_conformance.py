@@ -58,14 +58,14 @@ class ToyPrognostic(torch.nn.Module, PrognosticMixin):
         )
         return coord_array_like(x, {"lead_time": lead + DT})
 
-    def _advance(self, x):
+    def _forward(self, x):
         return from_torch(x.e2s.to_torch()[0] + 1, self.output_coords(x))
 
     def initialize(self, x):
-        return self._advance(x), None
+        return self._forward(x), None
 
     def step(self, y, state):
-        return self._advance(y), None
+        return self._forward(y), None
 
     def __call__(self, x):
         return self._default_call(x)
@@ -105,12 +105,12 @@ class ForcedToy(ToyPrognostic):
     def initialize(self, x, static, forcing):
         handshake_dataarray(static, self.forcing_coords()[0])
         handshake_dataarray(forcing, self.forcing_coords()[1])
-        return self._advance(x), static.copy(deep=True)
+        return self._forward(x), static.copy(deep=True)
 
     def step(self, y, forcing, state):
         expected = coord_array_like(y)
         handshake_dataarray(forcing, expected)
-        return self._advance(y), state.copy(deep=True)
+        return self._forward(y), state.copy(deep=True)
 
     def __call__(self, x, static, forcing):
         return self._default_call(x, static, forcing)
@@ -176,7 +176,7 @@ class ChunkedToy(ToyPrognostic):
             x, {"lead_time": x.lead_time.values[-1] + np.array([DT, 2 * DT])}
         )
 
-    def _advance(self, x):
+    def _forward(self, x):
         last = x.isel(lead_time=[-1])
         data = last.e2s.to_torch()[0]
         return from_torch(
@@ -240,7 +240,7 @@ def test_reset_false_preserves_seed():
 def test_step_requires_valid_forcing():
     class Bad(ForcedToy):
         def step(self, y, forcing, state):
-            return self._advance(y), state.copy(deep=True)
+            return self._forward(y), state.copy(deep=True)
 
     assert "P22" in violations(Bad())
 
@@ -302,11 +302,11 @@ def test_keyword_only_state_rejected():
 def test_state_mutation_and_replay():
     class Bad(ToyPrognostic):
         def initialize(self, x):
-            return self._advance(x), {"count": 0}
+            return self._forward(x), {"count": 0}
 
         def step(self, y, state):
             state["count"] += 1
-            return self._advance(y) + state["count"], state
+            return self._forward(y) + state["count"], state
 
     assert "P19" in violations(Bad())
 
@@ -314,7 +314,7 @@ def test_state_mutation_and_replay():
 def test_unserializable_state():
     class Bad(ToyPrognostic):
         def initialize(self, x):
-            return self._advance(x), lambda: None
+            return self._forward(x), lambda: None
 
     assert "P21" in violations(Bad())
 
@@ -322,7 +322,7 @@ def test_unserializable_state():
 def test_call_equivalence():
     class Bad(ToyPrognostic):
         def __call__(self, x):
-            return self._advance(x) + 3
+            return self._forward(x) + 3
 
     assert "P20" in violations(Bad())
 
@@ -333,7 +333,7 @@ def test_missing_forcing_rejected():
             y, state = self.initialize(x, static, forcing)
             while True:
                 yield y
-                y = self._advance(y)
+                y = self._forward(y)
 
     assert "P22" in violations(Bad())
 
@@ -348,9 +348,9 @@ def test_source_slot_count():
 
 def test_input_mutation():
     class Bad(ToyPrognostic):
-        def _advance(self, x):
+        def _forward(self, x):
             x.data += 1
-            return super()._advance(x)
+            return super()._forward(x)
 
     assert "P15" in violations(Bad())
 
@@ -386,7 +386,7 @@ def test_hook_order_and_scope(missing):
 def test_hooks_on_initialize():
     class Bad(ToyPrognostic):
         def initialize(self, x):
-            return self.rear_hook(self._advance(x)), None
+            return self.rear_hook(self._forward(x)), None
 
     assert "P10" in violations(Bad())
 
@@ -410,8 +410,8 @@ def test_planning_mutation():
 
 def test_invalid_metadata():
     class Bad(ToyPrognostic):
-        def _advance(self, x):
-            y = super()._advance(x)
+        def _forward(self, x):
+            y = super()._forward(x)
             y.attrs["earth2studio_crs"] = "bad"
             return y
 
