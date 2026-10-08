@@ -62,6 +62,16 @@ class Identity(torch.nn.Module):
         """
         return coord_array_like(input_coords)
 
+    def default_sources(self) -> None:
+        """Return no recommended data source for the input slot.
+
+        Returns
+        -------
+        None
+            No recommended data source.
+        """
+        return None
+
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Return the labelled field, preserving its device and metadata."""

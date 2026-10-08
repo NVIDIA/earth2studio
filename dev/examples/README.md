@@ -20,6 +20,11 @@ Runnable tutorials for proposed APIs and workflows.
 - `07_io_backends.py`: IO templates planned from model signatures, label-based
   DataArray writes, and metadata round trips with the in-memory XarrayBackend.
 
+## Execution contracts
+
+- `06_runner.py`: the built-in `PrognosticRunner` with a diagnostic stream,
+  `DiagnosticRunner` on source data, and a hand-written runner that stops early.
+
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only
 synthetic coordinates and requires no model weights or downloads.

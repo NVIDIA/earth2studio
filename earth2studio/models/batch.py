@@ -66,10 +66,11 @@ class batch_func:
 
     Note
     ----
-    When decorating a method of a model, such as `__call__`, the method is required to
-    have a signature of `(self, *args: Any, **kwargs: Any) -> tuple[torch.Tensor, CoordSystem]`.
-    All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
-    passed through to the wrapped function without modification.
+    Decorated model methods declare explicit, named parameters. The decorator's
+    variadic forwarding is an internal implementation detail and preserves the
+    wrapped method's signature. For legacy tensor methods, positional arguments
+    are explicit (x, CoordSystem) pairs and the result is a
+    tuple[torch.Tensor, CoordSystem]. Keyword arguments pass through unchanged.
 
     Example
     -------
