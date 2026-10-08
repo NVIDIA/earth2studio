@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -284,32 +284,22 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         xr.DataArray
             Forecast six hours in the future on the same device.
         """
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        """Compute the first forecast; FCN needs no additional recurrent state."""
         handshake_nonempty(x)
-        x, _ = self._restore_checkpoint_state(x)
-        x = self._step(x)
-        self._save_checkpoint_state(x)
-        return x
+        return self._step(x), None
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        x, restored = self._restore_checkpoint_state(x)
-        handshake_nonempty(x)
-        self.output_coords(x)
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        """Advance the previous forecast without modifying it or using hooks."""
+        if state is not None:
+            raise ValueError("FCN state must be None")
+        return self.initialize(y)
 
-        if not restored:
-            self._save_checkpoint_state(x)
-            yield x.copy(deep=False)
-
-        while True:
-            x = self.rear_hook(self._step(self.front_hook(x)))
-            self._save_checkpoint_state(x)
-            yield x.copy(deep=False)
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
         """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+        prognostic model, starting with the first prediction.
 
         Parameters
         ----------
@@ -320,7 +310,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Yields
         ------
         xr.DataArray
-            Initial condition followed by six-hour forecast steps. A restored
-            level-two checkpoint resumes at the next step.
+            Six-hour forecast steps, excluding the initial condition.
         """
-        yield from self._default_generator(x)
+        return self._default_create_iterator(x)

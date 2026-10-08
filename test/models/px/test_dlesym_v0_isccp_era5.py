@@ -351,8 +351,6 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
     iterator = model.create_iterator(field)
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
-    initial_x = next(iterator)
-    xr.testing.assert_identical(initial_x, field.isel(lead_time=slice(-1, None)))
 
     for i in range(2):
         out = next(iterator)
@@ -554,7 +552,6 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
     iterator = model.create_iterator(field)
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
-    next(iterator)  # initial condition
 
     for i in range(2):
         out = next(iterator)

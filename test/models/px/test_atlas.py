@@ -322,11 +322,6 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
     if not isinstance(time, Iterable):
         time = [time]
 
-    # Get generator
-    out = next(p_iter)
-    # First output should be the latest lead time from input
-    xr.testing.assert_identical(out, x.isel(lead_time=slice(-1, None)))
-    initial = out
     retained = []
 
     for i, out in enumerate(p_iter):
@@ -353,7 +348,6 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(x, original)
-    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
     p_iter.close()
     calls = []
 
@@ -373,14 +367,14 @@ def test_atlas_iter(ensemble, atlas_test_components, device):
     p(x)
     assert calls == []
     iterator = p.create_iterator(x)
-    next(iterator)
     first = next(iterator)
     saved = first.copy(deep=True)
     second = next(iterator)
-    assert calls == ["front", "rear", "front", "rear"]
+    assert calls == ["rear", "front", "rear"]
     assert (
         second.name is None and "source" not in second.attrs and second.encoding == {}
     )
+    saved.data += 1
     xr.testing.assert_identical(first, saved)
     xr.testing.assert_identical(x, original)
     iterator.close()

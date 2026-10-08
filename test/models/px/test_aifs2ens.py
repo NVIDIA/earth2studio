@@ -725,9 +725,7 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
     def rollout(seed):
         p.set_rng(seed)
         iterator = p.create_iterator(field)
-        initial = next(iterator)
         retained = [next(iterator) for _ in range(3)]
-        xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
         iterator.close()
         return retained
 
@@ -906,7 +904,6 @@ def test_aifs2ens_iter(ensemble, device, backend):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
     for i, out in enumerate(p_iter):
         out_coords = out.coords
         assert len(out.shape) == 6

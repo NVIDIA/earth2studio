@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from datetime import datetime, timezone
 
 import numpy as np
@@ -349,7 +349,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -376,20 +376,36 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, coords = x.e2s.to_torch()
-        out = self._forward(tensor.to(self.z.device).clone(), coords)
+        out = self._forward_tensor(tensor.to(self.z.device).clone(), coords)
         result = from_torch(out, signature, name=x.name)
         result.encoding = x.encoding.copy()
         return result
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input, then forecasts with hooks in original dimensions."""
+    def initialize(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Compute the first forecast and retain its missing history and rollout index."""
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        while True:
-            history = self.front_hook(x.copy(deep=True))
-            out = self.rear_hook(self(history))
-            self.preds_idx += 1
-            x = _aurora_history(history, out)
-            yield out
+        return self._forward(x, 0)
+
+    def _forward(
+        self, x: xr.DataArray, index: int
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        previous = self.preds_idx
+        self.preds_idx = index
+        try:
+            out = self(x)
+        finally:
+            self.preds_idx = previous
+        return out, (x.isel(lead_time=slice(-1, None)).copy(deep=True), index + 1)
+
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, int]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Advance from a previous forecast and explicit history and rollout index."""
+        history, index = state
+        return self._forward(_aurora_history(history, y), index)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield forecasts starting with the first prediction."""
+        return self._default_create_iterator(x)

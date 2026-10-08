@@ -16,8 +16,11 @@
 
 import json
 import os
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 import numpy as np
 import torch
@@ -140,6 +143,14 @@ def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
         t.astype("datetime64[us]") - np.datetime64("1970-01-01T00:00:00", "us")
     ).astype(int)
     return _EPOCH + timedelta(microseconds=int(delta_us))
+
+
+@dataclass
+class _AtlasState:
+    history: xr.DataArray
+    latents: Any
+    seed: int
+    rng: dict[str, torch.Tensor] | None
 
 
 @check_optional_dependencies()
@@ -394,7 +405,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray from two input frames, without hooks."""
 
-        out, _ = self._call_with_latent(x)
+        out, _ = self.initialize(x)
         return out
 
     @torch.inference_mode()
@@ -436,25 +447,37 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         result.encoding = x.encoding.copy()
         return restore(result), latents_out
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input frame then six-hour forecasts with cached latents."""
-        yield from self._default_generator(x)
-
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, "_AtlasState"]:
+        """Predict the first forecast and retain history, latent and sampling state."""
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        latent_cache: list[list[torch.Tensor | None]] | None = None
-        while True:
-            if self.front_hook is not self._default_hook:
-                x = self.front_hook(x.copy(deep=True))
-            x_pred, latent_cache = self._call_with_latent(x, prev_latents=latent_cache)
-            x_pred = self.rear_hook(x_pred)
-            yield x_pred
-            x = self.prep_next_input(x_pred, x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        y, latents = self._call_with_latent(x)
+        return y, _AtlasState(
+            x.isel(lead_time=slice(-1, None)).copy(deep=True),
+            latents,
+            self._rng_seed,
+            deepcopy(self._rng_states),
+        )
+
+    def step(
+        self, y: xr.DataArray, state: "_AtlasState"
+    ) -> tuple[xr.DataArray, "_AtlasState"]:
+        """Advance from explicit history, latent and RNG state without modifying them."""
+        seed, rng = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state.seed, deepcopy(state.rng)
+        try:
+            x = self.prep_next_input(y, state.history)
+            out, latents = self._call_with_latent(x, deepcopy(state.latents))
+            return out, _AtlasState(
+                y.copy(deep=True), latents, state.seed, deepcopy(self._rng_states)
+            )
+        finally:
+            self._rng_seed, self._rng_states = seed, rng
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction."""
+        return self._default_create_iterator(x)
 
     @classmethod
     def load_default_package(cls) -> Package:

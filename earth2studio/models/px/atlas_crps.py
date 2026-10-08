@@ -16,7 +16,8 @@
 
 import json
 import os
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -26,7 +27,7 @@ from loguru import logger
 
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
+from earth2studio.models.px.atlas import VARIABLES, _AtlasState, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import fork_rng
@@ -293,7 +294,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray from two input frames, without hooks."""
 
-        out, _ = self._call_with_latents(x)
+        out, _ = self.initialize(x)
         return out
 
     @torch.inference_mode()
@@ -340,25 +341,37 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         result.encoding = x.encoding.copy()
         return restore(result), latents_out
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input frame then six-hour forecasts with cached latents."""
-        yield from self._default_generator(x)
-
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, _AtlasState]:
+        """Predict the first forecast and retain history, latents and sampling state."""
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        latent_cache: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None
-        while True:
-            if self.front_hook is not self._default_hook:
-                x = self.front_hook(x.copy(deep=True))
-            x_pred, latent_cache = self._call_with_latents(x, prev_latents=latent_cache)
-            x_pred = self.rear_hook(x_pred)
-            yield x_pred
-            x = self.prep_next_input(x_pred, x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        y, latents = self._call_with_latents(x)
+        return y, _AtlasState(
+            x.isel(lead_time=slice(-1, None)).copy(deep=True),
+            latents,
+            self._rng_seed,
+            deepcopy(self._rng_states),
+        )
+
+    def step(
+        self, y: xr.DataArray, state: _AtlasState
+    ) -> tuple[xr.DataArray, _AtlasState]:
+        """Advance from explicit history, latents and RNG state without modifying them."""
+        seed, rng = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state.seed, deepcopy(state.rng)
+        try:
+            x = self.prep_next_input(y, state.history)
+            out, latents = self._call_with_latents(x, deepcopy(state.latents))
+            return out, _AtlasState(
+                y.copy(deep=True), latents, state.seed, deepcopy(self._rng_states)
+            )
+        finally:
+            self._rng_seed, self._rng_states = seed, rng
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction."""
+        return self._default_create_iterator(x)
 
     @classmethod
     def load_default_package(cls) -> Package:

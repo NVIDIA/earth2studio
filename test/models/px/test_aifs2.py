@@ -847,7 +847,6 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
     monkeypatch.setattr(p, "_prepare_input", capture)
     p.rear_hook = rear
     iterator = p.create_iterator(field)
-    initial = next(iterator)
     retained = []
     for reference in expected:
         out = next(iterator)
@@ -863,7 +862,6 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(field, original)
-    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
     iterator.close()
     p.clear_hooks()
     preparations.clear()
@@ -874,8 +872,10 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
 
     p.front_hook = front
     iterator = p.create_iterator(field)
-    next(iterator)
-    for reference in expected:
+    torch.testing.assert_close(
+        next(iterator).e2s.to_torch()[0], expected[0].e2s.to_torch()[0]
+    )
+    for reference in expected[1:]:
         out = next(iterator)
         assert not torch.equal(out.e2s.to_torch()[0], reference.e2s.to_torch()[0])
     assert len(preparations) == 3
@@ -891,7 +891,8 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
     next(iterator)
     next(iterator)
     np.testing.assert_array_equal(
-        preparations, [times + np.timedelta64(19, "h"), times + np.timedelta64(26, "h")]
+        preparations,
+        [times + np.timedelta64(h, "h") for h in (18, 25, 32)],
     )
     iterator.close()
 
@@ -948,7 +949,6 @@ def test_aifs2_iter(ensemble, device, backend):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
     for i, out in enumerate(p_iter):
         out_coords = out.coords
         assert len(out.shape) == 6

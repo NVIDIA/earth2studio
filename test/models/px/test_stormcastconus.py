@@ -27,8 +27,22 @@ from earth2studio.data import Random, Random_FX, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+def conditioning_input(model, x):
+    signature = coord_array_like(
+        x,
+        {
+            "variable": model.forcing_coords().coords["variable"].values,
+            "lead_time": x.lead_time.values + np.timedelta64(1, "h"),
+        },
+    )
+    return from_torch(
+        torch.zeros(signature.shape, device=model.means.device), signature
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -264,7 +278,7 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
     x.attrs["nested"] = {"items": [1]}
     x.encoding["nested"] = {"items": [2]}
     original = x.copy(deep=True)
-    out = p(x)
+    out = p(x, conditioning_input(p, x))
     out.attrs["nested"].clear()
     out.encoding["nested"].clear()
     assert x.attrs["nested"] == {"items": [1]}
@@ -328,13 +342,17 @@ def test_stormcastconus_input_dtype(
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     original = x.copy(deep=True)
 
-    out = p(x)
+    out = p(x, conditioning_input(p, x))
     assert out.dtype == np.float32
     assert out.e2s.to_torch()[0].device == torch.device(device)
-    iterator = p.create_iterator(x)
-    xr.testing.assert_identical(next(iterator), original)
+    iterator = p.create_iterator(x, conditioning_input(p, x))
+    forecast = x
     for hour in (1, 2):
-        forecast = next(iterator)
+        forecast = (
+            next(iterator)
+            if hour == 1
+            else iterator.send(conditioning_input(p, forecast))
+        )
         assert forecast.dtype == np.float32
         np.testing.assert_array_equal(forecast.lead_time, [np.timedelta64(hour, "h")])
     xr.testing.assert_identical(x, original)
@@ -382,25 +400,27 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
 
     p.front_hook, p.rear_hook = front, rear
     coords = x
-    p_iter = p.create_iterator(x)
+    p_iter = p.create_iterator(x, conditioning_input(p, x))
 
     ny, nx = LAT_END - LAT_START, LON_END - LON_START
 
     initial = next(p_iter)
     retained = initial.copy(deep=True)
-    assert events == []
+    assert events == ["rear"]
     initial_coords = coord_array(
         initial.dims, dict(initial.coords), attrs=initial.attrs
     )
     assert initial.shape == x.shape
     assert initial_coords.dims == coords.dims
     assert initial_coords.data.nbytes == 0
-    for i, out in enumerate(p_iter):
+    out = initial
+    for i in range(4):
+        out = p_iter.send(conditioning_input(p, out))
         xr.testing.assert_identical(x, original)
         xr.testing.assert_identical(initial, retained)
         assert out.name == x.name and "removed" not in out.attrs
         assert out.encoding == {} and "member" not in out.coords
-        assert events == ["front", "rear"] * (i + 1)
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
         assert out_coords.dims == coords.dims
         assert out_coords.data.nbytes == 0
@@ -410,7 +430,7 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(i + 2, "h")
 
         if i > 2:
             break
@@ -418,7 +438,6 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormcastconus_exceptions(device):
-    """StormCastCONUS must raise RuntimeError when no conditioning source is set."""
     diffusion = PhooStormCastCONUSDiffusionModel(NVAR)
 
     variables = np.array(["u%02d" % i for i in range(NVAR - 1)] + ["refc"])
@@ -466,13 +485,11 @@ def test_stormcastconus_exceptions(device):
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         p(x)
 
-    iterator = p.create_iterator(x)
-    xr.testing.assert_identical(next(iterator), x)
-    with pytest.raises(RuntimeError):
-        next(iterator)
+    with pytest.raises(TypeError):
+        p.create_iterator(x)
 
 
 def test_stormcastconus_conditioning_init_time():
@@ -571,7 +588,7 @@ def test_stormcastconus_package(cond_dims, device, model):
     x = fetch_data(r, time, variable, lead_time, device=device, target_grid=p.grid)
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
-    out = p(x)
+    out = p(x, conditioning_input(p, x))
     out_coords = p.output_coords(x)
 
     assert out.shape == torch.Size(

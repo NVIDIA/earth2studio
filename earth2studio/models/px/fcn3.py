@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import torch
@@ -26,6 +28,7 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -186,7 +189,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "fcn3"
 
     stochastic = True
-    _rng_initialized = False
+    _rng: torch.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the underlying FCN3 model's RNG
@@ -198,9 +201,8 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         reset : bool, optional
             Whether to reset the state of the RNG, by default True
         """
-        if reset or not self._rng_initialized:
-            self.model.set_rng(reset=True, seed=seed)
-            self._rng_initialized = True
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -347,7 +349,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._internal_noise_states = _internal_noise_states
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -391,29 +393,42 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tensor = tensor.to(self.device_buffer.device)
         if reset:
             self._reset_internal_state(x.sizes["batch"], x.sizes["time"])
-        result = from_torch(self._forward(tensor, coords), signature, name=x.name)
+        result = from_torch(
+            self._forward_tensor(tensor, coords), signature, name=x.name
+        )
         result.encoding = x.encoding.copy()
         return result
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict one six-hour field with freshly initialized core noise states."""
-        return self._step(x, reset=True)
+        return self.initialize(x)[0]
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Compute the first prediction and capture core noise and rollout RNG state."""
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.copy(deep=True)
-        reset = True
-        while True:
-            if self.front_hook is not self._default_hook:
-                x = self.front_hook(x.copy(deep=True))
-            x = self.rear_hook(self._step(x, reset=reset))
-            reset = False
-            yield x
+        seed = int(torch.randint(2**31, (), generator=self._rng).item())
+        return self._forward(x, {"seed": seed, "noise": None})
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the input then six-hour forecasts, retaining per-sample noise state."""
-        yield from self._default_generator(x)
+    def _forward(
+        self, x: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        seed = state["seed"]
+        with fork_rng(seed, self.device_buffer.device):
+            self.model.set_rng(reset=True, seed=seed)
+            if state["noise"] is not None:
+                self._internal_noise_states = deepcopy(state["noise"])
+            y = self._step(x, reset=state["noise"] is None)
+        return y, {
+            "seed": (seed + 1) % 2**31,
+            "noise": deepcopy(self._internal_noise_states),
+        }
+
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance from a forecast and explicit noise state, without altering either."""
+        return self._forward(y, state)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction."""
+        return self._default_create_iterator(x)

@@ -18,7 +18,7 @@ import hashlib
 import os
 import shutil
 import tempfile
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -533,44 +533,31 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         xr.DataArray
             Predicted next daily mean on the model device.
         """
-        return self._step(x)
+        return self.initialize(x)[0]
 
-    def _default_generator(
-        self,
-        x: xr.DataArray,
-    ) -> Generator[xr.DataArray, None, None]:
-        """Advance FuXi-S2S while retaining its two-day rolling state."""
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        tensor, _ = x.e2s.to_torch()
-        encoding = x.encoding.copy()
-        x = from_torch(tensor.to(self.device_buffer.device), x)
-        x.encoding = encoding
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
+        """Predict the next daily mean and retain the missing history frame."""
+        return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
-        while True:
-            x = self.front_hook(x)
-            prediction = self.rear_hook(self._step(x))
-            previous, _ = x.isel(lead_time=slice(-1, None)).e2s.to_torch()
-            future, _ = prediction.e2s.to_torch()
-            signature = coord_array_like(
-                prediction,
-                {
-                    "lead_time": np.concatenate(
-                        (x.lead_time.values[-1:], prediction.lead_time.values)
-                    )
-                },
-            )
-            x = from_torch(
-                torch.cat(
-                    (previous.to(future.device), future),
-                    dim=x.get_axis_num("lead_time"),
-                ),
-                signature,
-            )
-            x.encoding = prediction.encoding.copy()
-            yield prediction.copy(deep=False)
+    def step(
+        self, y: xr.DataArray, state: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Advance from the latest daily mean and its previous history frame."""
+        previous, _ = state.e2s.to_torch()
+        future, _ = y.e2s.to_torch()
+        signature = coord_array_like(
+            y,
+            {"lead_time": np.concatenate((state.lead_time.values, y.lead_time.values))},
+        )
+        x = from_torch(
+            torch.cat(
+                (previous.to(future.device), future), dim=y.get_axis_num("lead_time")
+            ),
+            signature,
+            name=y.name,
+        )
+        x.encoding = y.encoding.copy()
+        return self.initialize(x)
 
     def create_iterator(
         self,
@@ -586,6 +573,6 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Yields
         ------
         xr.DataArray
-            Initial current day followed by successive daily predictions.
+            Successive daily predictions, starting with initialization.
         """
-        yield from self._default_generator(x)
+        return self._default_create_iterator(x)

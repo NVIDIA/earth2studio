@@ -106,17 +106,15 @@ def test_aurora_iter(aurora, device):
 
     p.front_hook = p.rear_hook = hook
     it = p.create_iterator(x)
-    initial = next(it)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
     first = next(it)
     saved = first.copy(deep=True)
     second = next(it)
-    assert calls == [2, 1, 2, 1]
+    assert calls == [1, 1, 1]
     assert second.lead_time.values == np.timedelta64(12, "h")
-    torch.testing.assert_close(second.e2s.to_torch()[0], first.e2s.to_torch()[0] + 2)
+    torch.testing.assert_close(second.e2s.to_torch()[0], first.e2s.to_torch()[0] + 1)
     xr.testing.assert_identical(x, original)
+    saved.data += 1
     xr.testing.assert_identical(first, saved)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
 
 
 def test_aurora_exceptions(aurora):

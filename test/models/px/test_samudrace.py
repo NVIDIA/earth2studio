@@ -16,6 +16,7 @@
 
 import dataclasses
 import datetime
+import pickle
 from types import SimpleNamespace
 
 import numpy as np
@@ -24,6 +25,7 @@ import torch
 import xarray as xr
 
 import earth2studio.models.px.samudrace as sam_src
+from earth2studio.data.utils import fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.samudrace import SamudrACE
 from earth2studio.utils import handshake_dim
@@ -332,10 +334,34 @@ def build_input(model, time, batch=1):
 
 
 def step_once(p, x, coords):
-    """Advance one atmosphere step through the model's iterator."""
-    p_iter = p.create_iterator(from_torch(x, coords))
-    next(p_iter)  # initial condition
+    field = from_torch(x, coords)
+    p_iter = p.create_iterator(field, forcing_input(p, field))
     return next(p_iter)
+
+
+def forcing_input(model, field, initial=True):
+    offsets = model.forcing_coords().lead_time.values
+    leads = (
+        field.lead_time.values[-1:] + offsets
+        if initial
+        else field.lead_time.values + model._dt_ocean
+    )
+    signature = coord_array_like(
+        field,
+        {
+            "lead_time": leads,
+            "variable": model.forcing_coords().coords["variable"].values,
+        },
+    )
+    data = fetch_data(
+        model.forcing_data_source,
+        field.time.values,
+        signature.coords["variable"].values,
+        leads,
+        device=model.device_buffer.device,
+    )
+    tensor = data.e2s.to_torch()[0].expand(signature.shape).clone()
+    return from_torch(tensor, signature)
 
 
 device_params = [
@@ -352,7 +378,7 @@ def test_samudrace_call(model):
     x, coords = build_input(model, time)
 
     field = from_torch(x, coords)
-    out = model(field)
+    out = model(field, forcing_input(model, field))
     expected = step_once(model, x, coords)
     xr.testing.assert_identical(out, expected)
 
@@ -360,20 +386,18 @@ def test_samudrace_call(model):
 @pytest.mark.parametrize("device", device_params)
 def test_samudrace_iter_device(model, device, monkeypatch):
     """One atmosphere step through the iterator, on each device."""
-    from unittest.mock import Mock
-
     time = np.array([np.datetime64("2001-01-01T00:00")])
     p = model.to(device)
     x, coords = build_input(p, time)
     x = x.to(device)
 
-    p_iter = p.create_iterator(from_torch(x, coords))
-    next(p_iter)  # initial condition
+    initial = from_torch(x, coords)
+    p_iter = p.create_iterator(initial, forcing_input(p, initial))
     field = next(p_iter)
     out, out_coords = field.e2s.to_torch()
 
     assert out.device == torch.device(device)
-    assert out.shape == (1, len(time), 1, len(OUT_VARS), N_LAT, N_LON)
+    assert out.shape == (1, len(time), N_INNER_STEPS, len(OUT_VARS), N_LAT, N_LON)
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
@@ -390,51 +414,28 @@ def test_samudrace_iter_device(model, device, monkeypatch):
         j = list(out_coords["variable"]).index(name)
         assert torch.isfinite(out[:, :, :, j]).all()
 
-    run_cycle = p._run_cycle
-    states = []
-    ages = []
-
-    def tracked_cycle(state, *args):
-        age = next((age for saved, age in states if saved is state), 0)
-        ages.append(age)
-        atmos, ocean, next_state = run_cycle(state, *args)
-        states.append((next_state, age + 1))
-        return atmos, ocean, next_state
-
-    monkeypatch.setattr(p, "_run_cycle", tracked_cycle)
-    array_tensor = Mock(wraps=p._array_tensor)
-    monkeypatch.setattr(p, "_array_tensor", array_tensor)
     for masked in (False, True):
         p.clear_hooks()
-        array_tensor.reset_mock()
         probe = x.clone()
         if masked:
             probe[..., 0, 0] = float("nan")
-        ages.clear()
-        states.clear()
-        iterator = p.create_iterator(from_torch(probe, coords))
-        next(iterator)
-        for _ in range(3 * N_INNER_STEPS):
-            next(iterator)
-        assert ages == [0, 1, 2]
-        assert array_tensor.call_count == 1
-        # A custom identity hook still runs mutation detection, including NaNs.
-        p.front_hook = lambda state: state
-        for _ in range(N_INNER_STEPS):
-            next(iterator)
-        assert ages == [0, 1, 2, 3]
-        assert array_tensor.call_count == 2
-
-        def mutate(state):
-            state.data[...] += 1
-            return state
-
-        p.front_hook = mutate
-        for _ in range(N_INNER_STEPS):
-            next(iterator)
-        assert ages == [0, 1, 2, 3, 0]
-        assert array_tensor.call_count == 3
-        iterator.close()
+        initial = from_torch(probe, coords)
+        y, state = p.initialize(initial, forcing_input(p, initial))
+        for _ in range(3):
+            forcing = forcing_input(p, y, initial=False)
+            snapshot = y.copy(deep=True)
+            restored_y, restored_state = pickle.loads(  # noqa: S301
+                pickle.dumps((y, state))
+            )
+            expected, next_state = p.step(y, forcing, state)
+            replayed, _ = p.step(restored_y, forcing, restored_state)
+            xr.testing.assert_identical(expected, replayed)
+            xr.testing.assert_identical(y, snapshot)
+            edited = y.copy(deep=True)
+            edited.data[...] += 1
+            changed, _ = p.step(edited, forcing, state)
+            assert not changed.equals(expected)
+            y, state = expected, next_state
 
 
 def test_samudrace_input_coords(model):
@@ -477,10 +478,10 @@ def test_samudrace_iter(model, batch):
         if events:
             assert "remove_me" not in state.attrs
             assert "remove_me" not in state.coords
-            assert state.attrs["added"] == N_INNER_STEPS
-            assert state.coords["added"].item() == N_INNER_STEPS
+            assert state.attrs["added"] == 1
+            assert state.coords["added"].item() == 1
             assert state.name == "rear state"
-            assert state.encoding["rear"] == N_INNER_STEPS
+            assert state.encoding["rear"] == 1
         events.append("front")
         assert state.dims == field.dims
         state.attrs["hook"] = "metadata only"
@@ -499,13 +500,9 @@ def test_samudrace_iter(model, batch):
         return state
 
     model.front_hook, model.rear_hook = front, rear
-    p_iter = model.create_iterator(field)
+    p_iter = model.create_iterator(field, forcing_input(model, field))
 
-    # First yield is the initial condition
-    initial = next(p_iter)
-    xr.testing.assert_identical(initial, field)
-    assert events == []
-    out, out_coords = initial.reindex(variable=var_list).e2s.to_torch()
+    out, out_coords = field.reindex(variable=var_list).e2s.to_torch()
     assert out.shape == (batch, 1, 1, len(OUT_VARS), N_LAT, N_LON)
     assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
     # Prognostic channels equal the input state; diagnostics are NaN
@@ -517,24 +514,28 @@ def test_samudrace_iter(model, batch):
     assert torch.isnan(out[:, :, :, ocean_diag_idx]).all()
 
     outputs = [out]
-    retained = []
-    for i, output in enumerate(p_iter):
-        for prior, snapshot in retained:
-            xr.testing.assert_identical(prior, snapshot)
-        retained.append((output, output.copy(deep=True)))
+    output = None
+    for i in range(2):
+        output = (
+            next(p_iter)
+            if output is None
+            else p_iter.send(forcing_input(model, output, initial=False))
+        )
         out, out_coords = output.e2s.to_torch()
-        assert out.shape == (batch, 1, 1, len(OUT_VARS), N_LAT, N_LON)
+        assert out.shape == (batch, 1, N_INNER_STEPS, len(OUT_VARS), N_LAT, N_LON)
         assert (out_coords["variable"] == np.array(var_list, dtype=object)).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
-        outputs.append(out)
-        if i + 1 >= 2 * N_INNER_STEPS:
-            break
+        np.testing.assert_array_equal(
+            out_coords["lead_time"],
+            (np.arange(1, N_INNER_STEPS + 1) + i * N_INNER_STEPS)
+            * np.timedelta64(6, "h"),
+        )
+        outputs.extend(out[:, :, j : j + 1] for j in range(N_INNER_STEPS))
 
     # Ocean prognostic fields are held constant between cycle boundaries and
-    assert events == (["front"] + ["rear"] * N_INNER_STEPS) * 2
-    assert model.front_hook_interval == N_INNER_STEPS
+    assert events == ["rear", "front", "rear"]
+    assert model.front_hook_interval == 1
     assert field.attrs["counter"] == {"count": 0}
     # update exactly at each boundary
     for name, j in ocean_prog_idx.items():
@@ -576,9 +577,17 @@ def test_samudrace_parity(model):
     x, coords = build_input(model, time)
 
     # Iterator trajectory through the Earth2Studio seam
-    p_iter = model.create_iterator(from_torch(x, coords))
-    next(p_iter)  # initial condition
-    outputs = [next(p_iter).e2s.to_torch()[0] for _ in range(n_cycles * N_INNER_STEPS)]
+    field = from_torch(x, coords)
+    p_iter = model.create_iterator(field, forcing_input(model, field))
+    outputs = []
+    for cycle in range(n_cycles):
+        field = (
+            next(p_iter)
+            if cycle == 0
+            else p_iter.send(forcing_input(model, field, initial=False))
+        )
+        tensor = field.e2s.to_torch()[0]
+        outputs.extend(tensor[:, :, j : j + 1] for j in range(N_INNER_STEPS))
     var_list = list(model.output_coords(coords.copy())["variable"])
 
     # Direct fme trajectory: one predict call over n_cycles coupled
@@ -753,9 +762,10 @@ def test_samudrace_forcing_window_from_file(model, tmp_path):
         time = np.array([np.datetime64("0311-01-01T00:00:00")])
         x, coords = build_input(p, time)
 
-        p_iter = p.create_iterator(from_torch(x, coords))
-        next(p_iter)  # initial condition
-        outputs = [next(p_iter).e2s.to_torch()[0] for _ in range(N_INNER_STEPS)]
+        field = from_torch(x, coords)
+        p_iter = p.create_iterator(field, forcing_input(p, field))
+        tensor = next(p_iter).e2s.to_torch()[0]
+        outputs = [tensor[:, :, j : j + 1] for j in range(N_INNER_STEPS)]
 
     var_list = list(p.output_coords(coords.copy())["variable"])
     for out in outputs:

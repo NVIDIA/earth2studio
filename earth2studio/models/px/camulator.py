@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+from collections.abc import Generator
 
 import numpy as np
 import torch
@@ -54,7 +54,7 @@ from earth2studio.utils.coords import (
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import check_optional_dependencies
-from earth2studio.utils.type import CoordinateSystem, CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 # Channel layout of the CAMulator state (prognostic) tensor
 _LEVEL_VARS = ["u", "v", "t", "qtot"]
@@ -144,8 +144,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     The 130 prognostic variables are the model input; the output additionally
     holds 17 output-only diagnostics (precipitation, surface temperature, cloud
     fractions, surface stresses, 10 m wind speed, evaporation and radiative/heat
-    fluxes). In :meth:`create_iterator` the initial condition is yielded in the
-    output schema with the diagnostics NaN-filled, and only the prognostic slice is
+    fluxes). The iterator yields forecasts only, and only the prognostic slice is
     fed back at each step. Vertical levels use the ``{var}{k}k`` naming with ``k``
     the CAMulator hybrid level index (0 = top of model, 31 = lowest layer).
     Fluxes CAMulator accumulates over the 6 h step (J m-2) are returned as mean
@@ -153,8 +152,8 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    Forcing is read at the input valid time from ``forcing_data_source`` on the
-    CAMulator grid. The default :class:`~earth2studio.data.CAMulatorForcing`
+    Callers supply forcing at the input valid time on the CAMulator grid.
+    ``default_sources`` recommends :class:`~earth2studio.data.CAMulatorForcing`, which
     serves the shipped climatological (cyclic) year; the forcing files use a
     365-day calendar, so leap days reuse the 28 February forcing.
 
@@ -425,19 +424,23 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             wind_filter=wind_filter,
         )
 
-    def _fetch_forcing(self, coords: CoordSystem, device: torch.device) -> torch.Tensor:
-        """Normalized forcing at the input valid times in model (south-to-north)
-        orientation, shape (time, 4, lat, lon)."""
-        valid_times = np.asarray(coords["time"]) + coords["lead_time"][0]
-        da = self.forcing_data_source(valid_times, FORCING_VARIABLES)
-        da = da.transpose("time", "variable", "lat", "lon")
-        if not np.allclose(da["lat"].values, CAMULATOR_GRID_LAT) or not np.allclose(
-            da["lon"].values, CAMULATOR_GRID_LON
-        ):
-            raise ValueError("CAMulator forcing data must be on the CAMulator grid")
-        forcing = torch.from_numpy(np.ascontiguousarray(da.values)).to(device).float()
+    def forcing_coords(self) -> CoordinateSystem:
+        """Declare the four external forcing fields at the input valid time."""
+        return coord_array_like(self.input_coords(), {"variable": FORCING_VARIABLES})
+
+    def default_sources(self) -> tuple[None, DataSource]:
+        """Recommend the configured forcing source to the driver."""
+        return None, self.forcing_data_source
+
+    def _prepare_forcing(self, forcing: xr.DataArray) -> torch.Tensor:
+        forcing = (
+            forcing.e2s.to_torch()[0]
+            .to(self.device_buffer.device)
+            .float()
+            .clone()[:, :, 0]
+        )
         forcing = torch.flip(forcing, dims=(-2,))
-        forcing[:, 3] = forcing[:, 3] * 1.0e-6  # ppm -> mol mol-1
+        forcing[:, :, 3] *= 1.0e-6  # ppm -> mol mol-1
         # Normalized in float64 like CREDIT, then cast at the network input
         forcing = (
             forcing.double() - self.forcing_center.view(1, -1, 1, 1)
@@ -544,18 +547,13 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return state_n.float()
 
     @torch.inference_mode()
-    def _step(
-        self, state_n: torch.Tensor, coords: CoordSystem, device: torch.device
-    ) -> torch.Tensor:
+    def _step(self, state_n: torch.Tensor, forcing: torch.Tensor) -> torch.Tensor:
         """Advance a normalized state ``(batch, time, 130, lat, lon)`` by one step,
         returning the post-processed normalized prediction
         ``(batch, time, 147, lat, lon)``."""
         b, t, _, h, w = state_n.shape
-        forcing = self._fetch_forcing(coords, device)  # (t, 4, h, w)
         statics = self.statics.expand(b, t, -1, h, w)
-        inp = torch.cat(
-            [state_n, statics, forcing.unsqueeze(0).expand(b, -1, -1, -1, -1)], dim=2
-        )
+        inp = torch.cat([state_n, statics, forcing], dim=2)
         inp = inp.reshape(b * t, -1, h, w)
         y = self.model(inp.unsqueeze(2)).squeeze(2)
         y = self._postprocess(inp, y)
@@ -576,47 +574,64 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             y[:, :, i] = mod(y[:, :, i].double()).float()
         return torch.flip(y, dims=(-2,)).unsqueeze(2)
 
-    def _hooks_are_default(self) -> bool:
-        """True when neither iterator hook has been replaced by the user."""
-        default = PrognosticMixin._default_hook
-        return self.front_hook is default and self.rear_hook is default
-
-    @batch_func()
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+    def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Predict one six-hour step without iterator hooks."""
-        signature = self.output_coords(x)
-        handshake_time(x)
-        tensor, coords = x.e2s.to_torch()
-        device = self.device_buffer.device
-        state_n = self._normalize_state(tensor.to(device).clone())
-        y_n = self._step(state_n, coords, device)
-        out = from_torch(self._denormalize_output(y_n), signature, name=x.name)
-        out.encoding = x.encoding.copy()
-        return out
+        return self.initialize(x, forcing)[0]
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input then six-hour predictions, preserving normalized state."""
+    def initialize(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]:
+        """Compute the first prediction and retain its normalized recurrence."""
+        return self._forward(x, forcing, None)
+
+    def _forward(
+        self,
+        x: xr.DataArray,
+        forcing: xr.DataArray,
+        state: tuple[torch.Tensor, xr.DataArray] | None,
+    ) -> tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]:
         handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
-        x = x.copy(deep=True)
-        yield x.copy(deep=True)
+        handshake_nonempty(forcing)
+        handshake_dataarray(
+            forcing, coord_array_like(x, {"variable": FORCING_VARIABLES})
+        )
+        packed, restore = batch_func()._compress_array(self, x)
+        packed_forcing, _ = batch_func()._compress_array(self, forcing)
         device = self.device_buffer.device
-        default_hooks = self._hooks_are_default()
-        state_n = None
-        while True:
-            x = self.front_hook(x.copy(deep=True))
-            self.output_coords(x)
-            packed, restore = batch_func()._compress_array(self, x)
-            tensor, coords = packed.e2s.to_torch()
-            if state_n is None or not default_hooks:
-                state_n = self._normalize_state(tensor.to(device).clone())
-            y_n = self._step(state_n, coords, device)
-            out = from_torch(
-                self._denormalize_output(y_n), self.output_coords(packed), name=x.name
+        tensor = packed.e2s.to_torch()[0].to(device)
+        state_n = self._normalize_state(tensor)
+        if state is not None:
+            native, published = state
+            baseline, _ = batch_func()._compress_array(self, published)
+            unchanged = torch.flip(
+                tensor[:, :, 0] == baseline.e2s.to_torch()[0].to(device)[:, :, 0],
+                dims=(-2,),
             )
-            out.encoding = x.encoding.copy()
-            out = self.rear_hook(restore(out))
-            x = out.sel(variable=PROGNOSTIC_VARIABLES).copy(deep=True)
-            state_n = y_n[:, :, :_N_STATE].clone() if default_hooks else None
-            yield out
+            state_n = torch.where(unchanged, native.to(device), state_n)
+        y_n = self._step(state_n, self._prepare_forcing(packed_forcing))
+        out = from_torch(
+            self._denormalize_output(y_n), self.output_coords(packed), name=x.name
+        )
+        out.encoding = x.encoding.copy()
+        out = restore(out)
+        return out, (
+            y_n[:, :, :_N_STATE].clone(),
+            out.sel(variable=PROGNOSTIC_VARIABLES).copy(deep=True),
+        )
+
+    def step(
+        self,
+        y: xr.DataArray,
+        forcing: xr.DataArray,
+        state: tuple[torch.Tensor, xr.DataArray],
+    ) -> tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]:
+        """Advance the normalized state with new external forcing and public edits."""
+        return self._forward(y.sel(variable=PROGNOSTIC_VARIABLES), forcing, state)
+
+    def create_iterator(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield forecasts, accepting the next forcing frame through send."""
+        yield from self._default_create_iterator(x, forcing)

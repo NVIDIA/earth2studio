@@ -31,7 +31,7 @@ from earth2studio.models.px.stormscope import (
     StormScopeGOES,
     StormScopeMRMS,
 )
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
@@ -131,6 +131,13 @@ def _public_coords(
         if name not in signature.dims
     }
     return coord_array(tuple(coords), {**auxiliary, **coords}, attrs=signature.attrs)
+
+
+def conditioning_input(model, field):
+    signature = coord_array_like(field, {"variable": model.conditioning_variables})
+    return from_torch(
+        torch.zeros(signature.shape, device=model.means.device), signature
+    )
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
@@ -286,7 +293,7 @@ def test_stormscope_call(time, device, batch):
     field = from_torch(x, coords)
     field.attrs["nested"] = {"items": [1]}
     field.encoding["nested"] = {"items": [2]}
-    out = model(field)
+    out = model(field, conditioning_input(model, field))
     out.attrs["nested"].clear()
     out.encoding["nested"].clear()
     assert field.attrs["nested"] == {"items": [1]}
@@ -344,7 +351,8 @@ def test_stormscope_amp_compile(amp, compile, device):
     coords.move_to_end("batch", last=False)
 
     coords = _public_coords(model, coords)
-    out = model(from_torch(x, coords))
+    field = from_torch(x, coords)
+    out = model(field, conditioning_input(model, field))
     out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
 
     # Output is unchanged in shape/dtype and finite regardless of the flags.
@@ -396,7 +404,7 @@ def test_stormscope_iter(batch, device):
 
     def front(value):
         assert value.dims == field.dims
-        assert value.sizes["lead_time"] == 3
+        assert value.sizes["lead_time"] == 1
         events.append("front")
         return value
 
@@ -407,7 +415,7 @@ def test_stormscope_iter(batch, device):
         return value.drop_vars("member", errors="ignore")
 
     model.front_hook, model.rear_hook = front, rear
-    p_iter = model.create_iterator(field)
+    p_iter = model.create_iterator(field, conditioning_input(model, field))
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -415,20 +423,22 @@ def test_stormscope_iter(batch, device):
     # Get generator
     ic_x = next(p_iter)
     retained = ic_x.copy(deep=True)
-    assert events == []
+    assert events == ["rear"]
     ic_coords = coord_array(ic_x.dims, dict(ic_x.coords), attrs=ic_x.attrs)
     assert ic_x.shape == torch.Size([batch, len(time), 1, nvar, h, w])
     assert ic_coords["lead_time"].shape == (1,)
-    assert ic_coords["lead_time"][0] == lead_time[-1]
+    assert ic_coords["lead_time"][0] == np.timedelta64(1, "h")
     assert ic_coords.dims == field.dims
     assert ic_coords.data.nbytes == 0
 
-    for i, out in enumerate(p_iter):
+    out = ic_x
+    for i in range(5):
+        out = p_iter.send(conditioning_input(model, out))
         xr.testing.assert_identical(field, original)
         xr.testing.assert_identical(ic_x, retained)
         assert out.name == field.name and "removed" not in out.attrs
         assert out.encoding == {} and "member" not in out.coords
-        assert events == ["front", "rear"] * (i + 1)
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
         assert out_coords.dims == field.dims
         assert out_coords.data.nbytes == 0
@@ -439,7 +449,7 @@ def test_stormscope_iter(batch, device):
             == model.output_coords(model.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(batch)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(i + 2, "h")
 
         if i > 3:
             break
@@ -793,7 +803,8 @@ def test_stormscope_mrms(device):
 
     # Test forward pass
     coords = _public_coords(model, coords)
-    out = model(from_torch(x, coords))
+    field = from_torch(x, coords)
+    out = model(field, conditioning_input(model, field))
     out_coords = coord_array(out.dims, dict(out.coords), attrs=out.attrs)
     assert out.shape == torch.Size([1, 1, 1, h, w])
     assert out_coords.dims == coords.dims
@@ -820,7 +831,7 @@ def test_stormscope_exceptions(device):
 
     # Should raise error when trying to fetch conditioning without data source
     coords = _public_coords(model, coords)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         model(from_torch(x, coords))
 
     # Test 2: Using non-native grid without interpolator should fail

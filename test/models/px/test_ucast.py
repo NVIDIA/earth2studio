@@ -207,10 +207,9 @@ def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
     assert isinstance(iterator, Iterable)
 
     initial = next(iterator)
-    assert events == []
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    assert events == ["rear"]
     np.testing.assert_array_equal(
-        initial["lead_time"], np.array([np.timedelta64(0, "h")])
+        initial["lead_time"], np.array([np.timedelta64(12, "h")])
     )
 
     retained = initial.copy(deep=True)
@@ -218,7 +217,7 @@ def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
         out_coords = out
         assert out.name == x.name and "removed" not in out.attrs
         assert out.encoding == {} and "member" not in out.coords
-        assert events == ["front", "rear"] * (i + 1)
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         assert out.shape == torch.Size(
             [ensemble, len(time), 1, len(VARIABLES), 121, 240]
         )
@@ -226,7 +225,7 @@ def test_ucast_iter(ucast_model: UCast, ensemble: int, device: str) -> None:
         xr.testing.assert_identical(initial, retained)
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(12 * (i + 1), "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(12 * (i + 2), "h")
         assert out_coords.dims == (
             "ensemble",
             "time",

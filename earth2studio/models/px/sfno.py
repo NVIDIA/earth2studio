@@ -15,7 +15,7 @@
 # limitations under the License.
 import fnmatch
 import os
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from datetime import datetime
 
 import numpy as np
@@ -353,17 +353,17 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out.encoding = x.encoding.copy()
         return out
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        """Compute the first forecast with no additional continuation state."""
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.copy(deep=False)
-        while True:
-            x = self.rear_hook(self(self.front_hook(x.copy(deep=True))))
-            yield x.copy(deep=False)
+        return self(x), None
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial field then forecasts at six-hour intervals."""
-        yield from self._default_generator(x)
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        """Advance the previous forecast without modifying it or using hooks."""
+        if state is not None:
+            raise ValueError("SFNO state must be None")
+        return self.initialize(y)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield predictions at six-hour intervals, starting with the first forecast."""
+        return self._default_create_iterator(x)

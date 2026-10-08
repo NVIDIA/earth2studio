@@ -62,7 +62,7 @@ def test_pangu_sessions_cached(name, monkeypatch):
     x = make_input(model)
     original = x.copy(deep=True)
     iterator = model.create_iterator(x)
-    initial = next(iterator)
+    initial = x.copy(deep=True)
     for step in range(1, 10):
         out = next(iterator)
         np.testing.assert_allclose(
@@ -153,7 +153,7 @@ def test_pangu_onnx_integration(cls, delta_t, device, onnx_test_package):
     np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])
     np.testing.assert_array_equal(out.time, x.time)
     iterator = model.create_iterator(x)
-    initial = next(iterator)
+    initial = x.copy(deep=True)
     for step in range(1, 10):
         out = next(iterator)
         assert torch.allclose(

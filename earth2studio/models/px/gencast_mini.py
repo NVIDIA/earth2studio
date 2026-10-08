@@ -26,17 +26,15 @@ import xarray as xr
 
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.graphcast_operational import (
-    _jax_inputs,
-    _jax_iterator,
+    _jax_initialize,
     _jax_output_coords,
     _jax_signature,
+    _jax_step,
 )
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import handshake_size, handshake_time
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -800,38 +798,20 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # Forward pass and iteration
     # -------------------------------------------------------------------------
 
-    @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a twelve-hour DataArray without hooks."""
-        signature = self.output_coords(x)
-        handshake_time(x)
-        device = self.device_buffer.device
-        with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
-            results = []
-            for t in range(x.sizes["time"]):
-                _, inputs, targets, forcings = _jax_inputs(
-                    self, x.isel(time=slice(t, t + 1)), 12, data_utils
-                )
+        return self.initialize(x)[0]
 
-                # Create a fresh PRNG key for each time step
-                step_rng = self._next_rng(t)
-                # Silence print out from WeatherNext package for this model
-                with contextlib.redirect_stdout(io.StringIO()):
-                    predictions = rollout.chunked_prediction(
-                        self.run_forward,
-                        rng=step_rng,
-                        inputs=inputs,
-                        targets_template=targets * np.nan,
-                        forcings=forcings,
-                    )
-                results.append(self.iterator_result_to_tensor(predictions))
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
+        """Predict the first forecast and retain history and per-time PRNG keys."""
+        with contextlib.redirect_stdout(io.StringIO()):
+            return _jax_initialize(self, x, 12, jax, data_utils)
 
-            out = from_torch(
-                torch.cat(results, dim=1).to(device), signature, name=x.name
-            )
-            out.encoding = x.encoding.copy()
-            return out
+    def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
+        """Advance from explicit history and per-time PRNG keys."""
+        with contextlib.redirect_stdout(io.StringIO()):
+            return _jax_step(self, y, state, 12, jax, data_utils)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the final input then native twelve-hour rollout predictions."""
-        yield from _jax_iterator(self, x, 12, jax, data_utils, generated_forcings=True)
+        yield from self._default_create_iterator(x)

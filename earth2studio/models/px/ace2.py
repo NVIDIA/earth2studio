@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Generator
 from copy import deepcopy
 from typing import Any
 
@@ -570,6 +570,8 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: torch.Tensor,
         coords: CoordSystem,
+        forcing_x: torch.Tensor,
+        forcing_coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Run one prognostic step using fme predict_paired API.
 
@@ -589,21 +591,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Validate input lead_time
         handshake_size(coords, "lead_time", 1)
 
-        # Pull forcing data (which is required at both input and output lead times)
-        lead_times = np.array(
-            [coords["lead_time"][0], coords["lead_time"][0] + self._dt]
-        )
-        forcing_x, forcing_coords = self._fetch_forcing(
-            x=x, coords=coords, lead_times=lead_times
-        )
-
-        # Stack along batch dimension as required
-        forcing_x = torch.stack([forcing_x] * len(coords["batch"]), dim=0).to(
-            device=x.device, dtype=x.dtype
-        )
-        forcing_coords["batch"] = coords["batch"]
-        forcing_coords.move_to_end("batch", last=False)
-
         # Prepare inputs for fme stepper
         forcing_batch, ic = self._tensor_to_batch_data(
             x, coords.copy(), forcing_x, forcing_coords
@@ -620,8 +607,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         out_coords["variable"] = np.array(self._all_out_variables_e2s)
         return y, out_coords
 
-    @batch_func()
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+    def _predict(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Runs one prognostic step using fme predict_paired API.
 
         Parameters
@@ -636,53 +622,126 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         signature = self.output_coords(x)
         handshake_time(x)
+        expected = coord_array_like(
+            x,
+            {
+                "variable": self._forcing_vars_e2s,
+                "lead_time": x.lead_time.values[-1:] + np.arange(2) * self._dt,
+            },
+        )
+        handshake_dataarray(forcing, expected)
+        if not bool(np.isfinite(forcing.data).all()):
+            raise ValueError("Forcing must be finite")
+        name, encoding = x.name, deepcopy(x.encoding)
+        x, restore = batch_func()._compress_array(self, x)
+        forcing, _ = batch_func()._compress_array(self, forcing)
+        signature = self.output_coords(x)
         tensor, coords = x.e2s.to_torch()
         # FME's ACE2 checkpoint expects float32 state and forcing tensors.
         tensor = tensor.to(device=self.device_buffer.device, dtype=torch.float32)
-        out, _ = self._forward(tensor.clone(), coords)
-        result = from_torch(out, signature)
-        result.encoding = x.encoding.copy()
-        return result
+        forcing_tensor, forcing_coords = forcing.e2s.to_torch()
+        out, _ = self._forward(
+            tensor.clone(),
+            coords,
+            forcing_tensor.to(device=tensor.device, dtype=tensor.dtype).clone(),
+            forcing_coords,
+        )
+        result = from_torch(out, signature, name=name)
+        result.attrs = deepcopy(result.attrs)
+        result.encoding = encoding
+        return restore(result)
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+    def forcing_coords(self) -> CoordinateSystem:
+        """Describe external forcing at the input and forecast times."""
+        return coord_array_like(
+            self.input_coords(),
+            {"variable": self._forcing_vars_e2s, "lead_time": np.arange(2) * self._dt},
+        )
+
+    def default_sources(self) -> tuple[None, DataSource]:
+        """Recommend the configured external forcing source."""
+        return None, self.forcing_data_source
+
+    def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        """Compute the first forecast using caller-provided forcing."""
+        return self.initialize(x, forcing)[0]
+
+    def initialize(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
+        """Predict and retain only missing prognostics and the forcing boundary."""
+        handshake_nonempty(x)
+        y = self._predict(x, forcing)
+        missing = [
+            name
+            for name in self._prog_vars_e2s
+            if name not in self._all_out_variables_e2s
+        ]
+        return y, (
+            x.sel(variable=missing).copy(deep=True),
+            forcing.isel(lead_time=slice(-1, None)).copy(deep=True),
+        )
+
+    def step(
+        self,
+        y: xr.DataArray,
+        forcing: xr.DataArray,
+        state: tuple[xr.DataArray, xr.DataArray],
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
+        """Advance from the forecast, new forcing, and missing-field state."""
+        missing, previous_forcing = state
+        handshake_dataarray(
+            forcing,
+            coord_array_like(
+                y,
+                {
+                    "variable": self._forcing_vars_e2s,
+                    "lead_time": y.lead_time.values + self._dt,
+                },
+            ),
+        )
+        forcing = xr.concat(
+            [previous_forcing, forcing],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        missing = missing.assign_coords(lead_time=y.lead_time.values)
+        present = y.sel(
+            variable=[
+                name
+                for name in self._prog_vars_e2s
+                if name in self._all_out_variables_e2s
+            ]
+        )
+        x = xr.concat(
+            [present, missing],
+            dim="variable",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        ).sel(variable=self._prog_vars_e2s)
+        x.attrs, x.encoding = deepcopy(y.attrs), deepcopy(y.encoding)
+        return self.initialize(x, forcing)
+
+    def create_iterator(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
         """Creates an iterator to perform time-integration of ACE2ERA5.
 
-        Yields the initial state, then continues autoregressively by feeding
-        previous outputs as the next prognostic state while fetching/using external
-        forcings under the hood via _forward.
+        Yields forecasts only. Send the next forcing frame to advance.
 
         Parameters
         ----------
         x : xr.DataArray
-            Initial state; hooks receive owned arrays in original leading dimensions.
+            Initial prognostic state.
+        forcing : xr.DataArray
+            Initial forcing window on the declared grid.
 
         Returns
         -------
         Iterator[xr.DataArray]
-            Initial state followed by forecasts.
+            Forecasts at successive lead times.
         """
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        while True:
-            history = self.front_hook(x.copy(deep=True))
-            out = self.rear_hook(self(history))
-            # Preserve prognostics absent from the checkpoint's output list.
-            tensor, _ = history.e2s.to_torch()
-            predicted, _ = out.e2s.to_torch()
-            tensor = tensor.to(predicted.device).clone()
-            axis = history.get_axis_num("variable")
-            for i, name in enumerate(self._prog_vars_e2s):
-                if name in self._all_out_variables_e2s:
-                    tensor.select(axis, i).copy_(
-                        predicted.select(axis, self._all_out_variables_e2s.index(name))
-                    )
-            x = from_torch(
-                tensor,
-                coord_array_like(out, {"variable": history["variable"].values}).copy(
-                    deep=True
-                ),
-            )
-            x.encoding = deepcopy(out.encoding)
-            yield out
+        yield from self._default_create_iterator(x, forcing)

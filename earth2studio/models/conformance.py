@@ -36,6 +36,7 @@ from inspect import Parameter, signature
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 import xarray as xr
 
@@ -647,9 +648,31 @@ def _sources(report: _Report, model: Any, count: int, rule: str) -> None:
     )
     report.require(
         rule,
-        all(s is None or isinstance(s, (DataSource, ForecastSource)) for s in slots),
+        all(s is None or _source_callable(s) for s in slots),
         "default_sources entries must be raw data sources or None",
     )
+
+
+def _source_callable(source: Any) -> bool:
+    if isinstance(source, (DataSource, ForecastSource)):
+        return True
+    if not callable(source):
+        return False
+    # Synchronous sources need not implement the optional async fetch path.
+    try:
+        parameters = signature(source).parameters
+        if not {"time", "variable"}.issubset(parameters):
+            return False
+        signature(source).bind(
+            **{
+                name: None
+                for name in ("time", "lead_time", "variable")
+                if name in parameters
+            }
+        )
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _matches(
@@ -770,6 +793,8 @@ def _same_values(first: Any, second: Any) -> bool:
         return first.e2s.as_numpy().identical(second.e2s.as_numpy()) and _same_values(
             first.encoding, second.encoding
         )
+    if isinstance(first, (pd.DataFrame, pd.Series, pd.Index)):
+        return first.equals(second)
     if isinstance(first, torch.Tensor):
         return torch.equal(first, second)
     if isinstance(first, np.ndarray):

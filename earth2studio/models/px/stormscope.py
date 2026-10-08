@@ -16,7 +16,7 @@
 
 import json
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Literal, cast
@@ -1389,11 +1389,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         result.encoding = pred.encoding.copy()
         return result
 
-    @torch.inference_mode()
-    @batch_func()
     def __call__(
         self,
         x: xr.DataArray,
+        conditioning: xr.DataArray,
     ) -> xr.DataArray:
         """Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
 
@@ -1408,50 +1407,80 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Forecast field.
         """
 
-        output_coords = self.output_coords(x)
-        encoding = deepcopy(x.encoding)
-        x, tensor_coords = x.e2s.to_torch()
-        x = x.to(self.means.device).clone()
-        x, x_coords = self.prep_input(x, tensor_coords)
+        return self.initialize(x, conditioning)[0]
 
-        # Auto-fetch hook for state observations that live on their own source
-        # grid (e.g. StormScopeMRMS GLM). This fires only in the auto path; the
-        # coupled path (call_with_conditioning) leaves the full state to the
-        # caller, mirroring how conditioning is sourced. Base is a no-op.
-        x = self._inject_auto_observations(x, x_coords)
-
-        # Fetch and prep conditioning data if needed
-        if (
-            self.conditioning_variables is not None
-            and len(self.conditioning_variables) > 0
-        ):
-            conditioning, conditioning_coords = self.fetch_conditioning(
-                tensor_coords, device=x.device
-            )
-            conditioning, conditioning_coords = self.prep_input(
-                conditioning, conditioning_coords, conditioning=True
-            )
-
-            # Broadcast to batch dimension if needed. Expect [B, T, L, C, H, W].
-            if conditioning.dim() == x.dim() - 1:
-                conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
-                conditioning_coords = OrderedDict(
-                    batch=tensor_coords["batch"], **conditioning_coords
-                )
-        else:
-            conditioning = None
-            conditioning_coords = None
-
-        x = self._forward(
-            x,
-            x_coords,
-            conditioning=conditioning,
-            conditioning_coords=conditioning_coords,
+    def forcing_coords(self) -> CoordinateSystem:
+        """Describe the conditioning history on the checkpoint grid."""
+        return coord_array_like(
+            self.input_coords(), {"variable": self.conditioning_variables}
         )
-        out = from_torch(x, output_coords)
-        out.attrs = deepcopy(out.attrs)
-        out.encoding = encoding
-        return out
+
+    def default_sources(self) -> tuple[None, DataSource | ForecastSource | None]:
+        """Recommend the configured conditioning source."""
+        return None, self.conditioning_data_source
+
+    def initialize(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Compute the first forecast and retain missing history and sampling state."""
+        handshake_nonempty(x)
+        handshake_dataarray(
+            conditioning, coord_array_like(x, {"variable": self.conditioning_variables})
+        )
+        if not bool(np.isfinite(conditioning.data).all()):
+            raise ValueError("Conditioning must be finite")
+        if self._noise_generator is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        y = self.call_with_conditioning(x, conditioning)
+        count = len(self.output_times)
+        return y, {
+            "history": x.isel(lead_time=slice(count, None)).copy(deep=True),
+            "conditioning": conditioning.isel(lead_time=slice(count, None)).copy(
+                deep=True
+            ),
+            "rng": self._noise_generator.get_state().clone(),
+        }
+
+    def step(
+        self, y: xr.DataArray, conditioning: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance with newly supplied conditioning and explicit continuation state."""
+        handshake_dataarray(
+            conditioning, coord_array_like(y, {"variable": self.conditioning_variables})
+        )
+        tensor, _ = y.e2s.to_torch()
+        history, _ = state["history"].e2s.to_torch()
+        signature = coord_array_like(
+            y,
+            {
+                "lead_time": np.concatenate(
+                    [state["history"].lead_time.values, y.lead_time.values]
+                )
+            },
+        )
+        x = from_torch(
+            torch.cat(
+                [history.to(tensor.device), tensor], dim=y.get_axis_num("lead_time")
+            ),
+            signature,
+            name=y.name,
+        )
+        x.attrs, x.encoding = deepcopy(y.attrs), deepcopy(y.encoding)
+        current, _ = conditioning.e2s.to_torch()
+        history, _ = state["conditioning"].e2s.to_torch()
+        conditioning = from_torch(
+            torch.cat(
+                [history.to(current.device), current],
+                dim=conditioning.get_axis_num("lead_time"),
+            ),
+            coord_array_like(x, {"variable": self.conditioning_variables}),
+        )
+        previous = self._noise_generator
+        self._noise_generator = torch.Generator().set_state(state["rng"].clone())
+        try:
+            return self.initialize(x, conditioning)
+        finally:
+            self._noise_generator = previous
 
     @torch.inference_mode()
     def call_with_conditioning(
@@ -1532,41 +1561,29 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning=conditioning,
             conditioning_coords=conditioning_coords,
         )
-        out = from_torch(x, output_coords)
+        out = from_torch(x, output_coords, name=packed.name)
         out.attrs = deepcopy(out.attrs)
         out.encoding = deepcopy(packed.encoding)
         return restore(out)
 
-    def _default_generator(
-        self,
-        x: xr.DataArray,
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        x = x.copy(deep=True)
-
-        while True:
-            x = self.front_hook(x.copy(deep=True))
-            prediction = self.rear_hook(self(x))
-            x = self.next_input(prediction, x)
-            yield prediction.copy(deep=True)
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+    def create_iterator(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
         """Creates an iterator to perform time-integration of the prognostic model.
 
         Parameters
         ----------
         x : xr.DataArray
             Initial history field.
+        conditioning : xr.DataArray
+            Initial conditioning history. Send new frames to advance.
 
         Yields
         ------
-        Iterator[xr.DataArray]
-            Initial condition followed by forecast fields.
+        xr.DataArray
+            Forecast fields, beginning with the first prediction.
         """
-        yield from self._default_generator(x)
+        yield from self._default_create_iterator(x, conditioning)
 
 
 class StormScopeGOES(StormScopeBase):

@@ -197,14 +197,15 @@ def test_aurora1p5_call(time, device):
     p = _make_model(device)
     x = _input(p, time)
     out = p(x)
-    assert out.shape == torch.Size([len(time), 1, _N_VARS, _H, _W])
+    assert out.shape == torch.Size([len(time), 6, _N_VARS, _H, _W])
     np.testing.assert_array_equal(
         out.coords["variable"], p.output_coords(x).coords["variable"]
     )
     assert out.dims == x.dims and out.name == x.name and out.encoding == x.encoding
     assert out.marker == 7
     torch.testing.assert_close(
-        out.e2s.to_torch()[0][:, :, :83].cpu(), x.e2s.to_torch()[0][:, -1:]
+        out.e2s.to_torch()[0][:, :, :83].cpu(),
+        x.e2s.to_torch()[0][:, -1:].expand(-1, 6, -1, -1, -1),
     )
 
 
@@ -231,22 +232,18 @@ def test_aurora1p5_iter(ensemble, device):
 
     p.front_hook, p.rear_hook = front, rear
     p_iter = p.create_iterator(x)
-    initial = next(p_iter)
-    assert calls == []
-    for i, out in enumerate(p_iter):
+    for i in range(2):
+        out = next(p_iter)
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, _N_VARS, _H, _W])
+        assert out.shape == torch.Size([ensemble, len(time), 6, _N_VARS, _H, _W])
         assert (out.coords["variable"] == p.output_coords(x).coords["variable"]).all()
         assert (out.coords["time"] == time).all()
-        assert out.lead_time.shape == (1,)
-        # Iterator yields at 1-hour intervals
-        assert out.lead_time.values[0] == np.timedelta64(i + 1, "h")
-
-        if i == 11:
-            break
-    assert calls == (["front"] + ["rear"] * 6) * 2
+        np.testing.assert_array_equal(
+            out.lead_time, (6 * i + np.arange(1, 7)).astype("timedelta64[h]")
+        )
+    assert calls == ["rear", "front", "rear"]
     xr.testing.assert_identical(x, saved)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
+    p_iter.close()
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -263,7 +260,6 @@ def test_aurora1p5_iter_repeated(device):
 
     def collect(n=3):
         it = p.create_iterator(x)
-        next(it)  # skip IC
         return [out.copy(deep=True) for out, _ in zip(it, range(n))]
 
     first = collect()
@@ -289,7 +285,7 @@ def test_aurora1p5_conformance():
     signature = p.input_coords()
     assert signature.shape == (0, 0, 2, 83, _H, _W)
     assert "tp1h" in p.output_coords(signature).coords["variable"]
-    assert p.front_hook_interval == 6
+    assert p.front_hook_interval == 1
     check_prognostic_contract(p, rollout=False)
     check_prognostic_contract(_make_model())
 
@@ -311,7 +307,7 @@ def test_aurora1p5_package(model, device):
     x = _input(p, time, device)
     out = p(x)
 
-    assert out.shape == torch.Size([len(time), 1, _N_VARS, _H, _W])
+    assert out.shape == torch.Size([len(time), 6, _N_VARS, _H, _W])
     assert (out.coords["variable"] == p.output_coords(x).coords["variable"]).all()
     assert (out.time == time).all()
     assert out.dims == x.dims
@@ -329,12 +325,11 @@ def test_aurora1p5_ensemble_iter(n_members, device):
 
     x = _input(p, time, device).expand_dims(ensemble=np.arange(n_members))
     p_iter = p.create_iterator(x)
-    next(p_iter)  # skip initial condition
 
     for i, out in enumerate(p_iter):
-        assert out.shape == torch.Size([n_members, len(time), 1, _N_VARS, _H, _W])
-        assert out.lead_time.values[0] == np.timedelta64(i + 1, "h")
-        if i > 11:
+        assert out.shape == torch.Size([n_members, len(time), 6, _N_VARS, _H, _W])
+        assert out.lead_time.values[0] == np.timedelta64(6 * i + 1, "h")
+        if i == 1:
             break
 
 
@@ -346,11 +341,9 @@ def test_aurora1p5_ensemble_conformance():
     p.set_rng(123)
     assert torch.equal(state, torch.get_rng_state())
     iterator = p.create_iterator(x)
-    next(iterator)
     first = next(iterator)
     p.set_rng(123)
     iterator = p.create_iterator(x)
-    next(iterator)
     xr.testing.assert_identical(first, next(iterator))
     assert torch.equal(state, torch.get_rng_state())
     stream = p._rng_seed
@@ -405,23 +398,24 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
 
     monkeypatch.setattr(core, "forward", forward)
     out = p(x)
-    assert out.shape == (2, 1, 1, 90, 4, 8)
+    assert out.shape == (2, 1, 6 // step, 90, 4, 8)
     assert out.lead_time.values[0] == np.timedelta64(12 + step, "h")
-    assert p.front_hook_interval == 6 // step
-    assert calls == [(0, step)]
+    assert p.front_hook_interval == 1
+    assert calls == [(0, h) for h in range(step, 7, step)]
     calls.clear()
 
     iterator = p.create_iterator(x)
-    initial = next(iterator)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
-    for i in range(12 // step):
+    for i in range(2):
         out = next(iterator)
-        assert out.lead_time.values[0] == np.timedelta64(12 + (i + 1) * step, "h")
-        assert out.shape == (2, 1, 1, 90, 4, 8)
+        np.testing.assert_array_equal(
+            out.lead_time,
+            (12 + i * 6 + np.arange(step, 7, step)).astype("timedelta64[h]"),
+        )
+        assert out.shape == (2, 1, 6 // step, 90, 4, 8)
     iterator.close()
     assert calls == [(cycle, h) for cycle in range(2) for h in range(step, 7, step)]
     if ensemble:
-        assert core.noise_accumulation_calls == [6 // step, 0]
+        assert core.noise_accumulation_calls == [6 // step, 0] * 3
     check_prognostic_contract(p)
     np.testing.assert_array_equal(
         coords["lead_time"], np.array([6, 12], dtype="timedelta64[h]")

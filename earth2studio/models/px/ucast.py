@@ -17,10 +17,10 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import torch
@@ -990,43 +990,12 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return out, next_x_norm, sst_mask
         return out
 
-    @batch_func()
     def __call__(
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
         """Runs the 12-hour U-CAST prognostic model one step."""
-        out_coords = self.output_coords(x)
-        encoding = deepcopy(x.encoding)
-        x, coords = x.e2s.to_torch()
-        x = x.to(self.center.device)
-        batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
-        handshake_size(coords, "lead_time", history_size)
-        handshake_size(coords, "variable", n_variables)
-        handshake_size(coords, "lat", n_lat)
-        handshake_size(coords, "lon", n_lon)
-
-        if self.preload_static_fields:
-            static_condition = (
-                self.static_condition.permute(0, 2, 1)
-                .unsqueeze(0)
-                .expand(batch_size * time_size, -1, -1, -1)
-            )
-        else:
-            static_condition = _static_condition_from_input(
-                x[:, :, 0, len(VARIABLES) :],
-                batch_size,
-                time_size,
-                n_lon,
-                n_lat,
-            )
-            x = x[:, :, :, : len(VARIABLES)]
-            coords = coords.copy()
-            coords["variable"] = np.array(VARIABLES)
-        out = from_torch(self._forward(x, coords, static_condition), out_coords)
-        out.attrs = deepcopy(out.attrs)
-        out.encoding = encoding
-        return out
+        return self.initialize(x)[0]
 
     def _reconcile_hook(
         self,
@@ -1082,14 +1051,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return x_norm, sst_mask
 
-    def _default_generator(self, x: xr.DataArray) -> Generator[xr.DataArray]:
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Compute the first forecast and retain native normalized recurrence."""
         handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None), variable=slice(0, len(VARIABLES))).copy(
-            deep=True
-        )
-        # Keep the native normalized recurrence (including the SST land mask).
+        if self.stochastic and self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ())))
         packed, restore = batch_func()._compress_array(self, x)
         tensor, coords = packed.e2s.to_torch()
         tensor = tensor.to(self.center.device).clone()
@@ -1109,59 +1077,66 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coords["variable"] = np.array(VARIABLES)
             x = x.isel(variable=slice(0, len(VARIABLES)))
 
-        x_norm = None
-        sst_mask = None
+        out, native, mask = self._forward(
+            tensor, coords, static_condition, return_state=True
+        )
+        prediction = restore(from_torch(out, self.output_coords(packed), name=x.name))
+        prediction.attrs = deepcopy(prediction.attrs)
+        prediction.encoding = deepcopy(x.encoding)
+        return prediction, {
+            "native": native,
+            "mask": mask,
+            "static": static_condition,
+            "published": prediction.copy(deep=True),
+            "seed": self._rng_seed,
+            "rng": deepcopy(self._rng_states),
+        }
 
-        while True:
-            if self.front_hook is not self._default_hook:
-                before = x
-                x = self.front_hook(x.copy(deep=True))
-                if not _same_state(x, before):
-                    x_norm, sst_mask = self._reconcile_hook(before, x, x_norm, sst_mask)
-            self.output_coords(x)
-            packed, restore = batch_func()._compress_array(self, x)
-            tensor, coords = packed.e2s.to_torch()
-            tensor = tensor.to(self.center.device)
-            out, x_norm, sst_mask = self._forward(
-                tensor,
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance native recurrence, reconciling explicit forecast edits."""
+        handshake_nonempty(y)
+        state = deepcopy(state)
+        native, mask = self._reconcile_hook(
+            state["published"], y, state["native"], state["mask"]
+        )
+        history = xr.concat(
+            [y.assign_coords(lead_time=y.lead_time.values - self.DT), y],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        packed, restore = batch_func()._compress_array(self, history)
+        tensor, coords = packed.e2s.to_torch()
+        previous = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state["seed"], state["rng"]
+        try:
+            out, native, mask = self._forward(
+                tensor.to(self.center.device),
                 coords,
-                x_norm=x_norm,
-                sst_mask=sst_mask,
-                static_condition=static_condition,
+                state["static"],
+                native,
+                mask,
                 return_state=True,
             )
-            prediction = from_torch(out, self.output_coords(packed))
-            prediction.encoding = x.encoding.copy()
-            prediction = restore(prediction)
-            if self.rear_hook is not self._default_hook:
-                before = prediction
-                prediction = self.rear_hook(prediction.copy(deep=True))
-                if not _same_state(prediction, before):
-                    x_norm, sst_mask = self._reconcile_hook(
-                        before, prediction, x_norm, sst_mask
-                    )
-            # Use the hook result as metadata authority, including deletions.
-            previous, _ = x.isel(lead_time=slice(-1, None)).e2s.to_torch()
-            predicted, _ = prediction.e2s.to_torch()
-            state = torch.cat(
-                [previous.to(predicted.device), predicted],
-                dim=x.get_axis_num("lead_time"),
+            state["rng"] = deepcopy(self._rng_states)
+        finally:
+            self._rng_seed, self._rng_states = previous
+        signature = coord_array_like(y, {"lead_time": y.lead_time.values + self.DT})
+        prediction = restore(
+            from_torch(
+                out,
+                coord_array_like(packed, {"lead_time": signature.lead_time.values}),
+                name=y.name,
             )
-            signature = coord_array_like(
-                prediction,
-                {
-                    "lead_time": np.array(
-                        [
-                            np.asarray(x.lead_time)[-1],
-                            np.asarray(prediction.lead_time)[-1],
-                        ]
-                    )
-                },
-            )
-            x = from_torch(state, signature)
-            x.encoding = prediction.encoding.copy()
-            yield prediction.copy(deep=True)
+        )
+        prediction.attrs = deepcopy(prediction.attrs)
+        prediction.encoding = deepcopy(y.encoding)
+        state.update(native=native, mask=mask, published=prediction.copy(deep=True))
+        return prediction, state
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Creates an iterator for autoregressive U-CAST inference."""
-        yield from self._default_generator(x)
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray]:
+        """Yield forecasts beginning with the first prediction."""
+        yield from self._default_create_iterator(x)

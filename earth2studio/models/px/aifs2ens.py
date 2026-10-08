@@ -16,8 +16,7 @@
 import json
 import os
 import zipfile
-from collections import OrderedDict
-from collections.abc import Generator, Hashable, Iterator
+from collections.abc import Generator, Hashable
 
 import numpy as np
 import torch
@@ -26,7 +25,7 @@ import xarray as xr
 from earth2studio.data import IFS
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
+from earth2studio.models.px.aifs import _aifs_initialize, _aifs_step
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import fork_rng
@@ -34,10 +33,8 @@ from earth2studio.utils import (
     coord_array,
     coord_array_like,
     handshake_dataarray,
-    handshake_nonempty,
     handshake_time,
 )
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -1004,29 +1001,22 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out, output_coords
 
-    @batch_func()
-    @torch.inference_mode()
     def __call__(
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
         """Predict a six-hour DataArray from two input frames, without hooks."""
-        self.output_coords(x)
-        handshake_time(x)
-        tensor, coords = x.e2s.to_torch()
-        tensor = tensor.to(device=self.latitudes.device, dtype=torch.float32)
-        coords["time"] = coords["time"] + coords["lead_time"][-1]
-        tensor = self._prepare_input(tensor, coords)
-        tensor, output_coords = self._forward(tensor, x)
-        tensor = self._prepare_output(
-            tensor,
-            OrderedDict(
-                (d, output_coords.coords[d].values) for d in output_coords.dims
-            ),
-        )
-        out = from_torch(tensor, output_coords, name=x.name)
-        out.encoding = x.encoding.copy()
-        return out
+        return self.initialize(x)[0]
+
+    _first_step = 0
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
+        """Compute the first forecast and retain native-grid recurrence."""
+        return _aifs_initialize(self, x)
+
+    def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
+        """Advance the native-grid recurrence from explicit forecast and state."""
+        return _aifs_step(self, y, state)
 
     def _fill_input(
         self, x: torch.Tensor, coords: CoordSystem
@@ -1065,106 +1055,6 @@ class AIFS2ENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out, out_coords
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-
-        state = None
-        step = 0
-        while True:
-            hooked = x
-            if self.front_hook is not self._default_hook:
-                hooked = self.front_hook(x.copy(deep=True))
-                # Metadata-only hooks must not reinterpolate the native history.
-                if not (
-                    hooked.variable.equals(x.variable)
-                    and all(
-                        (d in hooked.coords) == (d in x.coords)
-                        and (
-                            d not in x.coords
-                            or hooked.coords[d].variable.equals(x.coords[d].variable)
-                        )
-                        for d in x.dims
-                    )
-                ):
-                    state = None
-
-            self.output_coords(hooked)
-            handshake_time(hooked)
-            packed, restore = batch_func()._compress_array(self, hooked)
-            with torch.inference_mode():
-                if state is None:
-                    tensor, coords = packed.e2s.to_torch()
-                    tensor = tensor.to(
-                        device=self.latitudes.device, dtype=torch.float32
-                    )
-                    coords["time"] = coords["time"] + coords["lead_time"][-1]
-                    state = self._prepare_input(tensor, coords)
-                y, coords_out = self._forward(state, packed, step=step)
-                output_tensor = self._prepare_output(
-                    y,
-                    OrderedDict(
-                        (d, coords_out.coords[d].values) for d in coords_out.dims
-                    ),
-                )
-            out = from_torch(output_tensor, coords_out, name=hooked.name)
-            out.encoding = hooked.encoding.copy()
-            out = restore(out)
-            prediction = out
-            if self.rear_hook is not self._default_hook:
-                prediction = self.rear_hook(out.copy(deep=True))
-                if not (
-                    prediction.variable.equals(out.variable)
-                    and all(
-                        (d in prediction.coords) == (d in out.coords)
-                        and (
-                            d not in out.coords
-                            or prediction.coords[d].variable.equals(
-                                out.coords[d].variable
-                            )
-                        )
-                        for d in out.dims
-                    )
-                ):
-                    state = None
-            yield prediction
-
-            variables = self.input_coords().coords["variable"].values
-            latest = prediction.reindex(variable=variables)
-            previous = hooked.isel(lead_time=slice(-1, None))
-            signature = coord_array_like(
-                latest,
-                {
-                    "lead_time": np.concatenate(
-                        (previous.lead_time.values, latest.lead_time.values)
-                    )
-                },
-            )
-            a, _ = previous.e2s.to_torch()
-            b, _ = latest.e2s.to_torch()
-            a = a.to(b.device)
-            # Retain caller-provided invariants on the prediction's device.
-            missing = ~np.isin(variables, prediction.coords["variable"].values)
-            if missing.any():
-                b[..., missing, :, :] = a[..., missing, :, :]
-            x = from_torch(
-                torch.cat((a, b), dim=previous.get_axis_num("lead_time")),
-                signature,
-                name=prediction.name,
-            )
-            x.encoding = prediction.encoding.copy()
-            if state is not None:
-                coords = OrderedDict((d, packed.coords[d].values) for d in packed.dims)
-                coords["time"] = x.time.values
-                coords["lead_time"] = x.lead_time.values
-                with torch.inference_mode():
-                    state = self._update_input(y, coords)
-            step += 1
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input frame, then six-hour forecasts with native history."""
-        yield from self._default_generator(x)
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts while retaining explicit native-grid history."""
+        yield from self._default_create_iterator(x)

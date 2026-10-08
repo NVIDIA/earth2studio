@@ -816,7 +816,6 @@ def test_aifs_iter(device, small_model, monkeypatch):
     monkeypatch.setattr(p, "_prepare_input", capture)
     p.rear_hook = rear
     iterator = p.create_iterator(x)
-    initial = next(iterator)
     retained = []
     for step, reference in enumerate(expected, 1):
         out = next(iterator)
@@ -834,7 +833,6 @@ def test_aifs_iter(device, small_model, monkeypatch):
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(x, original)
-    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
     iterator.close()
 
 

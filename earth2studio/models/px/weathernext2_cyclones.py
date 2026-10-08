@@ -26,20 +26,18 @@ from loguru import logger
 
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.graphcast_operational import (
     _add_tisr_batched as _add_tisr_batched_shared,
 )
 from earth2studio.models.px.graphcast_operational import (
-    _jax_inputs,
-    _jax_iterator,
+    _jax_initialize,
     _jax_output_coords,
     _jax_signature,
+    _jax_step,
 )
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import handshake_size, handshake_time
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -604,44 +602,21 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out_data[var] = out_data[var].astype(np.float32)
         return out_data, target_lead_times
 
-    @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray and update cyclone tracks, without hooks."""
-        signature = self.output_coords(x)
-        handshake_time(x)
-        self._reset_cyclone_tracks()
-        device = self.device_buffer.device
-        with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
-            results = []
-            for t in range(x.sizes["time"]):
-                x_t = x.isel(time=slice(t, t + 1))
-                _, inputs, targets, forcings = _jax_inputs(self, x_t, 6, data_utils)
-                rng = self._next_rng(t)
-                predictions = rollout.chunked_prediction(
-                    self.run_forward,
-                    rng=rng,
-                    inputs=inputs,
-                    targets_template=targets * np.nan,
-                    forcings=forcings,
-                )
-                self._update_cyclone_tracks(
-                    predictions,
-                    self.output_coords(x_t),
-                    accumulate_predictions=False,
-                )
-                results.append(self.iterator_result_to_tensor(predictions))
+        return self.initialize(x)[0]
 
-            out = from_torch(
-                torch.cat(results, dim=1).to(device), signature, name=x.name
-            )
-            out.encoding = x.encoding.copy()
-            return out
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
+        """Predict the first forecast and retain history, PRNG keys, and tracks."""
+        return _jax_initialize(self, x, 6, jax, data_utils)
+
+    def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
+        """Advance the forecast from explicit history, PRNG keys, and tracks."""
+        return _jax_step(self, y, state, 6, jax, data_utils)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the final input then native six-hour rollout predictions."""
-        self.output_coords(x)
-        self._reset_cyclone_tracks()
-        yield from _jax_iterator(self, x, 6, jax, data_utils)
+        yield from self._default_create_iterator(x)
 
 
 @check_optional_dependencies()

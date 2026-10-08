@@ -17,6 +17,7 @@
 import dataclasses
 import functools
 from collections.abc import Callable, Generator, Hashable, Iterator
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -259,106 +260,95 @@ def _same_jax_input(a: xr.DataArray, b: xr.DataArray) -> bool:
     )
 
 
-def _jax_iterator(
-    model: torch.nn.Module,
-    x: xr.DataArray,
-    hours: int,
-    backend_jax: Any,
-    backend_data_utils: Any,
-    generated_forcings: bool = False,
-) -> Iterator[xr.DataArray]:
+def _jax_initialize(
+    model: Any, x: xr.DataArray, hours: int, backend_jax: Any, backend_data_utils: Any
+) -> tuple[xr.DataArray, dict[str, Any]]:
     handshake_nonempty(x)
-    handshake_time(x)
-    model.output_coords(x)
-    # Reserve per-time streams before the initial yield, as the original
-    # iterators did. Hooks may replace fields without restarting these streams.
+    if hasattr(model, "_reset_cyclone_tracks"):
+        model._reset_cyclone_tracks()
     with backend_jax.default_device(
         model.get_jax_device_from_tensor(model.device_buffer)
     ):
-        rngs = [model._next_rng(t) for t in range(x.sizes["time"])]
-    yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-    handshake_time(x)
-    iterators: list[Generator[xr.Dataset, Any, None]] = []
-    refresh = False
-    while True:
-        history = (
-            x
-            if model.front_hook is model._default_hook
-            else model.front_hook(x.copy(deep=True))
-        )
-        refresh = refresh or (history is not x and not _same_jax_input(history, x))
-        model.output_coords(history)
-        handshake_time(history)
-        packed, restore = batch_func()._compress_array(model, history)
-        signature = model.output_coords(packed)
-        device = model.device_buffer.device
-        with backend_jax.default_device(
-            model.get_jax_device_from_tensor(model.device_buffer)
-        ):
-            replacements = []
-            started = bool(iterators)
-            if not iterators or refresh:
-                for t in range(packed.sizes["time"]):
-                    data, inputs, targets, forcings = _jax_inputs(
-                        model,
-                        packed.isel(time=slice(t, t + 1)),
-                        hours,
-                        backend_data_utils,
-                    )
-                    replacements.append((data, inputs, forcings))
-                    if len(iterators) <= t:
-                        kwargs = (
-                            {"init_datetime": data.coords["datetime"].values[0, 1]}
-                            if generated_forcings
-                            else {"batch": data}
-                        )
-                        iterators.append(
-                            model._chunked_prediction_generator(
-                                predictor_fn=model.run_forward,
-                                rng=rngs[t],
-                                inputs=inputs,
-                                targets_template=targets * np.nan,
-                                forcings=forcings,
-                                **kwargs,
-                            )
-                        )
-            predictions = [
-                it.send(replacements[t]) if started and refresh else next(it)
-                for t, it in enumerate(iterators)
-            ]
-            if hasattr(model, "_update_cyclone_tracks"):
-                if len(predictions) == 1:
-                    model._update_cyclone_tracks(
-                        predictions[0], signature, accumulate_predictions=True
-                    )
-                elif model.track_cyclones:
-                    from loguru import logger
+        keys = [model._next_rng(t) for t in range(x.sizes["time"])]
+    return _jax_forward(model, x, keys, hours, backend_jax, backend_data_utils)
 
-                    logger.warning(
-                        "Cyclone tracking currently supports one init time per iterator."
-                    )
-            results = [model.iterator_result_to_tensor(pred) for pred in predictions]
-        out = from_torch(
-            torch.cat(results, dim=1).to(device), signature, name=history.name
+
+def _jax_step(
+    model: Any,
+    y: xr.DataArray,
+    state: dict[str, Any],
+    hours: int,
+    backend_jax: Any,
+    backend_data_utils: Any,
+) -> tuple[xr.DataArray, dict[str, Any]]:
+    history = state["history"]
+    variables = history.coords["variable"].values
+    latest = y.reindex(variable=variables)
+    missing = variables[~np.isin(variables, y.coords["variable"].values)]
+    if len(missing):
+        latest.loc[{"variable": missing}] = history.sel(variable=missing).data
+    if hasattr(model, "_reset_cyclone_tracks"):
+        model._cyclone_prediction_history = deepcopy(state["tracks"])
+        model._cyclone_tracks = deepcopy(state["track_table"])
+    return _jax_forward(
+        model,
+        _aurora_history(history, latest),
+        state["keys"],
+        hours,
+        backend_jax,
+        backend_data_utils,
+    )
+
+
+def _jax_forward(
+    model: Any,
+    x: xr.DataArray,
+    keys: list[Any],
+    hours: int,
+    backend_jax: Any,
+    backend_data_utils: Any,
+) -> tuple[xr.DataArray, dict[str, Any]]:
+    model.output_coords(x)
+    handshake_time(x)
+    packed, restore = batch_func()._compress_array(model, x)
+    signature = model.output_coords(packed)
+    next_keys, results = [], []
+    with backend_jax.default_device(
+        model.get_jax_device_from_tensor(model.device_buffer)
+    ):
+        for t, key in enumerate(keys):
+            _, inputs, targets, forcings = _jax_inputs(
+                model, packed.isel(time=slice(t, t + 1)), hours, backend_data_utils
+            )
+            next_key, step_key = backend_jax.random.split(key)
+            prediction = model.run_forward(
+                rng=step_key,
+                inputs=inputs,
+                targets_template=targets * np.nan,
+                forcings=forcings,
+            )
+            if hasattr(model, "_update_cyclone_tracks"):
+                model._update_cyclone_tracks(
+                    prediction,
+                    model.output_coords(packed.isel(time=slice(t, t + 1))),
+                    accumulate_predictions=len(keys) == 1,
+                )
+            results.append(model.iterator_result_to_tensor(prediction))
+            next_keys.append(np.asarray(next_key).copy())
+    y = restore(
+        from_torch(
+            torch.cat(results, dim=1).to(model.device_buffer.device),
+            signature,
+            name=x.name,
         )
-        out.encoding = history.encoding.copy()
-        out = restore(out)
-        prediction = (
-            out
-            if model.rear_hook is model._default_hook
-            else model.rear_hook(out.copy(deep=True))
-        )
-        refresh = prediction is not out and not _same_jax_input(prediction, out)
-        variables = model.input_coords().coords["variable"].values
-        latest = prediction.reindex(variable=variables)
-        # GenCast's SST is an input-only invariant.
-        missing = ~np.isin(variables, prediction.coords["variable"].values)
-        if missing.any():
-            a, _ = history.isel(lead_time=slice(-1, None)).e2s.to_torch()
-            b, _ = latest.e2s.to_torch()
-            b[..., missing, :, :] = a.to(b.device)[..., missing, :, :]
-        x = _aurora_history(history, latest)
-        yield prediction
+    )
+    y.encoding = deepcopy(x.encoding)
+    return y, {
+        "history": x.isel(lead_time=slice(-1, None)).copy(deep=True),
+        "keys": next_keys,
+        "tracks": deepcopy(getattr(model, "_cyclone_prediction_history", None)),
+        "track_table": deepcopy(getattr(model, "_cyclone_tracks", None)),
+    }
 
 
 @check_optional_dependencies()
@@ -634,7 +624,7 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield the final input then native six-hour rollout predictions."""
-        yield from _jax_iterator(self, x, 6, jax, data_utils)
+        yield from self._default_create_iterator(x)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         """Convert a iterator result to a tensor"""
@@ -687,33 +677,19 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device = jax.devices("gpu")[device_id]
         return device
 
-    @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray without hooks."""
-        signature = self.output_coords(x)
-        handshake_time(x)
-        device = self.device_buffer.device
-        with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
-            results = []
-            for t in range(x.sizes["time"]):
-                _, inputs, targets, forcings = _jax_inputs(
-                    self, x.isel(time=slice(t, t + 1)), 6, data_utils
-                )
+        return self.initialize(x)[0]
 
-                predictions = rollout.chunked_prediction(
-                    self.run_forward,
-                    rng=self.prng_key,
-                    inputs=inputs,
-                    targets_template=targets * np.nan,
-                    forcings=forcings,
-                )
-                results.append(self.iterator_result_to_tensor(predictions))
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Predict the first forecast and retain history and per-time PRNG keys."""
+        return _jax_initialize(self, x, 6, jax, data_utils)
 
-            out = from_torch(
-                torch.cat(results, dim=1).to(device), signature, name=x.name
-            )
-            out.encoding = x.encoding.copy()
-            return out
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance from explicit history and per-time PRNG keys."""
+        return _jax_step(self, y, state, 6, jax, data_utils)
 
     def from_dataarray_to_dataset(
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6

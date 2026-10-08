@@ -251,32 +251,32 @@ class TestCBottleVideoMock:
 
         px.rear_hook = rear
         p_iter = px.create_iterator(x)
-        initial = next(p_iter)
-        xr.testing.assert_identical(initial, original)
         assert calls == []
 
         # Get generator
         for i, out in enumerate(p_iter, 1):
             out_coords = {k: v.values for k, v in out.coords.items()}
             assert len(out.shape) == 6
-            assert out.shape == torch.Size([ensemble, len(time), 1, 45, 721, 1440])
+            count = px._time_length - 1
+            assert out.shape == torch.Size([ensemble, len(time), count, 45, 721, 1440])
             assert (
                 out_coords["variable"] == px.output_coords(coords)["variable"]
             ).all()
             assert (out_coords["ensemble"] == np.arange(ensemble)).all()
             assert (out_coords["time"] == time).all()
-            assert out_coords["lead_time"] == np.timedelta64(6 * i, "h")
+            np.testing.assert_array_equal(
+                out_coords["lead_time"],
+                (np.arange(1, count + 1) + (i - 1) * count) * np.timedelta64(6, "h"),
+            )
             assert "marker" not in out.coords
             assert len(out.attrs["user"]["history"]) == i + 1
             assert len(out.encoding["user"]["history"]) == i + 1
             if i == 1:
                 retained = out
                 retained_copy = out.copy(deep=True)
-            # Single forward is 12 steps so need to test more
-            if i > 16:
+            if i == 3:
                 break
         xr.testing.assert_identical(x, original)
-        xr.testing.assert_identical(initial, original)
         xr.testing.assert_identical(retained, retained_copy)
         assert retained.encoding == retained_copy.encoding
         assert calls == [x.dims, x.dims]
@@ -319,7 +319,7 @@ class TestCBottleVideoMock:
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_cbottle_video_selects_frame_before_unbatch(monkeypatch, device):
+def test_cbottle_video_preserves_full_chunk(monkeypatch, device):
     if device.startswith("cuda") and not torch.cuda.is_available():
         pytest.skip("CUDA not available")
 
@@ -365,7 +365,7 @@ def test_cbottle_video_selects_frame_before_unbatch(monkeypatch, device):
     x.encoding["user"] = {"notes": ["input"]}
     x.time.attrs["user"] = {"notes": ["time"]}
     original = x.copy(deep=True)
-    expected = model._advance(x).isel(lead_time=slice(0, 1)).copy(deep=True)
+    expected = model._predict(x).copy(deep=True)
     model.calls = 0
 
     unbatched_frames = []
@@ -379,20 +379,25 @@ def test_cbottle_video_selects_frame_before_unbatch(monkeypatch, device):
 
     monkeypatch.setattr(accessor, "unbatch", record_unbatch)
     out = model(x)
-    assert unbatched_frames == [1]
+    assert unbatched_frames == [11]
     assert model.calls == 1
     xr.testing.assert_identical(out.e2s.as_numpy(), expected.e2s.as_numpy())
     assert out.encoding == expected.encoding
 
     unbatched_frames.clear()
     iterator = model.create_iterator(x)
-    next(iterator)
-    for step in range(1, 13):
+    for cycle in range(2):
         frame = next(iterator)
+        values = original.e2s.as_numpy().values
+        offsets = np.arange(1, 12) + 11 * cycle
+        shape = [1] * values.ndim
+        shape[x.get_axis_num("lead_time")] = 11
         np.testing.assert_array_equal(
-            frame.e2s.as_numpy().values, original.e2s.as_numpy().values + step
+            frame.e2s.as_numpy().values, values + offsets.reshape(shape)
         )
-        assert frame.lead_time.values == np.timedelta64(6 * step, "h")
+        np.testing.assert_array_equal(
+            frame.lead_time.values, offsets * np.timedelta64(6, "h")
+        )
     iterator.close()
     assert unbatched_frames == [11, 11]
     assert model.calls == 3
@@ -421,7 +426,7 @@ def test_cbottle_video_package(device):
     out = px(x)
     out_coords = {k: out.coords[k].values for k in out.dims}
 
-    assert out.shape == torch.Size([len(time), 1, 45, 721, 1440])
+    assert out.shape == torch.Size([len(time), px._time_length - 1, 45, 721, 1440])
     assert (out_coords["variable"] == px.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     handshake_dim(out_coords, "lon", 4)

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from typing import TypeVar
 
 import numpy as np
@@ -341,18 +341,17 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Predict one six-hour DataArray from two input fields."""
         return self._step(x)
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
+        """Compute the first forecast and retain only the missing history frame."""
         handshake_nonempty(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
-        while True:
-            x = self.front_hook(x.copy(deep=True))
-            out = self.rear_hook(self._step(x))
-            x = self._advance_history(x, out)
-            yield out.copy(deep=False)
+        return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the latest input followed by six-hour forecasts."""
-        yield from self._default_generator(x)
+    def step(
+        self, y: xr.DataArray, state: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Advance using the previous forecast and its preceding history frame."""
+        return self.initialize(self._advance_history(state, y))
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction."""
+        return self._default_create_iterator(x)

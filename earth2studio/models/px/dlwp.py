@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import zipfile
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -120,7 +120,7 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     provider:nvidia backend:pytorch
     """
 
-    front_hook_interval: int = 2
+    front_hook_interval: int = 1
 
     def __init__(
         self,
@@ -197,7 +197,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
         return coord_array_like(
-            input_coords, {"lead_time": lead[-1:] + np.timedelta64(6, "h")}
+            input_coords,
+            {"lead_time": lead[-1:] + np.array([6, 12], dtype="timedelta64[h]")},
         )
 
     @staticmethod
@@ -533,85 +534,35 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict the next six-hour DataArray without iterator hooks."""
-        handshake_nonempty(x)
-        handshake_time(x)
-        restored = self._restore_checkpoint_state()
-        if restored is None:
-            public = coord_array_like(x)
-            public.encoding = x.encoding.copy()
-            state = self._cube_step(self._to_cube(x))
-            pending = True
-            out = state.isel(lead_time=slice(0, 1))
-        else:
-            state, public, pending = restored
-            if state.dims[-2:] == ("lat", "lon"):
-                state = self._to_cube(state)
-            if pending:
-                out = state.isel(lead_time=slice(-1, None))
-                pending = False
-            else:
-                state = self._cube_step(state)
-                out = state.isel(lead_time=slice(0, 1))
-                pending = True
-        self._save_checkpoint_state(state, public, pending)
-        return self._from_cube(out, public)
+        """Predict the complete twelve-hour forecast chunk without iterator hooks."""
+        return self.initialize(x)[0]
 
-    def _default_generator(
+    def initialize(
         self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
+        """Compute both forecast frames and retain the native cubed-sphere state."""
         handshake_nonempty(x)
         handshake_time(x)
-        restored = self._restore_checkpoint_state()
-        if restored is None:
-            self.output_coords(x)
-            public = coord_array_like(x)
-            public.encoding = x.encoding.copy()
-            initial = x.isel(lead_time=slice(-1, None)).copy(deep=False)
-            self._save_checkpoint_state(x, public, False)
-            yield initial
-            x = self._to_cube(x)
-            pending = False
-            self._save_checkpoint_state(x, public, pending)
-        else:
-            x, public, pending = restored
-            if x.dims[-2:] == ("lat", "lon"):
-                x = self._to_cube(x)
-        while True:
-            if not pending:
-                x = self._cube_step(self.front_hook(x.copy(deep=True)))
-                index = 0
-            else:
-                index = 1
-            out = self.rear_hook(
-                x.isel(lead_time=slice(index, index + 1)).copy(deep=True)
-            )
-            parts = [x.isel(lead_time=slice(0, 1)), x.isel(lead_time=slice(1, 2))]
-            parts[index] = out
-            tensors = [part.e2s.to_torch()[0] for part in parts]
-            signature = coord_array_like(
-                out,
-                {
-                    "lead_time": np.concatenate(
-                        [part.lead_time.values for part in parts]
-                    )
-                },
-            )
-            x = from_torch(
-                torch.cat(tensors, dim=out.get_axis_num("lead_time")),
-                signature,
-                name=out.name,
-            )
-            x.encoding = out.encoding.copy()
-            pending = not pending
-            self._save_checkpoint_state(x, public, pending)
-            yield self._from_cube(out, public)
+        cube = self._cube_step(self._to_cube(x))
+        y = self._from_cube(cube, x)
+        return y, (cube.copy(deep=True), y.copy(deep=True))
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield six-hour fields, retaining both cubed-sphere predictions internally.
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, xr.DataArray]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
+        """Advance native recurrence, projecting public hook edits onto the cube."""
+        cube, published = state
+        current = self._to_cube(y)
+        baseline = self._to_cube(published)
+        tensor = cube.e2s.to_torch()[0] + (
+            current.e2s.to_torch()[0] - baseline.e2s.to_torch()[0]
+        )
+        current = from_torch(tensor, coord_array_like(current))
+        current.encoding = y.encoding.copy()
+        cube = self._cube_step(current)
+        output = self._from_cube(cube, y)
+        return output, (cube.copy(deep=True), output.copy(deep=True))
 
-        Hooks receive point-grid DataArrays in checkpoint face order and original
-        leading dimensions. A front hook runs per twelve-hour core call; rear hooks
-        run on each six-hour prediction. Checkpoints retain any pending prediction.
-        """
-        yield from self._default_generator(x)
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield complete two-frame forecasts with hooks on the public grid."""
+        yield from self._default_create_iterator(x)

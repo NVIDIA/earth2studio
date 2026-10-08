@@ -37,6 +37,7 @@ from earth2studio.models.px.camulator import (
     _N_STATE,
     _TRACERS,
     DIAGNOSTIC_VARIABLES,
+    FORCING_VARIABLES,
     OUTPUT_VARIABLES,
     PROGNOSTIC_VARIABLES,
     CAMulator,
@@ -127,6 +128,13 @@ def physical_state(device: str) -> torch.Tensor:
     return x.to(device)
 
 
+def forcing_input(model, x):
+    signature = coord_array_like(x, {"variable": FORCING_VARIABLES})
+    return from_torch(
+        torch.zeros(signature.shape, device=model.device_buffer.device), signature
+    )
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -143,7 +151,7 @@ def test_camulator_call(time, device):
     x = random_input(p, time, device)
     x_ref = x.copy(deep=True)
 
-    result = p(x)
+    result = p(x, forcing_input(p, x))
     out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
@@ -180,12 +188,11 @@ def test_camulator_iter(ensemble, device):
     time = np.array([np.datetime64("2001-01-01T00:00")])
     p = build_model(PhooCamulatorNet()).to(device)
     x = random_input(p, time, device).expand_dims(ensemble=np.arange(ensemble))
-    p_iter = p.create_iterator(x)
+    p_iter = p.create_iterator(x, forcing_input(p, x))
     assert isinstance(p_iter, Iterable)
 
-    xr.testing.assert_identical(next(p_iter), x)
-
-    for i, result in enumerate(p_iter):
+    result = next(p_iter)
+    for i in range(3):
         out, out_coords = result.e2s.to_torch()
         assert out.shape == (ensemble, 1, 1, _N_OUT, H, W)
         assert torch.isfinite(out).all()
@@ -195,8 +202,9 @@ def test_camulator_iter(ensemble, device):
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         np.testing.assert_array_equal(out_coords["lat"], CAMULATOR_GRID_LAT)
         np.testing.assert_array_equal(out_coords["lon"], CAMULATOR_GRID_LON)
-        if i > 1:
-            break
+        if i < 2:
+            result = p_iter.send(forcing_input(p, result))
+    p_iter.close()
 
 
 @pytest.mark.parametrize(
@@ -253,7 +261,8 @@ def test_camulator_exceptions(coords):
     shape = [len(v) for v in coords.values()]
     x = torch.randn(*shape)
     with pytest.raises((KeyError, ValueError)):
-        p(from_torch(x, coord_array(tuple(coords), coords)))
+        field = from_torch(x, coord_array(tuple(coords), coords))
+        p(field, forcing_input(p, field))
 
 
 @pytest.mark.parametrize("device", ["cpu", CUDA])
@@ -268,7 +277,8 @@ def test_camulator_postprocess(device):
         p.input_coords(),
         {"batch": [0], "time": np.array([np.datetime64("2001-01-01T00:00")])},
     )
-    out, out_coords = p(from_torch(x, coords)).e2s.to_torch()
+    field = from_torch(x, coords)
+    out, out_coords = p(field, forcing_input(p, field)).e2s.to_torch()
     assert out.shape == (1, 1, 1, _N_OUT, H, W)
     assert torch.isfinite(out).all()
 
@@ -301,10 +311,10 @@ def test_camulator_hooks(device):
         return y
 
     p.rear_hook = rear_hook
-    it = p.create_iterator(x)
-    next(it)
-    y1 = next(it).e2s.to_torch()[0]
-    y2 = next(it).e2s.to_torch()[0]
+    it = p.create_iterator(x, forcing_input(p, x))
+    first = next(it)
+    y1 = first.e2s.to_torch()[0]
+    y2 = it.send(forcing_input(p, first)).e2s.to_torch()[0]
     x = x.e2s.to_torch()[0]
     t2m = OUTPUT_VARIABLES.index("t2m")
     # Pass-through core: step 2 must see the hooked step-1 state (+1 K), then +1 K again
@@ -341,7 +351,9 @@ def test_camulator_conformance(monkeypatch):
     p.register_buffer("device_buffer", torch.empty(0))
     p._dt = np.timedelta64(6, "h")
     p._normalize_state = lambda x: x[:, :, 0].clone()
-    p._step = lambda x, coords, device: torch.cat(
+    p.forcing_data_source = None
+    p._prepare_forcing = lambda forcing: forcing.e2s.to_torch()[0][:, :, 0]
+    p._step = lambda x, forcing: torch.cat(
         [x, torch.zeros(*x.shape[:2], len(DIAGNOSTIC_VARIABLES), 4, 8)], dim=2
     )
     p._denormalize_output = lambda x: x.unsqueeze(2)
@@ -376,7 +388,8 @@ def test_camulator_package(device):
         p.input_coords(),
         {"batch": [0], "time": np.array([np.datetime64("1981-01-01T00:00")])},
     )
-    out, out_coords = p(from_torch(x, coords)).e2s.to_torch()
+    field = from_torch(x, coords)
+    out, out_coords = p(field, forcing_input(p, field)).e2s.to_torch()
 
     assert out.shape == (1, 1, 1, _N_OUT, H, W)
     assert torch.isfinite(out).all()

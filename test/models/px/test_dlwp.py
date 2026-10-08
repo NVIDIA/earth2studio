@@ -76,7 +76,7 @@ def make_input(model):
 
 def test_dlwp_declares_core_hook_cadence(monkeypatch):
     model = make_model("DLWP", monkeypatch)
-    assert model.front_hook_interval == 2
+    assert model.front_hook_interval == 1
     calls = []
     model.front_hook = lambda x: calls.append("front") or x
     model.rear_hook = lambda x: calls.append("rear") or x
@@ -84,7 +84,7 @@ def test_dlwp_declares_core_hook_cadence(monkeypatch):
     next(iterator)
     for _ in range(4):
         next(iterator)
-    assert calls == ["front", "rear", "rear", "front", "rear", "rear"]
+    assert calls == ["rear"] + ["front", "rear"] * 4
     assert check_prognostic_contract(model) == [
         "P14: model does not declare itself stochastic"
     ]
@@ -112,7 +112,7 @@ def test_dlwp_core_prescriptive_fields_and_history(monkeypatch):
     initial = next(iterator)
     for i in range(1, 5):
         out = next(iterator)
-        np.testing.assert_allclose(out.data, initial.data + 6 * i, rtol=1e-5)
+        np.testing.assert_allclose(out.data, initial.data + 12 * i, rtol=1e-5)
     np.testing.assert_array_equal(
         times[0], np.tile(x.time.values + np.timedelta64(6, "h"), 2)
     )
@@ -134,17 +134,17 @@ def test_dlwp_leading_x(monkeypatch):
     assert next(iterator).dims == x.dims
 
 
-def test_dlwp_initial_yield_does_not_transform(monkeypatch):
+def test_dlwp_first_yield_matches_initialize(monkeypatch):
     model = make_model("DLWP", monkeypatch)
     x = make_input(model)
 
-    def fail(*args):
-        raise AssertionError("initial yield must not process fields")
-
-    monkeypatch.setattr(model, "to_cubedsphere", fail)
-    xr.testing.assert_identical(
-        next(model.create_iterator(x)), x.isel(lead_time=slice(-1, None))
+    forecast, state = model.initialize(x)
+    xr.testing.assert_identical(next(model.create_iterator(x)), forecast)
+    np.testing.assert_array_equal(
+        forecast.lead_time,
+        x.lead_time.values[-1] + np.array([6, 12], dtype="timedelta64[h]"),
     )
+    assert state is not None
 
 
 @pytest.mark.parametrize("hook_slot", ["front_hook", "rear_hook"])
@@ -198,13 +198,15 @@ def test_dlwp_latest_hook_metadata(monkeypatch, hook_slot, device):
         assert "sample" not in out.coords and out.dims == x.dims
         assert out.e2s.to_torch()[0].device == torch.device(device)
         xr.testing.assert_identical(out.terrain, x.terrain)
-    assert count == (2 if hook_slot == "front_hook" else 3)
+    assert count == (3 if hook_slot == "front_hook" else 4)
     assert front_seen[1].name is None
     assert "experiment" not in front_seen[1].coords
-    for out, saved in retained:
+    for index, (out, saved) in enumerate(retained):
+        if hook_slot == "front_hook" and index < len(retained) - 1:
+            saved.data += 1
         xr.testing.assert_identical(out, saved)
     xr.testing.assert_identical(x, original)
-    xr.testing.assert_identical(initial, original.isel(lead_time=slice(-1, None)))
+    np.testing.assert_array_equal(initial.lead_time, direct.lead_time)
 
 
 class PhooDLWPModel(torch.nn.Module):
@@ -256,18 +258,22 @@ def test_dlwp_sparse_integration(device, dlwp_phoo_cs_transform):
     x = from_torch(torch.rand(signature.shape, device=device), signature)
     out = model(x)
     initial = x.e2s.to_torch()[0][:, :, -1:]
-    expected = model.to_equirectangular(model.to_cubedsphere(initial + 6))
-    assert torch.allclose(out.e2s.to_torch()[0], expected)
-    assert out.shape == (1, 1, 1, 7, 721, 1440)
-    iterator = model.create_iterator(x)
-    xr.testing.assert_identical(
-        next(iterator).e2s.as_numpy(), x.isel(lead_time=slice(-1, None)).e2s.as_numpy()
+    expected = model.to_equirectangular(
+        model.to_cubedsphere(torch.cat((initial + 6, initial + 12), dim=2))
     )
+    assert torch.allclose(out.e2s.to_torch()[0], expected)
+    assert out.shape == (1, 1, 2, 7, 721, 1440)
+    iterator = model.create_iterator(x)
+    xr.testing.assert_identical(next(iterator).e2s.as_numpy(), out.e2s.as_numpy())
     for step in range(1, 8):
         out = next(iterator)
-        expected = model.to_equirectangular(model.to_cubedsphere(initial + 6 * step))
+        expected = model.to_equirectangular(
+            model.to_cubedsphere(
+                torch.cat((initial + 12 * step + 6, initial + 12 * step + 12), dim=2)
+            )
+        )
         assert torch.allclose(out.e2s.to_torch()[0], expected)
-        assert out.lead_time.values[0] == np.timedelta64(6 * step, "h")
+        assert out.lead_time.values[0] == np.timedelta64(12 * step + 6, "h")
         assert out.dims == x.dims
 
 
@@ -282,6 +288,6 @@ def test_dlwp_package():
     x = from_torch(torch.zeros(signature.shape, device="cuda:0"), signature)
     out = model(x)
     assert out.dims == x.dims
-    assert out.shape == (1, 1, 1, 7, 721, 1440)
+    assert out.shape == (1, 1, 2, 7, 721, 1440)
     np.testing.assert_array_equal(out.lead_time, model.output_coords(x).lead_time)
     np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])

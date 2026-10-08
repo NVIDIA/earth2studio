@@ -23,18 +23,16 @@ import xarray as xr
 
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.graphcast_operational import (
     _add_tisr_batched,
-    _jax_inputs,
-    _jax_iterator,
+    _jax_initialize,
     _jax_output_coords,
     _jax_signature,
+    _jax_step,
 )
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils.coords import handshake_size, handshake_time
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -439,8 +437,8 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             index += 1
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input then native six-hour rollout predictions."""
-        yield from _jax_iterator(self, x, 6, jax, data_utils)
+        """Yield six-hour forecasts starting with initialization."""
+        return self._default_create_iterator(x)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         """Convert a iterator result to a tensor"""
@@ -493,33 +491,17 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             device = jax.devices("gpu")[device_id]
         return device
 
-    @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict a six-hour DataArray without hooks."""
-        signature = self.output_coords(x)
-        handshake_time(x)
-        device = self.device_buffer.device
-        with jax.default_device(self.get_jax_device_from_tensor(self.device_buffer)):
-            results = []
-            for t in range(x.sizes["time"]):
-                _, inputs, targets, forcings = _jax_inputs(
-                    self, x.isel(time=slice(t, t + 1)), 6, data_utils
-                )
+        return self.initialize(x)[0]
 
-                predictions = rollout.chunked_prediction(
-                    self.run_forward,
-                    rng=self.prng_key,
-                    inputs=inputs,
-                    targets_template=targets * np.nan,
-                    forcings=forcings,
-                )
-                results.append(self.iterator_result_to_tensor(predictions))
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
+        """Compute the first forecast and explicit continuation state."""
+        return _jax_initialize(self, x, 6, jax, data_utils)
 
-            out = from_torch(
-                torch.cat(results, dim=1).to(device), signature, name=x.name
-            )
-            out.encoding = x.encoding.copy()
-            return out
+    def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
+        """Advance from the previous forecast and continuation state."""
+        return _jax_step(self, y, state, 6, jax, data_utils)
 
     def from_dataarray_to_dataset(
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6

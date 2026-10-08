@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from typing import TypeVar
 
 import numpy as np
@@ -304,7 +304,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.FloatTensor(embedding).to(self.device)
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordinateSystem,
@@ -400,30 +400,48 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, {"lead_time": x.lead_time.values + np.timedelta64(6, "h")}
         )
         out = from_torch(
-            self._forward(tensor.to(self.device), x, self.ort), signature, name=x.name
+            self._forward_tensor(tensor.to(self.device), x, self.ort),
+            signature,
+            name=x.name,
         )
         out.encoding = x.encoding.copy()
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Predict one six-hour field with the short-range model, without hooks."""
-        state = self._step(x)
-        return state.isel(lead_time=slice(-1, None))
+        return self.initialize(x)[0]
 
-    def _default_generator(
+    def initialize(
         self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        step = 0
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Compute the first forecast and retain its regenerated history frame."""
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
-        while True:
-            # The rear hook sees both returned history fields, with matching labels.
-            x = self.rear_hook(self._step(self.front_hook(x.copy(deep=True)), step))
-            step += 1
-            yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
+        return self._forward(x, 0)
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the latest input then cascaded six-hour forecasts."""
-        yield from self._default_generator(x)
+    def _forward(
+        self, x: xr.DataArray, index: int
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        result = self._step(x.copy(deep=True), index)
+        return result.isel(lead_time=slice(-1, None)).copy(deep=True), (
+            result.isel(lead_time=slice(0, -1)).copy(deep=True),
+            index + 1,
+        )
+
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, int]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Continue the range-dependent cascade from the explicit history and index."""
+        history, index = state
+        x = xr.concat(
+            [history, y],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        x.attrs, x.encoding, x.name = y.attrs.copy(), y.encoding.copy(), y.name
+        return self._forward(x, index)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield cascaded six-hour forecasts, beginning with the first prediction."""
+        yield from self._default_create_iterator(x)

@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator
 from copy import deepcopy
 from datetime import datetime
-from typing import cast
+from typing import Any
 
 import numpy as np
 import torch
@@ -28,6 +28,7 @@ from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
+    coord_array_like,
     handshake_coords,
     handshake_dim,
     handshake_nonempty,
@@ -199,7 +200,17 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @property
     def front_hook_interval(self) -> int:  # type: ignore[override]
-        return self.num_interp_steps * getattr(self.px_model, "front_hook_interval", 1)
+        return 1
+
+    @property
+    def stochastic(self) -> bool:
+        """Whether the coarse forecast model samples a random trajectory."""
+        return bool(getattr(self.px_model, "stochastic", False))
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the coarse forecast model's isolated random stream."""
+        if self.stochastic:
+            self.px_model.set_rng(seed, reset=reset)
 
     @staticmethod
     def _load_feature_from_file(fn: str, var: str) -> torch.Tensor:
@@ -286,16 +297,22 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise ValueError("Base forecast model, px_model, must be set")
         coarse = self.px_model.output_coords(input_coords)
         final = input_coords.coords["lead_time"].values[-1:]
-        delta = (coarse.coords["lead_time"].values[-1:] - final).astype(
-            "timedelta64[ns]"
-        )
+        boundaries = np.concatenate((final, coarse.coords["lead_time"].values))
+        delta = np.diff(boundaries).astype("timedelta64[ns]")
         handshake_time(
             {"lead_time": delta},
             "lead_time",
             step=np.timedelta64(self.num_interp_steps, "ns"),
             minimum=np.timedelta64(1, "ns"),
         )
-        return self._prediction_coords(coarse, final + delta // self.num_interp_steps)
+        return self._prediction_coords(
+            coarse,
+            (
+                boundaries[:-1, None]
+                + np.arange(1, self.num_interp_steps + 1)[None, :]
+                * (delta[:, None] // self.num_interp_steps)
+            ).reshape(-1),
+        )
 
     def _prediction_coords(self, x: xr.DataArray, lead: np.ndarray) -> CoordinateSystem:
         lead = lead.astype("timedelta64[ns]")
@@ -331,7 +348,12 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
         coords.update(
             variable=self.variables,
-            lead_time=x.coords["lead_time"].variable.copy(deep=True, data=lead),
+            lead_time=xr.Variable(
+                "lead_time",
+                lead,
+                attrs=deepcopy(x.lead_time.attrs),
+                encoding=deepcopy(x.lead_time.encoding),
+            ),
         )
         if "time" in x.coords:
             time = x.coords["time"]
@@ -537,94 +559,81 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._select_prediction_grid(x)
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Return the first interpolated forecast from a labelled history, without hooks."""
+        """Return the complete interpolated forecast chunk without hooks."""
+        return self.initialize(x)[0]
+
+    def initialize(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, Any]]:
+        """Initialize the coarse forecast and interpolate its forecast interval."""
         handshake_nonempty(x)
         self.output_coords(x)
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
-        coarse = self._select_prediction_grid(self.px_model(x.copy(deep=True)))
-        if self.num_interp_steps == 1:
-            result = from_torch(
-                coarse.e2s.to_torch()[0].to(self.center.device).clone(),
-                self.output_coords(x),
-            )
-            result.encoding = deepcopy(coarse.encoding)
-            return result
-        initial = x.isel(lead_time=slice(-1, None))
-        initial = self._prepare_left_endpoint(initial)
-        gen = self._interpolate(initial, coarse)
-        try:
-            return next(gen)
-        finally:
-            gen.close()
+        coarse, state = self.px_model.initialize(x.copy(deep=True))
+        return self._forward(
+            self._prepare_left_endpoint(x.isel(lead_time=slice(-1, None))), coarse
+        ), (coarse.copy(deep=True), state)
 
-    def _default_generator(
-        self, x: xr.DataArray, hooks: bool = True
-    ) -> Generator[xr.DataArray, None, None]:
-
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, Any]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, Any]]:
+        """Advance the coarse model using edits to the latest published endpoint."""
         if self.px_model is None:
-            raise ValueError(
-                "Base forecast model, px_model, must be set before executing the model."
+            raise ValueError("Base forecast model, px_model, must be set")
+        coarse, nested = state
+        coarse = coarse.copy(deep=True)
+        endpoints = y.sel(lead_time=coarse.lead_time.values)
+        latest = endpoints.isel(lead_time=slice(-1, None))
+        feedback = from_torch(
+            endpoints.e2s.to_torch()[0].to(coarse.e2s.to_torch()[0].device),
+            coord_array_like(endpoints),
+        )
+        coarse.loc[
+            {
+                dim: endpoints.coords[dim].values
+                for dim in ("lead_time", "variable", "lat", "lon")
+            }
+        ] = feedback.data
+        coarse.attrs.update(
+            deepcopy(
+                {
+                    name: value
+                    for name, value in y.attrs.items()
+                    if not name.startswith("earth2studio_")
+                }
             )
+        )
+        coarse.encoding = deepcopy(y.encoding)
+        coarse.name = y.name
+        for name in list(coarse.coords):
+            if name not in coarse.dims and name not in y.coords:
+                coarse = coarse.drop_vars(name)
+        prediction, nested = self.px_model.step(coarse, state=deepcopy(nested))
+        return self._forward(latest, prediction), (prediction.copy(deep=True), nested)
 
-        handshake_nonempty(x)
-        self.output_coords(x)
-        iterator = self.px_model.create_iterator(x.copy(deep=True))
-        try:
-            first = True
-            x0: xr.DataArray | None = None
-            while True:
-                front = getattr(self.px_model, "front_hook")
-                had_front = "front_hook" in vars(self.px_model)
-                advanced = False
+    def _forward(self, left: xr.DataArray, coarse: xr.DataArray) -> xr.DataArray:
+        outputs = []
+        for index in range(coarse.sizes["lead_time"]):
+            right = self._select_prediction_grid(
+                coarse.isel(lead_time=slice(index, index + 1))
+            )
+            outputs.extend(self._interpolate(left, right))
+            endpoint = from_torch(
+                right.e2s.to_torch()[0].to(self.center.device).clone(),
+                self._prediction_coords(right, right.lead_time.values),
+                name=right.name,
+            )
+            endpoint.encoding = deepcopy(right.encoding)
+            outputs.append(endpoint)
+            left = right
+        output = xr.concat(
+            outputs, dim="lead_time", coords="minimal", compat="override", join="exact"
+        )
+        output.encoding = deepcopy(coarse.encoding)
+        output.attrs = deepcopy(output.attrs)
+        return output
 
-                def apply_front(state: xr.DataArray) -> xr.DataArray:
-                    nonlocal x0, advanced
-                    advanced = True
-                    state = front(state).copy(deep=True)
-                    if hooks:
-                        state = self.front_hook(state)
-                    latest = state.isel(lead_time=slice(-1, None))
-                    x0 = self._prepare_left_endpoint(latest).copy(deep=True)
-                    return state
-
-                setattr(self.px_model, "front_hook", apply_front)
-                try:
-                    x1 = next(iterator)
-                finally:
-                    if had_front:
-                        setattr(self.px_model, "front_hook", front)
-                    else:
-                        delattr(self.px_model, "front_hook")
-                initial = (
-                    first
-                    and not advanced
-                    and np.array_equal(x1.lead_time.values, x.lead_time.values[-1:])
-                )
-                first = False
-                if initial:
-                    yield x1.copy(deep=True)
-                    continue
-                x1 = self._select_prediction_grid(x1)
-                if self.num_interp_steps > 1:
-                    if x0 is None:
-                        raise ValueError(
-                            "Resumed interpolation requires the restored left endpoint through the nested front hook"
-                        )
-                    for output in self._interpolate(x0, x1):
-                        yield (self.rear_hook(output) if hooks else output).copy(
-                            deep=True
-                        )
-                output = from_torch(
-                    x1.e2s.to_torch()[0].to(self.center.device).clone(),
-                    self._prediction_coords(x1, x1.lead_time.values),
-                )
-                output.encoding = deepcopy(x1.encoding)
-                x0 = (self.rear_hook(output) if hooks else output).copy(deep=True)
-                yield x0.copy(deep=True)
-        finally:
-            cast(Generator[xr.DataArray, None, None], iterator).close()
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the latest input before computing interpolated forecasts with hooks."""
-        yield from self._default_generator(x)
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield interpolated forecast chunks, beginning with initialization."""
+        yield from self._default_create_iterator(x)

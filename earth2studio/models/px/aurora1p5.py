@@ -15,7 +15,9 @@
 # limitations under the License.
 
 import pickle
-from collections.abc import Iterator
+from collections.abc import Generator
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import numpy as np
@@ -184,6 +186,15 @@ def _load_aurora1p5_from_package(
 
 
 # Adapted from https://microsoft.github.io/aurora/example_v1p5.html
+@dataclass
+class _AuroraState:
+    history: xr.DataArray
+    index: int
+    seed: int | None
+    rng: dict[str, torch.Tensor] | None
+    noise: list[torch.Tensor]
+
+
 @check_optional_dependencies()
 class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Shared xarray execution for the hourly and six-hour Aurora variants."""
@@ -209,7 +220,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
 
-    front_hook_interval = 6
+    front_hook_interval = 1
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -254,7 +265,9 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords,
             {
                 "lead_time": input_coords.lead_time.values[-1:]
-                + np.timedelta64(self._STEP_HOURS, "h"),
+                + np.arange(self._STEP_HOURS, 7, self._STEP_HOURS).astype(
+                    "timedelta64[h]"
+                ),
                 "variable": OUTPUT_VARIABLES,
             },
         )
@@ -443,8 +456,74 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return sub_preds
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict one output time-step ahead without hooks."""
-        return self._sub_steps(x, [self._STEP_HOURS])[0]
+        """Predict the complete six-hour forecast chunk without hooks."""
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, _AuroraState]:
+        """Predict the first chunk and retain history and ensemble noise."""
+        handshake_nonempty(x)
+        if self.stochastic and self._rng_seed is None:
+            self.set_rng(int(torch.randint(0, 2**31, ()).item()))
+        y, state = self._forward(
+            x, _AuroraState(x, 0, self._rng_seed, deepcopy(self._rng_states), [])
+        )
+        self._rng_states = deepcopy(state.rng)
+        return y, state
+
+    def step(
+        self, y: xr.DataArray, state: _AuroraState
+    ) -> tuple[xr.DataArray, _AuroraState]:
+        """Advance from the last forecast frame and explicit history/noise state."""
+        feedback = y.sel(variable=INPUT_VARIABLES).isel(lead_time=slice(-1, None))
+        tensor, _ = feedback.e2s.to_torch()
+        clipped = from_torch(
+            self._clip_ar_input(tensor), coord_array_like(feedback), name=y.name
+        )
+        clipped.encoding = y.encoding.copy()
+        return self._forward(_aurora_history(state.history, clipped), state)
+
+    def _forward(
+        self, x: xr.DataArray, state: _AuroraState
+    ) -> tuple[xr.DataArray, _AuroraState]:
+        previous = self.preds_idx, self._rng_seed, self._rng_states
+        self.preds_idx, self._rng_seed, self._rng_states = (
+            state.index,
+            state.seed,
+            deepcopy(state.rng),
+        )
+        backbone = getattr(self.model, "backbone", None)
+        if self._ENSEMBLE:
+            self.model.set_noise_accumulation(n=6 // self._STEP_HOURS)
+            if backbone is not None:
+                backbone._noise_cache = deepcopy(state.noise)
+        try:
+            predictions = self._sub_steps(
+                x, list(range(self._STEP_HOURS, 7, self._STEP_HOURS))
+            )
+            y = xr.concat(
+                predictions,
+                dim="lead_time",
+                coords="minimal",
+                compat="override",
+                join="exact",
+            )
+            y.encoding = x.encoding.copy()
+            noise = (
+                deepcopy(backbone._noise_cache)
+                if self._ENSEMBLE and backbone is not None
+                else []
+            )
+            return y, _AuroraState(
+                x.isel(lead_time=slice(-1, None)).copy(deep=True),
+                state.index + 1,
+                state.seed,
+                deepcopy(self._rng_states),
+                noise,
+            )
+        finally:
+            self.preds_idx, self._rng_seed, self._rng_states = previous
+            if self._ENSEMBLE:
+                self.model.set_noise_accumulation(n=0)
 
     def _sub_steps(self, x: xr.DataArray, hours: list[int]) -> list[xr.DataArray]:
         self.output_coords(x)
@@ -477,48 +556,9 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x[..., idx, :, :] = x[..., idx, :, :].clamp(min=lo, max=hi)
         return x
 
-    def _default_generator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input, then predictions at the configured cadence."""
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        self.preds_idx = 0
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        while True:
-            history = self.front_hook(x.copy(deep=True))
-            hours = list(
-                range(self._STEP_HOURS, int(_AR_STEP_HOURS) + 1, self._STEP_HOURS)
-            )
-            predictions = self._sub_steps(history, hours)
-            for h, prediction in zip(hours, predictions):
-                out = self.rear_hook(prediction)
-                if h == 6:
-                    feedback = out.sel(variable=INPUT_VARIABLES)
-                    tensor, _ = feedback.e2s.to_torch()
-                    feedback = from_torch(
-                        self._clip_ar_input(tensor),
-                        coord_array_like(feedback),
-                        name=out.name,
-                    )
-                    feedback.encoding = out.encoding.copy()
-                    x = _aurora_history(history, feedback)
-                    self.preds_idx += 1
-                yield out
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial condition and forecasts with ensemble noise caching."""
-        if not self._ENSEMBLE:
-            yield from self._default_generator(x)
-            return
-
-        self.model.reset_noise()
-        # Set once: the FIFO noise cache rolls across AR cycles, not per-cycle.
-        n_substeps = int(_AR_STEP_HOURS) // self._STEP_HOURS
-        self.model.set_noise_accumulation(n=n_substeps)
-        try:
-            yield from self._default_generator(x)
-        finally:
-            self.model.set_noise_accumulation(n=0)
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield complete forecast chunks, beginning with initialization."""
+        yield from self._default_create_iterator(x)
 
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
@@ -566,8 +606,8 @@ class Aurora1p5(_Aurora):
     :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO_ERA5`
     may be used instead. GFS is not supported due to missing surface variables.
 
-    The iterator yields the final input state first. Output-only diagnostic
-    variables first appear after the decoder has run. Hourly accumulations use
+    The iterator yields six-hour forecast chunks with hourly frames, including
+    output-only diagnostic variables from the first yield. Hourly accumulations use
     qualified labels such as ``tp:sum:1h`` and retain their physical units.
     Use :class:`Aurora1p5_6h` for six-hourly output.
 

@@ -636,11 +636,11 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._rng_states = {}
 
     @torch.no_grad()
-    @batch_func()
-    def __call__(
+    def _predict(
         self,
         x: xr.DataArray,
-    ) -> xr.DataArray:
+        native: torch.Tensor | None = None,
+    ) -> tuple[xr.DataArray, torch.Tensor]:
         """Run the prognostic model one step forward.
 
         Parameters
@@ -659,14 +659,17 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coordinate system.
         """
 
-        output_coords = self.output_coords(x)
+        self.output_coords(x)
+        name = x.name
         encoding = deepcopy(x.encoding)
+        x, restore = batch_func()._compress_array(self, x)
+        output_coords = self.output_coords(x)
         x, coords = x.e2s.to_torch()
         x = x.to(self.means.device)
 
         # x: (batch, time, n_input_times, C, H, W)
         B, T, L, C, H, W = x.shape
-        x = self.normalize(x)
+        x = self.normalize(x) if native is None else native.clone()
 
         for j, time in enumerate(coords["time"]):
             # all_times: N input times + 1 output time (N+1 entries for solar angles)
@@ -677,12 +680,71 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             for i0 in range(0, B, self.batch_size):
                 i1 = i0 + self.batch_size
-                x[i0:i1, j, -1] = self._forward(x[i0:i1, j], zen_azi)
+                prediction = self._forward(x[i0:i1, j], zen_azi)
+                prediction.masked_fill_(self.off_earth_mask_tensor, 0)
+                x[i0:i1, j] = torch.cat((x[i0:i1, j, 1:], prediction[:, None]), dim=1)
 
-        out = from_torch(self.denormalize(x[:, :, -1:]), output_coords)
+        out = from_torch(self.denormalize(x[:, :, -1:]), output_coords, name=name)
         out.attrs = deepcopy(out.attrs)
         out.encoding = encoding
-        return out
+        return restore(out), x
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Compute the first forecast without iterator hooks."""
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
+        """Predict the first frame and retain missing context and sampling state."""
+        handshake_nonempty(x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        y, native = self._predict(x)
+        return y, {
+            "history": x.isel(lead_time=slice(1, None)).copy(deep=True),
+            "native": native,
+            "published": y.copy(deep=True),
+            "seed": self._rng_seed,
+            "rng": deepcopy(self._rng_states),
+        }
+
+    def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
+        """Advance the sliding context using explicit history and RNG state."""
+        history = state["history"].e2s.to_torch()[0]
+        current = y.e2s.to_torch()[0]
+        x = from_torch(
+            torch.cat(
+                (history.to(current.device), current), dim=y.get_axis_num("lead_time")
+            ),
+            coord_array_like(
+                y, {"lead_time": y.lead_time.values[-1] + self.input_times}
+            ),
+            name=y.name,
+        )
+        x.attrs, x.encoding = deepcopy(y.attrs), deepcopy(y.encoding)
+        native = state["native"].clone()
+        current, _ = batch_func()._compress_array(self, y)
+        published, _ = batch_func()._compress_array(self, state["published"])
+        current = current.e2s.to_torch()[0].to(native.device)
+        published = published.e2s.to_torch()[0].to(native.device)
+        unchanged = (current == published) | (
+            torch.isnan(current) & torch.isnan(published)
+        )
+        native[:, :, -1:] = torch.where(
+            unchanged, native[:, :, -1:], self.normalize(current)
+        )
+        previous = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state["seed"], deepcopy(state["rng"])
+        try:
+            prediction, native = self._predict(x, native)
+            return prediction, {
+                "history": x.isel(lead_time=slice(1, None)).copy(deep=True),
+                "native": native,
+                "published": prediction.copy(deep=True),
+                "seed": self._rng_seed,
+                "rng": deepcopy(self._rng_states),
+            }
+        finally:
+            self._rng_seed, self._rng_states = previous
 
     @torch.no_grad()
     def create_generator(
@@ -691,9 +753,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> Generator[xr.DataArray, None, None]:
         """Create a generator for autoregressive rollout.
 
-        The first ``next()`` call yields the initial condition unchanged.
-        Subsequent calls each advance the sliding context window by one step
-        and yield the newly predicted frame alongside its output coordinates.
+        The first ``next()`` call yields the first prediction. Each subsequent
+        call advances the sliding context using explicit normalized state.
 
         Parameters
         ----------
@@ -707,119 +768,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Predicted frame tensor of shape ``(batch, time, 1, variable, y, x)``
             (denormalised) and its output coordinate system.
         """
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        x = x.copy(deep=True)
-        packed, restore = batch_func()._compress_array(self, x)
-        tensor, coords = packed.e2s.to_torch()
-        B, T, L, C, H, W = tensor.shape
-        tensor = self.normalize(tensor.to(self.means.device))
-        times = coords["time"].copy()
-        time_step = self.output_times[0]
-        time_offsets = np.concatenate(
-            [coords["lead_time"], coords["lead_time"][-1] + self.output_times]
-        )
-        zen_azi = torch.stack(
-            [self._azimuth_zenith(time + time_offsets) for time in times], dim=0
-        )
-
-        try:
-            while True:
-                if self.front_hook is not self._default_hook:
-                    before = x
-                    x = self.front_hook(x.copy(deep=True))
-                    self.output_coords(x)
-                    if not _same_state(x, before):
-                        packed, restore = batch_func()._compress_array(self, x)
-                        values, coords = packed.e2s.to_torch()
-                        tensor = self.normalize(values.to(self.means.device))
-                        offsets = np.concatenate(
-                            [
-                                coords["lead_time"],
-                                coords["lead_time"][-1] + self.output_times,
-                            ]
-                        )
-                        zen_azi = torch.stack(
-                            [
-                                self._azimuth_zenith(time + offsets)
-                                for time in coords["time"]
-                            ]
-                        )
-                for j, time in enumerate(coords["time"]):
-                    for i0 in range(0, B, self.batch_size):
-                        i1 = i0 + self.batch_size
-                        x_next = self._forward(tensor[i0:i1, j], zen_azi[j])
-                        x_next.masked_fill_(self.off_earth_mask_tensor, 0)
-                        for k in range(L - 1):  # copyless roll of tensor
-                            tensor[i0:i1, j, k] = tensor[i0:i1, j, k + 1]
-                        tensor[i0:i1, j, -1] = x_next
-
-                packed, restore = batch_func()._compress_array(self, x)
-                prediction = from_torch(
-                    self.denormalize(tensor[:, :, -1:]), self.output_coords(packed)
-                )
-                prediction.encoding = x.encoding.copy()
-                prediction = restore(prediction)
-                if self.rear_hook is not self._default_hook:
-                    before = prediction
-                    prediction = self.rear_hook(prediction.copy(deep=True))
-                    if not _same_state(prediction, before):
-                        new, _ = batch_func()._compress_array(self, prediction)
-                        values, _ = new.e2s.to_torch()
-                        tensor[:, :, -1:] = self.normalize(values.to(self.means.device))
-                previous, _ = x.isel(lead_time=slice(1, None)).e2s.to_torch()
-                predicted, _ = prediction.e2s.to_torch()
-                state = torch.cat(
-                    [previous.to(predicted.device), predicted],
-                    dim=x.get_axis_num("lead_time"),
-                )
-                x = from_torch(
-                    state,
-                    coord_array_like(
-                        prediction,
-                        {
-                            "lead_time": np.asarray(prediction.lead_time)[-1]
-                            + self.input_times
-                        },
-                    ),
-                )
-                x.encoding = prediction.encoding.copy()
-                yield prediction.copy(deep=True)
-
-                # roll time step
-                next_coords = {d: np.asarray(x[d]) for d in ("time", "lead_time")}
-                if not (
-                    np.array_equal(next_coords["time"], coords["time"])
-                    and np.array_equal(
-                        next_coords["lead_time"], coords["lead_time"] + time_step
-                    )
-                ):
-                    offsets = np.concatenate(
-                        [
-                            next_coords["lead_time"],
-                            next_coords["lead_time"][-1] + self.output_times,
-                        ]
-                    )
-                    zen_azi = torch.stack(
-                        [
-                            self._azimuth_zenith(time + offsets)
-                            for time in next_coords["time"]
-                        ]
-                    )
-                    coords.update(next_coords)
-                    continue
-                coords.update(next_coords)
-                for k in range(L):
-                    zen_azi[:, :, k] = zen_azi[:, :, k + 1]
-                for j, time in enumerate(coords["time"]):
-                    self._azimuth_zenith(
-                        [time + coords["lead_time"][-1] + time_step], zen_azi[j, :, -1:]
-                    )
-
-        except GeneratorExit:
-            pass
+        yield from self._default_create_iterator(x)
 
     def create_iterator(
         self,

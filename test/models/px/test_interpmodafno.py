@@ -74,6 +74,36 @@ class PhooInterpolationModel(torch.nn.Module):
         return x[:, :73]
 
 
+def test_chunked_coordinate_planning():
+    class ChunkedPersistence(Persistence):
+        def output_coords(self, input_coords):
+            signature = super().output_coords(input_coords)
+            return coord_array_like(
+                signature,
+                {
+                    "lead_time": input_coords.lead_time.values[-1]
+                    + np.array([6, 12], dtype="timedelta64[h]")
+                },
+            )
+
+    model = InterpModAFNO(
+        PhooInterpolationModel(),
+        torch.zeros(1),
+        torch.ones(1),
+        torch.zeros(1),
+        torch.zeros(1),
+        px_model=ChunkedPersistence(
+            ["t2m"], domain_coords={"lat": np.array([0.0]), "lon": np.array([0.0])}
+        ),
+        num_interp_steps=3,
+    )
+    model._prediction_coords = lambda x, lead: coord_array_like(x, {"lead_time": lead})
+    planned = model.output_coords(model.input_coords())
+    np.testing.assert_array_equal(
+        planned.lead_time, np.arange(2, 13, 2).astype("timedelta64[h]")
+    )
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -129,62 +159,30 @@ def test_forecast_interpolation_call(time, device, tmp_path):
         out.e2s.to_torch()[0].cpu(),
         x.isel(lead_time=slice(-1, None))
         .sel(variable=VARIABLES, lat=out.lat, lon=out.lon)
-        .e2s.to_torch()[0],
+        .e2s.to_torch()[0]
+        .expand(out.shape),
     )
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Verify output shape and coordinates
-    assert out.shape == torch.Size([len(time), 1, 73, 720, 1440])
+    assert out.shape == torch.Size([len(time), model.num_interp_steps, 73, 720, 1440])
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
     assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
-    from earth2studio.utils.checkpoint import Checkpoint
-
-    checkpoint = Checkpoint("interp", path=tmp_path, mode="append", level=2)
-    with checkpoint as ckpt:
-        saved_base = Persistence(
-            [*VARIABLES, "extra"], {"lat": x.lat.values, "lon": x.lon.values}, history=2
-        )
-        iterator = saved_base.create_iterator(x)
-        next(iterator)
-        saved = next(iterator)
-        ckpt.write(lead_time=saved.lead_time.values[-1])
-        ckpt.flush()
-        iterator.close()
-    with checkpoint.select(-1):
-        restored = Persistence(
-            [*VARIABLES, "extra"], {"lat": x.lat.values, "lon": x.lon.values}, history=2
-        )
-        model.px_model = restored
-        events = []
-
-        def front(state):
-            events.append(("front", state.lead_time.values[-1]))
-            return state.copy(data=state.data + 10)
-
-        def rear(state):
-            events.append(("rear", state.lead_time.values[-1]))
-            return state
-
-        model.front_hook, model.rear_hook = front, rear
-        resumed = model.create_iterator(x)
-        first = next(resumed)
-        assert first.sizes["variable"] == 73 and first.sizes["lat"] == 720
-        assert first.lead_time.values[0] == np.timedelta64(
-            6 + 6 // model.num_interp_steps, "h"
-        )
-        assert events == [
-            ("front", np.timedelta64(6, "h")),
-            ("rear", first.lead_time.values[0]),
-        ]
-        np.testing.assert_allclose(
-            first.e2s.to_torch()[0].cpu().numpy()[0, 0, 0, 0], first.lon.values + 10
-        )
-        resumed.close()
-        model.clear_hooks()
+    saved, state = model.initialize(x)
+    model.px_model = Persistence(
+        [*VARIABLES, "extra"], {"lat": x.lat.values, "lon": x.lon.values}, history=2
+    )
+    resumed, _ = model.step(saved, state)
+    assert resumed.lead_time.values[0] == np.timedelta64(
+        6 + 6 // model.num_interp_steps, "h"
+    )
+    np.testing.assert_allclose(
+        resumed.e2s.to_torch()[0].cpu().numpy()[0, -1, 0, 0], resumed.lon.values
+    )
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -268,13 +266,12 @@ def test_forecast_interpolation_iter(device):
         time = [time]
 
     # Get generator
-    initial = next(model_iter)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
     assert not hasattr(model, "sincos_latlon")
 
     # Test interpolation steps
     frozen = None
-    for i, out in enumerate(model_iter):
+    for i in range(2):
+        out = next(model_iter)
         np.testing.assert_allclose(
             out.e2s.to_torch()[0].cpu().numpy()[0, 0, 0, 0, 0], out.lon.values
         )
@@ -283,16 +280,18 @@ def test_forecast_interpolation_iter(device):
             first = out
             frozen = out.copy(deep=True)
         else:
+            frozen.attrs["nested"]["owner"].append("front")
             xr.testing.assert_identical(first, frozen)
         assert out.name == x.name and out.encoding == x.encoding
-        assert "aux" not in out.coords and "units" not in out.coords
+        assert ("aux" in out.coords) == (i == 0)
+        assert "units" not in out.coords
         np.testing.assert_array_equal(
             out.valid_time, out.time.values[:, None] + out.lead_time.values
         )
 
         # Check output shape
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, 73, 720, 1440])
+        assert out.shape == torch.Size([ensemble, len(time), 6, 73, 720, 1440])
 
         # Check coordinates
         assert (
@@ -305,12 +304,11 @@ def test_forecast_interpolation_iter(device):
             assert "ensemble" not in out.coords
 
         # Check lead time - should be 1 hour increments due to interpolation
-        assert out_coords["lead_time"][0] == np.timedelta64(12 + i + 1, "h")
-
-        # Break after testing a few steps
-        if i > 10:
-            break
-    assert events == ["front", *(["rear"] * 6)] * 2
+        np.testing.assert_array_equal(
+            out_coords["lead_time"],
+            (12 + i * 6 + np.arange(1, 7)) * np.timedelta64(1, "h"),
+        )
+    assert events == ["rear", "front", "rear"]
     assert interp_model.batch_sizes == [ensemble] * 10
     assert len(solar_calls) == 10
     xr.testing.assert_identical(x, before)
@@ -433,15 +431,24 @@ def test_interpmodafno_conformance():
     def interpolate(left, right):
         np.testing.assert_allclose(left.sel(variable="ws10m"), 5)
         assert left.sizes["lat"] == right.sizes["lat"] == 720
-        yield left.assign_coords(lead_time=left.lead_time + np.timedelta64(1, "h"))
+        for hour in range(1, 6):
+            yield from_torch(
+                left.e2s.to_torch()[0],
+                model._prediction_coords(
+                    left, left.lead_time.values + np.timedelta64(hour, "h")
+                ),
+            )
 
     model._interpolate = interpolate
     field = make_input(model, np.array([np.datetime64("2024-01-01")]))
     field.loc[{"variable": "u10m"}] = 3
     field.loc[{"variable": "v10m"}] = 4
     iterator = model.create_iterator(field)
-    xr.testing.assert_identical(next(iterator), field)
-    assert next(iterator).sizes["variable"] == 3
+    first = next(iterator)
+    assert first.sizes["variable"] == 3
+    np.testing.assert_array_equal(
+        first.lead_time, np.arange(1, 7).astype("timedelta64[h]")
+    )
     iterator.close()
     assert model(field).sizes["variable"] == 3
 

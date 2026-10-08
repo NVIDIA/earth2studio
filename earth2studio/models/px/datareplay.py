@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Hashable, Iterator
+from collections.abc import Generator, Hashable
+from copy import deepcopy
 
 import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data import DataSource, ForecastSource, fetch_data
+from earth2studio.data import DataSource, ForecastSource
 from earth2studio.grids import CurvilinearGrid, GridDefinition, LatLonGrid, resolve_grid
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
@@ -36,8 +37,8 @@ from earth2studio.utils.type import CoordinateSystem, CoordSystem
 class DataReplay(torch.nn.Module, PrognosticMixin):
     """Replay a data source through the prognostic model interface.
 
-    Data sources are queried at successive valid times. Forecast sources are queried
-    at successive lead times from the initial time.
+    The caller supplies successive source frames as forcing. The source is a
+    recommendation for the driver; executing the model never fetches data.
 
     Parameters
     ----------
@@ -129,57 +130,56 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         )
         return coord_array_like(input_coords, {"lead_time": lead.values + self._step})
 
+    def forcing_coords(self) -> CoordinateSystem:
+        """Declare the next source frame relative to the current input."""
+        return self.output_coords(self.input_coords())
+
+    def default_sources(self) -> tuple[None, DataSource | ForecastSource]:
+        """Recommend the configured source for the caller-supplied replay slot."""
+        return None, self.source
+
     @torch.inference_mode()
-    def _forward(self, x: xr.DataArray) -> xr.DataArray:
+    def _forward(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         handshake_nonempty(x)
         handshake_time(x)
         signature = self.output_coords(x)
-        tensor, _ = x.e2s.to_torch()
-        fetched = fetch_data(
-            self.source,
-            time=signature.time,
-            variable=self._variable,
-            lead_time=signature.lead_time,
-            device=tensor.device,
+        handshake_nonempty(forcing)
+        required_coords = set(self.forcing_coords().coords) | set(signature.dims)
+        handshake_dataarray(
+            forcing,
+            signature.drop_vars(
+                [name for name in signature.coords if name not in required_coords]
+            ),
         )
-        # Validate the source domain before broadcasting over caller-owned axes.
-        source_signature = coord_array_like(
-            self.input_coords(),
-            {"time": signature.time, "lead_time": signature.lead_time},
-        )
-        handshake_dataarray(fetched, source_signature)
-        leading = signature.dims[: signature.dims.index("time")]
-        for dim in leading:
-            if dim not in fetched.dims:
-                fetched = fetched.expand_dims({dim: signature.coords[dim]})
-        fetched = fetched.transpose(*signature.dims)
-        if not torch.isfinite(fetched.e2s.to_torch()[0]).all():
-            raise ValueError("DataReplay source returned non-finite values")
-        output = fetched.astype(x.dtype)
+        if not torch.isfinite(forcing.e2s.to_torch()[0]).all():
+            raise ValueError("DataReplay forcing contains non-finite values")
+        output = forcing.astype(x.dtype).copy(deep=True)
         output = output.assign_coords(signature.coords)
         output.name = x.name
-        output.attrs = {**x.attrs, **fetched.attrs}
-        output.encoding = x.encoding.copy()
+        output.attrs = deepcopy({**forcing.attrs, **x.attrs})
+        output.encoding = deepcopy(x.encoding)
         return output
 
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Fetch the next source frame on the input device and with its dtype."""
-        return self._forward(x)
+    def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        """Publish the supplied next source frame with the input dtype."""
+        return self.initialize(x, forcing)[0]
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.copy(deep=True)
+    def initialize(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, None]:
+        """Publish the first supplied forecast; replay has no private state."""
+        return self._forward(x, forcing), None
 
-        while True:
-            # Hooks may mutate fields and nested metadata in place.
-            x = self.front_hook(x.copy(deep=True))
-            x = self.rear_hook(self._forward(x))
-            yield x.copy(deep=False)
+    def step(
+        self, y: xr.DataArray, forcing: xr.DataArray, state: None
+    ) -> tuple[xr.DataArray, None]:
+        """Publish the next supplied forecast without fetching from the source."""
+        if state is not None:
+            raise ValueError("DataReplay state must be None")
+        return self.initialize(y, forcing)
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial field followed by successive source frames."""
-        yield from self._default_generator(x)
+    def create_iterator(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield supplied forecasts, receiving each new source frame via send."""
+        yield from self._default_create_iterator(x, forcing)

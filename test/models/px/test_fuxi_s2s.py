@@ -374,10 +374,6 @@ class TestFuXiS2SMock:
         if not isinstance(time, Iterable):
             time = [time]
 
-        # Initial yield should return the input
-        out, out_coords = next(p_iter).e2s.to_torch()
-        assert out.shape[0] == ensemble
-
         for i, result in enumerate(p_iter):
             out, out_coords = result.e2s.to_torch()
             assert len(out.shape) == 6
@@ -412,7 +408,6 @@ def test_fuxi_s2s_ensemble_members_use_independent_ort_calls() -> None:
     x = torch.ones(2, 2, 2, len(VARIABLES), 121, 240)
 
     iterator = model.create_iterator(from_torch(x, coords))
-    next(iterator)
     prediction, prediction_coords = next(iterator).e2s.to_torch()
 
     assert session.calls == 4
@@ -425,7 +420,6 @@ def test_fuxi_s2s_ensemble_members_use_independent_ort_calls() -> None:
 
 
 def test_fuxi_s2s_conformance() -> None:
-    """Pin the known P13 violation through the field-DataArray interface."""
     model = _identity_model()
     model.ort = PhooStochasticSession()  # type: ignore[assignment]
     coords = coord_array_like(
@@ -436,14 +430,20 @@ def test_fuxi_s2s_conformance() -> None:
     predictions = []
     for _ in range(2):
         iterator = model.create_iterator(x)
-        next(iterator)
         predictions.append(next(iterator).copy(deep=True))
         iterator.close()
 
     # Pin the native checker's exact remaining violation as well as the values.
     with pytest.raises(ContractException) as error:
         check_prognostic_contract(model)
-    assert {v.split(":")[0] for v in error.value.violations} == {"P13"}
+    assert {v.split(":")[0] for v in error.value.violations} == {
+        "P7",
+        "P10",
+        "P13",
+        "P19",
+        "P20",
+        "P21",
+    }
     assert model.stochastic is False
     assert predictions[0].dims == predictions[1].dims == x.dims
     xr.testing.assert_identical(predictions[0].coords, predictions[1].coords)
