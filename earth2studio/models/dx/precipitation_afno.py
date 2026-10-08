@@ -96,6 +96,8 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -107,8 +109,6 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.eps = 1e-5
-
-    stochastic = False
 
     def default_sources(self) -> None:
         """Return no recommended input data source.

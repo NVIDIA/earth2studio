@@ -156,6 +156,8 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     _CLEARNESS_INDEX_EPS = 10.0
     _SOLAR_CONSTANT = 1361.0
 
+    stochastic = True
+
     def __init__(
         self,
         diffusion_model: nn.Module,
@@ -660,7 +662,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
                 )
         return next_state
 
-    stochastic = True
     _rng_generator: torch.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:

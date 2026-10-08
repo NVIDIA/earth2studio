@@ -124,6 +124,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     output_variables = VARIABLES
     guidance_scale = 0.005  # 0.03 = strong, 0 = no guidance
 
+    stochastic = True
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -405,7 +407,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         signature = signature.isel(batch=0, drop=True)
         return from_torch(guidance, signature)
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 

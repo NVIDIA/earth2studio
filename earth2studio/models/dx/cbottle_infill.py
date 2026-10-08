@@ -109,6 +109,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
 
     output_variables = VARIABLES
 
+    stochastic = True
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -320,7 +322,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             sigma_max=sigma_max,
         )
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 

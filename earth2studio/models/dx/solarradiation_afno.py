@@ -105,6 +105,8 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
 
     freq: str  # Class variable to be defined by subclasses
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -127,8 +129,6 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("orography", orography)
         self.register_buffer("landsea_mask", landsea_mask)
         self.register_buffer("sincos_latlon", sincos_latlon)
-
-    stochastic = False
 
     def default_sources(self) -> None:
         """Return no recommended input data source.

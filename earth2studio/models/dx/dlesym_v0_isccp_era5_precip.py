@@ -224,6 +224,8 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -304,8 +306,6 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
             self.register_buffer(
                 "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
             )
-
-    stochastic = False
 
     def default_sources(self) -> None:
         """Return no recommended input data source.

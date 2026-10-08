@@ -29,13 +29,13 @@ class Identity(torch.nn.Module):
     region:global provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(self) -> None:
         super().__init__()
 
     def __str__(self) -> str:
         return "identity"
-
-    stochastic = False
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

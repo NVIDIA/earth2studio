@@ -108,6 +108,8 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -131,8 +133,6 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             "topographic_height",
             (orography),
         )
-
-    stochastic = False
 
     def default_sources(self) -> None:
         """Return no recommended input data source.

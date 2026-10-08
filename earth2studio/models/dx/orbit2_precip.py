@@ -215,6 +215,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -301,8 +303,6 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.do_tiling = do_tiling
         self.div = div
         self.overlap = overlap
-
-    stochastic = False
 
     def default_sources(self) -> None:
         """Return no recommended input data source.

@@ -135,6 +135,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         sr_model: torch.nn.Module,
@@ -467,7 +469,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """Reorder channels from the super resolution model"""
         return torch.index_select(x, 0, self._from_sr_index)
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 

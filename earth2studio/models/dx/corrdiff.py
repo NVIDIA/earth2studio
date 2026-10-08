@@ -227,6 +227,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    @property
+    def stochastic(self) -> bool:
+        """Whether inference includes diffusion sampling."""
+        return self.inference_mode != "regression"
+
     def __init__(
         self,
         input_variables: Sequence[str],
@@ -1098,11 +1103,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         if reset or self._sample_rng is None:
             self._sample_rng = np.random.default_rng(seed)
 
-    @property
-    def stochastic(self) -> bool:
-        """Whether inference includes diffusion sampling."""
-        return self.inference_mode != "regression"
-
     @torch.inference_mode()
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
@@ -1312,6 +1312,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     region:as class:downscaling product:wind product:precip product:temp product:atmos year:2023 gpu:40gb
     provider:nvidia backend:pytorch
     """
+
+    stochastic = True
 
     def __init__(
         self,
@@ -1545,7 +1547,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             self.out_lon_full,
         )[..., 1:-1, 1:-1]
 
-    stochastic = True
     _sample_rng: np.random.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
