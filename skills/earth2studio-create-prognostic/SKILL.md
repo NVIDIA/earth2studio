@@ -28,6 +28,10 @@ helpers.
    absent. Record inputs, history windows, output chunks, grids, statistics,
    forcing, statics, latent state, randomness, core shapes and checkpoints.
    Configure domains and variables before querying signatures.
+   Ask: “Do you want checkpoint/restart integration? I recommend no for the
+   initial implementation because it adds storage, restore and testing complexity.”
+   Add it only if requested; see [checkpointing](references/model-contract.md#optional-checkpoint-integration).
+   Explicit `initialize`/`step` state remains required either way.
 2. **Propose dependencies.** Every packaged prognostic gets a named optional
    extra, even if empty. Confirm dependencies before editing `pyproject.toml`;
    add approved extras alphabetically and include them in `all`.

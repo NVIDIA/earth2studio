@@ -27,6 +27,9 @@ Diagnostics transform fields without a rollout, forcing API or iterator hooks.
    ask for one if absent. Record variables, grids, units/statistics, input/output
    slots, core shapes, checkpoints and sampling behavior. Configure domains and
    variables before querying signatures.
+   Ask: “Do you want checkpoint/restart integration? I recommend no for the
+   initial implementation because it adds storage, restore and testing complexity.”
+   Add it only if requested; see [checkpointing](references/model-contract.md#optional-checkpoint-integration).
 2. **Choose packaging.** Simple derived diagnostics usually need no dependency
    extra. Packaged/generative models use `AutoModelMixin` and a named optional
    extra, even if empty. Propose dependencies before editing `pyproject.toml`;

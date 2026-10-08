@@ -133,7 +133,7 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         tuple[xr.DataArray, None]
             Forecast and state; this model needs only its preceding output.
         """
-        return self._advance(x), None
+        return self._forward(x), None
 
     def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
         """Advance a preceding forecast without modifying it.
@@ -152,11 +152,11 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if state is not None:
             raise ValueError("This single-frame model expects state=None")
-        return self._advance(y), None
+        return self._forward(y), None
 
     @torch.inference_mode()
     @batch_func()
-    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+    def _forward(self, x: xr.DataArray) -> xr.DataArray:
         # Batch only the array-to-array numerical boundary, not (y, state).
         handshake_nonempty(x)
         signature = self.output_coords(x)

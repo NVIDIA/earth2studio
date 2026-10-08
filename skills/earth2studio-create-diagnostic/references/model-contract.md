@@ -109,6 +109,31 @@ Verify numerical results, invalid/empty inputs, arbitrary leading axes, metadata
 input nonmutation, source ordering and RNG isolation. Package tests load real
 weights only when explicitly enabled; dependency skips are not conformance.
 
+## Optional Checkpoint Integration
+
+Ask whether the user wants integration with Earth2Studio's checkpoint system.
+Recommend **no for the initial implementation** because persistence adds state
+schemas, restore handling and tests. Without an opt-in, omit checkpoint bindings,
+disk save/restore logic and checkpoint-specific tests. Deterministic stateless
+diagnostics usually need no component restart state; stochastic diagnostics may
+need their RNG position when resuming a larger workflow.
+
+If requested, read the [checkpoint guide](../../../docs/userguide/advanced/checkpointing.md)
+and [implementation](../../../earth2studio/utils/checkpoint.py). Bind a unique
+component dataclass with `bind_checkpoint_state` inside the active `Checkpoint`
+context when construction needs restored state. Level 0 logs workflow progress,
+level 1 supports restarting a workflow item, and level 2 supports within-rollout
+restart where supported; agree on the component's supported scope explicitly.
+Stage owned tensor snapshots on the binding's `device`, honor its
+`checkpoint_level`, and leave immutable weights out of restart state.
+
+Use the existing pickle-free serializer and supported dataclasses, containers,
+scalars, tensors and non-object NumPy arrays. Encode any DataArray payload's data,
+coordinates and metadata explicitly; native DataArray serialization is not
+provided. Coordinate progress writes with successful workflow IO and flushing.
+Test a disk restart with a fresh component, RNG continuation when applicable,
+and disabled checkpointing using the checkpoint API, not pickle.
+
 ## Packaging
 
 Simple derived diagnostics normally need only `torch.nn.Module`. Packaged and

@@ -51,6 +51,40 @@ may delegate `__call__` to `_default_call(x, ...)` and `create_iterator` to
 `_default_create_iterator(x, ...)`; implement `initialize` and `step` yourself.
 Direct implementations without the mixin must obey the same behavior.
 
+## Optional Checkpoint Integration
+
+Ask whether the user wants integration with Earth2Studio's checkpoint system.
+Recommend **no for the initial implementation**: persistence adds payload/schema
+design, device restoration and restart testing. Without an opt-in, omit checkpoint
+bindings, disk save/restore logic and checkpoint-specific tests. Still implement
+the required explicit state and replay semantics above; a resumable `(y, state)`
+does not automatically integrate with checkpoint storage.
+
+If requested, consult the [checkpoint guide](../../../docs/userguide/advanced/checkpointing.md)
+and [implementation](../../../earth2studio/utils/checkpoint.py):
+
+- `Checkpoint` manages a named run's restart catalog; `NullCheckpoint` is the
+  no-op fallback. Components opt in through `bind_checkpoint_state` with a
+  component-specific dataclass. Bind inside the active context when construction
+  depends on restored state; duplicate dataclass identities in one session collide.
+- Agree on supported levels: 0 records workflow progress only, 1 supports restart
+  of a workflow item, and 2 supports restart within a rollout. Do not claim a level
+  the wrapper cannot restore completely.
+- Keep immutable weights out of restart state. Coordinate with the workflow's IO
+  so the full forecast fields and continuation state needed for `step` are
+  recoverable, even when ordinary outputs save only selected variables.
+- Use the existing pickle-free serializer. It supports dataclasses, scalar and
+  container values, tensors and non-object NumPy arrays. DataArrays are not a
+  supported native payload: explicitly encode and restore their data, coordinates
+  and metadata using supported types. Verify the actual payload against the
+  serializer rather than assuming protocol state is directly supported.
+- Keep `initialize` and `step` independent of ambient checkpoint restoration.
+  Restore the saved pair at the orchestration boundary and call `step` for the
+  next forecast. Record progress only after successful forecast IO, then flush.
+- Test an on-disk restart with a fresh component, matching uninterrupted fields,
+  lead times and RNG continuation; also test disabled checkpointing. Use the
+  checkpoint API rather than pickle round trips.
+
 ## Forcing and Slots
 
 `input_coords()` and `output_coords(...)` return a single allocation-free

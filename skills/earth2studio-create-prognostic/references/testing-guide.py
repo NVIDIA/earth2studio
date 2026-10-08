@@ -24,7 +24,6 @@ checks alone. Stochastic mocks must exercise the wrapper's real seeding mechanis
 """
 
 import inspect
-import pickle
 
 import numpy as np
 import pytest
@@ -98,25 +97,6 @@ def test_model_conformance(model):
         [] if model.stochastic else ["P14: model does not declare itself stochastic"]
     )
     assert skipped == expected
-
-
-def test_model_replay(model):
-    x = make_input(model)
-    model.clear_hooks()
-    if model.stochastic:
-        model.set_rng(42)
-    y, state = model.initialize(x)
-    if model.stochastic:
-        model.set_rng(42)
-    xr.testing.assert_identical(model(x), y)
-    saved_y = y.copy(deep=True)
-    # A trusted in-process test snapshot, not an external checkpoint format.
-    restored_y, restored_state = pickle.loads(pickle.dumps((y, state)))  # noqa: S301
-    first, _ = model.step(y, state=state)
-    second, _ = model.step(restored_y, state=restored_state)
-    xr.testing.assert_identical(first, second)
-    xr.testing.assert_identical(y, saved_y)
-    # Also compare each state field before/after for a nonempty concrete state.
 
 
 def test_model_signatures(model):
