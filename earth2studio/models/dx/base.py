@@ -72,15 +72,16 @@ class DiagnosticModel(Protocol):
         pass
 
     def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+        self, *input_coords: CoordinateSystem
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordinateSystem | tuple[CoordinateSystem, ...]
-            Input signature or DataArray to validate and transform, or a tuple
-            aligned with the slots declared by ``input_coords()``.
+        *input_coords : CoordinateSystem
+            One input signature or DataArray per ``input_coords()`` slot, passed
+            as separate positional arguments in declared order. Concrete models
+            declare a fixed number of named parameters, matching their input slots.
 
         Returns
         -------

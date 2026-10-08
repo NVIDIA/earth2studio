@@ -188,7 +188,7 @@ class PrognosticModel(Protocol):
         self,
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...] | None: ...
     def output_coords(
-        self, input_coords: CoordinateSystem | tuple[CoordinateSystem, ...]
+        self, *input_coords: CoordinateSystem
     ) -> CoordinateSystem | tuple[CoordinateSystem, ...]: ...
     def initialize(
         self, *x: xr.DataArray
@@ -450,9 +450,9 @@ such as a pre-regridded archive.
 `input_coords()` order, and returns a single DataArray or a tuple in output-slot
 order. Wrappers must declare fixed, named input parameters (`D11`); the protocol's
 variadic notation only describes differing arities across wrappers. Generic callers
-use declared slot order, not parameter names. Coordinate methods retain
-single-or-tuple signatures: `output_coords(input_coords)` takes one signature or
-a tuple aligned with `input_coords()` and returns one or a tuple of output signatures.
+use declared slot order, not parameter names. `output_coords` likewise takes one
+separate positional signature/DataArray per input slot, with fixed named parameters
+on concrete wrappers. It returns one signature or a tuple of output signatures.
 Slot order is append-only, automation matches by content, and slots split only when
 coordinates differ. A diagnostic defines `default_sources()`, returning a source
 for a single input slot, a tuple in input-slot order, or `None` for no recommendations.
@@ -675,7 +675,7 @@ unevaluated rules with reasons. `rollout=False` retains declarations/planning
 
 Probes concretize dynamic dimensions for every declared slot and use each
 signature's `.shape`, auxiliary coordinates and grid/statistics metadata.
-Execution passes separate arrays; planning passes a grouped coordinate signature.
+Execution and planning both pass separate positional arguments in input-slot order.
 Pseudo-random probes expose input mutation; models rejecting unphysical data need
 realistic initial-condition fixtures. Generic probes cannot prove numerical
 correctness, semantic source ordering or absence of internal fetching.

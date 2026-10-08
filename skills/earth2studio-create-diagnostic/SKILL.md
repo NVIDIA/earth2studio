@@ -88,8 +88,8 @@ public methods and NumPy-style docstrings; use `loguru.logger` in library code.
 ## Common Mistakes
 
 - Copying the protocol's `*x` into a wrapper: use fixed named parameters instead.
-- Passing `(a, b)` to execution: use `model(a, b)`; coordinate planning still
-  accepts `model.output_coords((a, b))`.
+- Passing `(a, b)` as one argument: use `model(a, b)` and
+  `model.output_coords(a, b)` for separate input slots.
 - Omitting `default_sources()`: return `None` when there is no recommendation.
 - Treating a zero-length spatial axis as a wildcard: configure a concrete grid.
 - Forbidding temporal axes: diagnostics may consume or preserve time/lead time

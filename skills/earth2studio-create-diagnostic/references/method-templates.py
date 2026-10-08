@@ -18,7 +18,7 @@
 
 Generative outputs declare their sample axis and output grid explicitly. Follow
 model-contract.md for set_rng and isolated RNG ownership. The multi-grid example
-below demonstrates fixed execution parameters and grouped coordinate planning.
+below demonstrates fixed parameters for execution and coordinate planning.
 """
 
 import torch
@@ -85,10 +85,9 @@ class MultiGridDiagnostic(torch.nn.Module):
         return fine, coarse
 
     def output_coords(
-        self, input_coords: tuple[CoordinateSystem, CoordinateSystem]
+        self, fine: CoordinateSystem, coarse: CoordinateSystem
     ) -> tuple[CoordinateSystem, CoordinateSystem]:
-        """Validate the grouped signatures and plan one output per distinct grid."""
-        fine, coarse = input_coords
+        """Validate separate signatures and plan one output per distinct grid."""
         fine_signature, coarse_signature = self.input_coords()
         handshake_dataarray(fine, fine_signature)
         handshake_dataarray(coarse, coarse_signature)
@@ -113,7 +112,7 @@ class MultiGridDiagnostic(torch.nn.Module):
         tuple[xr.DataArray, xr.DataArray]
             Independent field copies on the fine and coarse grids.
         """
-        self.output_coords((fine, coarse))
+        self.output_coords(fine, coarse)
         handshake_nonempty(fine)
         handshake_nonempty(coarse)
         return fine.copy(deep=True), coarse.copy(deep=True)

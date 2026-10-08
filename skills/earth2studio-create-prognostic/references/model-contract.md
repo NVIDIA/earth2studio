@@ -88,8 +88,8 @@ and [implementation](../../../earth2studio/utils/checkpoint.py):
 ## Forcing and Slots
 
 `input_coords()` and `output_coords(...)` return a single allocation-free
-signature or a tuple. Coordinate planning receives one argument: a signature or
-tuple of input signatures/DataArrays. It does not take variadic execution args.
+signature or a tuple. Coordinate planning receives one separate positional
+signature/DataArray per input slot, using fixed named parameters like execution.
 `forcing_coords()` returns one signature, a tuple, or `None` for unforced models.
 
 - Inputs are fetched once. Initial arguments concatenate input slots then forcing
