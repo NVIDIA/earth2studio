@@ -719,14 +719,19 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
     )
     field.encoding = {"source": "fixture"}
     original = field.copy(deep=True)
-    histories = []
-    p.front_hook = lambda value: histories.append(value.copy(deep=True)) or value
+    hook_inputs = []
+    p.front_hook = lambda value: hook_inputs.append(value.copy(deep=True)) or value
 
     def rollout(seed):
+        hook_inputs.clear()
         p.set_rng(seed)
         iterator = p.create_iterator(field)
         retained = [next(iterator) for _ in range(3)]
         iterator.close()
+        assert len(hook_inputs) == len(retained) - 1
+        for hook_input, forecast in zip(hook_inputs, retained[:-1]):
+            xr.testing.assert_identical(hook_input, forecast)
+            assert hook_input.encoding == forecast.encoding
         return retained
 
     a, b, c = rollout(17), rollout(17), rollout(18)
@@ -764,16 +769,6 @@ def test_aifs2ens_forcing_batch_time_order(monkeypatch, device):
         assert first.name == field.name and first.encoding == field.encoding
         assert first.e2s.to_torch()[0].device == torch.device(device)
         assert not np.isin(p.VARIABLE_INVARIANTS, first.coords["variable"]).any()
-    for history in histories:
-        torch.testing.assert_close(
-            history.sel(variable=p.VARIABLE_INVARIANTS)
-            .isel(lead_time=-1)
-            .e2s.to_torch()[0]
-            .cpu(),
-            original.sel(variable=p.VARIABLE_INVARIANTS)
-            .isel(lead_time=-1)
-            .e2s.to_torch()[0],
-        )
     xr.testing.assert_identical(field, original)
 
 
