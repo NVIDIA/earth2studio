@@ -543,6 +543,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             },
         )
         result = from_torch(out[:, :, 1:stop].clone(), signature, name=x.name)
+        result.attrs = deepcopy(result.attrs)
         result.encoding = deepcopy(x.encoding)
         return result
 
