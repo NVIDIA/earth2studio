@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -24,6 +25,8 @@ import torch
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import AtlasCRPS
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.type import CoordSystem
 
 
 class PhooAtlasCRPSModel(torch.nn.Module):
@@ -224,6 +227,66 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
 
         if i > 3:
             break
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("stop", [0, 2])
+def test_atlas_crps_checkpoint_state_round_trip(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    atlas_crps_test_components: dict,
+    device: str,
+    stop: int,
+) -> None:
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA unavailable")
+
+    def stochastic_forward(
+        self: PhooAtlasCRPSModel, prev: torch.Tensor, current: torch.Tensor
+    ) -> torch.Tensor:
+        return 0.1 * prev + 0.2 * current + torch.randn_like(current) + torch.rand(())
+
+    def decode(
+        self: PhooAutoencoder, x: torch.Tensor, residual: torch.Tensor
+    ) -> torch.Tensor:
+        return x + 2 * residual  # Physical and latent trajectories must differ.
+
+    def output_coords(self: AtlasCRPS, coords: CoordSystem) -> CoordSystem:
+        coords = coords.copy()
+        coords["lead_time"] = coords["lead_time"][-1:] + self.DT
+        return coords
+
+    monkeypatch.setattr(PhooAtlasCRPSModel, "forward", stochastic_forward)
+    monkeypatch.setattr(PhooAutoencoder, "forward", decode)
+    monkeypatch.setattr(AtlasCRPS, "output_coords", output_coords)
+    coords = OrderedDict(
+        batch=np.arange(2),
+        time=np.array(["2024-01-01"], dtype="datetime64[ns]"),
+        lead_time=np.array([-6, 0], dtype="timedelta64[h]"),
+        variable=np.array(["t2m"]),
+        lat=np.arange(2),
+        lon=np.arange(3),
+    )
+    x = torch.ones(2, 1, 2, 1, 2, 3, device=device)
+    checkpoint = Checkpoint("atlas_crps", path=tmp_path, level=2)
+    with checkpoint as ckpt:
+        model = AtlasCRPS(**atlas_crps_test_components).to(device)
+        iterator = model.create_iterator(x, coords)
+        for _ in range(stop + 1):
+            _, saved_coords = next(iterator)
+            ckpt.write(lead_time=saved_coords["lead_time"][-1])
+        ckpt.flush()
+        expected = [next(iterator) for _ in range(2)]
+
+    torch.manual_seed(987)
+    with checkpoint.select(-1):
+        model = AtlasCRPS(**atlas_crps_test_components).to(device)
+        iterator = model.create_iterator(torch.full_like(x, -5), coords)
+        for expected_x, expected_coords in expected:
+            actual_x, actual_coords = next(iterator)
+            torch.testing.assert_close(actual_x, expected_x, rtol=0, atol=0)
+            for key in expected_coords:
+                np.testing.assert_array_equal(actual_coords[key], expected_coords[key])
 
 
 @pytest.mark.parametrize(
