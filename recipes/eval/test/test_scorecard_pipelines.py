@@ -498,22 +498,28 @@ class TestGridCoords:
 
     @pytest.mark.skipif(int(zarr.__version__.split(".")[0]) < 3, reason="zarr v3 API")
     def test_written_as_xarray_coordinates(self, tmp_path):
-        from src.output import write_grid_coords
+        from collections import OrderedDict
+
+        from src.output import build_output_template
+
+        from earth2studio.io import ZarrBackend
 
         path = str(tmp_path / "store.zarr")
-        group = zarr.open_group(path, mode="w")
-        group.create_array(
-            "t2m", shape=(2, 3, 4), dtype="f4", dimension_names=("time", "y", "x")
+        total_coords = OrderedDict(
+            {
+                "time": np.arange(2),
+                "y": np.arange(3),
+                "x": np.arange(4),
+            }
         )
-        for name, n in (("time", 2), ("y", 3), ("x", 4)):
-            arr = group.create_array(
-                name, shape=(n,), dtype="i8", dimension_names=(name,)
-            )
-            arr[...] = np.arange(n)
         lat2 = np.linspace(45, 50, 3)[:, None] * np.ones((1, 4))
-        write_grid_coords(
-            path, {"lat": (("y", "x"), lat2), "lon": (("y", "x"), lat2 + 10)}, ["t2m"]
+        template = build_output_template(
+            total_coords,
+            ["t2m"],
+            {"lat": (("y", "x"), lat2), "lon": (("y", "x"), lat2 + 10)},
         )
+        ZarrBackend(file_name=path).add_array(template)
+
         ds = xr.open_zarr(path, consolidated=False)
         assert set(ds.coords) >= {"lat", "lon"} and ds["lat"].dims == ("y", "x")
         assert list(ds.data_vars) == ["t2m"]

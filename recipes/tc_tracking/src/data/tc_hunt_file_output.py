@@ -18,7 +18,6 @@ import copy
 import os
 import shutil
 from collections import OrderedDict
-from typing import Any
 
 import numpy as np
 import torch
@@ -26,7 +25,8 @@ from omegaconf import DictConfig
 
 from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import map_coords, split_coords
+from earth2studio.utils.coords import coord_array, map_coords
+from earth2studio.utils.cupy import from_torch
 
 
 def initialise_output_coords(
@@ -80,7 +80,6 @@ def add_arrays_to_store(
     mems: np.ndarray,
     add_arrays: bool,
     ic: np.datetime64 | None = None,
-    array_kwargs: dict | None = None,
 ) -> None:
     """Allocate arrays on a storage backend.
 
@@ -96,21 +95,18 @@ def add_arrays_to_store(
         If ``True``, call ``store.add_array``; otherwise do nothing.
     ic : np.datetime64 | None, optional
         If provided, restrict the *time* coordinate to this single IC.
-    array_kwargs : dict | None, optional
-        Extra keyword arguments forwarded to ``store.add_array``.
     """
-    if array_kwargs is None:
-        array_kwargs = {}
     oco = copy.deepcopy(out_coords)
     oco["ensemble"] = mems
     oco.move_to_end("ensemble", last=False)
-    out_vars = oco.pop("variable")
 
     if ic is not None:
         oco["time"] = np.array([ic])
 
     if add_arrays:
-        store.add_array(coords=oco, array_name=out_vars, **array_kwargs)
+        # The template's variable labels name the arrays to create, its other
+        # dimensions size them
+        store.add_array(coord_array(tuple(oco), oco))
 
     return
 
@@ -163,8 +159,6 @@ def setup_output(
         "lead_time": 1,
         "variable": 1,
     }
-    array_kwargs: dict[str, Any] = {}
-
     # TODO: let proc zero create dir and add barrier
     os.makedirs(cfg.store_dir, exist_ok=True)
     file_name = os.path.join(cfg.store_dir, cfg.project)
@@ -191,7 +185,6 @@ def setup_output(
             out_coords=out_coords,
             mems=np.asarray(list(range(cfg.ensemble_size))).flatten(),
             add_arrays=add_arrays,
-            array_kwargs=array_kwargs,
         )
 
     else:
@@ -259,9 +252,13 @@ def initialise_netcdf_output(
         backend_kwargs={"mode": "w", "diskless": False, "chunks": chunks},
     )
 
-    # add random seed to store
-    store.add_array(coords=OrderedDict({"ensemble": mems}), array_name="random_seed")
-    store.write(torch.from_numpy(seeds), OrderedDict({"ensemble": mems}), "random_seed")
+    # add random seed to store, an array named after itself rather than by a
+    # variable label
+    seed_coords = OrderedDict({"ensemble": mems})
+    store.add_array(
+        coord_array(("ensemble",), seed_coords, dtype=seeds.dtype, name="random_seed")
+    )
+    store.write(from_torch(torch.from_numpy(seeds), seed_coords, name="random_seed"))
 
     # add arrays to the store
     add_arrays_to_store(
@@ -293,4 +290,4 @@ def write_to_store(
     """
     if store is not None:
         xx_sub, coords_sub = map_coords(xx, coords, out_coords)
-        store.write(*split_coords(xx_sub, coords_sub, dim="variable"))
+        store.write(from_torch(xx_sub, coords_sub))
