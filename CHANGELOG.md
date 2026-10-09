@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added `DailyMean`, a UTC daily-mean adapter for hourly gridded data sources,
+  and `FuXiS2SERA5`, which prepares 0.25-degree ERA5 fields on the FuXi-S2S
+  1.5-degree grid.
 
 ### Changed
 
