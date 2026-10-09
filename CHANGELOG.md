@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
+  maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
+  0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+- Added an `original_event` option and report time/latitude/longitude columns to
+  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
+- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added `scan_quality`, `granule_quality` and `footprint_quality` columns to
+  `NNJAObsSat` carrying the ATMS, CrIS and IASI footprint-level provider flags.
+- Added a `cycle_time` column to the NCEP observation sources (`NNJAObsConv`,
+  `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
+  was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
 - Eval recipe: `scoring.online.verification_sources` scores one online rollout
   against several named truth sources in a single pass, writing
@@ -18,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
+  is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
 
@@ -26,6 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
+  messages, or any DX-table message fails to decode, instead of silently returning
+  fewer rows.
+- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
+  instead of failing the whole request.
+- `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
+  corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
+  statistics).
 
 ### Security
 
