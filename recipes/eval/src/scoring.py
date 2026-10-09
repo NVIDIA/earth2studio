@@ -41,7 +41,7 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource
 from earth2studio.statistics.weights import lat_weight
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils.coords import CoordSystem, coord_array
 
 from .distributed import get_rank
 from .output import OutputManager
@@ -691,6 +691,9 @@ def add_score_arrays(
     Safe to call on every rank via ``run_on_rank0_first`` — rank 0 creates
     the arrays, subsequent ranks find them already present and no-op.
 
+    Each group becomes one IO template whose ``variable`` labels name the
+    score arrays to create and whose other dimensions size them.
+
     Parameters
     ----------
     io : ZarrBackend
@@ -700,8 +703,11 @@ def add_score_arrays(
     """
     for group_coords, group_vars in array_groups:
         new_vars = [v for v in group_vars if v not in io]
-        if new_vars:
-            io.add_array(group_coords, np.array(new_vars))
+        if not new_vars:
+            continue
+        coords = {dim: np.asarray(vals) for dim, vals in group_coords.items()}
+        coords["variable"] = np.array(new_vars)
+        io.add_array(coord_array((*group_coords, "variable"), coords))
 
 
 def validate_lead_time_chunking(

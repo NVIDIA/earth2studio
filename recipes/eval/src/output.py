@@ -25,6 +25,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 import zarr
 from loguru import logger
 from omegaconf import DictConfig
@@ -33,7 +34,8 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.io import AsyncZarrBackend, ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, handshake_coords, split_coords
+from earth2studio.utils.coords import CoordSystem, coord_array, handshake_coords
+from earth2studio.utils.cupy import from_torch
 
 from .distributed import run_on_rank0_first
 
@@ -44,14 +46,23 @@ _NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemb
 _ITERATION_DIMS = ("time", "lead_time", "ensemble")
 
 
-def _spatial_dims(coords: CoordSystem) -> list[str]:
+def _spatial_dims(coords: CoordSystem | xr.DataArray) -> list[str]:
     """Return dimension names from *coords* that are spatial (not structural).
 
     Structural dimensions (batch, time, lead_time, variable, ensemble) are
     excluded; everything else is treated as a spatial dimension whose values
     should be carried through to output stores.
+
+    Accepts either a coordinate dict or a model coordinate signature.
     """
-    return [d for d in coords if d not in _NON_SPATIAL_DIMS]
+    dims = coords.dims if isinstance(coords, xr.DataArray) else coords
+    return [str(d) for d in dims if d not in _NON_SPATIAL_DIMS]
+
+
+def _labels(coords: CoordSystem | xr.DataArray, dim: str) -> np.ndarray:
+    """Labels of *dim*, from a coordinate dict or a coordinate signature."""
+    values = coords.coords[dim] if isinstance(coords, xr.DataArray) else coords[dim]
+    return np.asarray(values)
 
 
 def build_output_coords(
@@ -77,7 +88,7 @@ def build_output_coords(
     oc: CoordSystem = OrderedDict()
     oc["variable"] = np.array(output_variables)
     for dim in _spatial_dims(spatial_ref):
-        oc[dim] = spatial_ref[dim]
+        oc[dim] = _labels(spatial_ref, dim)
     return oc
 
 
@@ -161,7 +172,7 @@ def build_forecast_coords(
 
     ref = spatial_ref if spatial_ref is not None else output_c
     for dim in _spatial_dims(ref):
-        total[dim] = ref[dim]
+        total[dim] = _labels(ref, dim)
 
     return total
 
@@ -213,7 +224,7 @@ def build_diagnostic_coords(
     total["lead_time"] = np.array([np.timedelta64(0, "ns")])
 
     for dim in _spatial_dims(ref):
-        total[dim] = ref[dim]
+        total[dim] = _labels(ref, dim)
 
     return total
 
@@ -256,7 +267,7 @@ def build_analysis_coords(
     total["lead_time"] = np.array([np.timedelta64(0, "ns")])
 
     for dim in _spatial_dims(spatial_ref):
-        total[dim] = spatial_ref[dim]
+        total[dim] = _labels(spatial_ref, dim)
 
     return total
 
@@ -288,7 +299,7 @@ def build_predownload_coords(
     coords: CoordSystem = OrderedDict()
     coords["time"] = times
     for dim in _spatial_dims(spatial_ref):
-        coords[dim] = spatial_ref[dim]
+        coords[dim] = _labels(spatial_ref, dim)
     return coords
 
 
@@ -329,43 +340,58 @@ def build_score_coords(
     return total
 
 
-def write_grid_coords(
-    path: str,
-    grid_coords: dict[str, tuple[tuple[str, ...], np.ndarray]],
+def build_output_template(
+    total_coords: CoordSystem,
     variables: list[str],
-) -> None:
-    """Add auxiliary coordinate arrays to a freshly created zarr store.
+    grid_coords: dict[str, tuple[tuple[str, ...], np.ndarray]] | None = None,
+) -> xr.DataArray:
+    """Build the IO template describing one array per output variable.
 
-    Each entry becomes an array on the named dimensions (for example
-    ``lat[y, x]``), and every data variable gets a CF ``coordinates``
-    attribute naming them, so ``xarray.open_zarr`` exposes them as
-    coordinates rather than data variables.
+    The pipelines carry their output schema as a coordinate dict plus a list
+    of variable names; the IO backends take a concrete :class:`xr.DataArray`
+    template instead, where the ``variable`` labels name the arrays to create
+    and every other dimension sizes them.  This is the one place that
+    conversion happens.
+
+    ``variable`` is inserted ahead of the first spatial dimension, which is
+    where the pipelines put it in the fields they write, so the stored
+    dimension order matches the write order.
+
+    Auxiliary coordinates (``grid_coords``) become coordinate arrays on the
+    dimensions they name — for example ``lat[y, x]`` — and the backend lists
+    them in the CF ``coordinates`` attribute of every data array, so
+    ``xarray.open_zarr`` exposes them as coordinates rather than data
+    variables.
 
     Parameters
     ----------
-    path : str
-        Zarr store path.
-    grid_coords : dict
-        ``name -> (dims, values)``; nothing happens when empty.
+    total_coords : CoordSystem
+        Full coordinate system of the store, without ``variable`` (e.g. from
+        :func:`build_forecast_coords`).
     variables : list[str]
-        Data variables that carry the ``coordinates`` attribute.
+        Variable names to create in the store.
+    grid_coords : dict, optional
+        ``name -> (dims, values)`` auxiliary coordinates.
+
+    Returns
+    -------
+    xr.DataArray
+        Allocation-free template for :meth:`add_array`.
     """
-    if not grid_coords:
-        return
-    group = zarr.open_group(path, mode="r+")
-    for name, (dims, values) in grid_coords.items():
-        values = np.asarray(values)
-        arr = group.create_array(
-            name,
-            shape=values.shape,
-            dtype=values.dtype,
-            dimension_names=tuple(dims),
-            overwrite=True,
-        )
-        arr[...] = values
-    names = " ".join(grid_coords)
-    for v in variables:
-        group[v].attrs["coordinates"] = names
+    dims = [dim for dim in total_coords if dim != "variable"]
+    spatial = _spatial_dims(total_coords)
+    dims.insert(dims.index(spatial[0]) if spatial else len(dims), "variable")
+
+    coords: dict[Any, Any] = {
+        dim: np.asarray(values)
+        for dim, values in total_coords.items()
+        if dim != "variable"
+    }
+    coords["variable"] = np.array(variables)
+    for name, (aux_dims, values) in (grid_coords or {}).items():
+        coords[name] = (tuple(aux_dims), np.asarray(values))
+
+    return coord_array(dims, coords)
 
 
 class OutputManager:
@@ -594,8 +620,7 @@ class OutputManager:
         coords : CoordSystem
             Coordinates corresponding to *x*.
         """
-        arrays, coord_sets, var_names = split_coords(x, coords)
-        self.io.write(arrays, coord_sets, var_names)
+        self.io.write(from_torch(x, coords))
 
     def flush(self) -> None:
         """Wait for pending writes to land.
@@ -672,11 +697,18 @@ class OutputManager:
             )
 
         if is_rank0 and not store_exists:
-            write_coords = self._total_coords.copy()
-            variables = np.array(self._variables)
-            io.add_array(write_coords, variables)
-            write_grid_coords(self._path, self._grid_coords, list(self._variables))
-            logger.info(f"Created forecast store: {self._path}")
+            if self._variables:
+                io.add_array(
+                    build_output_template(
+                        self._total_coords, self._variables, self._grid_coords
+                    )
+                )
+                logger.info(f"Created forecast store: {self._path}")
+            else:
+                # No arrays to declare yet: the scoring store creates its own,
+                # once each metric's surviving dimensions are known (see
+                # `add_score_arrays` in src/scoring.py).
+                logger.info(f"Created empty store: {self._path}")
         else:
             for v in self._variables:
                 if v not in io:
@@ -684,8 +716,11 @@ class OutputManager:
                         f"Variable '{v}' missing from store — "
                         "rank 0 initialization failed?"
                     )
-            for dim in self._total_coords:
-                handshake_coords(io.coords, self._total_coords, required_dim=dim)
+            # An empty store has no coordinates to validate against: its arrays,
+            # and with them its coordinates, are declared later.
+            if self._variables or io.coords:
+                for dim in self._total_coords:
+                    handshake_coords(io.coords, self._total_coords, required_dim=dim)
             if self._is_async or self._dist.world_size > 1:
                 self._validate_store_geometry(io)
             if is_rank0:
