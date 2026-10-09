@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `WindowMeanForecastPipeline` and `WindowMeanSource` to the evaluation
-  recipe to store subseasonal-to-seasonal forecasts as window means.
+- Added subseasonal-to-seasonal evaluation capability in the eval recipe. Added
+  **`WindowMeanForecastPipeline`** in `src/pipelines/seasonal.py` and
+  **`WindowMeanSource`** in `src/data.py`.
 - Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
   maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
   0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
