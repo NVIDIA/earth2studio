@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import xarray as xr
 
@@ -24,6 +24,7 @@ from earth2studio.utils.type import CoordinateSystem
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource, ForecastSource
+    from earth2studio.models.px.base import PrognosticModel
 
 Hook = Callable[
     [xr.DataArray | tuple[xr.DataArray, ...]],
@@ -77,8 +78,8 @@ class PrognosticMixin:
 
     Wrappers must declare explicit, fixed signatures for ``__call__``,
     ``initialize``, ``step`` and ``create_iterator`` (contract rule P24).
-    The variadic methods below are generic helpers or stubs, not concrete wrapper
-    signatures. All four public execution methods are stubs to override.
+    This mixin supplies no public execution methods; their fixed signatures belong
+    to the concrete wrappers. The variadic methods below are private helpers.
     Explicit ``__call__`` and ``create_iterator`` methods may delegate to
     ``_default_call`` and ``_default_create_iterator``, respectively. These helpers
     use ``initialize``/``step``; the iterator yields forecasts only and accepts
@@ -113,25 +114,6 @@ class PrognosticMixin:
             if name in vars(self):
                 delattr(self, name)
 
-    def initialize(
-        self,
-        *x: xr.DataArray,
-    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
-        """Start a rollout; migrated wrappers implement this."""
-        raise NotImplementedError(
-            f"{type(self).__name__} has not migrated to initialize/step yet"
-        )
-
-    def step(
-        self,
-        *y: xr.DataArray,
-        state: Any,
-    ) -> tuple[xr.DataArray | tuple[xr.DataArray, ...], Any]:
-        """Advance a rollout; migrated wrappers implement this."""
-        raise NotImplementedError(
-            f"{type(self).__name__} has not migrated to initialize/step yet"
-        )
-
     def forcing_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...] | None:
         """Declare no forcing."""
         return None
@@ -147,12 +129,9 @@ class PrognosticMixin:
         """Recommend no source for any input or forcing slot."""
         return None
 
-    def __call__(self, *x: xr.DataArray) -> xr.DataArray | tuple[xr.DataArray, ...]:
-        """Predict a forecast; wrappers implement this, optionally via ``_default_call``."""
-        raise NotImplementedError(f"{type(self).__name__} must implement __call__")
-
     def _validate_initial_inputs(self, *x: xr.DataArray) -> None:
-        expected = _count(self.input_coords()) + _count(self.forcing_coords())  # type: ignore[attr-defined]
+        model = cast("PrognosticModel", self)
+        expected = _count(model.input_coords()) + _count(self.forcing_coords())
         if len(x) != expected:
             raise ValueError(
                 f"{type(self).__name__} requires {expected} input and forcing arrays; "
@@ -163,20 +142,7 @@ class PrognosticMixin:
         self, *x: xr.DataArray
     ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         self._validate_initial_inputs(*x)
-        return self.initialize(*x)[0]
-
-    def create_iterator(
-        self,
-        *x: xr.DataArray,
-    ) -> Generator[
-        xr.DataArray | tuple[xr.DataArray, ...],
-        xr.DataArray | tuple[xr.DataArray, ...] | None,
-        None,
-    ]:
-        """Create a forecast iterator; wrappers implement this."""
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement create_iterator"
-        )
+        return cast("PrognosticModel", self).initialize(*x)[0]
 
     def _default_create_iterator(self, *x: xr.DataArray) -> Generator[
         xr.DataArray | tuple[xr.DataArray, ...],
@@ -191,7 +157,10 @@ class PrognosticMixin:
             else signatures if isinstance(signatures, tuple) else (signatures,)
         )
         expected = sum("lead_time" in slot.dims for slot in forcing_slots)
-        y, state = self.initialize(*x)
+        # Concrete wrappers supply fixed signatures; slot declarations govern
+        # the dynamic dispatch through the protocol inside this helper only.
+        model = cast("PrognosticModel", self)
+        y, state = model.initialize(*x)
         while True:
             y = self.rear_hook(y)
             forcing = yield y
@@ -207,4 +176,4 @@ class PrognosticMixin:
                 )
             y = self.front_hook(y)
             outputs = y if isinstance(y, tuple) else (y,)
-            y, state = self.step(*outputs, *forcing, state=state)
+            y, state = model.step(*outputs, *forcing, state=state)

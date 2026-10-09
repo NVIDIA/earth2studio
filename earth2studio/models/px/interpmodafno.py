@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="override"
 
 from collections.abc import Callable, Generator
 from copy import deepcopy
@@ -204,7 +203,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return 1
 
     @property
-    def stochastic(self) -> bool:
+    def stochastic(self) -> bool:  # type: ignore[override]  # Derived from the nested model.
         """Whether the coarse forecast model samples a random trajectory."""
         return bool(getattr(self.px_model, "stochastic", False))
 

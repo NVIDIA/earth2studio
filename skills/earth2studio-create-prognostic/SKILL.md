@@ -18,8 +18,8 @@ Implement the [PrognosticModel protocol](../../earth2studio/models/px/base.py).
 Read [the local prognostic contract](references/model-contract.md) before coding;
 it specifies slots, state, forcing, forecasts-only iteration, hooks and RNG.
 Follow every rule in its [P1–P24 checklist](references/model-contract.md#rules-and-verification).
-Use [PrognosticMixin](../../earth2studio/models/px/utils.py) optionally: its public
-execution methods are stubs; explicit wrapper methods can delegate to its private
+Use [PrognosticMixin](../../earth2studio/models/px/utils.py) optionally: it supplies
+no public execution methods; explicit wrapper methods can delegate to its private
 helpers.
 
 ## Workflow

@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="override"
 
 from collections import OrderedDict
 from collections.abc import Iterator
@@ -1722,7 +1721,7 @@ class DLESyMLatLon(DLESyM):
     def step(
         self,
         y: xr.DataArray,
-        state: tuple[xr.DataArray, xr.DataArray, torch.Tensor | None],
+        state: tuple[xr.DataArray, xr.DataArray, torch.Tensor | None],  # type: ignore[override]  # Public-grid recurrence retains native fields.
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]:
         """Advance native history, applying public-grid edits before inference."""
         native, published, rng = state

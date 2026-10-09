@@ -433,7 +433,7 @@ class InferenceOutputModel(AutoModelMixin, PrognosticMixin):
             raise ValueError("Stored output replay supports only CPU and CUDA")
         return field.e2s.as_numpy()
 
-    def create_iterator(self, x: xr.DataArray | None = None) -> Iterator[xr.DataArray]:  # type: ignore[override]
+    def create_iterator(self, x: xr.DataArray | None = None) -> Iterator[xr.DataArray]:
         """
         Create iterator over time steps from the data source.
 

@@ -700,13 +700,12 @@ dependencies; a dependency skip is not evidence of conformance.
 
 The checker implements this contract. Wrappers and consumers migrate separately:
 
-- **Wrappers.** Unmigrated wrappers override `__call__` and `create_iterator` with
-  their single-DataArray implementations and inherit `initialize`/`step` stubs that
-  raise `NotImplementedError`, so they still satisfy structural `P1`. Their legacy
-  initial-condition-first behavior remains until each wrapper migrates.
+- **Wrappers.** The mixin supplies hooks, defaults and private helpers, not public
+  execution methods. Concrete wrappers define `__call__`, `initialize`, `step`
+  and `create_iterator`; missing methods fail structural `P1`.
 - **Protocol annotations.** `PrognosticModel` now declares variadic DataArray
   arguments and single-or-tuple output signatures. Migrated wrappers declare explicit
-  fixed signatures (`P24`, `D11`), including overrides of variadic mixin methods.
+  fixed signatures (`P24`, `D11`) without inheriting variadic execution methods.
   Wrappers and callers in
   `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and recipes must
   migrate together; structural protocol membership does not validate signatures.

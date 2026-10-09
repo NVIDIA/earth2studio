@@ -37,7 +37,7 @@ import xarray as xr
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin, initial_condition
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _map_field, _output_dimensions
 from earth2studio.utils.coords import CoordSystem
@@ -119,8 +119,7 @@ def _slots(signature: CoordinateSystem | tuple | None) -> tuple:
 
 def _yields_initial_condition(model: object) -> bool:
     """Whether an unmigrated wrapper's iterator still yields the initial condition."""
-    initialize = getattr(type(model), "initialize", PrognosticMixin.initialize)
-    return initialize is PrognosticMixin.initialize
+    return not callable(getattr(type(model), "initialize", None))
 
 
 def _module_device(model: object) -> torch.device:
