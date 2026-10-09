@@ -1062,6 +1062,10 @@ class _RegionalVerificationSource:
         field = field.sel(y=self._mask.y, x=self._mask.x)
         return field.where(self._mask)
 
+    async def fetch(self, time: Any, variable: Any) -> xr.DataArray:
+        """Return the same cropped verification fields as :meth:`__call__`."""
+        return self(time, variable)
+
 
 def _load_stormscope_model(model_cfg: DictConfig) -> Any:
     """Load a StormScope model (GOES or MRMS) from its config sub-block.

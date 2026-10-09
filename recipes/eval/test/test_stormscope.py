@@ -571,9 +571,12 @@ class TestVerificationSource:
     def test_regional_verification_matches_products_and_preserves_ic(
         self, tmp_path, store_layout
     ):
+        import asyncio
+
         from src.online import FieldCache, available_times
         from src.scoring import load_verification_chunk
 
+        from earth2studio.data import DataSource
         from earth2studio.models.px._stormscope_flash.region import RegionInfo
 
         time = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
@@ -606,8 +609,12 @@ class TestVerificationSource:
         pipeline._spatial_ref = output_coords
         cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
         source = pipeline.verification_source(cfg)
+        assert isinstance(source, DataSource)
         np.testing.assert_array_equal(available_times(source), time)
         result = source(time, ["refc", "abi01c"])
+        xr.testing.assert_identical(
+            asyncio.run(source.fetch(time, ["refc", "abi01c"])), result
+        )
         np.testing.assert_array_equal(result.y, output_coords["y"])
         np.testing.assert_array_equal(result.x, output_coords["x"])
         np.testing.assert_array_equal(result.coords["variable"], ["refc", "abi01c"])
