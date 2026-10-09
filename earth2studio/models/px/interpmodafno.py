@@ -13,11 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="override"
 
 from collections.abc import Callable, Generator
 from copy import deepcopy
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -210,7 +211,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed the coarse forecast model's isolated random stream."""
         if self.stochastic:
-            self.px_model.set_rng(seed, reset=reset)
+            self.px_model.set_rng(seed, reset=reset)  # type: ignore[union-attr]  # Stochastic models provide set_rng.
 
     @staticmethod
     def _load_feature_from_file(fn: str, var: str) -> torch.Tensor:
@@ -261,7 +262,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Getter / Setters don't work with torch.nn.Module, need to check manually here
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
-        signature = self.px_model.input_coords().copy(deep=True)
+        signature = cast(CoordinateSystem, self.px_model.input_coords()).copy(deep=True)
         if "time" not in signature.dims:
             dims = list(signature.dims)
             dynamic = list(signature.attrs.get("earth2studio_dynamic_dims", ()))
@@ -295,7 +296,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_coords()
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
-        coarse = self.px_model.output_coords(input_coords)
+        coarse = cast(CoordinateSystem, self.px_model.output_coords(input_coords))
         final = input_coords.coords["lead_time"].values[-1:]
         boundaries = np.concatenate((final, coarse.coords["lead_time"].values))
         delta = np.diff(boundaries).astype("timedelta64[ns]")
@@ -571,6 +572,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
         coarse, state = self.px_model.initialize(x.copy(deep=True))
+        coarse = cast(xr.DataArray, coarse)
         return self._forward(
             self._prepare_left_endpoint(x.isel(lead_time=slice(-1, None))), coarse
         ), (coarse.copy(deep=True), state)
@@ -610,6 +612,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if name not in coarse.dims and name not in y.coords:
                 coarse = coarse.drop_vars(name)
         prediction, nested = self.px_model.step(coarse, state=deepcopy(nested))
+        prediction = cast(xr.DataArray, prediction)
         return self._forward(latest, prediction), (prediction.copy(deep=True), nested)
 
     def _forward(self, left: xr.DataArray, coarse: xr.DataArray) -> xr.DataArray:

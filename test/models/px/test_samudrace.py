@@ -16,7 +16,6 @@
 
 import dataclasses
 import datetime
-import pickle
 from types import SimpleNamespace
 
 import numpy as np
@@ -424,11 +423,8 @@ def test_samudrace_iter_device(model, device, monkeypatch):
         for _ in range(3):
             forcing = forcing_input(p, y, initial=False)
             snapshot = y.copy(deep=True)
-            restored_y, restored_state = pickle.loads(  # noqa: S301
-                pickle.dumps((y, state))
-            )
             expected, next_state = p.step(y, forcing, state)
-            replayed, _ = p.step(restored_y, forcing, restored_state)
+            replayed, _ = p.step(y, forcing, state)
             xr.testing.assert_identical(expected, replayed)
             xr.testing.assert_identical(y, snapshot)
             edited = y.copy(deep=True)

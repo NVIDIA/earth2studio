@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="override"
 import json
 import os
 import zipfile
@@ -97,6 +98,7 @@ def _aifs_forward(
     index = model._first_step if state is None else state["index"]
     unchanged = (
         state is not None
+        and y is not None
         and y.variable.equals(state["published"].variable)
         and all(y.coords[d].equals(state["published"].coords[d]) for d in y.dims)
     )

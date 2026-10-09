@@ -28,7 +28,7 @@ from collections import OrderedDict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Protocol, TypeAlias
+from typing import Protocol, TypeAlias, cast
 
 import numpy as np
 import torch
@@ -161,7 +161,10 @@ def _diagnostic_coords(
 ) -> CoordSystem:
     """Stream coordinates for ``diagnostic`` applied to fields like ``signature``."""
     # Selects the diagnostic's variables and domain; never regrids.
-    output = diagnostic.output_coords(_map_field(signature, diagnostic.input_coords()))
+    output = cast(
+        CoordinateSystem,
+        diagnostic.output_coords(_map_field(signature, diagnostic.input_coords())),
+    )
     return OrderedDict(
         [("lead_time", leads)]
         + [
@@ -204,25 +207,30 @@ class PrognosticRunner:
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
     ) -> None:
         self.prognostic = prognostic
-        self.input_signature = prognostic.input_coords()
-        if isinstance(self.input_signature, tuple):
+        input_signature = prognostic.input_coords()
+        if isinstance(input_signature, tuple):
             raise ValueError("PrognosticRunner supports single-input-slot models")
+        self.input_signature: CoordinateSystem = input_signature
         self.forcing_signatures = _slots(prognostic.forcing_coords())
         recommended = recommended_sources(prognostic)
         nslots = 1 + len(self.forcing_signatures)
         if not isinstance(recommended, tuple):
             recommended = (recommended,) + (None,) * (nslots - 1)
-        self.source = source if source is not None else recommended[0]
-        self.forcing = forcing if forcing is not None else tuple(recommended[1:])
-        if self.source is None or any(s is None for s in self.forcing):
+        initial_source = source if source is not None else recommended[0]
+        forcing_sources = forcing if forcing is not None else tuple(recommended[1:])
+        if initial_source is None or any(s is None for s in forcing_sources):
             raise ValueError("Every input and forcing slot needs a source")
+        self.source: Source = initial_source
+        self.forcing: tuple[Source, ...] = tuple(
+            s for s in forcing_sources if s is not None
+        )
         if len(self.forcing) != len(self.forcing_signatures):
             raise ValueError("Pass one forcing source per forcing slot")
         self.diagnostics = dict(diagnostics or {})
         if "forecast" in self.diagnostics:
             raise ValueError("Stream name 'forecast' is reserved for the prognostic")
         self.device = _module_device(prognostic)
-        oc = prognostic.output_coords(self.input_signature)
+        oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
         self.step = self.output_leads[-1] - self.input_signature["lead_time"].values[-1]
 
@@ -336,12 +344,12 @@ class PrognosticRunner:
         try:
             if _yields_initial_condition(self.prognostic):
                 next(iterator)  # Already published above.
-            y = next(iterator)
+            y = cast(xr.DataArray, next(iterator))
             yield self._publish(y)
             for _ in range(nsteps - 1):
                 leads = y.coords["lead_time"].values
                 step_forcing = self._fetch_forcing(self._forcing_requests(item, leads))
-                y = iterator.send(step_forcing or None)
+                y = cast(xr.DataArray, iterator.send(step_forcing or None))
                 yield self._publish(y)
         finally:
             iterator.close()

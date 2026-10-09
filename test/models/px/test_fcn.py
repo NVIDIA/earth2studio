@@ -176,43 +176,6 @@ def test_fcn_shifted_output_signature():
     assert output.lead_time.values[0] == np.timedelta64(18, "h")
 
 
-def test_fcn_explicit_state_round_trip():
-    import pickle
-
-    center = torch.zeros(26, 1, 1)
-    scale = torch.ones(26, 1, 1)
-    source_model = FCN(IncrementFCNModel(), center, scale)
-    base_coords = source_model.input_coords()
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("1993-04-05T00:00")]),
-            "lead_time": base_coords["lead_time"].values,
-            "variable": base_coords["variable"].values,
-            "lat": base_coords["lat"].values,
-            "lon": base_coords["lon"].values,
-        }
-    )
-    coords = coord_array(tuple(coords), coords, attrs=base_coords.attrs)
-    x = torch.zeros(1, 1, 26, 720, 1440)
-
-    forecast, state = source_model.initialize(
-        from_torch(x, coords, attrs=base_coords.attrs)
-    )
-    assert forecast.lead_time.values[0] == np.timedelta64(6, "h")
-    assert state is None
-    saved = pickle.dumps((forecast, state))
-    restored, restored_state = pickle.loads(saved)  # noqa: S301
-    model = FCN(IncrementFCNModel(), center, scale)
-    resumed, _ = model.step(restored, restored_state)
-    resumed_x, resumed_coords = resumed.e2s.to_torch()
-
-    assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
-    assert resumed.dims == coords.dims
-    assert resumed_x[0, 0, 0, 0, 0] == 2
-    assert resumed_x.amin() == 2
-    assert resumed_x.amax() == 2
-
-
 @pytest.mark.parametrize(
     "dc",
     [

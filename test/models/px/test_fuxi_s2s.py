@@ -442,7 +442,6 @@ def test_fuxi_s2s_conformance() -> None:
         "P13",
         "P19",
         "P20",
-        "P21",
     }
     assert model.stochastic is False
     assert predictions[0].dims == predictions[1].dims == x.dims

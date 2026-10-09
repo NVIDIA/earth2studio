@@ -83,7 +83,7 @@ item = WorkItem(np.datetime64("2026-01-01"), np.timedelta64(18, "h"))
 # Built once from a model and a source, run once per item. Each step yields one
 # output per stream; diagnostics add streams next to ``forecast``.
 
-runner = PrognosticRunner(model, source, diagnostics={"copy": Identity()})
+runner = PrognosticRunner(model, source, diagnostics={"copy": Identity()})  # type: ignore[arg-type]
 steps = list(runner.run_item(item))
 np.testing.assert_equal(len(steps), 4)  # initial condition plus three steps
 np.testing.assert_array_equal(steps[-1]["forecast"].values, 3)
@@ -108,7 +108,7 @@ global_source = Constant(
     OrderedDict(lat=np.linspace(90, -90, 721), lon=np.linspace(0, 359.75, 1440)), 1
 )
 wind = DiagnosticRunner(
-    {"ws10m": DerivedWS(levels=["10m"])}, global_source, step=np.timedelta64(6, "h")
+    {"ws10m": DerivedWS(levels=["10m"])}, global_source, step=np.timedelta64(6, "h")  # type: ignore[arg-type]
 )
 wind_steps = list(wind.run_item(item))
 np.testing.assert_equal(len(wind_steps), 4)
@@ -129,7 +129,7 @@ class StopAtThreshold:
     supports_member_batching = False
 
     def __init__(self, model: TinyFCN, source: Constant, threshold: float) -> None:
-        self.inner = PrognosticRunner(model, source)
+        self.inner = PrognosticRunner(model, source)  # type: ignore[arg-type]
         self.threshold = threshold
 
     def to(self, device: torch.device) -> "StopAtThreshold":

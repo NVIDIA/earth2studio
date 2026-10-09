@@ -86,7 +86,8 @@ def test_dlwp_declares_core_hook_cadence(monkeypatch):
         next(iterator)
     assert calls == ["rear"] + ["front", "rear"] * 4
     assert check_prognostic_contract(model) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

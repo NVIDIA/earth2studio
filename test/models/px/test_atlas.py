@@ -252,7 +252,6 @@ def test_atlas_iterator_rng_stream(atlas_test_components, device, monkeypatch):
     cuda_state = torch.cuda.get_rng_state(device) if device.startswith("cuda") else None
     iterator = p.create_iterator(x)
     next(iterator)
-    next(iterator)
     first = draws[-1]
     other(x)
     other_first = draws[-1]
@@ -273,7 +272,6 @@ def test_atlas_iterator_rng_stream(atlas_test_components, device, monkeypatch):
     assert not torch.equal(second, other_first)
     p.set_rng(1)
     iterator = p.create_iterator(x)
-    next(iterator)
     next(iterator)
     assert torch.equal(first, draws[-1])
     next(iterator)

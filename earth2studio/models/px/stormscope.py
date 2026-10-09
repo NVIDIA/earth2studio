@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="override"
 
 import json
 from collections import OrderedDict
@@ -1438,7 +1439,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "conditioning": conditioning.isel(lead_time=slice(count, None)).copy(
                 deep=True
             ),
-            "rng": self._noise_generator.get_state().clone(),
+            "rng": cast(torch.Generator, self._noise_generator).get_state().clone(),
         }
 
     def step(

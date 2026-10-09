@@ -13,10 +13,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="override"
 
 from collections.abc import Generator
 from copy import deepcopy
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 import torch
@@ -369,7 +370,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Allocation-free DataArray input signature of the nested
             prognostic model.
         """
-        return self.px_model.input_coords().copy(deep=True)
+        return cast(CoordinateSystem, self.px_model.input_coords()).copy(deep=True)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
@@ -385,7 +386,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Allocation-free DataArray output signature composed from the
             nested prognostic and diagnostic models.
         """
-        px = self.px_model.output_coords(input_coords)
+        px = cast(CoordinateSystem, self.px_model.output_coords(input_coords))
         dx = [
             m.output_coords(p(px.copy(deep=True), m.input_coords()))
             for m, p in zip(self.dx_model, self.prepare_dx_input_coords)

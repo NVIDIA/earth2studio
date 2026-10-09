@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="override"
 
 import types
 import warnings
@@ -701,7 +702,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self._rng_seed is None:
             self.set_rng(int(torch.randint(2**31, ())))
         y = self._predict(x, conditioning)
-        if self._rng_seed is None:
+        if self._rng_seed is None or self._rng_states is None:
             raise RuntimeError("Sampling stream was not initialized")
         return y, (self._rng_seed, deepcopy(self._rng_states))
 

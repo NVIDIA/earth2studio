@@ -26,9 +26,11 @@ runners live with the coupler, never here.
 from collections import OrderedDict
 from datetime import datetime
 from math import ceil
+from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from tqdm import tqdm  # type: ignore[import-untyped]
 
@@ -125,7 +127,7 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
 
     # Set up IO backend
@@ -195,6 +197,7 @@ def deterministic(
                     else restart_step + local_step + 1
                 )
 
+                x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 # Subselect domain/variables as indicated in output_coords
                 x = _map_field(x, output_coords)
@@ -265,13 +268,16 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
-    diagnostic_ic = diagnostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    diagnostic_ic = cast(xr.DataArray, diagnostic.input_coords())
     time = to_time_array(time)
 
     total_coords = _output_dimensions(prognostic, np.asarray(time), nsteps)
-    diagnostic_oc = diagnostic.output_coords(
-        _map_field(prognostic.output_coords(prognostic_ic), diagnostic_ic)
+    diagnostic_oc = cast(
+        xr.DataArray,
+        diagnostic.output_coords(
+            _map_field(prognostic.output_coords(prognostic_ic), diagnostic_ic)
+        ),
     )
     total_coords = OrderedDict(
         [("time", time), ("lead_time", total_coords["lead_time"])]
@@ -340,6 +346,7 @@ def diagnostic(
                     else restart_step + local_step + 1
                 )
 
+                x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 x = diagnostic(_map_field(x, diagnostic_ic))
                 x = _map_field(x, output_coords)
@@ -415,7 +422,7 @@ def ensemble(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
     if hasattr(prognostic, "interp_method"):
         interp_to = prognostic_ic
@@ -519,6 +526,7 @@ def ensemble(
                         else restart_step + local_step + 1
                     )
 
+                    x = cast(xr.DataArray, x)
                     current_lead_time = x.coords["lead_time"].values[-1]
                     x = _map_field(x, output_coords)
                     io.write(*split_coords(*x.e2s.to_torch()))

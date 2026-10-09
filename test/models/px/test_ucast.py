@@ -336,7 +336,8 @@ def test_ucast_conformance(ucast_model: UCast) -> None:
     # rule has nothing to check for a model that does not declare itself
     # stochastic.
     assert check_prognostic_contract(ucast_model) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

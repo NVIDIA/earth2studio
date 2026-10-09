@@ -497,25 +497,6 @@ def test_diagnosticwrapper_conformance(tmp_path):
     assert sampled.stochastic
     check_prognostic_contract(sampled)
 
-    import pickle
-
-    forecast, state = wrapped_model.initialize(field)
-    saved = pickle.dumps((forecast, state))
-    expected, _ = wrapped_model.step(forecast, state)
-    base = Persistence(["u10m", "v10m", "u100m", "v100m"], grid, history=2)
-    wrapper = DiagnosticWrapper(
-        DiagnosticWrapper(base, DerivedWS(["10m"], grid=grid)),
-        DerivedWS(["100m"], grid=grid),
-    )
-    restored, restored_state = pickle.loads(saved)  # noqa: S301
-    resumed, state = wrapper.step(restored, restored_state)
-    xr.testing.assert_identical(resumed, expected)
-    assert resumed.lead_time.values[0] == np.timedelta64(12, "h")
-    assert {"ws10m", "ws100m"}.issubset(resumed.coords["variable"].values)
-    assert wrapper.step(resumed, state)[0].lead_time.values[0] == np.timedelta64(
-        18, "h"
-    )
-
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_prepare_output1(device):

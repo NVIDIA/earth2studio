@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="override"
 
 from collections import OrderedDict
 from collections.abc import Iterator
@@ -1129,7 +1130,11 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self.stochastic and self._cln_generator is None:
             self.set_rng(int(torch.randint(2**31, ()).item()))
         out = self._forward_array(self._initial_state(x))
-        return out, self._cln_generator.get_state().clone() if self.stochastic else None
+        return out, (
+            self._cln_generator.get_state().clone()
+            if self.stochastic and self._cln_generator is not None
+            else None
+        )
 
     def step(
         self, y: xr.DataArray, state: torch.Tensor | None
@@ -1707,7 +1712,11 @@ class DLESyMLatLon(DLESyM):
             .sel(variable=self.atmos_variables + self.ocean_variables)
             .copy(deep=True)
         )
-        rng = self._cln_generator.get_state().clone() if self.stochastic else None
+        rng = (
+            self._cln_generator.get_state().clone()
+            if self.stochastic and self._cln_generator is not None
+            else None
+        )
         return result, (native, result.copy(deep=True), rng)
 
     def step(

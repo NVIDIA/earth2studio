@@ -923,6 +923,9 @@ def _check_stochasticity(
         report.skip(isolation_rule, "stochastic model does not implement set_rng")
         return False
 
+    if not callable(set_rng):
+        return False
+
     def check() -> None:
         params = signature(set_rng).parameters
         report.require(
