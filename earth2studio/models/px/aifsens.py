@@ -835,7 +835,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with torch.autocast(device_type=x.device.type, dtype=torch.float16):
             with fork_rng(self._rng_seed, x.device, states=self._rng_states):
                 y = self.model.predict_step(x, fcstep=step)
-            out = torch.empty(
+            out = torch.zeros(
                 (x.shape[0], x.shape[1], x.shape[2], len(VARIABLES)),
                 device=x.device,
             )
