@@ -203,7 +203,19 @@ def test_ACE2ERA5_call(device):
         }
     )
 
-    out = p(x, forcing_input(p, x))
+    forcing = forcing_input(p, x).assign_coords(forcing_note="user metadata")
+    out = p(x, forcing)
+    for invalid in (
+        forcing.assign_coords(variable=forcing.coords["variable"].values[::-1]),
+        forcing.assign_coords(lat=forcing.lat.values[::-1]),
+        forcing.assign_coords(time=forcing.time.values + np.timedelta64(6, "h")),
+        forcing.assign_coords(
+            lead_time=forcing.lead_time.values + np.timedelta64(6, "h")
+        ),
+        forcing.expand_dims(member=[0]),
+    ):
+        with pytest.raises(ValueError):
+            p(x, invalid)
     out_coords = out.coords
     coords = x
 

@@ -622,14 +622,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         signature = self.output_coords(x)
         handshake_time(x)
-        expected = coord_array_like(
-            x,
-            {
-                "variable": self._forcing_vars_e2s,
-                "lead_time": x.lead_time.values[-1:] + np.arange(2) * self._dt,
-            },
-        )
-        handshake_dataarray(forcing, expected)
+        self._validate_forcing(x, forcing)
         if not bool(np.isfinite(forcing.data).all()):
             raise ValueError("Forcing must be finite")
         name, encoding = x.name, deepcopy(x.encoding)
@@ -664,6 +657,24 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.input_coords(),
             {"variable": self._forcing_vars_e2s, "lead_time": np.arange(2) * self._dt},
         )
+
+    def _validate_forcing(
+        self, x: xr.DataArray, forcing: xr.DataArray, continuation: bool = False
+    ) -> None:
+        expected = self.forcing_coords()
+        if continuation:
+            expected = expected.isel(lead_time=slice(-1, None))
+        expected = coord_array_like(
+            expected,
+            {"lead_time": x.lead_time.values[-1:] + expected.lead_time.values},
+        )
+        handshake_dataarray(forcing, expected)
+        if forcing.dims != x.dims:
+            raise ValueError("Forcing dimensions must match the state dimensions")
+        for dimension in x.dims[: x.get_axis_num("lead_time")]:
+            handshake_size(forcing, dimension, x.sizes[dimension])
+            if dimension in x.coords:
+                handshake_coords(forcing, x, dimension)
 
     def default_sources(self) -> tuple[DataSource, DataSource]:
         """Recommend ACE2 ERA5 initial conditions and configured forcing.
@@ -748,16 +759,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Next forecast and updated state, without iterator hooks.
         """
         missing, previous_forcing = state
-        handshake_dataarray(
-            forcing,
-            coord_array_like(
-                y,
-                {
-                    "variable": self._forcing_vars_e2s,
-                    "lead_time": y.lead_time.values + self._dt,
-                },
-            ),
-        )
+        self._validate_forcing(y, forcing, continuation=True)
         forcing = xr.concat(
             [previous_forcing, forcing],
             dim="lead_time",
