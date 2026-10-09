@@ -30,8 +30,8 @@ from typing import Any
 import torch
 
 from earth2studio.models.auto import Package
-from earth2studio.models.px._stormscope_flash.preconditioner import FlashModel
-from earth2studio.models.px.stormscope_flash import (
+from earth2studio.models.nn.stormscope_flash import FlashModel
+from earth2studio.models.px._stormscope_flash.runtime import (
     FLASH_CALLS,
     GOES_VARIABLES,
     _validate_flash_expert,

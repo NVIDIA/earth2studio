@@ -28,7 +28,6 @@ import hydra
 import numpy as np
 import pandas as pd
 import torch
-import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 from tqdm import tqdm
@@ -240,35 +239,6 @@ class StormScopePipeline(Pipeline):
             ]
         )
 
-        # Flash retains padded histories internally; only the yielded products
-        # and their spatial reference use the requested output rectangle.
-        self._output_region = getattr(self.model_goes, "region_info", None)
-        mrms_region = getattr(self.model_mrms, "region_info", None)
-        if self._output_region is not None:
-            if (
-                mrms_region is None
-                or self._output_region.input_bounds != mrms_region.input_bounds
-                or self._output_region.output_bounds != mrms_region.output_bounds
-                or self._output_region.requested_bounds != mrms_region.requested_bounds
-            ):
-                raise ValueError(
-                    "Coupled Flash models must use the same input and output regions"
-                )
-            if self._output_region.requested_bounds is None:
-                self._output_region = None
-            else:
-                ys, xs = self._output_region.output_slices
-                self._spatial_ref["y"] = self._spatial_ref["y"][ys]
-                self._spatial_ref["x"] = self._spatial_ref["x"][xs]
-
-    def _crop_product(
-        self, tensor: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        region = getattr(self, "_output_region", None)
-        if region is None:
-            return tensor, coords
-        return region.crop_output(tensor, coords)
-
     # ------------------------------------------------------------------
     # Output schema
     # ------------------------------------------------------------------
@@ -358,7 +328,7 @@ class StormScopePipeline(Pipeline):
                 "variable",
             )
 
-            yield self._crop_product(combined, combined_coords)
+            yield combined, combined_coords
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).
@@ -446,8 +416,7 @@ class StormScopePipeline(Pipeline):
                 (pred_goes_coords, pred_mrms_coords),
                 "variable",
             )
-            product, product_coords = self._crop_product(combined, combined_coords)
-            yield _rename_batch_to_ensemble(product, product_coords, member_ids)
+            yield _rename_batch_to_ensemble(combined, combined_coords, member_ids)
 
             # Prepare next-step inputs.  next_input handles sliding
             # window (10min variants) or passes pred through (60min).
@@ -796,57 +765,10 @@ class StormScopePipeline(Pipeline):
             role="ic",
         )
 
-    def verification_source(self, cfg: DictConfig) -> DataSource:
-        """Return observations on the same grid and mask as forecast products.
-
-        Regional Flash predownload stores retain the padded input grid. Only
-        this scoring view is cropped; initial-condition sources stay intact.
-        Offline scoring resolves geometry from package grid assets without
-        loading model weights. Baseline and full-domain sources are unchanged.
-
-        Parameters
-        ----------
-        cfg : DictConfig
-            Full evaluation configuration.
-
-        Returns
-        -------
-        DataSource
-            Observations selected by exact native output coordinates.
-        """
-        source = super().verification_source(cfg)
-        region = getattr(self, "_output_region", None)
-        if region is not None:
-            y, x = self._spatial_ref["y"], self._spatial_ref["x"]
-        else:
-            # Offline scoring creates a pipeline without calling setup().
-            model_cfg = cfg.get("model", {}).get("goes", {})
-            load_args = model_cfg.get("load_args", {})
-            if load_args.get("region") is None:
-                return source
-
-            from earth2studio.models.auto import Package
-            from earth2studio.models.px._stormscope_flash.region import resolve_region
-
-            cls = hydra.utils.get_class(model_cfg.architecture)
-            package = (
-                Package(model_cfg.package_path)
-                if model_cfg.get("package_path")
-                else cls.load_default_package()
-            )
-            _, entry = cls._resolve_model_entry(
-                package, load_args.get("model_name", "3km_10min")
-            )
-            latitude, longitude, y, x, *_ = cls._build_grid_and_times(package, entry)
-            region = resolve_region(
-                _as_np(latitude),
-                _as_np(longitude),
-                load_args.region,
-                load_args.get("padding", 25),
-            )
-            y0, y1, x0, x1 = region.output_bounds
-            y, x = _as_np(y)[y0:y1], _as_np(x)[x0:x1]
-        return _RegionalVerificationSource(source, y, x, region.requested_mask)
+    # Verification sourcing is handled by the base class: its
+    # default `Pipeline.verification_source` picks up
+    # ``data_{goes,mrms}.zarr`` via the ``data_*.zarr`` glob and wraps
+    # them in a :class:`~src.data.CompositeSource` for scoring.
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -1042,29 +964,6 @@ class StormScopePipeline(Pipeline):
 # ------------------------------------------------------------------
 # StormScope helpers (module-level for reuse in tests and config)
 # ------------------------------------------------------------------
-
-
-class _RegionalVerificationSource:
-    def __init__(
-        self, source: DataSource, y: np.ndarray, x: np.ndarray, mask: np.ndarray
-    ) -> None:
-        self._source = source
-        # Preserve source time-index discovery for online coverage checks.
-        self._sources = {"verification": source}
-        self._mask = xr.DataArray(
-            mask.copy(), dims=("y", "x"), coords={"y": y.copy(), "x": x.copy()}
-        )
-
-    def __call__(self, time: Any, variable: Any) -> xr.DataArray:
-        field = self._source(time, variable)
-        # Coordinate selection works for padded, full-domain, already-cropped,
-        # and differently ordered stores; mismatched grids fail explicitly.
-        field = field.sel(y=self._mask.y, x=self._mask.x)
-        return field.where(self._mask)
-
-    async def fetch(self, time: Any, variable: Any) -> xr.DataArray:
-        """Return the same cropped verification fields as :meth:`__call__`."""
-        return self(time, variable)
 
 
 def _load_stormscope_model(model_cfg: DictConfig) -> Any:

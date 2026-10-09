@@ -19,26 +19,32 @@ Each Flash directory contains `expert_0.mdlus` (low sigma), `expert_1.mdlus`
 (middle sigma), and `expert_2.mdlus` (high sigma), matching the baseline naming.
 
 Run the example using the installed branch environment. It uses the **full
-domain by default**:
+domain by default**. The same script runs the baseline or Flash:
 
 ```bash
-uv run --no-sync python examples/04_nowcasting/04_stormscope_flash_example.py
+# Baseline StormScope (default)
+uv run --no-sync python examples/04_nowcasting/03_stormscope_goes_example.py
+
+# StormScope Flash
+uv run --no-sync python examples/04_nowcasting/03_stormscope_goes_example.py \
+  --model 3km_10min_flash
 ```
 
-Only the optional geographic bounds are command-line arguments:
+For regional Flash inference, add geographic bounds:
 
 ```bash
-uv run --no-sync python examples/04_nowcasting/04_stormscope_flash_example.py \
-  --lat 36.0195 44.4629 --lon -100.9688 -89.2842
+uv run --no-sync python examples/04_nowcasting/03_stormscope_goes_example.py \
+  --model 3km_10min_flash --lat 36.0195 44.4629 --lon -100.9688 -89.2842
 ```
 
 Supply both bounds together, in degrees. Edit the small **Forecast configuration**
 section in Python for `start_date`, `n_steps`, `padding`, `seed` and `output_dir`. The
-example defaults to 18 ten-minute leads (three hours). Both loaders always use
-`amp=True`, `amp_dtype=torch.float16` and `compile=True`, following the baseline's
-AMP/compilation workflow. There are no satellite, package, date, step, seed,
-output, padding or compilation flags.
+example defaults to 18 ten-minute leads (three hours). Both variants enable
+`amp=True` and `compile=True`. Flash selects FP16 AMP; the baseline retains its
+existing AMP dtype and Heun settings. There are no satellite, package, date, step,
+seed, output, padding or compilation flags.
 
+The baseline runs the full domain; regional bounds require the Flash variant.
 Regional inputs receive `padding = 25` real pixels per side, **once**. If only
 15 pixels remain at an edge, only those 15 are used. Inputs expand inward as
 needed to reach **200 × 200 pixels**, then align outward to four-pixel patches.
@@ -50,10 +56,10 @@ separate **animated GIF of all leads** with fixed color scales. Each invocation
 reserves its own numbered run directory, including the initialization and bounds:
 
 ```text
-outputs/stormscope_flash_20240313T2330_lat_39.075_41.075_lon_-97_-95/run_001/
-    stormscope_flash.zarr
-    stormscope_flash.jpg
-    stormscope_flash.gif
+outputs/stormscope_3km_10min_flash_20240313T2330_lat_39.075_41.075_lon_-97_-95/run_001/
+    stormscope.zarr
+    stormscope.jpg
+    stormscope.gif
 ```
 
 Repeating the same request creates `run_002`, then `run_003`; changing the region
@@ -78,14 +84,16 @@ package is portable: loading uses relative asset paths. Set
 ## Models and region selection
 
 ```python
-from earth2studio.models.px import StormScopeGOESFlash, StormScopeMRMSFlash
+from earth2studio.models.px import StormScopeGOES, StormScopeMRMS
 from earth2studio.data import GOESGLMGrid
 
-package = StormScopeGOESFlash.load_default_package()
+package = StormScopeGOES.load_default_package(model_name="3km_10min_flash")
 region = {"lat": (35.0, 41.0), "lon": (-102.0, -94.0)}
-goes = StormScopeGOESFlash.load_model(package, region=region, padding=25)
-mrms = StormScopeMRMSFlash.load_model(
-    package, region=region, padding=25,
+goes = StormScopeGOES.load_model(
+    package, model_name="3km_10min_flash", region=region, padding=25,
+)
+mrms = StormScopeMRMS.load_model(
+    package, model_name="3km_10min_flash", region=region, padding=25,
     glm_data_source=GOESGLMGrid(satellite="east"),
 )
 ```
@@ -106,6 +114,10 @@ Each model instance owns its geometry and caches; construct a new instance to
 change regions. `model.crop_output(prediction, coords)` returns an independent
 output copy with pixels outside the exact geographic rectangle masked. Keep
 uncropped predictions for `next_input`; context must persist across every lead.
+
+The Flash extra requires PhysicsNeMo 2.2.2 or newer. Flash reuses its rotary
+neighborhood attention, DiT block components, MLP, patch projection, and timestep
+embedding. The baseline StormScope dependency remains unchanged.
 
 ## Forecast contract
 
@@ -129,9 +141,6 @@ uncropped predictions for `next_input`; context must persist across every lead.
   MRMS GOES-conditioning NaNs are normalized-zero, matching training. Infinite
   inputs and non-finite radar/GLM values inside valid coverage still fail checks.
 
-`recipes/eval/cfg/model/stormscope_flash.yaml` selects both Flash classes in the
-coupled evaluation recipe. Use a fresh output path when changing region so cached
-input grids cannot mix.
 Regional skill must be assessed separately from full-domain skill; additional
 context can materially affect forecasts.
 
@@ -143,7 +152,7 @@ The first forecast includes compilation; no separate warm-up is required.
 Compilation can increase first-forecast latency, especially for small regions.
 Keep model instances and input shapes stable to reuse compiled graphs across
 forecasts. `compile=False` remains the default for occasional forecasts.
-The example always enables FP16 AMP and compilation for both models. The
+The example enables compilation for both variants and FP16 AMP for Flash. The
 programmatic model API retains its existing `compile` option; other clients
 can still choose their own execution policy.
 
@@ -153,23 +162,26 @@ Flash implementation and its matching dependencies are still required.
 
 ## Source layout
 
-- `earth2studio/models/px/stormscope_flash.py`: public GOES/MRMS Flash classes,
-  package validation/loading, mixed precision, regional inputs, and cropping.
-- `earth2studio/models/px/_stormscope_flash/`: six files (`__init__.py`,
-  `dit.py`, `rope.py`, `preconditioner.py`, `sampler.py`, `region.py`). The
-  preconditioner owns flow coordinates and `.mdlus` reconstruction; the sampler
-  owns schedules and head fusion. Baseline preprocessing is inherited, while
-  its Heun integration remains separate from Flash.
-- `examples/04_nowcasting/`: the coupled Flash example and deployment packer.
-- `recipes/eval/cfg/model/stormscope_flash.yaml`: optional Flash selection for
-  the coupled evaluation pipeline; padded history is retained internally.
+- `earth2studio/models/px/stormscope.py`: existing GOES and MRMS classes;
+  `model_name="3km_10min_flash"` selects Flash loading and sampling.
+- `earth2studio/models/nn/stormscope_flash.py`: checkpoint adapters and
+  packed interval heads around PhysicsNeMo components. Adapters preserve learned
+  Q/K normalization, AMP dtype, residual arithmetic, and cached conditioning.
+- `earth2studio/models/px/_stormscope_flash/`: regional geometry and private
+  loading/sampling helpers. `preconditioner.py` only re-exports the deployment
+  class to keep previously published `.mdlus` import metadata loadable.
+- `examples/04_nowcasting/03_stormscope_goes_example.py`: one customer entry point
+  for baseline and Flash coupled forecasts.
+- `examples/04_nowcasting/pack_stormscope_flash_package.py`: developer-only
+  conversion utility. Customers download ready-to-run weights automatically;
+  they do not need training checkpoints or a conversion step.
 - `test/models/px/test_stormscope_flash.py`: sampler, geometry, compatibility,
-  and optional real-checkpoint tests.
+  and real-checkpoint tests. Baseline tests remain in `test_stormscope.py`.
 
 Training jobs, case manifests, benchmark reports, checkpoints, and generated
 forecasts are external to the model integration.
 
-## Validation record
+## Historical validation record
 
 The initial integration was validated on 1 October 2026 with PyTorch
 2.12.0a0 (NVIDIA 26.04 runtime) and NATTEN 0.21.6:

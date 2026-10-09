@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added StormScope Flash GOES and MRMS/GLM with verified PhysicsNeMo
+- Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` with PhysicsNeMo
   .mdlus downloads pinned to Hugging Face, fixed schedules, and regional inputs
   with clipped context padding.
 

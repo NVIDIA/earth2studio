@@ -322,8 +322,8 @@ categories:
         label: StormScope Flash
         extra: stormscope-flash
         api_refs:
-          - earth2studio.models.px.StormScopeGOESFlash
-          - earth2studio.models.px.StormScopeMRMSFlash
+          - earth2studio.models.px.StormScopeGOES
+          - earth2studio.models.px.StormScopeMRMS
         summary: GOES and MRMS/GLM Flash models with full or regional inputs.
         warnings:
           - Requires NATTEN matching the installed PyTorch/CUDA. The selected

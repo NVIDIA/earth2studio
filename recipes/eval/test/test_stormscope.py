@@ -412,37 +412,6 @@ class TestStormScopeRunItem:
             pipeline.model_goes.variables
         )
 
-    def test_regional_products_do_not_crop_autoregressive_history(self, pipeline):
-        from earth2studio.models.px._stormscope_flash.region import RegionInfo
-
-        pipeline._output_region = RegionInfo(
-            requested_bounds=(35.0, 36.0, -99.0, -98.0),
-            input_bounds=(0, 4, 0, 5),
-            output_bounds=(1, 3, 1, 4),
-            requested_mask=np.ones((2, 3), dtype=bool),
-            padding=(1, 1, 1, 1),
-        )
-        item = WorkItem(
-            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
-        )
-        outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
-        assert len(outputs) == 2
-        for tensor, coords in outputs:
-            assert tensor.shape[-2:] == (2, 3)
-            np.testing.assert_array_equal(coords["y"], [1, 2])
-            np.testing.assert_array_equal(coords["x"], [1, 2, 3])
-        assert pipeline.model_mrms.last_conditioning.shape[-2:] == (4, 5)
-        assert len(pipeline._goes_ic_coords["y"]) == 4
-        assert pipeline.model_goes.next_input_calls == 2
-        assert pipeline.model_mrms.next_input_calls == 2
-
-    def test_baseline_products_are_unchanged(self, pipeline):
-        tensor = torch.ones(1, 1, 1, 3, 4, 5)
-        coords = pipeline.model_goes.input_coords()
-        output, output_coords = pipeline._crop_product(tensor, coords)
-        assert output is tensor
-        assert output_coords is coords
-
 
 # ---------------------------------------------------------------------------
 # resolve_ic_source — predownloaded-cache preference (StormScope call path)
@@ -538,7 +507,9 @@ def _write_yx_zarr(path, variables):
 
 
 class TestVerificationSource:
-    """Verification uses the baseline stores and matches regional product grids."""
+    """``Pipeline.verification_source`` honours the per-model ``data_*.zarr``
+    layout used by StormScope via its default ``verification_zarr_paths``
+    discovery (the StormScope subclass no longer needs to override)."""
 
     def test_returns_composite_when_both_stores_exist(self, tmp_path):
         _write_yx_zarr(tmp_path / "data_goes.zarr", ["abi01c", "abi02c"])
@@ -566,147 +537,6 @@ class TestVerificationSource:
         pipeline = StormScopePipeline()
         src = pipeline.verification_source(cfg)
         assert isinstance(src, PredownloadedSource)
-
-    @pytest.mark.parametrize("store_layout", ["padded", "cropped", "reversed"])
-    def test_regional_verification_matches_products_and_preserves_ic(
-        self, tmp_path, store_layout
-    ):
-        import asyncio
-
-        from src.online import FieldCache, available_times
-        from src.scoring import load_verification_chunk
-
-        from earth2studio.data import DataSource
-        from earth2studio.models.px._stormscope_flash.region import RegionInfo
-
-        time = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
-        y, x = np.arange(4) * 3 + 100, np.arange(5) * 3 + 200
-        values = np.arange(20, dtype=np.float32).reshape(4, 5)
-        mask = np.array([[True, False, True], [True, True, True]])
-        for name, variable in (("goes", "abi01c"), ("mrms", "refc")):
-            data = xr.DataArray(
-                values[None],
-                dims=("time", "y", "x"),
-                coords={"time": time, "y": y, "x": x},
-            )
-            if store_layout == "cropped":
-                data = data.isel(y=slice(1, 3), x=slice(1, 4))
-            elif store_layout == "reversed":
-                data = data.isel(y=slice(None, None, -1), x=slice(None, None, -1))
-            data.to_dataset(name=variable).to_zarr(tmp_path / f"data_{name}.zarr")
-
-        pipeline = StormScopePipeline()
-        pipeline._output_region = RegionInfo(
-            requested_bounds=(35.0, 36.0, -99.0, -98.0),
-            input_bounds=(0, 4, 0, 5),
-            output_bounds=(1, 3, 1, 4),
-            requested_mask=mask,
-            padding=(1, 1, 1, 1),
-        )
-        coords = OrderedDict(y=y, x=x)
-        tensor = torch.from_numpy(values)
-        expected, output_coords = pipeline._crop_product(tensor, coords)
-        pipeline._spatial_ref = output_coords
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
-        source = pipeline.verification_source(cfg)
-        assert isinstance(source, DataSource)
-        np.testing.assert_array_equal(available_times(source), time)
-        result = source(time, ["refc", "abi01c"])
-        xr.testing.assert_identical(
-            asyncio.run(source.fetch(time, ["refc", "abi01c"])), result
-        )
-        np.testing.assert_array_equal(result.y, output_coords["y"])
-        np.testing.assert_array_equal(result.x, output_coords["x"])
-        np.testing.assert_array_equal(result.coords["variable"], ["refc", "abi01c"])
-        cache = FieldCache(source, ["refc", "abi01c"], ("y", "x"), torch.device("cpu"))
-        actual = cache.get(time[0])
-        torch.testing.assert_close(actual, expected.expand(2, -1, -1), equal_nan=True)
-        offline, _ = load_verification_chunk(
-            source,
-            time[0],
-            np.array([0], dtype="timedelta64[m]"),
-            ["refc", "abi01c"],
-            output_coords,
-            torch.device("cpu"),
-        )
-        torch.testing.assert_close(offline[0], actual, equal_nan=True)
-        # The original stores remain available to initial-condition readers.
-        ic = PredownloadedSource(str(tmp_path / "data_mrms.zarr"))(time, ["refc"])
-        assert ic.shape[-2:] == ((2, 3) if store_layout == "cropped" else (4, 5))
-        assert np.isfinite(ic.values).all()
-        torch.testing.assert_close(tensor, torch.from_numpy(values))
-
-    def test_offline_regional_verification_loads_only_grid_assets(
-        self, tmp_path, monkeypatch
-    ):
-        from earth2studio.models.px import StormScopeGOESFlash
-
-        time = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
-        latitude, longitude = np.meshgrid(
-            np.linspace(30, 50, 200), np.linspace(-110, -90, 200), indexing="ij"
-        )
-        y, x = np.arange(200) + 1000, np.arange(200) + 2000
-        data = xr.DataArray(
-            np.ones((1, 200, 200), dtype=np.float32),
-            dims=("time", "y", "x"),
-            coords={"time": time, "y": y, "x": x},
-        )
-        data.to_dataset(name="refc").to_zarr(tmp_path / "data_mrms.zarr")
-        package = object()
-        monkeypatch.setattr(
-            StormScopeGOESFlash, "load_default_package", lambda: package
-        )
-        monkeypatch.setattr(
-            StormScopeGOESFlash, "_resolve_model_entry", lambda *_: ({}, {})
-        )
-        monkeypatch.setattr(
-            StormScopeGOESFlash,
-            "_build_grid_and_times",
-            lambda *_: (latitude, longitude, y, x),
-        )
-
-        def unexpected_load(*args, **kwargs):
-            raise AssertionError("Verification must not load model weights")
-
-        monkeypatch.setattr(StormScopeGOESFlash, "load_model", unexpected_load)
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "model": {
-                    "goes": {
-                        "architecture": "earth2studio.models.px.StormScopeGOESFlash",
-                        "load_args": {"region": {"lat": [35, 40], "lon": [-105, -100]}},
-                    }
-                },
-            }
-        )
-        source = StormScopePipeline().verification_source(cfg)
-        result = source(time, ["refc"])
-        expected_y = y[(latitude[:, 0] >= 35) & (latitude[:, 0] <= 40)]
-        expected_x = x[(longitude[0] >= -105) & (longitude[0] <= -100)]
-        np.testing.assert_array_equal(result.y, expected_y)
-        np.testing.assert_array_equal(result.x, expected_x)
-
-    def test_regional_verification_rejects_wrong_grid(self, tmp_path):
-        from earth2studio.models.px._stormscope_flash.region import RegionInfo
-
-        _write_yx_zarr(tmp_path / "data_mrms.zarr", ["refc"])
-        pipeline = StormScopePipeline()
-        pipeline._output_region = RegionInfo(
-            requested_bounds=(35, 36, -99, -98),
-            input_bounds=(0, 4, 0, 5),
-            output_bounds=(1, 3, 1, 4),
-            requested_mask=np.ones((2, 3), dtype=bool),
-            padding=(1, 1, 1, 1),
-        )
-        pipeline._spatial_ref = OrderedDict(
-            y=np.array([101, 102]), x=np.array([1, 2, 3])
-        )
-        source = pipeline.verification_source(
-            OmegaConf.create({"output": {"path": str(tmp_path)}})
-        )
-        with pytest.raises(KeyError):
-            source([np.datetime64("2023-12-05T12:00:00")], ["refc"])
 
 
 # ---------------------------------------------------------------------------

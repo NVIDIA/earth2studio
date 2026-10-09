@@ -24,7 +24,7 @@ from typing import Protocol
 
 import torch
 
-from earth2studio.models.px._stormscope_flash.preconditioner import (
+from earth2studio.models.nn.stormscope_flash import (
     flow_time_to_sigma,
     sigma_to_flow_time,
 )

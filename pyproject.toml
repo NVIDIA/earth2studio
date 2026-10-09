@@ -256,6 +256,7 @@ stormscope = [
 ]
 stormscope-flash = [
     "earth2studio[stormscope]",
+    "nvidia-physicsnemo>=2.2.2",
 ]
 ucast = []
 # DX Models

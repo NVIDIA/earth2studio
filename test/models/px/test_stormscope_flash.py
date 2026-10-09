@@ -25,28 +25,26 @@ import numpy as np
 import pytest
 import torch
 from physicsnemo import Module
+from physicsnemo.nn.module.rope import apply_rotary_pos_emb, build_axial_rope_cos_sin_2d
 
 from earth2studio.models.auto import Package
-from earth2studio.models.px._stormscope_flash.dit import DiT
-from earth2studio.models.px._stormscope_flash.preconditioner import (
+from earth2studio.models.nn.stormscope_flash import FlashDiT as DiT
+from earth2studio.models.nn.stormscope_flash import (
     FlashModel,
     FlashPrecond,
 )
 from earth2studio.models.px._stormscope_flash.region import resolve_region
-from earth2studio.models.px._stormscope_flash.rope import RoPE2D
+from earth2studio.models.px._stormscope_flash.runtime import (
+    FLASH_CALLS,
+    FLASH_INTERVALS,
+)
 from earth2studio.models.px._stormscope_flash.sampler import (
     build_flash_chain_plan,
     flash_sampler_chain,
     inference_block_boundaries,
     regional_sigma_grids,
 )
-from earth2studio.models.px.stormscope import StormScopeMRMS
-from earth2studio.models.px.stormscope_flash import (
-    FLASH_CALLS,
-    FLASH_INTERVALS,
-    StormScopeGOESFlash,
-    StormScopeMRMSFlash,
-)
+from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
@@ -54,8 +52,9 @@ def test_rotary_matches_complex_rotation_and_row_offset(dtype):
     torch.manual_seed(5)
     q = torch.randn(2, 3, 12, 16).to(dtype)
     k = torch.randn_like(q)
-    model = RoPE2D(16)
-    actual = model(q, k, 3, 4, h_offset=7)
+    cos, sin = build_axial_rope_cos_sin_2d(10, 4, 16)
+    cos, sin = cos[7:].flatten(0, 1), sin[7:].flatten(0, 1)
+    actual = (apply_rotary_pos_emb(q, cos, sin), apply_rotary_pos_emb(k, cos, sin))
     row = torch.arange(7, 10).repeat_interleave(4)
     col = torch.arange(4).repeat(3)
     omega = 10000.0 ** (-torch.arange(0, 8, 2).float() / 8)
@@ -163,14 +162,17 @@ def test_flash_fused_update_matches_individual_heads():
 
 
 @pytest.mark.parametrize(
-    "cls,kind", [(StormScopeGOESFlash, "goes"), (StormScopeMRMSFlash, "mrms")]
+    "cls,kind", [(StormScopeGOES, "goes"), (StormScopeMRMS, "mrms")]
 )
 def test_flash_move_invalidates_plan(cls, kind):
     model = cls.__new__(cls)
     torch.nn.Module.__init__(model)
-    model._flash_plan = object()
+    from earth2studio.models.px._stormscope_flash.runtime import FlashRuntime
+
+    model._flash_runtime = FlashRuntime(kind)
+    model._flash_runtime.plan = object()
     model.to("cpu")
-    assert model._flash_plan is None
+    assert model._flash_runtime.plan is None
 
 
 class _FakeExpert(torch.nn.Module):
@@ -301,9 +303,9 @@ def test_regional_instances_keep_independent_geometry():
 
 
 def test_glm_interpolation_and_normalization_order_is_baseline():
-    assert StormScopeMRMSFlash.interpolate_glm is StormScopeMRMS.interpolate_glm
-    assert StormScopeMRMSFlash.fetch_glm is StormScopeMRMS.fetch_glm
-    model = StormScopeMRMSFlash.__new__(StormScopeMRMSFlash)
+    assert StormScopeMRMS.interpolate_glm is StormScopeMRMS.interpolate_glm
+    assert StormScopeMRMS.fetch_glm is StormScopeMRMS.fetch_glm
+    model = StormScopeMRMS.__new__(StormScopeMRMS)
     torch.nn.Module.__init__(model)
     model.means = torch.zeros(1, 3, 1, 1)
     model.stds = torch.ones(1, 3, 1, 1)
@@ -320,19 +322,21 @@ def test_glm_interpolation_and_normalization_order_is_baseline():
 
 
 @pytest.mark.package
-@pytest.mark.parametrize("cls", [StormScopeGOESFlash, StormScopeMRMSFlash])
+@pytest.mark.parametrize("cls", [StormScopeGOES, StormScopeMRMS])
 def test_flash_package(cls):
     if not torch.cuda.is_available():
         pytest.skip("NATTEN real-weight test requires CUDA")
     model = cls.load_model(
-        cls.load_default_package(), region={"lat": (38.0, 39.0), "lon": (-98.0, -97.0)}
+        cls.load_default_package(model_name="3km_10min_flash"),
+        model_name="3km_10min_flash",
+        region={"lat": (38.0, 39.0), "lon": (-98.0, -97.0)},
     ).cuda()
     coords = model.input_coords()
     coords["batch"] = np.arange(1)
     coords["time"] = np.array([np.datetime64("2025-04-17T23:30")])
     h, w = model.region_info.input_shape
     state = model.means.view(1, 1, 1, -1, 1, 1).expand(1, 1, 6, -1, h, w).clone()
-    if cls is StormScopeMRMSFlash:
+    if cls is StormScopeMRMS:
         cond = (
             model.conditioning_means.view(1, 1, 1, -1, 1, 1)
             .expand(1, 1, 6, -1, h, w)
@@ -353,8 +357,11 @@ def test_flash_missing_goes_masks_are_preserved_without_persistence():
         def set_nan_pixel_mask(self, mask):
             self.mask = mask
 
-    model = StormScopeGOESFlash.__new__(StormScopeGOESFlash)
+    model = StormScopeGOES.__new__(StormScopeGOES)
     torch.nn.Module.__init__(model)
+    from earth2studio.models.px._stormscope_flash.runtime import FlashRuntime
+
+    model._flash_runtime = FlashRuntime("goes")
     model.means = torch.full((1, 8, 1, 1), 10.0)
     model.stds = torch.full((1, 8, 1, 1), 2.0)
     model.glm_mask = torch.zeros(8, dtype=torch.bool)
@@ -387,6 +394,9 @@ def test_curvilinear_request_outside_perimeter_is_rejected():
         resolve_region(lat, lon, {"lat": (48, 49), "lon": (-119, -118)})
 
 
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="NATTEN execution requires CUDA"
+)
 def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
     torch.manual_seed(8)
     config = dict(
@@ -399,7 +409,7 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
         depth=2,
         num_heads=2,
         pos_embedding_type="rotary",
-        attn_kernel=-1,
+        attn_kernel=3,
     )
     metadata = dict(
         sigma_grid=[3.0, 1.0, 0.0],
@@ -419,10 +429,14 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
     assert restored.model_config == config
     assert restored.flash_metadata == metadata
     assert not any(p.is_meta or p.requires_grad for p in restored.parameters())
+    assert not any(b.is_meta for b in restored.buffers())
     assert restored.state_dict().keys() == reference.state_dict().keys()
     for key, tensor in reference.state_dict().items():
         assert torch.equal(tensor, restored.state_dict()[key]), key
-    state, condition = torch.randn(2, 1, 8, 12), torch.randn(2, 2, 8, 12)
+    reference.cuda()
+    restored.cuda()
+    state = torch.randn(2, 1, 8, 12, device="cuda")
+    condition = torch.randn(2, 2, 8, 12, device="cuda")
     sigma, weight, bias, delta = reference.prepare_inference_block(0, 2)
     kwargs = dict(inference_weight=weight, inference_bias=bias, inference_delta=delta)
     with torch.no_grad():
@@ -440,7 +454,9 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
 
 
 def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
-    from earth2studio.models.px.stormscope_flash import _validate_checkpoint_file
+    from earth2studio.models.px._stormscope_flash.runtime import (
+        _validate_checkpoint_file,
+    )
 
     payload = b"checkpoint integrity test"
     digest = hashlib.sha256(payload).hexdigest()
@@ -466,7 +482,7 @@ def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
 def flash_example():
     path = (
         Path(__file__).resolve().parents[3]
-        / "examples/04_nowcasting/04_stormscope_flash_example.py"
+        / "examples/04_nowcasting/03_stormscope_goes_example.py"
     )
     spec = importlib.util.spec_from_file_location("flash_example", path)
     module = importlib.util.module_from_spec(spec)
@@ -477,9 +493,12 @@ def flash_example():
 def test_flash_example_geographic_flags(flash_example):
     full = flash_example.parse_args([])
     assert full.lat is None and full.lon is None
+    assert full.model == "3km_10min"
     assert flash_example.padding == 25
     regional = flash_example.parse_args(
         [
+            "--model",
+            "3km_10min_flash",
             "--lat",
             "38",
             "43",
@@ -489,7 +508,7 @@ def test_flash_example_geographic_flags(flash_example):
         ]
     )
     assert regional.lat == [38, 43] and regional.lon == [-99, -93]
-    assert set(vars(regional)) == {"lat", "lon"}
+    assert set(vars(regional)) == {"model", "lat", "lon"}
 
 
 @pytest.mark.parametrize(
@@ -500,6 +519,8 @@ def test_flash_example_geographic_flags(flash_example):
         ["--satellite", "goes16"],
         ["--no-compile"],
         ["--padding", "15"],
+        ["--model", "invalid"],
+        ["--lat", "38", "43", "--lon", "-99", "-93"],
     ],
 )
 def test_flash_example_rejects_invalid_flags(flash_example, argv):
@@ -537,14 +558,16 @@ def test_flash_example_preserves_repeated_and_different_region_outputs(
 ):
     flash_example.output_dir = tmp_path
     region = {"lat": (39.075, 41.075), "lon": (-97.0, -95.0)}
-    first = flash_example.create_output_path(region)
+    first = flash_example.create_output_path(region, "3km_10min_flash")
     first.mkdir()
     (first / "sentinel").write_text("keep")
-    second = flash_example.create_output_path(region)
+    second = flash_example.create_output_path(region, "3km_10min_flash")
     third = flash_example.create_output_path(
-        {"lat": (38.0, 40.0), "lon": (-97.0, -95.0)}
+        {"lat": (38.0, 40.0), "lon": (-97.0, -95.0)}, "3km_10min_flash"
     )
-    full = flash_example.create_output_path(None)
+    full = flash_example.create_output_path(None, "3km_10min_flash")
+    baseline = flash_example.create_output_path(None, "3km_10min")
+    assert baseline.parent.parent != full.parent.parent
     assert first.parent.name == "run_001"
     assert second.parent.name == "run_002"
     assert third.parent.parent != first.parent.parent
@@ -555,14 +578,14 @@ def test_flash_example_preserves_repeated_and_different_region_outputs(
 def test_flash_example_checks_bounds_before_loading_models(
     flash_example, tmp_path, monkeypatch
 ):
-    from earth2studio.models.px import StormScopeGOESFlash
+    from earth2studio.models.px import StormScopeGOES
 
     latitude, longitude = _grid()
     monkeypatch.setattr(
-        StormScopeGOESFlash, "_resolve_model_entry", lambda package, name: (name, {})
+        StormScopeGOES, "_resolve_model_entry", lambda package, name: (name, {})
     )
     monkeypatch.setattr(
-        StormScopeGOESFlash,
+        StormScopeGOES,
         "_build_grid_and_times",
         lambda package, entry: (torch.as_tensor(latitude), torch.as_tensor(longitude)),
     )
@@ -570,18 +593,29 @@ def test_flash_example_checks_bounds_before_loading_models(
     def unexpected_load(*args, **kwargs):
         pytest.fail("Checkpoint loading started before geographic validation")
 
-    monkeypatch.setattr(StormScopeGOESFlash, "load_model", unexpected_load)
+    monkeypatch.setattr(StormScopeGOES, "load_model", unexpected_load)
     monkeypatch.setattr(
-        StormScopeGOESFlash, "load_default_package", lambda: Package(str(tmp_path))
+        StormScopeGOES, "load_default_package", lambda **kwargs: Package(str(tmp_path))
     )
     flash_example.output_dir = tmp_path / "outputs"
     with pytest.raises(ValueError, match="Invalid geographic request.*outside"):
-        flash_example.main(["--lat", "39.075", "81.075", "--lon", "-97", "-95"])
+        flash_example.main(
+            [
+                "--model",
+                "3km_10min_flash",
+                "--lat",
+                "39.075",
+                "81.075",
+                "--lon",
+                "-97",
+                "-95",
+            ]
+        )
     assert not flash_example.output_dir.exists()
 
 
 @pytest.mark.parametrize(
-    "kind,flash_class", [("goes", StormScopeGOESFlash), ("mrms", StormScopeMRMSFlash)]
+    "kind,flash_class", [("goes", StormScopeGOES), ("mrms", StormScopeMRMS)]
 )
 def test_flash_hub_registry_keeps_teacher_selection_separate(
     tmp_path, kind, flash_class
@@ -604,17 +638,20 @@ def test_flash_hub_registry_keeps_teacher_selection_separate(
     path.write_text(json.dumps(registry))
     package = Package(str(tmp_path))
     name, entry = flash_class._resolve_model_entry(package, "3km_10min")
-    assert name == "3km_10min_flash" and entry == flash
+    assert name == "3km_10min" and entry == teacher
     assert flash_class._resolve_model_entry(package, "3km_10min_flash")[1] == flash
     baseline = StormScopeGOES if kind == "goes" else StormScopeMRMS
     assert baseline._resolve_model_entry(package, "3km_10min")[1] == teacher
-    assert set(flash_class.list_available_models(package)) == {"3km_10min_flash"}
+    assert set(flash_class.list_available_models(package)) == {
+        "3km_10min",
+        "3km_10min_flash",
+    }
     assert json.loads(path.read_text()) == registry
 
 
-@pytest.mark.parametrize("flash_class", [StormScopeGOESFlash, StormScopeMRMSFlash])
+@pytest.mark.parametrize("flash_class", [StormScopeGOES, StormScopeMRMS])
 def test_flash_local_package_remains_compatible(tmp_path, flash_class):
-    kind = flash_class._FLASH_KIND
+    kind = flash_class._REGISTRY_KEY
     entry = {"flash": True, "description": "local"}
     (tmp_path / "registry.json").write_text(
         json.dumps({kind: {"models": {"3km_10min": entry}, "aliases": {}}})
@@ -625,20 +662,23 @@ def test_flash_local_package_remains_compatible(tmp_path, flash_class):
     )
 
 
-@pytest.mark.parametrize("flash_class", [StormScopeGOESFlash, StormScopeMRMSFlash])
+@pytest.mark.parametrize("flash_class", [StormScopeGOES, StormScopeMRMS])
 def test_flash_hub_package_uses_revision_and_separate_cache(
     monkeypatch, flash_class, tmp_path
 ):
     from unittest.mock import ANY, Mock
 
-    import earth2studio.models.px.stormscope_flash as module
+    import earth2studio.models.px.stormscope as module
 
     constructor = Mock()
     constructor.default_cache.return_value = str(tmp_path / "flash-cache")
     monkeypatch.setattr(module, "Package", constructor)
     revision = "a" * 40
     assert (
-        flash_class.load_default_package(revision=revision) is constructor.return_value
+        flash_class.load_default_package(
+            model_name="3km_10min_flash", revision=revision
+        )
+        is constructor.return_value
     )
     constructor.assert_called_once_with(
         f"hf://nvidia/stormscope-goes-mrms@{revision}",
@@ -651,18 +691,18 @@ def test_flash_hub_package_uses_revision_and_separate_cache(
 
 
 def test_flash_example_uses_default_hub_package(flash_example, tmp_path, monkeypatch):
-    from earth2studio.models.px import StormScopeGOESFlash
+    from earth2studio.models.px import StormScopeGOES
 
     class ReachedDefaultPackage(Exception):
         pass
 
-    def default_package():
+    def default_package(**kwargs):
         raise ReachedDefaultPackage()
 
     assert not hasattr(flash_example, "package_path")
     monkeypatch.delenv("STORMSCOPE_FLASH_PACKAGE", raising=False)
     monkeypatch.setattr("dotenv.load_dotenv", lambda: None)
-    monkeypatch.setattr(StormScopeGOESFlash, "load_default_package", default_package)
+    monkeypatch.setattr(StormScopeGOES, "load_default_package", default_package)
     flash_example.output_dir = tmp_path / "outputs"
     with pytest.raises(ReachedDefaultPackage):
         flash_example.main([])
@@ -670,7 +710,7 @@ def test_flash_example_uses_default_hub_package(flash_example, tmp_path, monkeyp
 
 
 def test_flash_default_package_is_pinned():
-    package = StormScopeGOESFlash.load_default_package()
+    package = StormScopeGOES.load_default_package(model_name="3km_10min_flash")
     revision = package.root.rsplit("@", 1)[1]
     assert len(revision) == 40 and all(c in "0123456789abcdef" for c in revision)
     mapper = package.cache_options["cache_mapper"]
@@ -683,7 +723,9 @@ def test_flash_default_package_is_pinned():
 def test_flash_cache_separates_numbered_model_experts(tmp_path):
     import fsspec
 
-    mapper = StormScopeGOESFlash.load_default_package().cache_options["cache_mapper"]
+    mapper = StormScopeGOES.load_default_package(
+        model_name="3km_10min_flash"
+    ).cache_options["cache_mapper"]
     fs = fsspec.filesystem("memory")
     root = f"/flash-{tmp_path.name}"
     paths = [
@@ -709,3 +751,48 @@ def test_flash_cache_separates_numbered_model_experts(tmp_path):
         assert local.suffix == ".mdlus"
         assert local.read_bytes() == payload
         assert Path(package.resolve(path)).read_bytes() == payload
+
+
+@pytest.mark.parametrize("model_name", ["3km_10min", "3km_10min_flash"])
+def test_shared_example_selects_package_and_model(
+    flash_example, tmp_path, monkeypatch, model_name
+):
+    """Both CLI selections reach the matching loader without changing teacher defaults."""
+    from earth2studio.models.px import StormScopeGOES
+
+    latitude, longitude = _grid()
+    selected = []
+    package = Package(str(tmp_path))
+
+    def load_package(**kwargs):
+        selected.append(kwargs["model_name"])
+        return package
+
+    class ReachedLoader(Exception):
+        pass
+
+    def load_model(actual_package, **kwargs):
+        assert actual_package is package
+        assert kwargs["model_name"] == model_name
+        assert kwargs["amp"] is True and kwargs["compile"] is True
+        if model_name == "3km_10min":
+            assert set(kwargs) == {"model_name", "amp", "compile"}
+        else:
+            assert kwargs["region"] is None and kwargs["padding"] == 25
+            assert kwargs["amp_dtype"] == torch.float16
+        raise ReachedLoader
+
+    monkeypatch.setattr(StormScopeGOES, "load_default_package", load_package)
+    monkeypatch.setattr(
+        StormScopeGOES, "_resolve_model_entry", lambda *a: (model_name, {})
+    )
+    monkeypatch.setattr(
+        StormScopeGOES,
+        "_build_grid_and_times",
+        lambda *a: (torch.as_tensor(latitude), torch.as_tensor(longitude)),
+    )
+    monkeypatch.setattr(StormScopeGOES, "load_model", load_model)
+    flash_example.output_dir = tmp_path / "outputs"
+    with pytest.raises(ReachedLoader):
+        flash_example.main(["--model", model_name])
+    assert selected == [model_name]
