@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
 
 ### Changed
 
