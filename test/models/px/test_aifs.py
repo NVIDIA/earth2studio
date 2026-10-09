@@ -748,6 +748,34 @@ def test_aifs_call(time, device, backend):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_aifs_state_device(device, small_model):
+    model = small_model.to(device)
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": [0],
+            "time": np.array(["2000-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.randn(signature.shape), signature)
+    original = x.copy(deep=True)
+    y, state = model.initialize(x)
+    for _ in range(2):
+        assert state["history"].e2s.to_torch()[0].device == torch.device(device)
+        assert state["native"].device == torch.device(device)
+        assert state["published"].e2s.to_torch()[0].device == torch.device(device)
+        history = state["history"].copy(deep=True)
+        previous = y.copy(deep=True)
+        next_y, next_state = model.step(y, state)
+        replay, _ = model.step(y, state)
+        xr.testing.assert_identical(next_y, replay)
+        xr.testing.assert_identical(state["history"], history)
+        xr.testing.assert_identical(y, previous)
+        y, state = next_y, next_state
+    xr.testing.assert_identical(x, original)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aifs_iter(device, small_model, monkeypatch):
     p = small_model.to(device)
     assert "_fill_input" in type(p).__dict__

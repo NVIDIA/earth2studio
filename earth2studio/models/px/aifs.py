@@ -115,9 +115,18 @@ def _aifs_forward(
     )
     result = restore(from_torch(output, signature, name=x.name))
     result.encoding = deepcopy(x.encoding)
+    history = x.isel(lead_time=slice(-1, None))
+    history_tensor, _ = history.e2s.to_torch()
+    history = history.copy(
+        deep=True,
+        data=from_torch(
+            history_tensor.to(model.latitudes.device, copy=True),
+            coord_array_like(history),
+        ).data,
+    )
     return result, {
         "native": native.clone(),
-        "history": x.isel(lead_time=slice(-1, None)).copy(deep=True),
+        "history": history,
         "published": result.copy(deep=True),
         "index": index + 1,
         "seed": getattr(model, "_rng_seed", None),
