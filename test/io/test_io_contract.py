@@ -31,6 +31,7 @@ import xarray as xr
 
 from earth2studio.grids import CurvilinearGrid, LatLonGrid, infer_grid
 from earth2studio.io import (
+    AsyncZarrBackend,
     IceChunkBackend,
     IOBackend,
     KVBackend,
@@ -49,9 +50,10 @@ from earth2studio.utils.cupy import from_torch
 
 BACKENDS: dict[str, tuple[Callable[[], IOBackend], Callable[[IOBackend], xr.Dataset]]]
 BACKENDS = {
+    "async_zarr": (lambda: AsyncZarrBackend(None, {"time": TIMES, "lead_time": LEADS}, store="memory:///"), lambda io: xr.open_zarr(io.store, consolidated=False)),  # type: ignore[attr-defined] # noqa: E501
     "icechunk": (lambda: pytest.importorskip("icechunk") and IceChunkBackend(), lambda io: io.to_xarray()),  # type: ignore[attr-defined, return-value] # fmt: skip
-    "netcdf4": (lambda: NetCDF4Backend(f"{mkdtemp()}/io.nc", {"mode": "w"}), lambda io: io.to_xarray()),  # type: ignore[attr-defined] # noqa: E501
     "kv": (KVBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
+    "netcdf4": (lambda: NetCDF4Backend(f"{mkdtemp()}/io.nc", {"mode": "w"}), lambda io: io.to_xarray()),  # type: ignore[attr-defined] # noqa: E501
     "xarray": (XarrayBackend, lambda io: io.root),  # type: ignore[attr-defined]
     "zarr": (ZarrBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
 }
