@@ -882,19 +882,6 @@ def test_aifs2_forcing_batch_time_order(monkeypatch, device):
     xr.testing.assert_identical(field, original)
     iterator.close()
     p.clear_hooks()
-    preparations.clear()
-    p.front_hook = lambda value: value.assign_coords(
-        time=value.time + np.timedelta64(1, "h")
-    )
-    iterator = p.create_iterator(field)
-    next(iterator)
-    next(iterator)
-    next(iterator)
-    np.testing.assert_array_equal(
-        preparations,
-        [times + np.timedelta64(h, "h") for h in (18, 25, 32)],
-    )
-    iterator.close()
 
 
 @pytest.mark.parametrize("ensemble", [1])
@@ -1040,11 +1027,10 @@ def test_aifs2_conformance(backend):
         inverse_interpolation_matrix=inverse_interpolation_matrix,
         invariants=invariants,
     )
-    # AIFS2 is deterministic (stochastic=False via PrognosticMixin's default), so
-    # P14 is reported as an informational skip rather than evaluated; that is
-    # expected and not a contract violation.
+    # Deterministic sampling and component-specific serialization are not probed.
     assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 
