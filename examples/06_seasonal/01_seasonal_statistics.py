@@ -81,9 +81,11 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
 from earth2studio.statistics import Statistic
 from earth2studio.utils.coords import map_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
@@ -130,7 +132,7 @@ def run_stats(
     prognostic = prognostic.to(device)
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    from earth2studio.run import _map_field, _output_dimensions
+    from earth2studio.run import _map_field
 
     x = fetch_data(
         source=data,
@@ -141,13 +143,29 @@ def run_stats(
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    # Set up IO backend
-    total_coords = _output_dimensions(prognostic, time, nsteps)
-    # Remove reduced dimensions from statistic
-    for d in statistic.reduction_dimensions:
-        total_coords.pop(d, None)
-
-    io.add_array(total_coords, str(statistic))
+    # Set up IO backend. Arrays are created from a concrete template: the model's
+    # output signature is concretized over the times and lead times of the roll out,
+    # then the dimensions the statistic reduces over are dropped and the statistic's
+    # name is attached, since a template without a `variable` dimension names a
+    # single array after itself.
+    signature = prognostic.output_coords(prognostic.input_coords())
+    leads = signature.coords["lead_time"].values
+    template = output_template(
+        signature,
+        leading={"time": time},
+        coords={
+            "lead_time": np.concatenate(
+                [
+                    np.zeros(1, dtype=leads.dtype),
+                    *(leads + leads[-1] * i for i in range(nsteps)),
+                ]
+            )
+        },
+    )
+    template = template.isel(
+        {dim: 0 for dim in statistic.reduction_dimensions}, drop=True
+    ).rename(str(statistic))
+    io.add_array(template)
 
     # Map lat and lon if needed
     x = _map_field(x, prognostic.input_coords())
@@ -158,8 +176,10 @@ def run_stats(
     logger.info("Inference starting!")
     with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
         for step, x in enumerate(model):
-            s, coords = statistic(*x.e2s.to_torch())
-            io.write(s, coords, str(statistic))
+            # Statistics still use the tensor and coordinate API, so the result is
+            # wrapped back into a named DataArray for the IO backend
+            s, s_coords = statistic(*x.e2s.to_torch())
+            io.write(from_torch(s, s_coords, name=str(statistic)))
             pbar.update(1)
             if step == nsteps:
                 break
@@ -362,7 +382,12 @@ io = run_stats(["2022-01-01"], nsteps, nensemble, model, soi, data, io)
 # %%
 import matplotlib.pyplot as plt
 
-times = io["time"][:].flatten() + io["lead_time"][:].flatten()
+# The NetCDF store holds CF encoded times: nanoseconds since the epoch for `time`
+# and nanoseconds for `lead_time`, so decode them before plotting
+times = (
+    io["time"][:].astype("datetime64[ns]").flatten()
+    + io["lead_time"][:].astype("timedelta64[ns]").flatten()
+)
 
 fig = plt.figure(figsize=(12, 4))
 ax = fig.add_subplot(1, 1, 1)

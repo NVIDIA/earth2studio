@@ -199,40 +199,42 @@ print(f"Completed forecast with {n_steps} steps")
 
 # %%
 from earth2studio.io import KVBackend
-from earth2studio.utils.coords import split_coords
+from earth2studio.io.utils import output_template
 
 io = KVBackend()
 
-output_coords = _dimension_coords(model_ll.output_coords(x))
+# Arrays are created from a concrete template. The model's output signature declares
+# one coupled step, so the store's lead times are the input history followed by every
+# step of the roll out, and the dynamic leading dimensions are replaced by the single
+# initialization time being run.
+signature = model_ll.output_coords(model_ll.input_coords())
 inp_lead_time = model_ll.input_coords().coords["lead_time"].values
-out_lead_times = [
-    output_coords["lead_time"] + output_coords["lead_time"][-1] * i
-    for i in range(n_steps)
-]
-output_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times])
+out_lead_time = signature.coords["lead_time"].values
+template = output_template(
+    signature,
+    leading={"time": np.array([ic_date])},
+    coords={
+        "lead_time": np.concatenate(
+            [
+                inp_lead_time,
+                *(out_lead_time + out_lead_time[-1] * i for i in range(n_steps)),
+            ]
+        )
+    },
+)
+io.add_array(template)
 
-total_coords = output_coords.copy()
-for key, value in output_coords.items():  # Scrub batch dims
-    if value.shape == (0,):
-        del total_coords[key]
-var_names = total_coords.pop("variable")
-io.add_array(total_coords, var_names)
-
+stored_variables = template.coords["variable"].values
 model_iter = model_ll.create_iterator(x)
 for step, x_step in enumerate(model_iter):
-    # The very first yield is the initial condition itself, whose variable
-    # set is prognostic-only (e.g. no tp:sum:6h/msl) -- every later yield is a
-    # true model output and includes the diagnostic variables too. Map
-    # against whichever of `output_coords`'s variables this step actually
-    # has; the array's diagnostic columns stay at their zero-initialized
-    # default for this one step.
-    step_output_coords = output_coords.copy()
+    # The very first yield is the initial condition itself, whose variable set is
+    # prognostic-only (e.g. no tp:sum:6h/msl) and also carries the raw inputs the
+    # model derives its state from -- every later yield is a true model output and
+    # includes the diagnostic variables too. A write may hold any subset of the
+    # store's labels, so each step is narrowed to the variables the store holds; the
+    # diagnostic columns stay at their fill value for this one step.
     step_variables = set(x_step.coords["variable"].values)
-    step_output_coords["variable"] = np.array(
-        [v for v in output_coords["variable"] if v in step_variables]
-    )
-    x_step = _map_field(x_step, step_output_coords)
-    io.write(*split_coords(*x_step.e2s.to_torch()))
+    io.write(x_step.sel(variable=[v for v in stored_variables if v in step_variables]))
     if step == n_steps:
         break
 
