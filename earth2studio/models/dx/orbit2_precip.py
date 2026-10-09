@@ -750,7 +750,19 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Downscale a labelled field to 24-hour precipitation in meters."""
+        """Downscale a labelled field to 24-hour precipitation in meters.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Daily precipitation matching ``output_coords(x)``, with labelled
+            output-grid coordinates and the declared accumulation window.
+        """
 
         output_coords = self.output_coords(x)
 

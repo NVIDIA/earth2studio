@@ -726,7 +726,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -1001,7 +1007,20 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Runs the 12-hour U-CAST prognostic model one step."""
+        """Predict twelve hours ahead without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history and any input static fields declared by
+            ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            to retain native recurrence and the SST mask for continuation.
+        """
         return self.initialize(x)[0]
 
     def _reconcile_hook(
@@ -1059,7 +1078,19 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x_norm, sst_mask
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Compute the first forecast and retain native normalized recurrence."""
+        """Compute the first forecast and retain native normalized recurrence.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history and any required static fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First twelve-hour forecast and native normalized fields, SST mask,
+            static conditioning, published reference and RNG state. No hooks run.
+        """
         handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
@@ -1102,7 +1133,21 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: dict[str, Any]
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance native recurrence, reconciling explicit forecast edits."""
+        """Advance native recurrence, reconciling explicit forecast edits.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            Native fields, mask, conditioning, reference and RNG state returned by
+            ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next twelve-hour forecast and updated state, without iterator hooks.
+        """
         handshake_nonempty(y)
         state = deepcopy(state)
         native, mask = self._reconcile_hook(
@@ -1145,5 +1190,17 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return prediction, state
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray]:
-        """Yield forecasts beginning with the first prediction."""
+        """Yield twelve-hour forecasts beginning with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; field edits are reconciled with native recurrence.
+        """
         yield from self._default_create_iterator(x)

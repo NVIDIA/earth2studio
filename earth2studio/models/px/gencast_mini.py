@@ -212,7 +212,16 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     stochastic = True
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Initialize the JAX stream, or reset it when ``reset`` is True."""
+        """Initialize or reset the isolated JAX random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for stochastic forecast sampling.
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, an already
+            initialized stream is preserved.
+        """
         if reset or self.prng_key is None:
             self.prng_key = jax.random.PRNGKey(seed)
 
@@ -223,7 +232,13 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return rng
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -806,19 +821,67 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # -------------------------------------------------------------------------
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict a twelve-hour DataArray without hooks."""
+        """Sample a twelve-hour forecast without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
-        """Predict the first forecast and retain history and per-time PRNG keys."""
+        """Predict the first forecast and retain history and per-time PRNG keys.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            First twelve-hour forecast and preceding history and per-time PRNG keys.
+            Iterator hooks are not applied.
+        """
         with contextlib.redirect_stdout(io.StringIO()):
             return _jax_initialize(self, x, 12, jax, data_utils)
 
     def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
-        """Advance from explicit history and per-time PRNG keys."""
+        """Advance from explicit history and per-time PRNG keys.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict
+            History and PRNG keys returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            Next twelve-hour forecast and updated state, without iterator hooks.
+        """
         with contextlib.redirect_stdout(io.StringIO()):
             return _jax_step(self, y, state, 12, jax, data_utils)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input then native twelve-hour rollout predictions."""
+        """Yield twelve-hour forecasts, starting with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         yield from self._default_create_iterator(x)

@@ -336,7 +336,13 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def default_sources(self) -> "IFS":
-        """Recommend IFS initial conditions."""
+        """Recommend IFS initial conditions.
+
+        Returns
+        -------
+        IFS
+            Raw IFS source for the input slot.
+        """
         return IFS()
 
     def input_coords(self) -> CoordinateSystem:
@@ -985,17 +991,53 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Predict a six-hour DataArray from two input frames, without hooks."""
+        """Predict six hours ahead from two input frames, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self.initialize(x)[0]
 
     _first_step = 0
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
-        """Compute the first forecast and retain native-grid recurrence."""
+        """Compute the first forecast and retain native-grid recurrence.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            First six-hour forecast and native fields, history, published reference,
+            rollout index and sampling state needed for continuation. No hooks run.
+        """
         return _aifs_initialize(self, x)
 
     def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
-        """Advance the native-grid recurrence from explicit forecast and state."""
+        """Advance the native-grid recurrence from explicit forecast and state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict
+            Native recurrence and history returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         return _aifs_step(self, y, state)
 
     def _fill_input(
@@ -1036,5 +1078,17 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out, out_coords
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield six-hour forecasts while retaining explicit native-grid history."""
+        """Yield six-hour forecasts while retaining explicit native-grid history.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts starting with initialization's prediction. The rear hook
+            runs before every yield and the front hook before subsequent steps.
+        """
         yield from self._default_create_iterator(x)

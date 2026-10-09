@@ -161,7 +161,13 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._ort6_session: InferenceSession | None = None
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -381,12 +387,36 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance one DataArray using this variant's shortest-step model."""
+        """Predict one step using this variant's shortest-step model, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast at this variant's three-, six-, or 24-hour step.
+            Use ``initialize`` and ``step`` to retain cascade anchors.
+        """
         handshake_nonempty(x)
         return self._step(x, self.ort)
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Predict the first step and retain the cascade's earlier anchor fields."""
+        """Predict the first step and retain the cascade's earlier anchor fields.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast and cascade step index and earlier anchor fields used
+            by the six-hour and daily models, as applicable. No hooks run.
+        """
         handshake_nonempty(x)
         hours = int(self._time_step / np.timedelta64(1, "h"))
         state: dict[str, Any] = {"step": 1}
@@ -399,7 +429,21 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: dict[str, Any]
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance the cascade from explicit anchors without modifying the checkpoint."""
+        """Advance the cascade without modifying the supplied continuation state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            Cascade index and anchor fields returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast at this variant's cadence and updated cascade state.
+            Iterator hooks are not applied.
+        """
         hours = int(self._time_step / np.timedelta64(1, "h"))
         previous = state["step"] * hours
         state = dict(state)
@@ -427,7 +471,19 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out, state
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield interleaved forecasts starting with the first prediction."""
+        """Yield interleaved forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts at the variant's cadence after the rear hook. The front
+            hook runs before subsequent steps; cascade anchors remain in state.
+        """
         return self._default_create_iterator(x)
 
 

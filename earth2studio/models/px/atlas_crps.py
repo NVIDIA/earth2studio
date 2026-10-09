@@ -127,7 +127,13 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("device_buffer", torch.empty(0))
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -300,7 +306,19 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict a six-hour DataArray from two input frames, without hooks."""
+        """Sample a six-hour forecast from two input frames, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            to retain latent state for continuation.
+        """
 
         out, _ = self.initialize(x)
         return out
@@ -350,7 +368,19 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return restore(result), latents_out
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, _AtlasState]:
-        """Predict the first forecast and retain history, latents and sampling state."""
+        """Predict the first forecast and retain history, latents and sampling state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AtlasState]
+            First six-hour forecast and continuation history, latent fields and
+            random-stream state. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         if self._rng_seed is None:
             self.set_rng(int(torch.randint(2**31, ()).item()))
@@ -365,7 +395,21 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: _AtlasState
     ) -> tuple[xr.DataArray, _AtlasState]:
-        """Advance from explicit history, latents and RNG state without modifying them."""
+        """Advance from explicit history, latents and RNG state without modifying them.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : _AtlasState
+            Continuation history, latent fields and random-stream state returned
+            by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AtlasState]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         seed, rng = self._rng_seed, self._rng_states
         self._rng_seed, self._rng_states = state.seed, deepcopy(state.rng)
         try:
@@ -378,7 +422,19 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._rng_seed, self._rng_states = seed, rng
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield six-hour forecasts starting with the first prediction."""
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; public-field edits feed recurrence alongside retained latents.
+        """
         return self._default_create_iterator(x)
 
     @classmethod

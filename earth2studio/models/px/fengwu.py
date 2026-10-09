@@ -174,7 +174,13 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -345,20 +351,68 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return state
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict one six-hour DataArray from two input fields."""
+        """Predict six hours ahead from two input frames, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self._step(x)
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
-        """Compute the first forecast and retain only the missing history frame."""
+        """Compute the first forecast and retain only the missing history frame.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            First six-hour forecast and the preceding history frame needed by
+            ``step``. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
     def step(
         self, y: xr.DataArray, state: xr.DataArray
     ) -> tuple[xr.DataArray, xr.DataArray]:
-        """Advance using the previous forecast and its preceding history frame."""
+        """Advance using the previous forecast and its preceding history frame.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : xr.DataArray
+            Preceding history frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next six-hour forecast and updated history, without iterator hooks.
+        """
         return self.initialize(self._advance_history(state, y))
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield six-hour forecasts starting with the first prediction."""
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         return self._default_create_iterator(x)

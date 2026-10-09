@@ -425,11 +425,24 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def forcing_coords(self) -> CoordinateSystem:
-        """Declare the four external forcing fields at the input valid time."""
+        """Declare the four external forcing fields at the input valid time.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free forcing signature on the model grid at relative
+            lead time zero. Each step consumes forcing at its current valid time.
+        """
         return coord_array_like(self.input_coords(), {"variable": FORCING_VARIABLES})
 
     def default_sources(self) -> tuple[None, DataSource]:
-        """Recommend the configured forcing source to the driver."""
+        """Recommend the configured forcing source to the driver.
+
+        Returns
+        -------
+        tuple[None, DataSource]
+            No input recommendation, followed by the configured forcing source.
+        """
         return None, self.forcing_data_source
 
     def _prepare_forcing(self, forcing: xr.DataArray) -> torch.Tensor:
@@ -575,13 +588,41 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.flip(y, dims=(-2,)).unsqueeze(2)
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
-        """Predict one six-hour step without iterator hooks."""
+        """Predict six hours ahead without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Forcing at the input valid time matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self.initialize(x, forcing)[0]
 
     def initialize(
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]:
-        """Compute the first prediction and retain its normalized recurrence."""
+        """Compute the first prediction and retain its normalized recurrence.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Four forcing fields matching ``forcing_coords()`` at the input valid
+            time, supplied on the model grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]
+            First six-hour forecast and normalized native fields plus a published
+            reference used to reconcile later edits. No iterator hooks run.
+        """
         return self._forward(x, forcing, None)
 
     def _forward(
@@ -627,11 +668,41 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing: xr.DataArray,
         state: tuple[torch.Tensor, xr.DataArray],
     ) -> tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]:
-        """Advance the normalized state with new external forcing and public edits."""
+        """Advance the normalized state with new external forcing and public edits.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        forcing : xr.DataArray
+            New forcing fields at the valid time of ``y``.
+        state : tuple[torch.Tensor, xr.DataArray]
+            Native normalized fields and published reference from ``initialize``
+            or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[torch.Tensor, xr.DataArray]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         return self._forward(y.sel(variable=PROGNOSTIC_VARIABLES), forcing, state)
 
     def create_iterator(
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
-        """Yield forecasts, accepting the next forcing frame through send."""
+        """Yield forecasts, accepting each new forcing frame through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Initial forcing at the input valid time.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts beginning with ``initialize``. The rear hook runs before
+            every yield and the front hook before each subsequent step.
+        """
         yield from self._default_create_iterator(x, forcing)

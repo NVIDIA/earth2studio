@@ -115,7 +115,13 @@ class PrognosticMixin:
                 delattr(self, name)
 
     def forcing_coords(self) -> CoordinateSystem | tuple[CoordinateSystem, ...] | None:
-        """Declare no forcing."""
+        """Declare no forcing.
+
+        Returns
+        -------
+        None
+            No forcing slots; forced models override this declaration.
+        """
         return None
 
     def default_sources(
@@ -126,7 +132,13 @@ class PrognosticMixin:
         | tuple[DataSource | ForecastSource | None, ...]
         | None
     ):
-        """Recommend no source for any input or forcing slot."""
+        """Recommend no source for any input or forcing slot.
+
+        Returns
+        -------
+        None
+            No source recommendation; models may override with raw sources.
+        """
         return None
 
     def _validate_initial_inputs(self, *x: xr.DataArray) -> None:

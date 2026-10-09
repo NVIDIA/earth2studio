@@ -208,7 +208,16 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return bool(getattr(self.px_model, "stochastic", False))
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed the coarse forecast model's isolated random stream."""
+        """Seed the coarse forecast model's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed forwarded to the stochastic coarse model.
+        reset : bool, optional
+            Reset an existing stream, by default True. Deterministic coarse
+            models require no random stream.
+        """
         if self.stochastic:
             self.px_model.set_rng(seed, reset=reset)  # type: ignore[union-attr]  # Stochastic models provide set_rng.
 
@@ -559,13 +568,37 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._select_prediction_grid(x)
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Return the complete interpolated forecast chunk without hooks."""
+        """Return the complete interpolated forecast chunk without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching the coarse prognostic model's signature.
+
+        Returns
+        -------
+        xr.DataArray
+            Interpolated forecasts and coarse endpoints on the output grid,
+            matching ``output_coords(x)``.
+        """
         return self.initialize(x)[0]
 
     def initialize(
         self, x: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, Any]]:
-        """Initialize the coarse forecast and interpolate its forecast interval."""
+        """Initialize the coarse forecast and interpolate its forecast interval.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching the nested model's ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, Any]]
+            Complete interpolated forecast chunk and the coarse forecast and
+            nested continuation state. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         self.output_coords(x)
         if self.px_model is None:
@@ -579,7 +612,21 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: tuple[xr.DataArray, Any]
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, Any]]:
-        """Advance the coarse model using edits to the latest published endpoint."""
+        """Advance the coarse model using edits to the published coarse endpoints.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous interpolated chunk. Edits at the coarse forecast's lead times
+            are transferred to the nested model's retained fields.
+        state : tuple[xr.DataArray, Any]
+            Coarse forecast and nested state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, Any]]
+            Next complete interpolated chunk and updated state, without hooks.
+        """
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
         coarse, nested = state
@@ -637,5 +684,17 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield interpolated forecast chunks, beginning with initialization."""
+        """Yield interpolated chunks, beginning with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Interpolated chunks after the rear hook. The front hook runs before
+            subsequent steps; edits at coarse forecast times feed the nested model.
+        """
         yield from self._default_create_iterator(x)

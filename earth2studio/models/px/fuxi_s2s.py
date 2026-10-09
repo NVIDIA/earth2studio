@@ -240,7 +240,14 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._time_step = np.timedelta64(1, "D")
 
     def default_sources(self) -> DataSource:
-        """Recommend hourly ARCO ERA5 for the declared daily-mean windows."""
+        """Recommend hourly ARCO ERA5 for the declared daily-mean windows.
+
+        Returns
+        -------
+        DataSource
+            Raw hourly source. The caller must aggregate the declared daily
+            windows and regrid to the model's input grid.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -543,13 +550,39 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
-        """Predict the next daily mean and retain the missing history frame."""
+        """Predict the next daily mean and retain the missing history frame.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two prepared daily-mean fields matching ``input_coords()``, including
+            the declared statistics windows and grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            First daily forecast and its preceding history frame. Iterator hooks
+            are not applied.
+        """
         return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
     def step(
         self, y: xr.DataArray, state: xr.DataArray
     ) -> tuple[xr.DataArray, xr.DataArray]:
-        """Advance from the latest daily mean and its previous history frame."""
+        """Advance from the latest daily mean and its previous history frame.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous daily forecast, including any caller-applied edits.
+        state : xr.DataArray
+            Preceding daily-mean frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next daily forecast and updated history, without iterator hooks.
+        """
         previous, _ = state.e2s.to_torch()
         future, _ = y.e2s.to_torch()
         signature = coord_array_like(

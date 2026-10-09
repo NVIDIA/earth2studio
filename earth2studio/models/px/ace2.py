@@ -652,24 +652,65 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return restore(result)
 
     def forcing_coords(self) -> CoordinateSystem:
-        """Describe external forcing at the input and forecast times."""
+        """Describe external forcing at the input and forecast times.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free initial forcing signature with both boundary
+            frames. Subsequent steps consume only the new forecast-time frame.
+        """
         return coord_array_like(
             self.input_coords(),
             {"variable": self._forcing_vars_e2s, "lead_time": np.arange(2) * self._dt},
         )
 
     def default_sources(self) -> tuple[DataSource, DataSource]:
-        """Recommend ACE2 ERA5 initial conditions and configured forcing."""
+        """Recommend ACE2 ERA5 initial conditions and configured forcing.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource]
+            Initial-condition source followed by the configured forcing source.
+        """
         return ACE2ERA5Data(mode="initial_conditions"), self.forcing_data_source
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
-        """Compute the first forecast using caller-provided forcing."""
+        """Compute the first forecast using caller-provided forcing, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Complete initial window matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self.initialize(x, forcing)[0]
 
     def initialize(
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
-        """Predict and retain only missing prognostics and the forcing boundary."""
+        """Predict and retain only missing prognostics and the forcing boundary.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial prognostic fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Full forcing window matching ``forcing_coords()`` at the input and
+            forecast times. The caller supplies these fields on the model grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]
+            First forecast and state containing unpublished input fields and the
+            final forcing frame. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         y = self._predict(x, forcing)
         missing = [
@@ -688,7 +729,24 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing: xr.DataArray,
         state: tuple[xr.DataArray, xr.DataArray],
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
-        """Advance from the forecast, new forcing, and missing-field state."""
+        """Advance from the forecast, new forcing, and missing-field state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        forcing : xr.DataArray
+            New forcing frame at the next forecast time; the preceding frame is
+            retained in ``state``.
+        state : tuple[xr.DataArray, xr.DataArray]
+            Missing prognostic fields and forcing boundary from ``initialize``
+            or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]
+            Next forecast and updated state, without iterator hooks.
+        """
         missing, previous_forcing = state
         handshake_dataarray(
             forcing,
@@ -739,9 +797,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing : xr.DataArray
             Initial forcing window on the declared grid.
 
-        Returns
-        -------
-        Iterator[xr.DataArray]
+        Yields
+        ------
+        xr.DataArray
             Forecasts at successive lead times.
         """
         yield from self._default_create_iterator(x, forcing)

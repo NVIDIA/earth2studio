@@ -195,6 +195,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Load the CBottle3D generator on the model's input grid.
 
         This recommendation loads the data generator's checkpoint on CPU.
+
+        Returns
+        -------
+        DataSource
+            Loaded CBottle3D generator using this model's grid representation.
         """
         from earth2studio.data import CBottle3D
 
@@ -542,13 +547,37 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return result
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict the complete video forecast without hooks."""
+        """Predict the complete video forecast without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Conditioning frame matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            All predicted frames matching ``output_coords(x)``, excluding
+            the conditioning frame.
+        """
         return self.initialize(x)[0]
 
     def initialize(
         self, x: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
-        """Generate the first video and its continuation random stream."""
+        """Generate the first video and its continuation random stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            Complete forecast video, excluding its conditioning frame, and the
+            continuation seed and RNG state tensors. No iterator hooks run.
+        """
         handshake_nonempty(x)
         handshake_time(x)
         if self._rng_seed is None:
@@ -561,7 +590,20 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: tuple[int, dict[str, torch.Tensor]]
     ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
-        """Generate the next video from its final frame and saved stream."""
+        """Generate the next video from its final frame and saved stream.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast video. Its final frame conditions the next video.
+        state : tuple[int, dict[str, torch.Tensor]]
+            Seed and RNG state tensors returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            Next complete forecast video and updated sampling state, without hooks.
+        """
         previous = self._rng_seed, self._rng_states
         self._rng_seed, self._rng_states = deepcopy(state)
         try:
@@ -570,5 +612,18 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._rng_seed, self._rng_states = previous
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield complete forecast videos starting with initialization."""
+        """Yield complete forecast videos starting with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecast videos without the conditioning frame. The rear hook runs
+            before each yield and the front hook before subsequent steps. The
+            final frame conditions the next video.
+        """
         return self._default_create_iterator(x)

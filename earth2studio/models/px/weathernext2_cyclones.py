@@ -267,7 +267,13 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -610,19 +616,68 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out_data, target_lead_times
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict a six-hour DataArray and update cyclone tracks, without hooks."""
+        """Predict six hours ahead and update cyclone tracks, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            to retain tracking and random-stream state for continuation.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
-        """Predict the first forecast and retain history, PRNG keys, and tracks."""
+        """Predict the first forecast and retain history, PRNG keys, and tracks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            First six-hour forecast and preceding history, per-time PRNG keys and
+            cyclone tracking state. Iterator hooks are not applied.
+        """
         return _jax_initialize(self, x, 6, jax, data_utils)
 
     def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
-        """Advance the forecast from explicit history, PRNG keys, and tracks."""
+        """Advance the forecast from explicit history, PRNG keys, and tracks.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict
+            History, PRNG keys and cyclone tracks from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         return _jax_step(self, y, state, 6, jax, data_utils)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input then native six-hour rollout predictions."""
+        """Yield six-hour forecasts, starting with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         yield from self._default_create_iterator(x)
 
 

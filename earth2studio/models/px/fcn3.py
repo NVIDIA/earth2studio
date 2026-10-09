@@ -206,7 +206,13 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._rng = torch.Generator().manual_seed(seed)
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -407,11 +413,35 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return result
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict one six-hour field with freshly initialized core noise states."""
+        """Sample a six-hour forecast with freshly initialized core noise states.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``, without iterator
+            hooks. Use ``initialize`` to retain noise state for continuation.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Compute the first prediction and capture core noise and rollout RNG state."""
+        """Compute the first prediction and capture core noise and rollout RNG state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First six-hour forecast and continuation seed and core noise fields.
+            Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         seed = int(torch.randint(2**31, (), generator=self._rng).item())
         return self._forward(x, {"seed": seed, "noise": None})
@@ -433,9 +463,34 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: dict[str, Any]
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance from a forecast and explicit noise state, without altering either."""
+        """Advance from a forecast and explicit noise state, without altering either.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            Continuation seed and core noise fields from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         return self._forward(y, state)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield six-hour forecasts starting with the first prediction."""
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         return self._default_create_iterator(x)

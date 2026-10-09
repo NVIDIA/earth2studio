@@ -713,7 +713,19 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Generate labelled GHI samples at each input validity time on the model device."""
+        """Generate GHI samples at each input validity time on the model device.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            GOES observations matching ``input_coords()`` on the native grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Global horizontal irradiance samples matching ``output_coords(x)``,
+            with labelled sample and spatial dimensions.
+        """
         handshake_nonempty(x)
         output_coords = self.output_coords(x)
         handshake_time(x, dimension=False)

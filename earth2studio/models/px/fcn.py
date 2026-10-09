@@ -126,7 +126,13 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
     def default_sources(self) -> DataSource:
-        """Recommend NCAR ERA5, including pressure-level relative humidity."""
+        """Recommend NCAR ERA5, including pressure-level relative humidity.
+
+        Returns
+        -------
+        DataSource
+            Raw NCAR ERA5 source covering all input variables.
+        """
         from earth2studio.data import NCAR_ERA5
 
         return NCAR_ERA5()
@@ -279,7 +285,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Runs prognostic model 1 step.
+        """Predict six hours ahead without iterator hooks.
 
         Parameters
         ----------
@@ -294,19 +300,42 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
-        """Compute the first forecast; FCN needs no additional recurrent state."""
+        """Compute the first forecast without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            First six-hour forecast and ``None``; no private state is required.
+        """
         handshake_nonempty(x)
         return self._step(x), None
 
     def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
-        """Advance the previous forecast without modifying it or using hooks."""
+        """Advance the previous forecast without modifying it or using hooks.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : None
+            Empty continuation state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next six-hour forecast and ``None``.
+        """
         if state is not None:
             raise ValueError("FCN state must be None")
         return self.initialize(y)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model, starting with the first prediction.
+        """Yield six-hour forecasts, starting with initialization's prediction.
 
         Parameters
         ----------
@@ -317,6 +346,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Yields
         ------
         xr.DataArray
-            Six-hour forecast steps, excluding the initial condition.
+            Forecast DataArrays. The rear hook runs before every yield and the
+            front hook before each subsequent step.
         """
         return self._default_create_iterator(x)

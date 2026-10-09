@@ -433,13 +433,27 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def forcing_coords(self) -> CoordinateSystem:
-        """Declare conditioning on the forecast grid at the input valid time."""
+        """Declare conditioning on the forecast grid at the input valid time.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free conditioning signature at relative lead time zero.
+            The caller supplies regridded conditioning at each step's valid time.
+        """
         return coord_array_like(
             self.input_coords(), {"variable": self.conditioning_variables}
         )
 
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend HRRR inputs and configured conditioning, defaulting to GFS."""
+        """Recommend HRRR inputs and configured conditioning, defaulting to GFS.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            HRRR input source followed by the configured conditioning source,
+            or GFS when none was configured. Regridding remains caller-owned.
+        """
         from earth2studio.data import GFS, HRRR
 
         source = self.conditioning_data_source
@@ -498,13 +512,41 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return restore(out)
 
     def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
-        """Predict one hour using caller-supplied conditioning."""
+        """Predict one hour using caller-supplied conditioning, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Conditioning on the model grid at the input valid time.
+
+        Returns
+        -------
+        xr.DataArray
+            First hourly forecast matching ``output_coords(x)``.
+        """
         return self.initialize(x, conditioning)[0]
 
     def initialize(
         self, x: xr.DataArray, conditioning: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
-        """Compute the first forecast and capture its isolated sampling stream."""
+        """Compute the first forecast and capture its isolated sampling stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Fields matching ``forcing_coords()`` on the model grid at the input
+            valid time. No conditioning data are fetched internally.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            First hourly forecast and continuation seed and RNG state tensors.
+            Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         handshake_time(x)
         if self._rng_seed is None:
@@ -520,7 +562,22 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning: xr.DataArray,
         state: tuple[int, dict[str, torch.Tensor]],
     ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
-        """Advance with new conditioning and the supplied random-stream state."""
+        """Advance with new conditioning and the supplied random-stream state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        conditioning : xr.DataArray
+            New conditioning fields at the valid time of ``y`` on the model grid.
+        state : tuple[int, dict[str, torch.Tensor]]
+            Seed and RNG state tensors returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            Next hourly forecast and updated sampling state, without hooks.
+        """
         previous = self._rng_seed, self._rng_states
         self._rng_seed, self._rng_states = deepcopy(state)
         try:
@@ -532,5 +589,19 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def create_iterator(
         self, x: xr.DataArray, conditioning: xr.DataArray
     ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
-        """Yield hourly forecasts, receiving new conditioning through send."""
+        """Yield hourly forecasts, receiving new conditioning through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Initial conditioning at the input valid time on the model grid.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts beginning with ``initialize``. The rear hook runs before
+            every yield and the front hook before each subsequent step.
+        """
         yield from self._default_create_iterator(x, conditioning)

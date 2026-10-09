@@ -336,7 +336,13 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.output_times = output_times
 
     def default_sources(self) -> DataSource:
-        """Recommend MTG FCI imagery from Meteosat."""
+        """Recommend MTG FCI imagery from Meteosat.
+
+        Returns
+        -------
+        DataSource
+            Raw Meteosat FCI source for the input imagery slot.
+        """
         from earth2studio.data import MeteosatFCI
 
         return MeteosatFCI()
@@ -697,11 +703,35 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return restore(out), x
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Compute the first forecast without iterator hooks."""
+        """Compute the first Meteosat imagery forecast without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Imagery history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Forecast imagery matching ``output_coords(x)`` with off-Earth
+            pixels masked to zero.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
-        """Predict the first frame and retain missing context and sampling state."""
+        """Predict the first frame and retain missing context and sampling state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial radiance history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            First forecast and native normalized context, missing history,
+            published reference and RNG state. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         if self._rng_seed is None:
             self.set_rng(int(torch.randint(2**31, ())))
@@ -715,7 +745,21 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         }
 
     def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
-        """Advance the sliding context using explicit history and RNG state."""
+        """Advance the sliding context using explicit history and RNG state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous radiance forecast, including any caller-applied edits.
+        state : dict
+            Native context, history, published reference and RNG state returned
+            by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            Next forecast and updated state, without iterator hooks.
+        """
         history = state["history"].e2s.to_torch()[0]
         current = y.e2s.to_torch()[0]
         x = from_torch(
@@ -781,17 +825,18 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         x: xr.DataArray,
     ) -> Generator[xr.DataArray, None, None]:
-        """Create an iterator for autoregressive rollout.
+        """Yield imagery forecasts beginning with the first prediction.
 
         Parameters
         ----------
         x : xr.DataArray
-            Input tensor; must conform to ``self.input_coords()``.
+            Initial imagery history matching ``input_coords()``.
 
         Yields
         ------
         xr.DataArray
-            Predicted frame tensor and output coordinate system after each step.
+            Forecast DataArray. The rear hook runs before every yield and the
+            front hook before each subsequent step.
         """
         yield from self.create_generator(x)
 

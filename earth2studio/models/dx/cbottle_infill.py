@@ -345,7 +345,19 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Infill labelled conditioning channels at their validity times."""
+        """Infill labelled conditioning channels at their validity times.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Conditioning fields matching ``input_coords()``, including the
+            initialization times and lead times used to compute validity times.
+
+        Returns
+        -------
+        xr.DataArray
+            Generated fields matching ``output_coords(x)`` on the configured grid.
+        """
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 

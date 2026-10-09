@@ -216,7 +216,19 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return xr.concat([x.isel(lead_time=slice(1, None)), output], dim="lead_time")
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Persist the final history field for one time step on the same device."""
+        """Persist the final history field for one time step without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Owned copy of the final history field on the same device, with
+            lead time advanced by the configured time step.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
@@ -260,5 +272,17 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return y.assign_coords(lead_time=y.lead_time + self._dt).copy(deep=True), None
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield forecasts starting with the first prediction after the input."""
+        """Yield forecasts starting with the first prediction after the input.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Persisted forecasts after the rear hook. The front hook runs before
+            subsequent steps; both hooks feed recurrence directly.
+        """
         return self._default_create_iterator(x)

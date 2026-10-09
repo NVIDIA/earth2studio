@@ -224,7 +224,13 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     front_hook_interval = 1
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -259,8 +265,8 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         CoordinateSystem
-            Allocation-free DataArray output signature for the next hourly
-            forecast, including trailing one-hour diagnostics.
+            Allocation-free signature for the complete six-hour forecast chunk
+            at the variant's output cadence, including one-hour diagnostics.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
@@ -463,11 +469,36 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return sub_preds
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict the complete six-hour forecast chunk without hooks."""
+        """Predict the complete six-hour forecast chunk without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial two-frame history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Forecasts through six hours at this variant's output cadence,
+            including output-only diagnostic variables.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, _AuroraState]:
-        """Predict the first chunk and retain history and ensemble noise."""
+        """Predict the first chunk and retain history and ensemble noise.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AuroraState]
+            Complete six-hour forecast chunk at the variant's output cadence and
+            continuation history, rollout index, RNG state and ensemble noise
+            cache. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         if self.stochastic and self._rng_seed is None:
             self.set_rng(int(torch.randint(0, 2**31, ()).item()))
@@ -480,7 +511,22 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: _AuroraState
     ) -> tuple[xr.DataArray, _AuroraState]:
-        """Advance from the last forecast frame and explicit history/noise state."""
+        """Advance from the last forecast frame and explicit history/noise state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast chunk. Its final frame supplies the next input;
+            autoregressive channels are clipped to their physical bounds.
+        state : _AuroraState
+            History, rollout index, RNG state and noise cache returned by
+            ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AuroraState]
+            Next complete six-hour chunk and updated state, without iterator hooks.
+        """
         feedback = y.sel(variable=INPUT_VARIABLES).isel(lead_time=slice(-1, None))
         tensor, _ = feedback.e2s.to_torch()
         clipped = from_torch(
@@ -564,7 +610,20 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield complete forecast chunks, beginning with initialization."""
+        """Yield complete forecast chunks, beginning with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Six-hour chunks at the variant's output cadence. The rear hook runs
+            once per chunk and the front hook before subsequent steps. The final
+            frame supplies autoregressive feedback.
+        """
         yield from self._default_create_iterator(x)
 
     _rng_seed: int | None = None

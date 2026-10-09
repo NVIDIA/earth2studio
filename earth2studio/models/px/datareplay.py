@@ -131,11 +131,24 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         return coord_array_like(input_coords, {"lead_time": lead.values + self._step})
 
     def forcing_coords(self) -> CoordinateSystem:
-        """Declare the next source frame relative to the current input."""
+        """Declare the next source frame relative to the current input.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature for the frame one configured time step
+            ahead, which the caller supplies as forcing.
+        """
         return self.output_coords(self.input_coords())
 
     def default_sources(self) -> tuple[None, DataSource | ForecastSource]:
-        """Recommend the configured source for the caller-supplied replay slot."""
+        """Recommend the configured source for the caller-supplied replay slot.
+
+        Returns
+        -------
+        tuple[None, DataSource | ForecastSource]
+            No input recommendation, followed by the configured replay source.
+        """
         return None, self.source
 
     @torch.inference_mode()
@@ -161,19 +174,62 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
         return output
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
-        """Publish the supplied next source frame with the input dtype."""
+        """Publish the supplied next source frame without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Current fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Caller-supplied next frame matching ``output_coords(x)``.
+
+        Returns
+        -------
+        xr.DataArray
+            Owned copy of the supplied frame with the input dtype and metadata.
+        """
         return self.initialize(x, forcing)[0]
 
     def initialize(
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> tuple[xr.DataArray, None]:
-        """Publish the first supplied forecast; replay has no private state."""
+        """Publish the first supplied forecast; replay has no private state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Caller-supplied next frame matching ``forcing_coords()`` relative to
+            the final input lead time. No data are fetched internally.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            First forecast in the input dtype and ``None`` continuation state.
+            Iterator hooks are not applied.
+        """
         return self._forward(x, forcing), None
 
     def step(
         self, y: xr.DataArray, forcing: xr.DataArray, state: None
     ) -> tuple[xr.DataArray, None]:
-        """Publish the next supplied forecast without fetching from the source."""
+        """Publish the next supplied forecast without fetching from the source.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast supplying the dtype and metadata for the next frame.
+        forcing : xr.DataArray
+            Next source frame, one model time step after ``y``.
+        state : None
+            Empty continuation state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next forecast and ``None``, without iterator hooks.
+        """
         if state is not None:
             raise ValueError("DataReplay state must be None")
         return self.initialize(y, forcing)
@@ -181,5 +237,19 @@ class DataReplay(torch.nn.Module, PrognosticMixin):
     def create_iterator(
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
-        """Yield supplied forecasts, receiving each new source frame via send."""
+        """Yield supplied forecasts, receiving each new source frame via ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            First forecast frame, supplied by the caller.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts beginning with the supplied frame. The rear hook runs
+            before every yield and the front hook before each subsequent step.
+        """
         yield from self._default_create_iterator(x, forcing)

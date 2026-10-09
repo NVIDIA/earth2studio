@@ -182,6 +182,11 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Recommend CDS ERA5 for relative humidity and six-hour precipitation.
 
         CDS credentials and acceptance of the ERA5 terms are required.
+
+        Returns
+        -------
+        DataSource
+            Raw CDS ERA5 source covering all input variables.
         """
         from earth2studio.data import CDS_ERA5
 
@@ -418,13 +423,37 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict one six-hour field with the short-range model, without hooks."""
+        """Predict six hours ahead with the short-range model, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            and ``step`` to retain history and the model-switching counter.
+        """
         return self.initialize(x)[0]
 
     def initialize(
         self, x: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
-        """Compute the first forecast and retain its regenerated history frame."""
+        """Compute the first forecast and retain its regenerated history frame.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            First six-hour forecast and state containing the regenerated history
+            frame and cascade step index. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         return self._forward(x, 0)
 
@@ -440,7 +469,20 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: tuple[xr.DataArray, int]
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
-        """Continue the range-dependent cascade from the explicit history and index."""
+        """Continue the range-dependent cascade from the explicit history and index.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : tuple[xr.DataArray, int]
+            Regenerated history and cascade index from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         history, index = state
         x = xr.concat(
             [history, y],
@@ -453,5 +495,17 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._forward(x, index)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield cascaded six-hour forecasts, beginning with the first prediction."""
+        """Yield cascaded six-hour forecasts, beginning with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         yield from self._default_create_iterator(x)

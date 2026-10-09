@@ -428,7 +428,15 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5; native grids require derived fields and regridding."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source. Native-grid inputs additionally require
+            derived fields and regridding; the lat-lon wrapper prepares these
+            from its declared input variables.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -1130,7 +1138,19 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, torch.Tensor | None]:
-        """Compute a coupled forecast and save the continuation random stream."""
+        """Compute a coupled forecast and save the continuation random stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial coupled history matching ``input_coords()`` on the native grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            Complete coupled forecast chunk and conditional-layer-normalization
+            RNG state, or ``None`` for deterministic execution. No hooks run.
+        """
         handshake_nonempty(x)
         self.output_coords(x)
         if self.stochastic and self._cln_generator is None:
@@ -1145,7 +1165,21 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: torch.Tensor | None
     ) -> tuple[xr.DataArray, torch.Tensor | None]:
-        """Advance the coupled components using the preceding output history."""
+        """Advance the coupled components using the preceding output history.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous complete forecast chunk, including caller-applied edits.
+        state : torch.Tensor | None
+            RNG state returned by ``initialize`` or ``step``, or ``None`` for
+            deterministic execution.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            Next coupled forecast chunk and updated RNG state, without hooks.
+        """
         x = y.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
             variable=self.atmos_variables + self.ocean_variables
         )
@@ -1194,14 +1228,15 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Parameters
         ----------
         x : xr.DataArray
-            Initial history; hooks receive owned arrays in original dimensions.
+            Initial history matching ``input_coords()`` on the native grid.
 
 
         Yields
         ------
         xr.DataArray
-            Complete coupled cycles starting with initialization. Each cycle is one
-            output with one front/rear hook pair (``front_hook_interval = 1``).
+            Complete coupled cycles starting with initialization's prediction.
+            The rear hook runs before every yield and the front hook before each
+            subsequent step; both hooks feed recurrence directly.
         """
         return self._default_create_iterator(x)
 
@@ -1692,13 +1727,36 @@ class DLESyMLatLon(DLESyM):
         return result
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance one coupled cycle, regridding only at the kernel boundary."""
+        """Advance one coupled cycle on the public lat-lon grid without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Lat-lon history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Complete coupled forecast chunk matching ``output_coords(x)``.
+        """
         return self.initialize(x)[0]
 
     def initialize(
         self, x: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]:
-        """Compute the first cycle and retain native HEALPix continuation."""
+        """Compute the first cycle and retain native HEALPix continuation.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial lat/lon history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]
+            Complete public-grid forecast chunk and native HEALPix history,
+            published reference and optional RNG state. No iterator hooks run.
+        """
         handshake_nonempty(x)
         signature = self.output_coords(x)
         if self.stochastic and self._cln_generator is None:
@@ -1730,7 +1788,21 @@ class DLESyMLatLon(DLESyM):
         y: xr.DataArray,
         state: tuple[xr.DataArray, xr.DataArray, torch.Tensor | None],  # type: ignore[override]  # Public-grid recurrence retains native fields.
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]:
-        """Advance native history, applying public-grid edits before inference."""
+        """Advance native history, applying public-grid edits before inference.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous public-grid forecast chunk, including caller-applied edits.
+        state : tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]
+            Native history, published reference and optional RNG state returned
+            by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]
+            Next public-grid forecast chunk and updated state, without hooks.
+        """
         native, published, rng = state
         current = y.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
             variable=self.atmos_variables + self.ocean_variables
@@ -1762,5 +1834,18 @@ class DLESyMLatLon(DLESyM):
             self._cln_generator = previous
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield coupled forecast chunks with hooks on the public lat/lon grid."""
+        """Yield coupled forecast chunks with hooks on the public lat/lon grid.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial lat/lon history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Coupled chunks, starting with initialization's prediction. The rear
+            hook runs before each yield and the front hook before later steps;
+            edits are projected onto native HEALPix history.
+        """
         return self._default_create_iterator(x)

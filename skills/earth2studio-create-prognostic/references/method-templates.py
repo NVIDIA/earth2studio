@@ -40,7 +40,14 @@ from earth2studio.utils.type import CoordinateSystem
 
 
 def input_coords_with_history_template(self) -> CoordinateSystem:
-    """Declare two frames on the instance's configured grid."""
+    """Declare two frames on the instance's configured grid.
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free input signature with relative lead times -6h and 0h,
+        fixed temperature and grid coordinates, and arbitrary leading dimensions.
+    """
     return coord_array(
         ("batch", "lead_time", "variable", "lat", "lon"),
         {"lead_time": np.array([-6, 0], dtype="timedelta64[h]"), "variable": ["t2m"]},
@@ -50,7 +57,18 @@ def input_coords_with_history_template(self) -> CoordinateSystem:
 
 
 def output_coords_template(self, x: CoordinateSystem) -> CoordinateSystem:
-    """Validate history before planning a single forecast frame."""
+    """Validate history before planning a single forecast frame.
+
+    Parameters
+    ----------
+    x : CoordinateSystem
+        Input coordinate signature or DataArray to validate and transform.
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free output signature six hours after the latest input frame.
+    """
     if "lead_time" not in x.coords:
         raise ValueError("lead_time is required")
     lead = x.lead_time.values
@@ -83,6 +101,17 @@ def initialize_template(self, x: xr.DataArray) -> tuple[xr.DataArray, HistorySta
 
     Bind as ``initialize`` with the coordinate methods above and
     ``advance_history_template`` as ``_advance_history``.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Initial two-frame history matching ``input_coords()``.
+
+    Returns
+    -------
+    tuple[xr.DataArray, HistoryState]
+        First forecast and the older frame needed for continuation, excluding
+        the current forecast. No iterator hooks are applied.
     """
     self.output_coords(x)
     return self._advance_history(x), HistoryState(
@@ -93,11 +122,23 @@ def initialize_template(self, x: xr.DataArray) -> tuple[xr.DataArray, HistorySta
 def step_template(
     self, y: xr.DataArray, state: HistoryState
 ) -> tuple[xr.DataArray, HistoryState]:
-    """Rebuild the two-frame input window without modifying the checkpoint pair.
+    """Advance from the forecast and state without modifying either input.
 
     Select input variables by label. A model adding diagnostic channels must
     extend the expected output signature too. History and the new frame must
     continue at six-hour cadence.
+
+    Parameters
+    ----------
+    y : xr.DataArray
+        Previous forecast matching the output signature.
+    state : HistoryState
+        Older input frame returned alongside that forecast.
+
+    Returns
+    -------
+    tuple[xr.DataArray, HistoryState]
+        Next forecast and updated history state, without iterator hooks.
     """
     expected = coord_array_like(
         state.history,
@@ -132,6 +173,16 @@ def advance_history_template(self, x: xr.DataArray) -> xr.DataArray:
     Bind as ``_advance_history``. The core consumes (batch, history, variable,
     lat, lon) and returns (batch, variable, lat, lon). Batch only this numerical
     helper, so state and iterator hooks retain original leading dimensions.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Two-frame history matching ``input_coords()``.
+
+    Returns
+    -------
+    xr.DataArray
+        Forecast matching ``output_coords(x)`` on the model device.
     """
     handshake_nonempty(x)
     signature = self.output_coords(x)
@@ -145,5 +196,18 @@ def create_iterator_template(self, x: xr.DataArray) -> Generator[
     xr.DataArray | tuple[xr.DataArray, ...] | None,
     None,
 ]:
-    """Delegate forecasts-only iteration; history lives in returned state."""
+    """Yield complete forecasts, beginning with initialization's prediction.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Initial two-frame history matching ``input_coords()``.
+
+    Yields
+    ------
+    xr.DataArray
+        Six-hour forecasts. The rear hook runs before every yield and the front
+        hook before each subsequent step; both feed recurrence directly. History
+        lives in explicit state. This unforced example is resumed with ``next``.
+    """
     yield from self._default_create_iterator(x)

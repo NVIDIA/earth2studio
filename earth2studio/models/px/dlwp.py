@@ -81,9 +81,9 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Attributes
     ----------
     front_hook_interval : int
-        Number of iterator forecast outputs per core front hook. The twelve-hour
-        core advance produces two six-hour outputs: one front hook precedes the
-        core call, and a rear hook transforms each output before it is yielded.
+        One forecast chunk per front hook. Each twelve-hour core advance returns
+        two six-hour frames together. The rear hook transforms each chunk before
+        publication; the front hook runs before subsequent advances.
 
     Note
     ----
@@ -157,7 +157,13 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.checkpoint = bind_checkpoint_state(_DLWPCheckpointState())
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -194,8 +200,8 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         CoordinateSystem
-            Allocation-free DataArray output signature six hours after the
-            final input lead time.
+            Allocation-free DataArray output signature six and twelve hours
+            after the final input lead time.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
@@ -541,13 +547,36 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict the complete twelve-hour forecast chunk without iterator hooks."""
+        """Predict the complete twelve-hour forecast chunk without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame lat-lon history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Six- and twelve-hour forecasts on the public lat-lon grid.
+        """
         return self.initialize(x)[0]
 
     def initialize(
         self, x: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
-        """Compute both forecast frames and retain the native cubed-sphere state."""
+        """Compute both forecast frames and retain the native cubed-sphere state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]
+            Six- and twelve-hour forecasts in one chunk, plus native cubed-sphere
+            fields and a public-grid reference for reconciling edits. No hooks run.
+        """
         handshake_nonempty(x)
         handshake_time(x)
         cube = self._cube_step(self._to_cube(x))
@@ -557,7 +586,20 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: tuple[xr.DataArray, xr.DataArray]
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
-        """Advance native recurrence, projecting public hook edits onto the cube."""
+        """Advance native recurrence, projecting public field edits onto the cube.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous two-frame forecast chunk, including caller-applied edits.
+        state : tuple[xr.DataArray, xr.DataArray]
+            Native fields and published reference from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]
+            Next twelve-hour forecast chunk and updated state, without hooks.
+        """
         cube, published = state
         current = self._to_cube(y)
         baseline = self._to_cube(published)
@@ -571,5 +613,18 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return output, (cube.copy(deep=True), output.copy(deep=True))
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield complete two-frame forecasts with hooks on the public grid."""
+        """Yield complete two-frame forecasts with hooks on the public grid.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Two-frame, twelve-hour chunks, starting with initialization's forecast.
+            The rear hook runs before each yield and the front hook before later
+            steps; edits are projected onto the native grid.
+        """
         yield from self._default_create_iterator(x)

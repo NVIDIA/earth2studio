@@ -201,7 +201,13 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.preds_idx = 0
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -379,7 +385,18 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict six hours ahead, without iterator hooks."""
+        """Predict six hours ahead, without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, coords = x.e2s.to_torch()
@@ -391,7 +408,19 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def initialize(
         self, x: xr.DataArray
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
-        """Compute the first forecast and retain its missing history and rollout index."""
+        """Compute the first forecast and retain its missing history and rollout index.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            First six-hour forecast and continuation state containing the preceding
+            history frame and rollout index. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         return self._forward(x, 0)
 
@@ -409,10 +438,35 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, state: tuple[xr.DataArray, int]
     ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
-        """Advance from a previous forecast and explicit history and rollout index."""
+        """Advance from a previous forecast and explicit history and rollout index.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : tuple[xr.DataArray, int]
+            History frame and rollout index returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         history, index = state
         return self._forward(_aurora_history(history, y), index)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield forecasts starting with the first prediction."""
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         return self._default_create_iterator(x)

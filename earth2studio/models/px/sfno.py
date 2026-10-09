@@ -182,7 +182,13 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return "sfno_73ch_small"
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()
@@ -348,7 +354,18 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict a six-hour DataArray on the model device, without iterator hooks."""
+        """Predict six hours ahead on the model device, without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, _ = x.e2s.to_torch()
@@ -361,16 +378,52 @@ class SFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
-        """Compute the first forecast with no additional continuation state."""
+        """Compute the first forecast without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            First six-hour forecast and ``None``; no private state is required.
+        """
         handshake_nonempty(x)
         return self(x), None
 
     def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
-        """Advance the previous forecast without modifying it or using hooks."""
+        """Advance the previous forecast without modifying it or using hooks.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : None
+            Empty continuation state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next six-hour forecast and ``None``.
+        """
         if state is not None:
             raise ValueError("SFNO state must be None")
         return self.initialize(y)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield predictions at six-hour intervals, starting with the first forecast."""
+        """Yield predictions at six-hour intervals, starting with the first forecast.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         return self._default_create_iterator(x)

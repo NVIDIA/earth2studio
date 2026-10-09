@@ -1394,23 +1394,32 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x: xr.DataArray,
         conditioning: xr.DataArray,
     ) -> xr.DataArray:
-        """Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
+        """Predict imagery or radar fields using supplied conditioning, without hooks.
 
         Parameters
         ----------
         x : xr.DataArray
-            Input field on the declared checkpoint grid.
+            Initial history on the declared checkpoint grid.
+        conditioning : xr.DataArray
+            Complete conditioning history matching ``forcing_coords()``.
 
         Returns
         -------
         xr.DataArray
-            Forecast field.
+            First forecast chunk matching ``output_coords(x)``.
         """
 
         return self.initialize(x, conditioning)[0]
 
     def forcing_coords(self) -> CoordinateSystem:
-        """Describe the conditioning history on the checkpoint grid."""
+        """Describe the conditioning history on the checkpoint grid.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free initial conditioning signature. Subsequent steps
+            consume only the new frames at the current forecast's lead times.
+        """
         return coord_array_like(
             self.input_coords(), {"variable": self.conditioning_variables}
         )
@@ -1418,13 +1427,35 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def default_sources(
         self,
     ) -> tuple[DataSource | None, DataSource | ForecastSource | None]:
-        """Recommend the configured conditioning source."""
+        """Recommend the configured conditioning source.
+
+        Returns
+        -------
+        tuple[DataSource | None, DataSource | ForecastSource | None]
+            No input recommendation, followed by the configured conditioning
+            source or None. Concrete imagery and radar wrappers supply defaults.
+        """
         return None, self.conditioning_data_source
 
     def initialize(
         self, x: xr.DataArray, conditioning: xr.DataArray
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Compute the first forecast and retain missing history and sampling state."""
+        """Compute the first forecast and retain missing history and sampling state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Full conditioning history matching ``forcing_coords()`` on the
+            checkpoint grid. The caller supplies all required channels.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast chunk and missing input/conditioning history and RNG
+            state. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         handshake_dataarray(
             conditioning, coord_array_like(x, {"variable": self.conditioning_variables})
@@ -1446,7 +1477,23 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, conditioning: xr.DataArray, state: dict[str, Any]
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance with newly supplied conditioning and explicit continuation state."""
+        """Advance with newly supplied conditioning and explicit continuation state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast chunk, including any caller-applied edits.
+        conditioning : xr.DataArray
+            New conditioning frames at the lead times of ``y``; earlier context
+            is retained in ``state``.
+        state : dict[str, Any]
+            Missing history and RNG state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast chunk and updated state, without iterator hooks.
+        """
         handshake_dataarray(
             conditioning, coord_array_like(y, {"variable": self.conditioning_variables})
         )
@@ -1738,7 +1785,14 @@ class StormScopeGOES(StormScopeBase):
         )
 
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend GOES imagery and configured conditioning, defaulting to HRRR."""
+        """Recommend GOES imagery and configured conditioning, defaulting to HRRR.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            GOES input source followed by the configured conditioning source,
+            or HRRR when none was configured.
+        """
         from earth2studio.data import GOES
 
         source = self.conditioning_data_source
@@ -2248,7 +2302,14 @@ class StormScopeMRMS(StormScopeBase):
         return glm, new_coords
 
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend MRMS inputs and configured conditioning, defaulting to GOES."""
+        """Recommend MRMS inputs and configured conditioning, defaulting to GOES.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            MRMS input source followed by the configured conditioning source,
+            or GOES when none was configured.
+        """
         from earth2studio.data import GOES, MRMS
 
         source = self.conditioning_data_source

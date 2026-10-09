@@ -52,6 +52,38 @@ may delegate `__call__` to `_default_call(x, ...)` and `create_iterator` to
 `_default_create_iterator(x, ...)`; implement `initialize` and `step` yourself.
 Direct implementations without the mixin must obey the same behavior.
 
+## Method Docstrings
+
+Use NumPy-style docstrings on every public method, including thin helper delegates.
+Use the bundled skeleton and history-method examples as the documentation pattern.
+Keep parameter names and documented types aligned with the concrete signature;
+describe DataArrays rather than legacy tensor/coordinate pairs. Private numerical
+helpers use comments instead of docstrings in the generated wrapper.
+
+| Method | Required description |
+| --- | --- |
+| `input_coords` | `Returns`: allocation-free signature(s), slot order, fixed grid and relative history window. |
+| `output_coords` | `Parameters`: each named input signature separately. `Returns`: allocation-free output signature(s), complete chunk leads and any changed variables or grid. |
+| `forcing_coords` | `Returns`: initial forcing window(s), static slots or `None`; explain the new frames required by subsequent steps. |
+| `default_sources` | `Returns`: raw source(s) in input-then-forcing order, including the meaning of `None`. Mention required preprocessing or checkpoint loading when applicable. |
+| `__call__` | `Parameters`: initial fields and forcing. `Returns`: first complete forecast, without iterator hooks. |
+| `initialize` | `Parameters`: initial fields and full forcing window. `Returns`: first forecast and model-specific continuation state, without hooks. |
+| `step` | `Parameters`: previous output slots, new forcing and matching `state`. `Returns`: next complete forecast and updated state; neither input is mutated and no hooks run. |
+| `create_iterator` | `Parameters`: initial fields and forcing. `Yields`: forecast DataArrays or tuples, beginning with the first prediction. Describe chunk cadence and forced `send` inputs. |
+| `set_rng` | `Parameters`: `seed` and `reset`, including the default and preservation of an existing stream when `reset=False`. |
+| Package loaders | Document the package argument when present and the returned package or loaded wrapper. |
+
+For the default iterator, the rear hook runs before every yield; the front hook
+runs before each subsequent step. Both returned fields feed recurrence, and
+in-place hook edits can change a previously yielded array. Document these semantics
+consistently in the class, iterator and examples. Describe the actual contents of
+state (history, latent fields, RNG position, etc.) rather than an opaque "checkpoint."
+State does not imply that checkpoint storage is implemented.
+
+Before finishing, compare each method's docstring against its signature and body,
+and check that `output_coords`, `__call__`, `initialize` and the iterator describe
+the same forecast cadence and complete output chunk.
+
 ## Optional Checkpoint Integration
 
 Ask whether the user wants integration with Earth2Studio's checkpoint system.

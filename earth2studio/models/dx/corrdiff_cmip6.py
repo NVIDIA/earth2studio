@@ -600,7 +600,19 @@ class CorrDiffCMIP6(CorrDiff):
         )
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale the three-day labelled conditioning history."""
+        """Downscale the three-day labelled conditioning history.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Three-day conditioning history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled fields matching ``output_coords(x)``. Sample dimensions
+            follow time, ahead of lead time and the fixed spatial dimensions.
+        """
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)

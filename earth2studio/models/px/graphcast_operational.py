@@ -624,7 +624,19 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             index += 1
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input then native six-hour rollout predictions."""
+        """Yield six-hour forecasts, starting with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
         yield from self._default_create_iterator(x)
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
@@ -679,17 +691,53 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return device
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict a six-hour DataArray without hooks."""
+        """Predict six hours ahead without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Predict the first forecast and retain history and per-time PRNG keys."""
+        """Predict the first forecast and retain history and per-time PRNG keys.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First six-hour forecast and preceding history and per-time PRNG keys.
+            Iterator hooks are not applied.
+        """
         return _jax_initialize(self, x, 6, jax, data_utils)
 
     def step(
         self, y: xr.DataArray, state: dict[str, Any]
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance from explicit history and per-time PRNG keys."""
+        """Advance from explicit history and per-time PRNG keys.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            History and PRNG keys returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
         return _jax_step(self, y, state, 6, jax, data_utils)
 
     def from_dataarray_to_dataset(
@@ -798,7 +846,13 @@ class GraphCastOperational(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out_data, target_lead_times
 
     def default_sources(self) -> DataSource:
-        """Recommend ARCO ERA5 initial conditions."""
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
         from earth2studio.data import ARCO_ERA5
 
         return ARCO_ERA5()

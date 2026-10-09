@@ -37,7 +37,18 @@ from earth2studio.utils.type import CoordinateSystem
 
 
 def output_coords_template(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-    """Plan output variables while preserving leading axes and grid metadata."""
+    """Plan output variables while preserving leading axes and grid metadata.
+
+    Parameters
+    ----------
+    input_coords : CoordinateSystem
+        Input coordinate signature or DataArray to validate and transform.
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free signature with the configured output variables.
+    """
     handshake_dataarray(input_coords, self.input_coords())
     return coord_array_like(input_coords, {"variable": self.output_variables})
 
@@ -45,7 +56,18 @@ def output_coords_template(self, input_coords: CoordinateSystem) -> CoordinateSy
 @torch.inference_mode()
 @batch_func()
 def automodel_call_template(self, x: xr.DataArray) -> xr.DataArray:
-    """Normalize, execute a Torch core, and restore labelled output metadata."""
+    """Normalize, execute a Torch core, and restore labelled output metadata.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Input fields matching ``input_coords()`` with arbitrary leading dimensions.
+
+    Returns
+    -------
+    xr.DataArray
+        Diagnostic fields matching ``output_coords(x)`` on the model device.
+    """
     handshake_nonempty(x)
     signature = self.output_coords(x)
     tensor, _ = x.e2s.to_torch()
@@ -72,7 +94,14 @@ class MultiGridDiagnostic(torch.nn.Module):
         self.grids = (fine_grid, coarse_grid)
 
     def input_coords(self) -> tuple[CoordinateSystem, CoordinateSystem]:
-        """Declare fine-grid and coarse-grid temperature inputs, in that order."""
+        """Declare fine-grid and coarse-grid temperature inputs, in that order.
+
+        Returns
+        -------
+        tuple[CoordinateSystem, CoordinateSystem]
+            Allocation-free signatures for the fine and coarse input slots,
+            each with its own grid and leading dimensions.
+        """
         fine, coarse = (
             coord_array(
                 ("batch", "variable", "lat", "lon"),
@@ -87,14 +116,31 @@ class MultiGridDiagnostic(torch.nn.Module):
     def output_coords(
         self, fine: CoordinateSystem, coarse: CoordinateSystem
     ) -> tuple[CoordinateSystem, CoordinateSystem]:
-        """Validate separate signatures and plan one output per distinct grid."""
+        """Validate separate signatures and plan one output per distinct grid.
+
+        Parameters
+        ----------
+        fine, coarse : CoordinateSystem
+            Separate input signatures or DataArrays, in ``input_coords()`` order.
+
+        Returns
+        -------
+        tuple[CoordinateSystem, CoordinateSystem]
+            Allocation-free output signatures on the fine and coarse grids.
+        """
         fine_signature, coarse_signature = self.input_coords()
         handshake_dataarray(fine, fine_signature)
         handshake_dataarray(coarse, coarse_signature)
         return coord_array_like(fine), coord_array_like(coarse)
 
     def default_sources(self) -> None:
-        """Recommend no providers for either slot."""
+        """Recommend no providers for either slot.
+
+        Returns
+        -------
+        None
+            No source recommendations; the caller supplies both input fields.
+        """
         return None
 
     def __call__(

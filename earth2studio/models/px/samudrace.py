@@ -146,23 +146,21 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ``CoupledStepper.predict``, which this wrapper calls exactly once
     per coupled cycle.
 
-    The primary interface is :meth:`create_iterator`, which yields the initial
-    condition followed by one atmosphere step at a time. Atmosphere output
-    fields update on every step; ocean output fields update once per coupled
-    cycle and are held constant between cycle boundaries. Ocean diagnostic
-    (non-prognostic) fields are NaN until the first cycle boundary, as are
-    atmosphere diagnostic fields at the initial condition step.
+    A direct call and each :meth:`create_iterator` yield return one complete
+    coupled-cycle forecast chunk. Atmosphere fields update at each frame;
+    ocean fields update at the final frame and remain constant between cycle
+    boundaries. Ocean diagnostic fields are NaN before the first boundary.
+    The initial condition is not yielded.
 
-    A direct call computes one coupled cycle and returns its first atmosphere
-    output. Use the iterator for continuous integration: it retains the coupled
-    state and all atmosphere outputs. ``front_hook_interval = n_inner_steps``
-    declares one front hook per coupled cycle and one rear hook per output.
+    The caller supplies the initial forcing window and sends new forcing
+    frames for each subsequent cycle. The rear hook transforms every forecast
+    chunk before publication; the front hook runs before subsequent cycles.
 
     Times are CM4 model years (e.g. year 151), which are outside the range of
     nanosecond-precision timestamps; provide time coordinates as
     second-precision ``np.datetime64`` values. Trajectories that cross a
     February 29 of the proleptic Gregorian time coordinate raise an error
-    when the forcing is looked up, since that date has no counterpart on the
+    when forcing is prepared, since that date has no counterpart on the
     no-leap forcing calendar.
 
     cuDNN autotuning (``torch.backends.cudnn.benchmark``) is left at its
@@ -451,7 +449,15 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return xr.DataArray(_datetime64_to_cftime(valid), dims=["sample", "time"])
 
     def forcing_coords(self) -> CoordinateSystem:
-        """Describe the complete exogenous forcing window for one coupled cycle."""
+        """Describe the complete exogenous forcing window for one coupled cycle.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature including the cycle-start boundary and
+            all atmospheric forcing times through the ocean update. Subsequent
+            steps consume only the new frames beyond the retained boundary.
+        """
         return coord_array_like(
             self.input_coords(),
             {
@@ -467,7 +473,13 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def default_sources(self) -> tuple[None, DataSource]:
-        """Recommend the configured source for the external forcing slot."""
+        """Recommend the configured source for the external forcing slot.
+
+        Returns
+        -------
+        tuple[None, DataSource]
+            No input recommendation, followed by the configured forcing source.
+        """
         return None, self.forcing_data_source
 
     def _prepare_forcing_window(
@@ -753,26 +765,42 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x.reshape(b, t, 1, len(self._in_vars), *x.shape[-2:])
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
-        """Return the first atmosphere output of one coupled cycle, without hooks.
-
-        The iterator retains the remaining outputs and native coupled state.
+        """Return the complete forecast chunk for one coupled cycle, without hooks.
 
         Parameters
         ----------
         x : xr.DataArray
             Coupled prognostic state with arbitrary leading dimensions.
+        forcing : xr.DataArray
+            Complete initial forcing window including the cycle-start boundary.
 
         Returns
         -------
         xr.DataArray
-            First atmosphere forecast, with ocean fields held until the boundary.
+            All atmosphere forecasts in the cycle, with ocean fields held until
+            the final frame updates them at the coupled boundary.
         """
         return self.initialize(x, forcing)[0]
 
     def initialize(
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> tuple[xr.DataArray, xr.DataArray]:
-        """Compute the first coupled forecast chunk and retain the forcing boundary."""
+        """Compute the first coupled forecast chunk and retain the forcing boundary.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coupled initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Full ``forcing_coords()`` window, including the cycle start and all
+            atmospheric steps through the ocean-update boundary.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Complete coupled forecast chunk and its final forcing frame for
+            continuation. Iterator hooks are not applied.
+        """
         return self._forward(x, forcing)
 
     def _forward(
@@ -839,7 +867,24 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def step(
         self, y: xr.DataArray, forcing: xr.DataArray, state: xr.DataArray
     ) -> tuple[xr.DataArray, xr.DataArray]:
-        """Advance one coupled cycle with newly supplied forcing frames."""
+        """Advance one coupled cycle with newly supplied forcing frames.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous complete coupled forecast chunk, including caller edits.
+        forcing : xr.DataArray
+            New forcing frames for the next cycle, excluding the shared boundary
+            frame retained in ``state``.
+        state : xr.DataArray
+            Final forcing frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next coupled forecast chunk and updated forcing boundary, without
+            iterator hooks.
+        """
         expected = coord_array_like(
             y,
             {

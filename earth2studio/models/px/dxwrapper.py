@@ -400,11 +400,36 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return self.prepare_output_tensor(x, outputs)
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance the nested model once, then diagnose its labelled output."""
+        """Advance the nested model once and diagnose its output, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching the nested model's input signature.
+
+        Returns
+        -------
+        xr.DataArray
+            Forecast transformed by the configured diagnostic pipeline and
+            output preparation function.
+        """
         return self.initialize(x)[0]
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, Any]:
-        """Compute the first diagnosed forecast and its explicit continuation."""
+        """Compute the first diagnosed forecast and its explicit continuation.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching the nested prognostic model's input signature.
+
+        Returns
+        -------
+        tuple[xr.DataArray, Any]
+            First diagnosed forecast and nested continuation state, retained native
+            fields when needed, variable labels and diagnostic sampling seed.
+            Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         self.output_coords(x)
         px, state = self.px_model.initialize(x)
@@ -433,7 +458,21 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return y, (private, px.coords["variable"].values.copy(), state, seed + 1)
 
     def step(self, y: xr.DataArray, state: Any) -> tuple[xr.DataArray, Any]:
-        """Advance the nested continuation, applying edits to retained public fields."""
+        """Advance the nested continuation, applying edits to retained public fields.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous diagnosed forecast. Edits to overlapping prognostic fields
+            are transferred to the nested model's input.
+        state : Any
+            Wrapper continuation state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, Any]
+            Next diagnosed forecast and updated wrapper state, without hooks.
+        """
         private, variables, nested, seed = state
         if private is None:
             px = y.sel(variable=variables).copy(deep=True)
@@ -450,5 +489,17 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return self._publish(px, nested, seed)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Yield diagnosed forecasts, beginning with initialization's prediction."""
+        """Yield diagnosed forecasts, beginning with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Diagnosed forecasts after the rear hook. The front hook runs before
+            subsequent steps; overlapping prognostic edits feed the nested model.
+        """
         yield from self._default_create_iterator(x)
