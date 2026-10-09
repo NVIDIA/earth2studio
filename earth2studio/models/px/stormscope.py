@@ -16,13 +16,14 @@
 
 import json
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
+from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from loguru import logger
 from numpy.typing import ArrayLike
 
@@ -47,6 +48,10 @@ from earth2studio.utils.interp import (
     NearestNeighborInterpolator,
 )
 from earth2studio.utils.type import CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.models.px._stormscope_flash.region import RegionInfo
+    from earth2studio.models.px._stormscope_flash.runtime import FlashRuntime
 
 try:
     from physicsnemo import Module
@@ -274,6 +279,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # math stays in _SAMPLER_DTYPE (fp64). Mutable so it can be toggled
         # after construction.
         self.amp = amp
+        self._flash_runtime: FlashRuntime | None = None
 
         # Optionally torch.compile each staged expert ("reduce-overhead" mode).
         self._experts_compiled = False
@@ -285,11 +291,32 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # every StormScope model without name collisions.
     _REGISTRY_KEY: str | None = None
 
+    region_info: "RegionInfo"
+    amp_dtype: torch.dtype
+
     @classmethod
-    def load_default_package(cls) -> Package:
-        """Load the default StormScope package from Hugging Face."""
+    def load_default_package(
+        cls, model_name: str = "3km_10min", *, revision: str | None = None
+    ) -> Package:
+        """Load the pinned baseline or Flash package for the requested variant.
+
+        Pass ``model_name="3km_10min_flash"`` here and to ``load_model`` to
+        select Flash. ``revision`` can select a checkpoint review commit.
+        """
+        if model_name == "3km_10min_flash":
+            revision = revision or "34a61472c7c0eadc914fb73021b11017b97328fa"
+            return Package(
+                f"hf://nvidia/stormscope-goes-mrms@{revision}",
+                cache_options={
+                    "cache_storage": Package.default_cache(
+                        f"stormscope_flash/{revision}"
+                    ),
+                    "cache_mapper": BasenameCacheMapper(directory_levels=2),
+                },
+            )
+        revision = revision or "62f0fd2fa52c3cff67c931daac18cdc0d9f58d2a"
         return Package(
-            "hf://nvidia/stormscope-goes-mrms@62f0fd2fa52c3cff67c931daac18cdc0d9f58d2a",
+            f"hf://nvidia/stormscope-goes-mrms@{revision}",
             cache_options={"cache_storage": Package.default_cache("stormscope")},
         )
 
@@ -584,6 +611,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Each ``.mdlus`` is a complete ``EDMPreconditioner(ConcatConditionWrapper(DiT))``
         and is loaded directly with ``physicsnemo.Module.from_checkpoint``.
         """
+        if pkg.get("flash", False):
+            from earth2studio.models.px._stormscope_flash.runtime import (
+                load_flash_experts,
+            )
+
+            return load_flash_experts(package, pkg, cast(str, cls._REGISTRY_KEY))
         model_spec = []
         for m in pkg["checkpoints"]:
             model = Module.from_checkpoint(package.resolve(m["path"]))
@@ -791,6 +824,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         mask = self._buffers.get("conditioning_glm_mask", None)
         if mask is None or not bool(mask.any()):
+            runtime = getattr(self, "_flash_runtime", None)
+            if runtime is not None and runtime.kind == "mrms":
+                return torch.where(torch.isnan(affine), 0.0, affine)
             return affine
         glm_view = mask.view(1, -1, 1, 1)
         return torch.where(glm_view, torch.log1p(conditioning), affine)
@@ -1133,10 +1169,13 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _normalize_state(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize state channels: log1p for GLM channels, affine otherwise."""
         affine = (x - self.means) / self.stds
-        if not bool(self.glm_mask.any()):
-            return affine
-        glm_view = self.glm_mask.view(1, -1, 1, 1)
-        return torch.where(glm_view, torch.log1p(x), affine)
+        if bool(self.glm_mask.any()):
+            glm_view = self.glm_mask.view(1, -1, 1, 1)
+            affine = torch.where(glm_view, torch.log1p(x), affine)
+        runtime = getattr(self, "_flash_runtime", None)
+        if runtime is not None:
+            return runtime.normalize_state(self, x, affine)
+        return affine
 
     def _denormalize_state(self, out: torch.Tensor) -> torch.Tensor:
         """Invert :meth:`_normalize_state`: expm1 (clamped >=0) for GLM channels,
@@ -1163,6 +1202,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         S_noise: float = 1,
         progress_bar: Any | None = None,
     ) -> torch.Tensor:
+        runtime = getattr(self, "_flash_runtime", None)
+        if runtime is not None:
+            return runtime.sample(self, latents, condition)
         # Time step discretization.
         step_indices = torch.arange(
             num_steps, dtype=torch.float64, device=latents.device
@@ -1245,6 +1287,50 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             f"No denoising expert found for time step {t_cur.cpu().item()}, {stage['sigma_min']}"
         )
 
+    def _configure_variant(
+        self,
+        entry: Mapping[str, Any],
+        region: Mapping[str, Sequence[float]] | None,
+        padding: int,
+        amp_dtype: torch.dtype,
+        compile: bool,
+    ) -> None:
+        """Configure Flash context and sampling without changing baseline defaults."""
+        if entry.get("flash", False):
+            from earth2studio.models.px._stormscope_flash.runtime import (
+                FlashRuntime,
+                configure_region,
+            )
+
+            if amp_dtype not in (torch.float16, torch.bfloat16):
+                raise ValueError("amp_dtype must be torch.float16 or torch.bfloat16")
+            self._flash_runtime = FlashRuntime(cast(str, self._REGISTRY_KEY))
+            self.amp_dtype = amp_dtype
+            self.sampler_args = {}
+            configure_region(self, region, padding)
+        elif region is not None:
+            raise ValueError("Regional inputs require model_name='3km_10min_flash'")
+        if compile:
+            self.compile_experts(
+                mode="default" if self._flash_runtime is not None else "reduce-overhead"
+            )
+
+    def crop_output(
+        self, forecast: torch.Tensor, coords: CoordSystem, *, mask: bool = True
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Crop Flash presentation output; keep the context grid for feedback."""
+        if self._flash_runtime is None:
+            return forecast, coords
+        return self.region_info.crop_output(forecast, coords, mask=mask)
+
+    def _apply(
+        self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True
+    ) -> Any:
+        runtime = getattr(self, "_flash_runtime", None)
+        if runtime is not None:
+            runtime.plan = None
+        return super()._apply(fn, recurse=recurse)  # type: ignore[no-untyped-call]
+
     def compile_experts(self, mode: str = "reduce-overhead") -> None:
         """Compile each staged denoising expert in place with ``torch.compile``.
 
@@ -1258,6 +1344,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ``torch.compile`` mode, by default ``"reduce-overhead"`` (matching
             the StormScope reference inference scripts).
         """
+        if self._flash_runtime is not None:
+            self._flash_runtime.plan = None
         if self._experts_compiled:
             return
         for i in range(len(self.stage_models)):
@@ -1751,10 +1839,14 @@ class StormScopeGOES(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
+        model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
         amp: bool = True,
         compile: bool = False,
+        *,
+        region: Mapping[str, Sequence[float]] | None = None,
+        padding: int = 25,
+        amp_dtype: torch.dtype = torch.bfloat16,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -1762,13 +1854,15 @@ class StormScopeGOES(StormScopeBase):
         ----------
         package : Package
             Package to load model from
-        model_name : Literal["3km_10min", "6km_1hr"], optional
+        model_name : Literal["3km_10min", "6km_1hr", "3km_10min_flash"], optional
             Variant to load, by default ``"3km_10min"`` (the recommended CONUS
             nowcasting variant). Available variants (see
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep (CONUS nowcasting)
             - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
+
+            - ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
 
             Legacy training-style names are accepted as aliases.
         conditioning_data_source : DataSource | ForecastSource | None, optional
@@ -1777,8 +1871,19 @@ class StormScopeGOES(StormScopeBase):
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.
         compile : bool, optional
-            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Compile each expert with ``torch.compile``: ``"reduce-overhead"``
+            for baseline variants and ``"default"`` for Flash.
             Default is False.
+
+        region : Mapping[str, Sequence[float]] | None, optional
+            Flash output bounds: {"lat": (south, north), "lon": (west, east)}.
+            Omit for full-domain inference. Baseline variants use the full domain.
+        padding : int, optional
+            Flash context pixels per side, default 25, clipped at domain edges.
+            Inputs are expanded to at least 200 pixels per axis and patch-aligned.
+        amp_dtype : torch.dtype, optional
+            Flash network precision, default torch.bfloat16; torch.float16 is
+            also supported. Flash state and fused heads remain FP32.
 
         Returns
         -------
@@ -1807,6 +1912,8 @@ class StormScopeGOES(StormScopeBase):
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
+        if region is not None and not pkg.get("flash", False):
+            raise ValueError("Regional inputs require model_name='3km_10min_flash'")
         model_spec = cls._load_checkpoints(package, pkg)
         (
             latitudes,
@@ -1843,7 +1950,7 @@ class StormScopeGOES(StormScopeBase):
             else None
         )
 
-        return cls(
+        model = cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
@@ -1864,8 +1971,10 @@ class StormScopeGOES(StormScopeBase):
             x_coords=x,
             input_interp_max_dist_km=6.0 * spatial_downsample,
             amp=amp,
-            compile=compile,
+            compile=False,
         )
+        model._configure_variant(pkg, region, padding, amp_dtype, compile)
+        return model
 
 
 class StormScopeMRMS(StormScopeBase):
@@ -2359,11 +2468,15 @@ class StormScopeMRMS(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
+        model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         conditioning_data_source: DataSource | ForecastSource | None = None,
         glm_data_source: DataSource | None = None,
         amp: bool = True,
         compile: bool = False,
+        *,
+        region: Mapping[str, Sequence[float]] | None = None,
+        padding: int = 25,
+        amp_dtype: torch.dtype = torch.bfloat16,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -2371,12 +2484,14 @@ class StormScopeMRMS(StormScopeBase):
         ----------
         package : Package
             Package to load model from
-        model_name : Literal["3km_10min", "6km_1hr"], optional
+        model_name : Literal["3km_10min", "6km_1hr", "3km_10min_flash"], optional
             Variant to load. Available variants (see
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
             - ``"6km_1hr"``: 6km resolution, 60 minute timestep, MRMS+GLM nearcasting
+
+            - ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
 
             Legacy training-style names are accepted as aliases.
             Default is ``"3km_10min"``.
@@ -2385,7 +2500,7 @@ class StormScopeMRMS(StormScopeBase):
         glm_data_source : DataSource | None, optional
             Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
             used for variants with a ``glm_density`` state channel (``3km_10min``
-            only — the ``6km_1hr`` variant has no GLM channel). The GLM analogue
+            and ``3km_10min_flash``; ``6km_1hr`` has no GLM channel). The GLM analogue
             of ``conditioning_data_source``: when set, :py:meth:`__call__`
             (and :py:meth:`~StormScopeBase.create_iterator`) fetch, regrid, and
             inject GLM into the state automatically. The coupled path
@@ -2396,8 +2511,19 @@ class StormScopeMRMS(StormScopeBase):
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.
         compile : bool, optional
-            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Compile each expert with ``torch.compile``: ``"reduce-overhead"``
+            for baseline variants and ``"default"`` for Flash.
             Default is False.
+
+        region : Mapping[str, Sequence[float]] | None, optional
+            Flash output bounds: {"lat": (south, north), "lon": (west, east)}.
+            Omit for full-domain inference. Baseline variants use the full domain.
+        padding : int, optional
+            Flash context pixels per side, default 25, clipped at domain edges.
+            Inputs are expanded to at least 200 pixels per axis and patch-aligned.
+        amp_dtype : torch.dtype, optional
+            Flash network precision, default torch.bfloat16; torch.float16 is
+            also supported. Flash state and fused heads remain FP32.
 
         Returns
         -------
@@ -2426,6 +2552,8 @@ class StormScopeMRMS(StormScopeBase):
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
+        if region is not None and not pkg.get("flash", False):
+            raise ValueError("Regional inputs require model_name='3km_10min_flash'")
         model_spec = cls._load_checkpoints(package, pkg)
         (
             latitudes,
@@ -2501,8 +2629,9 @@ class StormScopeMRMS(StormScopeBase):
             input_interp_max_dist_km=6.0 * spatial_downsample,
             conditioning_interp_max_dist_km=6.0 * spatial_downsample,
             amp=amp,
-            compile=compile,
+            compile=False,
         )
+        model._configure_variant(pkg, region, padding, amp_dtype, compile)
         if pkg.get("deprecated", False):
             model._INPUT_INVALID_FILL_CONSTANT = cls._LEGACY_INPUT_INVALID_FILL_CONSTANT
         return model
