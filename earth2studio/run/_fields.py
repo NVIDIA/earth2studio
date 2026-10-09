@@ -17,10 +17,12 @@
 """Field mapping and output-layout helpers shared by workflows and runners."""
 
 from collections import OrderedDict
+from collections.abc import Mapping
 
 import numpy as np
 import xarray as xr
 
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, coord_array_like
 
@@ -115,14 +117,50 @@ def _output_dimensions(
         for dim, values in _dimension_coords(signature).items()
         if signature.sizes[dim]
     )
-    leads = signature.coords["lead_time"].values
     coords["time"] = time
-    coords["lead_time"] = np.concatenate(
+    coords["lead_time"] = _lead_times(signature, nsteps)
+    coords.move_to_end("lead_time", last=False)
+    coords.move_to_end("time", last=False)
+    return coords
+
+
+def _lead_times(signature: xr.DataArray, nsteps: int) -> np.ndarray:
+    """Return a rollout's full lead-time extent from one step's declaration."""
+    leads = signature.coords["lead_time"].values
+    return np.concatenate(
         [
             np.zeros(1, dtype=leads.dtype),
             *(leads + leads[-1] * i for i in range(nsteps)),
         ]
     )
-    coords.move_to_end("lead_time", last=False)
-    coords.move_to_end("time", last=False)
-    return coords
+
+
+def _io_template(
+    signature: xr.DataArray,
+    nsteps: int,
+    leading: Mapping[str, np.ndarray],
+    output_coords: CoordSystem,
+    lead_time: np.ndarray | None = None,
+) -> xr.DataArray:
+    """Plan an IO template for a rollout from one step's output declaration.
+
+    ``output_coords`` restricts the stored domain and variables the way the
+    workflows have always allowed: spatial and variable selections are applied to
+    the signature, since :func:`output_template` only replaces non-spatial labels.
+    The full rollout lead-time extent comes from ``_lead_times`` unless ``lead_time``
+    is supplied (e.g. the diagnostic workflow stores the prognostic rollout extent).
+    """
+    signature = _map_field(signature, output_coords)
+    leads = np.asarray(
+        output_coords.get(
+            "lead_time",
+            lead_time if lead_time is not None else _lead_times(signature, nsteps),
+        )
+    )
+    leading = {
+        dim: np.asarray(output_coords.get(dim, values))
+        for dim, values in leading.items()
+    }
+    # output_template rejects spatial replacements; _map_field already applied them.
+    # Only lead_time is a fixed-dim replacement here; time/ensemble are leading dims.
+    return output_template(signature, leading=leading, coords={"lead_time": leads})

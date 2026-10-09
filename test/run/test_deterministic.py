@@ -349,9 +349,11 @@ def test_native_checkpoint_resume(tmp_path):
     domain = OrderedDict(lat=np.arange(3), lon=np.arange(4))
     io = ZarrBackend()
     times = np.array([np.datetime64("2024-01-01")])
-    coords = run._output_dimensions(Persistence(["t2m"], domain), times, 3)
-    io.add_array(
-        OrderedDict((d, v) for d, v in coords.items() if d != "variable"), ["t2m"]
+    model = Persistence(["t2m"], domain)
+    # A store's extent is fixed at creation, so the shorter first run declares the
+    # resumed run's full lead-time extent and writes a subset of its labels.
+    output_coords = OrderedDict(
+        lead_time=run._lead_times(model.output_coords(model.input_coords()), 3)
     )
     checkpoint = Checkpoint("native-run", path=tmp_path, level=2, flush_interval=1)
     with checkpoint as session:
@@ -361,6 +363,7 @@ def test_native_checkpoint_resume(tmp_path):
             Persistence(["t2m"], domain),
             Constant(domain, 7),
             io,
+            output_coords,
             device="cpu",
             verbose=False,
             checkpoint=session,
@@ -372,6 +375,7 @@ def test_native_checkpoint_resume(tmp_path):
             Persistence(["t2m"], domain),
             Constant(domain, 99),
             io,
+            output_coords,
             device="cpu",
             verbose=False,
             checkpoint=session,
