@@ -18,7 +18,6 @@ import concurrent.futures
 from typing import Any
 
 import numpy as np
-import torch
 import zarr
 from loguru import logger
 from zarr.core.array import Array as ZarrArray
@@ -29,7 +28,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     import icechunk
@@ -49,14 +47,17 @@ class IceChunkBackend(ZarrBackend):
     store in place of a plain Zarr store. Since Icechunk snapshots are immutable,
     call :func:`commit` to persist accumulated writes; uncommitted writes are still
     visible to this backend but are lost if the process exits before committing
-    (a warning is logged if the backend is destroyed with pending writes).
+    (:func:`close` commits them and a warning is logged if the backend is destroyed
+    with pending writes).
 
     By default, ``write`` is non-blocking: the actual store write for a call runs in
     a background thread so the inference loop can move on to the next step while the
-    previous step's write is still in flight. ``read``, ``__getitem__`` and
-    ``commit`` all flush pending writes first, so they always observe the latest
-    data; pass ``blocking=True`` to write synchronously instead, e.g. if a `commit`
-    on every step makes the flush unconditional anyway.
+    previous step's write is still in flight. The payload is copied before ``write``
+    returns, so callers may reuse or release it immediately. ``flush``, ``read``,
+    ``to_xarray``, ``__getitem__``, ``commit`` and ``close`` all wait for pending
+    writes first, so they always observe the latest data; pass ``blocking=True`` to
+    write synchronously instead, e.g. if a `commit` on every step makes the flush
+    unconditional anyway.
 
     Parameters
     ----------
@@ -131,6 +132,7 @@ class IceChunkBackend(ZarrBackend):
         self.root = zarr.group(self.store, **backend_kwargs)
         self.zarr_codecs = zarr_codecs
         self._blocking = blocking
+        self._closed = False
         self._executor = (
             None
             if blocking
@@ -144,8 +146,9 @@ class IceChunkBackend(ZarrBackend):
         if executor is None:
             super()._write_array(name, selection, data)
             return
+        # Copy so callers may reuse or release their data immediately
         self._pending.append(
-            executor.submit(super()._write_array, name, selection, data)
+            executor.submit(super()._write_array, name, selection, np.array(data))
         )
 
     def flush(self) -> None:
@@ -168,25 +171,6 @@ class IceChunkBackend(ZarrBackend):
         self.flush()
         return super().__getitem__(item)
 
-    def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """
-        Read data from the current zarr group, flushing pending non-blocking
-        writes first.
-
-        Parameters
-        ----------
-        coords : OrderedDict
-            Coordinates of the data to be read.
-        array_name : str | list[str]
-            Name(s) of the array(s) to read from.
-        device : torch.device
-            device to place the read data from, by default 'cpu'
-        """
-        self.flush()
-        return super().read(coords, array_name, device)
-
     def __del__(self) -> None:
         # Icechunk only persists writes on commit; warn instead of silently
         # dropping data when a backend with pending writes is garbage collected.
@@ -196,14 +180,40 @@ class IceChunkBackend(ZarrBackend):
             self.flush()
             if self._executor is not None:
                 self._executor.shutdown(wait=True)
-            if self.session.has_uncommitted_changes and len(self.root) > 0:
+            if (
+                not self._closed
+                and self.session.has_uncommitted_changes
+                and len(self.root) > 0
+            ):
                 logger.warning(
                     "IceChunkBackend deleted with uncommitted changes; these writes "
-                    "were not persisted to branch '{}'. Call commit() to persist.",
+                    "were not persisted to branch '{}'. Call commit() or close() to persist.",
                     self.branch,
                 )
         except Exception:  # noqa: S110 interpreter may be shutting down
             pass
+
+    def close(self) -> None:
+        """Flush pending writes, commit them to the branch, and reject later writes.
+
+        Repeated calls are a no-op. Committing on close guarantees data is not lost
+        if the backend is destroyed; it may raise ``icechunk.ConflictError`` if a
+        concurrent writer committed first.
+        """
+        if self._closed:
+            return
+        self.flush()
+        if self._executor is not None:
+            self._executor.shutdown(wait=True)
+        if self.session.has_uncommitted_changes and len(self.root) > 0:
+            try:
+                self.commit("close IceChunkBackend")
+            except icechunk.IcechunkError:
+                # If the only uncommitted changes are root group metadata, commit is
+                # allowed to fail silently so close is a clean no-op in that case.
+                if len(self.root) > 0:
+                    raise
+        self._closed = True
 
     def commit(self, message: str, **kwargs: Any) -> str:
         """Commit all writes since the last commit to the Icechunk repository,
