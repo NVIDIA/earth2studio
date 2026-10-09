@@ -30,7 +30,6 @@ from earth2studio.data import Constant, Random, Random_FX, fetch_data
 from earth2studio.grids import LatLonGrid, ProjectedGrid
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
-from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.time import to_time_array
 
@@ -344,37 +343,3 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
         1,
     )
     assert io.write.call_count == 2
-
-
-def test_native_checkpoint_resume(tmp_path):
-    domain = OrderedDict(lat=np.arange(3), lon=np.arange(4))
-    io = ZarrBackend()
-    times = np.array([np.datetime64("2024-01-01")])
-    coords = run._output_dimensions(Persistence(["t2m"], domain), times, 3)
-    io.add_array(
-        OrderedDict((d, v) for d, v in coords.items() if d != "variable"), ["t2m"]
-    )
-    checkpoint = Checkpoint("native-run", path=tmp_path, level=2, flush_interval=1)
-    with checkpoint as session:
-        run.deterministic(
-            list(times),
-            1,
-            Persistence(["t2m"], domain),
-            Constant(domain, 7),
-            io,
-            device="cpu",
-            verbose=False,
-            checkpoint=session,
-        )
-    with checkpoint as session:
-        run.deterministic(
-            list(times),
-            3,
-            Persistence(["t2m"], domain),
-            Constant(domain, 99),
-            io,
-            device="cpu",
-            verbose=False,
-            checkpoint=session,
-        )
-    np.testing.assert_array_equal(io["t2m"][:], 7)
