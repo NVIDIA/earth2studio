@@ -150,7 +150,7 @@ def deterministic(
                 )
             else:
                 restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps:
+                if restart_step >= nsteps - 1:
                     logger.success("\nInference complete")
                     return io
 
@@ -184,7 +184,7 @@ def deterministic(
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
         with tqdm(
-            total=nsteps + 1,
+            total=nsteps,
             initial=initial_progress,
             desc="Running inference",
             position=1,
@@ -204,7 +204,7 @@ def deterministic(
                 io.write(*split_coords(*x.e2s.to_torch()))
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
-                if step == nsteps:
+                if step == nsteps - 1:
                     break
 
         ckpt.flush()
@@ -305,7 +305,7 @@ def diagnostic(
                 )
             else:
                 restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps:
+                if restart_step >= nsteps - 1:
                     logger.success("\nInference complete")
                     return io
 
@@ -333,7 +333,7 @@ def diagnostic(
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
         with tqdm(
-            total=nsteps + 1,
+            total=nsteps,
             initial=initial_progress,
             desc="Running inference",
             position=1,
@@ -353,7 +353,7 @@ def diagnostic(
                 io.write(*split_coords(*x.e2s.to_torch()))
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
-                if step == nsteps:
+                if step == nsteps - 1:
                     break
 
         ckpt.flush()
@@ -500,7 +500,7 @@ def ensemble(
                     ckpt.write_count = 0
                 else:
                     restart_step = ckpt.write_count - 1
-                    if restart_step >= nsteps:
+                    if restart_step >= nsteps - 1:
                         continue
             elif not isinstance(ckpt, NullCheckpoint):
                 ckpt.write_count = 0
@@ -512,7 +512,7 @@ def ensemble(
             model = prognostic.create_iterator(x)
             initial_progress = 0 if restart_step is None else restart_step + 1
             with tqdm(
-                total=nsteps + 1,
+                total=nsteps,
                 initial=initial_progress,
                 desc=f"Running batch {batch_id} inference",
                 position=1,
@@ -530,7 +530,7 @@ def ensemble(
                     current_lead_time = x.coords["lead_time"].values[-1]
                     x = _map_field(x, output_coords)
                     io.write(*split_coords(*x.e2s.to_torch()))
-                    if step == nsteps:
+                    if step == nsteps - 1:
                         completed.update(ensemble_members)
                         completed_ensembles = sorted(completed)
                     ckpt.write(
@@ -538,7 +538,7 @@ def ensemble(
                         completed_ensembles=completed_ensembles,
                     )
                     pbar.update(1)
-                    if step == nsteps:
+                    if step == nsteps - 1:
                         break
 
             ckpt.flush()

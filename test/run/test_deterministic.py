@@ -157,9 +157,10 @@ def test_native_projected_grid_and_forecast_source(source_type):
         device="cpu",
         verbose=False,
     )
-    assert len(seen) == 2
+    assert len(seen) == 1
     assert io["t2m"].shape == (1, 3, 3, 4)
-    np.testing.assert_array_equal(io["t2m"][0, 0], io["t2m"][0, 2])
+    assert np.all(io["t2m"][0, 0] == 0.0)
+    np.testing.assert_array_equal(io["t2m"][0, 1], io["t2m"][0, 2])
 
 
 def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
