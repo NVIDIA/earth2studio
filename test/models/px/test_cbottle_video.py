@@ -29,6 +29,7 @@ try:
 except ImportError:
     cbottle = None
 
+from earth2studio.data import CBottle3D, Random
 from earth2studio.models.conformance import (
     check_prognostic_contract,
 )
@@ -179,7 +180,7 @@ class TestCBottleVideoMock:
         out_coords = {k: out.coords[k].values for k in out.dims}
 
         assert out.shape == torch.Size(
-            [x.shape[0], x.shape[1], x.shape[2], 45, 721, 1440]
+            [x.shape[0], x.shape[1], px._time_length - 1, 45, 721, 1440]
         )
         assert np.all(out_coords["variable"] == px.output_coords(coords)["variable"])
         handshake_dim(out_coords, "lon", 5)
@@ -213,7 +214,9 @@ class TestCBottleVideoMock:
         out = px(from_torch(x, coords))
         out_coords = {k: out.coords[k].values for k in out.dims}
 
-        assert out.shape == torch.Size([x.shape[0], x.shape[1], x.shape[2], 45, 49152])
+        assert out.shape == torch.Size(
+            [x.shape[0], x.shape[1], px._time_length - 1, 45, 49152]
+        )
         assert np.all(out_coords["variable"] == px.output_coords(coords)["variable"])
         handshake_dim(out_coords, "hpx", 4)
         handshake_dim(out_coords, "variable", 3)
@@ -312,9 +315,24 @@ class TestCBottleVideoMock:
             px(x)
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_cbottle_video_conformance(self, device, mock_core_model, mock_sst_ds):
-        px = CBottleVideo(mock_core_model, mock_sst_ds).to(device)
+    def test_cbottle_video_conformance(
+        self, device, mock_core_model, mock_sst_ds, monkeypatch
+    ):
+        # Native HEALPix avoids retaining many full-resolution lat/lon videos.
+        # The forward tests above separately exercise the lat/lon projection.
+        px = CBottleVideo(mock_core_model, mock_sst_ds, lat_lon=False).to(device)
         px.sampler_steps = 2  # Speed up sampler
+        package = object()
+        source = Random({"hpx": px.input_coords().hpx.values})
+        monkeypatch.setattr(CBottle3D, "load_default_package", lambda: package)
+
+        def load_source(actual_package, lat_lon):
+            assert actual_package is package
+            assert lat_lon is False
+            return source
+
+        # Recommendations must not download production weights in a mock test.
+        monkeypatch.setattr(CBottle3D, "load_model", load_source)
         check_prognostic_contract(px, nsteps=1, device=device)
 
 

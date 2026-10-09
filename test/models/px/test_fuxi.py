@@ -47,7 +47,7 @@ def test_fuxi_call_resets_short_session(monkeypatch):
     monkeypatch.setattr(model, "input_coords", lambda: signature.copy())
     monkeypatch.setattr(
         model,
-        "_forward",
+        "_forward_tensor",
         lambda x, coords, session: x
         + {"short": 1, "medium": 2, "long": 3}[session._model_path],
     )
