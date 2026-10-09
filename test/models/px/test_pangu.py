@@ -78,7 +78,8 @@ def test_pangu_sessions_cached(name, monkeypatch):
     xr.testing.assert_identical(x, original)
     xr.testing.assert_identical(initial, original)
     assert check_prognostic_contract(model) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

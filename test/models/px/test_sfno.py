@@ -65,7 +65,8 @@ def test_sfno_valid_times(monkeypatch):
         assert out.lead_time.values[0] == np.timedelta64(12 + 6 * step, "h")
     xr.testing.assert_identical(x, original)
     assert check_prognostic_contract(model) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

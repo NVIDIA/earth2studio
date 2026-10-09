@@ -65,13 +65,14 @@ def make_input(model, time, device="cpu"):
 class PhooInterpolationModel(torch.nn.Module):
     """Mock interpolation model for testing."""
 
-    def __init__(self):
+    def __init__(self, channels=73):
         super().__init__()
         self.batch_sizes = []
+        self.channels = channels
 
     def forward(self, x, t_norm):
         self.batch_sizes.append(x.shape[0])
-        return x[:, :73]
+        return x[:, : self.channels]
 
 
 def test_chunked_coordinate_planning():
@@ -384,17 +385,20 @@ def test_forecast_interpolation_exceptions(dc, device):
 
 
 def test_interpmodafno_conformance():
+    # Keep the real grid and six-frame chunk, but avoid retaining 73-channel
+    # forecasts across every replay/ownership probe. Full-channel execution is
+    # covered by the call and iterator tests above.
     base_model = Persistence(
-        variable=VARIABLES,
+        variable=["t2m"],
         domain_coords={
             "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         },
     )
-    center = torch.zeros(1, 73, 1, 1)
-    scale = torch.ones(1, 73, 1, 1)
+    center = torch.zeros(1, 1, 1, 1)
+    scale = torch.ones(1, 1, 1, 1)
 
-    interp_model = PhooInterpolationModel()
+    interp_model = PhooInterpolationModel(channels=1)
     geop = torch.zeros(1, 1, 720, 1440)
     lsm = torch.zeros(1, 1, 720, 1440)
 
@@ -407,6 +411,7 @@ def test_interpmodafno_conformance():
         px_model=base_model,
         num_interp_steps=6,
     )
+    model.variables = np.array(["t2m"])
     check_prognostic_contract(model)
 
     # The public initial condition can lack a diagnosed interpolation channel.
