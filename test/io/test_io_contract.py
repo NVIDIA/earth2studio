@@ -33,6 +33,7 @@ from earth2studio.grids import CurvilinearGrid, LatLonGrid, infer_grid
 from earth2studio.io import (
     IceChunkBackend,
     IOBackend,
+    KVBackend,
     NetCDF4Backend,
     XarrayBackend,
     ZarrBackend,
@@ -50,6 +51,7 @@ BACKENDS: dict[str, tuple[Callable[[], IOBackend], Callable[[IOBackend], xr.Data
 BACKENDS = {
     "icechunk": (lambda: pytest.importorskip("icechunk") and IceChunkBackend(), lambda io: io.to_xarray()),  # type: ignore[attr-defined, return-value] # fmt: skip
     "netcdf4": (lambda: NetCDF4Backend(f"{mkdtemp()}/io.nc", {"mode": "w"}), lambda io: io.to_xarray()),  # type: ignore[attr-defined] # noqa: E501
+    "kv": (KVBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
     "xarray": (XarrayBackend, lambda io: io.root),  # type: ignore[attr-defined]
     "zarr": (ZarrBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
 }

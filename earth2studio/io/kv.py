@@ -15,260 +15,273 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Hashable, Iterator, Mapping
 from typing import Any
 
 import numpy as np
 import torch
-import xarray
-from loguru import logger
+import xarray as xr
+from numpy.typing import ArrayLike, DTypeLike
 
-from earth2studio.utils.coords import convert_multidim_to_singledim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.io.utils import Indexer, plan_arrays, plan_read, plan_write
+from earth2studio.utils.cupy import from_torch
 
 
 class KVBackend:
-    """A key-value (dict) backend.
+    """A key-value (dict) backend holding Torch tensors.
+
+    Stored arrays are Torch tensors on :attr:`device`, keyed by name in
+    :attr:`root`. Dimension and auxiliary coordinates are kept in :attr:`coords`
+    and the store is available as an :class:`xarray.Dataset` from
+    :meth:`to_xarray`.
 
     Parameters
     ----------
-    device: str = 'cpu'
-        Device to keep array tensors.
+    device : str, optional
+        Device to keep array tensors on, by default "cpu"
     """
 
     def __init__(self, device: str = "cpu") -> None:
 
         self.device = device
         self.root: dict[str, torch.Tensor] = {}
-        self.coords: CoordSystem = OrderedDict({})
-        self.dims: dict[str, list[str]] = {}
+        self.coords: dict[Hashable, xr.Variable] = {}
+        self.dims: dict[str, tuple[Hashable, ...]] = {}
+        self.attrs: dict[str, dict[Hashable, Any]] = {}
+        self._closed = False
 
     def __contains__(self, item: str) -> bool:
-        """Checks if item in KV store.
+        """Checks if item is an array or coordinate of the KV store.
 
         Parameters
         ----------
         item : str
         """
-        return (self.root | self.coords).__contains__(item)
+        return item in self.root or item in self.coords
 
-    def __getitem__(self, item: str) -> torch.Tensor | np.ndarray:
-        """Gets item in KV store.
+    def __getitem__(self, item: str) -> torch.Tensor | xr.Variable:
+        """Gets an array tensor or a coordinate of the KV store.
 
         Parameters
         ----------
         item : str
         """
-        return (self.root | self.coords).__getitem__(item)
+        if item in self.root:
+            return self.root[item]
+        return self.coords[item]
 
     def __len__(
         self,
     ) -> int:
-        """Gets length of Dict Group."""
-        return self.root.__len__() + self.coords.__len__()
+        """Gets the number of stored arrays."""
+        return len(self.root)
 
     def __iter__(
         self,
-    ) -> Iterator:
-        """Return an iterator over KV store member names."""
-        return (self.root | self.coords).__iter__()
+    ) -> Iterator[str]:
+        """Return an iterator over stored array names."""
+        return iter(self.root)
 
-    def add_array(
-        self,
-        coords: CoordSystem,
-        array_name: str | list[str],
-        data: torch.Tensor | list[torch.Tensor] = None,
-    ) -> None:
-        """Add an array to the existing KV store.
+    def add_array(self, template: xr.DataArray) -> None:
+        """Create the arrays a template describes.
 
         Parameters
         ----------
-        coords: CoordSystem
-            Ordered dict of coordinate information.
-        array_name : str
-            Name to add to kv store for the new array. Can optionally
-            be a list of array_names.
-        data: torch.Tensor | list[torch.Tensor], optional
-            Optional data to initialize the array with. If None, then
-            the KV store array is initialized with torch.float32 zeros.
-            Can also pass a list of tensors, which must match in length to the
-            list of array_names passed. If a list of tensors is passed, it is assumed
-            that each tensor share `coords`.
+        template : xr.DataArray
+            Concrete coordinate signature; field values are never read.
         """
-        # Input checking
-
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if isinstance(data, torch.Tensor):
-            data = [data]
-        elif data is None:
-            data = [None] * len(array_name)
-
-        if not (len(data) == len(array_name)):
+        plan = plan_arrays(template, self.coords)
+        clashes = set(plan.coords).intersection(self.root)
+        if clashes:
             raise ValueError(
-                f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
+                f"Coordinates collide with arrays: {sorted(map(str, clashes))}"
             )
-
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
-
-        for c, v in adjusted_coords.items():
-            if c not in self.coords:
-                self.coords[c] = v
-
-        # Add any multidim coordinates that were expelled above
-        for k in mapping:
-            if k not in self.root:
-                values = coords[k]
-                self.dims[k] = mapping[k]
-                self.root[k] = torch.as_tensor(values, device="cpu")
-
-        for name, di in zip(array_name, data):
+        for name in plan.names:
+            if name in self.root and self.dims[name] != plan.dims:
+                raise ValueError(
+                    f"Array '{name}' exists with dimensions {self.dims[name]}"
+                )
+        dtype = _torch_dtype(plan.dtype)
+        self.coords.update(plan.coords)
+        for name in plan.names:
             if name in self.root:
-                logger.warning("{} is already in KV Store. Skipping add_array.", name)
                 continue
+            self.dims[name] = plan.dims
+            self.attrs[name] = dict(plan.attrs)
+            self.root[name] = torch.full(
+                plan.shape, plan.fill_value, dtype=dtype, device=self.device
+            )
 
-            self.dims[name] = list(adjusted_coords)
-
-            if di is not None:
-                self.root[name] = di.to(self.device)
-            else:
-                shape = [len(v) for v in adjusted_coords.values()]
-                self.root[name] = torch.zeros(
-                    shape, dtype=torch.float32, device=self.device
-                )
-
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """
-        Write data to the current KV store using the passed array_name.
+    def write(self, x: xr.DataArray) -> None:
+        """Write a field at the positions its coordinate labels identify.
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to KV store.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
+        x : xr.DataArray
+            NumPy-, CuPy- or Torch-backed field. It is never modified; its data
+            is copied onto the store's device.
         """
-
-        # Input checking
-        if isinstance(x, torch.Tensor):
-            x = [x]
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if not (len(x) == len(array_name)):
-            raise ValueError(
-                f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
+        if self._closed:
+            raise RuntimeError("Cannot write to a closed KVBackend")
+        for name, indexers, field in plan_write(x, *self._layout()):
+            array = self.root[name]
+            tensor, _ = field.e2s.to_torch()
+            positions = self._positions(indexers, name)
+            array[np.ix_(*[positions[dim] for dim in self.dims[name]])] = tensor.to(
+                device=array.device, dtype=array.dtype
             )
 
-        # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+    def read(
+        self,
+        selection: xr.DataArray | Mapping[Hashable, ArrayLike],
+        device: torch.device | str = "cpu",
+        dtype: DTypeLike | None = None,
+    ) -> xr.DataArray:
+        """Read a field by coordinate label, the inverse of :meth:`write`.
 
-        for dim in adjusted_coords:
-            if dim not in self.coords:
-                raise AssertionError("Coordinate dimension not in KV store.")
+        Parameters
+        ----------
+        selection : xr.DataArray | Mapping[Hashable, ArrayLike]
+            Template or field, or an ordered mapping from every dimension to its
+            labels. ``variable`` labels select arrays; without a ``variable``
+            dimension, a DataArray's name does. Labels may be any subset, in any
+            order; field values are never read.
+        device : torch.device | str, optional
+            Destination: NumPy-backed on CPU, CuPy-backed on CUDA, by default "cpu"
+        dtype : DTypeLike, optional
+            Output dtype, by default the stored dtype
 
-        # Check to see if multidimensions are passed in full, otherwise error
-        for key in mapping:
-            if key not in self.root:
-                raise AssertionError(
-                    f"Multidimension coordinate {key} not in KV store."
-                )
-
-            if coords[key].shape != self.root[key].shape:
-                raise AssertionError(
-                    "Currently writing data with multidimension arrays is only supported when"
-                    + "the multidimension coordinates are passed in full."
-                )
-
-        for xi, name in zip(x, array_name):
-            if name not in self.root:
-                self.add_array(coords, array_name)
-
-            # Get indices as list of arrays and set torch tensor
-            self.root[name][
-                np.ix_(
-                    *[
-                        np.where(np.isin(self.coords[dim], value))[0]
-                        for dim, value in adjusted_coords.items()
-                    ]
-                )
-            ] = xi.to(self.device)
-
-    def to_xarray(self, **xr_kwargs: Any) -> xarray.Dataset:
+        Returns
+        -------
+        xr.DataArray
+            Field with the selection's dimensions and label order, stored
+            coordinates and the attributes shared by the selected arrays.
         """
-        Returns an xarray Dataset corresponding to the variables
-        and coordinates in the KV Store.
+        selection, names, indexers = plan_read(selection, *self._layout())
+        dims = self.dims[names[0]]
+        positions = self._positions(indexers, names[0])
+        index: tuple[np.ndarray, ...] = np.ix_(*[positions[dim] for dim in dims])
+        tensors = [self.root[name][index] for name in names]
+        # Variables index orthogonally, so each dimension selects independently
+        coords: dict[Hashable, Any] = {
+            key: variable[tuple(positions[dim] for dim in variable.dims)]
+            for key, variable in self.coords.items()
+            if set(variable.dims).issubset(dims)
+        }
+        if "variable" in selection.dims:
+            tensor = torch.stack(tensors)
+            dims = ("variable", *dims)
+            coords["variable"] = np.asarray(names)
+            name = selection.name
+        else:
+            tensor = tensors[0]
+            name = names[0]
+        if dtype is not None:
+            tensor = tensor.to(dtype=_torch_dtype(np.dtype(dtype)))
+        tensor = tensor.to(device=torch.device(device))
+        field = xr.DataArray(
+            _payload(tensor),
+            dims=dims,
+            coords=coords,
+            name=name,
+            attrs=_shared_attrs([self.attrs[key] for key in names]),
+        )
+        return field.transpose(*selection.dims)
+
+    def to_xarray(self, **xr_kwargs: Any) -> xr.Dataset:
+        """Return the store as an in-memory, NumPy-backed dataset.
 
         Parameters
         ----------
         xr_kwargs : dict[str, Any]
-            Optional keyward arguments to pass to xarray Dataset constructor.
+            Optional keyword arguments passed to the :class:`xarray.Dataset`
+            constructor, such as global ``attrs``.
+
         Returns
         -------
-        xarray.Dataset
+        xr.Dataset
+            Dataset with one variable per stored array, the store's coordinates
+            and the attributes :meth:`add_array` persisted.
         """
-
-        return xarray.Dataset(
+        return xr.Dataset(
             data_vars={
-                array_name: (self.dims[array_name], values.cpu().numpy())
-                for array_name, values in self.root.items()
+                name: xr.Variable(
+                    self.dims[name], values.cpu().numpy(), dict(self.attrs[name])
+                )
+                for name, values in self.root.items()
             },
-            coords={
-                coord_name: ([coord_name], values)
-                for coord_name, values in self.coords.items()
-            },
+            coords=dict(self.coords),
             **xr_kwargs,
         )
 
-    def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """
-        Read data from the current KV store using the passed array_name.
+    def _layout(
+        self,
+    ) -> tuple[dict[str, Mapping[Hashable, int]], dict[Hashable, np.ndarray]]:
+        """Stored array dimension sizes and dimension labels."""
+        arrays: dict[str, Mapping[Hashable, int]] = {
+            name: OrderedDict(zip(self.dims[name], values.shape))
+            for name, values in self.root.items()
+        }
+        coords = {
+            key: np.asarray(variable.values)
+            for key, variable in self.coords.items()
+            if variable.dims == (key,)
+        }
+        return arrays, coords
 
-        Parameters
-        ----------
-        coords : OrderedDict
-            Coordinates of the data to be read.
-        array_name : str | list[str]
-            Name(s) of the array(s) to read from.
-        device : torch.device
-            device to place the read data from, by default 'cpu'
-        """
+    def _positions(
+        self, indexers: Mapping[Hashable, Indexer], name: str
+    ) -> dict[Hashable, np.ndarray]:
+        """Map each dimension's indexer to an ascending integer position array."""
+        positions: dict[Hashable, np.ndarray] = {}
+        for dim, size in zip(self.dims[name], self.root[name].shape):
+            indexer = indexers[dim]
+            if isinstance(indexer, slice):
+                start, stop, step = indexer.indices(size)
+                positions[dim] = np.arange(start, stop, step)
+            else:
+                positions[dim] = np.asarray(indexer)
+        return positions
 
-        # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+    def flush(self) -> None:
+        """Writes are synchronous; nothing to flush."""
 
-        for dim in adjusted_coords:
-            if dim not in self.coords:
-                raise AssertionError(f"Coordinate dimension {dim} not in KV store.")
+    def close(self) -> None:
+        """Reject later writes. The store remains readable."""
+        self._closed = True
 
-        # Check to see if multidimensions are passed in full, otherwise error
-        for key in mapping:
-            if key not in self.root:
-                raise AssertionError(
-                    f"Multidimension coordinate {key} not in KV store."
-                )
 
-            if coords[key].shape != self.root[key].shape:
-                raise AssertionError(
-                    "Currently reading data with multidimension arrays is only supported when"
-                    + "the multidimension coordinates are passed in full."
-                )
+def _torch_dtype(dtype: np.dtype) -> torch.dtype:
+    """Torch equivalent of a NumPy dtype."""
+    try:
+        return torch.from_numpy(np.empty(0, dtype=dtype)).dtype
+    except TypeError as err:
+        raise ValueError(f"KVBackend cannot store arrays of dtype {dtype}") from err
 
-        x = self.root[array_name][
-            np.ix_(
-                *[
-                    np.where(np.isin(self.coords[dim], value))[0]
-                    for dim, value in adjusted_coords.items()
-                ]
-            )
-        ]
 
-        return x.to(device), coords
+def _payload(tensor: torch.Tensor) -> Any:
+    """NumPy or CuPy data for a tensor, following its device."""
+    placeholder = OrderedDict(
+        (f"dim_{index}", np.arange(size)) for index, size in enumerate(tensor.shape)
+    )
+    return from_torch(tensor, placeholder).data
+
+
+def _shared_attrs(attrs: list[dict[Hashable, Any]]) -> dict[Hashable, Any]:
+    """Attributes present with the same value in every mapping."""
+    shared = dict(attrs[0])
+    for other in attrs[1:]:
+        shared = {
+            key: value
+            for key, value in shared.items()
+            if key in other and _equal(value, other[key])
+        }
+    return shared
+
+
+def _equal(left: Any, right: Any) -> bool:
+    """Compare attribute values, tolerating array-valued attributes."""
+    try:
+        return bool(left == right)
+    except ValueError:
+        return bool(np.array_equal(left, right))
