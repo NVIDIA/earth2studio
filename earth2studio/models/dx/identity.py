@@ -29,6 +29,8 @@ class Identity(torch.nn.Module):
     region:global provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(self) -> None:
         super().__init__()
 

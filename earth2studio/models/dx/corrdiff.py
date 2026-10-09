@@ -227,6 +227,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    @property
+    def stochastic(self) -> bool:
+        """Whether inference includes diffusion sampling."""
+        return self.inference_mode != "regression"
+
     def __init__(
         self,
         input_variables: Sequence[str],
@@ -600,6 +605,16 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             return partial(stochastic_sampler, **sampler_kwargs)
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -1088,11 +1103,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         if reset or self._sample_rng is None:
             self._sample_rng = np.random.default_rng(seed)
 
-    @property
-    def stochastic(self) -> bool:
-        """Whether inference includes diffusion sampling."""
-        return self.inference_mode != "regression"
-
     @torch.inference_mode()
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
@@ -1303,6 +1313,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         residual_model: torch.nn.Module,
@@ -1340,6 +1352,16 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.number_of_steps = number_of_steps
         self.solver = solver
         self.output_variables = OUT_VARIABLES  # Default set of output variables
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -1525,7 +1547,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             self.out_lon_full,
         )[..., 1:-1, 1:-1]
 
-    stochastic = True
     _sample_rng: np.random.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:

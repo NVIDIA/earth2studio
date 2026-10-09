@@ -12,8 +12,9 @@ checks member presence, not correct signatures or execution.
 - `__call__` takes one positional DataArray per slot. Declare a fixed number of
   named parameters (`x`, or descriptive names for complex models), not `*x`.
   Variadic protocol notation describes different fixed arities across models.
-- `output_coords(input_coords)` receives one signature/DataArray or one tuple of
-  them, and returns one signature or a tuple of output signatures. Execution
+- `output_coords` receives one separate positional signature/DataArray per input
+  slot, using fixed named parameters, and returns one signature or a tuple of
+  output signatures. Execution
   returns one DataArray directly, or a tuple for multiple output slots.
 - Split slots when coordinates differ. Combine variables with identical
   non-variable coordinates into one slot. Slot order is append-only API;

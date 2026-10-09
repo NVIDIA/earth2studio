@@ -177,6 +177,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     year:2026 gpu:80gb provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         network: torch.nn.Module,
@@ -303,6 +305,16 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
 
     def __str__(self) -> str:
         return "CorrDiffEra5Hrrr"
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system: the native ERA5 CONUS footprint.
@@ -467,7 +479,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             t = self.shift * t / (1.0 + (self.shift - 1.0) * t)
         return t
 
-    stochastic = True
     _rng_generator: torch.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:

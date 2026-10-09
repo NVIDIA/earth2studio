@@ -20,8 +20,8 @@ The rule identifiers reported here (``P1``-``P24``, ``D1``-``D11``) match the ru
 table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
 
 Prognostic probes use forecasts-only iteration and explicit continuation state.
-Execution takes separate positional slots; coordinate planning takes one grouped
-signature. Probes never call recommended sources. Model-specific numerical
+Execution and coordinate planning take separate positional input slots.
+Probes never call recommended sources. Model-specific numerical
 correctness, semantic source ordering, and absence of internal fetching still
 require wrapper tests and review.
 """
@@ -345,7 +345,7 @@ def _check_coord_declaration(
     concrete = tuple(_concretize(x, time=time) for x in declared)
     reference = deepcopy(concrete)
     try:
-        output_coords = _slots(model.output_coords(_group(concrete)))
+        output_coords = _slots(model.output_coords(*concrete))
     except Exception as error:  # noqa: BLE001 - reported as a violation
         report.require(
             readonly_rule,
@@ -370,7 +370,7 @@ def _check_coord_declaration(
         bad = list(deepcopy(reference))
         bad[index] = _swap_last_dims(bad[index])
         try:
-            model.output_coords(_group(tuple(bad)))
+            model.output_coords(*bad)
         except ValueError:
             report.require(invalid_rule, True, "")
         except Exception as error:  # noqa: BLE001 - reported as a violation
@@ -564,7 +564,7 @@ def _check_rebasing(
         coord_array_like(x, {"lead_time": x.lead_time.values + offset})
         for x in input_coords
     )
-    rebased = _slots(model.output_coords(_group(shifted)))
+    rebased = _slots(model.output_coords(*shifted))
     report.require(
         "P6",
         len(rebased) == len(output_coords)
@@ -966,7 +966,7 @@ def _next_plan(
         )
         for x in inputs
     )
-    return _slots(model.output_coords(_group(shifted)))
+    return _slots(model.output_coords(*shifted))
 
 
 def _forcing(

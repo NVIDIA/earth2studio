@@ -463,7 +463,7 @@ def test_stormscope_dx_nsrdb_constructor_exceptions(kwargs, match):
 
 def test_stormscope_dx_nsrdb_conformance():
     model = create_model()
-    check_diagnostic_contract(model)
+    assert check_diagnostic_contract(model) == []
 
 
 @pytest.mark.package

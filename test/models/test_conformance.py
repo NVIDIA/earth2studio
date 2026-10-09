@@ -143,8 +143,9 @@ class MultiDiagnostic(Identity):
         )
 
     def output_coords(
-        self, inputs: tuple[CoordinateSystem, CoordinateSystem]
+        self, atmosphere: CoordinateSystem, static: CoordinateSystem
     ) -> tuple[CoordinateSystem, ...]:
+        inputs = (atmosphere, static)
         for x, declaration in zip(inputs, self.input_coords()):
             handshake_dataarray(x, declaration)
         return tuple(coord_array_like(x) for x in inputs)
@@ -161,8 +162,9 @@ class MultiPrognostic(ToyPrognostic):
         return fine, coord_array_like(fine, {"lat": [0]})
 
     def output_coords(
-        self, inputs: tuple[CoordinateSystem, CoordinateSystem]
+        self, fine: CoordinateSystem, coarse: CoordinateSystem
     ) -> tuple[CoordinateSystem, ...]:
+        inputs = (fine, coarse)
         outputs = []
         for x, declared in zip(inputs, self.input_coords()):
             lead = x.lead_time.values
@@ -173,7 +175,7 @@ class MultiPrognostic(ToyPrognostic):
     def initialize(
         self, fine: xr.DataArray, coarse: xr.DataArray
     ) -> tuple[tuple[xr.DataArray, ...], None]:
-        coords = self.output_coords((fine, coarse))
+        coords = self.output_coords(fine, coarse)
         return (
             tuple(
                 from_torch(x.e2s.to_torch()[0] + 1, c)
@@ -296,9 +298,9 @@ def test_missing_forcing_declaration_collected():
 def test_duplicate_output_slots():
     class Bad(MultiPrognostic):
         def output_coords(
-            self, inputs: tuple[CoordinateSystem, CoordinateSystem]
+            self, fine: CoordinateSystem, coarse: CoordinateSystem
         ) -> tuple[CoordinateSystem, CoordinateSystem]:
-            fine, _ = super().output_coords(inputs)
+            fine, _ = super().output_coords(fine, coarse)
             return fine, coord_array_like(fine, {"variable": ["other"]})
 
     assert "P18" in violations(Bad(), rollout=False)

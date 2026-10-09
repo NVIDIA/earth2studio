@@ -96,6 +96,8 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -113,6 +115,16 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             "topographic_height",
             (orography),
         )
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

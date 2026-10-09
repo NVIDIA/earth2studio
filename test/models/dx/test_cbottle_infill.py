@@ -376,8 +376,11 @@ class TestCBottleMock:
         input_variables = np.array(["u10m", "v10m"])
         dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to("cuda:0")
         dx.sampler_steps = 2  # Speed up sampler
-        check_diagnostic_contract(
-            dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+        assert (
+            check_diagnostic_contract(
+                dx, device="cuda:0", time=np.datetime64("2022-01-01T00:00:00")
+            )
+            == []
         )
 
 

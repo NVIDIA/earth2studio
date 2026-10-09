@@ -79,6 +79,18 @@ class _TCTrackerBase:
 
     PATH_FILL_VALUE = -9999  # Should not be in lat/lon range for safety
 
+    stochastic = False
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
     def _track_coords(
         self, x: CoordinateSystem, paths: int = 0, steps: int = 0
     ) -> CoordinateSystem:

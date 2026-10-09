@@ -135,6 +135,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         sr_model: torch.nn.Module,
@@ -292,6 +294,16 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             # For healpix output, the output grid is always the high-res healpix grid
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
@@ -457,7 +469,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """Reorder channels from the super resolution model"""
         return torch.index_select(x, 0, self._from_sr_index)
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 

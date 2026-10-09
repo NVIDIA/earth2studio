@@ -77,6 +77,8 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -87,6 +89,16 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.core_model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

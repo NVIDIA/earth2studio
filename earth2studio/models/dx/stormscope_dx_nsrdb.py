@@ -156,6 +156,8 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     _CLEARNESS_INDEX_EPS = 10.0
     _SOLAR_CONSTANT = 1361.0
 
+    stochastic = True
+
     def __init__(
         self,
         diffusion_model: nn.Module,
@@ -235,6 +237,16 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         return CurvilinearGrid(
             self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
         )
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -650,7 +662,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
                 )
         return next_state
 
-    stochastic = True
     _rng_generator: torch.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:

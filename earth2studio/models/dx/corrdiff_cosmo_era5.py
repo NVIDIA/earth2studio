@@ -357,6 +357,11 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    @property
+    def stochastic(self) -> bool:
+        """Whether diffusion sampling is enabled."""
+        return self.mode == "diffusion"
+
     def __init__(
         self,
         era5_variables: Sequence[str],
@@ -797,6 +802,16 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         )
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
@@ -1348,11 +1363,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         """
         if reset or self._rng_generator is None:
             self._rng_generator = torch.Generator().manual_seed(seed)
-
-    @property
-    def stochastic(self) -> bool:
-        """Whether diffusion sampling is enabled."""
-        return self.mode == "diffusion"
 
     @torch.inference_mode()
     def _forward(
