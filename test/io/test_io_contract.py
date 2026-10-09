@@ -29,7 +29,7 @@ import torch
 import xarray as xr
 
 from earth2studio.grids import CurvilinearGrid, LatLonGrid, infer_grid
-from earth2studio.io import IOBackend, XarrayBackend
+from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -41,6 +41,7 @@ from earth2studio.utils.cupy import from_torch
 
 BACKENDS: dict[str, tuple[Callable[[], IOBackend], Callable[[IOBackend], xr.Dataset]]]
 BACKENDS = {
+    "kv": (KVBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
     "xarray": (XarrayBackend, lambda io: io.root),  # type: ignore[attr-defined]
 }
 
