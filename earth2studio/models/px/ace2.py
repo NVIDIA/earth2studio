@@ -658,9 +658,9 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {"variable": self._forcing_vars_e2s, "lead_time": np.arange(2) * self._dt},
         )
 
-    def default_sources(self) -> tuple[None, DataSource]:
-        """Recommend the configured external forcing source."""
-        return None, self.forcing_data_source
+    def default_sources(self) -> tuple[DataSource, DataSource]:
+        """Recommend ACE2 ERA5 initial conditions and configured forcing."""
+        return ACE2ERA5Data(mode="initial_conditions"), self.forcing_data_source
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Compute the first forecast using caller-provided forcing."""

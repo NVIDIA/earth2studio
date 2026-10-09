@@ -23,6 +23,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -123,6 +124,12 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
+
+    def default_sources(self) -> DataSource:
+        """Recommend NCAR ERA5, including pressure-level relative humidity."""
+        from earth2studio.data import NCAR_ERA5
+
+        return NCAR_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

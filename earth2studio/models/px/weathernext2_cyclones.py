@@ -24,6 +24,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
@@ -264,6 +265,12 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._cyclone_tracks = pd.concat(
                 [self._cyclone_tracks, tracks], ignore_index=True
             )
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

@@ -1415,7 +1415,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.input_coords(), {"variable": self.conditioning_variables}
         )
 
-    def default_sources(self) -> tuple[None, DataSource | ForecastSource | None]:
+    def default_sources(
+        self,
+    ) -> tuple[DataSource | None, DataSource | ForecastSource | None]:
         """Recommend the configured conditioning source."""
         return None, self.conditioning_data_source
 
@@ -1734,6 +1736,13 @@ class StormScopeGOES(StormScopeBase):
             amp=amp,
             compile=compile,
         )
+
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend GOES imagery and configured conditioning, defaulting to HRRR."""
+        from earth2studio.data import GOES
+
+        source = self.conditioning_data_source
+        return GOES(), source if source is not None else HRRR()
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device
@@ -2237,6 +2246,13 @@ class StormScopeMRMS(StormScopeBase):
         new_coords["y"] = self.y
         new_coords["x"] = self.x
         return glm, new_coords
+
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend MRMS inputs and configured conditioning, defaulting to GOES."""
+        from earth2studio.data import GOES, MRMS
+
+        source = self.conditioning_data_source
+        return MRMS(), source if source is not None else GOES()
 
     def fetch_conditioning(
         self, coords: CoordSystem, device: torch.device

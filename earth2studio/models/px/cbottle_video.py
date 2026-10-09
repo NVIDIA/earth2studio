@@ -24,6 +24,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.lexicon import CBottleLexicon
 from earth2studio.models.auto import Package
 from earth2studio.models.auto.mixin import AutoModelMixin
@@ -189,6 +190,17 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
+
+    def default_sources(self) -> DataSource:
+        """Load the CBottle3D generator on the model's input grid.
+
+        This recommendation loads the data generator's checkpoint on CPU.
+        """
+        from earth2studio.data import CBottle3D
+
+        return CBottle3D.load_model(
+            CBottle3D.load_default_package(), lat_lon=self.lat_lon
+        )
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

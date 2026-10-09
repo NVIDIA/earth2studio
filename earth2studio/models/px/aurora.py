@@ -21,6 +21,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -198,6 +199,12 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("lsm", lsm)
 
         self.preds_idx = 0
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

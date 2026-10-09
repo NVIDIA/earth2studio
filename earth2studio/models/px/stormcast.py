@@ -438,9 +438,12 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.input_coords(), {"variable": self.conditioning_variables}
         )
 
-    def default_sources(self) -> tuple[None, DataSource | ForecastSource | None]:
-        """Recommend the configured conditioning source to the driver."""
-        return None, self.conditioning_data_source
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend HRRR inputs and configured conditioning, defaulting to GFS."""
+        from earth2studio.data import GFS, HRRR
+
+        source = self.conditioning_data_source
+        return HRRR(), source if source is not None else GFS()
 
     @torch.inference_mode()
     def _predict(

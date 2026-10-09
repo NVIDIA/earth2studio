@@ -23,6 +23,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -176,6 +177,15 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort_long_path = ort_long
         # Load short model into memory
         self.ort = create_ort_session(ort_short, self.device)
+
+    def default_sources(self) -> DataSource:
+        """Recommend CDS ERA5 for relative humidity and six-hour precipitation.
+
+        CDS credentials and acceptance of the ERA5 terms are required.
+        """
+        from earth2studio.data import CDS_ERA5
+
+        return CDS_ERA5()  # type: ignore[return-value]  # Synchronous source; no async fetch.
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

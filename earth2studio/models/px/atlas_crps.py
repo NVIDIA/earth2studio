@@ -26,6 +26,7 @@ import torch.nn as nn
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.atlas import VARIABLES, _AtlasState, npdt64_to_naive_utc
@@ -124,6 +125,12 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.autoencoder = autoencoder
         self.autoencoder_processor = autoencoder_processor
         self.register_buffer("device_buffer", torch.empty(0))
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

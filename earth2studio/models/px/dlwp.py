@@ -27,6 +27,7 @@ import torch
 import xarray
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.grids import PointGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
@@ -154,6 +155,12 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             latgrid.cpu().numpy().reshape(-1), longrid.cpu().numpy().reshape(-1)
         )
         self.checkpoint = bind_checkpoint_state(_DLWPCheckpointState())
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

@@ -21,6 +21,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
@@ -600,6 +601,12 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out_data[var] = out_data[var].astype(np.float32)
 
         return out_data, target_lead_times
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

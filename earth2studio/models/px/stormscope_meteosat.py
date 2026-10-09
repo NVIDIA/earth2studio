@@ -25,6 +25,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -333,6 +334,12 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.input_times = input_times
         self.output_times = output_times
+
+    def default_sources(self) -> DataSource:
+        """Recommend MTG FCI imagery from Meteosat."""
+        from earth2studio.data import MeteosatFCI
+
+        return MeteosatFCI()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

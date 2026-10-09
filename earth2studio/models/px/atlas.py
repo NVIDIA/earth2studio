@@ -28,6 +28,7 @@ import torch.nn as nn
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
@@ -220,6 +221,12 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sinterpolant = sinterpolant
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
         self.register_buffer("device_buffer", torch.empty(0))
+
+    def default_sources(self) -> "DataSource":
+        """Recommend ARCO ERA5 initial conditions."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

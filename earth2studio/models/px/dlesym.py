@@ -24,6 +24,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.grids import HEALPixGrid, LatLonGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -425,6 +426,12 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
         )
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5; native grids require derived fields and regridding."""
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
