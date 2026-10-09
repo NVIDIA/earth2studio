@@ -323,13 +323,21 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("batch_size", [1, 2])
-def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
-    """Iterator runs through several coupled rollout steps without errors."""
+@pytest.mark.parametrize("use_ttr", [True, False])
+def test_dlesym_v0_isccp_era5_iterator(device, batch_size, use_ttr, monkeypatch):
     if device == "cuda:0" and not torch.cuda.is_available():
         pytest.skip("CUDA not available")
 
     nside = 16
-    model = _build_model(device, nside=nside, use_ttr=True)
+    model = _build_model(device, nside=nside, use_ttr=use_ttr)
+    conversions = []
+    transform = model._apply_ttr_to_olr
+
+    def record_conversion(tensor, coords):
+        conversions.append(True)
+        return transform(tensor, coords)
+
+    monkeypatch.setattr(model, "_apply_ttr_to_olr", record_conversion)
     in_coords = model.input_coords()
 
     time = np.array([np.datetime64("2020-01-01T00:00")])
@@ -365,6 +373,10 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
             nside,
         )
         assert np.all(coords["lead_time"] == _ATMOS_OUTPUT_TIMES + coupler_step * i)
+        assert "rlut" in coords["variable"].values
+        assert "ttr" not in coords["variable"].values
+        assert len(conversions) == int(use_ttr)
+        assert model.use_ttr is use_ttr
 
 
 def test_dlesym_v0_isccp_era5_missing_clim_raises():

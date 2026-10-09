@@ -1075,7 +1075,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ]
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -1153,14 +1153,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         handshake_nonempty(x)
         self.output_coords(x)
-        if self.stochastic and self._cln_generator is None:
-            self.set_rng(int(torch.randint(2**31, ()).item()))
-        out = self._forward_array(self._initial_state(x))
-        return out, (
-            self._cln_generator.get_state().clone()
-            if self.stochastic and self._cln_generator is not None
-            else None
-        )
+        return self._forward(self._initial_state(x))
 
     def step(
         self, y: xr.DataArray, state: torch.Tensor | None
@@ -1170,7 +1163,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Parameters
         ----------
         y : xr.DataArray
-            Previous complete forecast chunk, including caller-applied edits.
+            Previous complete forecast chunk in native variables, including
+            caller-applied edits. Initial-input conversions are not repeated.
         state : torch.Tensor | None
             RNG state returned by ``initialize`` or ``step``, or ``None`` for
             deterministic execution.
@@ -1187,9 +1181,24 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if state is not None:
             self._cln_generator = torch.Generator().set_state(state.clone())
         try:
-            return self.initialize(x)
+            return self._forward(x)
         finally:
             self._cln_generator = previous
+
+    def _forward(self, x: xr.DataArray) -> tuple[xr.DataArray, torch.Tensor | None]:
+        handshake_nonempty(x)
+        handshake_dataarray(
+            x.assign_coords(lead_time=x.lead_time.values - x.lead_time.values[-1]),
+            DLESyM.input_coords(self),
+        )
+        if self.stochastic and self._cln_generator is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        out = self._forward_array(x)
+        return out, (
+            self._cln_generator.get_state().clone()
+            if self.stochastic and self._cln_generator is not None
+            else None
+        )
 
     def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
         return x.copy(deep=True)
@@ -1204,7 +1213,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             batch=np.arange(tensor.shape[0]),
             **{d: x.coords[d].values for d in x.dims[-6:]},
         )
-        out = self._forward(tensor, coords)
+        out = self._forward_tensor(tensor, coords)
         signature = coord_array_like(
             x,
             {
