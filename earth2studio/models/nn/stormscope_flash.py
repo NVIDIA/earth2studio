@@ -51,13 +51,6 @@ except (ImportError, OSError):
     )
 
 
-def _modulate(
-    x: torch.Tensor, scale: torch.Tensor, shift: torch.Tensor
-) -> torch.Tensor:
-    """Apply the trained adaptive normalization arithmetic."""
-    return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
-
-
 def _restore_input_dtype(
     module: nn.Module, inputs: tuple[torch.Tensor, ...], output: torch.Tensor
 ) -> torch.Tensor:
@@ -149,7 +142,7 @@ class _FlashDiTBlock(PhysicsNeMoDiTBlock):
         ).chunk(self.num_ada_ln, dim=1)
         if latent_hw is None or rope_tables is None:
             raise ValueError("rotary attention requires latent_hw and RoPE tables")
-        attention_input = _modulate(self.norm1(x), scale, shift)
+        attention_input = self.modulation(self.norm1(x), scale, shift)
         if invalid_token_mask is not None and mask_token is not None:
             attention_input = torch.where(
                 invalid_token_mask[..., None],
@@ -167,7 +160,7 @@ class _FlashDiTBlock(PhysicsNeMoDiTBlock):
         gate = gate.unsqueeze(1)
         gate_mlp = gate_mlp.unsqueeze(1)
         x = x + self.drop_path(gate * attended)
-        mlp = self.mlp(_modulate(self.norm2(x), scale_mlp, shift_mlp))
+        mlp = self.mlp(self.modulation(self.norm2(x), scale_mlp, shift_mlp))
         return x + self.drop_path(gate_mlp * mlp)
 
 
@@ -188,7 +181,7 @@ class _FlashProjection(PhysicsNeMoProjLayer):
     def forward_features(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
         """Apply the final adaptive normalization before interval-head projection."""
         shift, scale = self.adaLN_modulation(cond).chunk(2, dim=1)
-        return _modulate(self.norm(x), scale, shift)
+        return self.modulation(self.norm(x), scale, shift)
 
     def project(self, x: torch.Tensor) -> torch.Tensor:
         """Project patches in FP32, then restore the incoming feature dtype."""
@@ -202,34 +195,13 @@ class _FlashProjection(PhysicsNeMoProjLayer):
         return self.project(self.forward_features(x, cond))
 
 
-class _FlashPatchEmbed(PhysicsNeMoPatchEmbed):
-    """Convolutional non-overlapping patch projection."""
-
-    def __init__(
-        self,
-        height: int,
-        width: int,
-        patch_size: int,
-        in_chans: int,
-        embed_dim: int,
-    ) -> None:
-        if height % patch_size or width % patch_size:
-            raise ValueError("image dimensions must be divisible by patch_size")
-        super().__init__((height, width), (patch_size, patch_size), in_chans, embed_dim)
-        self.height, self.width = height, width
-        self.patch_size = patch_size
-        self.num_patches = (height // patch_size) * (width // patch_size)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Project image patches in FP32 and restore the input dtype."""
-        input_dtype = x.dtype
-        with torch.amp.autocast(device_type=x.device.type, enabled=False):
-            x = self.proj(x.to(torch.float32))
-        return x.to(input_dtype)
-
-
 class FlashDiT(nn.Module):
-    """Lean inference implementation matching the validated StormScope Flash DiT."""
+    """Assemble PhysicsNeMo layers for the packaged rotary Flash checkpoints.
+
+    Only the deployed architecture is supported. Training-only options are not
+    part of this inference adapter; published .mdlus constructor metadata is
+    accepted unchanged.
+    """
 
     def __init__(
         self,
@@ -246,91 +218,31 @@ class FlashDiT(nn.Module):
         frequency_embed_dim: int = 256,
         qkv_bias: bool = True,
         qk_norm: bool = True,
-        learn_sigma: bool = False,
-        num_classes: int = 0,
-        class_dropout_prob: float = 0.1,
         pos_embedding_type: str = "rotary",
-        is_conditional: bool = True,
-        use_skip_connection: bool = False,
-        use_concat_skip_connection: bool = False,
-        num_input_time_steps: int = 1,
-        num_output_time_steps: int = 1,
-        attn_mask_type: str | None = None,
         attn_kernel: int = 49,
-        point_channels: int = 0,
-        use_fused_layernorm: bool = False,
-        p_dropout: float | None = None,
-        grad_checkpoint_blocks: int = 0,
-        alternate_attn: bool = False,
-        use_transformer_engine: bool = False,
-        num_register_tokens: int = 0,
         rope_theta: float = 10000.0,
         use_nan_mask_tokens: bool = False,
     ) -> None:
         super().__init__()
-        unsupported = {
-            "alternate_attn": alternate_attn,
-            "learn_sigma": learn_sigma,
-            "num_classes": num_classes,
-            "use_skip_connection": use_skip_connection,
-            "use_concat_skip_connection": use_concat_skip_connection,
-            "attn_mask_type": attn_mask_type,
-            "point_channels": point_channels,
-            "use_fused_layernorm": use_fused_layernorm,
-            "p_dropout": p_dropout,
-            "grad_checkpoint_blocks": grad_checkpoint_blocks,
-            "use_transformer_engine": use_transformer_engine,
-            "num_register_tokens": num_register_tokens,
-        }
-        enabled = [
-            name for name, value in unsupported.items() if value not in (0, None, False)
-        ]
-        if enabled:
-            raise ValueError(
-                "unsupported StormScope Flash DiT options: " + ", ".join(enabled)
-            )
         if attn_kernel < 2:
             raise ValueError("StormScope Flash requires neighborhood attention")
-        if not is_conditional or pos_embedding_type != "rotary":
+        if pos_embedding_type != "rotary":
             raise ValueError("StormScope Flash requires a conditional rotary FlashDiT")
 
-        self._is_conditional = is_conditional
-        self._learn_sigma = False
+        if patch_size < 1 or height % patch_size or width % patch_size:
+            raise ValueError("image dimensions must be divisible by patch_size")
         self._out_chans = base_out_chans
         self._in_chans = in_chans
         self._patch_size = patch_size
-        self._height = height
-        self._width = width
-        self._embed_dim = embed_dim
-        self._depth = depth
-        self._num_heads = num_heads
-        self._mlp_ratio = mlp_ratio
-        self._qkv_bias = qkv_bias
-        self._qk_norm = qk_norm
-        self._num_classes = num_classes
-        self._class_dropout_prob = class_dropout_prob
-        self._frequency_embed_dim = frequency_embed_dim
-        self._pos_embedding_type = pos_embedding_type
-        self._use_fused_layernorm = False
-        self._grad_checkpoint_blocks = 0
-        self._alternate_attn = alternate_attn
-        self._use_transformer_engine = False
-        self._num_register_tokens = 0
-        self._register_tokens = None
-        self._use_skip_connection = False
-        self._use_concat_skip_connection = False
-        self._num_input_time_steps = num_input_time_steps
-        self._num_output_time_steps = num_output_time_steps
-        self._embed_points = None
+        self._height, self._width = height, width
+        self._embed_dim, self._num_heads = embed_dim, num_heads
 
-        self._patch_emb = _FlashPatchEmbed(
-            height, width, patch_size, in_chans, embed_dim
+        self._patch_emb = PhysicsNeMoPatchEmbed(
+            (height, width), (patch_size, patch_size), in_chans, embed_dim
         )
-        self._pos_emb = None
         self._rope_theta = rope_theta
         self._use_nan_mask_tokens = use_nan_mask_tokens
         self.register_buffer("invalid_token_mask_flat", None, persistent=False)
-        self._label_emb = 0.0
         self._time_step_emb = PositionalEmbedding(
             num_channels=embed_dim,
             learnable=True,
@@ -338,7 +250,6 @@ class FlashDiT(nn.Module):
             mlp_hidden_dim=embed_dim,
             embed_fn="np_sin_cos",
         )
-        self.attn_mask = None
         self._blocks = nn.ModuleList(
             [
                 _FlashDiTBlock(
@@ -375,10 +286,7 @@ class FlashDiT(nn.Module):
                 "Flash image dimensions must be >=200 and divisible by four"
             )
         self._height, self._width = height, width
-        self._patch_emb.height, self._patch_emb.width = height, width
-        self._patch_emb.num_patches = (height // self._patch_size) * (
-            width // self._patch_size
-        )
+        self._patch_emb.img_size = (height, width)
         self.invalid_token_mask_flat = None
 
     def set_nan_pixel_mask(self, pixel_mask: torch.Tensor) -> None:
@@ -413,21 +321,15 @@ class FlashDiT(nn.Module):
     def prepare_patch_tokens(
         self, patch: torch.Tensor
     ) -> tuple[torch.Tensor, tuple[int, int]]:
-        """Flatten a projected image and add the learned positional embedding."""
-
-        height, width = patch.shape[-2:]
-        tokens = patch.flatten(2).transpose(1, 2)
-        if self._pos_emb is not None:
-            if tokens.shape[1] != self._pos_emb.shape[1]:
-                raise ValueError(
-                    "input image does not match the trained positional grid"
-                )
-            tokens = tokens + self._pos_emb
-        return tokens, (height, width)
+        """Flatten a rotary model's projected image without additive positions."""
+        return patch.flatten(2).transpose(1, 2), patch.shape[-2:]
 
     def prepare_tokens(self, x: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:
         """Embed an image and return flattened tokens with their patch-grid shape."""
-        return self.prepare_patch_tokens(self._patch_emb(x))
+        # Keep trained FP32 tokenization while using the upstream module directly.
+        with torch.amp.autocast(device_type=x.device.type, enabled=False):
+            patch = self._patch_emb(x.to(torch.float32))
+        return self.prepare_patch_tokens(patch.to(x.dtype))
 
     def _split_patch_projection(
         self,
@@ -500,7 +402,7 @@ class FlashDiT(nn.Module):
             time_step_cond = torch.zeros(
                 tokens.shape[0], device=tokens.device, dtype=tokens.dtype
             )
-        condition = self._time_step_emb(time_step_cond) + self._label_emb
+        condition = self._time_step_emb(time_step_cond)
         cos, sin = build_axial_rope_cos_sin_2d(
             *latent_hw,
             self._embed_dim // self._num_heads,
@@ -605,9 +507,6 @@ class FlashDiT(nn.Module):
         return self.unpatchify(self._final_layer.project(features), height, width)
 
 
-__all__ = ["FlashDiT"]
-
-
 def sigma_to_flow_time(sigma: Any) -> torch.Tensor:
     """Map a non-negative EDM noise level to data-time ``t`` in ``(0, 1]``."""
 
@@ -626,28 +525,6 @@ def flow_time_to_sigma(time: Any) -> torch.Tensor:
     ):
         raise ValueError("flow time must lie in (0, 1]")
     return (1 - time_tensor) / time_tensor
-
-
-def edm_state_to_flow_state(x_sigma: torch.Tensor, sigma: Any) -> torch.Tensor:
-    """Convert an EDM state ``x_sigma`` to the bounded flow state ``y_t``."""
-
-    time = sigma_to_flow_time(sigma).to(device=x_sigma.device, dtype=x_sigma.dtype)
-    while time.ndim < x_sigma.ndim:
-        time = time.unsqueeze(-1)
-    return time * x_sigma
-
-
-def flow_state_to_edm_state(y_t: torch.Tensor, time: Any) -> torch.Tensor:
-    """Convert a bounded flow state ``y_t`` to the corresponding EDM state."""
-
-    time_tensor = torch.as_tensor(time, device=y_t.device, dtype=y_t.dtype)
-    if not torch.compiler.is_compiling() and bool(
-        ((time_tensor <= 0) | (time_tensor > 1)).any()
-    ):
-        raise ValueError("flow time must lie in (0, 1]")
-    while time_tensor.ndim < y_t.ndim:
-        time_tensor = time_tensor.unsqueeze(-1)
-    return y_t / time_tensor
 
 
 class FlashPrecond(nn.Module):

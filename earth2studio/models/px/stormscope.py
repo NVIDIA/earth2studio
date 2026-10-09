@@ -1871,7 +1871,8 @@ class StormScopeGOES(StormScopeBase):
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.
         compile : bool, optional
-            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Compile each expert with ``torch.compile``: ``"reduce-overhead"``
+            for baseline variants and ``"default"`` for Flash.
             Default is False.
 
         region : Mapping[str, Sequence[float]] | None, optional
@@ -2499,7 +2500,7 @@ class StormScopeMRMS(StormScopeBase):
         glm_data_source : DataSource | None, optional
             Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
             used for variants with a ``glm_density`` state channel (``3km_10min``
-            only — the ``6km_1hr`` variant has no GLM channel). The GLM analogue
+            and ``3km_10min_flash``; ``6km_1hr`` has no GLM channel). The GLM analogue
             of ``conditioning_data_source``: when set, :py:meth:`__call__`
             (and :py:meth:`~StormScopeBase.create_iterator`) fetch, regrid, and
             inject GLM into the state automatically. The coupled path
@@ -2510,7 +2511,8 @@ class StormScopeMRMS(StormScopeBase):
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.
         compile : bool, optional
-            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Compile each expert with ``torch.compile``: ``"reduce-overhead"``
+            for baseline variants and ``"default"`` for Flash.
             Default is False.
 
         region : Mapping[str, Sequence[float]] | None, optional

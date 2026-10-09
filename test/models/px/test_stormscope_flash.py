@@ -94,6 +94,88 @@ def test_rotary_mask_and_state_dict_compatibility():
         dit.set_nan_pixel_mask(torch.zeros(7, 12))
 
 
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
+def test_flash_patch_projection_preserves_fp32_under_amp(dtype):
+    dit = (
+        DiT(
+            height=8,
+            width=12,
+            patch_size=2,
+            in_chans=3,
+            base_out_chans=1,
+            embed_dim=16,
+            depth=1,
+            num_heads=2,
+            attn_kernel=3,
+        )
+        .cuda()
+        .eval()
+    )
+    image = torch.randn(2, 3, 8, 12, device="cuda", dtype=dtype)
+    with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
+        actual, shape = dit.prepare_tokens(image)
+        with torch.autocast("cuda", enabled=False):
+            expected = (
+                torch.nn.functional.conv2d(
+                    image.float(),
+                    dit._patch_emb.proj.weight,
+                    dit._patch_emb.proj.bias,
+                    stride=2,
+                )
+                .to(dtype)
+                .flatten(2)
+                .transpose(1, 2)
+            )
+    assert shape == (4, 6)
+    assert actual.dtype == dtype
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+
+
+def test_flash_legacy_mlp_names_load_without_changing_weights():
+    config = dict(
+        height=8,
+        width=12,
+        patch_size=2,
+        in_chans=3,
+        base_out_chans=1,
+        embed_dim=16,
+        depth=2,
+        num_heads=2,
+        attn_kernel=3,
+    )
+    original = DiT(**config)
+    state = original.state_dict()
+    legacy = {
+        key.replace(".mlp.layers.0.", ".mlp.fwd.0.").replace(
+            ".mlp.layers.2.", ".mlp.fwd.3."
+        ): value.clone()
+        for key, value in state.items()
+    }
+    restored = DiT(**config)
+    restored.load_state_dict(legacy, strict=True)
+    assert restored.state_dict().keys() == state.keys()
+    for key, value in restored.state_dict().items():
+        torch.testing.assert_close(value, state[key], rtol=0, atol=0)
+    legacy["_blocks.0.mlp.layers.0.weight"] = state["_blocks.0.mlp.layers.0.weight"]
+    with pytest.raises(ValueError, match="Duplicate MLP parameter"):
+        restored.load_state_dict(legacy, strict=True)
+
+
+def test_flash_patch_projection_rejects_implicit_padding():
+    with pytest.raises(ValueError, match="divisible by patch_size"):
+        DiT(
+            height=9,
+            width=12,
+            patch_size=2,
+            in_chans=3,
+            base_out_chans=1,
+            embed_dim=16,
+            depth=1,
+            num_heads=2,
+            attn_kernel=3,
+        )
+
+
 @pytest.mark.parametrize("kind", ["goes", "mrms"])
 def test_flash_aligned_budget_and_no_noise_reset(kind):
     experts = {

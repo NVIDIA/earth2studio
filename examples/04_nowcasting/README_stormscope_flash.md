@@ -1,8 +1,10 @@
 # StormScope Flash
 
-StormScope Flash adds GOES (5 NFE) and **MRMS/GLM** (7 NFE) alongside the existing
-StormScope models. It does not change their Heun sampler, checkpoints, default
-model names, GLM preprocessing, or other model families.
+StormScope Flash is a variant of the existing `StormScopeGOES` and
+`StormScopeMRMS` classes: GOES uses five backbone calls and **MRMS/GLM** uses
+seven per forecast step. Both variants use the same coupled forecasting API.
+The baseline retains its Heun sampler, checkpoints, default model names, and
+GLM preprocessing.
 
 ## Install and run
 
@@ -181,36 +183,20 @@ Flash implementation and its matching dependencies are still required.
 Training jobs, case manifests, benchmark reports, checkpoints, and generated
 forecasts are external to the model integration.
 
-## Historical validation record
+## Validation
 
-The initial integration was validated on 1 October 2026 with PyTorch
-2.12.0a0 (NVIDIA 26.04 runtime) and NATTEN 0.21.6:
+Run the baseline and Flash regression tests in the installed branch environment:
 
-- All six selected checkpoints loaded strictly, including architecture and schedule checks.
-- The existing StormScope regressions and Flash tests passed: 74 tests. The
-  external baseline-package download test was excluded.
-- Coupled evaluation-pipeline tests passed: 32 tests, including retained regional
-  histories and unchanged baseline outputs.
-- Direct comparisons with the original OCI-AGA DiT/Flash implementation were
-  bitwise equal in FP32, BF16 and FP16 across all 12 GOES/MRMS trajectory blocks.
-- Both full-domain and regional 18-lead forecasts completed on real observations;
-  FP16 forecasts additionally verified actual network dtype and 90/126 total
-  GOES/MRMS backbone calls.
+```bash
+uv run --no-sync pytest test/models/px/test_stormscope.py \
+  test/models/px/test_stormscope_flash.py -m "not package"
 
-This establishes implementation and execution checks. It does not establish
-equal forecast skill between regional and full-domain inputs or between the
-two GLM preprocessing orders. Case campaigns remain external wrappers.
+# Real checkpoint tests require GPU access and model downloads.
+uv run --no-sync pytest test/models/px/test_stormscope.py \
+  test/models/px/test_stormscope_flash.py -m package --package
+```
 
-The `.mdlus` cleanup was validated on 2 October 2026 with PhysicsNeMo 2.1.1:
-
-- All six converted experts passed strict reload and exact tensor comparison.
-- 106 baseline, Flash, and coupled-evaluation tests passed. Three
-  package-marked pytest cases were excluded; the selected real checkpoints
-  were verified separately by conversion and forecast comparisons.
-- One real-observation case was repeated for 18 ten-minute leads on a
-  1024×1792 full grid and a 376×400 region, in FP16 AMP, both eager and
-  compiled. All channels at every lead matched the previous `.pt` runtime
-  bit-for-bit in all four comparisons.
-- `.mdlus` loading was a few seconds slower than memory-mapped `.pt` loading
-  in this smoke test. The format standardizes packaging; it is not a speed
-  optimization, and it does not eliminate first-use compilation.
+The tests cover the shared model API, Flash schedules, trained normalization
+parameters, regional geometry, and checkpoint loading. Forecast-skill comparisons
+require real observations and matching verification domains; they are separate
+from unit tests and checkpoint serialization checks.
