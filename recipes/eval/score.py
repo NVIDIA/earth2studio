@@ -60,7 +60,7 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging, run_on_rank0_first
-from src.online import finalize_stats, online_enabled
+from src.online import compact_stats_store, finalize_stats, online_enabled
 from src.output import OutputManager
 from src.regions import events_to_attrs, parse_events
 from src.scoring import (
@@ -80,6 +80,7 @@ from src.work import (
     build_work_items,
     clear_scoring_progress,
     distribute_work,
+    filter_online_completed,
     filter_scoring_completed,
 )
 
@@ -101,6 +102,9 @@ def main(cfg: DictConfig) -> None:
     if online_enabled(cfg):
         if dist.rank == 0:
             finalize_stats(cfg)
+            all_times = sorted({item.time for item in build_work_items(cfg)})
+            if not filter_online_completed(all_times, cfg):
+                compact_stats_store(cfg)
         if dist.distributed:
             torch.distributed.barrier()
         logger.success("Scoring finished (online mode: finalized stats.zarr).")
