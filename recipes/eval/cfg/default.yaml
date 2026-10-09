@@ -7,6 +7,7 @@
 
 defaults:
     - model: ucast
+    - data_source: arco_era5
     - _self_
     - optional campaign: null   # e.g. campaign=fcn3_2024_full
 
@@ -36,6 +37,8 @@ start_times:
 #   src.pipelines.diagnostic.DiagnosticPipeline — diagnostic-only (e.g. CorrDiff)
 #   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
 #   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
+#   src.pipelines.seasonal.WindowMeanForecastPipeline
+#       — stores a rollout as window means (weekly, monthly) for S2S archives
 #   src.pipelines.assimilation.AssimilationPipeline
 #       — DA analysis scored against reanalysis (e.g. HealDA)
 #   src.pipelines.assimilation.AssimilationForecastPipeline
@@ -81,17 +84,13 @@ resume: false
 #         architecture: earth2studio.models.dx.PrecipitationAFNO
 
 # ---------------------------------------------------------------------------
-# Data source — provides initial conditions
+# Data source — provides initial conditions (and verification by default)
 # ---------------------------------------------------------------------------
-# `cache: false` disables the per-source on-disk cache
-# (~/.cache/earth2studio).  Predownload already writes its own dedicated
-# zarr under <output.path>/, so leaving the cache on would store every
-# byte twice.  Disable it here unless you have a reason to populate the
-# shared cache (e.g. other recipes will reuse the same data).
-data_source:
-    _target_: earth2studio.data.ARCO_ERA5
-    cache: false
-    verbose: false
+# Config group under cfg/data_source/ (see the defaults list above):
+#   arco_era5       — ARCO ERA5, hourly, 0.25 degree (default)
+#   arco_era5_daily — daily means of ERA5 (for FuXi-S2S)
+# Campaigns swap it with `override /data_source: ...`; an inline
+# `data_source:` block merges over the selected one instead.
 
 # ---------------------------------------------------------------------------
 # Bring-your-own data (optional)

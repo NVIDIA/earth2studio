@@ -391,6 +391,129 @@ class BilinearRegridder(Regridder):
         return torch.nan_to_num(out, nan=self._fill_value)
 
 
+class LinearRegridder(Regridder):
+    """Separable linear interpolation between regular latitude/longitude grids.
+
+    The lightweight counterpart of :class:`BilinearRegridder` for the common
+    case where both grids are regular, described by 1-D latitude and
+    longitude vectors.  Each axis is bracketed with a sorted search, so
+    construction is instant even for a 0.25° global source (which
+    :class:`BilinearRegridder` triangulates point by point), and
+    :meth:`apply` is two gathers and two ``torch.lerp`` calls.  Longitude
+    wraps when the source covers the full circle, so a target column east
+    of the last source column interpolates towards the first.  Latitude
+    never extrapolates: a target row outside the source range raises at
+    construction.  The interpolation is linear, not conservative; when the
+    target points coincide with source points (0.25° onto 1°) it reduces to
+    subsampling.
+
+    Parameters
+    ----------
+    source_lat, source_lon : ArrayLike
+        1-D source grid vectors, in any monotonic order.
+    target_lat, target_lon : ArrayLike
+        1-D target grid vectors.
+    target_dim_names : tuple[str, str]
+        Output spatial dimension names.  Default ``("lat", "lon")``.
+    """
+
+    def __init__(
+        self,
+        source_lat: ArrayLike,
+        source_lon: ArrayLike,
+        target_lat: ArrayLike,
+        target_lon: ArrayLike,
+        *,
+        target_dim_names: tuple[str, str] = ("lat", "lon"),
+    ) -> None:
+        self._target_dim_names = tuple(target_dim_names)
+        if len(self._target_dim_names) != 2:
+            raise ValueError(f"target_dim_names must be a pair, got {target_dim_names}")
+        self._target_lat = np.asarray(target_lat, dtype=np.float64)
+        self._target_lon = np.asarray(target_lon, dtype=np.float64)
+        src_lon = np.asarray(source_lon, dtype=np.float64)
+
+        lat_lo, lat_hi, lat_w = _bracket(source_lat, self._target_lat)
+        lon_lo, lon_hi, lon_w = _bracket(
+            src_lon, self._target_lon, period=360.0 if _is_global(src_lon) else None
+        )
+        self._lat_lo = torch.as_tensor(lat_lo)
+        self._lat_hi = torch.as_tensor(lat_hi)
+        self._lat_w = torch.as_tensor(lat_w, dtype=torch.float32).unsqueeze(-1)
+        self._lon_lo = torch.as_tensor(lon_lo)
+        self._lon_hi = torch.as_tensor(lon_hi)
+        self._lon_w = torch.as_tensor(lon_w, dtype=torch.float32)
+
+    @classmethod
+    def to_resolution(
+        cls,
+        source_lat: ArrayLike,
+        source_lon: ArrayLike,
+        resolution: float,
+    ) -> LinearRegridder | None:
+        """Regridder onto a regular grid with *resolution* degrees of spacing.
+
+        The target grid runs north to south from 90° and east from the
+        source's first meridian (0° or -180°), keeping only the rows and
+        columns the source covers: a 720-row 0.25° grid without the south
+        pole maps onto 180 rows rather than extrapolating a pole row.
+        Returns ``None`` when the source spacing is already *resolution* or
+        coarser, so the caller keeps the native grid.
+        """
+        lat = np.asarray(source_lat, dtype=np.float64)
+        lon = np.asarray(source_lon, dtype=np.float64)
+        if min(_spacing(lat), _spacing(lon)) >= resolution - _TOL:
+            return None
+        target_lat = np.arange(90.0, -90.0 - _TOL, -resolution)
+        target_lat = target_lat[
+            (target_lat <= lat.max() + _TOL) & (target_lat >= lat.min() - _TOL)
+        ]
+        origin = -180.0 if lon.min() < -_TOL else 0.0
+        target_lon = np.arange(origin, origin + 360.0 - _TOL, resolution)
+        if not _is_global(lon):
+            target_lon = target_lon[
+                (target_lon >= lon.min() - _TOL) & (target_lon <= lon.max() + _TOL)
+            ]
+        return cls(lat, lon, target_lat, target_lon)
+
+    def to(self, device: str | torch.device) -> LinearRegridder:
+        """Move the index and weight buffers to *device* and return self."""
+        for name in ("_lat_lo", "_lat_hi", "_lat_w", "_lon_lo", "_lon_hi", "_lon_w"):
+            setattr(self, name, getattr(self, name).to(device))
+        return self
+
+    def target_coords(self) -> CoordSystem:
+        """Return the target latitude/longitude coordinate system."""
+        lat_name, lon_name = self._target_dim_names
+        coords: CoordSystem = OrderedDict()
+        coords[lat_name] = self._target_lat
+        coords[lon_name] = self._target_lon
+        return coords
+
+    def apply(
+        self,
+        x: torch.Tensor,
+        *,
+        spatial_dims: tuple[str, ...],
+    ) -> torch.Tensor:
+        """Interpolate the trailing ``(lat, lon)`` axes of *x* onto the target grid."""
+        if len(spatial_dims) != 2:
+            raise ValueError(
+                "LinearRegridder expects exactly two trailing spatial dims, "
+                f"got {spatial_dims}"
+            )
+        y = _lerp(
+            x.index_select(-2, self._lat_lo),
+            x.index_select(-2, self._lat_hi),
+            self._lat_w.to(dtype=x.dtype),
+        )
+        return _lerp(
+            y.index_select(-1, self._lon_lo),
+            y.index_select(-1, self._lon_hi),
+            self._lon_w.to(dtype=x.dtype),
+        )
+
+
 # ---------------------------------------------------------------------------
 # DataSource adapter
 # ---------------------------------------------------------------------------
@@ -441,3 +564,69 @@ class RegriddedSource:
 # ---------------------------------------------------------------------------
 
 _STRUCTURAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
+_TOL = 1e-6
+
+
+def _spacing(values: np.ndarray) -> float:
+    """Typical spacing of a 1-D grid vector, in its own units."""
+    if values.size < 2:
+        raise ValueError("A grid axis needs at least two points.")
+    return float(np.median(np.abs(np.diff(values))))
+
+
+def _lerp(a: torch.Tensor, b: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+    """Linear interpolation that ignores an end point of weight zero.
+
+    ``torch.lerp`` returns NaN whenever either end point is NaN, even at a
+    weight of exactly 0 or 1.  A target that coincides with a source point
+    must return that point's value, so a NaN neighbour (sea-surface
+    temperature over land) does not spread into a valid cell.
+    """
+    out = torch.lerp(a, b, weight)
+    out = torch.where(weight == 0, a, out)
+    return torch.where(weight == 1, b, out)
+
+
+def _is_global(lon: np.ndarray) -> bool:
+    """Whether a longitude vector covers the full circle."""
+    return bool(np.isclose(np.ptp(lon) + _spacing(lon), 360.0, atol=1e-3))
+
+
+def _bracket(
+    source: ArrayLike, target: np.ndarray, period: float | None = None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Bracket every target coordinate between two source coordinates.
+
+    Returns the source indices below and above each target value and the
+    weight of the upper one, for linear interpolation along one axis.  With
+    *period* set the axis wraps, so targets past the last source point
+    interpolate towards the first.
+
+    Raises
+    ------
+    ValueError
+        If a target lies outside the source range of a non-periodic axis.
+    """
+    src = np.asarray(source, dtype=np.float64)
+    tgt = np.asarray(target, dtype=np.float64)
+    if src.size < 2:
+        raise ValueError("A grid axis needs at least two points.")
+    order = np.argsort(src)
+    grid = src[order]
+    if period is not None:
+        tgt = grid[0] + np.mod(tgt - grid[0], period)
+        grid = np.append(grid, grid[0] + period)
+        order = np.append(order, order[0])
+    if tgt.min() < grid[0] - _TOL or tgt.max() > grid[-1] + _TOL:
+        raise ValueError(
+            f"Target range [{tgt.min():g}, {tgt.max():g}] lies outside the "
+            f"source range [{grid[0]:g}, {grid[-1]:g}]."
+        )
+    hi = np.clip(np.searchsorted(grid, tgt, side="right"), 1, len(grid) - 1)
+    lo = hi - 1
+    weight = np.clip((tgt - grid[lo]) / (grid[hi] - grid[lo]), 0.0, 1.0)
+    # Snap near-coincident targets so a NaN neighbour cannot leak through a
+    # weight of 1e-15 on grids whose coordinates are not exactly representable.
+    weight[weight < _TOL] = 0.0
+    weight[weight > 1.0 - _TOL] = 1.0
+    return order[lo], order[hi], weight
