@@ -554,3 +554,122 @@ class ValidTimeForecastAdapter:
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
         return self(time, variable)
+
+
+class WindowMeanSource:
+    """DataSource wrapper that averages the wrapped source over a trailing window.
+
+    A request for time ``t`` returns the mean of the wrapped source over a
+    window of length ``window``, sampled every ``cadence``.  ``align`` sets
+    where the window sits:
+
+    * ``"end"`` (the default) averages ``t - window + cadence, ..., t``.  A
+      30-day window at a 6-hour cadence covers 120 samples.  For models that
+      output instantaneous states, these are the windows that
+      :class:`~src.pipelines.seasonal.WindowMeanForecastPipeline` averages
+      and labels by their last lead time.
+    * ``"start"`` averages ``t, ..., t + window - cadence``.  A 24-hour
+      window at a 1-hour cadence turns an hourly source into UTC
+      calendar-day means labelled 00:00, the input that daily-mean models
+      such as FuXi-S2S expect.  To verify such a model, wrap this daily
+      source in an ``"end"``-aligned one with a 24-hour cadence, so each
+      window averages the same calendar days as the forecast.
+
+    Because the mean keeps the requested time as its label, ``fetch_data``
+    and the predownload store treat it like any other field.  Wrapped
+    around a climatology, the source yields the window-mean climatology
+    that anomaly correlation needs.  NaN propagates: a NaN in any sample
+    makes the window mean NaN at that point instead of biasing it.
+
+    Parameters
+    ----------
+    source : DataSource
+        Wrapped source.  Must speak the ``(time, variable)`` protocol.
+    window : str | timedelta | np.timedelta64
+        Window length, parsed via ``pd.Timedelta`` (``"30D"``, ``"720h"``).
+    cadence : str | timedelta | np.timedelta64
+        Sampling interval inside the window.  Must divide ``window``.
+    align : str
+        ``"end"`` for a window ending at the requested time, ``"start"``
+        for one beginning there.
+    chunk_size : int
+        Samples fetched per call to the wrapped source, which bounds the
+        memory a long window on a fine grid needs.
+    """
+
+    def __init__(
+        self,
+        source: Any,
+        window: Any,
+        cadence: Any,
+        align: str = "end",
+        chunk_size: int = 8,
+    ) -> None:
+        if align not in ("start", "end"):
+            raise ValueError(f"align must be 'start' or 'end', got {align!r}")
+        self._source = source
+        window_ns = pd.Timedelta(window).to_timedelta64().astype("timedelta64[ns]")
+        cadence_ns = pd.Timedelta(cadence).to_timedelta64().astype("timedelta64[ns]")
+        if int(cadence_ns.astype("int64")) <= 0:
+            raise ValueError(f"cadence must be positive, got {cadence!r}")
+        count, remainder = divmod(
+            int(window_ns.astype("int64")), int(cadence_ns.astype("int64"))
+        )
+        if count < 1 or remainder:
+            raise ValueError(
+                f"window {window!r} must be a positive multiple of cadence {cadence!r}"
+            )
+        # Sample offsets from the requested time, oldest first.
+        steps = np.arange(count) * cadence_ns
+        if align == "end":
+            steps = steps + cadence_ns - window_ns
+        self._offsets = steps.astype("timedelta64[ns]")
+        self._chunk_size = max(1, int(chunk_size))
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Return the window mean for each requested time.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Window labels: the window end, or its start with ``align="start"``.
+        variable : str | list[str] | VariableArray
+            Variable names to average.
+
+        Returns
+        -------
+        xr.DataArray
+            Means with dimensions ``[time, variable, <spatial...>]``.
+        """
+        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+
+        pieces: list[xr.DataArray] = []
+        for t in times:
+            samples = t + self._offsets
+            total: xr.DataArray | None = None
+            for start in range(0, len(samples), self._chunk_size):
+                chunk = samples[start : start + self._chunk_size]
+                da = self._source(chunk, variable)
+                if da.sizes["time"] != len(chunk):
+                    raise ValueError(
+                        f"WindowMeanSource: the wrapped source returned "
+                        f"{da.sizes['time']} of {len(chunk)} requested times for "
+                        f"the window labelled {t}."
+                    )
+                part = da.sum("time", skipna=False)
+                total = part if total is None else total + part
+            assert total is not None  # noqa: S101 - the window has >= 1 sample
+            pieces.append((total / len(samples)).expand_dims(time=[t]))
+        return pieces[0] if len(pieces) == 1 else xr.concat(pieces, dim="time")
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async version of :meth:`__call__`."""
+        return self(time, variable)
