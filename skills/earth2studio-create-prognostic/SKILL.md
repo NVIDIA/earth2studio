@@ -49,7 +49,11 @@ helpers.
    arrays as a positional-or-keyword parameter. `initialize` computes the first
    forecast. `step` consumes previous outputs plus new forcing and serializable
    state, returning the next `(y, state)` without modifying its inputs. Use
-   `_default_call` and `_default_create_iterator` for thin wrapper delegates.
+   `return self._default_call(...)` and
+   `yield from self._default_create_iterator(...)` for thin wrapper delegates.
+   The mixin has no execution stubs: implement all four methods rather than
+   calling `super().__call__`, `super().initialize`, `super().step` or
+   `super().create_iterator`. No mixin override suppressions are needed.
    Each iterator yield is a complete forecast, including all core-produced leads.
 6. **Handle weights and RNG.** Resolve immutable `Package` assets, load on CPU,
    call `eval()`, register buffers and guard optional backend dependencies.

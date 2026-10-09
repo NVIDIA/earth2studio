@@ -46,7 +46,8 @@ saved one. Test serialization of both fields and state; do not assume an existin
 checkpoint utility already supports every payload type.
 
 The mixin provides no-forcing/no-source defaults, `stochastic=False`, hooks and
-private helpers. It defines no public execution methods. Explicit wrappers
+private helpers. It defines no public execution methods or abstract stubs; do not
+delegate execution to `super()`. Explicit wrappers
 may delegate `__call__` to `_default_call(x, ...)` and `create_iterator` to
 `_default_create_iterator(x, ...)`; implement `initialize` and `step` yourself.
 Direct implementations without the mixin must obey the same behavior.
@@ -120,7 +121,7 @@ def __call__(self, atmosphere, ocean, terrain, radiation):
     return self._default_call(atmosphere, ocean, terrain, radiation)
 
 def create_iterator(self, atmosphere, ocean, terrain, radiation):
-    return self._default_create_iterator(atmosphere, ocean, terrain, radiation)
+    yield from self._default_create_iterator(atmosphere, ocean, terrain, radiation)
 
 # Implement initialize(self, atmosphere, ocean, terrain, radiation), retaining
 # terrain in state, and step(self, atmosphere, ocean, radiation, state).
