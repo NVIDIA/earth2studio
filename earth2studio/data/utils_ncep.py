@@ -97,6 +97,12 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
     [
         E2STUDIO_SCHEMA.field("time"),
         pa.field(
+            "report_time",
+            pa.timestamp("ns"),
+            nullable=True,
+            metadata={"description": "PrepBUFR report-header time (DHR)"},
+        ),
+        pa.field(
             "pres",
             pa.float32(),
             nullable=True,
@@ -139,6 +145,18 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
         E2STUDIO_SCHEMA.field("class"),
         E2STUDIO_SCHEMA.field("lat"),
         E2STUDIO_SCHEMA.field("lon"),
+        pa.field(
+            "report_lat",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "PrepBUFR report-header latitude (YOB)"},
+        ),
+        pa.field(
+            "report_lon",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "PrepBUFR report-header longitude (XOB)"},
+        ),
         E2STUDIO_SCHEMA.field("station"),
         E2STUDIO_SCHEMA.field("station_elev"),
         pa.field(
@@ -179,6 +197,17 @@ NCEP_CONVENTIONAL_PUBLIC_SCHEMA = pa.schema(
         ),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
+        pa.field(
+            "cycle_time",
+            pa.timestamp("ns"),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Cycle of the NCEP file the row was decoded from; an observation "
+                    "at a file's window edge can appear in two files"
+                )
+            },
+        ),
     ]
 )
 
@@ -217,6 +246,8 @@ _NULL_FLOAT_DTYPES: dict[str, type[np.floating[Any]]] = {
     "geoid_undulation": np.float64,
     "lat": np.float32,
     "lon": np.float32,
+    "report_lat": np.float32,
+    "report_lon": np.float32,
     "observation": np.float32,
 }
 
@@ -302,16 +333,14 @@ def _decode_prepbufr_message(
     dt_max: datetime,
     dhr_scale: int,
     hrdr_scale: int,
+    original_event: bool = False,
 ) -> list[dict[str, Any]]:
-    try:
-        message = decoder.process(message_bytes)
-    except Exception:
-        return []
+    message = decoder.process(message_bytes)
     if not message.n_subsets.value:
         return []
     base_time = _message_base_time(message)
     if base_time is None:
-        return []
+        raise ValueError("PrepBUFR message has no reference time")
 
     template_data = message.template_data.value
     rows: list[dict[str, Any]] = []
@@ -330,6 +359,7 @@ def _decode_prepbufr_message(
                 dt_max,
                 dhr_scale,
                 hrdr_scale,
+                original_event,
             )
         )
     return rows
@@ -345,8 +375,14 @@ def _extract_prepbufr_subset(
     dt_max: datetime,
     dhr_scale: int = 5,
     hrdr_scale: int = 5,
+    original_event: bool = False,
 ) -> list[dict[str, Any]]:
-    """Extract first-event observations from CAT-delimited physical levels."""
+    """Extract one event per observation from CAT-delimited physical levels.
+
+    PrepBUFR stacks events newest first: the top is the latest (quality-controlled,
+    e.g. virtual temperature), the bottom the original report (program code 1).
+    ``original_event`` selects the bottom instead of the top.
+    """
     header: dict[str, Any] = {
         "sid": "",
         "xob": None,
@@ -373,6 +409,13 @@ def _extract_prepbufr_subset(
             break
 
     header_time = _time_from_offset(base_time, header["dhr"], dhr_scale) or base_time
+    if header_time < dt_min or header_time > dt_max:
+        return []
+
+    report_lat = np.float32(header["yob"]) if header["yob"] is not None else None
+    report_lon = (
+        np.float32(float(header["xob"]) % 360.0) if header["xob"] is not None else None
+    )
     needed_ids: dict[str, int] = {}
     need_wind = False
     for variable, key in var_keys:
@@ -383,12 +426,11 @@ def _extract_prepbufr_subset(
 
     base_row: dict[str, Any] = {
         "time": header_time,
-        "lat": np.float32(header["yob"]) if header["yob"] is not None else None,
-        "lon": (
-            np.float32(float(header["xob"]) % 360.0)
-            if header["xob"] is not None
-            else None
-        ),
+        "report_time": header_time,
+        "lat": report_lat,
+        "lon": report_lon,
+        "report_lat": report_lat,
+        "report_lon": report_lon,
         "pres": None,
         "elev": None,
         "type": np.uint16(int(header["typ"])) if header["typ"] is not None else None,
@@ -402,8 +444,7 @@ def _extract_prepbufr_subset(
     }
 
     # PrepBUFR repeats CAT blocks; each CAT starts a new physical level. Within a
-    # level keep only the first occurrence of each descriptor (the observation);
-    # later repeats are event-stack history, not new observations.
+    # level a repeated descriptor is an older event of the same observation.
     rows: list[dict[str, Any]] = []
     level: dict[int, Any] = {}
     in_level = False
@@ -416,8 +457,6 @@ def _extract_prepbufr_subset(
                     level,
                     base_row,
                     base_time,
-                    dt_min,
-                    dt_max,
                     hrdr_scale,
                     needed_ids,
                     need_wind,
@@ -426,15 +465,16 @@ def _extract_prepbufr_subset(
             level = {OBS_CAT: value}
             in_level = True
         elif in_level and descriptor_id in OBSERVATION_DESCR_IDS:
-            level.setdefault(descriptor_id, value)
+            if original_event:
+                level[descriptor_id] = value
+            else:
+                level.setdefault(descriptor_id, value)
     if in_level:
         _emit_prepbufr_level(
             rows,
             level,
             base_row,
             base_time,
-            dt_min,
-            dt_max,
             hrdr_scale,
             needed_ids,
             need_wind,
@@ -448,8 +488,6 @@ def _emit_prepbufr_level(
     level: dict[int, Any],
     base_row: dict[str, Any],
     base_time: datetime,
-    dt_min: datetime,
-    dt_max: datetime,
     hrdr_scale: int,
     needed_ids: dict[str, int],
     need_wind: bool,
@@ -459,9 +497,6 @@ def _emit_prepbufr_level(
     level_time = _time_from_offset(base_time, level.get(OBS_HRDR), hrdr_scale)
     if level_time is not None:
         common["time"] = level_time
-    if common["time"] < dt_min or common["time"] > dt_max:
-        return
-
     level_lat = level.get(OBS_YDR)
     level_lon = level.get(OBS_XDR)
     if level_lat is not None:
@@ -529,10 +564,7 @@ def _decode_gpsro_message(
     dt_min: datetime,
     dt_max: datetime,
 ) -> list[dict[str, Any]]:
-    try:
-        message = decoder.process(message_bytes)
-    except Exception:
-        return []
+    message = decoder.process(message_bytes)
     if not message.n_subsets.value:
         return []
     template_data = message.template_data.value
@@ -864,6 +896,7 @@ def _prepbufr_worker(
     dt_max: datetime,
     dhr_scale: int,
     hrdr_scale: int,
+    original_event: bool,
 ) -> list[dict[str, Any]]:
     with _silence_bufr_noise():
         return _decode_prepbufr_message(
@@ -875,6 +908,7 @@ def _prepbufr_worker(
             dt_max,
             dhr_scale,
             hrdr_scale,
+            original_event,
         )
 
 
@@ -897,6 +931,7 @@ def decode_prepbufr(
     dt_max: datetime,
     decode_workers: int = 8,
     exclude_message_types: Collection[str] = (),
+    original_event: bool = False,
 ) -> pd.DataFrame:
     """Decode a merged NCEP PrepBUFR file into a DataFrame.
 
@@ -907,12 +942,16 @@ def decode_prepbufr(
     plan : Mapping
         Variable decode plan: ``{variable: (mnemonic_key, modifier)}``.
     dt_min, dt_max : datetime
-        Time window for observation filtering.
+        Observation time window. Reports are kept or dropped whole by header time,
+        which is every observation's time except drifting sounding levels.
     decode_workers : int
         Number of parallel decode processes (1 disables multiprocessing).
     exclude_message_types : Collection[str]
         PrepBUFR message families (e.g. ``"SATWND"``) whose messages are skipped
         without decoding.
+    original_event : bool
+        Emit each observation's original report (event program code 1) instead of
+        its latest, quality-controlled event.
     """
     decode_workers = max(1, decode_workers)
     var_keys = [(variable, key) for variable, (key, _) in plan.items()]
@@ -950,14 +989,12 @@ def decode_prepbufr(
                     dt_max,
                     dhr_scale,
                     hrdr_scale,
+                    original_event,
                 )
                 for message_bytes, obs_class in work_items
             ]
             for future in futures:
-                try:
-                    rows.extend(future.result())
-                except Exception as error:
-                    logger.debug(f"PrepBUFR worker failed: {error}")
+                rows.extend(future.result())
     else:
         decoder = _create_decoder(table_b, table_d)
         for message_bytes, obs_class in work_items:
@@ -971,6 +1008,7 @@ def decode_prepbufr(
                     dt_max,
                     dhr_scale,
                     hrdr_scale,
+                    original_event,
                 )
             )
     logger.debug(
@@ -1030,10 +1068,7 @@ def decode_gpsro(
                 for message_bytes, _data_category in messages
             ]
             for future in futures:
-                try:
-                    rows.extend(future.result())
-                except Exception as error:
-                    logger.debug(f"GPSRO worker failed: {error}")
+                rows.extend(future.result())
     else:
         decoder = _create_decoder(table_b, table_d)
         for message_bytes, _data_category in messages:
@@ -1276,8 +1311,8 @@ def compile_dataframe(
         Decodes one local file given ``(path, task)``.
     on_error : Callable[[str, int, int, Exception], None] | None
         Optional error callback invoked as ``on_error(uri, idx, n_tasks, exc)``
-        when ``decode_task`` raises.  If ``None`` the error is logged and the
-        task is skipped.
+        when ``decode_task`` raises, after which the task is skipped. If ``None``
+        the error propagates.
     """
     frames: list[pd.DataFrame] = []
     n_tasks = len(tasks)
@@ -1293,9 +1328,12 @@ def compile_dataframe(
         t0 = time.perf_counter()
         try:
             df = decode_task(path, task)
-        except Exception as exc:  # pragma: no cover - defensive
-            if on_error is not None:
-                on_error(uri, idx, n_tasks, exc)
+        except Exception as exc:
+            # A skipped file is indistinguishable from missing observations, so files
+            # are skipped only when the caller passes on_error.
+            if on_error is None:
+                raise
+            on_error(uri, idx, n_tasks, exc)
             logger.error(f"Failed to decode {path}: {exc}")
             continue
         elapsed = time.perf_counter() - t0
@@ -1309,6 +1347,7 @@ def compile_dataframe(
             f"[{source_id}] decode {idx}/{n_tasks} done : "
             f"{short_uri} ({len(df):,} rows) in {elapsed:.1f}s"
         )
+        df["cycle_time"] = pd.Timestamp(task.datetime_file)
         df.attrs["source"] = source_id
         frames.append(df)
 
@@ -1371,6 +1410,10 @@ _CHANNEL_FREQUENCY = 2153
 _ANTENNA_TEMPERATURE = 12066
 _BRIGHTNESS_TEMPERATURE = 12163
 _CHANNEL_QUALITY = 33081
+_IASI_SYSTEM_QUALITY = 33060  # QGFQ
+_CRIS_SCAN_QUALITY = 33075  # NSQF
+_GRANULE_QUALITY = 33079
+_SCAN_QUALITY = 33080
 
 _SCALAR_DESCRIPTORS = {
     _SAID,
@@ -1391,6 +1434,10 @@ _SCALAR_DESCRIPTORS = {
     _SURFACE_ELEVATION,
     _BEARING_OR_AZIMUTH,
     _SOLAR_AZIMUTH,
+    _IASI_SYSTEM_QUALITY,
+    _CRIS_SCAN_QUALITY,
+    _GRANULE_QUALITY,
+    _SCAN_QUALITY,
 }
 
 _CHANNEL_DESCRIPTORS = {
@@ -1441,6 +1488,17 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
             metadata={"description": "Encoded one-based field-of-view number"},
         ),
         pa.field("scan_line", pa.uint32(), nullable=True),
+        pa.field(
+            "detector",
+            pa.uint16(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "CrIS detector within the field of regard (FOVN, 1-9), which "
+                    "with scan_position fixes the look angle; null for other sensors"
+                )
+            },
+        ),
         E2STUDIO_SCHEMA.field("sensor_index"),
         E2STUDIO_SCHEMA.field("wavenumber"),
         E2STUDIO_SCHEMA.field("solza"),
@@ -1462,9 +1520,53 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
                 )
             },
         ),
+        pa.field(
+            "scan_quality",
+            pa.uint32(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Scan-level quality flags as encoded: ATMS 0-33-080, "
+                    "CrIS NSQF 0-33-075; null for other sensors"
+                )
+            },
+        ),
+        pa.field(
+            "granule_quality",
+            pa.uint16(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Granule-level quality flags as encoded (ATMS 0-33-079); "
+                    "null for other sensors"
+                )
+            },
+        ),
+        pa.field(
+            "footprint_quality",
+            pa.uint8(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "IASI system quality flag QGFQ (0-33-060) as encoded; "
+                    "null for other sensors"
+                )
+            },
+        ),
         E2STUDIO_SCHEMA.field("satellite"),
         E2STUDIO_SCHEMA.field("observation"),
         E2STUDIO_SCHEMA.field("variable"),
+        pa.field(
+            "cycle_time",
+            pa.timestamp("ns"),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Cycle of the NCEP file the row was decoded from; an observation "
+                    "at a file's window edge can appear in two files"
+                )
+            },
+        ),
     ]
 )
 
@@ -1484,6 +1586,16 @@ def _as_optional_int(value: Any) -> int | None:
     if not np.isfinite(number):
         return None
     return int(round(number))
+
+
+def _footprint_quality_values(scalars: Mapping[int, Any]) -> dict[str, int | None]:
+    return {
+        "scan_quality": _as_optional_int(
+            scalars.get(_SCAN_QUALITY, scalars.get(_CRIS_SCAN_QUALITY))
+        ),
+        "granule_quality": _as_optional_int(scalars.get(_GRANULE_QUALITY)),
+        "footprint_quality": _as_optional_int(scalars.get(_IASI_SYSTEM_QUALITY)),
+    }
 
 
 def _nominal_microwave_scan_angle(sensor: str, scan_position: int) -> float:
@@ -1596,6 +1708,7 @@ def _decode_microwave_subset(
         "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
         "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
         "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
+        **_footprint_quality_values(scalars),
         "satellite": satellite,
     }
 
@@ -1610,9 +1723,8 @@ def _decode_microwave_subset(
             "quality": _as_optional_int(channel.get(_CHANNEL_QUALITY)),
         }
         for variable, source_descriptor in variable_fields:
+            # A missing value stays a NaN row: every decoded footprint appears.
             observation = _as_float(channel.get(source_descriptor))
-            if not np.isfinite(observation):
-                continue
             rows.append(
                 {
                     **scalar_values,
@@ -1797,9 +1909,8 @@ _IR_OBS_DESCRIPTOR: dict[str, int] = {
 
 _IR_QUALITY_DESCRIPTOR: dict[str, int] = {
     "airs": _ACQF,
-    # mtiasi carries no per-channel flag; the footprint-level QGFQ/QGQI/QGQIL/
-    # QGQIR/QGQIS scalars (0-33-060..064) exist but do not fit the per-channel
-    # `quality` column.
+    # mtiasi carries no per-channel flag; its footprint-level QGFQ (0-33-060)
+    # is the `footprint_quality` column.
     "iasi": 0,
     # CrIS quality is handled separately: NFQF (0-33-077) and NCQF (0-33-076)
     # are per-band (×3) and decoded in _decode_ir_subset outside this table.
@@ -1982,10 +2093,14 @@ def _decode_ir_subset(
         "scan_angle": np.nan,  # IR scan geometry is sensor-specific; omitted here
         "scan_position": scan_position,
         "scan_line": _as_optional_int(scalars.get(_SCAN_LINE)),
+        "detector": (
+            _as_optional_int(scalars.get(_FOV_NUMBER)) if sensor == "cris" else None
+        ),
         "solza": _as_float(scalars.get(_SOLAR_ZENITH)),
         "solaza": _as_float(scalars.get(_SOLAR_AZIMUTH)),
         "satellite_za": _as_float(scalars.get(_SATELLITE_ZENITH)),
         "satellite_aza": _as_float(scalars.get(_BEARING_OR_AZIMUTH)),
+        **_footprint_quality_values(scalars),
         "satellite": satellite,
     }
 
@@ -2007,8 +2122,6 @@ def _decode_ir_subset(
         [_as_float(channels[c].get(obs_descriptor)) for c in ch_kept],
         dtype=np.float64,
     )
-    keep = np.isfinite(obs)
-
     # Convert to brightness temperature. The output wavenumber comes from
     # the instrument grids for IASI/CrIS (also used for the Planck
     # inversion); AIRS has no formulaic grid, so its wavenumber is read
@@ -2025,30 +2138,29 @@ def _decode_ir_subset(
     elif sensor == "iasi":
         chsf_list = [_iasi_chsf(ch) for ch in ch_kept]
         has_chsf = np.array([c is not None for c in chsf_list], dtype=bool)
-        iasi_skipped_no_chsf = int(np.count_nonzero(keep & ~has_chsf))
-        if iasi_skipped_no_chsf:
+        no_chsf = int(np.count_nonzero(np.isfinite(obs) & ~has_chsf))
+        if no_chsf:
             # Distinguishes a product with a narrower CHSF band table than
             # expected from a product with no data
             logger.debug(
-                f"IASI footprint skipped {iasi_skipped_no_chsf} channel(s) "
-                f"outside every CHSF band"
+                f"IASI footprint: {no_chsf} channel(s) outside every CHSF band"
             )
-        keep &= has_chsf
         chsf_arr = np.array(
             [c if c is not None else 0 for c in chsf_list], dtype=np.float64
         )
         wn = np.asarray(wavenumber_cm_inverse("iasi", ch_kept), dtype=np.float64)
-        bt = radiance_to_bt(iasi_radiance_mw(obs, chsf_arr), wn)
+        bt = np.where(
+            has_chsf, radiance_to_bt(iasi_radiance_mw(obs, chsf_arr), wn), np.nan
+        )
     elif sensor == "cris":
         wn = np.asarray(wavenumber_cm_inverse("cris", ch_kept), dtype=np.float64)
         bt = radiance_to_bt(cris_radiance_mw(obs), wn)
     else:
         return []
 
-    with np.errstate(invalid="ignore"):
-        keep &= np.isfinite(bt)
-    if not keep.any():
-        return []
+    # Every channel is emitted, so every decoded footprint appears; a missing or
+    # unconvertible value is a NaN observation.
+    bt = np.where(np.isfinite(bt), bt, np.nan)
 
     # Per-channel quality resolution
     quality_list: list[int | None]
@@ -2079,8 +2191,6 @@ def _decode_ir_subset(
 
     rows: list[dict[str, Any]] = []
     for i, channel_number in enumerate(ch_kept):
-        if not keep[i]:
-            continue
         rows.append(
             {
                 **scalar_values,
@@ -2730,9 +2840,9 @@ def decode_satwnd(
         f"messages in {time.perf_counter() - started:.1f}s"
     )
     if failures:
-        logger.warning(
-            f"{path}: skipped {failures} of {len(message_bytes)} undecodable "
-            "SATWND messages"
+        raise ValueError(
+            f"{path}: {failures} of {len(message_bytes)} SATWND messages failed to "
+            "decode"
         )
     if not columns["time"]:
         return empty_dataframe(NCEP_SATWND_PUBLIC_SCHEMA)
