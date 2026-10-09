@@ -945,7 +945,8 @@ def test_aifs_conformance(backend):
     # P14 is reported as an informational skip rather than evaluated; that is
     # expected and not a contract violation.
     assert check_prognostic_contract(p) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

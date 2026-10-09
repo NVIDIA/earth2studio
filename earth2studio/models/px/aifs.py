@@ -99,7 +99,10 @@ def _aifs_forward(
         state is not None
         and y is not None
         and y.variable.equals(state["published"].variable)
-        and all(y.coords[d].equals(state["published"].coords[d]) for d in y.dims)
+        and all(
+            y.coords[d].variable.equals(state["published"].coords[d].variable)
+            for d in y.dims
+        )
     )
     if unchanged and state is not None:
         native = model._update_input(state["native"].clone(), coords)
