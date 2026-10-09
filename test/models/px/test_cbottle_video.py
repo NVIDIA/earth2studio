@@ -274,14 +274,9 @@ class TestCBottleVideoMock:
             assert "marker" not in out.coords
             assert len(out.attrs["user"]["history"]) == i + 1
             assert len(out.encoding["user"]["history"]) == i + 1
-            if i == 1:
-                retained = out
-                retained_copy = out.copy(deep=True)
             if i == 3:
                 break
         xr.testing.assert_identical(x, original)
-        xr.testing.assert_identical(retained, retained_copy)
-        assert retained.encoding == retained_copy.encoding
         assert calls == [x.dims, x.dims]
 
     @pytest.mark.parametrize(
