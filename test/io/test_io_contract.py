@@ -29,7 +29,7 @@ import torch
 import xarray as xr
 
 from earth2studio.grids import CurvilinearGrid, LatLonGrid, infer_grid
-from earth2studio.io import IOBackend, XarrayBackend
+from earth2studio.io import AsyncZarrBackend, IOBackend, XarrayBackend
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -41,6 +41,7 @@ from earth2studio.utils.cupy import from_torch
 
 BACKENDS: dict[str, tuple[Callable[[], IOBackend], Callable[[IOBackend], xr.Dataset]]]
 BACKENDS = {
+    "async_zarr": (lambda: AsyncZarrBackend(None, {"time": TIMES, "lead_time": LEADS}, store="memory:///"), lambda io: xr.open_zarr(io.store, consolidated=False)),  # type: ignore[attr-defined] # noqa: E501
     "xarray": (XarrayBackend, lambda io: io.root),  # type: ignore[attr-defined]
 }
 
