@@ -91,7 +91,7 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import DataSource
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils.coords import CoordSystem, coord_array
 
 from .distributed import run_on_rank0_first
 from .output import OutputManager
@@ -2064,11 +2064,9 @@ def add_stats_arrays(
 ) -> None:
     """Create the ``stats.zarr`` data arrays, skipping any that exist.
 
-    Deliberately does not go through ``ZarrBackend.add_array``: that helper
-    defaults new arrays to ``float32``, which would silently discard the
-    float64 accumulation the reductions are built around.  The coordinate
-    arrays themselves are already created by
-    :meth:`OutputManager.validate_output_store`.
+    Each group is declared from a float64 template, so the reductions keep the
+    float64 accumulation they are built around rather than the float32 a
+    template would otherwise default to.
 
     Safe to call on every rank via ``run_on_rank0_first`` — rank 0 creates,
     later ranks find the arrays present and no-op.
@@ -2096,19 +2094,11 @@ def add_stats_arrays(
             )
         io.root.attrs["regions"] = list(region_names)
     for coords, names in array_groups:
-        shape = [len(io.coords[dim]) for dim in coords]
-        chunks = [io.chunks.get(dim, len(io.coords[dim])) for dim in coords]
         for name in names:
             if name in io:
                 continue
-            io.root.create_array(
-                name,
-                shape=shape,
-                chunks=chunks,
-                dtype="float64",
-                dimension_names=list(coords),
-                fill_value=float("nan"),
-                compressors=io.zarr_codecs,
+            io.add_array(
+                coord_array(tuple(coords), dict(coords), dtype=np.float64, name=name)
             )
 
 

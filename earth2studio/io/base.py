@@ -14,12 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
-import torch
 import xarray as xr
-
-from earth2studio.utils.type import CoordSystem
 
 
 # --8<-- [start:io-backend-interface]
@@ -63,26 +60,3 @@ class IOBackend(Protocol):
 
 
 # --8<-- [end:io-backend-interface]
-
-
-@runtime_checkable
-class _LegacyIOBackend(Protocol):
-    """Tensor and coordinate-dictionary IO interface of unmigrated backends.
-
-    Temporary: removed once every backend implements :class:`IOBackend`.
-    """
-
-    def add_array(
-        self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
-    ) -> None:
-        """Add arrays with the given coordinates."""
-        pass
-
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """Write tensors to the named arrays."""
-        pass
