@@ -179,15 +179,24 @@ with checkpoint as ckpt:
     model = FCN.load_model(model_package)
     domain_coords = model_domain_coords(model)
     io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
-    io.add_array(deterministic_template(model, time, final_nsteps, output_variables))
+    template = deterministic_template(model, time, final_nsteps, output_variables)
+    io.add_array(template)
     data = Random(domain_coords=domain_coords)
+    # A store's extent is fixed when its arrays are created, so this shorter first
+    # attempt declares the full roll out's lead times and writes a subset of them.
+    restart_coords = OrderedDict(
+        {
+            "variable": output_variables,
+            "lead_time": template.coords["lead_time"].values,
+        }
+    )
     run.deterministic(
         time=time,
         nsteps=first_attempt_nsteps,
         prognostic=model,
         data=data,
         io=io,
-        output_coords=OrderedDict({"variable": output_variables}),
+        output_coords=restart_coords,
         device=compute_device,
         verbose=False,
         checkpoint=ckpt,
@@ -230,7 +239,7 @@ with checkpoint.select(-1) as ckpt:
         prognostic=model,
         data=data,
         io=io,
-        output_coords=OrderedDict({"variable": output_variables}),
+        output_coords=restart_coords,
         device=compute_device,
         verbose=False,
         checkpoint=ckpt,

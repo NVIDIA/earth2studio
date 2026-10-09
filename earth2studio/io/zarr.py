@@ -385,7 +385,10 @@ class ZarrBackend:
                 continue
             array = self.root[name]
             arrays[name] = dict(zip(self._dims(array), array.shape))
-        return arrays, dict(self.coords)
+        coords: dict[Hashable, np.ndarray] = {
+            dim: values for dim, values in self.coords.items()
+        }
+        return arrays, coords
 
     def _coordinate_variables(self) -> dict[Hashable, xr.Variable]:
         """Stored coordinates, with their dimensions and attributes."""

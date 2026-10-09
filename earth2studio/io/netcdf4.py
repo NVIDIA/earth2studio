@@ -119,14 +119,12 @@ class NetCDF4Backend:
             if name in self.root.variables:
                 stored = tuple(self.root[name].dimensions)
                 if stored != dims:
-                    raise ValueError(
-                        f"Array '{name}' exists with dimensions {stored}"
-                    )
+                    raise ValueError(f"Array '{name}' exists with dimensions {stored}")
 
         for dim, size in zip(plan.dims, plan.shape, strict=True):
             self._create_dimension(dim, size)
-        for name, variable in plan.coords.items():
-            self._create_coord(name, variable)
+        for coord_name, coord_variable in plan.coords.items():
+            self._create_coord(coord_name, coord_variable)
 
         auxiliary = " ".join(
             str(name)
@@ -158,9 +156,9 @@ class NetCDF4Backend:
         self._check_open()
         for name, indexers, field in plan_write(x, *self._layout()):
             dims = tuple(self.root[name].dimensions)
-            self.root[name][tuple(indexers[dim] for dim in dims)] = (
-                field.e2s.as_numpy().values
-            )
+            self.root[name][
+                tuple(indexers[dim] for dim in dims)
+            ] = field.e2s.as_numpy().values
         self.root.sync()
 
     def read(

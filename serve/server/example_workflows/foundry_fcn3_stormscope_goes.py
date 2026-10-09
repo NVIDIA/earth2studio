@@ -426,17 +426,13 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             coords_x["lead_time"] = coords_x["lead_time"] - np.timedelta64(
                 model_gap, "h"
             )
+            # prep_input owns the conditioning layout, so label the field with the
+            # coordinates it returned rather than assuming the model's own grid dims.
             field = from_torch(
                 tensor,
                 coord_array(
-                    ("time", "lead_time", "variable", "y", "x"),
-                    {
-                        "time": coords_x["time"],
-                        "lead_time": coords_x["lead_time"],
-                        "variable": coords_x["variable"],
-                        "y": coords_x["y"],
-                        "x": coords_x["x"],
-                    },
+                    tuple(coords_x),
+                    dict(coords_x),
                     dtype=coords_in.dtype,
                 ),
             )
