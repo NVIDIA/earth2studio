@@ -102,16 +102,34 @@ pt = Gaussian()
 
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 from tqdm import tqdm
 
-from earth2studio.utils.coords import split_coords
+from earth2studio.io.utils import output_template
 from earth2studio.utils.time import to_time_array
 
 times = [datetime(2024, 1, 1)]
 nsteps = 20  # Assuming 6-hour time steps
+variables_to_save = np.array(["t2m", "tcwv"])
+
+
+def rollout_lead_times(prognostic: PrognosticModel, nsteps: int) -> np.ndarray:
+    """Lead times of a complete roll out, including the initial condition
+
+    A model's output signature declares the lead times of a single forecast step, so
+    the lead times of the full roll out are those steps stitched end to end behind
+    the initial condition.
+    """
+    leads = prognostic.output_coords(prognostic.input_coords()).coords["lead_time"]
+    leads = leads.values
+    return np.concatenate(
+        [
+            np.zeros(1, dtype=leads.dtype),
+            *(leads + leads[-1] * i for i in range(nsteps)),
+        ]
+    )
 
 
 def christmas_five_day_ensemble(
@@ -128,7 +146,7 @@ def christmas_five_day_ensemble(
     # ==========================================
     # Fetch Initialization Data
     prognostic_ic = prognostic.input_coords()
-    from earth2studio.run import _map_field, _output_dimensions
+    from earth2studio.run import _map_field
     from earth2studio.utils.cupy import from_torch
 
     times = to_time_array(times)
@@ -142,12 +160,19 @@ def christmas_five_day_ensemble(
     )
     # ==========================================
     # ==========================================
-    # Set up IO backend by pre-allocating arrays (not needed for AsyncZarrBackend)
-    total_coords = _output_dimensions(prognostic, times, nsteps)
-    total_coords = {"ensemble": np.arange(nensemble)} | total_coords
-
-    variables_to_save = total_coords.pop("variable")
-    io.add_array(total_coords, variables_to_save)
+    # Set up IO backend by pre-allocating arrays from a concrete output template.
+    # `output_template` replaces the dynamic `batch` dimension of the model's output
+    # signature with the ensemble and time dimensions of this pipeline, extends the
+    # lead times over the whole roll out and narrows the variables to the saved ones.
+    template = output_template(
+        prognostic.output_coords(prognostic_ic),
+        leading={"ensemble": np.arange(nensemble), "time": times},
+        coords={
+            "lead_time": rollout_lead_times(prognostic, nsteps),
+            "variable": variables_to_save,
+        },
+    )
+    io.add_array(template)
     # ==========================================
     # ==========================================
     # Run inference
@@ -170,12 +195,14 @@ def christmas_five_day_ensemble(
         leave=False,
     ) as pbar:
         for step, x in enumerate(model):
-            # Dump result to IO, split_coords separates variables to different arrays
-            x = x.sel(variable=["t2m", "tcwv"])
-            io.write(*split_coords(*x.e2s.to_torch()))
+            # Dump result to IO; the backend maps the field's coordinate labels onto
+            # the store and writes each variable label to its own array
+            io.write(x.sel(variable=variables_to_save))
             pbar.update(1)
             if step == nsteps:
                 break
+    # Push any buffered writes to the store so the data is readable afterwards
+    io.flush()
     # ==========================================
 
 
@@ -309,18 +336,20 @@ print(f"\nIn memory zarr store inference time: {zarr_memory_clock}s")
 #
 # Because this IO backend relies on both async and multi-threading, it has a different
 # initialization pattern than others.
-# The main difference being that this backend does not use the add_array API, rather
-# users specify `parallel_coords` in the constructor that denote coords that slices will
-# be written to during inference.
+# The main difference being that users specify `parallel_coords` in the constructor,
+# which denote the coords that slices will be written to during inference.
 # Typically this might be `time`, `lead_time` and `ensemble`.
+# Arrays are still created with `add_array` from the same template as the other
+# backends; a write may then hold any subset of the parallel coords, but must be
+# complete along every other dimension.
 
 # %%
 
+# The parallel coords must hold exactly the labels the output template declares,
+# so both are derived from the same place
 parallel_coords = {
-    "time": np.array(times, dtype=np.datetime64),
-    "lead_time": np.array(
-        [timedelta(hours=6 * i) for i in range(nsteps + 1)], dtype=np.timedelta64
-    ),
+    "time": to_time_array(times),
+    "lead_time": rollout_lead_times(model, nsteps),
 }
 io = AsyncZarrBackend(
     "outputs/17_io_async.zarr",
@@ -463,10 +492,14 @@ print(
 
 # %%
 
+remote_nsteps = 4
 if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
     io = AsyncZarrBackend(
         None,
-        parallel_coords=parallel_coords,
+        parallel_coords={
+            "time": to_time_array(times),
+            "lead_time": rollout_lead_times(model, remote_nsteps),
+        },
         store="s3://earth2studio/ci/example/17_io_async.zarr",
         store_kwargs={
             "access_key_id": os.environ["S3FS_KEY"],
@@ -479,7 +512,7 @@ if "S3FS_KEY" in os.environ and "S3FS_SECRET" in os.environ:
             cname="zstd", clevel=3, shuffle=zarr.codecs.BloscShuffle.shuffle
         ),
     )
-    christmas_five_day_ensemble(times, 4, model, ds, io, pt, device=device)
+    christmas_five_day_ensemble(times, remote_nsteps, model, ds, io, pt, device=device)
     # IMPORTANT: Make sure to call close to ensure IO backend threads have finished!
     io.close()
 
