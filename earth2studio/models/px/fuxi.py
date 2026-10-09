@@ -179,18 +179,18 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort = create_ort_session(ort_short, self.device)
 
     def default_sources(self) -> DataSource:
-        """Recommend CDS ERA5 for relative humidity and six-hour precipitation.
+        """Recommend WeatherBench2 ERA5 for all FuXi input variables.
 
-        CDS credentials and acceptance of the ERA5 terms are required.
+        The public dataset ends at January 10, 2023, 18:00 UTC.
 
         Returns
         -------
         DataSource
-            Raw CDS ERA5 source covering all input variables.
+            Raw WeatherBench2 ERA5 source covering all input variables.
         """
-        from earth2studio.data import CDS_ERA5
+        from earth2studio.data import WB2ERA5
 
-        return CDS_ERA5()  # type: ignore[return-value]  # Synchronous source; no async fetch.
+        return WB2ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
