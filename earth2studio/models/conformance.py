@@ -1024,7 +1024,55 @@ def _rollout_values(
     pristine = deepcopy(borrowed)
     retained, snapshots = [], []
     expected = outputs
-    with closing(model.create_iterator(*borrowed)) as iterator:
+    try:
+        iterator = model.create_iterator(*borrowed)
+    except NotImplementedError:
+        # Some coupled models expose only initialize/step. Still exercise their
+        # complete recurrence, ownership, and RNG contracts.
+        if report is not None:
+            report.skip(
+                "P7",
+                "create_iterator intentionally unsupported; checking explicit advances",
+            )
+        value, state = model.initialize(*borrowed)
+        for index in range(count):
+            if index:
+                new_forcing = _forcing(forcing, expected, device)
+                value, state = (
+                    _call_readonly(
+                        report, model.step, (*_slots(value), *new_forcing, state), "P15"
+                    )
+                    if report is not None
+                    else model.step(*_slots(value), *new_forcing, state=state)
+                )
+                expected = _next_plan(model, inputs, expected)
+            retained.append(value)
+            snapshots.append(deepcopy(value))
+            if report is not None:
+                _matches(report, value, expected, "P9")
+        if report is not None:
+            origin = max(x.lead_time.values[-1] for x in inputs)
+            report.require(
+                "P7",
+                all(
+                    x.lead_time.size > 0 and np.all(x.lead_time.values > origin)
+                    for x in _slots(snapshots[0])
+                ),
+                "initialization must return future leads, not the initial condition",
+            )
+            _matches(report, snapshots[0], outputs, "P8")
+            report.require(
+                "P15",
+                _same_values(borrowed, pristine),
+                "initialize mutated supplied inputs",
+            )
+            report.require(
+                "P16",
+                _same_values(retained, snapshots),
+                "step mutated an earlier forecast",
+            )
+        return snapshots
+    with closing(iterator):
         if not callable(getattr(iterator, "send", None)):
             raise ValueError("create_iterator must return a generator supporting send")
         value = next(iterator)
@@ -1155,6 +1203,16 @@ def _check_hook_scope(
         report.require(
             "P10", not events, "call, initialize and step must not apply hooks"
         )
+        try:
+            iterator = model.create_iterator(*deepcopy(args))
+        except NotImplementedError:
+            report.skip(
+                "P10",
+                "create_iterator intentionally unsupported; core methods do not apply hooks",
+            )
+            return
+        else:
+            iterator.close()
         # Compare to manually transformed recurrence, including rear output feedback.
         with _hook_free(model):
             _seed(model)
@@ -1217,7 +1275,11 @@ def _forcing_errors(
                 ),
             )
         _seed(model)
-        with closing(model.create_iterator(*deepcopy(args))) as iterator:
+        try:
+            iterator = model.create_iterator(*deepcopy(args))
+        except NotImplementedError:
+            return
+        with closing(iterator):
             next(iterator)
             _reject(report, "P22", lambda: iterator.send(None))
 

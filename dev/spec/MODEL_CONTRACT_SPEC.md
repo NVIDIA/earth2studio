@@ -168,8 +168,8 @@ execution API; dictionary signatures and initial-condition-first iterators fail.
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
 `default_sources()` (no recommendation), `stochastic = False`, hooks, and private
-`_default_call`/`_default_create_iterator` helpers. Its public execution methods raise
-`NotImplementedError`. Wrappers declare and document explicit execution signatures,
+`_default_call`/`_default_create_iterator` helpers. It has no public execution stubs.
+Wrappers declare and document explicit execution signatures,
 optionally delegating to the private helpers. The protocol is the requirement; inheriting the
 mixin or deriving these methods from the primitives is optional. Direct
 implementations must satisfy the same behavioral rules.
@@ -409,6 +409,12 @@ for _ in range(nsteps - 1):
     y_mrms, s_mrms = mrms.step(y_mrms, y_goes, s_mrms)  # newest frame
     y_goes, s_goes = goes.step(y_goes, s_goes)
 ```
+
+StormScope GOES and MRMS intentionally raise `NotImplementedError` immediately
+from `create_iterator`; use this explicit coupled loop. GOES has no forcing slot;
+MRMS declares its GOES history through `forcing_coords()`. The checker exercises
+explicit advances for these models, reports the iterator-only checks as skipped,
+and still checks coordinate planning, replay, ownership, forcing, and RNG behavior.
 
 The same GOES window initializes both models, and each iteration's `y_goes` has the
 lead time of `y_mrms`: the newest frame MRMS needs. MRMS keeps older GOES frames in
