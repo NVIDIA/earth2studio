@@ -16,7 +16,7 @@
 
 import json
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Literal, cast
@@ -197,12 +197,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Validate and store staged models
         if not isinstance(model_spec, list) or len(model_spec) == 0:
             raise ValueError("model_spec must be a non-empty list of stage dicts.")
-
-        if conditioning_data_source is None:
-            logger.warning(
-                "No conditioning data source was provided to StormScope; set the conditioning_data_source attribute "
-                "of the model before running inference with iterator mode, or use the call_with_conditioning method."
-            )
 
         self.input_times = input_times
         self.output_times = output_times
@@ -755,53 +749,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords, {"lead_time": self.output_times + lead[-1]}
         )
 
-    def fetch_conditioning(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Fetch external conditioning data. Subclasses should override.
-
-        Parameters
-        ----------
-        coords : CoordSystem
-            Input coordinate system.
-        device : torch.device
-            Device on which the conditioning tensor should reside.
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Conditioning tensor aligned with `coords`.
-        """
-        raise NotImplementedError(
-            "StormScopeBase.fetch_conditioning must be implemented by a subclass."
-        )
-
-    def _inject_auto_observations(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> torch.Tensor:
-        """Hook to overwrite state channels with freshly-fetched observations.
-
-        Called from :meth:`__call__` (the auto path) after the state has been
-        regridded onto the model grid, and intentionally **not** from
-        :meth:`call_with_conditioning` so the coupled-rollout caller retains full
-        control of the state. Subclasses override this to inject channels sourced
-        from a separate data source/grid (e.g. GLM in :class:`StormScopeMRMS`);
-        the base implementation is a no-op.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            State tensor on the model grid, shape ``[B, T, L, C, H, W]``.
-        coords : CoordSystem
-            Coordinate system for ``x``.
-
-        Returns
-        -------
-        torch.Tensor
-            Possibly-modified state tensor.
-        """
-        return x
-
     def normalize_conditioning(
         self, conditioning: torch.Tensor | None
     ) -> torch.Tensor | None:
@@ -1030,7 +977,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._noise_generator = torch.Generator().manual_seed(seed)
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -1389,75 +1336,148 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         result.encoding = pred.encoding.copy()
         return result
 
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
+    def forcing_coords(self) -> CoordinateSystem | None:
+        """Describe the conditioning history on the checkpoint grid.
+
+        Returns
+        -------
+        CoordinateSystem | None
+            Allocation-free initial conditioning signature. Subsequent steps
+            consume only the new frames at the current forecast's lead times.
+            None for unforced GOES forecasts.
+        """
+        if self.conditioning_variables is None or not len(self.conditioning_variables):
+            return None
+        return coord_array_like(
+            self.input_coords(), {"variable": self.conditioning_variables}
+        )
+
+    def default_sources(
         self,
-        x: xr.DataArray,
-    ) -> xr.DataArray:
-        """Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
+    ) -> DataSource | tuple[DataSource | None, DataSource | ForecastSource | None]:
+        """Recommend the configured conditioning source.
+
+        Returns
+        -------
+        tuple[DataSource | None, DataSource | ForecastSource | None]
+            No input recommendation, followed by the configured conditioning
+            source or None. Concrete imagery and radar wrappers supply defaults.
+        """
+        return None, self.conditioning_data_source
+
+    def _initialize(
+        self, x: xr.DataArray, conditioning: xr.DataArray | None
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Compute the first forecast and retain missing history and sampling state.
 
         Parameters
         ----------
         x : xr.DataArray
-            Input field on the declared checkpoint grid.
+            Initial history matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Full conditioning history matching ``forcing_coords()`` on the
+            checkpoint grid. The caller supplies all required channels.
 
         Returns
         -------
-        xr.DataArray
-            Forecast field.
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast chunk and missing input/conditioning history and RNG
+            state. Iterator hooks are not applied.
         """
+        handshake_nonempty(x)
+        if conditioning is not None:
+            handshake_nonempty(conditioning)
+        if self._noise_generator is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        y = self._predict(x, conditioning)
+        count = len(self.output_times)
+        return y, {
+            "history": x.isel(lead_time=slice(count, None)).copy(deep=True),
+            "conditioning": (
+                conditioning.isel(lead_time=slice(count, None)).copy(deep=True)
+                if conditioning is not None
+                else None
+            ),
+            "rng": cast(torch.Generator, self._noise_generator).get_state().clone(),
+        }
 
-        output_coords = self.output_coords(x)
-        encoding = deepcopy(x.encoding)
-        x, tensor_coords = x.e2s.to_torch()
-        x = x.to(self.means.device).clone()
-        x, x_coords = self.prep_input(x, tensor_coords)
+    def _forward(
+        self, y: xr.DataArray, conditioning: xr.DataArray | None, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance with newly supplied conditioning and explicit continuation state.
 
-        # Auto-fetch hook for state observations that live on their own source
-        # grid (e.g. StormScopeMRMS GLM). This fires only in the auto path; the
-        # coupled path (call_with_conditioning) leaves the full state to the
-        # caller, mirroring how conditioning is sourced. Base is a no-op.
-        x = self._inject_auto_observations(x, x_coords)
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast chunk, including any caller-applied edits.
+        conditioning : xr.DataArray
+            New conditioning frames at the lead times of ``y``; earlier context
+            is retained in ``state``.
+        state : dict[str, Any]
+            Missing history and RNG state returned by ``initialize`` or ``step``.
 
-        # Fetch and prep conditioning data if needed
-        if (
-            self.conditioning_variables is not None
-            and len(self.conditioning_variables) > 0
-        ):
-            conditioning, conditioning_coords = self.fetch_conditioning(
-                tensor_coords, device=x.device
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast chunk and updated state, without iterator hooks.
+        """
+        if conditioning is not None:
+            declaration = self.forcing_coords()
+            if declaration is None:
+                raise ValueError("This model does not accept forcing")
+            handshake_dataarray(
+                conditioning,
+                coord_array_like(
+                    declaration,
+                    {
+                        "lead_time": y.lead_time.values,
+                    },
+                ),
             )
-            conditioning, conditioning_coords = self.prep_input(
-                conditioning, conditioning_coords, conditioning=True
-            )
-
-            # Broadcast to batch dimension if needed. Expect [B, T, L, C, H, W].
-            if conditioning.dim() == x.dim() - 1:
-                conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
-                conditioning_coords = OrderedDict(
-                    batch=tensor_coords["batch"], **conditioning_coords
+            for dim in y.dims[:-3]:
+                handshake_size(conditioning, dim, y.sizes[dim])
+                if dim in y.coords:
+                    handshake_coords(conditioning, y, dim)
+        tensor, _ = y.e2s.to_torch()
+        history, _ = state["history"].e2s.to_torch()
+        signature = coord_array_like(
+            y,
+            {
+                "lead_time": np.concatenate(
+                    [state["history"].lead_time.values, y.lead_time.values]
                 )
-        else:
-            conditioning = None
-            conditioning_coords = None
-
-        x = self._forward(
-            x,
-            x_coords,
-            conditioning=conditioning,
-            conditioning_coords=conditioning_coords,
+            },
         )
-        out = from_torch(x, output_coords)
-        out.attrs = deepcopy(out.attrs)
-        out.encoding = encoding
-        return out
+        x = from_torch(
+            torch.cat(
+                [history.to(tensor.device), tensor], dim=y.get_axis_num("lead_time")
+            ),
+            signature,
+            name=y.name,
+        )
+        x.attrs, x.encoding = deepcopy(y.attrs), deepcopy(y.encoding)
+        if conditioning is not None:
+            current, _ = conditioning.e2s.to_torch()
+            history, _ = state["conditioning"].e2s.to_torch()
+            conditioning = from_torch(
+                torch.cat(
+                    [history.to(current.device), current],
+                    dim=conditioning.get_axis_num("lead_time"),
+                ),
+                coord_array_like(x, {"variable": self.conditioning_variables}),
+            )
+        previous = self._noise_generator
+        self._noise_generator = torch.Generator().set_state(state["rng"].clone())
+        try:
+            return self._initialize(x, conditioning)
+        finally:
+            self._noise_generator = previous
 
     @torch.inference_mode()
-    def call_with_conditioning(
+    def _predict(
         self,
         x: xr.DataArray,
-        conditioning: xr.DataArray,
+        conditioning: xr.DataArray | None,
     ) -> xr.DataArray:
         """Calls the prognostic model with explicitly provided conditioning. Useful when
         combining multiple cross-conditioned models during rollout (does not require
@@ -1477,6 +1497,19 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         self.output_coords(x)
+        if conditioning is None:
+            packed, restore = batch_func()._compress_array(self, x)
+            tensor, coords = packed.e2s.to_torch()
+            tensor, coords = self.prep_input(
+                tensor.to(self.means.device).clone(), coords
+            )
+            out = from_torch(
+                self._forward_tensor(tensor, coords),
+                self.output_coords(packed),
+                name=x.name,
+            )
+            out.attrs, out.encoding = deepcopy(out.attrs), deepcopy(x.encoding)
+            return restore(out)
         handshake_nonempty(conditioning)
         handshake_time(conditioning)
         handshake_time(conditioning, "lead_time")
@@ -1526,47 +1559,16 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning, conditioning_coords, conditioning=True
         )
 
-        x = self._forward(
+        x = self._forward_tensor(
             x,
             x_coords,
             conditioning=conditioning,
             conditioning_coords=conditioning_coords,
         )
-        out = from_torch(x, output_coords)
+        out = from_torch(x, output_coords, name=packed.name)
         out.attrs = deepcopy(out.attrs)
         out.encoding = deepcopy(packed.encoding)
         return restore(out)
-
-    def _default_generator(
-        self,
-        x: xr.DataArray,
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        x = x.copy(deep=True)
-
-        while True:
-            x = self.front_hook(x.copy(deep=True))
-            prediction = self.rear_hook(self(x))
-            x = self.next_input(prediction, x)
-            yield prediction.copy(deep=True)
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Creates an iterator to perform time-integration of the prognostic model.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Initial history field.
-
-        Yields
-        ------
-        Iterator[xr.DataArray]
-            Initial condition followed by forecast fields.
-        """
-        yield from self._default_generator(x)
 
 
 class StormScopeGOES(StormScopeBase):
@@ -1610,8 +1612,8 @@ class StormScopeGOES(StormScopeBase):
     variables : np.ndarray, optional
         GOES input variables. Default is
         ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
-    conditioning_variables : np.ndarray, optional
-        Auxiliary conditioning variables. Default is ["z500"].
+    conditioning_variables : np.ndarray | None, optional
+        Must be empty or None. GOES forecasting is unforced, by default None.
     conditioning_means : torch.Tensor | None, optional
         Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
@@ -1673,7 +1675,7 @@ class StormScopeGOES(StormScopeBase):
                 "abi13c",
             ]
         ),
-        conditioning_variables: np.ndarray = np.array(["z500"]),
+        conditioning_variables: np.ndarray | None = None,
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_data_source: Any | None = None,
@@ -1692,6 +1694,10 @@ class StormScopeGOES(StormScopeBase):
         compile: bool = False,
     ):
 
+        if conditioning_variables is not None and len(conditioning_variables):
+            raise ValueError(
+                "StormScopeGOES is unforced; use an unconditioned GOES checkpoint"
+            )
         super().__init__(
             model_spec=model_spec,
             means=means,
@@ -1718,33 +1724,83 @@ class StormScopeGOES(StormScopeBase):
             compile=compile,
         )
 
-    def fetch_conditioning(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Fetch external conditioning data.
+    def default_sources(self) -> DataSource:
+        """Recommend GOES imagery.
+
+        Returns
+        -------
+        DataSource
+            GOES input source. This model has no forcing slots.
+        """
+        from earth2studio.data import GOES
+
+        return GOES()
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Compute the first GOES forecast without hooks.
 
         Parameters
         ----------
-        coords : CoordSystem
-            Input coordinate system.
-        device : torch.device
-            Device on which the conditioning tensor should reside.
+        x : xr.DataArray
+            Initial GOES history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast chunk.
         """
+        return self.initialize(x)[0]
 
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormScopeGOES has been called without initializing the model's conditioning_data_source"
-            )
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Initialize an unforced GOES forecast without hooks.
 
-        conditioning = fetch_data(
-            self.conditioning_data_source,
-            time=coords["time"],
-            variable=self.conditioning_variables,
-            lead_time=coords["lead_time"],
-            device=device,
+        Parameters
+        ----------
+        x : xr.DataArray
+            Complete initial GOES history.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast and missing history plus RNG state.
+        """
+        return self._initialize(x, None)
+
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance GOES using the previous forecast and explicit state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous GOES forecast, including caller edits.
+        state : dict[str, Any]
+            Missing history and RNG state from the previous advance.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast and updated state. No hooks are applied.
+        """
+        return self._forward(y, None, state)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Reject standalone iteration; use the coupled initialize/step loop.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial GOES history.
+
+        Raises
+        ------
+        NotImplementedError
+            Always; use ``initialize`` and ``step`` explicitly.
+        """
+        raise NotImplementedError(
+            "Use initialize and step for coupled StormScope forecasts"
         )
-
-        return conditioning.e2s.to_torch()
 
     @classmethod
     def load_model(
@@ -1884,9 +1940,9 @@ class StormScopeMRMS(StormScopeBase):
     window of input timesteps and predict one output timestep; others use a single
     input timestep and predict one output timestep. All StormScopeMRMS models by default expect GOES-East data as
     conditioning; typically in a forecasting run this can be provided by passing the
-    predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
-    method. Otherwise, the user must provide a conditioning data source for the model
-    to use during inference.
+    predictions from a StormScopeGOES model to ``step``. Initialize both models
+    from the same GOES history, then advance MRMS before GOES. ``create_iterator``
+    is intentionally unsupported; callers own this coupled loop.
 
     Note
     ----
@@ -1948,10 +2004,9 @@ class StormScopeMRMS(StormScopeBase):
     glm_data_source : DataSource | None, optional
         Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`) for
         variants with a ``glm_density`` state channel (``3km_10min`` only). When
-        set, :meth:`__call__` (and :meth:`~StormScopeBase.create_iterator`) fetch,
-        regrid, and inject GLM into the state automatically on every step. Not used
-        by the coupled path (:meth:`~StormScopeBase.call_with_conditioning`), where
-        the caller is responsible for populating GLM channels. Default is None.
+        set, it is available through ``fetch_glm`` for caller-managed preparation.
+        Execution never fetches observations. The caller populates GLM channels
+        in the initial state. Default is None.
 
     Note
     ----
@@ -1968,25 +2023,10 @@ class StormScopeMRMS(StormScopeBase):
     different native grid from MRMS, ``glm_density`` is handled separately from
     the radar channels and is the GLM analogue of the GOES ``conditioning``:
 
-    * **Auto path** (:meth:`__call__` / :meth:`~StormScopeBase.create_iterator`):
-      pass ``glm_data_source`` (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
-      to ``load_model`` and GLM is fetched, bilinearly regridded, and injected
-      into the state automatically on every step — exactly as
-      ``conditioning_data_source`` is fetched via :meth:`fetch_conditioning`.
-      The GLM bilinear interpolator is built lazily on the first call. The input
-      state ``x`` only needs its radar channels populated (the GLM channels are
-      overwritten); a zero placeholder is fine. In this case, the model will be
-      using ground-truth GLM observations during the rollout, so is not doing
-      pure forecasting (and can only be run for dates in the past where the full
-      timeseries of GLM observations is available).
-
-    * **Coupled path** (:meth:`~StormScopeBase.call_with_conditioning`): just as
-      this method takes ``conditioning`` from the caller rather than the data
-      source, it leaves the *entire* state — GLM included — to the caller and
-      never touches ``glm_data_source``.  Populate the GLM channels of ``x``
-      yourself (e.g. via :meth:`fetch_glm` for the initial state); during the
-      rollout GLM then flows autoregressively from the model's own predictions,
-      like the radar channels. This is the more typical pure-forecast use case.
+    Populate the GLM channels of ``x`` before ``initialize`` (for example using
+    ``fetch_glm`` explicitly). During ``step``, GLM flows autoregressively from
+    the previous radar forecast. GOES forcing is passed separately by the caller;
+    neither method fetches observations or applies iterator hooks.
 
     Badges
     ------
@@ -2135,48 +2175,15 @@ class StormScopeMRMS(StormScopeBase):
         out = self.glm_interp(glm)
         return torch.nan_to_num(out, nan=0.0)
 
-    def _inject_glm(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
-        """Fetch GLM observations and overwrite the GLM-channel slots in ``x``.
-
-        Called from :meth:`_inject_auto_observations` (the :meth:`__call__` auto
-        path) when ``glm_data_source`` is set. ``x`` must already be on the model
-        grid (as returned by :meth:`~StormScopeBase.prep_input`), shaped
-        ``[B, T, L, C, H, W]``. The GLM interpolator
-        (:meth:`build_glm_interpolator`) is built lazily on the first call.
-        Returns a cloned tensor — the original is not mutated.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            State tensor on the model grid, shape ``[B, T, L, C, H, W]``.
-        coords : CoordSystem
-            Coordinate system for ``x``, used to supply ``time`` and
-            ``lead_time`` to :meth:`fetch_glm`.
-
-        Returns
-        -------
-        torch.Tensor
-            Copy of ``x`` with GLM channels replaced by fetched observations.
-        """
-        glm, _ = self.fetch_glm(coords, device=x.device)  # [T, L, n_glm, H, W]
-        # Expand to batch dimension: [T, L, n_glm, H, W] -> [B, T, L, n_glm, H, W]
-        glm = glm.unsqueeze(0).expand(x.shape[0], *[-1] * glm.dim())
-        x = x.clone()
-        glm_indices = self.glm_mask.nonzero(as_tuple=True)[0]
-        x[:, :, :, glm_indices, :, :] = glm.to(dtype=x.dtype)
-        return x
-
     def fetch_glm(
         self, coords: CoordSystem, device: torch.device
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Fetch the GLM observation window from ``glm_data_source`` and bilinearly
         regrid it onto the model grid.
 
-        In the auto path this is called for you by :meth:`_inject_auto_observations`
-        during :meth:`__call__`. Call it directly to assemble the GLM channels of
-        the input state yourself — e.g. for the initial state of a coupled rollout
-        driven by :meth:`~StormScopeBase.call_with_conditioning`, which does not
-        fetch GLM automatically.
+        Call this explicitly to assemble the GLM channels of the initial input
+        before :meth:`initialize`. Forecast execution never fetches observations;
+        subsequent GLM fields evolve from the model's own predictions.
 
         The GLM interpolator is built lazily from the source grid on first call.
         Returned values are **physical event counts** (the model applies ``log1p``
@@ -2221,32 +2228,98 @@ class StormScopeMRMS(StormScopeBase):
         new_coords["x"] = self.x
         return glm, new_coords
 
-    def fetch_conditioning(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Fetch external conditioning data.
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend MRMS inputs and configured conditioning, defaulting to GOES.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            MRMS input source followed by the configured conditioning source,
+            or GOES when none was configured.
+        """
+        from earth2studio.data import GOES, MRMS
+
+        source = self.conditioning_data_source
+        return MRMS(), source if source is not None else GOES()
+
+    def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
+        """Compute the first radar forecast using caller-supplied GOES history.
 
         Parameters
         ----------
-        coords : CoordSystem
-            Input coordinate system.
-        device : torch.device
-            Device on which the conditioning tensor should reside.
+        x : xr.DataArray
+            Initial radar history, including checkpoint GLM channels if required.
+        conditioning : xr.DataArray
+            Initial GOES history matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First radar forecast, without hooks.
         """
+        return self.initialize(x, conditioning)[0]
 
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormScopeMRMS has been called without initializing the model's conditioning_data_source"
-            )
+    def initialize(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Initialize radar forecasts from radar and GOES histories.
 
-        conditioning = fetch_data(
-            self.conditioning_data_source,
-            time=coords["time"],
-            variable=self.conditioning_variables,
-            lead_time=coords["lead_time"],
-            device=device,
+        Parameters
+        ----------
+        x : xr.DataArray
+            Complete initial radar history.
+        conditioning : xr.DataArray
+            Complete GOES history matching ``forcing_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast and missing radar/GOES history plus RNG state.
+            No hooks are applied and no data is fetched.
+        """
+        return self._initialize(x, conditioning)
+
+    def step(
+        self, y: xr.DataArray, conditioning: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance radar using the previous radar and GOES forecasts.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous radar forecast, including caller edits.
+        conditioning : xr.DataArray
+            New GOES frames at the lead times of ``y``. Earlier context is in state.
+        state : dict[str, Any]
+            Missing history and RNG state returned by the previous advance.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next radar forecast and updated state, without hooks or data fetching.
+        """
+        return self._forward(y, conditioning, state)
+
+    def create_iterator(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Reject standalone iteration; use the coupled initialize/step loop.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial radar history.
+        conditioning : xr.DataArray
+            Initial GOES history.
+
+        Raises
+        ------
+        NotImplementedError
+            Always; use ``initialize`` and ``step`` explicitly.
+        """
+        raise NotImplementedError(
+            "Use initialize and step for coupled StormScope forecasts"
         )
-        return conditioning.e2s.to_torch()
 
     def build_input_interpolator(
         self,
@@ -2287,22 +2360,6 @@ class StormScopeMRMS(StormScopeBase):
 
         return x, x_coords
 
-    def _inject_auto_observations(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> torch.Tensor:
-        """Inject freshly-fetched GLM observations into the GLM state channels.
-
-        Fires from :meth:`~StormScopeBase.__call__` (and therefore
-        :meth:`~StormScopeBase.create_iterator`) when a ``glm_data_source`` is
-        configured and the variant has GLM channels. The coupled path
-        (:meth:`~StormScopeBase.call_with_conditioning`) does not call this, so a
-        coupled rollout carries GLM through ``x`` autoregressively just as it
-        carries conditioning explicitly. See :meth:`_inject_glm`.
-        """
-        if self.n_glm_channels > 0 and self.glm_data_source is not None:
-            return self._inject_glm(x, coords)
-        return x
-
     @classmethod
     def load_model(
         cls,
@@ -2334,12 +2391,9 @@ class StormScopeMRMS(StormScopeBase):
             Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
             used for variants with a ``glm_density`` state channel (``3km_10min``
             only — the ``6km_1hr`` variant has no GLM channel). The GLM analogue
-            of ``conditioning_data_source``: when set, :py:meth:`__call__`
-            (and :py:meth:`~StormScopeBase.create_iterator`) fetch, regrid, and
-            inject GLM into the state automatically. The coupled path
-            (:py:meth:`~StormScopeBase.call_with_conditioning`) does not use it —
-            there the caller populates the GLM channels of ``x`` (e.g. via
-            :py:meth:`fetch_glm`). By default None.
+            of ``conditioning_data_source``: retained for explicit caller use
+            through ``fetch_glm``. The caller populates GLM channels of ``x``;
+            execution never fetches observations. By default None.
         amp : bool, optional
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.

@@ -76,6 +76,17 @@ class Identity(torch.nn.Module):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Return the labelled field, preserving its device and metadata."""
+        """Return the labelled field, preserving its device and metadata.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Input field with arbitrary labelled dimensions.
+
+        Returns
+        -------
+        xr.DataArray
+            The input field, with unchanged values, coordinates and metadata.
+        """
         handshake_nonempty(x)
         return x.copy(deep=False)

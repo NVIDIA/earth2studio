@@ -53,7 +53,14 @@ class SimpleDiagnostic(torch.nn.Module):
         self.grid = grid
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare fixed variables/grid and an explicit dynamic leading prefix."""
+        """Declare the input coordinate system.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature for zonal and meridional wind on the
+            configured grid, with arbitrary leading dimensions.
+        """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
             {"variable": ["u10m", "v10m"]},
@@ -62,12 +69,30 @@ class SimpleDiagnostic(torch.nn.Module):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate geometry and replace variables without allocating field data."""
+        """Validate geometry and plan the wind-speed output coordinates.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free wind-speed signature preserving leading dimensions
+            and the input grid.
+        """
         handshake_dataarray(input_coords, self.input_coords())
         return coord_array_like(input_coords, {"variable": ["ws10m"]})
 
     def default_sources(self) -> None:
-        """Recommend no input provider; the caller supplies the field."""
+        """Recommend no input provider.
+
+        Returns
+        -------
+        None
+            No source recommendation; the caller supplies the input field.
+        """
         return None
 
     @torch.inference_mode()

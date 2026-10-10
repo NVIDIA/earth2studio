@@ -620,7 +620,21 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Identify tropical cyclone tracks using the Wu-Duan criteria.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` with labelled times
+            and lead times for the tracking sequence.
+
+        Returns
+        -------
+        xr.DataArray
+            Labelled accumulated cyclone paths with ``path_id`` and ``step``
+            dimensions. Track counts depend on detections; missing points are
+            represented by NaNs.
+        """
 
         handshake_nonempty(x)
         self.output_coords(x)
@@ -987,7 +1001,21 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Identify tropical cyclone tracks using the Vitart criteria.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` with labelled times
+            and lead times for the tracking sequence.
+
+        Returns
+        -------
+        xr.DataArray
+            Labelled accumulated cyclone paths with ``path_id`` and ``step``
+            dimensions. Track counts depend on detections; missing points are
+            represented by NaNs.
+        """
 
         handshake_nonempty(x)
         self.output_coords(x)

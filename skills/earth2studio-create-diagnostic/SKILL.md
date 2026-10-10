@@ -73,6 +73,9 @@ make format && make lint && make license
 
 Use `uv run` or the project virtualenv for Python. Include SPDX headers, typed
 public methods and NumPy-style docstrings; use `loguru.logger` in library code.
+Follow the [method docstring checklist](references/model-contract.md#method-docstrings)
+and the complete docstrings in the templates. Describe the actual variables,
+grids, sample axes and output slots rather than a generic "forward pass."
 
 ## Reference Map
 

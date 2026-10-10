@@ -313,7 +313,20 @@ class SolarRadiationAFNO(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Predict accumulated solar radiation from atmospheric fields.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()``, with datetime time
+            and timedelta lead-time coordinates.
+
+        Returns
+        -------
+        xr.DataArray
+            Solar radiation matching ``output_coords(x)``, including the
+            configured accumulation window and input grid.
+        """
         output_coords = self.output_coords(x)
         coords = x.coords
         encoding = x.encoding.copy()

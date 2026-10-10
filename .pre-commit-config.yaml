@@ -80,15 +80,6 @@ repos:
     rev: v2.3.1  # Use the sha / tag you want to point at
     hooks:
     -   id: mypy
-        # TODO: Remove these suppressions after model and consumer protocol typing migration.
-        args:
-        - --ignore-missing-imports
-        - --disable-error-code=override
-        - --disable-error-code=union-attr
-        - --disable-error-code=call-overload
-        - --disable-error-code=arg-type
-        - --disable-error-code=misc
-        - --disable-error-code=assignment
         # Excludes
         exclude: |
               (?x)^(examples|

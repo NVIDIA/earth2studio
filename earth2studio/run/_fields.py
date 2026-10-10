@@ -17,6 +17,7 @@
 """Field mapping and output-layout helpers shared by workflows and runners."""
 
 from collections import OrderedDict
+from typing import cast
 
 import numpy as np
 import xarray as xr
@@ -109,7 +110,7 @@ def _output_dimensions(
     prognostic: PrognosticModel, time: np.ndarray, nsteps: int
 ) -> CoordSystem:
     """Plan the legacy IO dimensions from a native model declaration."""
-    signature = prognostic.output_coords(prognostic.input_coords())
+    signature = cast(xr.DataArray, prognostic.output_coords(prognostic.input_coords()))
     coords = OrderedDict(
         (dim, values)
         for dim, values in _dimension_coords(signature).items()

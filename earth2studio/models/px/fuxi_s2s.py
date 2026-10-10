@@ -18,7 +18,7 @@ import hashlib
 import os
 import shutil
 import tempfile
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -26,6 +26,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -237,6 +238,19 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.onnx_path = onnx_path
         self.ort: InferenceSession | None = None
         self._time_step = np.timedelta64(1, "D")
+
+    def default_sources(self) -> DataSource:
+        """Recommend hourly ARCO ERA5 for the declared daily-mean windows.
+
+        Returns
+        -------
+        DataSource
+            Raw hourly source. The caller must aggregate the declared daily
+            windows and regrid to the model's input grid.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -533,44 +547,57 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         xr.DataArray
             Predicted next daily mean on the model device.
         """
-        return self._step(x)
+        return self.initialize(x)[0]
 
-    def _default_generator(
-        self,
-        x: xr.DataArray,
-    ) -> Generator[xr.DataArray, None, None]:
-        """Advance FuXi-S2S while retaining its two-day rolling state."""
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        tensor, _ = x.e2s.to_torch()
-        encoding = x.encoding.copy()
-        x = from_torch(tensor.to(self.device_buffer.device), x)
-        x.encoding = encoding
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
+        """Predict the next daily mean and retain the missing history frame.
 
-        while True:
-            x = self.front_hook(x)
-            prediction = self.rear_hook(self._step(x))
-            previous, _ = x.isel(lead_time=slice(-1, None)).e2s.to_torch()
-            future, _ = prediction.e2s.to_torch()
-            signature = coord_array_like(
-                prediction,
-                {
-                    "lead_time": np.concatenate(
-                        (x.lead_time.values[-1:], prediction.lead_time.values)
-                    )
-                },
-            )
-            x = from_torch(
-                torch.cat(
-                    (previous.to(future.device), future),
-                    dim=x.get_axis_num("lead_time"),
-                ),
-                signature,
-            )
-            x.encoding = prediction.encoding.copy()
-            yield prediction.copy(deep=False)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two prepared daily-mean fields matching ``input_coords()``, including
+            the declared statistics windows and grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            First daily forecast and its preceding history frame. Iterator hooks
+            are not applied.
+        """
+        return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
+
+    def step(
+        self, y: xr.DataArray, state: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Advance from the latest daily mean and its previous history frame.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous daily forecast, including any caller-applied edits.
+        state : xr.DataArray
+            Preceding daily-mean frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next daily forecast and updated history, without iterator hooks.
+        """
+        previous, _ = state.e2s.to_torch()
+        future, _ = y.e2s.to_torch()
+        signature = coord_array_like(
+            y,
+            {"lead_time": np.concatenate((state.lead_time.values, y.lead_time.values))},
+        )
+        x = from_torch(
+            torch.cat(
+                (previous.to(future.device), future), dim=y.get_axis_num("lead_time")
+            ),
+            signature,
+            name=y.name,
+        )
+        x.encoding = y.encoding.copy()
+        return self.initialize(x)
 
     def create_iterator(
         self,
@@ -586,6 +613,6 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Yields
         ------
         xr.DataArray
-            Initial current day followed by successive daily predictions.
+            Successive daily predictions, starting with initialization.
         """
-        yield from self._default_generator(x)
+        return self._default_create_iterator(x)

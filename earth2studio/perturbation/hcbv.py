@@ -15,9 +15,11 @@
 # limitations under the License.
 
 from collections.abc import Generator
+from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
@@ -76,7 +78,8 @@ class HemisphericCentredBredVector:
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor(
-                [noise_amplitude] * self.model.input_coords().sizes["variable"]
+                [noise_amplitude]
+                * cast(xr.DataArray, self.model.input_coords()).sizes["variable"]
             )[:, None, None]
         )
         self.integration_steps = integration_steps
@@ -93,13 +96,15 @@ class HemisphericCentredBredVector:
 
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
-        input_coords = self.model.input_coords()
+        input_coords = cast(xr.DataArray, self.model.input_coords())
 
         time = to_time_array(time)
         warmup_times = (
             time
             + np.arange(-self.integration_steps, 1)
-            * self.model.output_coords(input_coords).coords["lead_time"].values
+            * cast(xr.DataArray, self.model.output_coords(input_coords))
+            .coords["lead_time"]
+            .values
         )
         input_data = fetch_data(
             source=self.data,
@@ -129,9 +134,11 @@ class HemisphericCentredBredVector:
         xper, coords = self.seeding_perturbation_method(xunp, coords)
 
         for ii in range(self.integration_steps):
-            xunp = self.model(from_torch(xunp, state)).e2s.to_torch()[0]
-            xper = self.model(
-                from_torch(xper, state.assign_coords(coords))
+            xunp = cast(
+                xr.DataArray, self.model(from_torch(xunp, state))
+            ).e2s.to_torch()[0]
+            xper = cast(
+                xr.DataArray, self.model(from_torch(xper, state.assign_coords(coords)))
             ).e2s.to_torch()[0]
             dx = xper - xunp
 
@@ -158,7 +165,9 @@ class HemisphericCentredBredVector:
     def set_clip_indices(self) -> None:
         """If humidity and tcwv in variable set, add to list of variables to clip"""
         self.clip_idcs = []
-        for ii, var in enumerate(self.model.input_coords().coords["variable"].values):
+        for ii, var in enumerate(
+            cast(xr.DataArray, self.model.input_coords()).coords["variable"].values
+        ):
             var = str(var).split(":", 1)[0]
             if var[0] == "q" or var == "tcwv" or var[0] == "r" or var[:2] == "tp":
                 self.clip_idcs.append(ii)

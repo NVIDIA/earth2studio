@@ -150,24 +150,21 @@ def test_weathernext2_iter(device, mock_weathernext2_model):
 
     model.front_hook = model.rear_hook = hook
     iterator = model.create_iterator(x)
-    initial = next(iterator)
-    assert calls == []
     first = next(iterator)
     before = first.copy(deep=True)
     second = next(iterator)
-    assert calls == [2, 1, 2, 1]
+    assert calls == [1, 1, 1]
     assert second.lead_time.values == np.timedelta64(12, "h")
     delta = (
         second.sel(variable="t2m").e2s.to_torch()[0]
         - first.sel(variable="t2m").e2s.to_torch()[0]
     )
-    assert torch.all((delta >= 3) & (delta < 3.021))
+    assert torch.all((delta >= 2) & (delta < 2.021))
     xr.testing.assert_identical(x, saved)
+    before.data += 1
     xr.testing.assert_identical(first, before)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
     model.clear_hooks()
     iterator = model.create_iterator(x)
-    next(iterator)
     next(iterator)
     assert next(iterator).lead_time.values == np.timedelta64(12, "h")
 
@@ -190,7 +187,7 @@ def test_weathernext2_rng_advances(monkeypatch, mock_weathernext2_model):
         rngs.append(np.asarray(rng))
         return targets_template
 
-    monkeypatch.setattr(module.rollout, "chunked_prediction", record_rng)
+    monkeypatch.setattr(mock_weathernext2_model, "run_forward", record_rng)
     x = fetch_random_input(mock_weathernext2_model)
     mock_weathernext2_model(x)
     mock_weathernext2_model(x)

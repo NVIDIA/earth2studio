@@ -174,7 +174,19 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Classify atmospheric rivers, tropical cyclones and background conditions.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` on the ERA5 grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Classification fields matching ``output_coords(x)`` with labelled
+            spatial and leading dimensions.
+        """
 
         output_coords = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()

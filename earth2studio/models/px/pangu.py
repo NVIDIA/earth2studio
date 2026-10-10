@@ -23,7 +23,7 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
@@ -32,6 +32,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -158,6 +159,18 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort = None
         self._ort24_session: InferenceSession | None = None
         self._ort6_session: InferenceSession | None = None
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -374,56 +387,104 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance one DataArray using this variant's shortest-step model."""
-        handshake_nonempty(x)
-        states, _, _ = self._restore_checkpoint_state(x)
-        out = self._step(states["current"], self.ort)
-        self._save_checkpoint_state({"current": out}, 0)
-        return out
+        """Predict one step using this variant's shortest-step model, without hooks.
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast at this variant's three-, six-, or 24-hour step.
+            Use ``initialize`` and ``step`` to retain cascade anchors.
+        """
         handshake_nonempty(x)
-        states, step, restored = self._restore_checkpoint_state(x)
-        handshake_nonempty(states["current"])
-        self.output_coords(states["current"])
+        return self._step(x, self.ort)
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Predict the first step and retain the cascade's earlier anchor fields.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast and cascade step index and earlier anchor fields used
+            by the six-hour and daily models, as applicable. No hooks run.
+        """
+        handshake_nonempty(x)
         hours = int(self._time_step / np.timedelta64(1, "h"))
-        if hours < 24 and "day" not in states:
-            states["day"] = states["current"].copy(deep=True)
-        if hours == 3 and "six" not in states:
-            states["six"] = states["current"].copy(deep=True)
-        if not restored:
-            self._save_checkpoint_state(states, step)
-            yield states["current"].copy(deep=False)
-        while True:
-            step += 1
-            elapsed = step * hours
-            source = states["current"]
-            session = self.ort
-            stride = hours
-            if hours < 24 and elapsed % 24 == 0:
-                if self._ort24_session is None:
-                    self._ort24_session = create_ort_session(self.ort24, self.device)
-                source, session, stride = states["day"], self._ort24_session, 24
-            elif hours == 3 and elapsed % 6 == 0:
-                if self._ort6_session is None:
-                    self._ort6_session = create_ort_session(self.ort6, self.device)
-                source, session, stride = states["six"], self._ort6_session, 6
-            out = self.rear_hook(
-                self._step(self.front_hook(source.copy(deep=True)), session, stride)
-            )
-            states["current"] = out
-            if hours == 3 and elapsed % 6 == 0:
-                states["six"] = out.copy(deep=True)
-            if hours < 24 and elapsed % 24 == 0:
-                states["day"] = out.copy(deep=True)
-            self._save_checkpoint_state(states, step)
-            yield out.copy(deep=False)
+        state: dict[str, Any] = {"step": 1}
+        if hours < 24:
+            state["day"] = x.copy(deep=True)
+        if hours == 3:
+            state["six"] = x.copy(deep=True)
+        return self._step(x, self.ort), state
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial field and interleaved forecasts, resuming checkpoints next step."""
-        yield from self._default_generator(x)
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance the cascade without modifying the supplied continuation state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            Cascade index and anchor fields returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast at this variant's cadence and updated cascade state.
+            Iterator hooks are not applied.
+        """
+        hours = int(self._time_step / np.timedelta64(1, "h"))
+        previous = state["step"] * hours
+        state = dict(state)
+        # At anchor boundaries use the published field, including iterator hook edits.
+        if hours < 24 and previous % 24 == 0:
+            state["day"] = y.copy(deep=True)
+        if hours == 3 and previous % 6 == 0:
+            state["six"] = y.copy(deep=True)
+        elapsed = previous + hours
+        source, session, stride = y, self.ort, hours
+        if hours < 24 and elapsed % 24 == 0:
+            if self._ort24_session is None:
+                self._ort24_session = create_ort_session(self.ort24, self.device)
+            source, session, stride = state["day"], self._ort24_session, 24
+        elif hours == 3 and elapsed % 6 == 0:
+            if self._ort6_session is None:
+                self._ort6_session = create_ort_session(self.ort6, self.device)
+            source, session, stride = state["six"], self._ort6_session, 6
+        out = self._step(source.copy(deep=True), session, stride)
+        state["step"] += 1
+        if hours < 24 and elapsed % 24 == 0:
+            state.pop("day")
+        if hours == 3 and elapsed % 6 == 0:
+            state.pop("six")
+        return out, state
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield interleaved forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts at the variant's cadence after the rear hook. The front
+            hook runs before subsequent steps; cascade anchors remain in state.
+        """
+        return self._default_create_iterator(x)
 
 
 @check_optional_dependencies()

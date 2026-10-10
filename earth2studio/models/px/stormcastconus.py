@@ -16,8 +16,7 @@
 
 import types
 import warnings
-from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator
 from copy import deepcopy
 from datetime import datetime
 from itertools import product
@@ -601,10 +600,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return denoiser
 
     @torch.no_grad()  # safe - PhysicsNeMo SDA code uses torch.enable_grad()
-    @batch_func()
-    def __call__(
+    def _predict(
         self,
         x: xr.DataArray,
+        conditioning: xr.DataArray,
         obs: pd.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> xr.DataArray:
         """Runs prognostic model 1 step
@@ -633,14 +632,22 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
         output_coords = self.output_coords(x)
         encoding = deepcopy(x.encoding)
+        handshake_dataarray(
+            conditioning,
+            coord_array_like(output_coords, {"variable": self.conditioning_variables}),
+        )
+        if not bool(np.isfinite(conditioning.data).all()):
+            raise ValueError("Conditioning must be finite")
+        name = x.name
+        x, restore = batch_func()._compress_array(self, x)
+        conditioning, _ = batch_func()._compress_array(self, conditioning)
+        output_coords = self.output_coords(x)
+        conditioning = conditioning.e2s.to_torch()[0].to(
+            device=self.means.device, dtype=torch.float32
+        )
         x, coords = x.e2s.to_torch()
         # Checkpoints expect float32 inputs; autocast does not convert float64.
         x = x.to(device=self.means.device, dtype=torch.float32)
-        conditioning = self._get_conditioning(
-            OrderedDict((d, np.asarray(output_coords[d])) for d in output_coords.dims),
-            x.shape[0],
-            x.device,
-        )
         x = x.clone()  # prevent editing of argument
 
         for j, time in enumerate(np.asarray(coords["time"])):
@@ -666,15 +673,118 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                         mask=mask,
                     )
 
-        out = from_torch(x, output_coords)
+        out = from_torch(x, output_coords, name=name)
         out.attrs = deepcopy(out.attrs)
         out.encoding = encoding
-        return out
+        return restore(out)
+
+    def forcing_coords(self) -> CoordinateSystem:
+        """Describe caller-regridded conditioning for the next forecast time.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free conditioning signature on the model grid at relative
+            lead time one hour. Each step consumes its next forecast-time frame.
+        """
+        return coord_array_like(
+            self.output_coords(self.input_coords()),
+            {"variable": self.conditioning_variables},
+        )
+
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend HRRR inputs and configured conditioning, defaulting to GFS.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            HRRR input source followed by the configured conditioning source,
+            or GFS when none was configured. Regridding remains caller-owned.
+        """
+        from earth2studio.data import GFS, HRRR
+
+        source = self.conditioning_data_source
+        return HRRR(), source if source is not None else GFS()
+
+    def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
+        """Predict one hour ahead using caller-provided conditioning, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Conditioning on the model grid at the next forecast valid time.
+
+        Returns
+        -------
+        xr.DataArray
+            First hourly forecast matching ``output_coords(x)``.
+        """
+        return self.initialize(x, conditioning)[0]
+
+    def initialize(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
+        """Compute the first prediction and capture the isolated sampling stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Fields matching ``forcing_coords()`` at the forecast valid time,
+            already regridded to the model grid by the caller.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            First hourly forecast and continuation seed and RNG state tensors.
+            Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        y = self._predict(x, conditioning)
+        if self._rng_seed is None or self._rng_states is None:
+            raise RuntimeError("Sampling stream was not initialized")
+        return y, (self._rng_seed, deepcopy(self._rng_states))
+
+    def step(
+        self,
+        y: xr.DataArray,
+        conditioning: xr.DataArray,
+        state: tuple[int, dict[str, torch.Tensor]],
+    ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
+        """Advance from the supplied forecast, forcing, and sampling state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        conditioning : xr.DataArray
+            New conditioning fields one hour after ``y``, on the model grid.
+        state : tuple[int, dict[str, torch.Tensor]]
+            Seed and RNG state tensors returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            Next hourly forecast and updated sampling state, without hooks.
+        """
+        previous = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = deepcopy(state)
+        try:
+            prediction = self._predict(y, conditioning)
+            return prediction, (self._rng_seed, deepcopy(self._rng_states))
+        finally:
+            self._rng_seed, self._rng_states = previous
 
     def create_generator(
         self,
         x: xr.DataArray,
-    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
+        conditioning: xr.DataArray,
+    ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None], None]:
         """Create a generator for autoregressive rollout.
 
         Parameters
@@ -701,24 +811,40 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_nonempty(x)
         handshake_time(x)
         self.output_coords(x)
-        x = x.copy(deep=True)
-        obs = yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-
-        try:
-            while True:
-                x = self.front_hook(x.copy(deep=True))
-                x = self(x, obs=obs)
-                x = self.rear_hook(x)
-                obs = yield x.copy(deep=True)
-        except GeneratorExit:
-            pass
+        x, state = self.initialize(x, conditioning)
+        while True:
+            x = self.rear_hook(x)
+            conditioning, obs = yield x
+            x = self.front_hook(x)
+            previous = self._rng_seed, self._rng_states
+            self._rng_seed, self._rng_states = deepcopy(state)
+            try:
+                x = self._predict(x, conditioning, obs=obs)
+                state = self._rng_seed, deepcopy(self._rng_states)
+            finally:
+                self._rng_seed, self._rng_states = previous
 
     def create_iterator(
         self,
         x: xr.DataArray,
-    ) -> Iterator[xr.DataArray]:
-        """Iterator wrapper around ``create_generator`` without observation input."""
-        yield from self.create_generator(x)
+        conditioning: xr.DataArray,
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield hourly forecasts, receiving new conditioning through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Initial conditioning for the first forecast time on the model grid.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts beginning with ``initialize``. The rear hook runs before
+            every yield and the front hook before each subsequent step.
+        """
+        yield from self._default_create_iterator(x, conditioning)
 
     def _get_conditioning(
         self,

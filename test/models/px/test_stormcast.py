@@ -26,7 +26,18 @@ import earth2studio.models.px.stormcast as stormcast_module
 from earth2studio.data import HRRR, Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+def _conditioning(model, field):
+    signature = coord_array_like(
+        field, {"variable": model.forcing_coords().coords["variable"]}
+    )
+    return from_torch(
+        torch.zeros(signature.shape, device=model.means.device), signature
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -196,7 +207,7 @@ def test_stormcast_call(time, device):
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     x.attrs["nested"] = {"items": [1]}
     x.encoding["nested"] = {"items": [2]}
-    out = p(x)
+    out = p(x, _conditioning(p, x))
     out.attrs["nested"].clear()
     out.encoding["nested"].clear()
     assert x.attrs["nested"] == {"items": [1]}
@@ -298,22 +309,24 @@ def test_stormcast_iter(ensemble, device):
         return field.drop_vars("member", errors="ignore")
 
     p.front_hook, p.rear_hook = front, rear
-    p_iter = p.create_iterator(x)
+    p_iter = p.create_iterator(x, _conditioning(p, x))
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
     initial = next(p_iter)
-    assert events == []
+    assert events == ["rear"]
     retained = initial.copy(deep=True)
-    for i, out in enumerate(p_iter):
+    out = initial
+    for i in range(7):
+        out = p_iter.send(_conditioning(p, out))
         out_coords = out
         xr.testing.assert_identical(x, original)
         xr.testing.assert_identical(initial, retained)
         assert out.name == x.name and "removed" not in out.attrs
         assert out.encoding == {} and "member" not in out.coords
-        assert events == ["front", "rear"] * (i + 1)
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
             [ensemble, len(time), 1, nvar, lat.shape[0], lat.shape[1]]
@@ -322,7 +335,7 @@ def test_stormcast_iter(ensemble, device):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(i + 2, "h")
 
         if i > 5:
             break
@@ -376,16 +389,12 @@ def test_stormcast_exceptions(dc, device):
     x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         # Calling with no conditioning info should fail
         p(x)
 
-    # Create iterator and consume first batch (initial condition)
-    p_iter = p.create_iterator(x)
-    next(p_iter)
-    with pytest.raises(ValueError):
-        # Using the generator with no built-in conditioning should fail
-        next(p_iter)
+    with pytest.raises(TypeError):
+        p.create_iterator(x)
 
 
 def test_stormcast_conformance():

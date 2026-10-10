@@ -1195,7 +1195,19 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         return image_out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale a labelled field, retaining optional per-sample validity time."""
+        """Downscale a labelled field, retaining optional per-sample validity time.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Conditioning fields matching ``input_coords()`` on the configured grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled samples matching ``output_coords(x)`` on the configured
+            output grid, with applicable validity-time coordinates retained.
+        """
         signature = self.output_coords(x)
         time = x.coords.get("time")
         if time is not None:
@@ -1645,7 +1657,19 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         return x_hr
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale a labelled field to the checkpoint's curvilinear grid."""
+        """Downscale a labelled field to the checkpoint's curvilinear grid.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coarse conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled samples matching ``output_coords(x)``, including the
+            curvilinear output-grid coordinates.
+        """
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)

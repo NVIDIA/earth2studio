@@ -85,7 +85,8 @@ def test_run_ensemble(
             assert io[var].shape[i + 3] == value.shape[0]
 
         assert not np.any(np.isnan(io[var][:]))
-        assert not np.any(io[var][:] == 0.0)
+        assert np.all(io[var][:, :, 0] == 0.0)
+        assert not np.any(io[var][:, :, 1:] == 0.0)
 
 
 @pytest.mark.parametrize(

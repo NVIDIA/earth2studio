@@ -323,23 +323,38 @@ def test_regional_array_rollout(regional_model):
     else:
         model.input_interp = None
         model.valid_mask = torch.ones(2, 3, dtype=torch.bool)
-        model.conditioning_variables = None
+        model.conditioning_variables = (
+            model.variables if isinstance(model, StormScopeMRMS) else None
+        )
+        model.conditioning_interp = None
+        model.conditioning_valid_mask = model.valid_mask
         model.sliding_window = True
-        model._inject_auto_observations = lambda state, c: state
-        model._forward = lambda state, c, **kwargs: state[:, :, -2:] + 1
+        model._forward_tensor = lambda state, c, **kwargs: state[:, :, -2:] + 1
     field = from_torch(x, coords)
-    output = model(field)
+    output = model(field, field) if isinstance(model, StormScopeMRMS) else model(field)
     y = output.e2s.to_torch()[0]
     assert output.dims == coords.dims
     assert tuple(y.shape) == output.shape
     assert model.output_coords(field).data.nbytes == 0
     xr.testing.assert_identical(output.lat, coords.lat)
     torch.testing.assert_close(x, torch.ones_like(x))
-    iterator = model.create_iterator(field)
-    next(iterator)
-    first_coords = next(iterator)
+    if isinstance(model, StormCastCONUS):
+        iterator = model.create_iterator(field)
+        next(iterator)
+        first_coords = next(iterator)
+        second_coords = next(iterator)
+        iterator.close()
+    elif isinstance(model, StormScopeMRMS):
+        first_coords, state = model.initialize(field, field)
+        second_coords, _ = model.step(first_coords, first_coords, state=state)
+        with pytest.raises(NotImplementedError):
+            model.create_iterator(field, field)
+    else:
+        first_coords, state = model.initialize(field)
+        second_coords, _ = model.step(first_coords, state=state)
+        with pytest.raises(NotImplementedError):
+            model.create_iterator(field)
     first = first_coords.e2s.to_torch()[0]
-    second_coords = next(iterator)
     second = second_coords.e2s.to_torch()[0]
     assert first_coords.dims == second_coords.dims == coords.dims
     assert (
@@ -352,13 +367,11 @@ def test_regional_array_rollout(regional_model):
         np.asarray(second_coords.lead_time)[-1] > np.asarray(first_coords.lead_time)[-1]
     )
     torch.testing.assert_close(second, first + 1)
-    iterator.close()
     assert not hasattr(model, "_input_tensor_coords")
     if not isinstance(model, StormCastCONUS):
-        model.conditioning_variables = model.variables
-        model.conditioning_interp = None
-        model.conditioning_valid_mask = model.valid_mask
-        coupled_coords = model.call_with_conditioning(field, field)
+        coupled_coords = (
+            model(field, field) if isinstance(model, StormScopeMRMS) else model(field)
+        )
         coupled = coupled_coords.e2s.to_torch()[0]
         torch.testing.assert_close(coupled, y)
         assert coupled_coords.dims == coords.dims
@@ -373,7 +386,11 @@ def test_regional_array_rollout(regional_model):
         model.input_interp = lambda state: state.expand(*state.shape[:-2], 2, 3)
         # Public states require the declared grid; explicit conditioning may regrid.
         with pytest.raises(ValueError):
-            model(from_torch(torch.ones(source.shape), source))
+            invalid = from_torch(torch.ones(source.shape), source)
+            if isinstance(model, StormScopeMRMS):
+                model(invalid, field)
+            else:
+                model(invalid)
 
 
 def test_fcn_array_rollout():

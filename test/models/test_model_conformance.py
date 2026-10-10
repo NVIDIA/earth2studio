@@ -113,6 +113,7 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "Aurora1p5Ensemble",
     "Aurora1p5Ensemble_6h",
     "CBottleVideo",
+    "DataReplay",
     "DiagnosticWrapper",
     "DLESyM",
     "DLESyMLatLon",
@@ -147,11 +148,6 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
     "FuXiS2S": (
         "P13: ONNX graph samples internal perturbations without a seed API; "
         "test/models/px/test_fuxi_s2s.py::test_fuxi_s2s_conformance."
-    ),
-    "DataReplay": (
-        "P13 with an uncached random source: repeated fetches differ; "
-        "test/models/px/test_datareplay.py::test_datareplay_conformance. "
-        "Replay determinism depends on its configured source."
     ),
 }
 
@@ -212,6 +208,20 @@ def test_prognostic_models_are_registered() -> None:
         _PROGNOSTIC_EXEMPT,
         "test/models/test_model_conformance.py",
     )
+
+
+@pytest.mark.parametrize("model", _PROGNOSTIC_CLASSES.values())
+def test_prognostic_execution_signatures(model: type) -> None:
+    for name in ("__call__", "initialize", "step", "create_iterator"):
+        parameters = list(
+            inspect.signature(inspect.unwrap(getattr(model, name))).parameters.values()
+        )
+        assert all(
+            p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD for p in parameters
+        )
+        assert parameters[0].name == "self"
+        if name == "step":
+            assert parameters[-1].name == "state"
 
 
 def test_diagnostic_models_are_registered() -> None:

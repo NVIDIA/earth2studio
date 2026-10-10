@@ -378,7 +378,7 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 
     def front(state):
         if grid_type == "ll":
-            assert "terrain" not in state.coords
+            xr.testing.assert_identical(state.terrain, field.terrain)
         assert state.dims[0] == "member" and "member" not in state.coords
         events.append("front")
         state.data[...] += 1
@@ -386,7 +386,7 @@ def test_dlesym_iterator(device, grid_type, batch_size):
 
     def rear(state):
         if grid_type == "ll":
-            assert "terrain" not in state.coords
+            xr.testing.assert_identical(state.terrain, field.terrain)
             state.attrs["rear"] = "retained"
         assert state.dims[0] == "member"
         events.append("rear")
@@ -396,16 +396,14 @@ def test_dlesym_iterator(device, grid_type, batch_size):
     original = field.copy(deep=True)
     iterator = model.create_iterator(field)
 
-    # First yield should be initial condition
-    initial_x = next(iterator)
-    xr.testing.assert_identical(initial_x, field.isel(lead_time=slice(-1, None)))
-    saved = initial_x.copy(deep=True)
     assert events == []
 
     # Test a few steps
     coupler_step = dlesym_src._ATMOS_OUTPUT_TIMES[-1]
     for i in range(3):
         x = next(iterator)
+        if i == 0:
+            first, saved = x, x.copy(deep=True)
         if grid_type == "ll":
             xr.testing.assert_identical(x.terrain, field.terrain)
             assert x.attrs["rear"] == "retained"
@@ -420,9 +418,10 @@ def test_dlesym_iterator(device, grid_type, batch_size):
         assert np.all(
             coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES + coupler_step * i
         )
-    xr.testing.assert_identical(initial_x, saved)
+    saved.data += 1
+    xr.testing.assert_identical(first, saved)
     xr.testing.assert_identical(field, original)
-    assert events == ["front", "rear"] * 3
+    assert events == ["rear", "front", "rear", "front", "rear"]
 
 
 def test_dlesym_conformance():

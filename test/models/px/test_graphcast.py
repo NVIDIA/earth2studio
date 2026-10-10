@@ -288,23 +288,20 @@ def test_graphcast_small_iter(graphcast, device):
 
     p.front_hook = p.rear_hook = hook
     it = p.create_iterator(x)
-    initial = next(it)
-    assert calls == []
     first = next(it)
     saved = first.copy(deep=True)
     second = next(it)
-    assert calls == [2, 1, 2, 1]
+    assert calls == [1, 1, 1]
     assert second.lead_time.values == np.timedelta64(12, "h")
     torch.testing.assert_close(
         second.sel(variable="t2m").e2s.to_torch()[0],
-        first.sel(variable="t2m").e2s.to_torch()[0] + 3,
+        first.sel(variable="t2m").e2s.to_torch()[0] + 2,
     )
     xr.testing.assert_identical(x, before)
+    saved.data += 1
     xr.testing.assert_identical(first, saved)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
     p.clear_hooks()
     iterator = p.create_iterator(x)
-    next(iterator)
     next(iterator)
     assert next(iterator).lead_time.values == np.timedelta64(12, "h")
 
@@ -353,20 +350,15 @@ def test_graphcast_small_conformance(graphcast):
         forcing.toa_incident_solar_radiation, xr.concat(expected, dim="batch")
     )
     np.testing.assert_array_equal(forcing.batch, [9, 3])
-    prepared = []
-    original = graphcast.from_dataarray_to_dataset
-
-    def prepare(*args, **kwargs):
-        prepared.append(1)
-        return original(*args, **kwargs)
-
-    graphcast.from_dataarray_to_dataset = prepare
     graphcast.rear_hook = lambda field: field.assign_coords(hook_marker=1)
     iterator = graphcast.create_iterator(_input(graphcast))
-    next(iterator)
-    next(iterator)
-    assert next(iterator).hook_marker == 1
-    assert len(prepared) == 1
+    for hour in (6, 12, 18):
+        forecast = next(iterator)
+        assert forecast.hook_marker == 1
+        np.testing.assert_array_equal(
+            forecast.lead_time, np.array([hour], dtype="timedelta64[h]")
+        )
+    iterator.close()
     p = type(graphcast).__new__(type(graphcast))
     torch.nn.Module.__init__(p)
     signature = p.input_coords()
@@ -400,9 +392,8 @@ def test_graphcast_small_package(model):
     p = model.to("cuda:0")
     x = _input(p, device="cuda:0")
     iterator = p.create_iterator(x)
-    initial = next(iterator)
-    xr.testing.assert_identical(initial, x.isel(lead_time=slice(-1, None)))
-    next(iterator)
+    first = next(iterator)
+    assert first.lead_time.values == np.timedelta64(6, "h")
     out = next(iterator)
     assert out.shape == (
         1,

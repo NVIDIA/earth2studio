@@ -25,9 +25,10 @@ from pyproj import CRS
 import earth2studio.grids as grids
 from earth2studio.data import Random, Random_FX, fetch_data
 from earth2studio.grids import CurvilinearGrid, LatLonGrid
-from earth2studio.models.conformance import ContractException, check_prognostic_contract
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.datareplay import DataReplay
 from earth2studio.models.px.persistence import Persistence
+from earth2studio.utils.cupy import from_torch
 
 LAT = np.linspace(90, -90, 8)
 LON = np.linspace(0, 360, 16, endpoint=False)
@@ -38,8 +39,8 @@ STEP = np.timedelta64(6, "h")
 
 
 class GridRandom(Random):
-    def __call__(self, *args, **kwargs):
-        output = super().__call__(*args, **kwargs)
+    def __call__(self, time, variable):
+        output = super().__call__(time, variable)
         output.attrs["earth2studio_crs"] = LatLonGrid(
             self.domain_coords["lat"], self.domain_coords["lon"]
         ).crs.to_string()
@@ -64,13 +65,20 @@ def _initial_condition(source: Random | Random_FX):
     )
 
 
+def _forcing(replay, x):
+    signature = replay.output_coords(x)
+    return from_torch(
+        torch.ones(signature.shape, device=x.e2s.to_torch()[0].device), signature
+    )
+
+
 @pytest.mark.parametrize("source_type", [GridRandom, GridRandomFX])
 def test_datareplay_call(source_type):
     source = source_type(DOMAIN)
     x = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
 
-    output = replay(x)
+    output = replay(x, _forcing(replay, x))
 
     assert output.shape == x.shape
     assert output.dtype == x.dtype
@@ -96,38 +104,21 @@ def test_datareplay_iter(source_type):
 
     replay.front_hook = front_hook
     replay.rear_hook = rear_hook
-    iterator = replay.create_iterator(x)
-
-    initial = next(iterator)
-    xr.testing.assert_identical(initial, x)
-    np.testing.assert_array_equal(initial.lead_time, np.array([np.timedelta64(0, "h")]))
-    assert hook_calls == {"front": 0, "rear": 0}
-
+    iterator = replay.create_iterator(x, _forcing(replay, x))
     first = next(iterator)
     np.testing.assert_array_equal(first.lead_time, np.array([STEP]))
-    assert hook_calls == {"front": 1, "rear": 1}
+    assert hook_calls == {"front": 0, "rear": 1}
 
-    second = next(iterator)
+    second = iterator.send(_forcing(replay, first))
     np.testing.assert_array_equal(second.lead_time, np.array([2 * STEP]))
-    assert hook_calls == {"front": 2, "rear": 2}
+    assert hook_calls == {"front": 1, "rear": 2}
 
 
 @pytest.mark.parametrize("source_type", [GridRandom, GridRandomFX])
 def test_datareplay_conformance(source_type):
     source = source_type(DOMAIN)
     replay = DataReplay(source, VARIABLE, DOMAIN, step=STEP)
-    # KNOWN CONTRACT GAP (deferred, do not weaken this check to hide it):
-    # DataReplay declares stochastic=False but, because it replays from a data
-    # source that draws fresh random values on every fetch instead of caching a
-    # rollout, two rollouts from one input disagree. check_prognostic_contract()
-    # raises with:
-    #   P13: model declares stochastic=False but two rollouts from one input
-    #   disagree; declare stochastic=True and implement set_rng()
-    # See dev/spec/MODEL_CONTRACT_SPEC.md. Fixing this is out of scope for this
-    # change and tracked separately; re-enable the assertion below once fixed.
-    with pytest.raises(ContractException) as excinfo:
-        check_prognostic_contract(replay)
-    assert "P13" in str(excinfo.value)
+    check_prognostic_contract(replay)
 
 
 def test_datareplay_input_coords_copy():
@@ -157,17 +148,18 @@ def test_datareplay_grid_mismatch_raises():
     replay = DataReplay(source, VARIABLE, DOMAIN)
 
     with pytest.raises(ValueError, match="required dim lat is not of size 8"):
-        replay(x)
+        replay(x, _forcing(replay, x).isel(lat=slice(1, None)))
 
 
 def test_datareplay_nonfinite_raises(monkeypatch):
     source = GridRandom(DOMAIN)
     x = _initial_condition(source)
     replay = DataReplay(source, VARIABLE, DOMAIN)
-    monkeypatch.setattr(np.random, "randn", lambda *shape: np.full(shape, np.nan))
+    forcing = _forcing(replay, x)
+    forcing.data[:] = np.nan
 
     with pytest.raises(ValueError, match="non-finite"):
-        replay(x)
+        replay(x, forcing)
 
 
 @pytest.mark.parametrize(
@@ -190,7 +182,7 @@ def test_datareplay_invalid_coords(coords_update, match):
     replay = DataReplay(source, VARIABLE, DOMAIN)
 
     with pytest.raises(ValueError, match=match):
-        replay(x)
+        replay(x, x)
 
 
 @pytest.mark.parametrize(
@@ -220,7 +212,7 @@ def test_datareplay_preserves_ensemble_metadata(source_type, device):
         x = x.e2s.as_cupy(device=0)
     replay = DataReplay(source, VARIABLE, DOMAIN)
 
-    output = replay(x)
+    output = replay(x, _forcing(replay, x))
 
     assert output.dims == x.dims
     assert output.name == x.name
@@ -241,7 +233,7 @@ def test_datareplay_rejects_missing_source_spatial_dimension():
     replay = DataReplay(MissingLatitude(DOMAIN), VARIABLE, DOMAIN)
     x = _initial_condition(GridRandom(DOMAIN))
     with pytest.raises(ValueError, match="dimensions"):
-        replay(x)
+        replay(x, _forcing(replay, x).isel(lat=0, drop=True))
 
 
 def test_datareplay_domain_does_not_initialize_checkpoint(monkeypatch):
@@ -280,22 +272,36 @@ def test_datareplay_inplace_hooks_own_storage(device, hook):
         replay.front_hook = mutate
     if hook in ("rear", "both"):
         replay.rear_hook = mutate
-    iterator = replay.create_iterator(x)
+    iterator = replay.create_iterator(x, _forcing(replay, x))
     retained = []
+    output = None
     for step in range(4):
-        output = next(iterator)
-        xr.testing.assert_identical(x, original)
-        for previous, snapshot in retained:
-            xr.testing.assert_identical(previous, snapshot)
-        assert output.attrs["experiment"]["calls"] == step * (
-            2 if hook == "both" else 1
+        output = (
+            next(iterator) if step == 0 else iterator.send(_forcing(replay, output))
         )
-        assert output.lead_time.values[0] == step * STEP
+        xr.testing.assert_identical(x, original)
+        for previous, snapshot in (
+            retained[:-1] if hook in ("front", "both") else retained
+        ):
+            xr.testing.assert_identical(previous, snapshot)
+        if retained and hook in ("front", "both"):
+            previous, snapshot = retained[-1]
+            snapshot.data += 1
+            snapshot.attrs["experiment"]["calls"] += 1
+            snapshot.coords["height"].data += 1
+            xr.testing.assert_identical(previous, snapshot)
+        expected = step * (hook in ("front", "both")) + (step + 1) * (
+            hook in ("rear", "both")
+        )
+        assert output.attrs["experiment"]["calls"] == expected
+        assert output.lead_time.values[0] == (step + 1) * STEP
         assert output.e2s.to_torch()[0].device == torch.device(device)
         assert output.name == x.name
         assert output.encoding == x.encoding
         retained.append((output, output.copy(deep=True)))
-    assert len(calls) == 3 * (2 if hook == "both" else 1)
+    assert len(calls) == 3 * (hook in ("front", "both")) + 4 * (
+        hook in ("rear", "both")
+    )
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -307,12 +313,15 @@ def test_datareplay_initial_yield_is_owned(device):
         x = x.e2s.as_cupy(device=0)
     original = x.copy(deep=True)
     replay = DataReplay(source, VARIABLE, DOMAIN)
-    iterator = replay.create_iterator(x)
+    iterator = replay.create_iterator(x, _forcing(replay, x))
     initial = next(iterator)
     initial.data += 100
     initial.attrs["experiment"]["name"] = "consumer"
     xr.testing.assert_identical(x, original)
-    assert next(iterator).attrs["experiment"]["name"] == "original"
+    assert (
+        iterator.send(_forcing(replay, initial)).attrs["experiment"]["name"]
+        == "consumer"
+    )
 
 
 @pytest.mark.parametrize("model_type", [Persistence, DataReplay])

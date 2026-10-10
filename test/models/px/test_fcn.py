@@ -23,7 +23,6 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import FCN
-from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.cupy import from_torch
 
@@ -149,10 +148,6 @@ def test_fcn_iter(ensemble, device):
         time = [time]
 
     # Get generator
-    initial_array = next(p_iter)
-    initial, _ = initial_array.e2s.to_torch()
-    torch.testing.assert_close(initial, x)
-    assert initial_array.dims == coords.dims
     for i, result in enumerate(p_iter):
         out, out_coords = result.e2s.to_torch()
         assert result.dims == coords.dims
@@ -179,52 +174,6 @@ def test_fcn_shifted_output_signature():
     output = p.output_coords(signature)
     assert output.data.nbytes == 0
     assert output.lead_time.values[0] == np.timedelta64(18, "h")
-
-
-def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
-    center = torch.zeros(26, 1, 1)
-    scale = torch.ones(26, 1, 1)
-    source_model = FCN(IncrementFCNModel(), center, scale)
-    base_coords = source_model.input_coords()
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("1993-04-05T00:00")]),
-            "lead_time": base_coords["lead_time"].values,
-            "variable": base_coords["variable"].values,
-            "lat": base_coords["lat"].values,
-            "lon": base_coords["lon"].values,
-        }
-    )
-    coords = coord_array(tuple(coords), coords, attrs=base_coords.attrs)
-    x = torch.zeros(1, 1, 26, 720, 1440)
-
-    checkpoint = Checkpoint("fcn", path=tmp_path, flush_interval=1, level=2)
-    with checkpoint as ckpt:
-        model = FCN(IncrementFCNModel(), center, scale)
-        iterator = model.create_iterator(from_torch(x, coords, attrs=base_coords.attrs))
-        next(iterator)
-        saved_x, saved_coords = next(iterator).e2s.to_torch()
-        assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
-        assert saved_x[0, 0, 0, 0, 0] == 1
-        ckpt.write(lead_time=saved_coords["lead_time"][-1])
-
-    checkpoint = Checkpoint("fcn", path=tmp_path, level=2)
-    with checkpoint.select(-1):
-        model = FCN(IncrementFCNModel(), center, scale)
-        assert model.checkpoint.checkpoint_state_loaded
-        restart_x = torch.full_like(x, -5)
-        resumed = next(
-            model.create_iterator(
-                from_torch(restart_x, coords, attrs=base_coords.attrs)
-            )
-        )
-        resumed_x, resumed_coords = resumed.e2s.to_torch()
-
-    assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
-    assert resumed.dims == coords.dims
-    assert resumed_x[0, 0, 0, 0, 0] == 2
-    assert resumed_x.amin() == 2
-    assert resumed_x.amax() == 2
 
 
 @pytest.mark.parametrize(

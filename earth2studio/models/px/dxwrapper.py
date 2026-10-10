@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from copy import deepcopy
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 import numpy as np
 import torch
@@ -276,7 +276,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
 
     Preparation callables customize signature planning, interpolation and output
     concatenation. Tensor-named preparation slots now consume labelled fields.
-    The nested prognostic iterator retains ownership of its history and checkpoints.
+    The explicit state retains the nested prognostic continuation and any fields
+    that are absent from the published diagnostic grid.
     """
 
     def __init__(
@@ -293,6 +294,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         prepare_output_tensor: PrepareOutputTensor | None = None,
     ) -> None:
         super().__init__()
+        self._rng: torch.Generator | None = None
         self.px_model = px_model
         self.dx_model = torch.nn.ModuleList(
             dx_model if isinstance(dx_model, list) else [dx_model]
@@ -355,6 +357,8 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         for index, model in enumerate([self.px_model, *self.dx_model]):
             if getattr(model, "stochastic", False):
                 model.set_rng(seed + index, reset=reset)
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -365,7 +369,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Allocation-free DataArray input signature of the nested
             prognostic model.
         """
-        return self.px_model.input_coords().copy(deep=True)
+        return cast(CoordinateSystem, self.px_model.input_coords()).copy(deep=True)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
@@ -381,7 +385,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             Allocation-free DataArray output signature composed from the
             nested prognostic and diagnostic models.
         """
-        px = self.px_model.output_coords(input_coords)
+        px = cast(CoordinateSystem, self.px_model.output_coords(input_coords))
         dx = [
             m.output_coords(p(px.copy(deep=True), m.input_coords()))
             for m, p in zip(self.dx_model, self.prepare_dx_input_coords)
@@ -396,50 +400,106 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         return self.prepare_output_tensor(x, outputs)
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance the nested model once, then diagnose its labelled output."""
+        """Advance the nested model once and diagnose its output, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching the nested model's input signature.
+
+        Returns
+        -------
+        xr.DataArray
+            Forecast transformed by the configured diagnostic pipeline and
+            output preparation function.
+        """
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, Any]:
+        """Compute the first diagnosed forecast and its explicit continuation.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching the nested prognostic model's input signature.
+
+        Returns
+        -------
+        tuple[xr.DataArray, Any]
+            First diagnosed forecast and nested continuation state, retained native
+            fields when needed, variable labels and diagnostic sampling seed.
+            Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
         self.output_coords(x)
-        return self._diagnose(self.px_model(x.copy(deep=True)))
+        px, state = self.px_model.initialize(x)
+        seed = (
+            int(torch.randint(2**31, (), generator=self._rng)) if self.stochastic else 0
+        )
+        return self._publish(px, state, seed)
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        self.output_coords(x)
-        iterator = self.px_model.create_iterator(x.copy(deep=True))
-        try:
-            first = True
-            while True:
-                front = getattr(self.px_model, "front_hook")
-                had_front = "front_hook" in vars(self.px_model)
-                advanced = False
+    def _publish(
+        self, px: xr.DataArray, state: Any, seed: int
+    ) -> tuple[xr.DataArray, Any]:
+        for index, model in enumerate(self.dx_model):
+            if getattr(model, "stochastic", False):
+                model.set_rng(seed + index, reset=True)
+        y = self._diagnose(px)
+        recoverable = (
+            all(
+                dim in y.coords and np.isin(px.coords[dim], y.coords[dim]).all()
+                for dim in px.dims
+                if dim in px.coords
+            )
+            and px.dims == y.dims
+        )
+        # A cropped or regridded publication cannot replace the native recurrence.
+        private = None if recoverable else px.copy(deep=True)
+        return y, (private, px.coords["variable"].values.copy(), state, seed + 1)
 
-                def apply_front(state: xr.DataArray) -> xr.DataArray:
-                    nonlocal advanced
-                    advanced = True
-                    return self.front_hook(front(state).copy(deep=True))
+    def step(self, y: xr.DataArray, state: Any) -> tuple[xr.DataArray, Any]:
+        """Advance the nested continuation, applying edits to retained public fields.
 
-                setattr(self.px_model, "front_hook", apply_front)
-                try:
-                    px = next(iterator)
-                finally:
-                    if had_front:
-                        setattr(self.px_model, "front_hook", front)
-                    else:
-                        delattr(self.px_model, "front_hook")
-                initial = (
-                    first
-                    and not advanced
-                    and np.array_equal(px.lead_time.values, x.lead_time.values[-1:])
-                )
-                first = False
-                if initial:
-                    yield px.copy(deep=True)
-                    continue
-                yield self.rear_hook(self._diagnose(px)).copy(deep=True)
-        finally:
-            cast(Generator[xr.DataArray, None, None], iterator).close()
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous diagnosed forecast. Edits to overlapping prognostic fields
+            are transferred to the nested model's input.
+        state : Any
+            Wrapper continuation state returned by ``initialize`` or ``step``.
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the initial field, followed by diagnosed forecasts with hooks."""
-        yield from self._default_generator(x)
+        Returns
+        -------
+        tuple[xr.DataArray, Any]
+            Next diagnosed forecast and updated wrapper state, without hooks.
+        """
+        private, variables, nested, seed = state
+        if private is None:
+            px = y.sel(variable=variables).copy(deep=True)
+        else:
+            px = private.copy(deep=True)
+            overlap = {
+                dim: np.intersect1d(px.coords[dim], y.coords[dim])
+                for dim in px.dims
+                if dim in px.coords and dim in y.coords
+            }
+            if px.dims == y.dims and all(len(values) for values in overlap.values()):
+                px.loc[overlap] = y.sel(overlap)
+        px, nested = self.px_model.step(px, state=deepcopy(nested))
+        return self._publish(px, nested, seed)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield diagnosed forecasts, beginning with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Diagnosed forecasts after the rear hook. The front hook runs before
+            subsequent steps; overlapping prognostic edits feed the nested model.
+        """
+        yield from self._default_create_iterator(x)

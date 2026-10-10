@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from typing import TypeVar
 
 import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -171,6 +172,18 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.register_buffer("center", center.unsqueeze(-1).unsqueeze(-1))
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -338,21 +351,68 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return state
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict one six-hour DataArray from two input fields."""
+        """Predict six hours ahead from two input frames, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         return self._step(x)
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        handshake_nonempty(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
-        while True:
-            x = self.front_hook(x.copy(deep=True))
-            out = self.rear_hook(self._step(x))
-            x = self._advance_history(x, out)
-            yield out.copy(deep=False)
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
+        """Compute the first forecast and retain only the missing history frame.
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the latest input followed by six-hour forecasts."""
-        yield from self._default_generator(x)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            First six-hour forecast and the preceding history frame needed by
+            ``step``. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
+
+    def step(
+        self, y: xr.DataArray, state: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Advance using the previous forecast and its preceding history frame.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : xr.DataArray
+            Preceding history frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next six-hour forecast and updated history, without iterator hooks.
+        """
+        return self.initialize(self._advance_history(state, y))
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
+        return self._default_create_iterator(x)
