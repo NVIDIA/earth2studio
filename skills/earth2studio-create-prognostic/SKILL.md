@@ -8,7 +8,8 @@ metadata:
 description: >
   Create Earth2Studio prognostic (time-stepping forecast) model wrappers.
   Do NOT use for diagnostic models, data sources, or installation.
-argument-hint: URL or local path to reference inference script (optional)
+  The user may optionally supply a URL or a local path to a reference
+  inference script.
 ---
 
 ## Quick Start Checklist

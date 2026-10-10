@@ -21,7 +21,8 @@ description: >
   May add Python dependencies to pyproject.toml as part of development.
   Do NOT use for fetching data with existing sources, model inference, or
   Earth2Studio installation/setup tasks.
-argument-hint: URL or description of remote data store (optional)
+  The user may optionally supply a URL, file path, or description of the
+  remote data store to start from.
 ---
 
 # Create and Validate Data Source
