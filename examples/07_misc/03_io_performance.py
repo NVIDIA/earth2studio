@@ -416,9 +416,11 @@ print(
 # Zarr store: writes accumulate in a transactional session and become durable when
 # committed as an immutable snapshot. This is useful for keeping an auditable history
 # of a store, or safely rolling back a bad run. The API matches `ZarrBackend` with
-# one addition: call `commit` to persist. Unlike `ZarrBackend`, `write` is
-# non-blocking by default (`read`/`__getitem__`/`commit` flush pending writes
-# first); pass `blocking=True` to write synchronously instead. This requires the
+# one addition: `commit` persists writes as a named snapshot. `close` also commits
+# pending writes, with a generic message, so call `commit` yourself to label the
+# snapshot. Unlike `ZarrBackend`, `write` is non-blocking by default
+# (`read`/`__getitem__`/`commit`/`close` flush pending writes first); pass
+# `blocking=True` to write synchronously instead. This requires the
 # `icechunk` optional dependency, installed with the `data` extra
 # (Python >= 3.12).
 
@@ -431,8 +433,9 @@ from earth2studio.io import IceChunkBackend
 io = IceChunkBackend("outputs/17_io_icechunk")
 start_time = time.time()
 christmas_five_day_ensemble(times, nsteps, model, ds, io, pt, device=device)
-# Writes are only durable once committed as a snapshot
+# Writes are only durable once committed as a snapshot; close then has nothing left
 io.commit("Christmas 2022 ensemble")
+io.close()
 icechunk_clock = time.time() - start_time
 
 print(f"\nIcechunk store inference time: {icechunk_clock}s")

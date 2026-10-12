@@ -33,9 +33,11 @@ class IOBackend(Protocol):
 auxiliary coordinates, then one array per variable.
 - `write` stores `x` at the positions its coordinate labels identify.
 - `flush` blocks until every earlier write is visible to readers of the store. The
-backend stays writable.
-- `close` flushes and releases resources. Later writes raise; repeated `close` calls
-are no-ops.
+backend stays writable. For a transactional store, those readers are the open
+transaction's; other readers see the writes once committed.
+- `close` flushes, finalizes the store and releases resources. Transactional
+backends commit on close (Icechunk), so `close` may raise if finalizing fails. Later
+writes raise; repeated `close` calls are no-ops.
 
 Backend-specific methods (`read`, `__getitem__`, commits, `to_xarray`) remain on
 the implementations and are not part of the protocol. Any store can be opened with
@@ -168,7 +170,7 @@ the in-memory dataset) yields, for each array:
 | `I8`  | `write` accepts NumPy-, CuPy- and Torch-adapter-backed arrays                          |
 | `I9`  | After `flush`, the store round-trips values, coordinates and persisted attributes      |
 | `I10` | Signature markers and `earth2studio_statistics` are not persisted                      |
-| `I11` | `close` flushes; later writes raise and repeated closes are no-ops                     |
+| `I11` | `close` flushes and finalizes; later writes raise and repeated closes are no-ops       |
 
 A shared test suite in `test/io/` checks these rules for every migrated backend.
 There is no runtime conformance checker: backends are few and rarely added.
@@ -212,7 +214,8 @@ proceed in two steps:
   `NetCDF4Backend`, `KVBackend` and `AsyncZarrBackend`. Move `run.deterministic`,
    `run.diagnostic` and `run.ensemble` to `io.write(y)`, and serve's
    `BackendProgress`, examples, recipes and tests with them. Remove the private
-   legacy protocol and `split_coords` from IO paths.
+   legacy protocol, `_output_dimensions` and `split_coords` from IO paths. Recipes
+   with their own scoring IO, such as s2s, migrate separately.
 
 Breaking changes for users:
 

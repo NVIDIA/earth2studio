@@ -42,7 +42,6 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     _io_template,
     _lead_times,
     _map_field,
-    _output_dimensions,
 )
 from earth2studio.run.runner import (
     DataRequest,

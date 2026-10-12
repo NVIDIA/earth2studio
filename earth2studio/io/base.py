@@ -55,7 +55,7 @@ class IOBackend(Protocol):
         pass
 
     def close(self) -> None:
-        """Flush and release resources; later writes raise."""
+        """Flush, finalize the store and release resources; later writes raise."""
         pass
 
 

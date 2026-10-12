@@ -23,7 +23,6 @@ import numpy as np
 import xarray as xr
 
 from earth2studio.io.utils import output_template
-from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import CoordSystem, coord_array_like
 
 
@@ -105,23 +104,6 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
             if key in target.attrs:
                 x.attrs[key] = target.attrs[key]
     return x
-
-
-def _output_dimensions(
-    prognostic: PrognosticModel, time: np.ndarray, nsteps: int
-) -> CoordSystem:
-    """Plan the legacy IO dimensions from a native model declaration."""
-    signature = prognostic.output_coords(prognostic.input_coords())
-    coords = OrderedDict(
-        (dim, values)
-        for dim, values in _dimension_coords(signature).items()
-        if signature.sizes[dim]
-    )
-    coords["time"] = time
-    coords["lead_time"] = _lead_times(signature, nsteps)
-    coords.move_to_end("lead_time", last=False)
-    coords.move_to_end("time", last=False)
-    return coords
 
 
 def _lead_times(signature: xr.DataArray, nsteps: int) -> np.ndarray:

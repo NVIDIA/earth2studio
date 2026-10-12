@@ -26,6 +26,7 @@ import zarr
 
 from earth2studio.grids import LatLonGrid
 from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
 
 icechunk = pytest.importorskip("icechunk", reason="icechunk not installed")
 
@@ -171,11 +172,11 @@ def test_icechunk_with_async_zarr_backend() -> None:
             parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
             store=session.store,
         )
+        io.add_array(coord_array(tuple(coords), coords, name="t2m"))
         x = torch.randn(1, 4, 32, 64, dtype=torch.float32)
         for i in range(4):
-            step_coords = OrderedDict(coords)
-            step_coords["lead_time"] = lead_times[i : i + 1]
-            io.write(x[:, i : i + 1], step_coords, "t2m")
+            step_coords = OrderedDict(coords, lead_time=lead_times[i : i + 1])
+            io.write(from_torch(x[:, i : i + 1], step_coords, name="t2m"))
         io.close()
         session.commit("async write")
 
@@ -283,6 +284,42 @@ def test_icechunk_close_commits() -> None:
         root = zarr.open_group(
             IceChunkBackend(repo_path).repo.readonly_session("main").store, mode="r"
         )
+        np.testing.assert_allclose(
+            root["t2m"][:], field.sel(variable="t2m", drop=True).values
+        )
+
+
+def test_icechunk_close_conflict() -> None:
+    """A conflicting commit on close raises, leaves the backend closed, and keeps
+    the pending writes recoverable with commit(rebase_with=...)."""
+
+    with tempfile.TemporaryDirectory() as td:
+        repo_path = os.path.join(td, "repo")
+        io1 = IceChunkBackend(repo_path)
+        io1.add_array(make_template(["t2m"]))
+        io1.write(make_field(["t2m"]))
+        io1.commit("init")
+
+        io2 = IceChunkBackend(repo_path)
+        io1.write(make_field(["t2m"], seed=1))
+        field = make_field(["t2m"], seed=2)
+        io2.write(field)
+        io1.commit("winner")
+
+        with pytest.raises(icechunk.ConflictError):
+            io2.close()
+        with pytest.raises(RuntimeError, match="closed"):
+            io2.write(field)
+        io2.close()  # already closed, does not retry the commit
+        assert io2.session.has_uncommitted_changes
+
+        io2.commit(
+            "recovered",
+            rebase_with=icechunk.BasicConflictSolver(
+                on_chunk_conflict=icechunk.VersionSelection.UseOurs
+            ),
+        )
+        root = zarr.open_group(io2.repo.readonly_session("main").store, mode="r")
         np.testing.assert_allclose(
             root["t2m"][:], field.sel(variable="t2m", drop=True).values
         )

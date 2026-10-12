@@ -47,8 +47,8 @@ class IceChunkBackend(ZarrBackend):
     store in place of a plain Zarr store. Since Icechunk snapshots are immutable,
     call :func:`commit` to persist accumulated writes; uncommitted writes are still
     visible to this backend but are lost if the process exits before committing
-    (:func:`close` commits them and a warning is logged if the backend is destroyed
-    with pending writes).
+    (:func:`close` commits them with a generic message, and a warning is logged if
+    the backend is destroyed with pending writes).
 
     By default, ``write`` is non-blocking: the actual store write for a call runs in
     a background thread so the inference loop can move on to the next step while the
@@ -180,11 +180,7 @@ class IceChunkBackend(ZarrBackend):
             self.flush()
             if self._executor is not None:
                 self._executor.shutdown(wait=True)
-            if (
-                not self._closed
-                and self.session.has_uncommitted_changes
-                and len(self.root) > 0
-            ):
+            if self.session.has_uncommitted_changes and len(self.root) > 0:
                 logger.warning(
                     "IceChunkBackend deleted with uncommitted changes; these writes "
                     "were not persisted to branch '{}'. Call commit() or close() to persist.",
@@ -196,24 +192,28 @@ class IceChunkBackend(ZarrBackend):
     def close(self) -> None:
         """Flush pending writes, commit them to the branch, and reject later writes.
 
-        Repeated calls are a no-op. Committing on close guarantees data is not lost
-        if the backend is destroyed; it may raise ``icechunk.ConflictError`` if a
-        concurrent writer committed first.
+        Repeated calls are a no-op. Call :func:`commit` first to choose the commit
+        message or resolve conflicts; ``close`` then has nothing left to commit.
+
+        Raises
+        ------
+        icechunk.ConflictError
+            If another writer committed to the branch first. The backend is closed
+            regardless; persist the pending writes with
+            ``commit(message, rebase_with=...)``.
         """
         if self._closed:
             return
+        # Mark closed first so a failed commit still leaves a consistently closed
+        # backend (later writes raise the closed error, not an executor error)
+        self._closed = True
         self.flush()
         if self._executor is not None:
             self._executor.shutdown(wait=True)
+        # The len(root) check skips the fresh-repo case where the only pending
+        # change is the root group metadata written during construction.
         if self.session.has_uncommitted_changes and len(self.root) > 0:
-            try:
-                self.commit("close IceChunkBackend")
-            except icechunk.IcechunkError:
-                # If the only uncommitted changes are root group metadata, commit is
-                # allowed to fail silently so close is a clean no-op in that case.
-                if len(self.root) > 0:
-                    raise
-        self._closed = True
+            self.commit("close IceChunkBackend")
 
     def commit(self, message: str, **kwargs: Any) -> str:
         """Commit all writes since the last commit to the Icechunk repository,
