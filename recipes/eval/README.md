@@ -554,12 +554,13 @@ xarray); readers on zarr 2.x fail with a codec error.
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).
-The config is organized into three layers:
+The config is organized into four layers:
 
 | Layer | Location | Purpose |
 | --- | --- | --- |
 | Base | `cfg/default.yaml` | Shared defaults (pipeline, data source, output, predownload) |
 | Model | `cfg/model/*.yaml` | Model architecture and checkpoint |
+| Data source | `cfg/data_source/*.yaml` | Source of initial conditions and verification |
 | Campaign | `cfg/campaign/*.yaml` | ICs, ensemble, variables, forecast length |
 
 ### Campaign configs
@@ -605,6 +606,16 @@ can switch on the command line:
 ```bash
 python main.py model=fcn3
 ```
+
+### Data source selection
+
+The data source is a Hydra group as well.  `cfg/data_source/arco_era5.yaml`,
+the default, reads hourly ARCO ERA5.  `arco_era5_daily.yaml` wraps the same
+source in `WindowMeanSource` to serve UTC calendar-day means, which
+models such as FuXi-S2S expect as initial conditions.  A campaign switches
+with `defaults: [override /data_source: arco_era5_daily]`.  An inline
+`data_source:` block merges over the selected source instead, which is how
+the custom examples above work.
 
 ### Ensemble runs
 
@@ -1152,6 +1163,11 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
   Earth-system forecast (atmos + ocean on different cadences).
 - **`StormScopePipeline`** (`src.pipelines.stormscope.StormScopePipeline`) —
   coupled GOES/MRMS nowcasting.
+- **`WindowMeanForecastPipeline`**
+  (`src.pipelines.seasonal.WindowMeanForecastPipeline`) — prognostic rollout
+  stored as fixed-length window means (weekly, 30-day) for
+  subseasonal-to-seasonal archives, optionally interpolated to a coarser
+  grid; scoring is left to the user.  See `campaign=fuxi_s2s_2024_monthly`.
 
 ### Custom pipelines
 
