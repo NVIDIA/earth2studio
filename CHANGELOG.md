@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
+- Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
 
 ### Deprecated
 
