@@ -325,7 +325,11 @@ class CAMulatorForcing:
         """Return the local cache path for downloaded files."""
         if not self._cache and self._tmp_cache_hash is None:
             self._tmp_cache_hash = uuid.uuid4().hex[:8]
-        return datasource_cache_dir("camulator", self._cache, self._tmp_cache_hash)
+        # Distinct from Package.default_cache("camulator"), which holds the model
+        # checkpoint; clearing the forcing cache must not remove it.
+        return datasource_cache_dir(
+            "camulator_forcing", self._cache, self._tmp_cache_hash
+        )
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:

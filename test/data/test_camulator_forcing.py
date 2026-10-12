@@ -16,7 +16,6 @@
 
 import asyncio
 import pathlib
-import shutil
 from datetime import datetime, timedelta
 
 import cftime
@@ -122,19 +121,15 @@ def test_camulator_forcing_fetch(time, variable):
 @pytest.mark.parametrize("cache", [True, False])
 def test_camulator_forcing_cache(cache):
     ds = CAMulatorForcing(cache=cache)
+    cache_dir = pathlib.Path(ds.cache)  # accessing ds.cache re-creates the directory
     data = ds(_TEST_TIME, ["sst"])
     assert not np.isnan(data.values).any()
-    # With cache=False the per-instance temp directory is removed after the call
-    assert pathlib.Path(ds.cache).is_dir() == cache or not cache
     data2 = ds(_TEST_TIME, ["sst"])
     assert data2.shape == data.shape
-    # Release the open netCDF before deleting: on NFS/Lustre the unlink of an
-    # open file is deferred and rmtree fails with ENOTEMPTY.
     ds._close()
-    try:
-        shutil.rmtree(ds.cache)
-    except FileNotFoundError:
-        pass
+    # The persistent forcing cache is shared across runs and left in place; the
+    # per-instance temp directory is removed on close.
+    assert cache_dir.is_dir() == cache
 
 
 @pytest.mark.timeout(60)
@@ -282,7 +277,7 @@ def test_camulator_forcing_no_cache_cleanup(cyclic_file, monkeypatch, tmp_path):
     ds = CAMulatorForcing(forcing_file=cyclic_file, cache=False, verbose=False)
     cache_dir = pathlib.Path(ds.cache)
     assert cache_dir.is_dir()
-    assert "tmp_camulator_" in cache_dir.name
+    assert "tmp_camulator_forcing_" in cache_dir.name
 
     data = ds(_TEST_TIME, "sst")
     assert data.shape == (1, 1, N_LAT, N_LON)
