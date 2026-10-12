@@ -197,8 +197,9 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:climate product:wind product:precip product:temp
-    product:atmos year:2025 gpu:24gb provider:ncar backend:pytorch
+    region:global class:climate class:medium-range product:wind product:precip
+    product:temp product:atmos product:solar year:2025 gpu:24gb provider:ncar
+    backend:pytorch
     """
 
     def __init__(
