@@ -49,7 +49,7 @@ class PhooAurora1p5Model(torch.nn.Module):
         surf = {k: v[:, -1:, ...] for k, v in batch.surf_vars.items()}
         # Add output-only vars that the real model produces but don't exist in input
         ref = next(iter(surf.values()))
-        for _e2s, aurora_name, _log in _OUTPUT_ONLY_SURF_VARS:
+        for _e2s, aurora_name in _OUTPUT_ONLY_SURF_VARS:
             surf[aurora_name] = torch.zeros_like(ref)
         return Batch(
             surf_vars=surf,
@@ -132,6 +132,43 @@ def test_aurora1p5_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_aurora1p5_output_only_vars_not_untransformed_twice(device):
+    # Aurora's post-unnorm hook already returns physical units for the output-only
+    # variables (including tp1h / sf1h), so the wrapper must pass them through.
+    value = 0.5
+
+    class _Core(PhooAurora1p5Model):
+        def forward(self, batch: Batch, lead_times: torch.Tensor) -> Batch:
+            out = super().forward(batch, lead_times)
+            for _e2s, aurora_name in _OUTPUT_ONLY_SURF_VARS:
+                out.surf_vars[aurora_name] = torch.full_like(
+                    out.surf_vars[aurora_name], value
+                )
+            return out
+
+    static_vars = {k: torch.ones(_H, _W) for k in _STATIC_KEYS}
+    p = Aurora1p5(_Core(), static_vars).to(device)
+
+    dc = p.input_coords()
+    del dc["batch"]
+    del dc["time"]
+    del dc["lead_time"]
+    del dc["variable"]
+    r = Random(dc)
+
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    lead_time = p.input_coords()["lead_time"]
+    variable = p.input_coords()["variable"]
+    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+
+    out, out_coords = p(x, coords)
+
+    for e2s_name, _aurora_name in _OUTPUT_ONLY_SURF_VARS:
+        idx = list(out_coords["variable"]).index(e2s_name)
+        assert torch.allclose(out[:, :, idx], torch.full_like(out[:, :, idx], value))
 
 
 @pytest.mark.parametrize("ensemble", [1, 2])
