@@ -1786,21 +1786,19 @@ class StormScopeGOES(StormScopeBase):
         return self._forward(y, None, state)
 
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
-        """Reject standalone iteration; use the coupled initialize/step loop.
+        """Create an iterator for unforced GOES time-integration.
 
         Parameters
         ----------
         x : xr.DataArray
             Initial GOES history.
 
-        Raises
+        Yields
         ------
-        NotImplementedError
-            Always; use ``initialize`` and ``step`` explicitly.
+        xr.DataArray
+            Forecast fields, beginning with the first prediction.
         """
-        raise NotImplementedError(
-            "Use initialize and step for coupled StormScope forecasts"
-        )
+        yield from self._default_create_iterator(x)
 
     @classmethod
     def load_model(
@@ -2303,23 +2301,22 @@ class StormScopeMRMS(StormScopeBase):
     def create_iterator(
         self, x: xr.DataArray, conditioning: xr.DataArray
     ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
-        """Reject standalone iteration; use the coupled initialize/step loop.
+        """Create an iterator for radar time-integration with GOES conditioning.
 
         Parameters
         ----------
         x : xr.DataArray
             Initial radar history.
         conditioning : xr.DataArray
-            Initial GOES history.
+            Initial GOES history. Send the new GOES frames at the lead times of the
+            latest yielded forecast to advance.
 
-        Raises
+        Yields
         ------
-        NotImplementedError
-            Always; use ``initialize`` and ``step`` explicitly.
+        xr.DataArray
+            Forecast fields, beginning with the first prediction.
         """
-        raise NotImplementedError(
-            "Use initialize and step for coupled StormScope forecasts"
-        )
+        yield from self._default_create_iterator(x, conditioning)
 
     def build_input_interpolator(
         self,

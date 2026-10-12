@@ -202,18 +202,32 @@ def test_stormscope_iter(device, batch):
     xr.testing.assert_identical(x_goes, originals[0])
     xr.testing.assert_identical(x_mrms, originals[1])
     assert goes.forcing_coords() is None
-    with pytest.raises(NotImplementedError, match="initialize.*step"):
-        goes.create_iterator(x_goes)
-    with pytest.raises(NotImplementedError, match="initialize.*step"):
-        mrms.create_iterator(x_mrms, x_goes)
+    # The iterator reproduces the explicit coupled advances through send.
+    goes.set_rng(1)
+    mrms.set_rng(2)
+    y_goes, s_goes = goes.initialize(x_goes)
+    y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)
+    goes.set_rng(1)
+    mrms.set_rng(2)
+    goes_it = goes.create_iterator(x_goes)
+    mrms_it = mrms.create_iterator(x_mrms, x_goes)
+    it_goes = next(goes_it)
+    it_mrms = next(mrms_it)
+    for _ in range(2):
+        xr.testing.assert_identical(it_goes, y_goes)
+        xr.testing.assert_identical(it_mrms, y_mrms)
+        y_mrms, s_mrms = mrms.step(y_mrms, y_goes, state=s_mrms)
+        y_goes, s_goes = goes.step(y_goes, state=s_goes)
+        it_mrms = mrms_it.send(it_goes)
+        it_goes = next(goes_it)
+    goes_it.close()
+    mrms_it.close()
     for model in (goes, mrms):
         assert not hasattr(model, "call_with_conditioning")
         assert not hasattr(model, "fetch_conditioning")
         skipped = check_prognostic_contract(model, device=device)
         assert skipped == [
             "P21: checkpoint serialization requires component-specific tests",
-            "P7: create_iterator intentionally unsupported; checking explicit advances",
-            "P10: create_iterator intentionally unsupported; core methods do not apply hooks",
         ]
 
 

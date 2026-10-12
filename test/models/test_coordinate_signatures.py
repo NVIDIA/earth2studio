@@ -345,15 +345,15 @@ def test_regional_array_rollout(regional_model):
         second_coords = next(iterator)
         iterator.close()
     elif isinstance(model, StormScopeMRMS):
-        first_coords, state = model.initialize(field, field)
-        second_coords, _ = model.step(first_coords, first_coords, state=state)
-        with pytest.raises(NotImplementedError):
-            model.create_iterator(field, field)
+        iterator = model.create_iterator(field, field)
+        first_coords = next(iterator)
+        second_coords = iterator.send(first_coords)
+        iterator.close()
     else:
-        first_coords, state = model.initialize(field)
-        second_coords, _ = model.step(first_coords, state=state)
-        with pytest.raises(NotImplementedError):
-            model.create_iterator(field)
+        iterator = model.create_iterator(field)
+        first_coords = next(iterator)
+        second_coords = next(iterator)
+        iterator.close()
     first = first_coords.e2s.to_torch()[0]
     second = second_coords.e2s.to_torch()[0]
     assert first_coords.dims == second_coords.dims == coords.dims

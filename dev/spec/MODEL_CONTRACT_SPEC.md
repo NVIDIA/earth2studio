@@ -410,11 +410,18 @@ for _ in range(nsteps - 1):
     y_goes, s_goes = goes.step(y_goes, s_goes)
 ```
 
-StormScope GOES and MRMS intentionally raise `NotImplementedError` immediately
-from `create_iterator`; use this explicit coupled loop. GOES has no forcing slot;
-MRMS declares its GOES history through `forcing_coords()`. The checker exercises
-explicit advances for these models, reports the iterator-only checks as skipped,
-and still checks coordinate planning, replay, ownership, forcing, and RNG behavior.
+StormScope GOES and MRMS also support `create_iterator`. GOES has no forcing slot;
+MRMS declares its GOES history through `forcing_coords()`, so a coupled loop sends
+each new GOES forecast to the MRMS iterator:
+
+```python
+goes_it = goes.create_iterator(x_goes)
+mrms_it = mrms.create_iterator(x_mrms, x_goes)
+y_mrms, y_goes = next(mrms_it), next(goes_it)
+for _ in range(nsteps - 1):
+    y_mrms = mrms_it.send(y_goes)  # GOES frame at y_mrms's lead time
+    y_goes = next(goes_it)
+```
 
 The same GOES window initializes both models, and each iteration's `y_goes` has the
 lead time of `y_mrms`: the newest frame MRMS needs. MRMS keeps older GOES frames in
