@@ -132,7 +132,12 @@ def _io_template(
     The full rollout lead-time extent comes from ``_lead_times`` unless ``lead_time``
     is supplied (e.g. the diagnostic workflow stores the prognostic rollout extent).
     """
-    signature = _map_field(signature, output_coords)
+    # Selections along leading dims (time, ensemble) apply to `leading` below; the
+    # signature only has its dynamic batch prefix there
+    signature = _map_field(
+        signature,
+        OrderedDict((k, v) for k, v in output_coords.items() if k in signature.dims),
+    )
     leads = np.asarray(
         output_coords.get(
             "lead_time",

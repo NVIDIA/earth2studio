@@ -329,6 +329,8 @@ def test_read_round_trip(readable: IOBackend) -> None:
     np.testing.assert_array_equal(result.coords["variable"], VARIABLES)
     assert result.attrs["units"] == "K"
     assert infer_grid(result).fingerprint() == GRID.fingerprint()
+    for dim in ("lat", "lon"):
+        assert result.coords[dim].attrs == template.coords[dim].attrs
 
 
 def test_read_by_label(readable: IOBackend) -> None:
@@ -387,6 +389,8 @@ def test_add_array_rejects_name_collisions(backend: tuple[IOBackend, Callable]) 
     io.add_array(make_template())
     with pytest.raises(ValueError, match="collide"):
         io.add_array(coord_array(("lat",), {"lat": GRID.coords()["lat"]}, name="lat"))
+    with pytest.raises(ValueError, match="collide"):
+        io.add_array(coord_array(("t2m",), {"t2m": [0, 1]}, name="other"))
     io.flush()
     np.testing.assert_array_equal(read(io)["lat"].values, GRID.coords()["lat"].values)
 
@@ -401,6 +405,8 @@ def test_write_unlabelled_dims_in_full(backend: tuple[IOBackend, Callable]) -> N
     # Fields without labels must span the stored axis, never broadcast into it
     io, read = backend
     io.add_array(coord_array(("sample",), sizes={"sample": 3}, name="seed"))
+    with pytest.raises(ValueError, match="shape|size"):
+        io.add_array(coord_array(("sample",), sizes={"sample": 5}, name="seed"))
     with pytest.raises(ValueError, match="span all 3"):
         io.write(xr.DataArray([7.0], dims="sample", name="seed"))
     io.write(xr.DataArray([1.0, 2.0, 3.0], dims="sample", name="seed"))

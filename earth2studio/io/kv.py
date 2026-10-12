@@ -97,9 +97,15 @@ class KVBackend:
                 f"Coordinates collide with arrays: {sorted(map(str, clashes))}"
             )
         for name in plan.names:
-            if name in self.root and self.dims[name] != plan.dims:
+            if name not in self.root:
+                continue
+            if self.dims[name] != plan.dims:
                 raise ValueError(
                     f"Array '{name}' exists with dimensions {self.dims[name]}"
+                )
+            if tuple(self.root[name].shape) != plan.shape:
+                raise ValueError(
+                    f"Array '{name}' exists with shape {tuple(self.root[name].shape)}"
                 )
         dtype = _torch_dtype(plan.dtype)
         self.coords.update(plan.coords)

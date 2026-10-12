@@ -674,6 +674,42 @@ async def test_async_zarr_shard_restart(tmp_path: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_zarr_shard_reopen_without_add_array(tmp_path: str) -> None:
+    """A reopened store stages whole shards even when add_array is not called again.
+
+    Unstaged chunk writes to one shard would race on read-modify-write and lose data.
+    """
+    nsteps = 8
+    leads = lead_times(nsteps)
+    coords = _shard_coords(leads)
+    x = torch.randn(nsteps, 16, 32)
+
+    def backend() -> AsyncZarrBackend:
+        return AsyncZarrBackend(
+            f"{tmp_path}/reopen.zarr",
+            parallel_coords={"lead_time": leads},
+            shard_coords={"lead_time": nsteps},
+            blocking=False,
+            pool_size=8,
+        )
+
+    z1 = backend()
+    z1.add_array(template(coords, name="fields"))
+    for i in range(2):
+        z1.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
+    z1.close()
+
+    z2 = backend()
+    assert z2._shard_specs["fields"] is not None
+    for i in range(2, nsteps):
+        z2.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
+    z2.close()
+
+    data = await (await z2.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+
+
+@pytest.mark.asyncio
 async def test_async_zarr_shard_multi_dim(tmp_path: str) -> None:
     """Sharding across two parallel coordinates at once"""
     times = np.asarray([np.datetime64("2021-01-01"), np.datetime64("2021-01-02")])

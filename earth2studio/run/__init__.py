@@ -437,6 +437,11 @@ def ensemble(
         output_coords=output_coords,
     )
     io.add_array(template)
+    # Member selections pick which members of each batch are written
+    stored_members = template.coords["ensemble"].values
+    field_coords = OrderedDict(
+        (k, v) for k, v in output_coords.items() if k != "ensemble"
+    )
 
     if batch_size is None:
         batch_size = nensemble
@@ -475,6 +480,7 @@ def ensemble(
             mini_batch_size = min(batch_size, nensemble - batch_id)
             ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
             ensemble_members = [int(value) for value in ensemble_coords]
+            written_members = np.intersect1d(ensemble_coords, stored_members)
             restart_step = None
             if batch_index == 0 and restart_first_batch:
                 if ckpt.catalog.level < 2:
@@ -514,8 +520,11 @@ def ensemble(
                     )
 
                     current_lead_time = x.coords["lead_time"].values[-1]
-                    x = _map_field(x, output_coords)
-                    io.write(x)
+                    x = _map_field(x, field_coords)
+                    if len(written_members) < mini_batch_size:
+                        x = x.sel(ensemble=written_members)
+                    if len(written_members):
+                        io.write(x)
                     if step == nsteps:
                         completed.update(ensemble_members)
                         completed_ensembles = sorted(completed)

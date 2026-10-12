@@ -747,6 +747,8 @@ class AsyncZarrBackend:
                 )
             else:
                 self._arrays[name] = dict(zip(dims_of[name], array.shape))
+        # Writes into a reopened store must stage whole shards, as after add_array
+        await self._register_shard_specs(list(self._arrays))
 
     def _cache_coord(self, name: Hashable, variable: xr.Variable) -> None:
         """Records a stored coordinate, and its labels when it is a dimension coord"""
@@ -1418,11 +1420,20 @@ class AsyncZarrBackend:
             raise RuntimeError("Cannot add arrays to a closed AsyncZarrBackend")
         plan = plan_arrays(template, self._coords)
         self._check_parallel_extent(template, plan)
+        clashes = set(map(str, plan.coords)).intersection(self._arrays)
+        if clashes:
+            raise ValueError(f"Coordinates collide with arrays: {sorted(clashes)}")
         for name in plan.names:
             stored = self._arrays.get(name)
-            if stored is not None and tuple(stored) != tuple(plan.dims):
+            if stored is None:
+                continue
+            if tuple(stored) != tuple(plan.dims):
                 raise ValueError(
                     f"Array '{name}' exists with dimensions {tuple(stored)}"
+                )
+            if tuple(stored.values()) != plan.shape:
+                raise ValueError(
+                    f"Array '{name}' exists with shape {tuple(stored.values())}"
                 )
         # Coordinates that are not dimension coordinates, such as the latitude and
         # longitude of a curvilinear grid, are listed in a CF `coordinates` attribute

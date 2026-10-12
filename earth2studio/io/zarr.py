@@ -163,9 +163,15 @@ class ZarrBackend:
         if clashes:
             raise ValueError(f"Coordinates collide with arrays: {sorted(clashes)}")
         for name in plan.names:
-            if name in arrays and tuple(arrays[name]) != plan.dims:
+            if name not in arrays:
+                continue
+            if tuple(arrays[name]) != plan.dims:
                 raise ValueError(
                     f"Array '{name}' exists with dimensions {tuple(arrays[name])}"
+                )
+            if tuple(arrays[name].values()) != plan.shape:
+                raise ValueError(
+                    f"Array '{name}' exists with shape {tuple(arrays[name].values())}"
                 )
 
         for key, variable in plan.coords.items():
@@ -335,7 +341,11 @@ class ZarrBackend:
         # zarr reads ascending positions only, so undo the selection order after
         ascending, undo = self._ascending(indexers)
         coords: dict[Hashable, Any] = {
-            dim: self.coords[dim][ascending[dim]] for dim in dims if dim in self.coords
+            dim: xr.Variable(
+                (dim,), self.coords[dim][ascending[dim]], dict(self.root[dim].attrs)
+            )
+            for dim in dims
+            if dim in self.coords
         }
         for key in auxiliary:
             coordinate = self.root[key]
