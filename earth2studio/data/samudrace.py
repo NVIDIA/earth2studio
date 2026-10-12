@@ -150,11 +150,7 @@ class _SamudrACEBase:
             # First access of the temp cache: give it a per-instance suffix, so
             # one source's clean-up cannot delete another's downloads
             self._tmp_cache_hash = uuid.uuid4().hex[:8]
-        # Distinct from Package.default_cache("samudrace"), which holds the model
-        # checkpoint; clearing the forcing cache must not remove it.
-        return datasource_cache_dir(
-            "samudrace_forcing", self._cache, self._tmp_cache_hash
-        )
+        return datasource_cache_dir("samudrace", self._cache, self._tmp_cache_hash)
 
     def _fetch_file(self, filename: str) -> str:
         """Download a file from the SamudrACE HuggingFace repository.

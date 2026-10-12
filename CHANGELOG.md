@@ -45,9 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
   corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
   statistics).
-- `CAMulatorForcing` and `SamudrACEData` cache their forcing files under
-  `camulator_forcing` and `samudrace_forcing` instead of sharing the model package
-  cache directory, so clearing a forcing cache no longer deletes the checkpoint.
 
 ### Security
 

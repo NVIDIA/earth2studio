@@ -277,7 +277,7 @@ def test_camulator_forcing_no_cache_cleanup(cyclic_file, monkeypatch, tmp_path):
     ds = CAMulatorForcing(forcing_file=cyclic_file, cache=False, verbose=False)
     cache_dir = pathlib.Path(ds.cache)
     assert cache_dir.is_dir()
-    assert "tmp_camulator_forcing_" in cache_dir.name
+    assert "tmp_camulator_" in cache_dir.name
 
     data = ds(_TEST_TIME, "sst")
     assert data.shape == (1, 1, N_LAT, N_LON)

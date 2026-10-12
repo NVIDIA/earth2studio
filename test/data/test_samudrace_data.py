@@ -284,7 +284,7 @@ def test_samudrace_temp_cache_is_per_instance(monkeypatch, tmp_path):
     monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
 
     shared = SamudrACEData(verbose=False).cache
-    assert shared == os.path.join(str(tmp_path), "samudrace_forcing")
+    assert shared == os.path.join(str(tmp_path), "samudrace")
 
     first = SamudrACEData(cache=False, verbose=False)
     second = SamudrACEForcingData(cache=False, verbose=False)
