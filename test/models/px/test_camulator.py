@@ -267,8 +267,8 @@ def test_camulator_exceptions(coords):
 
 @pytest.mark.parametrize("device", ["cpu", CUDA])
 def test_camulator_postprocess(device):
-    # Wind filter and conservation fixers stay finite on a physical state and
-    # the global dry-air mass is conserved by the mass fixer.
+    """Wind filter and conservation fixers stay finite on a physical state and
+    the global dry-air mass is conserved by the mass fixer."""
     torch.cuda.empty_cache()
     p = build_model(PhooCamulatorNet(), conservation_fixers=True, wind_filter=True)
     p = p.to(device)
@@ -296,8 +296,8 @@ def test_camulator_postprocess(device):
 
 @pytest.mark.parametrize("device", ["cpu", CUDA])
 def test_camulator_hooks(device):
-    # Hooks that modify the state in place (returning the same tensor) must feed
-    # the modified state into the next step.
+    """Hooks that modify the state in place (returning the same tensor) must feed
+    the modified state into the next step."""
     torch.cuda.empty_cache()
     p = build_model(PhooCamulatorNet()).to(device)
     x, coords = random_input(p, np.array([np.datetime64("2001-01-01T00:00")]), device)
@@ -343,7 +343,7 @@ def test_camulator_water_fix_zero_precip():
 
 @pytest.mark.parametrize("device", [CUDA])
 def test_camulator_net(device):
-    # The vendored CrossFormer runs at the CAMulator grid with reduced widths.
+    """The vendored CrossFormer runs at the CAMulator grid with reduced widths."""
     torch.cuda.empty_cache()
     net = CamulatorNet(
         dim=(8, 16, 32, 64), depth=(1, 1, 1, 1), dim_head=8, use_spectral_norm=False
