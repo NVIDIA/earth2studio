@@ -15,9 +15,6 @@
 # limitations under the License.
 
 from collections.abc import Generator
-from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 import torch
@@ -35,7 +32,6 @@ from earth2studio.utils import (
     handshake_nonempty,
     handshake_time,
 )
-from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -79,12 +75,6 @@ VARIABLES = [
 ]
 
 
-@dataclass
-class _FCNCheckpointState:
-    x: torch.Tensor | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
 class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FourCastNet global prognostic model. Consists of a single model with a time-step
     size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole
@@ -123,7 +113,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
-        self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
     def default_sources(self) -> DataSource:
         """Recommend NCAR ERA5, including pressure-level relative humidity.
@@ -182,55 +171,6 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> str:
         return "fcn"
 
-    def _restore_checkpoint_state(self, x: xr.DataArray) -> tuple[xr.DataArray, bool]:
-        if (
-            self.checkpoint.checkpoint_level == 2
-            and self.checkpoint.checkpoint_state_loaded
-            and self.checkpoint.x is not None
-            and self.checkpoint.metadata
-        ):
-            tensor, _ = x.e2s.to_torch()
-            metadata = deepcopy(self.checkpoint.metadata)
-            state = self.checkpoint.x.to(tensor.device)
-            signature = coord_array(
-                metadata["dims"],
-                metadata["coords"],
-                sizes=metadata["sizes"],
-                attrs=metadata["attrs"],
-            )
-            restored = from_torch(
-                state, signature, name=metadata["name"], attrs=metadata["attrs"]
-            )
-            restored.encoding = metadata["encoding"]
-            return restored, True
-        return x, False
-
-    def _save_checkpoint_state(self, x: xr.DataArray) -> None:
-        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
-            tensor, _ = x.e2s.to_torch()
-            self.checkpoint.x = tensor.detach().clone().to(self.checkpoint.device)
-            self.checkpoint.metadata = deepcopy(
-                {
-                    "dims": tuple(x.dims),
-                    "sizes": dict(x.sizes),
-                    "name": x.name,
-                    "coords": {
-                        name: (
-                            tuple(value.dims),
-                            value.values.copy(),
-                            dict(value.attrs),
-                        )
-                        for name, value in x.coords.items()
-                    },
-                    "attrs": dict(x.attrs),
-                    "encoding": dict(x.encoding),
-                }
-            )
-        else:
-            self.checkpoint.x = None
-            self.checkpoint.metadata = {}
-
-    # --8<-- [start:fcn-default-package]
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""

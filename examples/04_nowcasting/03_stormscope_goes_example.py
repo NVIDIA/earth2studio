@@ -105,7 +105,6 @@ package = StormScopeBase.load_default_package()
 # We enable automatic mixed precision (autocast) and compile the model for faster inference.
 model = StormScopeGOES.load_model(
     package=package,
-    conditioning_data_source=None,
     model_name=model_name,
     amp=True,
     compile=True,
@@ -113,14 +112,10 @@ model = StormScopeGOES.load_model(
 model = model.to(device)
 model.eval()
 
-# MRMS+GLM nowcast model: conditioned on GOES, with a gridded GLM source. Here
-# we drive it via initialize and step, so glm_data_source is used only to
-# fetch the initial GLM state (via fetch_glm); the bilinear GLM interpolator is
-# built lazily on the first explicit fetch_glm call.
+# MRMS+GLM nowcast model: conditioned on GOES. Here we drive it via initialize and
+# step, and fetch the initial GLM state ourselves from a gridded GLM source.
 model_mrms = StormScopeMRMS.load_model(
     package=package,
-    conditioning_data_source=GOES(),
-    glm_data_source=GOESGLMGrid(satellite="east"),
     model_name=model_name,
     amp=True,
     compile=True,
@@ -194,15 +189,13 @@ x_radar = fetch_data(
     device=device,
 )
 
-# Interpolators: radar/GOES use nearest-neighbor; GLM is built lazily (bilinear)
-# inside fetch_glm.
+# Interpolators: radar/GOES use nearest-neighbor; GLM is built below (bilinear).
 model_mrms.build_input_interpolator(
     x_radar.coords["lat"].values, x_radar.coords["lon"].values
 )
 model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 # Regrid the radar channels onto the model grid (nearest-neighbor).
-from earth2studio.run import _dimension_coords
 from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.cupy import from_torch
 
@@ -210,9 +203,16 @@ radar_tensor = model_mrms.input_interp(x_radar.e2s.to_torch()[0])
 
 # Fetch + bilinearly regrid the GLM observation window onto the model grid. The
 # returned counts are physical (the model applies log1p internally).
-glm_coords = _dimension_coords(mrms_in_coords)
-glm_coords["time"] = np.array(start_date)
-x_glm, _ = model_mrms.fetch_glm(glm_coords, device=device)
+glm_field = fetch_data(
+    GOESGLMGrid(satellite="east"),
+    time=start_date,
+    variable=np.asarray(model_mrms.glm_variables),
+    lead_time=mrms_in_coords.coords["lead_time"].values,
+    device=device,
+)
+glm_tensor, glm_coords = glm_field.e2s.to_torch()
+model_mrms.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
+x_glm = model_mrms.interpolate_glm(glm_tensor)
 
 # Stack into the full MRMS+GLM state on the model grid, matching `variables` order
 # ([refc, refc_base, glm_density]); the variable axis is dim 2 of [T, L, C, H, W].

@@ -131,7 +131,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
 
     >>> # Load StormScopeGOES prognostic and NSRDB diagnostic models
     >>> package = StormScopeBase.load_default_package()
-    >>> goes_model = StormScopeGOES.load_model(package, conditioning_data_source=None)
+    >>> goes_model = StormScopeGOES.load_model(package)
     >>> goes_model = goes_model.to("cuda").eval()
     >>> nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
     >>> nsrdb_model = nsrdb_model.to("cuda")

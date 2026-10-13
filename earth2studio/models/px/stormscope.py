@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import json
-from collections import OrderedDict
 from collections.abc import Callable, Generator
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -30,7 +29,6 @@ from numpy.typing import ArrayLike
 
 from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource, ForecastSource
-from earth2studio.data.utils import fetch_data
 from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -104,9 +102,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Stds to normalize any external conditioning data. Default is None.
     conditioning_variables : np.ndarray | None, optional
         Names of external conditioning variables. Default is None.
-    conditioning_data_source : Any | None, optional
-        Data source for external conditioning. Subclasses should define how this is
-        used; base class does not fetch conditioning by default. Default is None.
     sampler_args : dict[str, Any] | None, optional
         Default sampler arguments passed to the diffusion sampler.
         Default is {"num_steps": 100, "S_churn": 10}.
@@ -178,7 +173,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.ndarray | None = None,
-        conditioning_data_source: Any | None = None,
         glm_mask: torch.Tensor | None = None,
         conditioning_glm_mask: torch.Tensor | None = None,
         topo: torch.Tensor | None = None,
@@ -266,7 +260,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.register_buffer("nexrad_proximity", nexrad_proximity)
 
         self.conditioning_variables = conditioning_variables
-        self.conditioning_data_source = conditioning_data_source
         self.sampler_args = sampler_args or {}
         self.variables = variables
         self.input_interp = None
@@ -1352,19 +1345,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.input_coords(), {"variable": self.conditioning_variables}
         )
 
-    def default_sources(
-        self,
-    ) -> DataSource | tuple[DataSource | None, DataSource | ForecastSource | None]:
-        """Recommend the configured conditioning source.
-
-        Returns
-        -------
-        tuple[DataSource | None, DataSource | ForecastSource | None]
-            No input recommendation, followed by the configured conditioning
-            source or None. Concrete imagery and radar wrappers supply defaults.
-        """
-        return None, self.conditioning_data_source
-
     def _initialize(
         self, x: xr.DataArray, conditioning: xr.DataArray | None
     ) -> tuple[xr.DataArray, dict[str, Any]]:
@@ -1618,8 +1598,6 @@ class StormScopeGOES(StormScopeBase):
         Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
         Stds to normalize any external conditioning data. Default is None.
-    conditioning_data_source : Any | None, optional
-        Data source for external conditioning. Default is None.
     sampler_args : dict[str, Any] | None, optional
         Default sampler arguments passed to the diffusion sampler.
         Default is {"num_steps": 100, "S_churn": 10}.
@@ -1678,7 +1656,6 @@ class StormScopeGOES(StormScopeBase):
         conditioning_variables: np.ndarray | None = None,
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
-        conditioning_data_source: Any | None = None,
         glm_mask: torch.Tensor | None = None,
         conditioning_glm_mask: torch.Tensor | None = None,
         topo: torch.Tensor | None = None,
@@ -1708,7 +1685,6 @@ class StormScopeGOES(StormScopeBase):
             conditioning_means=conditioning_means,
             conditioning_variables=conditioning_variables,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             glm_mask=glm_mask,
             conditioning_glm_mask=conditioning_glm_mask,
             topo=topo,
@@ -1805,7 +1781,6 @@ class StormScopeGOES(StormScopeBase):
         cls,
         package: Package,
         model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
-        conditioning_data_source: DataSource | ForecastSource | None = None,
         amp: bool = True,
         compile: bool = False,
     ) -> PrognosticModel:
@@ -1824,8 +1799,6 @@ class StormScopeGOES(StormScopeBase):
             - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
             Legacy training-style names are accepted as aliases.
-        conditioning_data_source : DataSource | ForecastSource | None, optional
-            Data source to use for conditioning, by default None.
         amp : bool, optional
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.
@@ -1905,7 +1878,6 @@ class StormScopeGOES(StormScopeBase):
             longitudes=longitudes.to(dtype=torch.float32),
             conditioning_means=conditioning_means.to(dtype=torch.float32),
             conditioning_stds=conditioning_stds.to(dtype=torch.float32),
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             glm_mask=glm_mask,
             conditioning_glm_mask=conditioning_glm_mask,
@@ -1936,11 +1908,14 @@ class StormScopeMRMS(StormScopeBase):
 
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single
-    input timestep and predict one output timestep. All StormScopeMRMS models by default expect GOES-East data as
-    conditioning; typically in a forecasting run this can be provided by passing the
-    predictions from a StormScopeGOES model to ``step``. Initialize both models
-    from the same GOES history, then advance MRMS before GOES. ``create_iterator``
-    is intentionally unsupported; callers own this coupled loop.
+    input timestep and predict one output timestep.
+
+    All StormScopeMRMS models expect GOES-East data as conditioning. In a forecasting
+    run this is typically supplied by a StormScopeGOES model: pass the GOES history to
+    ``initialize`` (or ``create_iterator``), then pass the GOES forecast frames at the
+    lead times of the previous radar forecast as ``conditioning`` to ``step`` (or send
+    them to the iterator). When coupling with a StormScopeGOES model, initialize both
+    models from the same GOES history and advance MRMS before GOES.
 
     Note
     ----
@@ -1969,8 +1944,6 @@ class StormScopeMRMS(StormScopeBase):
         Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
         Stds to normalize any external conditioning data. Default is None.
-    conditioning_data_source : Any | None, optional
-        Data source for external conditioning. Default is None.
     sampler_args : dict[str, float | int] | None, optional
         Default sampler arguments passed to the diffusion sampler.
         Default is {"num_steps": 100, "S_churn": 10}.
@@ -1999,12 +1972,6 @@ class StormScopeMRMS(StormScopeBase):
         any interpolator-derived mask built by :meth:`build_input_interpolator`.
         Loaded automatically from the package for non-deprecated variants.
         Default is None.
-    glm_data_source : DataSource | None, optional
-        Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`) for
-        variants with a ``glm_density`` state channel (``3km_10min`` only). When
-        set, it is available through ``fetch_glm`` for caller-managed preparation.
-        Execution never fetches observations. The caller populates GLM channels
-        in the initial state. Default is None.
 
     Note
     ----
@@ -2021,9 +1988,10 @@ class StormScopeMRMS(StormScopeBase):
     different native grid from MRMS, ``glm_density`` is handled separately from
     the radar channels and is the GLM analogue of the GOES ``conditioning``:
 
-    Populate the GLM channels of ``x`` before ``initialize`` (for example using
-    ``fetch_glm`` explicitly). During ``step``, GLM flows autoregressively from
-    the previous radar forecast. GOES forcing is passed separately by the caller;
+    Populate the GLM channels of ``x`` before ``initialize`` (for example by fetching
+    :py:class:`earth2studio.data.GOESGLMGrid` and regridding it with
+    :meth:`build_glm_interpolator` and :meth:`interpolate_glm`). During ``step``, GLM
+    flows autoregressively from the previous radar forecast. GOES forcing is passed separately by the caller;
     neither method fetches observations or applies iterator hooks.
 
     Badges
@@ -2060,13 +2028,11 @@ class StormScopeMRMS(StormScopeBase):
         ),
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
-        conditioning_data_source: Any | None = None,
         glm_mask: torch.Tensor | None = None,
         conditioning_glm_mask: torch.Tensor | None = None,
         topo: torch.Tensor | None = None,
         nexrad_proximity: torch.Tensor | None = None,
         mrms_coverage_mask: torch.Tensor | None = None,
-        glm_data_source: Any | None = None,
         sampler_args: dict[str, float | int] | None = {"num_steps": 100, "S_churn": 10},
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
@@ -2089,7 +2055,6 @@ class StormScopeMRMS(StormScopeBase):
             conditioning_means=conditioning_means,
             conditioning_variables=conditioning_variables,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             glm_mask=glm_mask,
             conditioning_glm_mask=conditioning_glm_mask,
             topo=topo,
@@ -2111,21 +2076,13 @@ class StormScopeMRMS(StormScopeBase):
             self.register_buffer("mrms_coverage_mask", mrms_coverage_mask)
             self.register_buffer("valid_mask", mrms_coverage_mask.clone())
 
-        # GLM is a state channel (`glm_density`) normalized with log1p/expm1; it is
-        # fetched from its own 0.1-degree gridded source and bilinearly regridded to
-        # the model grid via `build_glm_interpolator`. ``n_glm_channels`` counts the
-        # log1p (GLM) channels among `variables`.
+        # GLM is a state channel (`glm_density`) normalized with log1p/expm1; callers
+        # regrid it from its own 0.1-degree gridded source onto the model grid (see
+        # `build_glm_interpolator`). ``n_glm_channels`` counts the log1p (GLM)
+        # channels among `variables`.
         self.n_glm_channels = int(self.glm_mask.sum().item())
         # Names of the GLM (log1p) state channels, in `variables` order.
         self.glm_variables = np.asarray(self.variables)[self.glm_mask.cpu().numpy()]
-        self.glm_data_source = glm_data_source
-        if self.n_glm_channels > 0 and glm_data_source is None:
-            logger.warning(
-                "StormScopeMRMS has GLM state channels but no glm_data_source was "
-                "provided. GLM channels must be manually populated in the input state "
-                "before inference (e.g. via fetch_glm), or pass a glm_data_source "
-                "(e.g. earth2studio.data.GOESGLMGrid) to enable automatic injection."
-            )
         self.glm_interp: nn.Module | None = None
         self._glm_interp_max_dist_km = glm_interp_max_dist_km
 
@@ -2173,72 +2130,17 @@ class StormScopeMRMS(StormScopeBase):
         out = self.glm_interp(glm)
         return torch.nan_to_num(out, nan=0.0)
 
-    def fetch_glm(
-        self, coords: CoordSystem, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Fetch the GLM observation window from ``glm_data_source`` and bilinearly
-        regrid it onto the model grid.
-
-        Call this explicitly to assemble the GLM channels of the initial input
-        before :meth:`initialize`. Forecast execution never fetches observations;
-        subsequent GLM fields evolve from the model's own predictions.
-
-        The GLM interpolator is built lazily from the source grid on first call.
-        Returned values are **physical event counts** (the model applies ``log1p``
-        internally); their channel order matches :py:attr:`glm_variables`, and the
-        returned coords use the model's ``y``/``x`` grid so they align with the
-        regridded MRMS state.
-
-        Parameters
-        ----------
-        coords : CoordSystem
-            Coordinates providing ``time`` and the input ``lead_time`` window.
-        device : torch.device
-            Device for the fetched/regridded tensor.
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            ``(glm, glm_coords)`` with ``glm`` shaped ``[time, lead_time, n_glm, H, W]``.
-        """
-        if self.glm_data_source is None:
-            raise RuntimeError(
-                "StormScopeMRMS.fetch_glm called without a glm_data_source; pass "
-                "one to load_model (e.g. earth2studio.data.GOESGLMGrid)."
-            )
-        glm_field = fetch_data(
-            self.glm_data_source,
-            time=coords["time"],
-            variable=np.asarray(self.glm_variables),
-            lead_time=coords["lead_time"],
-            device=device,
-        )
-        glm, glm_coords = glm_field.e2s.to_torch()
-        if self.glm_interp is None:
-            self.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
-        glm = self.interpolate_glm(glm)
-
-        # Swap the source lat/lon spatial coords for the model y/x grid.
-        new_coords = OrderedDict(
-            (k, v) for k, v in glm_coords.items() if k not in ("lat", "lon")
-        )
-        new_coords["y"] = self.y
-        new_coords["x"] = self.x
-        return glm, new_coords
-
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend MRMS inputs and configured conditioning, defaulting to GOES.
+        """Recommend MRMS radar inputs and GOES conditioning.
 
         Returns
         -------
         tuple[DataSource, DataSource | ForecastSource]
-            MRMS input source followed by the configured conditioning source,
-            or GOES when none was configured.
+            MRMS input source followed by the GOES conditioning source.
         """
         from earth2studio.data import GOES, MRMS
 
-        source = self.conditioning_data_source
-        return MRMS(), source if source is not None else GOES()
+        return MRMS(), GOES()
 
     def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
         """Compute the first radar forecast using caller-supplied GOES history.
@@ -2362,8 +2264,6 @@ class StormScopeMRMS(StormScopeBase):
         cls,
         package: Package,
         model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
-        conditioning_data_source: DataSource | ForecastSource | None = None,
-        glm_data_source: DataSource | None = None,
         amp: bool = True,
         compile: bool = False,
     ) -> PrognosticModel:
@@ -2382,15 +2282,6 @@ class StormScopeMRMS(StormScopeBase):
 
             Legacy training-style names are accepted as aliases.
             Default is ``"3km_10min"``.
-        conditioning_data_source : DataSource | ForecastSource | None, optional
-            Data source to use for conditioning (GOES), by default None.
-        glm_data_source : DataSource | None, optional
-            Gridded GLM source (e.g. :py:class:`earth2studio.data.GOESGLMGrid`)
-            used for variants with a ``glm_density`` state channel (``3km_10min``
-            only — the ``6km_1hr`` variant has no GLM channel). The GLM analogue
-            of ``conditioning_data_source``: retained for explicit caller use
-            through ``fetch_glm``. The caller populates GLM channels of ``x``;
-            execution never fetches observations. By default None.
         amp : bool, optional
             Enable automatic mixed precision (autocast) for the sampler's network
             forward passes. Default is True.
@@ -2485,14 +2376,12 @@ class StormScopeMRMS(StormScopeBase):
             longitudes=longitudes.to(dtype=torch.float32),
             conditioning_means=conditioning_means.to(dtype=torch.float32),
             conditioning_stds=conditioning_stds.to(dtype=torch.float32),
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             glm_mask=glm_mask,
             conditioning_glm_mask=conditioning_glm_mask,
             topo=topo,
             nexrad_proximity=nexrad_proximity,
             mrms_coverage_mask=mrms_coverage_mask,
-            glm_data_source=glm_data_source,
             y_coords=y,
             x_coords=x,
             input_times=input_times,

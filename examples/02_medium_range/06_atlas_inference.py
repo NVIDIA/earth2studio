@@ -115,19 +115,19 @@ io = ZarrBackend()
 # %%
 # Manual Forward Pass
 # -------------------
-# For more control over a *single* forecast step, Atlas-CRPS can be called directly
-# using [`earth2studio.data.utils.fetch_data`][earth2studio.data.utils.fetch_data] for
-# initial conditions. This is useful when you need access to intermediate tensors or
-# want to inspect the raw model output before any further rollout.
+# For more control over the forecast, Atlas-CRPS can be stepped manually using
+# [`earth2studio.data.utils.fetch_data`][earth2studio.data.utils.fetch_data] for
+# initial conditions. `initialize` produces the first forecast and a state object
+# holding the history, latent and random-stream state, and each following `step`
+# advances the forecast by six hours. This is useful when you need access to
+# intermediate outputs or want to edit the forecast between steps.
 #
 # !!! warning
-#     Do not chain repeated `__call__` + `prep_next_input` calls to perform a
-#     multi-step rollout. Atlas-CRPS keeps an internal low-resolution latent state
-#     that is only carried forward correctly by `create_iterator`; a direct `__call__`
-#     always recomputes that latent state from the high-resolution history instead of
-#     reusing the previous step's prediction, so chaining it across multiple steps is
-#     scientifically invalid and will silently diverge from the real model rollout.
-#     Use `create_iterator` (below) for any rollout longer than one step.
+#     Atlas-CRPS keeps an internal low-resolution latent state that a direct
+#     `__call__` always recomputes from the high-resolution history. Do not chain
+#     repeated `__call__` calls to perform a multi-step rollout, it will silently
+#     diverge from the real model rollout. Use `initialize` followed by `step`, or
+#     `create_iterator` (below), for any rollout longer than one step.
 
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -151,10 +151,16 @@ from earth2studio.run import _map_field
 
 x = _map_field(x, input_coords).expand_dims(batch=[0])
 
-# Single manual forward step (see warning above for why this must not be chained)
-y = model(x)
+# First forecast step plus the state needed to continue the rollout
+y, state = model.initialize(x)
 lead_hrs = y.coords["lead_time"].values[0] / np.timedelta64(1, "h")
-print(f"Manual step: lead_time = {lead_hrs:.0f}h, shape = {y.shape}")
+print(f"Initial step: lead_time = {lead_hrs:.0f}h, shape = {y.shape}")
+
+# Advance two more steps, carrying the state forward
+for _ in range(2):
+    y, state = model.step(y, state)
+    lead_hrs = y.coords["lead_time"].values[0] / np.timedelta64(1, "h")
+    print(f"Manual step: lead_time = {lead_hrs:.0f}h, shape = {y.shape}")
 
 
 # %%

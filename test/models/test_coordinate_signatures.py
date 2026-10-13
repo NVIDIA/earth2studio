@@ -317,8 +317,6 @@ def test_regional_array_rollout(regional_model):
     x = torch.ones(coords.shape)
     if isinstance(model, StormCastCONUS):
         model.batch_size = 1
-        model.conditioning_data_source = object()
-        model._get_conditioning = lambda c, b, d: torch.zeros((b, 1, 1, 2, 2, 3))
         model._forward = lambda state, *args, **kwargs: state + 1
     else:
         model.input_interp = None

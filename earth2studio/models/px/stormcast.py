@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
 from collections.abc import Generator
 from copy import deepcopy
 from itertools import product
@@ -136,7 +135,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     conditioning_data_source : DataSource | ForecastSource | None, optional
-        Data Source to use for global conditioning. Required for running in iterator mode, by default None
+        Recommended data source for global conditioning, returned by ``default_sources``
+        (GFS when None). Not fetched by the model, by default None
     sampler_steps : int, optional
         Number of diffusion sampler steps, by default 36
     sampler_args : dict[str, float  |  int], optional
@@ -199,12 +199,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.conditioning_variables = conditioning_variables
         self.conditioning_data_source = conditioning_data_source
-        if conditioning_data_source is None:
-            warnings.warn(
-                "No conditioning data source was provided to StormCast, "
-                + "set the conditioning_data_source attribute of the model "
-                + "before running inference."
-            )
 
         if conditioning_means is not None:
             self.register_buffer("conditioning_means", conditioning_means)

@@ -182,13 +182,13 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     sinterpolant_sample_steps : int
         Number of steps to sample for the stochastic interpolant.
 
-    Warning
-    ----------
-    This model is expected to use the iterator interface for autoregressive
-    rollouts longer than one step. Iteratively using the ``__call__`` and
-    ``prep_next_input`` methods will not produce correct results, since the model
-    performs autoregressive timestepping using a full-resolution physical state
-    and an internal low-resolution latent state.
+    Note
+    ----
+    The model performs autoregressive timestepping using a full-resolution physical
+    state and an internal low-resolution latent state. For rollouts longer than one
+    step use ``create_iterator`` or ``initialize`` followed by repeated ``step`` calls,
+    which carry the latent and random-stream state forward. Chaining ``__call__``
+    does not carry this state and will not reproduce the model rollout.
 
     Note
     ----
@@ -282,8 +282,11 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x_pred: xr.DataArray,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Prepare the next input for the Atlas model. Since the input requires two lead times
-        but the model predicts one, we update a sliding window to make autoregressive predictions.
+        """Update the two-frame input history with the latest forecast.
+
+        Atlas requires two lead times as input but predicts one, so the history is a
+        sliding window. This is used internally by ``step``; callers should use
+        ``initialize`` and ``step`` (or ``create_iterator``) for rollouts.
 
         Parameters
         ----------

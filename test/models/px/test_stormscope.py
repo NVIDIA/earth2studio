@@ -295,12 +295,6 @@ def create_spoof_model(
         np.array([f"cond{i:02d}" for i in range(nvar_cond)]) if nvar_cond > 0 else None
     )
 
-    # Create random conditioning data source
-    dc = OrderedDict(
-        [("lat", np.linspace(90, -90, num=181)), ("lon", np.linspace(0, 360, num=360))]
-    )
-    conditioning_data_source = Random(dc) if nvar_cond > 0 else None
-
     # Input/output times
     if sliding_window:
         input_times = np.array([-2, -1, 0]) * np.timedelta64(1, "h")
@@ -321,7 +315,6 @@ def create_spoof_model(
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=conditioning_data_source,
         sampler_args={"num_steps": 2},  # Small number for testing
         input_times=input_times,
         output_times=output_times,
@@ -334,7 +327,9 @@ def create_spoof_model(
     if input_interp:
         model.build_input_interpolator(lat, lon)
     if conditioning_interp:
-        model.build_conditioning_interpolator(dc["lat"], dc["lon"])
+        model.build_conditioning_interpolator(
+            np.linspace(90, -90, num=181), np.linspace(0, 360, num=360)
+        )
 
     return model
 
@@ -570,7 +565,6 @@ def test_stormscope_forced_call(device):
 
     # Create model without conditioning data source
     model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
-    model.conditioning_data_source = None  # Explicitly remove
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
@@ -686,7 +680,6 @@ def test_stormscope_conditioning_nan_check(device):
     h, w = 32, 64
 
     model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
-    model.conditioning_data_source = None
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
@@ -760,9 +753,6 @@ def test_stormscope_mrms(device):
     conditioning_stds = torch.ones(1, nvar_cond, 1, 1)
     conditioning_variables = np.array([f"abi{i:02d}c" for i in range(1, nvar_cond + 1)])
 
-    dc_cond = OrderedDict([("y", y), ("x", x)])
-    conditioning_data_source = Random(dc_cond)
-
     model = StormScopeMRMS(
         model_spec=model_spec,
         means=means,
@@ -773,7 +763,6 @@ def test_stormscope_mrms(device):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=conditioning_data_source,
         sampler_args={"num_steps": 2},
         y_coords=y,
         x_coords=x,
@@ -814,7 +803,6 @@ def test_stormscope_exceptions(device):
 
     # Test 1: Model without conditioning data source should warn
     model = create_spoof_model(nvar=nvar, nvar_cond=1, h=h, w=w, device=device)
-    model.conditioning_data_source = None
 
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", model.y), ("x", model.x)])
@@ -845,7 +833,6 @@ def test_stormscope_exceptions(device):
 
     # Test 3: Invalid coordinate order for supplied forcing
     model3 = create_spoof_model(nvar=nvar, nvar_cond=1, h=h, w=w, device=device)
-    model3.conditioning_data_source = None
 
     # Create coordinates with missing required dimensions
     bad_coords = OrderedDict({"variable": variable, "y": model3.y, "x": model3.x})
@@ -904,7 +891,6 @@ def test_stormscope_staged_denoising(device):
         conditioning_means=None,
         conditioning_stds=None,
         conditioning_variables=None,
-        conditioning_data_source=None,
         sampler_args={"num_steps": 2},
         y_coords=y,
         x_coords=x,
@@ -932,7 +918,7 @@ def test_stormscope_package_loading():
         torch.cuda.empty_cache()
 
     package = StormScopeGOES.load_default_package()
-    model = StormScopeGOES.load_model(package, conditioning_data_source=None)
+    model = StormScopeGOES.load_model(package)
     model = model.to(device)
     model.eval()
     model.sampler_args = {"num_steps": 2, "S_churn": 0}
