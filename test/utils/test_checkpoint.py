@@ -201,7 +201,11 @@ class Interrupted(Exception):
 
 @contextmanager
 def interrupt_after(io, writes: int):
-    """Raise on the write after the first ``writes``, simulating a crashed run."""
+    """Simulate a crashed run by making ``io.write`` raise ``Interrupted``.
+
+    The first ``writes`` calls pass through to the real ``io.write``; the next one
+    raises. The block must hit that interruption (it fails otherwise), and the
+    original ``write`` is restored on exit so the same backend can be resumed."""
     write = io.write
     count = 0
 
