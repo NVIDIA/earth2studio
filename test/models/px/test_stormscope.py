@@ -30,6 +30,7 @@ from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
     StormScopeMRMS,
+    StormScopeMRMSGLM,
 )
 from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
@@ -229,6 +230,103 @@ def test_stormscope_iter(device, batch):
         assert skipped == [
             "P21: checkpoint serialization requires component-specific tests",
         ]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_mrms_glm_forcing(device, monkeypatch):
+    goes = create_spoof_model(
+        nvar=2, nvar_cond=0, h=8, w=8, device=device, sliding_window=True
+    )
+    model = StormScopeMRMSGLM(
+        model_spec=[
+            {
+                "model": PhooStormScopeDiffusionModel(2),
+                "sigma_min": 0.001,
+                "sigma_max": 88.0,
+            }
+        ],
+        means=torch.zeros(1, 2, 1, 1),
+        stds=torch.ones(1, 2, 1, 1),
+        latitudes=goes.latitudes,
+        longitudes=goes.longitudes,
+        variables=np.array(["refc", "glm_density"]),
+        glm_mask=torch.tensor([False, True]),
+        conditioning_variables=goes.variables,
+        conditioning_means=torch.zeros(1, 2, 1, 1),
+        conditioning_stds=torch.ones(1, 2, 1, 1),
+        input_times=goes.input_times,
+        output_times=goes.output_times,
+        sampler_args={"num_steps": 2},
+    ).to(device)
+    # GLM leaves the public state and becomes the second forcing slot
+    assert list(model.input_coords().coords["variable"].values) == ["refc"]
+    assert list(
+        model.output_coords(model.input_coords()).coords["variable"].values
+    ) == ["refc"]
+    goes_slot, glm_slot = model.forcing_coords()
+    assert list(goes_slot.coords["variable"].values) == list(goes.variables)
+    assert list(glm_slot.coords["variable"].values) == ["glm_density"]
+    assert len(model.default_sources()) == 3
+
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": np.arange(2),
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.ones(signature.shape, device=device), signature)
+    x_goes = conditioning_input(model, x)
+    x_glm = from_torch(
+        torch.full(
+            coord_array_like(x, {"variable": model.glm_variables}).shape,
+            3.0,
+            device=device,
+        ),
+        coord_array_like(x, {"variable": model.glm_variables}),
+    )
+
+    # The network sees the observed GLM next to the radar state each call
+    seen = []
+    forward_tensor = model._forward_tensor
+
+    def spy(tensor, coords, **kwargs):
+        seen.append(tensor.clone())
+        return forward_tensor(tensor, coords, **kwargs)
+
+    monkeypatch.setattr(model, "_forward_tensor", spy)
+    model.set_rng(0)
+    y, state = model.initialize(x, x_goes, x_glm)
+    assert list(y["variable"].values) == ["refc"]
+    assert seen[-1].shape[3] == 2
+    assert torch.all(seen[-1][:, :, :, 1] == 3.0)
+    assert "glm" in state
+
+    # Steps consume only the new frames of both forcing slots
+    def frames(array, value):
+        new = array.isel(lead_time=slice(-1, None)) * 0 + value
+        return new.assign_coords(lead_time=y.lead_time.values)
+
+    new_goes, new_glm = frames(x_goes, 0.0), frames(x_glm, 5.0)
+    y, state = model.step(y, new_goes, new_glm, state)
+    assert torch.all(seen[-1][:, :, -1, 1] == 5.0)
+    with pytest.raises(ValueError, match="model grid"):
+        model.initialize(x, x_goes, x_glm.isel(x=slice(0, 4)))
+
+    # Iterator: send a (goes, glm) tuple per step
+    model.set_rng(0)
+    iterator = model.create_iterator(x, x_goes, x_glm)
+    first = next(iterator)
+    assert list(first["variable"].values) == ["refc"]
+    forcing = (new_goes, new_glm)
+    second = iterator.send(forcing)
+    assert second.shape == first.shape
+    with pytest.raises(ValueError, match="forcing arrays"):
+        iterator.send(forcing[0])
+    skipped = check_prognostic_contract(model, device=device)
+    assert skipped == [
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
