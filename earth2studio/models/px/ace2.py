@@ -121,18 +121,14 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     layers that exactly conserves global dry air mass and moisture and can be
     stepped stably for arbitrarily many steps. ACE2-ERA5 was trained on the ERA5
     dataset and requires forcing data during rollout, which the caller supplies
-    explicitly (see `forcing_data_source` for the recommended source). This wrapper makes use of the ``fme`` package to run model forward
-    passes.
+    explicitly to ``initialize`` and ``step`` (see ``default_sources`` for the
+    recommended source). This wrapper makes use of the ``fme`` package to run model
+    forward passes.
 
     Parameters
     ----------
     stepper : Stepper
         ACE2-ERA5 fme.ace.stepper.single_module.Stepper instance loaded from a checkpoint.
-    forcing_data_source : DataSource, optional
-        Recommended data source for the forcing data, returned by ``default_sources``.
-        The model does not fetch forcing itself, it is passed explicitly to
-        ``initialize`` and ``step``. Should provide all forcing variables described
-        in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
     dt : numpy.timedelta64, optional
         Model timestep used to advance lead time coordinates, by default 6 hours.
 
@@ -173,7 +169,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __init__(
         self,
         stepper: Stepper,
-        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing"),
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ):
         super().__init__()
@@ -223,9 +218,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._prog_vars_e2s = [
             self.lexicon.get_e2s_from_fme(v) for v in self._prog_vars_fme
         ]
-
-        # External forcing data source
-        self.forcing_data_source = forcing_data_source
 
         # Grid handling
         self.lat = ACE_GRID_LAT
@@ -296,7 +288,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing", verbose=False),
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ) -> PrognosticModel:
         """Load ACE2-ERA5 prognostic model from a package.
@@ -305,9 +296,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load the model checkpoint from.
-        forcing_data_source : DataSource, optional
-            External forcing data source. Must provide all forcing variables
-            described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
         dt : numpy.timedelta64, optional
             Timestep for advancing lead time coordinates, by default 6 hours.
 
@@ -320,7 +308,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         stepper = load_stepper(checkpoint_path)
         return cls(
             stepper=stepper,
-            forcing_data_source=forcing_data_source,
             dt=dt,
         )
 
@@ -543,14 +530,18 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 handshake_coords(forcing, x, dimension)
 
     def default_sources(self) -> tuple[DataSource, DataSource]:
-        """Recommend ACE2 ERA5 initial conditions and configured forcing.
+        """Recommend ACE2 ERA5 initial conditions and forcing sources.
 
         Returns
         -------
         tuple[DataSource, DataSource]
-            Initial-condition source followed by the configured forcing source.
+            Initial-condition source followed by the forcing source, which provides
+            all forcing variables described in the ACE2-ERA5 paper.
         """
-        return ACE2ERA5Data(mode="initial_conditions"), self.forcing_data_source
+        return (
+            ACE2ERA5Data(mode="initial_conditions"),
+            ACE2ERA5Data(mode="forcing"),
+        )
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Compute the first forecast using caller-provided forcing, without hooks.

@@ -320,7 +320,7 @@ def forcing_input(model, x, continuation=False):
     if continuation:
         leads = leads[-1:]
     forcing = fetch_data(
-        model.forcing_data_source,
+        model.default_sources()[1],
         x.time.values,
         signature.coords["variable"].values,
         leads,
