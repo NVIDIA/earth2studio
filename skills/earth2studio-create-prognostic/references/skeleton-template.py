@@ -61,7 +61,14 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._time_step = np.timedelta64(6, "h")
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the fixed frame and grid with arbitrary leading dimensions."""
+        """Declare the input coordinate system.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature for one temperature frame on the configured
+            grid, with arbitrary leading dimensions.
+        """
         return coord_array(
             ("batch", "lead_time", "variable", "lat", "lon"),
             {"lead_time": np.array([0], dtype="timedelta64[h]"), "variable": ["t2m"]},
@@ -70,7 +77,18 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate relative history and plan the next absolute lead time."""
+        """Validate relative history and plan the next absolute lead time.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free output signature six hours after the input lead time.
+        """
         if "lead_time" not in input_coords.coords:
             raise ValueError("lead_time is required")
         lead = input_coords.lead_time.values
@@ -90,7 +108,14 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Replace this URL with an immutable checkpoint revision."""
+        """Describe the model's immutable checkpoint package.
+
+        Returns
+        -------
+        Package
+            Package containing core weights. Replace the example URL with the
+            model's immutable checkpoint revision.
+        """
         return Package(
             "hf://organization/model@commit",
             cache_options={"cache_storage": Package.default_cache("model_name")},
@@ -98,7 +123,18 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_model(cls, package: Package) -> "ModelName":
-        """Load the actual core and its configured grid from package assets."""
+        """Load the core and its configured grid from package assets.
+
+        Parameters
+        ----------
+        package : Package
+            Package containing the model weights.
+
+        Returns
+        -------
+        ModelName
+            Wrapper with core weights loaded on CPU in evaluation mode.
+        """
         core = torch.load(
             package.resolve("model.pt"), map_location="cpu", weights_only=False
         )
@@ -121,7 +157,7 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return cast(xr.DataArray, self._default_call(x))
 
     def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
-        """Compute the first forecast and its empty continuation state.
+        """Compute the first forecast and empty continuation state without hooks.
 
         Parameters
         ----------
@@ -136,7 +172,7 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self._forward(x), None
 
     def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
-        """Advance a preceding forecast without modifying it.
+        """Advance a preceding forecast without modifying it or applying hooks.
 
         Parameters
         ----------
@@ -179,6 +215,8 @@ class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ------
         xr.DataArray
             Forecasts at +6h, +12h, and so on relative to the final input lead.
+            The rear hook runs before every yield and the front hook before each
+            subsequent step; their returned fields feed recurrence directly.
             Resume with ``next``; supplied forcing is rejected by the helper.
         """
         yield from self._default_create_iterator(x)

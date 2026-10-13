@@ -105,7 +105,9 @@ def test_model_signatures(model):
     for name in ("__call__", "initialize", "step", "create_iterator"):
         parameters = inspect.signature(getattr(model, name)).parameters
         assert all(
-            p.kind != inspect.Parameter.VAR_POSITIONAL for p in parameters.values()
+            p.kind
+            not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+            for p in parameters.values()
         )
         if name == "step":
             assert parameters["state"].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD

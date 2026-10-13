@@ -91,7 +91,7 @@ def test_fengwu_normalization(monkeypatch):
         out.data, x.isel(lead_time=slice(-1, None)).data + 12, rtol=1e-5
     )
     iterator = model.create_iterator(x)
-    initial = next(iterator)
+    initial = x.isel(lead_time=slice(-1, None)).copy(deep=True)
     for step in range(1, 4):
         out = next(iterator)
         np.testing.assert_allclose(out.data, initial.data + 12 * step, rtol=1e-5)
@@ -152,7 +152,7 @@ def test_fengwu_onnx_integration(device, fengwu_test_package):
     assert out.dims == x.dims
     np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])
     iterator = model.create_iterator(x)
-    initial = next(iterator)
+    initial = x.isel(lead_time=slice(-1, None)).copy(deep=True)
     for step in range(1, 6):
         out = next(iterator)
         assert torch.allclose(

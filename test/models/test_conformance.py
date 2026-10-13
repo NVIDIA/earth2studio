@@ -396,6 +396,26 @@ def test_source_slot_count():
     assert "P23" in violations(Bad(), rollout=False)
 
 
+def test_synchronous_source_recommendation():
+    class Source:
+        def __call__(self, time, variable):
+            raise AssertionError("Conformance must not fetch data")
+
+    class Model(ToyPrognostic):
+        def default_sources(self):
+            return Source()
+
+    check_prognostic_contract(Model(), rollout=False)
+
+
+def test_invalid_source_recommendation():
+    class Model(ToyPrognostic):
+        def default_sources(self):
+            return lambda: None
+
+    assert "P23" in violations(Model(), rollout=False)
+
+
 def test_input_mutation():
     class Bad(ToyPrognostic):
         def _forward(self, x: xr.DataArray) -> xr.DataArray:

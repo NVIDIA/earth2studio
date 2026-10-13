@@ -26,9 +26,11 @@ runners live with the coupler, never here.
 from collections import OrderedDict
 from datetime import datetime
 from math import ceil
+from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from tqdm import tqdm  # type: ignore[import-untyped]
 
@@ -125,7 +127,7 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
 
     # Set up IO backend
@@ -149,7 +151,7 @@ def deterministic(
                 )
             else:
                 restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps:
+                if restart_step >= nsteps - 1:
                     logger.success("\nInference complete")
                     return io
 
@@ -183,7 +185,7 @@ def deterministic(
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
         with tqdm(
-            total=nsteps + 1,
+            total=nsteps,
             initial=initial_progress,
             desc="Running inference",
             position=1,
@@ -196,13 +198,14 @@ def deterministic(
                     else restart_step + local_step + 1
                 )
 
+                x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 # Subselect domain/variables as indicated in output_coords
                 x = _map_field(x, output_coords)
                 io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
-                if step == nsteps:
+                if step == nsteps - 1:
                     break
 
         ckpt.flush()
@@ -266,8 +269,8 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
-    diagnostic_ic = diagnostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    diagnostic_ic = cast(xr.DataArray, diagnostic.input_coords())
     time = to_time_array(time)
 
     prognostic_oc = prognostic.output_coords(prognostic_ic)
@@ -293,7 +296,7 @@ def diagnostic(
                 )
             else:
                 restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps:
+                if restart_step >= nsteps - 1:
                     logger.success("\nInference complete")
                     return io
 
@@ -321,7 +324,7 @@ def diagnostic(
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
         with tqdm(
-            total=nsteps + 1,
+            total=nsteps,
             initial=initial_progress,
             desc="Running inference",
             position=1,
@@ -334,13 +337,14 @@ def diagnostic(
                     else restart_step + local_step + 1
                 )
 
+                x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 x = diagnostic(_map_field(x, diagnostic_ic))
                 x = _map_field(x, output_coords)
                 io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
-                if step == nsteps:
+                if step == nsteps - 1:
                     break
 
         ckpt.flush()
@@ -409,7 +413,7 @@ def ensemble(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
     if hasattr(prognostic, "interp_method"):
         interp_to = prognostic_ic
@@ -493,7 +497,7 @@ def ensemble(
                     ckpt.write_count = 0
                 else:
                     restart_step = ckpt.write_count - 1
-                    if restart_step >= nsteps:
+                    if restart_step >= nsteps - 1:
                         continue
             elif not isinstance(ckpt, NullCheckpoint):
                 ckpt.write_count = 0
@@ -505,7 +509,7 @@ def ensemble(
             model = prognostic.create_iterator(x)
             initial_progress = 0 if restart_step is None else restart_step + 1
             with tqdm(
-                total=nsteps + 1,
+                total=nsteps,
                 initial=initial_progress,
                 desc=f"Running batch {batch_id} inference",
                 position=1,
@@ -519,6 +523,7 @@ def ensemble(
                         else restart_step + local_step + 1
                     )
 
+                    x = cast(xr.DataArray, x)
                     current_lead_time = x.coords["lead_time"].values[-1]
                     x = _map_field(x, field_coords)
                     if len(written_members) < mini_batch_size:
@@ -533,7 +538,7 @@ def ensemble(
                         completed_ensembles=completed_ensembles,
                     )
                     pbar.update(1)
-                    if step == nsteps:
+                    if step == nsteps - 1:
                         break
 
             ckpt.flush()

@@ -31,7 +31,6 @@ from earth2studio.data import Constant, Random, Random_FX, fetch_data
 from earth2studio.grids import LatLonGrid, ProjectedGrid
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
-from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
@@ -159,9 +158,10 @@ def test_native_projected_grid_and_forecast_source(source_type):
         device="cpu",
         verbose=False,
     )
-    assert len(seen) == 2
+    assert len(seen) == 1
     assert io["t2m"].shape == (1, 3, 3, 4)
-    np.testing.assert_array_equal(io["t2m"][0, 0], io["t2m"][0, 2])
+    assert np.all(io["t2m"][0, 0] == 0.0)
+    np.testing.assert_array_equal(io["t2m"][0, 1], io["t2m"][0, 2])
 
 
 def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():

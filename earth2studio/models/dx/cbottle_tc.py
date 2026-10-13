@@ -462,7 +462,20 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Generate labelled fields from cyclone guidance."""
+        """Generate labelled fields from cyclone guidance.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Cyclone conditioning fields matching ``input_coords()``. Each frame
+            conditions the model at its initialization time plus lead time.
+
+        Returns
+        -------
+        xr.DataArray
+            Generated fields matching ``output_coords(x)``, preserving the input
+            lead-time labels.
+        """
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 

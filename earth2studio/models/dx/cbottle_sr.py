@@ -523,7 +523,19 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Super-resolve a labelled field on the configured output domain."""
+        """Super-resolve a labelled field on the configured output domain.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coarse conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Super-resolved fields matching ``output_coords(x)``, including the
+            configured high-resolution spatial coordinates.
+        """
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device).clone()
 

@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from datetime import datetime, timezone
 
 import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -199,6 +200,18 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.preds_idx = 0
 
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
@@ -349,7 +362,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -372,24 +385,88 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict six hours ahead, without iterator hooks."""
+        """Predict six hours ahead, without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
+        """
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, coords = x.e2s.to_torch()
-        out = self._forward(tensor.to(self.z.device).clone(), coords)
+        out = self._forward_tensor(tensor.to(self.z.device).clone(), coords)
         result = from_torch(out, signature, name=x.name)
         result.encoding = x.encoding.copy()
         return result
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input, then forecasts with hooks in original dimensions."""
+    def initialize(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Compute the first forecast and retain its missing history and rollout index.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            First six-hour forecast and continuation state containing the preceding
+            history frame and rollout index. Iterator hooks are not applied.
+        """
         handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        while True:
-            history = self.front_hook(x.copy(deep=True))
-            out = self.rear_hook(self(history))
-            self.preds_idx += 1
-            x = _aurora_history(history, out)
-            yield out
+        return self._forward(x, 0)
+
+    def _forward(
+        self, x: xr.DataArray, index: int
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        previous = self.preds_idx
+        self.preds_idx = index
+        try:
+            out = self(x)
+        finally:
+            self.preds_idx = previous
+        return out, (x.isel(lead_time=slice(-1, None)).copy(deep=True), index + 1)
+
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, int]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Advance from a previous forecast and explicit history and rollout index.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : tuple[xr.DataArray, int]
+            History frame and rollout index returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
+        history, index = state
+        return self._forward(_aurora_history(history, y), index)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
+        return self._default_create_iterator(x)
