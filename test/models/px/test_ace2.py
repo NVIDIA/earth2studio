@@ -177,8 +177,7 @@ def test_ACE2ERA5_call(device):
     # Use a single timestamp; forcing source will handle needed adjustments
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
+    p = ACE2ERA5(PhooStepper()).to(device)
 
     # Build a Random data source over the model grid
     dc = p.input_coords()
@@ -240,8 +239,7 @@ def test_ACE2ERA5_iter(batch, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
+    p = ACE2ERA5(PhooStepper()).to(device)
 
     dc = p.input_coords()
     r = Random({d: dc[d].values for d in ("lat", "lon")})
@@ -320,7 +318,7 @@ def forcing_input(model, x, continuation=False):
     if continuation:
         leads = leads[-1:]
     forcing = fetch_data(
-        model.default_sources()[1],
+        Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON}),
         x.time.values,
         signature.coords["variable"].values,
         leads,
@@ -381,7 +379,7 @@ def test_ace2era5_input_dtype(dtype, device):
             )
 
     source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    model = ACE2ERA5(Float32Stepper(), source).to(device)
+    model = ACE2ERA5(Float32Stepper()).to(device)
     signature = model.input_coords()
     x = fetch_data(
         source,
@@ -423,8 +421,7 @@ def test_ace2era5_input_dtype(dtype, device):
 
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ace2era5_conformance(device):
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(_DeterministicPhooStepper(), forcing_source).to(device)
+    p = ACE2ERA5(_DeterministicPhooStepper()).to(device)
     check_prognostic_contract(p, device=device)
 
 
