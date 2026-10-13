@@ -44,6 +44,8 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     _io_template,
     _lead_times,
     _map_field,
+    _rollout,
+    _with_lead_time,
 )
 from earth2studio.run.runner import (
     DataRequest,
@@ -151,7 +153,7 @@ def deterministic(
                 )
             else:
                 restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps - 1:
+                if restart_step >= nsteps:
                     logger.success("\nInference complete")
                     return io
 
@@ -180,12 +182,12 @@ def deterministic(
         # Map lat and lon if needed
         x = _map_field(x, prognostic_ic)
         # Create prognostic iterator
-        model = prognostic.create_iterator(x)
+        model = _rollout(prognostic, x, restart_step is None)
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
         with tqdm(
-            total=nsteps,
+            total=nsteps + 1,
             initial=initial_progress,
             desc="Running inference",
             position=1,
@@ -205,7 +207,7 @@ def deterministic(
                 io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
-                if step == nsteps - 1:
+                if step == nsteps:
                     break
 
         ckpt.flush()
@@ -296,7 +298,7 @@ def diagnostic(
                 )
             else:
                 restart_step = ckpt.write_count - 1
-                if restart_step >= nsteps - 1:
+                if restart_step >= nsteps:
                     logger.success("\nInference complete")
                     return io
 
@@ -319,12 +321,12 @@ def diagnostic(
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         x = _map_field(x, prognostic_ic)
-        model = prognostic.create_iterator(x)
+        model = _rollout(prognostic, x, restart_step is None)
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
         with tqdm(
-            total=nsteps,
+            total=nsteps + 1,
             initial=initial_progress,
             desc="Running inference",
             position=1,
@@ -340,11 +342,12 @@ def diagnostic(
                 x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 x = diagnostic(_map_field(x, diagnostic_ic))
+                x = _with_lead_time(x, current_lead_time)
                 x = _map_field(x, output_coords)
                 io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
-                if step == nsteps - 1:
+                if step == nsteps:
                     break
 
         ckpt.flush()
@@ -497,7 +500,7 @@ def ensemble(
                     ckpt.write_count = 0
                 else:
                     restart_step = ckpt.write_count - 1
-                    if restart_step >= nsteps - 1:
+                    if restart_step >= nsteps:
                         continue
             elif not isinstance(ckpt, NullCheckpoint):
                 ckpt.write_count = 0
@@ -506,10 +509,10 @@ def ensemble(
             tensor, coords = perturbation(*x.e2s.to_torch())
             x = from_torch(tensor, x.assign_coords(coords))
 
-            model = prognostic.create_iterator(x)
+            model = _rollout(prognostic, x, restart_step is None)
             initial_progress = 0 if restart_step is None else restart_step + 1
             with tqdm(
-                total=nsteps,
+                total=nsteps + 1,
                 initial=initial_progress,
                 desc=f"Running batch {batch_id} inference",
                 position=1,
@@ -538,7 +541,7 @@ def ensemble(
                         completed_ensembles=completed_ensembles,
                     )
                     pbar.update(1)
-                    if step == nsteps - 1:
+                    if step == nsteps:
                         break
 
             ckpt.flush()

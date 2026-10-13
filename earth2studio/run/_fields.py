@@ -17,12 +17,14 @@
 """Field mapping and output-layout helpers shared by workflows and runners."""
 
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
 from earth2studio.io.utils import output_template
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.utils.coords import CoordSystem, coord_array_like
 
 
@@ -150,4 +152,44 @@ def _io_template(
     }
     # output_template rejects spatial replacements; _map_field already applied them.
     # Only lead_time is a fixed-dim replacement here; time/ensemble are leading dims.
+    if "lead_time" not in signature.dims:
+        # A diagnostic may drop lead time; the store keeps the rollout's axis, so the
+        # driver labels each write with it (see _with_lead_time)
+        leading = {**leading, "lead_time": leads}
+        return output_template(signature, leading=leading)
     return output_template(signature, leading=leading, coords={"lead_time": leads})
+
+
+def _with_lead_time(x: xr.DataArray, lead_time: np.ndarray) -> xr.DataArray:
+    """Restore the lead-time axis a diagnostic dropped, after the leading ``time`` axis."""
+    if "lead_time" in x.dims:
+        return x
+    position = 1 if "time" in x.dims else 0
+    return x.expand_dims(lead_time=np.atleast_1d(lead_time), axis=position)
+
+
+def _yields_initial_condition(model: object) -> bool:
+    """Whether an unmigrated wrapper's iterator still yields the initial condition."""
+    return not callable(getattr(type(model), "initialize", None))
+
+
+def _rollout(
+    prognostic: Any, x: xr.DataArray, publish_initial_condition: bool = True
+) -> Generator[xr.DataArray, None, None]:
+    """Iterate a rollout, publishing the initial condition as its first field.
+
+    ``create_iterator`` of an explicit-state model yields forecasts only, so the
+    initial condition is taken from ``x``; unmigrated wrappers still yield it
+    themselves. Pass ``publish_initial_condition=False`` when resuming a rollout
+    whose initial condition has already been written.
+    """
+    iterator = prognostic.create_iterator(x)
+    try:
+        if _yields_initial_condition(prognostic):
+            yield from iterator
+            return
+        if publish_initial_condition:
+            yield initial_condition(x)
+        yield from iterator
+    finally:
+        iterator.close()

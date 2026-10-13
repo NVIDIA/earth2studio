@@ -39,7 +39,11 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
-from earth2studio.run._fields import _lead_times, _map_field
+from earth2studio.run._fields import (
+    _lead_times,
+    _map_field,
+    _yields_initial_condition,
+)
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.type import CoordinateSystem
 
@@ -115,11 +119,6 @@ def _slots(signature: CoordinateSystem | tuple | None) -> tuple:
     if signature is None:
         return ()
     return signature if isinstance(signature, tuple) else (signature,)
-
-
-def _yields_initial_condition(model: object) -> bool:
-    """Whether an unmigrated wrapper's iterator still yields the initial condition."""
-    return not callable(getattr(type(model), "initialize", None))
 
 
 def _module_device(model: object) -> torch.device:

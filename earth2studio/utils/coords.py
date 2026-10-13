@@ -143,7 +143,7 @@ def _coordinate_sizes(coordinates: Mapping[Hashable, Any]) -> dict[Hashable, int
 
 def coord_array(
     dims: Sequence[Hashable],
-    coords: Mapping[Hashable, Any] | None = None,
+    coords: Mapping[Any, Any] | None = None,
     dynamic: Sequence[Hashable] = (),
     sizes: Mapping[Hashable, int] | None = None,
     grid: str | GridDefinition | None = None,
@@ -300,7 +300,7 @@ def coord_array(
 
 def coord_array_like(
     array: xr.DataArray,
-    coords: Mapping[Hashable, Any] | None = None,
+    coords: Mapping[Any, Any] | None = None,
 ) -> CoordinateSystem:
     """Build a fresh coordinate signature from an array without copying field data.
 

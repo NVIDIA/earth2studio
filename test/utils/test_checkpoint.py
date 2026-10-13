@@ -25,6 +25,7 @@ from types import ModuleType
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 import earth2studio.run as run
 from earth2studio.data import Random
@@ -42,6 +43,7 @@ from earth2studio.utils.checkpoint import (
     bind_checkpoint_state,
     default_checkpoint_path,
 )
+from earth2studio.utils.coords import coord_array, coord_array_like
 
 
 @dataclass
@@ -153,28 +155,22 @@ class DroppingLeadTimeDiagnostic(torch.nn.Module):
         self.variables = np.asarray(variables)
         self.domain_coords = domain_coords
 
-    def input_coords(self):
-        coords = OrderedDict(
+    def input_coords(self) -> xr.DataArray:
+        return coord_array(
+            ("batch", "lead_time", "variable", *self.domain_coords),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": self.variables,
-            }
+                **self.domain_coords,
+            },
+            dynamic=("batch",),
         )
-        coords.update(self.domain_coords)
-        return coords
 
-    def output_coords(self, input_coords):
-        output_coords = input_coords.copy()
-        output_coords.pop("lead_time", None)
-        return output_coords
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        return coord_array_like(input_coords.isel(lead_time=0, drop=True))
 
-    def __call__(self, x, coords):
-        output_coords = coords.copy()
-        lead_time_index = list(output_coords).index("lead_time")
-        output_coords.pop("lead_time")
-        return x.squeeze(lead_time_index), output_coords
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x.isel(lead_time=0, drop=True)
 
 
 class RecordingIO:
