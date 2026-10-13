@@ -221,8 +221,6 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
 
-    front_hook_interval = 1
-
     def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
 
@@ -784,7 +782,6 @@ class Aurora1p5_6h(_Aurora):
 
     _STEP_HOURS = 6
     _ENSEMBLE = False
-    front_hook_interval = 1
 
 
 @check_optional_dependencies()
@@ -817,7 +814,6 @@ class Aurora1p5Ensemble_6h(_Aurora):
 
     _STEP_HOURS = 6
     _ENSEMBLE = True
-    front_hook_interval = 1
     stochastic = True
 
     def __init__(

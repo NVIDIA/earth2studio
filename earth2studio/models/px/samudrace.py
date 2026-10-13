@@ -211,8 +211,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         config = CoupledStepperConfig.from_state(stepper.get_state()["config"])
         requirements = config.get_forcing_window_data_requirements(n_coupled_steps=1)
         self._n_inner_steps = stepper.n_inner_steps
-        # One front hook per coupled advance, one rear hook per atmosphere output.
-        self.front_hook_interval = 1
         # Time arithmetic is kept at second precision: SamudrACE times are
         # CM4 model years (e.g. year 151), which overflow nanosecond
         # precision timestamps

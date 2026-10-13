@@ -199,10 +199,6 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("lsm", lsm)
 
     @property
-    def front_hook_interval(self) -> int:  # type: ignore[override]
-        return 1
-
-    @property
     def stochastic(self) -> bool:  # type: ignore[override]  # Derived from the nested model.
         """Whether the coarse forecast model samples a random trajectory."""
         return bool(getattr(self.px_model, "stochastic", False))

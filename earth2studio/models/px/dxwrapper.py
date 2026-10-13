@@ -333,10 +333,6 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         )
 
     @property
-    def front_hook_interval(self) -> int:  # type: ignore[override]
-        return getattr(self.px_model, "front_hook_interval", 1)
-
-    @property
     def stochastic(self) -> bool:  # type: ignore[override]
         """Whether any nested model is stochastic."""
         return any(

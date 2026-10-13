@@ -135,7 +135,6 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     VARIABLES = np.array(list(CBottleLexicon.VOCAB.keys()))
     torch_compile = False
-    front_hook_interval = 11
 
     def __init__(
         self,

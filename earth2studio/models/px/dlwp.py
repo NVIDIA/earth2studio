@@ -78,13 +78,6 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     compatability with common data sources. Prescriptive fields are added inside the
     model wrapper.
 
-    Attributes
-    ----------
-    front_hook_interval : int
-        One forecast chunk per front hook. Each twelve-hour core advance returns
-        two six-hour frames together. The rear hook transforms each chunk before
-        publication; the front hook runs before subsequent advances.
-
     Note
     ----
     For more information about this model see:
@@ -120,8 +113,6 @@ class DLWP(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     region:global class:subseasonal-seasonal product:temp product:atmos year:2021 gpu:40gb
     provider:nvidia backend:pytorch
     """
-
-    front_hook_interval: int = 1
 
     def __init__(
         self,

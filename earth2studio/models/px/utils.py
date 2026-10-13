@@ -92,11 +92,6 @@ class PrognosticMixin:
     #: implement ``set_rng(seed, reset=True)``; see ``dev/spec/MODEL_CONTRACT_SPEC.md``.
     stochastic: bool = False
 
-    #: Number of forecast outputs produced by each front-hook/core advance.
-    #: Rear hooks run for every output; multi-output cores declare their cadence.
-    #: Unused by the derived iterator, where one yield carries a whole step.
-    front_hook_interval: int = 1
-
     @staticmethod
     def _default_hook(
         x: xr.DataArray | tuple[xr.DataArray, ...],

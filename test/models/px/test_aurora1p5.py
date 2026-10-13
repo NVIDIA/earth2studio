@@ -285,7 +285,6 @@ def test_aurora1p5_conformance():
     signature = p.input_coords()
     assert signature.shape == (0, 0, 2, 83, _H, _W)
     assert "tp1h" in p.output_coords(signature).coords["variable"]
-    assert p.front_hook_interval == 1
     check_prognostic_contract(p, rollout=False)
     check_prognostic_contract(_make_model())
 
@@ -400,7 +399,6 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
     out = p(x)
     assert out.shape == (2, 1, 6 // step, 90, 4, 8)
     assert out.lead_time.values[0] == np.timedelta64(12 + step, "h")
-    assert p.front_hook_interval == 1
     assert calls == [(0, h) for h in range(step, 7, step)]
     calls.clear()
 

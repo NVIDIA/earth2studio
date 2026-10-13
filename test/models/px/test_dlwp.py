@@ -76,7 +76,6 @@ def make_input(model):
 
 def test_dlwp_declares_core_hook_cadence(monkeypatch):
     model = make_model("DLWP", monkeypatch)
-    assert model.front_hook_interval == 1
     calls = []
     model.front_hook = lambda x: calls.append("front") or x
     model.rear_hook = lambda x: calls.append("rear") or x

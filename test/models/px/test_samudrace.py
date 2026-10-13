@@ -531,7 +531,6 @@ def test_samudrace_iter(model, batch):
 
     # Ocean prognostic fields are held constant between cycle boundaries and
     assert events == ["rear", "front", "rear"]
-    assert model.front_hook_interval == 1
     assert field.attrs["counter"] == {"count": 0}
     # update exactly at each boundary
     for name, j in ocean_prog_idx.items():
