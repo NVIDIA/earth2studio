@@ -28,7 +28,6 @@ import datetime
 import functools
 import os
 import threading
-import time
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
 
@@ -141,7 +140,7 @@ async def test_async_zarr_async_write(
 
 @pytest.mark.asyncio
 async def test_async_zarr_non_blocking(tmp_path: str) -> None:
-    """Non-blocking writes return before the data lands, and store the same bytes"""
+    """Non-blocking writes return before the data lands, copy their input, and store the same bytes"""
     fs_factory = functools.partial(fsspec.filesystem, "file")
     times = np.array(
         [
@@ -158,7 +157,7 @@ async def test_async_zarr_non_blocking(tmp_path: str) -> None:
     )
     x = torch.randn(8, 720, 1440)
 
-    def run(path: str, blocking: bool) -> tuple[AsyncZarrBackend, float]:
+    def make(path: str, blocking: bool) -> AsyncZarrBackend:
         z = AsyncZarrBackend(
             path,
             parallel_coords={"time": times},
@@ -166,19 +165,36 @@ async def test_async_zarr_non_blocking(tmp_path: str) -> None:
             blocking=blocking,
         )
         z.add_array(template(coords, name="fields_1"))
-        start = time.perf_counter()
+        return z
+
+    def write_steps(z: AsyncZarrBackend, data: torch.Tensor) -> None:
         for i in range(len(times)):
             step = OrderedDict(coords, time=times[i : i + 1])
-            z.write(field(step, x[i : i + 1], name="fields_1"))
-        return z, time.perf_counter() - start
+            z.write(field(step, data[i : i + 1], name="fields_1"))
 
-    z_blocking, blocking_time = run(f"{tmp_path}/blocking.zarr", True)
-    z_nonblocking, nonblocking_time = run(f"{tmp_path}/nonblocking.zarr", False)
+    z_blocking = make(f"{tmp_path}/blocking.zarr", True)
+    write_steps(z_blocking, x)
+
+    # Hold every background write at a gate: a non-blocking write must return
+    # while its data has not landed, and must not depend on the caller's buffer
+    z_nonblocking = make(f"{tmp_path}/nonblocking.zarr", False)
+    gate = threading.Event()
+    write_impl = z_nonblocking._write
+
+    async def gated_write(*args, **kwargs):
+        await asyncio.get_running_loop().run_in_executor(None, gate.wait)
+        return await write_impl(*args, **kwargs)
+
+    z_nonblocking._write = gated_write
+    reused = x.clone()
+    try:
+        write_steps(z_nonblocking, reused)
+        assert z_nonblocking.io_futures
+        assert not any(future.done() for future in z_nonblocking.io_futures)
+        reused.zero_()
+    finally:
+        gate.set()
     z_nonblocking.close()
-
-    assert (
-        blocking_time > nonblocking_time
-    ), f"Blocking ({blocking_time:.3f}s) should be slower than non-blocking ({nonblocking_time:.3f}s)"
 
     data1 = await (await z_blocking.root.get("fields_1")).getitem(slice(None))
     data2 = await (await z_nonblocking.root.get("fields_1")).getitem(slice(None))
