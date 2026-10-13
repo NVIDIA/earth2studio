@@ -98,7 +98,7 @@ def main(
     data = NullDataSource()
 
     diagnostic(
-        [start_time], num_steps, model, precip_afno, data, io, device=model.device
+        [start_time], num_steps, model, precip_afno, data, io, device=model.device  # type: ignore[arg-type]
     )
 
     # Extract total precipitation for the specified location

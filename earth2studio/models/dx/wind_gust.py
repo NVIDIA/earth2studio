@@ -221,7 +221,20 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Predict maximum wind gust over the preceding hour.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()``, with datetime time
+            and timedelta lead-time coordinates.
+
+        Returns
+        -------
+        xr.DataArray
+            Wind-gust fields matching ``output_coords(x)``, with the declared
+            one-hour maximum statistic and input grid.
+        """
         output_coords = self.output_coords(x)
         coords = x.coords
         encoding = x.encoding.copy()

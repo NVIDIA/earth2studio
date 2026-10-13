@@ -251,7 +251,20 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Predict precipitation accumulated over the next six hours.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()``, with datetime time
+            and timedelta lead-time coordinates.
+
+        Returns
+        -------
+        xr.DataArray
+            Precipitation fields matching ``output_coords(x)``, including the
+            six-hour accumulation window and input grid.
+        """
         output_coords = self.output_coords(x)
         coords = x.coords
         encoding = x.encoding.copy()

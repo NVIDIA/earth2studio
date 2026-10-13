@@ -168,8 +168,8 @@ execution API; dictionary signatures and initial-condition-first iterators fail.
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
 `default_sources()` (no recommendation), `stochastic = False`, hooks, and private
-`_default_call`/`_default_create_iterator` helpers. Its public execution methods raise
-`NotImplementedError`. Wrappers declare and document explicit execution signatures,
+`_default_call`/`_default_create_iterator` helpers. It has no public execution stubs.
+Wrappers declare and document explicit execution signatures,
 optionally delegating to the private helpers. The protocol is the requirement; inheriting the
 mixin or deriving these methods from the primitives is optional. Direct
 implementations must satisfy the same behavioral rules.
@@ -408,6 +408,19 @@ y_mrms, s_mrms = mrms.initialize(x_mrms, x_goes)  # GOES window
 for _ in range(nsteps - 1):
     y_mrms, s_mrms = mrms.step(y_mrms, y_goes, s_mrms)  # newest frame
     y_goes, s_goes = goes.step(y_goes, s_goes)
+```
+
+StormScope GOES and MRMS also support `create_iterator`. GOES has no forcing slot;
+MRMS declares its GOES history through `forcing_coords()`, so a coupled loop sends
+each new GOES forecast to the MRMS iterator:
+
+```python
+goes_it = goes.create_iterator(x_goes)
+mrms_it = mrms.create_iterator(x_mrms, x_goes)
+y_mrms, y_goes = next(mrms_it), next(goes_it)
+for _ in range(nsteps - 1):
+    y_mrms = mrms_it.send(y_goes)  # GOES frame at y_mrms's lead time
+    y_goes = next(goes_it)
 ```
 
 The same GOES window initializes both models, and each iteration's `y_goes` has the
@@ -700,13 +713,12 @@ dependencies; a dependency skip is not evidence of conformance.
 
 The checker implements this contract. Wrappers and consumers migrate separately:
 
-- **Wrappers.** Unmigrated wrappers override `__call__` and `create_iterator` with
-  their single-DataArray implementations and inherit `initialize`/`step` stubs that
-  raise `NotImplementedError`, so they still satisfy structural `P1`. Their legacy
-  initial-condition-first behavior remains until each wrapper migrates.
+- **Wrappers.** The mixin supplies hooks, defaults and private helpers, not public
+  execution methods. Concrete wrappers define `__call__`, `initialize`, `step`
+  and `create_iterator`; missing methods fail structural `P1`.
 - **Protocol annotations.** `PrognosticModel` now declares variadic DataArray
   arguments and single-or-tuple output signatures. Migrated wrappers declare explicit
-  fixed signatures (`P24`, `D11`), including overrides of variadic mixin methods.
+  fixed signatures (`P24`, `D11`) without inheriting variadic execution methods.
   Wrappers and callers in
   `earth2studio.run`, perturbations, `dxwrapper`, `interpmodafno` and recipes must
   migrate together; structural protocol membership does not validate signatures.

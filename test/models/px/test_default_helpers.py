@@ -57,10 +57,11 @@ class ForcedModel(PrognosticMixin):
         return self._default_create_iterator(atmosphere, ocean, static, forcing)
 
 
-@pytest.mark.parametrize("method", ["__call__", "create_iterator"])
-def test_public_methods_require_overrides(method):
-    with pytest.raises(NotImplementedError, match=method):
-        getattr(PrognosticMixin(), method)(xr.DataArray(0))
+@pytest.mark.parametrize(
+    "method", ["__call__", "initialize", "step", "create_iterator"]
+)
+def test_mixin_has_no_public_execution_methods(method):
+    assert method not in vars(PrognosticMixin)
 
 
 def test_default_call_and_forecasts_only_iterator():

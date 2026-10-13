@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from typing import TypeVar
 
 import numpy as np
@@ -23,6 +23,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -177,6 +178,20 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Load short model into memory
         self.ort = create_ort_session(ort_short, self.device)
 
+    def default_sources(self) -> DataSource:
+        """Recommend WeatherBench2 ERA5 for all FuXi input variables.
+
+        The public dataset ends at January 10, 2023, 18:00 UTC.
+
+        Returns
+        -------
+        DataSource
+            Raw WeatherBench2 ERA5 source covering all input variables.
+        """
+        from earth2studio.data import WB2ERA5
+
+        return WB2ERA5()
+
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
@@ -304,7 +319,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.FloatTensor(embedding).to(self.device)
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordinateSystem,
@@ -400,30 +415,97 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, {"lead_time": x.lead_time.values + np.timedelta64(6, "h")}
         )
         out = from_torch(
-            self._forward(tensor.to(self.device), x, self.ort), signature, name=x.name
+            self._forward_tensor(tensor.to(self.device), x, self.ort),
+            signature,
+            name=x.name,
         )
         out.encoding = x.encoding.copy()
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Predict one six-hour field with the short-range model, without hooks."""
-        state = self._step(x)
-        return state.isel(lead_time=slice(-1, None))
+        """Predict six hours ahead with the short-range model, without hooks.
 
-    def _default_generator(
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            and ``step`` to retain history and the model-switching counter.
+        """
+        return self.initialize(x)[0]
+
+    def initialize(
         self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        step = 0
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
-        while True:
-            # The rear hook sees both returned history fields, with matching labels.
-            x = self.rear_hook(self._step(self.front_hook(x.copy(deep=True)), step))
-            step += 1
-            yield x.isel(lead_time=slice(-1, None)).copy(deep=False)
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Compute the first forecast and retain its regenerated history frame.
 
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the latest input then cascaded six-hour forecasts."""
-        yield from self._default_generator(x)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            First six-hour forecast and state containing the regenerated history
+            frame and cascade step index. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        return self._forward(x, 0)
+
+    def _forward(
+        self, x: xr.DataArray, index: int
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        result = self._step(x.copy(deep=True), index)
+        return result.isel(lead_time=slice(-1, None)).copy(deep=True), (
+            result.isel(lead_time=slice(0, -1)).copy(deep=True),
+            index + 1,
+        )
+
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, int]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Continue the range-dependent cascade from the explicit history and index.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : tuple[xr.DataArray, int]
+            Regenerated history and cascade index from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
+        history, index = state
+        x = xr.concat(
+            [history, y],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        x.attrs, x.encoding, x.name = y.attrs.copy(), y.encoding.copy(), y.name
+        return self._forward(x, index)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield cascaded six-hour forecasts, beginning with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
+        """
+        yield from self._default_create_iterator(x)

@@ -28,7 +28,6 @@ from loguru import logger
 
 from earth2studio.data import (
     GOES,
-    InferenceOutputSource,
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,
     fetch_data,
@@ -164,7 +163,6 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         package = StormScopeBase.load_default_package()
         stormscope = StormScopeGOES.load_model(
             package=package,
-            conditioning_data_source=None,  # set later
             model_name=GOES_MODEL_NAME,
         )
         stormscope.to(self.device)
@@ -524,9 +522,6 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 lead_times=lead_times,
                 sample=sample,
                 total_samples=total_samples,
-            )
-            self.stormscope.conditioning_data_source = InferenceOutputSource(
-                io_fcn3.root
             )
 
             # Run StormScope forecast conditioned on FCN3
