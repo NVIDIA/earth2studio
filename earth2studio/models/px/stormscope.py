@@ -262,8 +262,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.conditioning_variables = conditioning_variables
         self.sampler_args = sampler_args or {}
         self.variables = variables
-        # Channels of the network (state + any GLM channels), in checkpoint order
-        self._network_variables = np.asarray(variables)
         self.input_interp = None
         self.conditioning_interp = None
 
@@ -1348,10 +1346,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def _initialize(
-        self,
-        x: xr.DataArray,
-        conditioning: xr.DataArray | None,
-        glm: xr.DataArray | None = None,
+        self, x: xr.DataArray, conditioning: xr.DataArray | None
     ) -> tuple[xr.DataArray, dict[str, Any]]:
         """Compute the first forecast and retain missing history and sampling state.
 
@@ -1362,9 +1357,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning : xr.DataArray
             Full conditioning history matching ``forcing_coords()`` on the
             checkpoint grid. The caller supplies all required channels.
-        glm : xr.DataArray | None, optional
-            Full GLM forcing history on the checkpoint grid for variants whose
-            network consumes GLM as an observed input, by default None.
 
         Returns
         -------
@@ -1377,11 +1369,9 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             handshake_nonempty(conditioning)
         if self._noise_generator is None:
             self.set_rng(int(torch.randint(2**31, ())))
-        if glm is not None:
-            handshake_nonempty(glm)
-        y = self._predict(x, conditioning, glm)
+        y = self._predict(x, conditioning)
         count = len(self.output_times)
-        state: dict[str, Any] = {
+        return y, {
             "history": x.isel(lead_time=slice(count, None)).copy(deep=True),
             "conditioning": (
                 conditioning.isel(lead_time=slice(count, None)).copy(deep=True)
@@ -1390,47 +1380,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ),
             "rng": cast(torch.Generator, self._noise_generator).get_state().clone(),
         }
-        if glm is not None:
-            state["glm"] = glm.isel(lead_time=slice(count, None)).copy(deep=True)
-        return y, state
-
-    def _extend_forcing(
-        self,
-        new: xr.DataArray,
-        declaration: CoordinateSystem,
-        y: xr.DataArray,
-        history: xr.DataArray,
-        template: CoordinateSystem,
-    ) -> xr.DataArray:
-        """Validate new forcing frames at the lead times of ``y`` and prepend the
-        retained forcing history held in the continuation state.
-        """
-        handshake_dataarray(
-            new,
-            coord_array_like(declaration, {"lead_time": y.lead_time.values}),
-        )
-        for dim in y.dims[:-3]:
-            handshake_size(new, dim, y.sizes[dim])
-            if dim in y.coords:
-                handshake_coords(new, y, dim)
-        current, _ = new.e2s.to_torch()
-        retained, _ = history.e2s.to_torch()
-        return from_torch(
-            torch.cat(
-                [retained.to(current.device), current],
-                dim=new.get_axis_num("lead_time"),
-            ),
-            template,
-        )
 
     def _forward(
-        self,
-        y: xr.DataArray,
-        conditioning: xr.DataArray | None,
-        state: dict[str, Any],
-        glm: xr.DataArray | None = None,
+        self, y: xr.DataArray, conditioning: xr.DataArray | None, state: dict[str, Any]
     ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance with newly supplied forcing and explicit continuation state.
+        """Advance with newly supplied conditioning and explicit continuation state.
 
         Parameters
         ----------
@@ -1441,23 +1395,29 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             is retained in ``state``.
         state : dict[str, Any]
             Missing history and RNG state returned by ``initialize`` or ``step``.
-        glm : xr.DataArray | None, optional
-            New GLM forcing frames at the lead times of ``y`` for variants that
-            consume GLM, by default None.
 
         Returns
         -------
         tuple[xr.DataArray, dict[str, Any]]
             Next forecast chunk and updated state, without iterator hooks.
         """
-        declaration = self.forcing_coords()
-        declarations = (
-            ()
-            if declaration is None
-            else declaration if isinstance(declaration, tuple) else (declaration,)
-        )
-        if (conditioning is not None or glm is not None) and not declarations:
-            raise ValueError("This model does not accept forcing")
+        if conditioning is not None:
+            declaration = self.forcing_coords()
+            if declaration is None:
+                raise ValueError("This model does not accept forcing")
+            handshake_dataarray(
+                conditioning,
+                coord_array_like(
+                    declaration,
+                    {
+                        "lead_time": y.lead_time.values,
+                    },
+                ),
+            )
+            for dim in y.dims[:-3]:
+                handshake_size(conditioning, dim, y.sizes[dim])
+                if dim in y.coords:
+                    handshake_coords(conditioning, y, dim)
         tensor, _ = y.e2s.to_torch()
         history, _ = state["history"].e2s.to_torch()
         signature = coord_array_like(
@@ -1477,91 +1437,27 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         x.attrs, x.encoding = deepcopy(y.attrs), deepcopy(y.encoding)
         if conditioning is not None:
-            conditioning = self._extend_forcing(
-                conditioning,
-                declarations[0],
-                y,
-                state["conditioning"],
+            current, _ = conditioning.e2s.to_torch()
+            history, _ = state["conditioning"].e2s.to_torch()
+            conditioning = from_torch(
+                torch.cat(
+                    [history.to(current.device), current],
+                    dim=conditioning.get_axis_num("lead_time"),
+                ),
                 coord_array_like(x, {"variable": self.conditioning_variables}),
-            )
-        if glm is not None:
-            glm = self._extend_forcing(
-                glm,
-                declarations[1],
-                y,
-                state["glm"],
-                coord_array_like(x, {"variable": self.glm_variables}),
             )
         previous = self._noise_generator
         self._noise_generator = torch.Generator().set_state(state["rng"].clone())
         try:
-            return self._initialize(x, conditioning, glm)
+            return self._initialize(x, conditioning)
         finally:
             self._noise_generator = previous
-
-    def _pack_glm(self, glm: xr.DataArray, x_state: xr.DataArray) -> torch.Tensor:
-        """Validate observed GLM forcing and pack it to ``[B, T, L, C, H, W]``.
-
-        Parameters
-        ----------
-        glm : xr.DataArray
-            GLM forcing on the model grid with the leading, time and lead-time axes
-            of the state.
-        x_state : xr.DataArray
-            State already packed to a single leading ``batch`` axis.
-
-        Returns
-        -------
-        torch.Tensor
-            Non-negative counts, zero-filled outside the valid mask, on the model device.
-        """
-        handshake_time(glm)
-        handshake_time(glm, "lead_time")
-        if not (
-            glm.dims[-2:] == ("y", "x")
-            and np.array_equal(glm.y, self.y)
-            and np.array_equal(glm.x, self.x)
-        ):
-            raise ValueError(
-                "GLM forcing must be on the model grid (y, x); regrid it first, e.g. "
-                "with build_glm_interpolator and interpolate_glm."
-            )
-        handshake_dataarray(
-            glm,
-            coord_array_like(
-                self.input_coords(),
-                {
-                    "lead_time": np.asarray(glm.lead_time),
-                    "variable": self.glm_variables,
-                },
-            ),
-        )
-        if "batch" in glm.coords and "batch" not in glm.dims:
-            glm = glm.drop_vars("batch")
-        leading = glm.dims[:-5]
-        if leading:
-            temporary = "_glm_batch"
-            packed = glm.e2s.batch(leading, batch_dim=temporary).rename(
-                {temporary: "batch"}
-            )
-        else:
-            packed = glm.expand_dims(batch=[0])
-        handshake_size(packed, "batch", x_state.sizes["batch"])
-        for dim in ("time", "lead_time"):
-            if not np.array_equal(packed[dim].values, x_state[dim].values):
-                raise ValueError(
-                    f"GLM forcing {dim} coordinates must match the radar state"
-                )
-        tensor = packed.e2s.to_torch()[0].to(self.means.device)
-        # Counts are non-negative (log1p is applied downstream); invalid points are 0
-        return torch.where(~self.valid_mask, 0.0, tensor.clamp(min=0.0))
 
     @torch.inference_mode()
     def _predict(
         self,
         x: xr.DataArray,
         conditioning: xr.DataArray | None,
-        glm: xr.DataArray | None = None,
     ) -> xr.DataArray:
         """Calls the prognostic model with explicitly provided conditioning. Useful when
         combining multiple cross-conditioned models during rollout (does not require
@@ -1573,11 +1469,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Input field.
         conditioning : xr.DataArray
             Explicit conditioning field with matching leading and temporal axes.
-        glm : xr.DataArray | None, optional
-            Observed GLM forcing on the model grid with the same leading and
-            temporal axes as ``x``. Its channels are merged with ``x`` into the
-            network input and the network's predicted GLM channels are discarded,
-            by default None.
 
         Returns
         -------
@@ -1648,27 +1539,12 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning, conditioning_coords, conditioning=True
         )
 
-        state_sel = None
-        if glm is not None:
-            glm_tensor = self._pack_glm(glm, x_state=packed)
-            x_coords = x_coords.copy()
-            x_coords["variable"] = self._network_variables
-            glm_sel = self.glm_mask.nonzero(as_tuple=True)[0]
-            state_sel = (~self.glm_mask).nonzero(as_tuple=True)[0]
-            full = x.new_zeros((*x.shape[:3], len(self.glm_mask), *x.shape[4:]))
-            full[:, :, :, state_sel] = x
-            full[:, :, :, glm_sel] = glm_tensor.to(dtype=x.dtype)
-            x = full
-
         x = self._forward_tensor(
             x,
             x_coords,
             conditioning=conditioning,
             conditioning_coords=conditioning_coords,
         )
-        if state_sel is not None:
-            # The observed GLM replaces the network's predicted GLM channels
-            x = x[:, :, :, state_sel]
         out = from_torch(x, output_coords, name=packed.name)
         out.attrs = deepcopy(out.attrs)
         out.encoding = deepcopy(packed.encoding)
@@ -2024,7 +1900,7 @@ class StormScopeMRMS(StormScopeBase):
     selected by passing ``model_name`` to ``load_model`` (default: ``"3km_10min"``).
     Variant names are semantic (``<resolution>_<cadence>``):
 
-      - ``3km_10min``: 3km resolution, 10 minute timestep, MRMS nowcasting with GOES and GLM forcing (default)
+      - ``3km_10min``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting (default)
       - ``6km_1hr``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package.
@@ -2105,12 +1981,18 @@ class StormScopeMRMS(StormScopeBase):
 
     Note
     ----
-    **GLM.**  The ``3km_10min`` checkpoint also consumes observed GLM lightning
-    (gridded counts, normalized with ``log1p``). :meth:`load_model` returns the
-    :py:class:`StormScopeMRMSGLM` subclass for it, which takes GLM as a second
-    forcing slot; this class itself takes only the GOES forcing. GOES forcing is
-    passed by the caller; neither ``initialize`` nor ``step`` fetches observations
-    or applies iterator hooks.
+    **GLM state channel.**  The ``3km_10min`` variant includes a ``glm_density``
+    channel (gridded GLM lightning counts, normalized with ``log1p``) as part of
+    its *state* — both an input observation and a predicted output (the
+    ``6km_1hr`` variant has no GLM channel).  Because the GLM source lives on a
+    different native grid from MRMS, ``glm_density`` is handled separately from
+    the radar channels and is the GLM analogue of the GOES ``conditioning``:
+
+    Populate the GLM channels of ``x`` before ``initialize`` (for example by fetching
+    :py:class:`earth2studio.data.GOESGLMGrid` and regridding it with
+    :meth:`build_glm_interpolator` and :meth:`interpolate_glm`). During ``step``, GLM
+    flows autoregressively from the previous radar forecast. GOES forcing is passed separately by the caller;
+    neither method fetches observations or applies iterator hooks.
 
     Badges
     ------
@@ -2158,6 +2040,7 @@ class StormScopeMRMS(StormScopeBase):
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         input_interp_max_dist_km: float = 12.0,
         conditioning_interp_max_dist_km: float = 12.0,
+        glm_interp_max_dist_km: float = 14.0,
         amp: bool = True,
         compile: bool = False,
     ):
@@ -2192,6 +2075,60 @@ class StormScopeMRMS(StormScopeBase):
         if mrms_coverage_mask is not None:
             self.register_buffer("mrms_coverage_mask", mrms_coverage_mask)
             self.register_buffer("valid_mask", mrms_coverage_mask.clone())
+
+        # GLM is a state channel (`glm_density`) normalized with log1p/expm1; callers
+        # regrid it from its own 0.1-degree gridded source onto the model grid (see
+        # `build_glm_interpolator`). ``n_glm_channels`` counts the log1p (GLM)
+        # channels among `variables`.
+        self.n_glm_channels = int(self.glm_mask.sum().item())
+        # Names of the GLM (log1p) state channels, in `variables` order.
+        self.glm_variables = np.asarray(self.variables)[self.glm_mask.cpu().numpy()]
+        self.glm_interp: nn.Module | None = None
+        self._glm_interp_max_dist_km = glm_interp_max_dist_km
+
+    def build_glm_interpolator(
+        self,
+        glm_lats: torch.Tensor | ArrayLike,
+        glm_lons: torch.Tensor | ArrayLike,
+        max_dist_km: float | None = None,
+    ) -> None:
+        """Build a **bilinear** interpolator mapping the GLM source's native
+        0.1-degree grid onto the model grid (training used bilinear regridding for
+        GLM; the nearest-neighbor path used for radar/satellite inputs is not
+        appropriate for the sparse count field).
+
+        Parameters
+        ----------
+        glm_lats, glm_lons : torch.Tensor | ArrayLike
+            Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
+            1D coordinate vectors (as returned by :py:class:`GOESGLMGrid`).
+        max_dist_km : float | None, optional
+            Unused placeholder for API symmetry with the nearest-neighbor
+            interpolators; bilinear interpolation does not threshold by distance.
+        """
+        glm_lats = np.asarray(glm_lats)
+        glm_lons = np.asarray(glm_lons)
+        if glm_lats.ndim == 1 and glm_lons.ndim == 1:
+            glm_lats, glm_lons = np.meshgrid(glm_lats, glm_lons, indexing="ij")
+        self.glm_interp = LatLonInterpolation(
+            lat_in=glm_lats,
+            lon_in=glm_lons,
+            lat_out=self._lat_cpu_copy,
+            lon_out=self._lon_cpu_copy,
+        ).to(self.latitudes.device)
+
+    def interpolate_glm(self, glm: torch.Tensor) -> torch.Tensor:
+        """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
+        grid) onto the model grid. Points outside the GLM grid are filled with 0.
+        Returns physical counts (apply no normalization here; the model applies
+        log1p internally). Requires :meth:`build_glm_interpolator` first.
+        """
+        if self.glm_interp is None:
+            raise ValueError(
+                "GLM interpolator not built; call build_glm_interpolator first."
+            )
+        out = self.glm_interp(glm)
+        return torch.nan_to_num(out, nan=0.0)
 
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
         """Recommend MRMS radar inputs and GOES conditioning.
@@ -2340,9 +2277,8 @@ class StormScopeMRMS(StormScopeBase):
             Variant to load. Available variants (see
             :py:meth:`list_available_models`):
 
-            - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS nowcasting
-              (returns :py:class:`StormScopeMRMSGLM`, which also takes GLM forcing)
-            - ``"6km_1hr"``: 6km resolution, 60 minute timestep, MRMS nearcasting
+            - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
+            - ``"6km_1hr"``: 6km resolution, 60 minute timestep, MRMS+GLM nearcasting
 
             Legacy training-style names are accepted as aliases.
             Default is ``"3km_10min"``.
@@ -2356,8 +2292,7 @@ class StormScopeMRMS(StormScopeBase):
         Returns
         -------
         PrognosticModel
-            Instantiated :py:class:`StormScopeMRMS` model, or
-            :py:class:`StormScopeMRMSGLM` for checkpoints with GLM channels
+            Instantiated StormScopeMRMS model
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -2432,10 +2367,7 @@ class StormScopeMRMS(StormScopeBase):
         else:
             mrms_coverage_mask = None
 
-        model_cls = (
-            StormScopeMRMSGLM if cls is StormScopeMRMS and bool(glm_mask.any()) else cls
-        )
-        model = model_cls(
+        model = cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
@@ -2462,210 +2394,3 @@ class StormScopeMRMS(StormScopeBase):
         if pkg.get("deprecated", False):
             model._INPUT_INVALID_FILL_CONSTANT = cls._LEGACY_INPUT_INVALID_FILL_CONSTANT
         return model
-
-
-class StormScopeMRMSGLM(StormScopeMRMS):
-    """StormScope MRMS model whose network also observes gridded GLM lightning.
-
-    The ``3km_10min`` MRMS checkpoint takes ``glm_density`` (gridded GLM lightning
-    counts, normalized with ``log1p``) as an observed input next to the radar
-    history and GOES conditioning. This subclass exposes GLM as a second forcing
-    slot rather than as a state channel: the state and outputs contain only the
-    radar channels, and the observed GLM replaces the network's own GLM channel at
-    every step (the network's predicted GLM output is discarded).
-
-    :meth:`load_model` returns this class for checkpoints that contain GLM
-    channels, otherwise it returns :py:class:`StormScopeMRMS`. See
-    :py:class:`StormScopeMRMS` for the remaining parameters and behavior.
-
-    Note
-    ----
-    Slots are ``initialize(x, goes, glm)`` and ``step(y, goes, glm, state)``. The
-    GLM forcing must already be on the model grid with the lead times and
-    batch/time axes of the matching GOES frames (see :meth:`build_glm_interpolator`
-    and :meth:`interpolate_glm` for bilinear regridding of
-    :py:class:`earth2studio.data.GOESGLMGrid` data). Neither method fetches
-    observations or applies iterator hooks.
-
-    Badges
-    ------
-    region:na class:nowcasting product:radar year:2026 gpu:80gb
-    provider:nvidia backend:pytorch
-    """
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        if not bool(self.glm_mask.any()):
-            raise ValueError(
-                "StormScopeMRMSGLM requires a glm_mask flagging at least one channel"
-            )
-        mask = self.glm_mask.cpu().numpy()
-        full = np.asarray(self.variables)
-        # Network channels keep the checkpoint order; the public state excludes GLM.
-        self._network_variables = full
-        self.variables = full[~mask]
-        # Names of the GLM (log1p) channels supplied as forcing, in network order.
-        self.glm_variables = full[mask]
-        self.glm_interp: nn.Module | None = None
-
-    def build_glm_interpolator(
-        self,
-        glm_lats: torch.Tensor | ArrayLike,
-        glm_lons: torch.Tensor | ArrayLike,
-    ) -> None:
-        """Build a **bilinear** interpolator mapping the GLM source's native
-        0.1-degree grid onto the model grid (training used bilinear regridding for
-        GLM; the nearest-neighbor path used for radar/satellite inputs is not
-        appropriate for the sparse count field).
-
-        Parameters
-        ----------
-        glm_lats, glm_lons : torch.Tensor | ArrayLike
-            Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
-            1D coordinate vectors (as returned by :py:class:`GOESGLMGrid`).
-        """
-        glm_lats = np.asarray(glm_lats)
-        glm_lons = np.asarray(glm_lons)
-        if glm_lats.ndim == 1 and glm_lons.ndim == 1:
-            glm_lats, glm_lons = np.meshgrid(glm_lats, glm_lons, indexing="ij")
-        self.glm_interp = LatLonInterpolation(
-            lat_in=glm_lats,
-            lon_in=glm_lons,
-            lat_out=self._lat_cpu_copy,
-            lon_out=self._lon_cpu_copy,
-        ).to(self.latitudes.device)
-
-    def interpolate_glm(self, glm: torch.Tensor) -> torch.Tensor:
-        """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
-        grid) onto the model grid. Points outside the GLM grid are filled with 0.
-        Returns physical counts (the model applies log1p internally). Requires
-        :meth:`build_glm_interpolator` first.
-        """
-        if self.glm_interp is None:
-            raise ValueError(
-                "GLM interpolator not built; call build_glm_interpolator first."
-            )
-        return torch.nan_to_num(self.glm_interp(glm), nan=0.0)
-
-    def forcing_coords(self) -> tuple[CoordinateSystem, CoordinateSystem]:  # type: ignore[override]
-        """Describe the GOES and GLM forcing histories on the checkpoint grid.
-
-        Returns
-        -------
-        tuple[CoordinateSystem, CoordinateSystem]
-            Allocation-free GOES and GLM initial histories. Subsequent steps
-            consume only the new frames at the current forecast's lead times.
-        """
-        base = self.input_coords()
-        return (
-            coord_array_like(base, {"variable": self.conditioning_variables}),
-            coord_array_like(base, {"variable": self.glm_variables}),
-        )
-
-    def default_sources(  # type: ignore[override]
-        self,
-    ) -> tuple[DataSource, DataSource | ForecastSource, DataSource]:
-        """Recommend MRMS radar inputs, GOES conditioning and gridded GLM.
-
-        Returns
-        -------
-        tuple[DataSource, DataSource | ForecastSource, DataSource]
-            MRMS input, GOES conditioning and GOESGLMGrid forcing sources.
-        """
-        from earth2studio.data import GOES, MRMS, GOESGLMGrid
-
-        return MRMS(), GOES(), GOESGLMGrid()
-
-    def __call__(  # type: ignore[override]
-        self, x: xr.DataArray, goes: xr.DataArray, glm: xr.DataArray
-    ) -> xr.DataArray:
-        """Compute the first radar forecast using caller-supplied GOES and GLM.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Initial radar history.
-        goes : xr.DataArray
-            Initial GOES history matching the first ``forcing_coords()`` slot.
-        glm : xr.DataArray
-            Initial GLM history matching the second ``forcing_coords()`` slot.
-
-        Returns
-        -------
-        xr.DataArray
-            First radar forecast, without hooks.
-        """
-        return self.initialize(x, goes, glm)[0]
-
-    def initialize(  # type: ignore[override]
-        self, x: xr.DataArray, goes: xr.DataArray, glm: xr.DataArray
-    ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Initialize radar forecasts from radar, GOES and GLM histories.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Complete initial radar history.
-        goes : xr.DataArray
-            Complete GOES history matching the first ``forcing_coords()`` slot.
-        glm : xr.DataArray
-            Complete GLM history matching the second ``forcing_coords()`` slot.
-
-        Returns
-        -------
-        tuple[xr.DataArray, dict[str, Any]]
-            First forecast and missing radar/GOES/GLM history plus RNG state.
-            No hooks are applied and no data is fetched.
-        """
-        return self._initialize(x, goes, glm)
-
-    def step(  # type: ignore[override]
-        self,
-        y: xr.DataArray,
-        goes: xr.DataArray,
-        glm: xr.DataArray,
-        state: dict[str, Any],
-    ) -> tuple[xr.DataArray, dict[str, Any]]:
-        """Advance radar using the previous radar forecast and new GOES/GLM frames.
-
-        Parameters
-        ----------
-        y : xr.DataArray
-            Previous radar forecast, including caller edits.
-        goes : xr.DataArray
-            New GOES frames at the lead times of ``y``. Earlier context is in state.
-        glm : xr.DataArray
-            New GLM frames at the lead times of ``y``. Earlier context is in state.
-        state : dict[str, Any]
-            Missing history and RNG state returned by the previous advance.
-
-        Returns
-        -------
-        tuple[xr.DataArray, dict[str, Any]]
-            Next radar forecast and updated state, without hooks or data fetching.
-        """
-        return self._forward(y, goes, state, glm)
-
-    def create_iterator(  # type: ignore[override]
-        self, x: xr.DataArray, goes: xr.DataArray, glm: xr.DataArray
-    ) -> Generator[
-        xr.DataArray, tuple[xr.DataArray, xr.DataArray] | xr.DataArray | None, None
-    ]:
-        """Create an iterator for radar time-integration with GOES and GLM forcing.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Initial radar history.
-        goes : xr.DataArray
-            Initial GOES history.
-        glm : xr.DataArray
-            Initial GLM history. Send ``(goes, glm)`` frames at the lead times of
-            the latest yielded forecast to advance.
-
-        Yields
-        ------
-        xr.DataArray
-            Forecast fields, beginning with the first prediction.
-        """
-        yield from self._default_create_iterator(x, goes, glm)

@@ -47,16 +47,14 @@ In this example you will learn:
 #
 # - [`earth2studio.models.px.StormScopeGOES`][earth2studio.models.px.StormScopeGOES] to forecast GOES channels.
 # - [`earth2studio.models.px.StormScopeMRMS`][earth2studio.models.px.StormScopeMRMS] to forecast radar
-#   reflectivity.
+#   reflectivity (and a gridded GLM lightning channel).
 #
 # In the CONUS nowcasting (``3km_10min``) configuration the GOES model is
 # "pure obs" (no external conditioning), while the MRMS model is conditioned on
 # GOES — the GOES model provides that conditioning during the rollout via
-# ``initialize`` and ``step``. The ``3km_10min`` MRMS model
-# ([`earth2studio.models.px.StormScopeMRMSGLM`][earth2studio.models.px.StormScopeMRMSGLM])
-# additionally consumes gridded GLM lightning observations (``glm_density``) as a
-# second forcing input. GLM is not part of the forecast state, it is supplied
-# alongside the GOES conditioning at every ``initialize`` and ``step`` call.
+# ``initialize`` and ``step``. The MRMS model additionally has a GLM lightning
+# channel (``glm_density``) as part of its state, which we assemble for the
+# initial condition and which then evolves autoregressively over the rollout.
 
 # %%
 import os
@@ -72,24 +70,24 @@ import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import xarray as xr
 from tqdm import trange
 
 from earth2studio.data import GOES, MRMS, GOESGLMGrid, fetch_data
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
-    StormScopeMRMSGLM,
+    StormScopeMRMS,
 )
 
 # %%
 # We use the CONUS nowcasting variant (``3km_10min``), the recommended default.
 # The GOES model is "pure obs" (no external conditioning), forecasting the eight
-# ABI channels from their recent history. The MRMS model forecasts radar
-# reflectivity conditioned on GOES, and additionally consumes a Geostationary
-# Lightning Mapper (GLM) forcing input. The GLM field comes from
+# ABI channels from their recent history. The MRMS model forecasts
+# ``[refc, refc_base, glm_density]`` conditioned on GOES, and additionally
+# consumes a Geostationary Lightning Mapper (GLM) channel that is both an input
+# (observation history) and a predicted output. The GLM field comes from
 # [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid], a gridded 0.1-degree lightning
-# product, which we bilinearly regrid onto the model grid before passing it in.
+# product; the model bilinearly regrids it onto the model grid internally.
 #
 # Other selectable variants (see ``StormScope*.list_available_models``):
 #
@@ -114,10 +112,9 @@ model = StormScopeGOES.load_model(
 model = model.to(device)
 model.eval()
 
-# MRMS+GLM nowcast model: conditioned on GOES and GLM. Here we drive it via
-# initialize and step, and fetch the GLM observations ourselves from a gridded
-# GLM source. For ``3km_10min`` ``load_model`` returns a ``StormScopeMRMSGLM``.
-model_mrms: StormScopeMRMSGLM = StormScopeMRMSGLM.load_model(
+# MRMS+GLM nowcast model: conditioned on GOES. Here we drive it via initialize and
+# step, and fetch the initial GLM state ourselves from a gridded GLM source.
+model_mrms = StormScopeMRMS.load_model(
     package=package,
     model_name=model_name,
     amp=True,
@@ -163,29 +160,31 @@ x = fetch_data(
 )
 
 # %%
-# Setup MRMS + GLM Data Sources and Assemble the Inputs
-# -----------------------------------------------------
-# The MRMS+GLM model forecasts the radar channels in ``model_mrms.variables``.
-# These come from [`earth2studio.data.MRMS`][earth2studio.data.MRMS]; the GLM
-# forcing comes from [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid].
-# Because we drive the rollout with ``initialize`` and ``step``, we own the
-# inputs: we fetch radar and GLM and regrid each onto the shared model grid (GLM
-# uses bilinear regridding, unlike the nearest-neighbor radar/satellite path).
-# GLM is a forcing input, so observations are supplied at every step rather than
-# predicted by the model. Model execution does not fetch observations
-# automatically.
+# Setup MRMS + GLM Data Sources and Assemble the State
+# ----------------------------------------------------
+# The MRMS+GLM model forecasts ``[refc, refc_base, glm_density]``. The radar
+# channels come from [`earth2studio.data.MRMS`][earth2studio.data.MRMS]; the GLM channel comes
+# from [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid]. Because we drive the rollout
+# with ``initialize`` and ``step``, we own the full initial
+# state: we fetch radar and GLM, regrid each onto the shared model grid (GLM uses
+# bilinear regridding, unlike the nearest-neighbor radar/satellite path), and
+# stack them in the model's ``variables`` order (radar channels first, GLM last).
+# After the first step GLM flows autoregressively from the model's own
+# predictions, exactly like the radar channels. Model execution does not fetch
+# observations automatically.
 
 # %%
-from earth2studio.utils.coords import coord_array_like
-from earth2studio.utils.cupy import from_torch
-
 mrms = MRMS()
 mrms_in_coords = model_mrms.input_coords()
 
+# Radar state channels (everything in `variables` that is not a GLM channel)
+radar_vars = np.array(
+    [v for v in model_mrms.variables if v not in set(model_mrms.glm_variables)]
+)
 x_radar = fetch_data(
     mrms,
     time=start_date,
-    variable=np.array(model_mrms.variables),
+    variable=radar_vars,
     lead_time=mrms_in_coords.coords["lead_time"].values,
     device=device,
 )
@@ -197,43 +196,34 @@ model_mrms.build_input_interpolator(
 model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 # Regrid the radar channels onto the model grid (nearest-neighbor).
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
+
 radar_tensor = model_mrms.input_interp(x_radar.e2s.to_torch()[0])
+
+# Fetch + bilinearly regrid the GLM observation window onto the model grid. The
+# returned counts are physical (the model applies log1p internally).
+glm_field = fetch_data(
+    GOESGLMGrid(satellite="east"),
+    time=start_date,
+    variable=np.asarray(model_mrms.glm_variables),
+    lead_time=mrms_in_coords.coords["lead_time"].values,
+    device=device,
+)
+glm_tensor, glm_coords = glm_field.e2s.to_torch()
+model_mrms.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
+x_glm = model_mrms.interpolate_glm(glm_tensor)
+
+# Stack into the full MRMS+GLM state on the model grid, matching `variables` order
+# ([refc, refc_base, glm_density]); the variable axis is dim 2 of [T, L, C, H, W].
+x_mrms = torch.cat([radar_tensor, x_glm], dim=2).to(dtype=torch.float32)
+
+# Coords now describe the model grid (y/x) with the full variable list. Start from
+# the fetched radar coords so the dim order matches, then swap in y/x and variables.
 mrms_signature = coord_array_like(
     mrms_in_coords, {"batch": np.array([0]), "time": np.array(start_date)}
 )
-x_mrms = from_torch(radar_tensor.unsqueeze(0).to(dtype=torch.float32), mrms_signature)
-
-# GLM forcing declaration: the model grid with the GLM variables. The GLM
-# interpolator is built once from the gridded GLM source's lat/lon.
-glm_source = GOESGLMGrid(satellite="east")
-glm_coords_decl = model_mrms.forcing_coords()[1]
-
-
-def fetch_glm(lead_time: np.ndarray) -> xr.DataArray:
-    """Fetch GLM observations and regrid them onto the model grid."""
-    glm_field = fetch_data(
-        glm_source,
-        time=start_date,
-        variable=np.asarray(model_mrms.glm_variables),
-        lead_time=lead_time,
-        device=device,
-    )
-    glm_tensor, glm_coords = glm_field.e2s.to_torch()
-    if model_mrms.glm_interp is None:
-        model_mrms.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
-    glm_tensor = model_mrms.interpolate_glm(glm_tensor).to(dtype=torch.float32)
-    signature = coord_array_like(
-        glm_coords_decl,
-        {
-            "batch": np.array([0]),
-            "time": np.array(start_date),
-            "lead_time": lead_time,
-        },
-    )
-    return from_torch(glm_tensor.unsqueeze(0), signature)
-
-
-x_glm = fetch_glm(mrms_in_coords.coords["lead_time"].values)
+x_mrms = from_torch(x_mrms.unsqueeze(0), mrms_signature)
 
 # Regrid the GOES initial history once onto the declared native grid.
 goes_tensor = model.input_interp(x.e2s.to_torch()[0])
@@ -260,11 +250,6 @@ x_mrms = (
     .expand_dims(batch=np.arange(batch_size))
     .astype(np.float32)
 )
-x_glm = (
-    x_glm.isel(batch=0, drop=True)
-    .expand_dims(batch=np.arange(batch_size))
-    .astype(np.float32)
-)
 
 # %%
 # Execute the Workflow
@@ -272,24 +257,16 @@ x_glm = (
 # Since the StormScope coupled inference is a bit more involved, we will use
 # a custom forecast loop rather than a built-in workflow. Here, the GOES model
 # predicts future satellite imagery, and the MRMS model predicts radar
-# reflectivity conditioned on GOES (initially the raw data, then the forecasted
-# GOES imagery) and observed GLM lightning via explicit ``initialize`` and
-# ``step`` calls. Each ``step`` receives the GLM observations valid at the lead
-# times of the frames just predicted.
+# reflectivity (and GLM) conditioned on GOES (initially the raw data, then the
+# forecasted GOES imagery) via explicit ``initialize`` and ``step`` calls.
 
 # %%
 y_pred, state = model.initialize(x)
-y_mrms_pred, state_mrms = model_mrms.initialize(x_mrms, x, x_glm)
+y_mrms_pred, state_mrms = model_mrms.initialize(x_mrms, x)
 
 n_steps = 2
 for step_idx in trange(n_steps - 1, desc="Forecast steps"):
-    glm_step = fetch_glm(y_pred.coords["lead_time"].values)
-    glm_step = glm_step.isel(batch=0, drop=True).expand_dims(
-        batch=np.arange(batch_size)
-    )
-    y_mrms_pred, state_mrms = model_mrms.step(
-        y_mrms_pred, y_pred, glm_step, state=state_mrms
-    )
+    y_mrms_pred, state_mrms = model_mrms.step(y_mrms_pred, y_pred, state=state_mrms)
     y_pred, state = model.step(y_pred, state=state)
 # %%
 # Post Processing
