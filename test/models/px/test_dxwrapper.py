@@ -306,9 +306,10 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         number_of_samples=number_of_samples,
     ).to(device)
 
-    # Create persistence prognostic model
-    lat = np.linspace(-90, 90, 721)
-    lon = np.linspace(0, 360, 1440, endpoint=False)
+    # Create persistence prognostic model on a coarse regional grid covering the
+    # CorrDiff input domain (a global 0.25 degree grid makes the regridder build slow)
+    lat = np.linspace(10, 35, 51)
+    lon = np.linspace(105, 135, 61, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
         variable=corrdiff_model.input_coords()["variable"].values.tolist(),
@@ -362,9 +363,10 @@ def test_dxwrapper_run(device, times, number_of_samples):
         number_of_samples=number_of_samples,
     ).to(device)
 
-    # Create persistence prognostic model
-    lat = np.linspace(-90, 90, 721)
-    lon = np.linspace(0, 360, 1440, endpoint=False)
+    # Create persistence prognostic model on a coarse regional grid covering the
+    # CorrDiff input domain (a global 0.25 degree grid makes the regridder build slow)
+    lat = np.linspace(10, 35, 51)
+    lon = np.linspace(105, 135, 61, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
         variable=corrdiff_model.input_coords()["variable"].values.tolist(),
