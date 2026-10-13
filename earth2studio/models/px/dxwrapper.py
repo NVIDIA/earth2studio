@@ -83,6 +83,14 @@ def _can_concat_with_subregion(px: CoordinateSystem, dx: CoordinateSystem) -> bo
     return True
 
 
+def _equal(a: Any, b: Any) -> bool:
+    """Compare metadata values, tolerating arrays."""
+    try:
+        return bool(np.all(a == b)) and np.shape(a) == np.shape(b)
+    except Exception:
+        return False
+
+
 class PrepareInputCoordsDefault:
     """Plan variable selection and geographic interpolation without field allocation."""
 
@@ -451,7 +459,16 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         )
         # A cropped or regridded publication cannot replace the native recurrence.
         private = None if recoverable else px.copy(deep=True)
-        return y, (private, px.coords["variable"].values.copy(), state, seed + 1)
+        # Published metadata, to detect later edits (e.g. hooks) without
+        # overwriting the private native grid description
+        published = None if recoverable else (dict(y.attrs), dict(y.encoding), y.name)
+        return y, (
+            private,
+            px.coords["variable"].values.copy(),
+            state,
+            seed + 1,
+            deepcopy(published),
+        )
 
     def step(self, y: xr.DataArray, state: Any) -> tuple[xr.DataArray, Any]:
         """Advance the nested continuation, applying edits to retained public fields.
@@ -469,7 +486,7 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
         tuple[xr.DataArray, Any]
             Next diagnosed forecast and updated wrapper state, without hooks.
         """
-        private, variables, nested, seed = state
+        private, variables, nested, seed, published = state
         if private is None:
             px = y.sel(variable=variables).copy(deep=True)
         else:
@@ -482,10 +499,19 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             if px.dims == y.dims and all(len(values) for values in overlap.values()):
                 px.loc[overlap] = y.sel(overlap)
             # Keep the private native grid but carry over metadata edits made to
-            # the public forecast (e.g. by hooks) on top of the native metadata
-            px.attrs = {**px.attrs, **deepcopy(y.attrs)}
-            px.encoding = {**px.encoding, **deepcopy(y.encoding)}
-            px.name = y.name
+            # the public forecast (e.g. by hooks) relative to what was published
+            attrs, encoding, name = published
+            for target, current, original in (
+                (px.attrs, y.attrs, attrs),
+                (px.encoding, y.encoding, encoding),
+            ):
+                for key in original.keys() - current.keys():
+                    target.pop(key, None)
+                for key, value in current.items():
+                    if key not in original or not _equal(value, original[key]):
+                        target[key] = deepcopy(value)
+            if y.name != name:
+                px.name = y.name
         px, nested = self.px_model.step(px, state=deepcopy(nested))
         return self._publish(px, nested, seed)
 
