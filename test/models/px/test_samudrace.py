@@ -868,17 +868,20 @@ def test_samudrace_package():
     x = torch.as_tensor(da.values, dtype=torch.float32)[None, :, None]
     coords = coord_array_like(in_coords, {"batch": np.arange(1), "time": time})
 
-    # One coupled cycle through the iterator, one atmosphere step at a time
+    # One coupled cycle through the iterator: the first yield is the complete
+    # chunk of n_inner_steps atmosphere frames, driven by explicit forcing
     n_inner_steps = model.stepper.n_inner_steps
-    p_iter = model.create_iterator(from_torch(x, coords))
-    next(p_iter)  # initial condition
-    steps = [next(p_iter) for _ in range(n_inner_steps)]
+    field = from_torch(x, coords)
+    p_iter = model.create_iterator(field, forcing_input(model, field))
+    chunk = next(p_iter)
 
-    for i, field in enumerate(steps):
-        out, out_coords = field.e2s.to_torch()
-        assert out.shape == (1, 1, 1, len(out_vars), 180, 360)
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
-        assert out_coords["lat"][0] > out_coords["lat"][-1]
-        for name in ["t2m", "sp", "mslhf"]:
-            j = out_vars.index(name)
-            assert torch.isfinite(out[:, :, :, j]).all()
+    out, out_coords = chunk.e2s.to_torch()
+    assert out.shape == (1, 1, n_inner_steps, len(out_vars), 180, 360)
+    np.testing.assert_array_equal(
+        out_coords["lead_time"],
+        np.arange(1, n_inner_steps + 1) * np.timedelta64(6, "h"),
+    )
+    assert out_coords["lat"][0] > out_coords["lat"][-1]
+    for name in ["t2m", "sp", "mslhf"]:
+        j = out_vars.index(name)
+        assert torch.isfinite(out[:, :, :, j]).all()

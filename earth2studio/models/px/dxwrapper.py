@@ -481,6 +481,11 @@ class DiagnosticWrapper(torch.nn.Module, PrognosticMixin):
             }
             if px.dims == y.dims and all(len(values) for values in overlap.values()):
                 px.loc[overlap] = y.sel(overlap)
+            # Keep the private native grid but carry over metadata edits made to
+            # the public forecast (e.g. by hooks) on top of the native metadata
+            px.attrs = {**px.attrs, **deepcopy(y.attrs)}
+            px.encoding = {**px.encoding, **deepcopy(y.encoding)}
+            px.name = y.name
         px, nested = self.px_model.step(px, state=deepcopy(nested))
         return self._publish(px, nested, seed)
 
