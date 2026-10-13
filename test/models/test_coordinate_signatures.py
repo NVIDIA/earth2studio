@@ -52,6 +52,7 @@ def regional_model(request):
         grid = resolve_grid("hrrr")
         model.grid = ProjectedGrid(grid.y[10:12], grid.x[20:23], grid.crs)
         model.lat, model.lon = lat, lon
+        model.conditioning_variables = model.variables
     else:
         model.y, model.x = np.arange(2), np.arange(3)
         model.latitudes, model.longitudes = torch.tensor(lat), torch.tensor(lon)
@@ -329,66 +330,63 @@ def test_regional_array_rollout(regional_model):
         model.sliding_window = True
         model._forward_tensor = lambda state, c, **kwargs: state[:, :, -2:] + 1
     field = from_torch(x, coords)
-    output = model(field, field) if isinstance(model, StormScopeMRMS) else model(field)
+    declared = model.forcing_coords()
+    lead_offset = (
+        None
+        if declared is None
+        else declared.lead_time.values[-1] - model.input_coords().lead_time.values[-1]
+    )
+
+    def forcing(frame):
+        # Supply the declared forcing aligned with the frame it conditions
+        if declared is None:
+            return ()
+        signature = coord_array_like(
+            frame,
+            {
+                "lead_time": frame.lead_time.values + lead_offset,
+                "variable": declared.coords["variable"].values,
+            },
+        )
+        return (from_torch(torch.ones(signature.shape), signature),)
+
+    output = model(field, *forcing(field))
     y = output.e2s.to_torch()[0]
     assert output.dims == coords.dims
     assert tuple(y.shape) == output.shape
     assert model.output_coords(field).data.nbytes == 0
     xr.testing.assert_identical(output.lat, coords.lat)
     torch.testing.assert_close(x, torch.ones_like(x))
-    if isinstance(model, StormCastCONUS):
-        iterator = model.create_iterator(field)
-        next(iterator)
-        first_coords = next(iterator)
-        second_coords = next(iterator)
-        iterator.close()
-    elif isinstance(model, StormScopeMRMS):
-        iterator = model.create_iterator(field, field)
-        first_coords = next(iterator)
-        second_coords = iterator.send(first_coords)
-        iterator.close()
-    else:
-        iterator = model.create_iterator(field)
-        first_coords = next(iterator)
-        second_coords = next(iterator)
-        iterator.close()
+    iterator = model.create_iterator(field, *forcing(field))
+    first_coords = next(iterator)
+    second_coords = iterator.send(next(iter(forcing(first_coords)), None))
+    iterator.close()
     first = first_coords.e2s.to_torch()[0]
     second = second_coords.e2s.to_torch()[0]
     assert first_coords.dims == second_coords.dims == coords.dims
-    assert (
-        model.output_coords(
-            first_coords if isinstance(model, StormCastCONUS) else field
-        ).data.nbytes
-        == 0
-    )
+    assert model.output_coords(field).data.nbytes == 0
     assert (
         np.asarray(second_coords.lead_time)[-1] > np.asarray(first_coords.lead_time)[-1]
     )
     torch.testing.assert_close(second, first + 1)
     assert not hasattr(model, "_input_tensor_coords")
-    if not isinstance(model, StormCastCONUS):
-        coupled_coords = (
-            model(field, field) if isinstance(model, StormScopeMRMS) else model(field)
-        )
-        coupled = coupled_coords.e2s.to_torch()[0]
-        torch.testing.assert_close(coupled, y)
-        assert coupled_coords.dims == coords.dims
-        source = coord_array(
-            (*coords.dims[:-2], "lat", "lon"),
-            {
-                **{str(d): coords[d].variable for d in coords.dims[:-2]},
-                "lat": [30.0],
-                "lon": [250.0],
-            },
-        )
-        model.input_interp = lambda state: state.expand(*state.shape[:-2], 2, 3)
-        # Public states require the declared grid; explicit conditioning may regrid.
-        with pytest.raises(ValueError):
-            invalid = from_torch(torch.ones(source.shape), source)
-            if isinstance(model, StormScopeMRMS):
-                model(invalid, field)
-            else:
-                model(invalid)
+    coupled_coords = model(field, *forcing(field))
+    coupled = coupled_coords.e2s.to_torch()[0]
+    torch.testing.assert_close(coupled, y)
+    assert coupled_coords.dims == coords.dims
+    source = coord_array(
+        (*coords.dims[:-2], "lat", "lon"),
+        {
+            **{str(d): coords[d].variable for d in coords.dims[:-2]},
+            "lat": [30.0],
+            "lon": [250.0],
+        },
+    )
+    model.input_interp = lambda state: state.expand(*state.shape[:-2], 2, 3)
+    # Public states require the declared grid; explicit conditioning may regrid.
+    with pytest.raises(ValueError):
+        invalid = from_torch(torch.ones(source.shape), source)
+        model(invalid, *forcing(field))
 
 
 def test_fcn_array_rollout():
