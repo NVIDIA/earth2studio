@@ -39,6 +39,15 @@ from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
 
 
+class _StubCore:
+    """Cheap stand-in for the cbottle sampler, repeats the condition plus noise."""
+
+    def sample(self, batch, seed=None):
+        x = batch["target"]
+        noise = torch.rand((), device=x.device)
+        return torch.nan_to_num(x).expand(-1, -1, 12, *x.shape[3:]) + noise, None
+
+
 @pytest.fixture(autouse=True)
 def offline_video(monkeypatch):
     if cbottle is not None:
@@ -56,16 +65,7 @@ def offline_video(monkeypatch):
         self.condition_regridder = lambda x: x
         self.output_regridder = lambda x: x
 
-        class Core:
-            def sample(self, batch, seed=None):
-                x = batch["target"]
-                noise = torch.rand((), device=x.device)
-                return (
-                    torch.nan_to_num(x).expand(-1, -1, 12, *x.shape[3:]) + noise,
-                    None,
-                )
-
-        self.core_model = Core()
+        self.core_model = _StubCore()
 
     monkeypatch.setattr(CBottleVideo, "__init__", initialize)
     monkeypatch.setattr(
@@ -316,7 +316,12 @@ class TestCBottleVideoMock:
         # Native HEALPix avoids retaining many full-resolution lat/lon videos.
         # The forward tests above separately exercise the lat/lon projection.
         px = CBottleVideo(mock_core_model, mock_sst_ds, lat_lon=False).to(device)
-        px.sampler_steps = 2  # Speed up sampler
+        # The contract probes run dozens of forecasts at full HEALPix resolution.
+        # Only the wrapper is under test, so replace the diffusion network with a
+        # stub sampler. The forward tests above exercise the real network.
+        px._modules.pop("core_model", None)  # may be a registered nn.Module
+        px.core_model = _StubCore()
+        monkeypatch.setattr(px, "get_cbottle_input", lambda x, t, **kw: {"target": x})
         package = object()
         source = Random({"hpx": px.input_coords().hpx.values})
         monkeypatch.setattr(CBottle3D, "load_default_package", lambda: package)
