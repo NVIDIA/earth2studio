@@ -40,6 +40,7 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
+    from physicsnemo import Module
     from physicsnemo.diffusion.noise_schedulers import (
         EDMNoiseScheduler,
         RectifiedFlowNoiseScheduler,
@@ -57,6 +58,7 @@ except ImportError:
     EDMPreconditioner = None
     sample = None
     ConcatConditionWrapper = None
+    Module = None
     DiT = None
     cos_zenith_angle = None
     TensorDict = None
@@ -96,11 +98,153 @@ _HOURS_PER_YEAR = 8766.0
 # artifact of a variant (checkpoint, metadata, statistics, grids, invariants)
 # lives under ``<variant>/`` so one package URI serves every formulation.
 SUPPORTED_VARIANTS = ("x_pred",)
+DISTILLED_CHECKPOINT = "corrdiff-era5-hrrr-distil.mdlus"
+
+
+# physicsnemo's Module gives the distilled generator its ``.mdlus`` save / load round trip
+_ModuleBase: Any = Module if Module is not None else torch.nn.Module
+
+
+class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
+    """Few-step distilled generator (Parallel Decoding Distillation) of the ERA5 -> HRRR
+    downscaler: the teacher's DiT backbone plus one output head per node of a fixed
+    64-node time grid. One backbone evaluation at a block start yields the clean-state
+    estimates of every node in the block, which the Euler rollout consumes; the trained
+    block layouts are 1 step (one block of 64 intervals) and 2 steps (two blocks of 32).
+
+    Parameters
+    ----------
+    dit_args : dict
+        Constructor arguments of the backbone :class:`physicsnemo.models.dit.DiT`.
+    n_grid : int
+        Number of grid intervals (heads). By default 64.
+    shift : float
+        Resolution shift of the time grid, ``t = shift u / (1 + (shift - 1) u)``. By default 32.
+    t_max : float
+        Noise level of the first grid node (1 = pure noise). By default 1.0.
+    x0v_clip : float
+        Floor of the time denominator in ``v = (x_t - x0_hat) / max(t, x0v_clip)``. By default 0.05.
+    time_scale : float
+        Factor applied to ``t`` before the backbone's time embedding. By default 999.
+    """
+
+    def __init__(
+        self,
+        dit_args: dict,
+        n_grid: int = 64,
+        shift: float = 32.0,
+        t_max: float = 1.0,
+        x0v_clip: float = 0.05,
+        time_scale: float = 999.0,
+    ) -> None:
+        super().__init__()
+        self.dit = DiT(**dit_args)
+        base_head = self.dit.detokenizer.proj_layer.output_projection
+        self.heads = torch.nn.ModuleList(
+            [
+                torch.nn.Linear(base_head.in_features, base_head.out_features)
+                for _ in range(n_grid)
+            ]
+        )
+        self.n_grid = int(n_grid)
+        self.shift = float(shift)
+        self.t_max = float(t_max)
+        self.x0v_clip = float(x0v_clip)
+        self.time_scale = float(time_scale)
+        u = torch.linspace(1.0, 0.0, n_grid + 1, dtype=torch.float64)
+        t = shift * u / (1.0 + (shift - 1.0) * u)
+        t[0] = min(float(t[0]), t_max)
+        self.register_buffer("grid", t.float(), persistent=False)
+
+    def features(
+        self, x: torch.Tensor, t: torch.Tensor, condition: "TensorDict"
+    ) -> torch.Tensor:
+        """Backbone tokens ``[B, L, D]`` after the detokenizer's modulated norm."""
+        dit = self.dit
+        x_in = torch.cat([x, condition["cond_concat"]], dim=1)
+        tt = t.float() * self.time_scale
+        if dit.force_tokenization_fp32:
+            dtype = x_in.dtype
+            with torch.autocast(device_type="cuda", enabled=False):
+                h = dit.tokenizer(x_in.to(torch.float32))
+            h = h.to(dtype)
+        else:
+            h = dit.tokenizer(x_in)
+        c = dit.conditioning_embedder(tt, condition=condition["cond_vec"])
+        attn_kwargs = dict(dit.attn_kwargs_forward)
+        if dit._is_rope:
+            rope_cos, rope_sin = dit.rope(None)
+            attn_kwargs["rope_cos"] = rope_cos
+            attn_kwargs["rope_sin"] = rope_sin
+        for block in dit.blocks:
+            h = block(h, c, p_dropout=None, attn_kwargs=attn_kwargs)
+        proj = dit.detokenizer.proj_layer
+        shift_, scale_ = proj.adaptive_modulation(c).chunk(2, dim=1)
+        return proj.modulation(proj.proj_layer_norm(h), scale_, shift_)
+
+    def _unpatchify(self, y: torch.Tensor) -> torch.Tensor:
+        """Token outputs ``[B, L, p*p*C]`` -> fields ``[B, C, H, W]``."""
+        d = self.dit.detokenizer
+        y = y.reshape(
+            y.shape[0],
+            d.h_patches,
+            d.w_patches,
+            d.patch_size[0],
+            d.patch_size[1],
+            d.out_channels,
+        )
+        y = torch.einsum("nhwpqc->nchpwq", y)
+        return y.reshape(
+            y.shape[0],
+            d.out_channels,
+            d.h_patches * d.patch_size[0],
+            d.w_patches * d.patch_size[1],
+        )
+
+    def head(self, feats: torch.Tensor, k: int) -> torch.Tensor:
+        """Clean-state estimate of grid node ``k`` from the block-start features (fp32 head)."""
+        with torch.autocast(device_type=feats.device.type, enabled=False):
+            return self._unpatchify(self.heads[k](feats.float())).float()
+
+    @torch.no_grad()
+    def sample(
+        self, noise: torch.Tensor, condition: "TensorDict", nfe: int = 2
+    ) -> torch.Tensor:
+        """Few-step sample in normalized units: ``nfe`` blocks of ``n_grid / nfe`` intervals."""
+        N = self.n_grid
+        if N % nfe != 0:
+            raise ValueError(f"nfe must divide the grid size {N}")
+        L = N // nfe
+        grid = self.grid.to(noise.device)
+        x = grid[0] * noise
+        for n in range(0, N, L):
+            t_n = grid[n].expand(x.shape[0])
+            feats = self.features(x, t_n, condition)
+            for j in range(n, n + L):
+                x0_j = self.head(feats, j)
+                if (
+                    j + 1 == N
+                ):  # the last interval ends at t = 0: the Euler step lands on x0_hat
+                    x = x0_j
+                else:
+                    tc = torch.clamp(grid[j], min=self.x0v_clip)
+                    x = x + (grid[j + 1] - grid[j]) * (x - x0_j) / tc
+        return x
+
+    def forward(
+        self, noise: torch.Tensor, condition: "TensorDict", nfe: int = 2
+    ) -> torch.Tensor:
+        """Alias of :meth:`sample`."""
+        return self.sample(noise, condition, nfe=nfe)
 
 
 @check_optional_dependencies()
 class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     """Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.
+
+    A distilled 2-step generator of the same model (:class:`CorrDiffEra5HrrrDistilled`,
+    about 45x cheaper per member) ships in the same package; select it with
+    ``load_model(..., distilled_model=True)``.
 
     Note
     ----
@@ -212,6 +356,11 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         amp: bool = True,
     ):
         super().__init__()
+        self.distilled = isinstance(network, CorrDiffEra5HrrrDistilled)
+        if self.distilled and number_of_steps not in (1, 2):
+            raise ValueError(
+                "the distilled generator supports number_of_steps 1 or 2 (its trained block layouts)"
+            )
         if network_kind not in ("rectified_flow", "edm"):
             raise ValueError(
                 f"network_kind must be 'rectified_flow' or 'edm', got {network_kind!r}"
@@ -469,6 +618,11 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         )
         latents = torch.randn((1, n_out, H, W), device=device, generator=gen)
         ctx = self._inference_context(device)
+        if self.distilled:
+            with ctx:
+                return self.network.sample(
+                    latents, condition, nfe=self.number_of_steps
+                ).float()
 
         def net(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
             with ctx:
@@ -574,7 +728,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             Model package with default checkpoint location
         """
         return Package(
-            "hf://nvidia/corrdiff-era5-hrrr@c95089642d19985714eebebdbd5b0b72c86ed1a3",
+            "hf://nvidia/corrdiff-era5-hrrr@715ad1411e216941c85da4e2172ce55f4acfa7a5",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_era5_hrrr"),
                 # Keep the variant directory so files with matching basenames in
@@ -608,6 +762,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         seed: int | None = None,
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
+        distilled_model: bool = False,
     ) -> DiagnosticModel:
         """Load the model from a package.
 
@@ -630,6 +785,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         variant : {"x_pred"}, optional
             Sub-folder of the package to load, by default ``"x_pred"`` (the
             x-prediction rectified-flow model).
+        distilled_model : bool, optional
+            Whether to use the distilled model. If True, the wrapper loads the
+            distilled few-step generator (``corrdiff-era5-hrrr-distil.mdlus`` in the
+            same package), which generates members in 1 or 2 sampler steps
+            (``number_of_steps`` defaults to 2) at about 1/45 of the teacher's cost,
+            by default False
 
         Returns
         -------
@@ -654,10 +815,22 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         sampler_meta = metadata.get("sampler", {})
         scalar_meta = metadata.get("scalar_conditions", {})
 
-        dit = DiT.from_checkpoint(package.resolve(prefix + metadata["checkpoint"]))
-        dit = dit.eval().requires_grad_(False)
-        network: torch.nn.Module = ConcatConditionWrapper(dit)
         kind = network_meta["kind"]
+        if distilled_model:
+            # the distilled few-step generator ships as one physicsnemo checkpoint next to the teacher
+            fname = metadata.get("distilled_checkpoint", DISTILLED_CHECKPOINT)
+            network: torch.nn.Module = CorrDiffEra5HrrrDistilled.from_checkpoint(
+                package.resolve(prefix + fname)
+            )
+            network = network.eval().requires_grad_(False)
+            if kind != "rectified_flow":
+                raise ValueError(
+                    "the distilled generator requires a rectified-flow package"
+                )
+        else:
+            dit = DiT.from_checkpoint(package.resolve(prefix + metadata["checkpoint"]))
+            dit = dit.eval().requires_grad_(False)
+            network = ConcatConditionWrapper(dit)
         if kind == "edm":
             network = EDMPreconditioner(
                 network, sigma_data=float(network_meta.get("sigma_data", 0.5))
@@ -719,7 +892,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             number_of_steps=(
                 number_of_steps
                 if number_of_steps is not None
-                else int(sampler_meta.get("num_steps", 50))
+                else (2 if distilled_model else int(sampler_meta.get("num_steps", 50)))
             ),
             solver=sampler_meta.get("solver", "heun"),
             shift=shift if shift is not None else float(sampler_meta.get("shift", 1.0)),

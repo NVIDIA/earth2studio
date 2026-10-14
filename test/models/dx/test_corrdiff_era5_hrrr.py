@@ -154,3 +154,28 @@ def test_corrdiff_era5_hrrr_exceptions(model_args):
             CorrDiffEra5Hrrr(**(model_args | {key: value}))
     with pytest.raises(ValueError, match="variant"):
         CorrDiffEra5Hrrr.load_model(None, variant="v_pred")
+
+
+def test_corrdiff_era5_hrrr_distilled_steps(model_args):
+    """The distilled generator only supports its trained block layouts (1 or 2 steps)."""
+    from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5HrrrDistilled
+
+    class _DistilledStub(CorrDiffEra5HrrrDistilled):
+        # stands in for the distilled generator without building its 678M backbone
+        def __init__(self):
+            torch.nn.Module.__init__(self)
+            self.n_grid = 64
+
+        def sample(self, noise, condition, nfe=2):
+            return torch.zeros_like(noise)
+
+    args = dict(model_args)
+    args["network"] = _DistilledStub()
+    args["number_of_steps"] = 3
+    with pytest.raises(ValueError, match="1 or 2"):
+        CorrDiffEra5Hrrr(**args)
+    args["number_of_steps"] = 2
+    model = CorrDiffEra5Hrrr(**args)
+    assert model.distilled and model.number_of_steps == 2
+    # a plain network keeps the multi-step path
+    assert not CorrDiffEra5Hrrr(**model_args).distilled

@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added event scoring to the evaluation recipe and the scorecards.
 - Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
+- Added the 2-step distilled generator of the ERA5 -> HRRR model (`CorrDiffEra5HrrrDistilled`,
+  loaded with `CorrDiffEra5Hrrr.load_model(..., distilled=True)`).
 - Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
   (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
   source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
