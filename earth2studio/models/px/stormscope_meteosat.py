@@ -47,6 +47,9 @@ try:
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.zenith_angle import zenith_azimuth_angles
+
+    from earth2studio.models._diffusion import SOLVERS
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormscope")
     OmegaConf = None
@@ -163,6 +166,14 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Whether to use automatic mixed precision (bfloat16) during the diffusion
         forward pass, by default True
 
+    solver : str, optional
+        PhysicsNeMo sampler name, by default "edm_stochastic_heun".
+        Use "exponential_euler", "edm_stochastic_exponential_euler",
+        "dpmpp_2m", or "dpmpp_2m_unic2" to select an alternative method.
+    solver_options : dict[str, Any] | None, optional
+        Override solver constructor options. The wrapper supplies the
+        noise-schedule coefficients, by default None
+
     Badges
     ------
     region:eu class:nowcasting product:sat year:2026 gpu:80gb
@@ -199,8 +210,17 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         num_diffusion_steps: int = 48,
         batch_size: int = 1,
         use_amp: bool = True,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        self.solver_options = dict(solver_options or {})
 
         # Sort experts by ascending sigma
         model_spec = sorted(model_spec, key=lambda s: float(s["sigma_min"]))
@@ -600,13 +620,19 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             latents,
             noise_scheduler=self.scheduler,
             num_steps=num_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
+            solver=self.solver,
+            solver_options=_solver_options(
+                self.scheduler,
+                self.solver,
+                prediction_type="x0",
+                options=self.solver_options,
+                churn=self.sampler_args
+                | (
+                    {"num_steps": num_steps}
+                    if self.solver != "edm_stochastic_heun"
+                    else {}
+                ),
+            ),
         )
 
     @torch.no_grad()
@@ -806,6 +832,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         mtg_ylim: tuple[int, int] | None = None,
         mtg_xlim: tuple[int, int] | None = None,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load the prognostic model from a package.
 
@@ -819,6 +848,14 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         mtg_xlim : tuple[int, int] | None, optional
             Column pixel range ``(x_start, x_end)`` of the inference sub-region;
             defaults to the full package extent when ``None``, by default None
+
+        solver : str, optional
+            PhysicsNeMo sampler name, by default "edm_stochastic_heun".
+            Use "exponential_euler", "edm_stochastic_exponential_euler",
+            "dpmpp_2m", or "dpmpp_2m_unic2" to select an alternative method.
+        solver_options : dict[str, Any] | None, optional
+            Override solver constructor options. The wrapper supplies the
+            noise-schedule coefficients, by default None
 
         Returns
         -------
@@ -916,6 +953,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             earth_mask=earth_mask,
             variables=variables,
             sampler_args=sampler_args,
+            solver=solver,
+            solver_options=solver_options,
             inference_mtg_box=inference_mtg_box,
             mtg_y=mtg_y,
             mtg_x=mtg_x,
