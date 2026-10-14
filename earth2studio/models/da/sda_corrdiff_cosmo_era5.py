@@ -20,6 +20,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Generator, Mapping
 from contextlib import nullcontext
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -41,6 +42,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource, DataSource
 
 try:
     import cupy as cp
@@ -304,6 +308,23 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         """
         signature = self.model.input_coords()
         return (OrderedDict((str(d), signature[d].values) for d in signature.dims),)
+
+    def default_sources(
+        self,
+    ) -> tuple["type[DataSource]", "type[DataFrameSource]"]:
+        """Recommend ARCO ERA5 initialization and GHCNh observation data source classes.
+
+        Data source classes are returned, not instances.
+
+        Returns
+        -------
+        tuple[type[DataSource], type[DataFrameSource]]
+            ``ARCO_ERA5`` class for the ERA5 driving state followed by the
+            ``GHCNHourly`` class for the surface station observation slot.
+        """
+        from earth2studio.data import ARCO_ERA5, GHCNHourly
+
+        return ARCO_ERA5, GHCNHourly
 
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system of the assimilation model.

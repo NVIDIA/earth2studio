@@ -27,6 +27,7 @@ import zarr
 from loguru import logger
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.data.base import DataFrameSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import filter_time_range
@@ -285,6 +286,25 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
                 }
             ),
         )
+
+    def default_sources(
+        self,
+    ) -> tuple["type[DataSource]", "type[DataFrameSource]"]:
+        """Recommend HRRR initialization and GHCNh observation data source classes.
+
+        Data source classes are returned, not instances. The global conditioning
+        source is not a slot; it is configured on the model through
+        ``conditioning_data_source``.
+
+        Returns
+        -------
+        tuple[type[DataSource], type[DataFrameSource]]
+            ``HRRR`` class for the initialization state followed by the
+            ``GHCNHourly`` class for the surface station observation slot.
+        """
+        from earth2studio.data import GHCNHourly
+
+        return HRRR, GHCNHourly
 
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system of the assimilation model.

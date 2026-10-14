@@ -16,12 +16,15 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import pandas as pd
 import xarray as xr
 
 from earth2studio.utils.type import CoordSystem, FrameSchema
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource, DataSource, ForecastSource
 
 try:
     import cudf
@@ -125,6 +128,30 @@ class AssimilationModel(Protocol):
             Tuple of coordinate systems or frame schemas defining the structure of
             required initialization data. Returns ``None`` if the model does not require
             initialization data (e.g., stateless models).
+        """
+        pass
+
+    def default_sources(
+        self,
+    ) -> (
+        type[DataSource | ForecastSource | DataFrameSource]
+        | tuple[type[DataSource | ForecastSource | DataFrameSource] | None, ...]
+        | None
+    ):
+        """Recommended data source classes, one per slot.
+
+        Slots follow the order of ``init_coords()`` (initialization state, if any)
+        followed by ``input_coords()`` (observations). Data source *classes* are
+        returned, not instances, so the caller can construct them with its own
+        arguments (for example a ``time_tolerance``). ``None`` means no
+        recommendation for the model; a ``None`` tuple entry means no
+        recommendation for that slot. Models never fetch from these themselves.
+
+        Returns
+        -------
+        type[DataSource | ForecastSource | DataFrameSource] | tuple[type[DataSource | ForecastSource | DataFrameSource] | None, ...] | None
+            A single source class, one class or ``None`` per slot, or no
+            recommendations.
         """
         pass
 

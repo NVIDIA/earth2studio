@@ -19,7 +19,7 @@ import math
 import warnings
 from collections import OrderedDict
 from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -36,6 +36,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource
 
 try:
     import cupy as cp
@@ -236,6 +239,27 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def init_coords(self) -> None:
         """Initialzation coords (not required)"""
         return None
+
+    def default_sources(
+        self,
+    ) -> tuple["type[DataFrameSource]", "type[DataFrameSource]"]:
+        """Recommend the UFS observation data source classes.
+
+        Data source classes are returned, not instances, so the caller can
+        construct them with their own arguments, for example the
+        ``time_tolerance=(timedelta(hours=-21), timedelta(hours=3))`` window
+        HealDA is designed for.
+
+        Returns
+        -------
+        tuple[type[DataFrameSource], type[DataFrameSource]]
+            ``UFSObsConv`` class for the conventional observation slot followed by
+            the ``UFSObsSat`` class for the satellite observation slot. This model
+            has no initialization slot.
+        """
+        from earth2studio.data import UFSObsConv, UFSObsSat
+
+        return UFSObsConv, UFSObsSat
 
     def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
         """Input coordinate system of the assimilation model.
