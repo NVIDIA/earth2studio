@@ -145,15 +145,7 @@ class AssimilationModel(Protocol):
         DataSource
         | ForecastSource
         | DataFrameSource
-        | type[DataSource | ForecastSource | DataFrameSource]
-        | tuple[
-            DataSource
-            | ForecastSource
-            | DataFrameSource
-            | type[DataSource | ForecastSource | DataFrameSource]
-            | None,
-            ...,
-        ]
+        | tuple[DataSource | ForecastSource | DataFrameSource | None, ...]
         | None
     ):
         """Recommended data sources for each initialization and input slot.
@@ -162,9 +154,7 @@ class AssimilationModel(Protocol):
         per ``init_coords()`` slot, then one per ``input_coords()`` slot. Models
         without initialization slots (``init_coords()`` returns ``None``) only
         list their input slots. ``None`` means no recommendations for the model;
-        a ``None`` tuple entry means no recommendation for that slot. Sources may
-        be returned as classes rather than instances so the caller can construct
-        them with its own arguments (for example a ``time_tolerance``). A source
+        a ``None`` tuple entry means no recommendation for that slot. A source
         whose native grid differs from the slot's is returned composed with the
         recommended regridder; transforms intrinsic to the model, whatever the
         provider, stay inside the wrapper. Models never fetch from these
@@ -172,8 +162,8 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | tuple[DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | None, ...] | None
-            A single source (instance or class), sources or ``None`` in
+        DataSource | ForecastSource | DataFrameSource | tuple[DataSource | ForecastSource | DataFrameSource | None, ...] | None
+            A single source, sources or ``None`` in
             initialization-then-input slot order, or no recommendations.
         """
         pass
