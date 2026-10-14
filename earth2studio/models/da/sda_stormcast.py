@@ -18,6 +18,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Generator
 from itertools import product
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -64,6 +65,9 @@ try:
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.diffusion_unets import StormCastUNet
+
+    from earth2studio.models._diffusion import SOLVERS
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
@@ -162,6 +166,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     sda_gamma : float, optional
         SDA scaling factor for DPS guidance, by default 0.001
 
+    solver : str, optional
+        PhysicsNeMo sampler name, by default "edm_stochastic_heun".
+        Use "exponential_euler", "edm_stochastic_exponential_euler",
+        "dpmpp_2m", or "dpmpp_2m_unic2" to select an alternative method.
+    solver_options : dict[str, Any] | None, optional
+        Override solver constructor options. The wrapper supplies the
+        noise-schedule coefficients, by default None
+
     Badges
     ------
     region:na class:data-assimilation class:nowcasting product:wind product:temp product:atmos product:radar
@@ -188,8 +200,17 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sampler_args: dict[str, float | int] | None = None,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        self.solver_options = dict(solver_options or {})
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
         self.register_buffer("means", means)
@@ -362,6 +383,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> AssimilationModel:
         """Load assimilation from package
 
@@ -381,6 +405,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             Observation noise standard deviation for DPS guidance, by default 0.1
         sda_gamma : float, optional
             SDA scaling factor for DPS guidance, by default 0.001
+
+        solver : str, optional
+            PhysicsNeMo sampler name, by default "edm_stochastic_heun".
+            Use "exponential_euler", "edm_stochastic_exponential_euler",
+            "dpmpp_2m", or "dpmpp_2m_unic2" to select an alternative method.
+        solver_options : dict[str, Any] | None, optional
+            Override solver constructor options. The wrapper supplies the
+            noise-schedule coefficients, by default None
 
         Returns
         -------
@@ -452,6 +484,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             time_tolerance=time_tolerance,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
+            solver=solver,
+            solver_options=solver_options,
             sda_std_obs=sda_std_obs,
             sda_gamma=sda_gamma,
         )
@@ -516,13 +550,19 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             latents,
             noise_scheduler=scheduler,
             num_steps=self.sampler_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
+            solver=self.solver,
+            solver_options=_solver_options(
+                scheduler,
+                self.solver,
+                prediction_type="x0",
+                options=self.solver_options,
+                churn=self.sampler_args
+                | (
+                    {"num_steps": self.sampler_steps}
+                    if self.solver != "edm_stochastic_heun"
+                    else {}
+                ),
+            ),
         )
 
         out += edm_out

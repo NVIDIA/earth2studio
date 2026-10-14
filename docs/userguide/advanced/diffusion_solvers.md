@@ -13,27 +13,29 @@ forecast.
 ## Select a solver when loading
 
 Pass a solver name to a supported model's `load_model` method. For example,
-this selects the `dpmpp_2m` method for `CorrDiffTaiwan`:
+this selects the `dpmpp_2m` method for StormCast:
 
 ```python
-from earth2studio.models.dx import CorrDiffTaiwan
+from earth2studio.models.px import StormCast
 
-package = CorrDiffTaiwan.load_default_package()
-model = CorrDiffTaiwan.load_model(
+package = StormCast.load_default_package()
+model = StormCast.load_model(
     package,
+    sampler_steps=18,
     solver="dpmpp_2m",
 )
 ```
 
-Use `solver_options` for arguments of the selected solver. This example selects
-stochastic Heun and disables noise injection during its steps:
+Use `solver_options` for arguments of the selected solver. This example keeps
+stochastic Heun but disables noise injection during its steps:
 
 ```python
-from earth2studio.models.dx import CorrDiffTaiwan
+from earth2studio.models.px import StormCast
 
-package = CorrDiffTaiwan.load_default_package()
-model = CorrDiffTaiwan.load_model(
+package = StormCast.load_default_package()
+model = StormCast.load_model(
     package,
+    sampler_steps=18,
     solver="edm_stochastic_heun",
     solver_options={"S_churn": 0.0},
 )
@@ -52,7 +54,7 @@ override wrapper defaults, so changing these callbacks also changes the
 mathematical formulation.
 
 Set the sampling step count through the model's own parameter, such as
-`number_of_steps` on `CorrDiffEra5Hrrr`.
+`sampler_steps` on StormCast or `number_of_steps` on CorrDiffEra5Hrrr.
 The solver constructor's `num_steps` option controls churn scaling for methods
 that use it. It does not change the wrapper's sampling time grid.
 
@@ -92,6 +94,7 @@ effects.
 | `CorrDiffCosmoEra5` | Select `mode="diffusion"` to enable sampling. |
 | `CorrDiffEra5Hrrr` | Supports EDM and rectified-flow packages. |
 | `CorrDiffCosmoEra5SDA` | Loader options preserve guidance. |
+| `StormCast`, `StormCastCONUS`, `StormCastSDA` | Preserves guidance. |
 | `GenCastMini` | Native JAX sampler, without these overrides. |
 
 Omitting `solver` preserves each wrapper's default selection. Those defaults
