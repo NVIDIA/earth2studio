@@ -728,7 +728,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             Model package with default checkpoint location
         """
         return Package(
-            "hf://nvidia/corrdiff-era5-hrrr@715ad1411e216941c85da4e2172ce55f4acfa7a5",
+            "hf://nvidia/corrdiff-era5-hrrr@4534aa2d3d7a32157a10a54ee540d60693fab1b0",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_era5_hrrr"),
                 # Keep the variant directory so files with matching basenames in
