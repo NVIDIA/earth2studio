@@ -18,6 +18,8 @@ from collections import OrderedDict
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
 from enum import IntEnum, StrEnum
+from functools import partial
+from typing import Any
 
 import numpy as np
 import torch
@@ -42,6 +44,9 @@ try:
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.inference import CBottle3d, MixtureOfExpertsDenoiser
+
+    from earth2studio.models._cbottle import sample_cbottle
+    from earth2studio.models._diffusion import SOLVERS
 except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
@@ -120,6 +125,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     time_stepper : TimeStepperFunction, optional
         Sampler function used to denoise, by default TimeStepperFunction.HEUN
 
+    solver : str | None, optional
+        PhysicsNeMo solver override. None preserves the checkpoint's default method.
+    solver_options : dict[str, Any] | None, optional
+        Solver constructor overrides, by default None
+
     Badges
     ------
     region:global class:climate product:wind product:precip product:temp product:atmos
@@ -141,8 +151,17 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seed: int | None = None,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
         time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver is not None and solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        self.solver_options = dict(solver_options or {})
 
         self.sst = sst_ds
         self.lat_lon = lat_lon
@@ -284,7 +303,13 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         input_batch = self.get_cbottle_input(
             x, times, dataset_modality=self.dataset_modality, device=device
         )
-        out, _ = self.core_model.sample(input_batch, seed=self.seed)
+        out, _ = self.core_model._sample_with_latents(
+            input_batch,
+            seed=self.seed,
+            sampler=partial(
+                sample_cbottle, solver=self.solver, options=self.solver_options
+            ),
+        )
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())
@@ -447,6 +472,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sampler_steps: int = 18,
         sigma_max: float = 1000,
         seed: int | None = None,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -465,6 +493,11 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         seed : int, optional
             Random generator seed for latent variables. If None, no seed will be used,
             by default None
+
+        solver : str | None, optional
+            PhysicsNeMo solver override. None preserves the checkpoint's default method.
+        solver_options : dict[str, Any] | None, optional
+            Solver constructor overrides, by default None
 
         Returns
         -------
@@ -501,6 +534,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
             seed=seed,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     @batch_func()

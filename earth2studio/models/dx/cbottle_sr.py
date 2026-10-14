@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from dataclasses import replace
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,6 +42,12 @@ try:
         SuperResolutionModel,
     )
     from earth2grid import healpix
+
+    from earth2studio.models._cbottle import (
+        DistilledSuperResolutionSampler,
+        SuperResolutionSampler,
+    )
+    from earth2studio.models._diffusion import SOLVERS
 except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
@@ -131,6 +138,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     seed : int, optional
         Random generator seed for latent variables, by default None
 
+    solver : str | None, optional
+        PhysicsNeMo solver override for helpers loaded through ``load_model``.
+        None preserves the default method, including native distilled sampling.
+        Supplied helpers keep their sampler and reject overrides.
+    solver_options : dict[str, Any] | None, optional
+        Solver constructor overrides, by default None. Distilled models require
+        an explicit ``solver`` to use these options.
+
     Badges
     ------
     region:global class:downscaling product:wind product:precip product:temp product:atmos
@@ -147,10 +162,37 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: int = 800,
         seed: int | None = None,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
+        if solver is not None and solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        self.solver_options = dict(solver_options or {})
 
+        if (solver is not None or solver_options) and not isinstance(
+            sr_model, (SuperResolutionSampler, DistilledSuperResolutionSampler)
+        ):
+            raise TypeError(
+                "Solver overrides require a helper created by CBottleSR.load_model. "
+                "Supplied C-Bottle helpers retain their own sampler."
+            )
+        if (
+            isinstance(sr_model, DistilledSuperResolutionSampler)
+            and solver is None
+            and solver_options
+        ):
+            raise ValueError("Distilled solver_options require an explicit solver.")
         self.sr_model = sr_model
+        if isinstance(
+            sr_model, (SuperResolutionSampler, DistilledSuperResolutionSampler)
+        ):
+            sr_model.solver = self.solver
+            sr_model.solver_options = self.solver_options
         self.seed = seed
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
@@ -395,6 +437,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sigma_max: int = 800,
         seed: int | None = None,
         distilled_model: bool = False,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load diagnostic model from package
 
@@ -420,6 +465,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Whether to use the distilled model, If True, the distilled helper is used,
             enabling generation with fewer sampler steps, by default False
 
+        solver : str | None, optional
+            PhysicsNeMo solver override. None uses the default method, including
+            native distilled sampling. With a distilled checkpoint, alternatives
+            use its two-step schedule but can change predictions and randomness.
+        solver_options : dict[str, Any] | None, optional
+            Solver constructor overrides, by default None. Distilled models require
+            an explicit ``solver`` to use these options.
+
         Returns
         -------
         DiagnosticModel
@@ -435,7 +488,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
         )
         model_cls = (
-            DistilledSuperResolutionModel if distilled_model else SuperResolutionModel
+            DistilledSuperResolutionSampler
+            if distilled_model
+            else SuperResolutionSampler
         )
         state_path = package.resolve(checkpoint_name)
 
@@ -454,6 +509,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
             seed=seed,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:

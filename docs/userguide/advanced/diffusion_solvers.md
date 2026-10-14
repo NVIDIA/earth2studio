@@ -97,6 +97,8 @@ effects.
 | `StormCast`, `StormCastCONUS`, `StormCastSDA` | Preserves guidance. |
 | `StormScopeGOES`, `StormScopeMRMS` | Preserves noise-dependent expert selection. |
 | `StormScopeMeteosatEU`, `StormScopeDxNSRDB` | Loader solver options. |
+| `CBottleInfill`, `CBottleTCGuidance`, `CBottleVideo` | Loader solver options. |
+| `CBottleSR` | Loader solver options, with the SR exceptions below. |
 | `GenCastMini` | Native JAX sampler, without these overrides. |
 
 Omitting `solver` preserves each wrapper's default selection. Those defaults
@@ -109,3 +111,30 @@ Ensemble generation alone does not imply diffusion sampling. Models such as
 `AIFSENS`, `AIFS2ENS`, `AtlasCRPS`, `FCN3`, `FuXiS2S`, `UCast`, the Aurora
 ensemble variants, and the WeatherNext2 wrappers use other stochastic prediction
 paths. They do not gain these controls from their ensemble behavior.
+
+## Super-resolution sampling
+
+Use `CBottleSR.load_model` when selecting a PhysicsNeMo solver for SR. For
+example, this explicitly selects Euler for the distilled checkpoint:
+
+```python
+from earth2studio.models.dx import CBottleSR
+
+package = CBottleSR.load_default_package()
+model = CBottleSR.load_model(
+    package,
+    distilled_model=True,
+    solver="euler",
+)
+```
+
+For distilled SR, `solver=None` keeps the native distilled sampling method.
+An explicit alternative uses the checkpoint's two-step schedule through the
+PhysicsNeMo adapter and can change predictions and randomness. It does not
+turn the distilled checkpoint into a model with an arbitrary sampling grid.
+Distilled `solver_options` require an explicit `solver`.
+
+If constructing `CBottleSR` with a supplied external SR helper, that helper keeps
+its own sampler. The wrapper rejects solver overrides for such helpers.
+The standard SR helper that `load_model` creates supports the named methods
+above.
