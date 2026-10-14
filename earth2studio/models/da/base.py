@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 import pandas as pd
 import xarray as xr
 
-from earth2studio.utils.type import CoordSystem, FrameSchema
+from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataFrameSource, DataSource, ForecastSource
@@ -40,7 +40,7 @@ class AssimilationModel(Protocol):
     Each initialization and input slot is a separate positional argument, in the
     order declared by ``init_coords()`` followed by ``input_coords()``. Observation
     slots are DataFrames described by a ``FrameSchema``; gridded slots are
-    DataArrays described by a ``CoordSystem``. Assimilation models define
+    DataArrays described by a ``CoordinateSystem``. Assimilation models define
     ``default_sources()``, returning a source for one slot, a tuple of sources or
     ``None`` per slot, or ``None`` for no recommendations. Drivers read it through
     ``earth2studio.models.utils.recommended_sources``.
@@ -123,7 +123,7 @@ class AssimilationModel(Protocol):
         """
         pass
 
-    def init_coords(self) -> tuple[FrameSchema | CoordSystem, ...] | None:
+    def init_coords(self) -> tuple[FrameSchema | CoordinateSystem, ...] | None:
         """Initialization coordinate system required by the assimilation model.
 
         Specifies the coordinate system(s) for initial state data that must be provided
@@ -133,7 +133,7 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        tuple[FrameSchema | CoordSystem, ...] | None
+        tuple[FrameSchema | CoordinateSystem, ...] | None
             Tuple of coordinate systems or frame schemas defining the structure of
             required initialization data. Returns ``None`` if the model does not require
             initialization data (e.g., stateless models).
@@ -179,7 +179,7 @@ class AssimilationModel(Protocol):
         """
         pass
 
-    def input_coords(self) -> tuple[FrameSchema | CoordSystem, ...]:
+    def input_coords(self) -> tuple[FrameSchema | CoordinateSystem, ...]:
         """Input coordinate system of the assimilation model.
 
         DataFrame inputs use frame schemas specifying fields and constraints.
@@ -187,7 +187,7 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        tuple[FrameSchema | CoordSystem, ...]
+        tuple[FrameSchema | CoordinateSystem, ...]
             Tuple of coordinate systems or frame schemas, one for each input argument
             that ``__call__`` or ``create_generator`` accepts.
         """
@@ -195,15 +195,15 @@ class AssimilationModel(Protocol):
 
     def output_coords(
         self,
-        input_coords: tuple[FrameSchema | CoordSystem, ...],
+        input_coords: tuple[FrameSchema | CoordinateSystem, ...],
         *args: Any,
         **kwargs: Any,
-    ) -> tuple[FrameSchema | CoordSystem, ...]:
+    ) -> tuple[FrameSchema | CoordinateSystem, ...]:
         """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[FrameSchema | CoordSystem, ...]
+        input_coords : tuple[FrameSchema | CoordinateSystem, ...]
             Input coordinate-system dictionaries or frame schemas to transform.
         *args : Any
             Additional positional arguments.
@@ -213,7 +213,7 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        tuple[FrameSchema | CoordSystem, ...]
+        tuple[FrameSchema | CoordinateSystem, ...]
             Tuple of coordinate systems or frame schemas, one for each output argument
             that ``__call__`` or ``create_generator`` returns.
         """
