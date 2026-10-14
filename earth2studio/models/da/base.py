@@ -40,7 +40,7 @@ class AssimilationModel(Protocol):
     Each initialization and input slot is a separate positional argument, in the
     order declared by ``init_coords()`` followed by ``input_coords()``. Observation
     slots are DataFrames described by a ``FrameSchema``; gridded slots are
-    DataArrays described by a ``CoordinateSystem``. Assimilation models define
+    DataArrays described by a ``CoordinateSystem`` signature. Assimilation models define
     ``default_sources()``, returning a source for one slot, a tuple of sources or
     ``None`` per slot, or ``None`` for no recommendations. Drivers read it through
     ``earth2studio.models.utils.recommended_sources``.
@@ -124,19 +124,18 @@ class AssimilationModel(Protocol):
         pass
 
     def init_coords(self) -> tuple[FrameSchema | CoordinateSystem, ...] | None:
-        """Initialization coordinate system required by the assimilation model.
+        """Initialization coordinate system of the assimilation model.
 
-        Specifies the coordinate system(s) for initial state data that must be provided
-        before the model can process observations. The returned coordinate systems should
-        match the expected input format for the first argument(s) passed to ``__call__``
-        or sent to ``create_generator`` when initializing the model state.
+        Describes the initial state data the model needs before it can process
+        observations, matching the first argument(s) passed to ``__call__`` or sent
+        to ``create_generator`` when initializing the model state.
 
         Returns
         -------
         tuple[FrameSchema | CoordinateSystem, ...] | None
-            Tuple of coordinate systems or frame schemas defining the structure of
-            required initialization data. Returns ``None`` if the model does not require
-            initialization data (e.g., stateless models).
+            Allocation-free DataArray initialization signatures, or frame schemas for
+            DataFrame slots, in initialization-slot order. ``None`` for models
+            without initialization data, such as stateless models.
         """
         pass
 
@@ -183,13 +182,14 @@ class AssimilationModel(Protocol):
         """Input coordinate system of the assimilation model.
 
         DataFrame inputs use frame schemas specifying fields and constraints.
-        Gridded inputs use coordinate-system dictionaries.
+        Gridded inputs use DataArray signatures.
 
         Returns
         -------
         tuple[FrameSchema | CoordinateSystem, ...]
-            Tuple of coordinate systems or frame schemas, one for each input argument
-            that ``__call__`` or ``create_generator`` accepts.
+            Allocation-free DataArray input signatures, or frame schemas for
+            DataFrame slots, in input-slot order: one per input argument that
+            ``__call__`` or ``create_generator`` accepts.
         """
         pass
 
@@ -204,7 +204,8 @@ class AssimilationModel(Protocol):
         Parameters
         ----------
         input_coords : tuple[FrameSchema | CoordinateSystem, ...]
-            Input coordinate-system dictionaries or frame schemas to transform.
+            Input signatures or frame schemas, one per ``input_coords()`` slot, in
+            declared order.
         *args : Any
             Additional positional arguments.
         **kwargs : Any
@@ -214,8 +215,14 @@ class AssimilationModel(Protocol):
         Returns
         -------
         tuple[FrameSchema | CoordinateSystem, ...]
-            Tuple of coordinate systems or frame schemas, one for each output argument
-            that ``__call__`` or ``create_generator`` returns.
+            Allocation-free DataArray output signatures, or frame schemas for
+            DataFrame slots, in output-slot order: one per output that ``__call__``
+            or ``create_generator`` returns.
+
+        Raises
+        ------
+        ValueError
+            If the input coordinates are not valid.
         """
         pass
 
