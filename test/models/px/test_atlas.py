@@ -20,6 +20,7 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+from physicsnemo.diffusion.samplers import HeunSolver
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import Atlas
@@ -96,7 +97,9 @@ class PhooSinterpolant(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def sample(self, model, x, steps, cond, verbose, compute_normalization):
+    def sample(
+        self, model, x, steps, cond, verbose, compute_normalization, solver=None
+    ):
         return x
 
 
@@ -434,11 +437,13 @@ def test_atlas_output_coords(atlas_test_components):
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_atlas_package(device):
+@pytest.mark.parametrize("solver", [None, "euler", HeunSolver])
+def test_atlas_package(device, solver):
     """Test that Atlas loads from package and runs a forward pass."""
     torch.cuda.empty_cache()
 
-    model = Atlas.load_model(Atlas.load_default_package()).to(device)
+    model = Atlas.load_model(Atlas.load_default_package(), solver=solver).to(device)
+    assert model.solver is solver
     model.sinterpolant_sample_steps = 4  # reduce sample steps for testing
 
     batch_size = 1

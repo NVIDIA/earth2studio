@@ -99,6 +99,7 @@ effects.
 | `StormScopeMeteosatEU`, `StormScopeDxNSRDB` | Loader solver options. |
 | `CBottleInfill`, `CBottleTCGuidance`, `CBottleVideo` | Loader solver options. |
 | `CBottleSR` | Loader solver options, with the SR exceptions below. |
+| `Atlas` | Uses `model.solver` and the factory interface below. |
 | `GenCastMini` | Native JAX sampler, without these overrides. |
 
 Omitting `solver` preserves each wrapper's default selection. Those defaults
@@ -138,3 +139,41 @@ If constructing `CBottleSR` with a supplied external SR helper, that helper keep
 its own sampler. The wrapper rejects solver overrides for such helpers.
 The standard SR helper that `load_model` creates supports the named methods
 above.
+
+## Atlas solver factories
+
+Atlas uses `solver=None` by default. Its native SDE update participates in the
+PhysicsNeMo solver protocol while keeping Atlas's diffusion and score-correction
+terms. Pass a solver factory to `Atlas.load_model` for experiments:
+
+```python
+from functools import partial
+
+from physicsnemo.diffusion.samplers import HeunSolver
+
+from earth2studio.models.px import Atlas
+
+model = Atlas.load_model(
+    Atlas.load_default_package(),
+    solver=partial(HeunSolver, alpha=1.0),
+)
+```
+
+This factory receives the drift callable bound to the current condition and
+creates a fresh solver for each sampling trajectory. Use the same pattern for a
+custom PhysicsNeMo solver factory. Construct any history or caches inside
+the factory. Passing a solver instance instead keeps caller-owned state across
+sampling trajectories and can keep an old condition bound to its drift.
+
+Atlas also accepts `"euler"` and `"heun"` directly. Its lightweight interface does
+not accept the general `solver_options` mapping or the other named methods in
+the table. A factory is the extension point for custom configuration.
+Forward additive-noise SDE solvers require matching drift, diffusion, and time
+direction. Use them only through a compatible Atlas factory. The reverse-time
+wrappers above reject them.
+
+The Heun example integrates Atlas's drift as an ODE. It omits the native SDE
+diffusion and score correction, so it changes the generative dynamics.
+A custom solver must supply those terms to preserve them. Set `model.solver =
+None` to restore the native path. For forecasts beyond one step, use Atlas's
+`create_iterator` interface so the model carries its latent history forward.
