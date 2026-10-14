@@ -104,7 +104,9 @@ from earth2studio.models.px.stormscope import (
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_name = "3km_10min"
-region = None  # Flash only: (39.075, 41.075, -97.0, -95.0)
+# Flash only: (south_lat, north_lat, west_lon, east_lon), in degrees.
+# Negative longitude means west. Use None for the full CONUS domain.
+region = None  # Example: (39.075, 41.075, -97.0, -95.0)
 padding = 25
 
 package = StormScopeBase.load_default_package()
@@ -342,7 +344,9 @@ im = ax.pcolormesh(
 
 # Overlay MRMS on top of GOES
 field_mrms = y_mrms_pred[0, 0, 0, mrms_ch_idx]
-field_mrms = torch.where(~plot_valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+field_mrms = (
+    torch.where(~plot_valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+)  # Regional plots use the cropped mask.
 field_mrms = np.where(field_mrms <= 0, np.nan, field_mrms)
 im_mrms = ax.pcolormesh(
     lon_out,

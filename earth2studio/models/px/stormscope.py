@@ -1697,6 +1697,8 @@ class StormScopeGOES(StormScopeBase):
     For more information see the following references:
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
+    - MRMS forecasting skill: evaluation procedure, metrics, and score table:
+      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/aea147432bd77e8113abfacff93d18dfe5cced20/mrms_forecast_skill.md
 
     Parameters
     ----------
@@ -2055,6 +2057,8 @@ class StormScopeMRMS(StormScopeBase):
     For more information see the following references:
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
+    - MRMS forecasting skill: evaluation procedure, metrics, and score table:
+      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/aea147432bd77e8113abfacff93d18dfe5cced20/mrms_forecast_skill.md
 
     Parameters
     ----------
