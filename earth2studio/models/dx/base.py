@@ -101,10 +101,7 @@ class DiagnosticModel(Protocol):
     ) -> (
         DataSource
         | ForecastSource
-        | type[DataSource | ForecastSource]
-        | tuple[
-            DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...
-        ]
+        | tuple[DataSource | ForecastSource | None, ...]
         | None
     ):
         """Recommended data sources for each input slot.
@@ -120,8 +117,8 @@ class DiagnosticModel(Protocol):
 
         Returns
         -------
-        DataSource | ForecastSource | type[DataSource | ForecastSource] | tuple[DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...] | None
-            A single source (instance or class), one source or ``None`` per input slot, or no recommendations.
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+            A single source, one source or ``None`` per input slot, or no recommendations.
         """
         pass
 

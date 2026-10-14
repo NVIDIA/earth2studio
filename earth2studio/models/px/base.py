@@ -219,10 +219,7 @@ class PrognosticModel(Protocol):
     ) -> (
         DataSource
         | ForecastSource
-        | type[DataSource | ForecastSource]
-        | tuple[
-            DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...
-        ]
+        | tuple[DataSource | ForecastSource | None, ...]
         | None
     ):
         """Recommended data sources for each input and forcing slot.
@@ -237,8 +234,8 @@ class PrognosticModel(Protocol):
 
         Returns
         -------
-        DataSource | ForecastSource | type[DataSource | ForecastSource] | tuple[DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...] | None
-            A single source (instance or class), sources or ``None`` in input-then-forcing slot order, or no
+        DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+            A single source, sources or ``None`` in input-then-forcing slot order, or no
             recommendations.
         """
         pass
