@@ -134,8 +134,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Points beyond this distance are masked as invalid. Default is 26.0.
     amp : bool, optional
         Enable automatic mixed precision (autocast) for the diffusion sampler's
-        network forward passes. Sampler state remains FP64 for baseline
-        variants and FP32 for Flash; only network operations run under
+        network forward passes. The sampler's latent/state math is kept in
+        ``_SAMPLER_DTYPE`` (fp64); only the DiT forward passes run under
         autocast. Can also be toggled after construction via the ``amp``
         attribute. Default is True.
     compile : bool, optional
@@ -275,8 +275,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.conditioning_interp = None
 
         # Mixed-precision toggle for the diffusion sampler. When True the DiT
-        # forward passes run under torch.autocast; the baseline sampler's state
-        # stays in _SAMPLER_DTYPE (fp64). Mutable so it can be toggled
+        # forward passes run under torch.autocast; the sampler's latent/state
+        # math stays in _SAMPLER_DTYPE (fp64). Mutable so it can be toggled
         # after construction.
         self.amp = amp
         self._flash_plan: list[_FlashStep] | None = None
@@ -297,7 +297,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     def load_default_package(cls) -> Package:
-        """Load the shared StormScope package; select the variant in ``load_model``."""
+        """Load the default StormScope package from Hugging Face."""
         return Package(
             "hf://nvidia/stormscope-goes-mrms@34a61472c7c0eadc914fb73021b11017b97328fa",
             cache_options={
@@ -1100,8 +1100,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # Run diffusion sampler. When AMP is enabled, autocast accelerates the
         # DiT forward passes inside the sampler; the latent/state math stays in
-        # FP64 for baseline and FP32 for Flash; autocast only affects eligible
-        # network ops, not the explicit state updates. autocast is a
+        # _SAMPLER_DTYPE (fp64) since autocast only affects autocast-eligible
+        # network ops, not the explicit fp64 pointwise updates. autocast is a
         # no-op when self.amp is False, so the default path is unchanged.
         with torch.autocast(device_type=x.device.type, enabled=self.amp):
             out = self._edm_sampler(
@@ -1194,7 +1194,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self._is_flash:
             from earth2studio.models.nn.stormscope_flash import sample_flash
 
-            return sample_flash(self, latents, condition)
+            return sample_flash(self, latents.to(self._SAMPLER_DTYPE), condition)
         # Time step discretization.
         step_indices = torch.arange(
             num_steps, dtype=torch.float64, device=latents.device
@@ -1298,9 +1298,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Return a regional Flash model sharing the loaded expert weights.
 
         Bounds must lie within this model's grid; the original model is unchanged.
-        Inputs and outputs retain context. Use :meth:`crop_output` for presentation.
-        Views share networks and must run sequentially on the same device.
-        Load separate models for concurrent inference or different devices.
+        Inputs and outputs include context; use :meth:`crop_output` for presentation.
+        Shared networks require sequential calls on the same device.
 
         Parameters
         ----------
@@ -1358,7 +1357,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def crop_output(
         self, forecast: torch.Tensor, coords: CoordSystem, *, mask: bool = True
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Crop Flash output for presentation while retaining rollout context.
+        """Crop Flash forecasts and coordinates to the requested region.
 
         Pass uncropped forecasts to :meth:`next_input` to retain context.
         Baseline variants return their inputs unchanged.
@@ -1395,8 +1394,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Compilation is lazy (each expert compiles on its first forward pass), so
         this is safe to call before or after moving the model to a device.
-        Repeated calls are a no-op. Flash specializes graphs by input shape to
-        keep numerical results stable when switching between fixed-domain views.
+        Repeated calls are a no-op.
 
         Parameters
         ----------
@@ -1404,11 +1402,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ``torch.compile`` mode, by default ``"reduce-overhead"`` (matching
             the StormScope reference inference scripts).
         """
+        if self._experts_compiled:
+            return
         if self._is_flash:
             self._flash_plan = None
             self._flash_plan_sources = ()
-        if self._experts_compiled:
-            return
         for i in range(len(self.stage_models)):
             self.stage_models[i] = torch.compile(
                 self.stage_models[i],
@@ -1699,8 +1697,6 @@ class StormScopeGOES(StormScopeBase):
     For more information see the following references:
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
-    - MRMS forecasting skill (baseline and Flash comparison):
-      https://huggingface.co/nvidia/stormscope-goes-mrms#mrms-forecasting-skill
 
     Parameters
     ----------
@@ -2059,8 +2055,6 @@ class StormScopeMRMS(StormScopeBase):
     For more information see the following references:
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
-    - MRMS forecasting skill (baseline and Flash comparison):
-      https://huggingface.co/nvidia/stormscope-goes-mrms#mrms-forecasting-skill
 
     Parameters
     ----------

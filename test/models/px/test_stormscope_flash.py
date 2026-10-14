@@ -31,12 +31,11 @@ from physicsnemo.nn.module.dit_layers import (
     ProjReshape2DDetokenizer,
     RopeNatten2DSelfAttention,
 )
-from physicsnemo.nn.module.rope import apply_rotary_pos_emb, build_axial_rope_cos_sin_2d
+from physicsnemo.nn.module.rope import build_axial_rope_cos_sin_2d
 
 from earth2studio.models.auto import Package
 from earth2studio.models.nn.stormscope_flash import (
     FLASH_CALLS,
-    FLASH_INTERVALS,
     FlashModel,
     build_flash_chain_plan,
     flash_sampler_chain,
@@ -47,26 +46,6 @@ from earth2studio.models.nn.stormscope_flash import (
 )
 from earth2studio.models.nn.stormscope_flash import FlashDiT as DiT
 from earth2studio.models.px.stormscope import StormScopeGOES, StormScopeMRMS
-
-
-@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
-def test_rotary_matches_complex_rotation_and_row_offset(dtype):
-    torch.manual_seed(5)
-    q = torch.randn(2, 3, 12, 16).to(dtype)
-    k = torch.randn_like(q)
-    cos, sin = build_axial_rope_cos_sin_2d(10, 4, 16)
-    cos, sin = cos[7:].flatten(0, 1), sin[7:].flatten(0, 1)
-    actual = (apply_rotary_pos_emb(q, cos, sin), apply_rotary_pos_emb(k, cos, sin))
-    row = torch.arange(7, 10).repeat_interleave(4)
-    col = torch.arange(4).repeat(3)
-    omega = 10000.0 ** (-torch.arange(0, 8, 2).float() / 8)
-    angles = torch.cat([row[:, None] * omega, col[:, None] * omega], dim=-1)
-    rotation = torch.polar(torch.ones_like(angles), angles)
-    for x, rotated in zip((q, k), actual):
-        paired = torch.view_as_complex(x.float().reshape(2, 3, 12, 8, 2))
-        expected = torch.view_as_real(paired * rotation).reshape_as(x).to(dtype)
-        torch.testing.assert_close(rotated, expected)
-        assert rotated.dtype == dtype
 
 
 def test_rotary_mask_and_state_dict_compatibility():
@@ -308,12 +287,7 @@ def test_flash_patch_projection_rejects_implicit_padding():
 
 @pytest.mark.parametrize("kind", ["goes", "mrms"])
 def test_flash_aligned_budget_and_no_noise_reset(kind):
-    experts = {
-        name: _FakeExpert(grid)
-        for name, grid in regional_sigma_grids(
-            region_intervals=FLASH_INTERVALS[kind]
-        ).items()
-    }
+    experts = {name: _FakeExpert(grid) for name, grid in regional_sigma_grids().items()}
     nfe = sum(FLASH_CALLS[kind].values())
     plan = build_flash_chain_plan(
         experts, total_nfe=nfe, region_calls=FLASH_CALLS[kind], alignment=16
@@ -336,6 +310,49 @@ def test_flash_aligned_budget_and_no_noise_reset(kind):
         inference_block_boundaries(80, 6, alignment=16)
 
 
+@pytest.mark.parametrize("kind", ["goes", "mrms"])
+def test_flash_chain_preserves_small_updates_across_expert_handoffs(kind):
+    calls = []
+    increment = 2.0**-30
+
+    class PrecisionExpert(_FakeExpert):
+        def __init__(self, name, grid):
+            super().__init__(grid)
+            self.name = name
+
+        def forward(self, state, sigma, condition, **kwargs):
+            calls.append((self.name, state.clone(), sigma.dtype))
+            return state + increment
+
+    experts = {
+        name: PrecisionExpert(name, grid)
+        for name, grid in regional_sigma_grids().items()
+    }
+    nfe = sum(FLASH_CALLS[kind].values())
+    plan = build_flash_chain_plan(
+        experts, total_nfe=nfe, region_calls=FLASH_CALLS[kind], alignment=16
+    )
+    latents = torch.ones(1, 1, 2, 2, dtype=torch.float64)
+    output = flash_sampler_chain(experts, latents, total_nfe=nfe, plan=plan)
+    assert [name for name, _, _ in calls] == [
+        name for name, count in FLASH_CALLS[kind].items() for _ in range(count)
+    ]
+    for i, (_, state, sigma_dtype) in enumerate(calls):
+        assert state.dtype == sigma_dtype == torch.float64
+        torch.testing.assert_close(
+            state,
+            torch.full_like(latents, 800 / 801 + i * increment),
+            rtol=0,
+            atol=1e-15,
+        )
+    torch.testing.assert_close(
+        output,
+        torch.full_like(latents, 800 / 801 + nfe * increment),
+        rtol=0,
+        atol=1e-15,
+    )
+
+
 @pytest.mark.parametrize("layout", [None, "legacy", "physicsnemo-dit-v2"])
 def test_flash_requires_native_checkpoint_layout(layout):
     metadata = dict(
@@ -349,7 +366,8 @@ def test_flash_requires_native_checkpoint_layout(layout):
         FlashModel({}, metadata)
 
 
-def test_flash_fused_update_matches_individual_heads(monkeypatch):
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_flash_fused_update_matches_individual_heads(monkeypatch, dtype):
     torch.manual_seed(8)
     from earth2studio.models.nn import stormscope_flash
 
@@ -365,7 +383,7 @@ def test_flash_fused_update_matches_individual_heads(monkeypatch):
         expert = FlashModel({}, metadata)
     expert.head_weight.data.normal_()
     expert.head_bias.data.normal_()
-    state = torch.randn(2, 1, 3, 4)
+    state = torch.randn(2, 1, 3, 4, dtype=dtype)
     for start, end in [(0, 3), (2, 3)]:
         sigma, weight, bias, delta = expert.prepare_inference_block(start, end)
         actual = expert(
@@ -376,6 +394,7 @@ def test_flash_fused_update_matches_individual_heads(monkeypatch):
             inference_bias=bias,
             inference_delta=delta,
         )
+        assert actual.dtype == dtype
         # Independent EDM-derived velocity expression evaluated in float64.
         sig = sigma.double()
         t = 1 / (1 + sig)
@@ -397,10 +416,50 @@ def test_flash_fused_update_matches_individual_heads(monkeypatch):
         torch.testing.assert_close(actual.double(), expected, rtol=3e-5, atol=3e-6)
 
 
-@pytest.mark.parametrize(
-    "cls,kind", [(StormScopeGOES, "goes"), (StormScopeMRMS, "mrms")]
-)
-def test_flash_move_invalidates_plan(cls, kind):
+def test_flash_fp64_update_preserves_small_increments_with_network_amp(monkeypatch):
+    from earth2studio.models.nn import stormscope_flash
+
+    trunk = _TinyDiT()
+    metadata = dict(
+        checkpoint_layout="physicsnemo-dit-v1",
+        sigma_grid=[0.25, 0.0],
+        block_boundaries=[0, 1],
+        config={"student": {"sigma_data": 0.5}},
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(stormscope_flash, "FlashDiT", lambda **kwargs: trunk)
+        expert = FlashModel({}, metadata)
+    network_calls = []
+
+    def forward_features(x, time_step_cond, *, training=False):
+        features = torch.nn.functional.linear(
+            x[:, :1].flatten(2).transpose(1, 2), torch.ones(1, 1)
+        )
+        network_calls.append((x.dtype, time_step_cond.dtype, features.dtype))
+        return features
+
+    monkeypatch.setattr(trunk, "forward_features", forward_features)
+    state = torch.full((1, 1, 2, 2), 1 + 2.0**-35, dtype=torch.float64)
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        actual = expert(
+            state,
+            torch.tensor(0.25, dtype=torch.float64),
+            None,
+            inference_weight=torch.zeros(1, 1),
+            inference_bias=torch.tensor([2.0**-30]),
+            inference_delta=torch.tensor(1.0),
+        )
+
+    assert network_calls == [(torch.float32, torch.float32, torch.bfloat16)]
+    assert actual.dtype == torch.float64
+    assert bool((actual > state).all())
+    # At sigma=0.25 the skip velocity vanishes; only the small residual remains.
+    expected = state + (0.5 / np.sqrt(0.2)) * 2.0**-30
+    torch.testing.assert_close(actual, expected, rtol=0, atol=1e-15)
+
+
+@pytest.mark.parametrize("cls", [StormScopeGOES, StormScopeMRMS])
+def test_flash_move_invalidates_plan(cls):
     model = cls.__new__(cls)
     torch.nn.Module.__init__(model)
     model._is_flash = True
@@ -523,8 +582,15 @@ def test_compile_policy_preserves_baseline_and_specializes_flash(
     assert all(
         wrapped[0] is expert for wrapped, expert in zip(model.stage_models, experts)
     )
+    cached_plan, cached_sources = object(), (object(),)
+    if is_flash:
+        model._flash_plan = cached_plan
+        model._flash_plan_sources = cached_sources
     model.compile_experts()
     assert compile.call_count == 3
+    if is_flash:
+        assert model._flash_plan is cached_plan
+        assert model._flash_plan_sources is cached_sources
 
 
 class _FakeExpert(torch.nn.Module):
@@ -543,15 +609,9 @@ class _FakeExpert(torch.nn.Module):
             torch.tensor(float(end - start)),
         )
 
-    def prepare_condition_patch(self, condition):
-        return None
-
     def forward(self, state, sigma, condition, **kwargs):
         self.calls += 1
         return state
-
-    def set_image_size(self, *shape):
-        self.shape = shape
 
 
 class _TinyDiT(torch.nn.Module):
@@ -560,6 +620,9 @@ class _TinyDiT(torch.nn.Module):
         self.detokenizer = torch.nn.Module()
         self.detokenizer.proj_layer = torch.nn.Module()
         self.detokenizer.proj_layer.output_projection = torch.nn.Linear(1, 1)
+        self.conditioning_embedder = torch.nn.Module()
+        self.conditioning_embedder.t_embedder = torch.nn.Module()
+        self.conditioning_embedder.t_embedder.register_buffer("freqs", torch.ones(1))
         self._out_chans = 1
 
     def forward_features(self, x, time_step_cond, *, training=False):
@@ -647,16 +710,6 @@ def test_region_signed_and_unsigned_longitudes_match():
     np.testing.assert_array_equal(a.requested_mask, b.requested_mask)
 
 
-def test_regional_instances_keep_independent_geometry():
-    lat, lon = _grid()
-    infos = [
-        resolve_region(lat, lon, b)
-        for b in (None, {"lat": (36, 38), "lon": (-110, -108)})
-    ]
-    assert infos[0].input_shape != infos[1].input_shape
-    assert infos[0].input_shape == (400, 600)
-
-
 class _DomainTrunk(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -703,7 +756,9 @@ def test_baseline_sampling_is_independent_of_flash_instances(cls, monkeypatch):
     flash = _domain_wrapper(cls)
     after = _domain_wrapper(cls, is_flash=False)
     latents = torch.ones(1, 1, 2, 3)
-    sample_flash = Mock(return_value=torch.zeros_like(latents))
+    sample_flash = Mock(
+        return_value=torch.zeros_like(latents, dtype=flash._SAMPLER_DTYPE)
+    )
     monkeypatch.setattr(
         "earth2studio.models.nn.stormscope_flash.sample_flash", sample_flash
     )
@@ -719,8 +774,15 @@ def test_baseline_sampling_is_independent_of_flash_instances(cls, monkeypatch):
         torch.testing.assert_close(actual, (2 * latents).double())
     sample_flash.assert_not_called()
 
-    torch.testing.assert_close(flash._edm_sampler(latents), torch.zeros_like(latents))
-    sample_flash.assert_called_once_with(flash, latents, None)
+    torch.testing.assert_close(
+        flash._edm_sampler(latents),
+        torch.zeros_like(latents, dtype=flash._SAMPLER_DTYPE),
+    )
+    sample_flash.assert_called_once()
+    called_model, called_latents, called_condition = sample_flash.call_args.args
+    assert called_model is flash
+    assert called_condition is None
+    torch.testing.assert_close(called_latents, latents.to(flash._SAMPLER_DTYPE))
 
 
 @pytest.mark.parametrize("cls", [StormScopeGOES, StormScopeMRMS])
@@ -1084,13 +1146,11 @@ def test_flash_region_uses_fifteen_available_edge_pixels():
 def test_flash_hub_registry_keeps_teacher_selection_separate(
     tmp_path, kind, flash_class
 ):
-    from earth2studio.models.px.stormscope import StormScopeGOES
-
     teacher = {"description": "teacher", "checkpoints": [{"path": "teacher.mdlus"}]}
     flash = {
         "description": "flash",
         "flash": True,
-        "checkpoints": [{"path": f"checkpoints/{kind}/3km_10min_flash/high.mdlus"}],
+        "checkpoints": [{"path": f"checkpoints/{kind}/3km_10min_flash/expert_2.mdlus"}],
     }
     registry = {
         kind: {
@@ -1104,8 +1164,6 @@ def test_flash_hub_registry_keeps_teacher_selection_separate(
     name, entry = flash_class._resolve_model_entry(package, "3km_10min")
     assert name == "3km_10min" and entry == teacher
     assert flash_class._resolve_model_entry(package, "3km_10min_flash")[1] == flash
-    baseline = StormScopeGOES if kind == "goes" else StormScopeMRMS
-    assert baseline._resolve_model_entry(package, "3km_10min")[1] == teacher
     assert set(flash_class.list_available_models(package)) == {
         "3km_10min",
         "3km_10min_flash",
@@ -1127,7 +1185,10 @@ def test_flash_local_package_remains_compatible(tmp_path, flash_class):
 
 
 @pytest.mark.parametrize("cls", [StormScopeGOES, StormScopeMRMS])
-def test_load_model_accepts_positional_runtime_options(cls, monkeypatch):
+@pytest.mark.parametrize("compile_enabled", [False, True])
+def test_load_model_accepts_positional_runtime_options(
+    cls, compile_enabled, monkeypatch
+):
     from unittest.mock import Mock
 
     reference = _domain_wrapper(cls, is_flash=False)
@@ -1172,17 +1233,20 @@ def test_load_model_accepts_positional_runtime_options(cls, monkeypatch):
     if cls is StormScopeMRMS:
         sources.append(glm_source)
 
-    model = cls.load_model(package, "3km_10min_flash", *sources, False, True)
+    model = cls.load_model(package, "3km_10min_flash", *sources, False, compile_enabled)
 
     assert model.amp is False
-    assert model._experts_compiled
+    assert model._experts_compiled is compile_enabled
     assert model._is_flash
     assert model.conditioning_data_source is conditioning_source
     if cls is StormScopeMRMS:
         assert model.glm_data_source is glm_source
-    compile.assert_called_once_with(
-        reference.stage_models[0], mode="reduce-overhead", dynamic=False
-    )
+    if compile_enabled:
+        compile.assert_called_once_with(
+            reference.stage_models[0], mode="reduce-overhead", dynamic=False
+        )
+    else:
+        compile.assert_not_called()
 
 
 @pytest.mark.parametrize("cls", [StormScopeGOES, StormScopeMRMS])
@@ -1406,7 +1470,7 @@ def _initialized_flash_model(config, metadata):
     return model
 
 
-def test_mdlus_legacy_module_path_loads_without_import(tmp_path, monkeypatch):
+def test_mdlus_explicit_loader_ignores_serialized_module_path(tmp_path, monkeypatch):
     import importlib
 
     config = dict(

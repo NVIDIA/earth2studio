@@ -521,7 +521,6 @@ class FlashModel(Module):
             raise ValueError("StormScope Flash experts require sigma_data=0.5")
         self.model = model
         self.sigma_data = float(sigma_data)
-        self.use_fp16 = False
         self.num_intervals = num_intervals
         self.register_buffer("sigma_grid", sigmas.contiguous())
         self.register_buffer("time_grid", sigma_to_flow_time(sigmas).contiguous())
@@ -540,23 +539,14 @@ class FlashModel(Module):
         self.model_config = deepcopy(model_config)
         self.flash_metadata = deepcopy(flash_metadata)
 
-    @property
-    def sigma_min(self) -> float:
-        terminal = float(self.sigma_grid[-1])
-        return float(self.sigma_grid[-2]) if terminal == 0.0 else terminal
-
-    @property
-    def sigma_max(self) -> float:
-        return float(self.sigma_grid[0])
-
-    def round_sigma(self, sigma: Any) -> torch.Tensor:
-        """Expose the compatibility method provided by EDM preconditioners."""
-
-        return torch.as_tensor(sigma)
-
     @staticmethod
-    def _batch_sigma(sigma: Any, batch_size: int, device: torch.device) -> torch.Tensor:
-        values = torch.as_tensor(sigma, device=device, dtype=torch.float32)
+    def _batch_sigma(
+        sigma: Any,
+        batch_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        values = torch.as_tensor(sigma, device=device, dtype=dtype)
         if values.numel() == 1:
             values = values.reshape(1).expand(batch_size)
         elif values.numel() == batch_size:
@@ -568,10 +558,7 @@ class FlashModel(Module):
         return values
 
     def _trunk_dtype(self) -> torch.dtype:
-        try:
-            dtype = next(self.model.parameters()).dtype
-        except StopIteration:
-            return torch.float32
+        dtype = next(self.model.parameters()).dtype
         return dtype if dtype in (torch.float16, torch.bfloat16) else torch.float32
 
     @torch.no_grad()
@@ -606,14 +593,12 @@ class FlashModel(Module):
         )
 
     @torch.no_grad()
-    def prepare_condition_patch(self, condition: torch.Tensor) -> torch.Tensor | None:
+    def prepare_condition_patch(self, condition: torch.Tensor) -> torch.Tensor:
         """Cache the condition contribution to the FlashDiT patch projection."""
 
-        if not hasattr(self.model, "prepare_condition_patch"):
-            return None
         return self.model.prepare_condition_patch(
             condition.to(device=self.head_weight.device, dtype=self._trunk_dtype()),
-            state_channels=int(getattr(self.model, "_out_chans", 0)),
+            state_channels=self.model._out_chans,
             output_dtype=self._trunk_dtype(),
         )
 
@@ -629,8 +614,12 @@ class FlashModel(Module):
         if condition is not None and condition_patch is not None:
             raise ValueError("provide condition or condition_patch, not both")
 
-        state = state.to(torch.float32)
-        sigma_batch = self._batch_sigma(sigma, state.shape[0], state.device)
+        state = state.to(
+            torch.float64 if state.dtype == torch.float64 else torch.float32
+        )
+        sigma_batch = self._batch_sigma(
+            sigma, state.shape[0], state.device, state.dtype
+        )
         sigma_4d = sigma_batch.reshape(-1, 1, 1, 1)
         time_4d = sigma_to_flow_time(sigma_4d)
         # Data-time t=1/(1+sigma); avoid subtracting nearly equal EDM terms.
@@ -650,16 +639,13 @@ class FlashModel(Module):
                     "condition batch and spatial dimensions must match state"
                 )
             model_input = torch.cat(
-                (model_input, condition.to(device=state.device, dtype=torch.float32)),
+                (model_input, condition.to(device=state.device, dtype=state.dtype)),
                 dim=1,
             )
 
-        try:
-            time_condition = c_noise.to(
-                self.model.conditioning_embedder.t_embedder.freqs.dtype
-            )
-        except AttributeError:
-            time_condition = c_noise
+        time_condition = c_noise.to(
+            self.model.conditioning_embedder.t_embedder.freqs.dtype
+        )
         if condition_patch is None:
             features = self.model.forward_features(
                 model_input.to(self._trunk_dtype()),
@@ -721,10 +707,10 @@ class FlashModel(Module):
         )
         return (
             state
-            + inference_delta.to(device=state.device, dtype=torch.float32)
+            + inference_delta.to(device=state.device, dtype=state.dtype)
             * velocity_skip
             * state
-            + velocity_out * residual.to(torch.float32)
+            + velocity_out * residual.to(state.dtype)
         )
 
     def load_state_dict(
@@ -923,7 +909,6 @@ FLASH_CALLS = {
     "goes": {"high": 1, "middle": 1, "low": 3},
     "mrms": {"high": 1, "middle": 1, "low": 5},
 }
-FLASH_INTERVALS = {kind: dict(FLASH_REGION_INTERVALS) for kind in FLASH_CALLS}
 
 # One cached invocation: expert name, sigma, fused weight/bias, and time increment.
 _FlashStep = tuple[str, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
@@ -1113,9 +1098,7 @@ def flash_sampler_chain(
     first_time = sigma_to_flow_time(
         _unwrap_expert(experts["high"]).sigma_grid[0].double()
     )
-    state = latents.float() * (1 - first_time).to(
-        device=latents.device, dtype=latents.dtype
-    )
+    state = latents * (1 - first_time).to(device=latents.device, dtype=latents.dtype)
     previous = None
     condition_patch = None
     for name, sigma, weight, bias, delta in plan:
@@ -1262,21 +1245,24 @@ def validate_flash_entry(entry: Mapping[str, Any], kind: str) -> None:
 def _validate_flash_expert(model: FlashModel, kind: str, region: str) -> None:
     meta = model.flash_metadata
     config = meta["model_config"]
-    expected_grids = regional_sigma_grids(region_intervals=FLASH_INTERVALS[kind])
-    expected_model = {
-        "architecture": "dit",
+    expected_grids = regional_sigma_grids()
+    shared_config = {
         "patch_size": 4,
         "embed_dim": 768,
         "depth": 16,
         "num_heads": 6,
         "attn_kernel": 49,
+        "rope_theta": 10000.0,
+        "use_nan_mask_tokens": kind == "goes",
+    }
+    expected_model = {
+        **shared_config,
+        "architecture": "dit",
         "alternate_attn": False,
         "use_transformer_engine": False,
         "use_fused_layernorm": False,
         "qk_norm": True,
         "pos_embed": "rotary",
-        "rope_theta": 10000.0,
-        "use_nan_mask_tokens": kind == "goes",
         "num_register_tokens": 0,
         "n_goes_channels": 8,
         "n_mrms_channels": 0 if kind == "goes" else 2,
@@ -1326,18 +1312,12 @@ def _validate_flash_expert(model: FlashModel, kind: str, region: str) -> None:
                 f"{region}: flash block {start}:{end} exceeds trained support"
             )
     expected_constructor = {
+        **shared_config,
         "height": 1024,
         "width": 1792,
-        "patch_size": 4,
         "in_chans": 61 if kind == "goes" else 75,
         "base_out_chans": 8 if kind == "goes" else 3,
-        "embed_dim": 768,
-        "depth": 16,
-        "num_heads": 6,
-        "attn_kernel": 49,
         "pos_embedding_type": "rotary",
-        "rope_theta": 10000.0,
-        "use_nan_mask_tokens": kind == "goes",
     }
     if model.model_config != expected_constructor:
         raise ValueError(f"{region}: incompatible serialized DiT constructor")
