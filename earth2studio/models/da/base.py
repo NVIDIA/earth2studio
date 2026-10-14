@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import pandas as pd
 import xarray as xr
@@ -25,14 +25,6 @@ from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataFrameSource, DataSource, ForecastSource
-
-    # Source recommended for a slot: an instance, or a class the caller instantiates
-    RecommendedSource: TypeAlias = (
-        DataSource
-        | ForecastSource
-        | DataFrameSource
-        | type[DataSource | ForecastSource | DataFrameSource]
-    )
 
 try:
     import cudf
@@ -149,7 +141,21 @@ class AssimilationModel(Protocol):
 
     def default_sources(
         self,
-    ) -> RecommendedSource | tuple[RecommendedSource | None, ...] | None:
+    ) -> (
+        DataSource
+        | ForecastSource
+        | DataFrameSource
+        | type[DataSource | ForecastSource | DataFrameSource]
+        | tuple[
+            DataSource
+            | ForecastSource
+            | DataFrameSource
+            | type[DataSource | ForecastSource | DataFrameSource]
+            | None,
+            ...,
+        ]
+        | None
+    ):
         """Recommended data sources for each initialization and input slot.
 
         Return one source directly for a single slot, or a tuple with one source
@@ -166,7 +172,7 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        RecommendedSource | tuple[RecommendedSource | None, ...] | None
+        DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | tuple[DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | None, ...] | None
             A single source (instance or class), sources or ``None`` in
             initialization-then-input slot order, or no recommendations.
         """
