@@ -56,6 +56,9 @@ try:
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
     from tensordict import TensorDict
+
+    from earth2studio.models._diffusion import SOLVERS
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormcast-conus")
     OmegaConf = None
@@ -176,6 +179,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         :class:`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
         by default True.
 
+    solver : str, optional
+        PhysicsNeMo sampler name, by default "edm_stochastic_heun".
+        Use "exponential_euler", "edm_stochastic_exponential_euler",
+        "dpmpp_2m", or "dpmpp_2m_unic2" to select an alternative method.
+    solver_options : dict[str, Any] | None, optional
+        Override solver constructor options. The wrapper supplies the
+        noise-schedule coefficients, by default None
+
     Badges
     ------
     region:na class:nowcasting product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
@@ -208,8 +219,17 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sda_gamma: float = 0.001,
         use_amp: bool = True,
         clamp_values: bool = True,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        self.solver_options = dict(solver_options or {})
         self.diffusion_model = diffusion_model
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
@@ -534,13 +554,19 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             latents,
             noise_scheduler=self.scheduler,
             num_steps=num_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
+            solver=self.solver,
+            solver_options=_solver_options(
+                self.scheduler,
+                self.solver,
+                prediction_type="x0",
+                options=self.solver_options,
+                churn=self.sampler_args
+                | (
+                    {"num_steps": num_steps}
+                    if self.solver != "edm_stochastic_heun"
+                    else {}
+                ),
+            ),
         )
 
     def _edm_denoiser(self, condition: TensorDict) -> Any:
