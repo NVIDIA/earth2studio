@@ -629,7 +629,17 @@ def test_stormscope_exceptions(device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_staged_denoising(device):
+@pytest.mark.parametrize(
+    "solver",
+    [
+        "edm_stochastic_heun",
+        "exponential_euler",
+        "edm_stochastic_exponential_euler",
+        "dpmpp_2m",
+        "dpmpp_2m_unic2",
+    ],
+)
+def test_stormscope_staged_denoising(device, solver):
     """Test StormScope staged denoising with multiple experts"""
     nvar = 8
     h, w = 32, 64
@@ -662,7 +672,8 @@ def test_stormscope_staged_denoising(device):
         conditioning_stds=None,
         conditioning_variables=None,
         conditioning_data_source=None,
-        sampler_args={"num_steps": 2},
+        sampler_args={"num_steps": 8},
+        solver=solver,
         y_coords=y,
         x_coords=x,
     ).to(device)
@@ -678,6 +689,15 @@ def test_stormscope_staged_denoising(device):
     t_low = torch.tensor(5.0, device=device)
     expert_low = model._select_expert(t_low)
     assert expert_low == model.stage_models[1]
+
+    with torch.inference_mode():
+        result = model._edm_sampler(
+            torch.randn(1, nvar, h, w, device=device),
+            num_steps=8,
+            sigma_max=88,
+            S_churn=0.1,
+        )
+    assert torch.isfinite(result).all()
 
 
 @pytest.mark.package

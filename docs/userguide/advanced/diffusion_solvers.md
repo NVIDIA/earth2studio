@@ -95,6 +95,8 @@ effects.
 | `CorrDiffEra5Hrrr` | Supports EDM and rectified-flow packages. |
 | `CorrDiffCosmoEra5SDA` | Loader options preserve guidance. |
 | `StormCast`, `StormCastCONUS`, `StormCastSDA` | Preserves guidance. |
+| `StormScopeGOES`, `StormScopeMRMS` | Preserves noise-dependent expert selection. |
+| `StormScopeMeteosatEU`, `StormScopeDxNSRDB` | Loader solver options. |
 | `GenCastMini` | Native JAX sampler, without these overrides. |
 
 Omitting `solver` preserves each wrapper's default selection. Those defaults
