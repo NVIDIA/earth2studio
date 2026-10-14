@@ -17,12 +17,13 @@ import json
 import os
 import zipfile
 from collections.abc import Generator, Hashable
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data import IFS, DataSource
+from earth2studio.data import IFS
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.aifs import _aifs_initialize, _aifs_step
@@ -39,6 +40,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import anemoi.models  # noqa: F401

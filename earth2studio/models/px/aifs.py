@@ -19,13 +19,13 @@ import zipfile
 from collections import OrderedDict
 from collections.abc import Generator, Hashable
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data import IFS, DataSource
+from earth2studio.data import IFS
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -45,6 +45,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 
 def _aifs_initialize(
