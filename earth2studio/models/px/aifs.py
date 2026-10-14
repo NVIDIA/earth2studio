@@ -25,7 +25,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data import IFS
+from earth2studio.data import IFS, DataSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func

@@ -35,7 +35,16 @@ except ImportError:
 # --8<-- [start:assimilation-model-interface]
 @runtime_checkable
 class AssimilationModel(Protocol):
-    """Data assimilation model interface"""
+    """Data assimilation model interface
+
+    Each initialization and input slot is a separate positional argument, in the
+    order declared by ``init_coords()`` followed by ``input_coords()``. Observation
+    slots are DataFrames described by a ``FrameSchema``; gridded slots are
+    DataArrays described by a ``CoordSystem``. Assimilation models define
+    ``default_sources()``, returning a source for one slot, a tuple of sources or
+    ``None`` per slot, or ``None`` for no recommendations. Drivers read it through
+    ``earth2studio.models.utils.recommended_sources``.
+    """
 
     def __call__(
         self,
@@ -134,24 +143,39 @@ class AssimilationModel(Protocol):
     def default_sources(
         self,
     ) -> (
-        type[DataSource | ForecastSource | DataFrameSource]
-        | tuple[type[DataSource | ForecastSource | DataFrameSource] | None, ...]
+        DataSource
+        | ForecastSource
+        | DataFrameSource
+        | type[DataSource | ForecastSource | DataFrameSource]
+        | tuple[
+            DataSource
+            | ForecastSource
+            | DataFrameSource
+            | type[DataSource | ForecastSource | DataFrameSource]
+            | None,
+            ...,
+        ]
         | None
     ):
-        """Recommended data source classes, one per slot.
+        """Recommended data sources for each initialization and input slot.
 
-        Slots follow the order of ``init_coords()`` (initialization state, if any)
-        followed by ``input_coords()`` (observations). Data source *classes* are
-        returned, not instances, so the caller can construct them with its own
-        arguments (for example a ``time_tolerance``). ``None`` means no
-        recommendation for the model; a ``None`` tuple entry means no
-        recommendation for that slot. Models never fetch from these themselves.
+        Return one source directly for a single slot, or a tuple with one source
+        per ``init_coords()`` slot, then one per ``input_coords()`` slot. Models
+        without initialization slots (``init_coords()`` returns ``None``) only
+        list their input slots. ``None`` means no recommendations for the model;
+        a ``None`` tuple entry means no recommendation for that slot. Sources may
+        be returned as classes rather than instances so the caller can construct
+        them with its own arguments (for example a ``time_tolerance``). A source
+        whose native grid differs from the slot's is returned composed with the
+        recommended regridder; transforms intrinsic to the model, whatever the
+        provider, stay inside the wrapper. Models never fetch from these
+        themselves.
 
         Returns
         -------
-        type[DataSource | ForecastSource | DataFrameSource] | tuple[type[DataSource | ForecastSource | DataFrameSource] | None, ...] | None
-            A single source class, one class or ``None`` per slot, or no
-            recommendations.
+        DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | tuple[DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | None, ...] | None
+            A single source (instance or class), sources or ``None`` in
+            initialization-then-input slot order, or no recommendations.
         """
         pass
 
@@ -207,7 +231,7 @@ class AssimilationModel(Protocol):
         Returns
         -------
         AssimilationModel
-            Returns instance of prognostic
+            Returns instance of assimilation model
         """
         pass
 

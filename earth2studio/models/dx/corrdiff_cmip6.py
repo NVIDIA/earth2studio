@@ -352,7 +352,8 @@ class CorrDiffCMIP6(CorrDiff):
         """
         from earth2studio.data import CMIP6MultiRealm
 
-        return CMIP6MultiRealm
+        # CMIP6MultiRealm is callable as a DataSource but has no async fetch
+        return CMIP6MultiRealm  # type: ignore[return-value]
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
