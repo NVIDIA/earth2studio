@@ -80,7 +80,7 @@ from earth2studio.models.px.stormscope import (
 )
 
 # %%
-# We use the CONUS nowcasting variant (``3km_10min``), the recommended default.
+# We use the Flash CONUS nowcasting variant (``3km_10min_flash``) for faster inference.
 # The GOES model is "pure obs" (no external conditioning), forecasting the eight
 # ABI channels from their recent history. The MRMS model forecasts
 # ``[refc, refc_base, glm_density]`` conditioned on GOES, and additionally
@@ -89,21 +89,21 @@ from earth2studio.models.px.stormscope import (
 # [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid], a gridded 0.1-degree lightning
 # product; the model bilinearly regrids it onto the model grid internally.
 #
-# Other selectable variants (see ``StormScope*.list_available_models``):
+# Selectable variants (see ``StormScope*.list_available_models``):
 #
-# - "3km_10min": CONUS nowcasting, 3 km / 10 min (recommended, default)
-# - "3km_10min_flash": accelerated 3 km / 10 min nowcasting, with optional regional inputs
+# - "3km_10min": baseline CONUS nowcasting, 3 km / 10 min
+# - "3km_10min_flash": accelerated CONUS nowcasting, 3 km / 10 min (example default)
 # - "6km_1hr": legacy 6 km / 60 min nearcasting
 #
-# To use Flash, set ``model_name = "3km_10min_flash"`` below. Set ``region`` to
-# (lat_min, lat_max, lon_min, lon_max) for local inference, or leave it as ``None`` for
-# CONUS. Flash retains up to 25 real context pixels per side (clipped at edges)
+# For Flash, set ``region`` to (lat_min, lat_max, lon_min, lon_max) for local
+# inference within CONUS, or leave it as ``None`` for the full domain.
+# Flash retains up to 25 real context pixels per side (clipped at edges)
 # and expands the model input to at least 200 x 200 pixels, aligned to patches.
 
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model_name = "3km_10min"
+model_name = "3km_10min_flash"
 # Flash only: (south_lat, north_lat, west_lon, east_lon), in degrees.
 # Negative longitude means west. Use None for the full CONUS domain.
 region = None  # Example: (39.075, 41.075, -97.0, -95.0)

@@ -302,6 +302,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "hf://nvidia/stormscope-goes-mrms@dcbe14a506e849b1afec9962dbf774f07d7aece8",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
+                # Keep model/variant folders to distinguish shared expert filenames.
                 "cache_mapper": BasenameCacheMapper(directory_levels=2),
             },
         )
@@ -1679,14 +1680,15 @@ class StormScopeGOES(StormScopeBase):
     legacy checkpoints. Variant names are semantic (``<resolution>_<cadence>``):
 
       - ``3km_10min``  : 3km resolution, 10 minute timestep (CONUS nowcasting)
-      - ``3km_10min_flash``: accelerated 3km / 10 minute nowcasting
+      - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS nowcasting
       - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting)
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package
     (including any added after this release). Legacy training-style names are still
     accepted as aliases.
 
-    Flash uses five backbone calls per step. Select a region with :meth:`set_domain`.
+    Flash uses five backbone calls per step. Select a region within the native
+    CONUS domain with :meth:`set_domain`.
 
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single
@@ -2035,14 +2037,15 @@ class StormScopeMRMS(StormScopeBase):
     Variant names are semantic (``<resolution>_<cadence>``):
 
       - ``3km_10min``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting (default)
-      - ``3km_10min_flash``: accelerated 3km / 10 minute MRMS+GLM nowcasting
+      - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS MRMS+GLM nowcasting
       - ``6km_1hr``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package.
     Legacy training-style names are still accepted as aliases.
 
-    Flash uses seven backbone calls per step. Use the coupled GOES model's bounds
-    and padding with :meth:`set_domain`.
+    Flash uses seven backbone calls per step. For regional inference within the
+    native CONUS domain, use the coupled GOES model's bounds and padding with
+    :meth:`set_domain`.
 
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single

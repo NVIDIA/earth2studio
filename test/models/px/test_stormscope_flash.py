@@ -1330,7 +1330,7 @@ def test_shared_example_loads_matching_coupled_models(
     namespace = {"torch": torch}
     config, loading = shared_example_cells["load"].split("package =", 1)
     exec(config, namespace)  # noqa: S102
-    assert namespace["model_name"] == "3km_10min"
+    assert namespace["model_name"] == "3km_10min_flash"
     assert namespace["region"] is None and namespace["padding"] == 25
     namespace.update(model_name=model_name, region=region)
     for name in (
