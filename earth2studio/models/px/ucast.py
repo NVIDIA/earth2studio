@@ -725,7 +725,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             grid="latlon-1.5deg",
         )
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> type[DataSource]:
         """Recommend ARCO ERA5 initial conditions.
 
         Returns

@@ -311,7 +311,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     def default_sources(
         self,
-    ) -> tuple["type[DataSource]", "type[DataFrameSource]"]:
+    ) -> tuple[type[DataSource], type[DataFrameSource]]:
         """Recommend ARCO ERA5 initialization and GHCNh observation data source classes.
 
         Data source classes are returned, not instances.
