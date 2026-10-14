@@ -146,14 +146,6 @@ class AssimilationModel(Protocol):
         | ForecastSource
         | DataFrameSource
         | type[DataSource | ForecastSource | DataFrameSource]
-        | tuple[
-            DataSource
-            | ForecastSource
-            | DataFrameSource
-            | type[DataSource | ForecastSource | DataFrameSource]
-            | None,
-            ...,
-        ]
         | None
     ):
         """Recommended data sources for each initialization and input slot.
@@ -172,7 +164,7 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | tuple[DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | None, ...] | None
+        DataSource | ForecastSource | DataFrameSource | type[DataSource | ForecastSource | DataFrameSource] | None
             A single source (instance or class), sources or ``None`` in
             initialization-then-input slot order, or no recommendations.
         """
