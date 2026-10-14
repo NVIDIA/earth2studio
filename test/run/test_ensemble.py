@@ -85,8 +85,7 @@ def test_run_ensemble(
             assert io[var].shape[i + 3] == value.shape[0]
 
         assert not np.any(np.isnan(io[var][:]))
-        assert np.all(io[var][:, :, 0] == 0.0)
-        assert not np.any(io[var][:, :, 1:] == 0.0)
+        assert not np.any(io[var][:] == 0.0)
 
 
 @pytest.mark.parametrize(
@@ -143,3 +142,34 @@ def test_ensemble_output_coords(output_coords, device):
     del output_coords["variable"]
     for key, value in output_coords.items():
         assert np.array_equal(io[key], value)
+
+
+class RecordingZarr(ZarrBackend):
+    def __init__(self) -> None:
+        super().__init__()
+        self.written: list[int] = []
+
+    def write(self, x: xr.DataArray) -> None:
+        self.written.extend(int(member) for member in x.coords["ensemble"].values)
+        super().write(x)
+
+
+@pytest.mark.parametrize("batch_size", [1, 2, 3])
+def test_ensemble_member_selection(batch_size):
+    coords = OrderedDict([("lat", np.arange(2.0)), ("lon", np.arange(3.0))])
+    io = run.ensemble(
+        ["2024-01-01"],
+        1,
+        3,
+        Persistence(["u10m"], coords),
+        Random(domain_coords=coords),
+        RecordingZarr(),
+        Zero(),
+        batch_size=batch_size,
+        output_coords=OrderedDict(ensemble=np.array([0, 2])),
+        device=torch.device("cpu"),
+        verbose=False,
+    )
+    np.testing.assert_array_equal(io["ensemble"][:], [0, 2])
+    assert sorted(set(io.written)) == [0, 2]
+    assert not np.isnan(io["u10m"][:]).any()

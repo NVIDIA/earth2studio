@@ -85,9 +85,15 @@ class XarrayBackend:
                 f"Coordinates collide with arrays: {sorted(map(str, clashes))}"
             )
         for name in plan.names:
-            if name in self.root.data_vars and self.root[name].dims != plan.dims:
+            if name not in self.root.data_vars:
+                continue
+            if self.root[name].dims != plan.dims:
                 raise ValueError(
                     f"Array '{name}' exists with dimensions {self.root[name].dims}"
+                )
+            if self.root[name].shape != plan.shape:
+                raise ValueError(
+                    f"Array '{name}' exists with shape {self.root[name].shape}"
                 )
         self.root = self.root.assign_coords(plan.coords)
         for name in plan.names:

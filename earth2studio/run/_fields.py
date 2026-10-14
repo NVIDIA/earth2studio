@@ -17,12 +17,14 @@
 """Field mapping and output-layout helpers shared by workflows and runners."""
 
 from collections import OrderedDict
-from typing import cast
+from collections.abc import Generator, Mapping
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
-from earth2studio.models.px import PrognosticModel
+from earth2studio.io.utils import output_template
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.utils.coords import CoordSystem, coord_array_like
 
 
@@ -106,24 +108,88 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
     return x
 
 
-def _output_dimensions(
-    prognostic: PrognosticModel, time: np.ndarray, nsteps: int
-) -> CoordSystem:
-    """Plan the legacy IO dimensions from a native model declaration."""
-    signature = cast(xr.DataArray, prognostic.output_coords(prognostic.input_coords()))
-    coords = OrderedDict(
-        (dim, values)
-        for dim, values in _dimension_coords(signature).items()
-        if signature.sizes[dim]
-    )
+def _lead_times(signature: xr.DataArray, nsteps: int) -> np.ndarray:
+    """Return a rollout's full lead-time extent from one step's declaration."""
     leads = signature.coords["lead_time"].values
-    coords["time"] = time
-    coords["lead_time"] = np.concatenate(
+    return np.concatenate(
         [
             np.zeros(1, dtype=leads.dtype),
             *(leads + leads[-1] * i for i in range(nsteps)),
         ]
     )
-    coords.move_to_end("lead_time", last=False)
-    coords.move_to_end("time", last=False)
-    return coords
+
+
+def _io_template(
+    signature: xr.DataArray,
+    nsteps: int,
+    leading: Mapping[str, np.ndarray],
+    output_coords: CoordSystem,
+    lead_time: np.ndarray | None = None,
+) -> xr.DataArray:
+    """Plan an IO template for a rollout from one step's output declaration.
+
+    ``output_coords`` restricts the stored domain and variables the way the
+    workflows have always allowed: spatial and variable selections are applied to
+    the signature, since :func:`output_template` only replaces non-spatial labels.
+    The full rollout lead-time extent comes from ``_lead_times`` unless ``lead_time``
+    is supplied (e.g. the diagnostic workflow stores the prognostic rollout extent).
+    """
+    # Selections along leading dims (time, ensemble) apply to `leading` below; the
+    # signature only has its dynamic batch prefix there
+    signature = _map_field(
+        signature,
+        OrderedDict((k, v) for k, v in output_coords.items() if k in signature.dims),
+    )
+    leads = np.asarray(
+        output_coords.get(
+            "lead_time",
+            lead_time if lead_time is not None else _lead_times(signature, nsteps),
+        )
+    )
+    leading = {
+        dim: np.asarray(output_coords.get(dim, values))
+        for dim, values in leading.items()
+    }
+    # output_template rejects spatial replacements; _map_field already applied them.
+    # Only lead_time is a fixed-dim replacement here; time/ensemble are leading dims.
+    if "lead_time" not in signature.dims:
+        # A diagnostic may drop lead time; the store keeps the rollout's axis, so the
+        # driver labels each write with it (see _with_lead_time)
+        leading = {**leading, "lead_time": leads}
+        return output_template(signature, leading=leading)
+    return output_template(signature, leading=leading, coords={"lead_time": leads})
+
+
+def _with_lead_time(x: xr.DataArray, lead_time: np.ndarray) -> xr.DataArray:
+    """Restore the lead-time axis a diagnostic dropped, after the leading ``time`` axis."""
+    if "lead_time" in x.dims:
+        return x
+    position = 1 if "time" in x.dims else 0
+    return x.expand_dims(lead_time=np.atleast_1d(lead_time), axis=position)
+
+
+def _yields_initial_condition(model: object) -> bool:
+    """Whether an unmigrated wrapper's iterator still yields the initial condition."""
+    return not callable(getattr(type(model), "initialize", None))
+
+
+def _rollout(
+    prognostic: Any, x: xr.DataArray, publish_initial_condition: bool = True
+) -> Generator[xr.DataArray, None, None]:
+    """Iterate a rollout, publishing the initial condition as its first field.
+
+    ``create_iterator`` of an explicit-state model yields forecasts only, so the
+    initial condition is taken from ``x``; unmigrated wrappers still yield it
+    themselves. Pass ``publish_initial_condition=False`` when resuming a rollout
+    whose initial condition has already been written.
+    """
+    iterator = prognostic.create_iterator(x)
+    try:
+        if _yields_initial_condition(prognostic):
+            yield from iterator
+            return
+        if publish_initial_condition:
+            yield initial_condition(x)
+        yield from iterator
+    finally:
+        iterator.close()

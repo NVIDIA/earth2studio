@@ -22,6 +22,7 @@ also checked against it.
 """
 
 from collections.abc import Callable
+from tempfile import mkdtemp
 
 import numpy as np
 import pytest
@@ -29,7 +30,15 @@ import torch
 import xarray as xr
 
 from earth2studio.grids import CurvilinearGrid, LatLonGrid, infer_grid
-from earth2studio.io import IOBackend, XarrayBackend
+from earth2studio.io import (
+    AsyncZarrBackend,
+    IceChunkBackend,
+    IOBackend,
+    KVBackend,
+    NetCDF4Backend,
+    XarrayBackend,
+    ZarrBackend,
+)
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -41,7 +50,12 @@ from earth2studio.utils.cupy import from_torch
 
 BACKENDS: dict[str, tuple[Callable[[], IOBackend], Callable[[IOBackend], xr.Dataset]]]
 BACKENDS = {
+    "async_zarr": (lambda: AsyncZarrBackend(None, {"time": TIMES, "lead_time": LEADS}, store="memory:///"), lambda io: xr.open_zarr(io.store, consolidated=False)),  # type: ignore[attr-defined] # noqa: E501
+    "icechunk": (lambda: pytest.importorskip("icechunk") and IceChunkBackend(), lambda io: io.to_xarray()),  # type: ignore[attr-defined, return-value] # fmt: skip
+    "kv": (KVBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
+    "netcdf4": (lambda: NetCDF4Backend(f"{mkdtemp()}/io.nc", {"mode": "w"}), lambda io: io.to_xarray()),  # type: ignore[attr-defined] # noqa: E501
     "xarray": (XarrayBackend, lambda io: io.root),  # type: ignore[attr-defined]
+    "zarr": (ZarrBackend, lambda io: io.to_xarray()),  # type: ignore[attr-defined]
 }
 
 TIMES = np.array(["2024-01-01T00", "2024-01-01T06"], dtype="datetime64[h]")
@@ -315,6 +329,8 @@ def test_read_round_trip(readable: IOBackend) -> None:
     np.testing.assert_array_equal(result.coords["variable"], VARIABLES)
     assert result.attrs["units"] == "K"
     assert infer_grid(result).fingerprint() == GRID.fingerprint()
+    for dim in ("lat", "lon"):
+        assert result.coords[dim].attrs == template.coords[dim].attrs
 
 
 def test_read_by_label(readable: IOBackend) -> None:
@@ -373,6 +389,8 @@ def test_add_array_rejects_name_collisions(backend: tuple[IOBackend, Callable]) 
     io.add_array(make_template())
     with pytest.raises(ValueError, match="collide"):
         io.add_array(coord_array(("lat",), {"lat": GRID.coords()["lat"]}, name="lat"))
+    with pytest.raises(ValueError, match="collide"):
+        io.add_array(coord_array(("t2m",), {"t2m": [0, 1]}, name="other"))
     io.flush()
     np.testing.assert_array_equal(read(io)["lat"].values, GRID.coords()["lat"].values)
 
@@ -387,6 +405,8 @@ def test_write_unlabelled_dims_in_full(backend: tuple[IOBackend, Callable]) -> N
     # Fields without labels must span the stored axis, never broadcast into it
     io, read = backend
     io.add_array(coord_array(("sample",), sizes={"sample": 3}, name="seed"))
+    with pytest.raises(ValueError, match="shape|size"):
+        io.add_array(coord_array(("sample",), sizes={"sample": 5}, name="seed"))
     with pytest.raises(ValueError, match="span all 3"):
         io.write(xr.DataArray([7.0], dims="sample", name="seed"))
     io.write(xr.DataArray([1.0, 2.0, 3.0], dims="sample", name="seed"))

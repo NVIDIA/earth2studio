@@ -4,12 +4,6 @@ IO backends in `earth2studio.io` write workflow outputs to memory or storage. Th
 take the same `xr.DataArray` fields that models and data sources produce, so
 workflows write model outputs directly.
 
-!!! note
-    Backends are migrating to this interface. Until they do, `ZarrBackend`,
-    `NetCDF4Backend`, `KVBackend`, `IceChunkBackend` and `AsyncZarrBackend` keep
-    the previous tensor-based `add_array(coords, array_name)` and
-    `write(x, coords, array_name)`.
-
 ## IO Backend Interface
 
 ```python
@@ -19,8 +13,8 @@ workflows write model outputs directly.
 - `add_array` creates the arrays a template describes.
 - `write` stores a field at the positions its coordinate labels identify.
 - `flush` waits until earlier writes are visible to readers.
-- `close` flushes and releases resources. `earth2studio.run` workflows do not close
-  the backend for you.
+- `close` flushes, finalizes the store and releases resources; `IceChunkBackend`
+  commits on close. `earth2studio.run` workflows do not close the backend for you.
 
 Backends do not need to inherit this protocol, and many offer more, such as `read`,
 `__contains__`, `__getitem__`, `__len__` and `__iter__`.
@@ -109,8 +103,9 @@ where you want a persistent, auditable history of a store's contents.
 
 `IceChunkBackend` subclasses `ZarrBackend`, so `add_array`, `write`, `read`,
 and the `__contains__`/`__getitem__`/`__len__`/`__iter__` helpers all behave
-identically. The one addition is `commit`, which must be called to persist
-writes:
+identically. The one addition is `commit`, which persists writes as a named
+snapshot. `close` also commits any pending writes with a generic message, so call
+`commit` yourself when you want a meaningful message or need to handle conflicts:
 
 ```python
 from earth2studio.io import IceChunkBackend
@@ -119,13 +114,15 @@ from earth2studio.io import IceChunkBackend
 # or an `icechunk.Storage` instance (e.g. `icechunk.s3_storage(...)`)
 io = IceChunkBackend("/path/to/repo")
 
-io.add_array(total_coords, array_name)
-io.write(x, coords, array_name)
+io.add_array(template)
+for y in islice(model.create_iterator(x), nsteps):
+    io.write(y)
 
 # Writes are visible through `read`/`__getitem__`/`commit` immediately (each
 # flushes pending writes first), but are only persisted to the Icechunk
 # repository once committed
 io.commit("forecast run 2024-01-01T00Z")
+io.close()  # nothing left to commit; later writes raise
 ```
 
 Pass `branch` to write to a named branch other than `"main"`; it is created
@@ -137,7 +134,7 @@ earth2studio[data]`.
     `write` is non-blocking by default: it submits the store write to a
     background thread and returns immediately, so the inference loop can move
     on to the next step while the previous step's write is still in flight.
-    `read`, `__getitem__` and `commit` all flush pending writes first. Pass
+    `read`, `__getitem__`, `commit` and `close` all flush pending writes first. Pass
     `blocking=True` to write synchronously instead.
 
 ### Sharding Icechunk output with the Async Zarr Backend

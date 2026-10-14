@@ -80,7 +80,6 @@ from loguru import logger
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import CorrDiffTaiwan
-from earth2studio.utils.coords import split_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -122,7 +121,7 @@ def run(
     # Fetch data from data source and load onto device
     time = to_time_array(time)
     from earth2studio.data import fetch_data
-    from earth2studio.run import _dimension_coords, _map_field
+    from earth2studio.run import _map_field
 
     x = fetch_data(
         data, time, corrdiff.input_coords().coords["variable"].values, device=device
@@ -131,24 +130,16 @@ def run(
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    # Set up IO backend
-    signature = corrdiff.output_coords(x)
-    total_coords = _dimension_coords(signature)
-    variables = total_coords.pop("variable")
-    io.add_array(total_coords, variables)
-    # Legacy IO stores dimension labels separately from auxiliary geography.
-    # Save the two-dimensional coordinates explicitly for the plotting section.
-    for name in ("lat", "lon"):
-        coordinate = signature.coords[name]
-        io.add_array(
-            _dimension_coords(coordinate),
-            name,
-            data=torch.as_tensor(coordinate.values),
-        )
+    # Set up IO backend. CorrDiff's output signature is already concrete here since
+    # it was derived from the fetched initial condition, so it is used directly as
+    # the template. The output grid is curvilinear, so its two-dimensional `lat` and
+    # `lon` are auxiliary coordinates of the `y`/`x` dimensions; the backend stores
+    # them alongside the data arrays, ready for the plotting section.
+    io.add_array(corrdiff.output_coords(x))
 
     logger.info("Inference starting!")
     x = corrdiff(x)
-    io.write(*split_coords(*x.e2s.to_torch()))
+    io.write(x)
 
     logger.success("Inference complete")
     return io

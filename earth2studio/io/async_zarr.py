@@ -18,43 +18,48 @@ import asyncio
 import concurrent
 import concurrent.futures
 import datetime
+import itertools
 import threading
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Hashable, Iterator, Mapping
 from dataclasses import dataclass
 
 # import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 import fsspec
 import fsspec.asyn
 import numpy as np
-import torch
+import pandas as pd
+import xarray as xr
 import zarr
 from fsspec.asyn import AsyncFileSystem
 from loguru import logger
 from zarr import AsyncGroup
 from zarr.core.array import CompressorsLike
 
+from earth2studio.io.utils import ArrayPlan, Indexer, plan_arrays, plan_write
 from earth2studio.utils.type import CoordSystem
 
 if TYPE_CHECKING:
     import obstore.store
 
-# https://github.com/pytorch/pytorch/blob/e180ca652f8a38c479a3eff1080efe69cbc11621/torch/testing/_internal/common_utils.py#L349
-torch_to_numpy_dtype_dict = {
-    torch.uint8: np.uint8,
-    torch.int8: np.int8,
-    torch.int16: np.int16,
-    torch.int32: np.int32,
-    torch.int64: np.int64,
-    torch.float16: np.float16,
-    torch.float32: np.float32,
-    torch.float64: np.float64,
-    torch.complex64: np.complex64,
-    torch.complex128: np.complex128,
-}
+# One array write: its name, the stored positions of each dimension (None covers
+# the whole axis) and the host memory payload to place there
+_Write: TypeAlias = tuple[str, dict[Hashable, "np.ndarray | None"], np.ndarray]
+
+
+def _positions(indexer: Indexer, size: int) -> np.ndarray:
+    """Stored positions an indexer selects along an axis of the given size"""
+    if isinstance(indexer, slice):
+        return np.arange(*indexer.indices(size))
+    return np.asarray(indexer)
+
+
+def _spans_axis(indexer: Indexer, size: int) -> bool:
+    """Whether an indexer covers a whole stored axis"""
+    return isinstance(indexer, slice) and indexer.indices(size) == (0, size, 1)
 
 
 @dataclass
@@ -210,8 +215,19 @@ class AsyncZarrBackend:
     (time, lead_time, ensemble) go into `parallel_coords` with their complete value sets,
     each inference step writes one slice along them, and `close()` is called at the end
     to drain pending writes and write out any incomplete shard. Remote stores are supported
-    through `fs_factory`, and Zarr v3 sharding via `shard_coords` keeps the file count of
+    through `store`, and Zarr v3 sharding via `shard_coords` keeps the file count of
     large campaigns low.
+
+    See `dev/spec/IO_SPEC.md` for the IO contract this backend implements.
+
+    Warning
+    -------
+    Write restriction (rule `I6`): a field may hold any subset of the store's labels
+    along a dimension of `parallel_coords`, but every other dimension must be written
+    in full. Those dimensions are a single chunk, so a partial write would make two
+    writes share a chunk and race. A narrower write raises `ValueError`. The
+    `variable` dimension is exempt: each label is a separate array, so any subset of
+    variables may be written.
 
     Warning
     -------
@@ -258,7 +274,7 @@ class AsyncZarrBackend:
     fs_factory : Callable[..., fsspec.spec.AbstractFileSystem] | None, optional
         Deprecated, use `store` instead. FSSpec file system factory method: a
         callable that returns an instance of the filesystem to write with.
-        When None (default) the fsspec machinery is skipped entirely — output
+        When ``None`` (default) the fsspec machinery is skipped entirely — output
         goes to the `store` if provided, otherwise straight to a local zarr
         store at `file_name`. Ignored (and not validated) when `store` is
         provided, by default None
@@ -275,8 +291,8 @@ class AsyncZarrBackend:
         wait for a concurrency slot, so this should be scaled with shard size and
         expected store throughput.
     zarr_kwargs : dict[str, Any], optional
-        Additional keyword arguments to provide to the ` zarr.api.asynchronous.open`
-        function, by default {"mode": "a"}
+        Additional keyword arguments to provide to the
+        :func:`zarr.api.asynchronous.open` function, by default {"mode": "a"}
     zarr_codecs: CompressorsLike, optional
         Compression codec to use when creating any new arrays. If None, will use no
         compressor, by default None
@@ -330,8 +346,10 @@ class AsyncZarrBackend:
     Exposes the same surface as :class:`ZarrBackend` and can be used as a drop-in
     replacement, with a few behavioral differences:
 
-    - `add_array` takes a `dtype` instead of a template `data` tensor and is
-      idempotent, so it is safe to call from every rank of a distributed job.
+    - `add_array` accepts an :class:`xarray.DataArray` template instead of a
+      coordinate system and tensor, and creates data arrays for each variable
+      label (or a single array named by the template). It is idempotent, so it
+      is safe to call from every rank of a distributed job.
     - In non-blocking mode a failed write raises at a later `write`, `flush` or
       `close` rather than at the failing call, and inputs are copied so callers
       may freely reuse their buffers.
@@ -370,6 +388,9 @@ class AsyncZarrBackend:
     --------
     Write a forecast one lead time at a time, hiding the IO behind the model steps:
 
+    >>> import numpy as np
+    >>> import xarray as xr
+    >>> from earth2studio.utils.coords import coord_array
     >>> times = np.array([np.datetime64("2024-01-01")])
     >>> lead_times = np.array([np.timedelta64(6 * i, "h") for i in range(4)])
     >>> io = AsyncZarrBackend(
@@ -378,20 +399,27 @@ class AsyncZarrBackend:
     ...     blocking=False,
     ...     shard_coords={"lead_time": 4},  # optional: 4 chunks per storage object
     ... )
-    >>> total_coords = OrderedDict(
+    >>> template = coord_array(
+    ...     ("time", "lead_time", "variable", "lat", "lon"),
     ...     {
     ...         "time": times,
     ...         "lead_time": lead_times,
+    ...         "variable": ["t2m", "z500"],
     ...         "lat": np.linspace(-90, 90, 721),
     ...         "lon": np.linspace(0, 360, 1440, endpoint=False),
-    ...     }
+    ...     },
     ... )
-    >>> io.add_array(total_coords, ["t2m", "z500"])
+    >>> io.add_array(template)
     >>> for i in range(len(lead_times)):
-    ...     x = torch.randn(1, 1, 721, 1440)  # model output for this step
-    ...     step_coords = total_coords.copy()
-    ...     step_coords["lead_time"] = lead_times[i : i + 1]
-    ...     io.write([x, x], step_coords, ["t2m", "z500"])
+    ...     x = xr.DataArray(  # model output for this lead time
+    ...         np.random.randn(1, 1, 721, 1440).astype("float32"),
+    ...         dims=("time", "lead_time", "lat", "lon"),
+    ...         coords={
+    ...             "time": times,
+    ...             "lead_time": lead_times[i : i + 1],
+    ...         },
+    ...     )
+    ...     io.write(x.expand_dims("variable").assign_coords(variable=["t2m"]))
     >>> io.close()  # drain pending writes, write out any incomplete shard
     """
 
@@ -468,6 +496,18 @@ class AsyncZarrBackend:
                     f"Shard size for coordinate '{key}' must be positive but got {value}"
                 )
 
+        self._closed = False
+        # Cached store layout used by the new DataArray protocol. _coords holds every
+        # stored coordinate variable (dimension coords and auxiliaries) as an
+        # xr.Variable; _arrays holds the stored data arrays and their dimension sizes
+        # in order; _coord_values holds the 1-D dimension-coordinate labels used to map
+        # a field's labels to stored positions. All caches are updated only when arrays
+        # are created by add_array, and read back from the store at construction so
+        # reopened stores work as expected.
+        self._coords: dict[Hashable, xr.Variable] = {}
+        self._arrays: dict[str, dict[Hashable, int]] = {}
+        self._coord_values: dict[Hashable, np.ndarray] = {}
+
         # Shard accumulation state, shared across every loop in the pool so all access
         # is guarded by a threading lock (the loops live in different threads, an
         # asyncio lock would provide no mutual exclusion between them)
@@ -515,6 +555,7 @@ class AsyncZarrBackend:
         )
         fsspec.asyn.sync(loop, self._validate_parallel_coords)
         self.loop = loop
+        fsspec.asyn.sync(loop, self._read_layout)
 
     @staticmethod
     def _resolve_store(
@@ -679,106 +720,135 @@ class AsyncZarrBackend:
         zs = await zarr.api.asynchronous.open(store=zstore, **zarr_kwargs)
         return zs, fs
 
-    async def _initialize_arrays(
-        self,
-        coords: CoordSystem,
-        array_names: list[str],
-        dtypes: list[np.dtype],
-    ) -> None:
-        """Initializes arrays (data and coordinates)
+    async def _read_layout(self) -> None:
+        """Reads the arrays and coordinates already in the store into the caches
+
+        A reopened store then validates templates and writes exactly like one this
+        process created, which is what makes restarts and resumed runs work.
+        """
+        arrays = {name: array async for name, array in self.root.arrays()}
+        dims_of: dict[str, tuple[Hashable, ...]] = {
+            name: tuple(array.metadata.dimension_names or (name,))
+            for name, array in arrays.items()
+        }
+        # A coordinate array is either a dimension coordinate (its only dimension is
+        # itself) or an auxiliary coordinate listed by a data array, CF style
+        coord_names = {name for name, dims in dims_of.items() if dims == (name,)}
+        for array in arrays.values():
+            listed = array.metadata.attributes.get("coordinates", "")
+            coord_names.update(str(listed).split())
+
+        for name, array in arrays.items():
+            if name in coord_names:
+                values = await array.getitem(slice(None))
+                self._cache_coord(
+                    name,
+                    xr.Variable(dims_of[name], values, dict(array.metadata.attributes)),
+                )
+            else:
+                self._arrays[name] = dict(zip(dims_of[name], array.shape))
+        # Writes into a reopened store must stage whole shards, as after add_array
+        await self._register_shard_specs(list(self._arrays))
+
+    def _cache_coord(self, name: Hashable, variable: xr.Variable) -> None:
+        """Records a stored coordinate, and its labels when it is a dimension coord"""
+        self._coords[name] = variable
+        if variable.dims == (name,):
+            self._coord_values[name] = np.asarray(variable.values)
+
+    async def _create_arrays(self, plan: ArrayPlan, auxiliary: tuple[str, ...]) -> None:
+        """Creates the coordinate and data arrays an array plan describes
 
         Parameters
         ----------
-        coords : CoordSystem
-            Coordinate system of arrays
-        array_names : list[str]
-            Array names
-        dtypes : list[np.dtype]
-            Numpy data type of array
-
-        Raises
-        ------
-        ValueError
-            If some coords are index coords and container new values no in self.parallel_coords
+        plan : ArrayPlan
+            Storage the template requires, from :func:`earth2studio.io.utils.plan_arrays`
+        auxiliary : tuple[str, ...]
+            Names of the auxiliary coordinates of the data arrays, listed in their CF
+            ``coordinates`` attribute so Xarray opens them as coordinates
         """
-        # ======
-        # Coordinate arrays
-        # ======
-        for key, value in coords.items():
-            # Check coordinate in index coords
-            if key in self.parallel_coords:
-                # Check that all elements in value are in parallel_coords array
-                if not np.all(np.isin(value, self.parallel_coords[key])):
-                    raise ValueError(
-                        f"Coordinate array '{key}' contains values not present in parallel_coords"
-                    )
-                value = self.parallel_coords[key]
-
-            # Skip if coordinate array exists
-            if await self.root.contains(key) and not self.overwrite:
+        for key, variable in plan.coords.items():
+            name = str(key)
+            if await self.root.contains(name) and not self.overwrite:
                 continue
-
-            logger.debug(f"Writing coordinate array {key} to zarr store")
+            values = np.asarray(variable.values)
+            logger.debug(f"Writing coordinate array {name} to zarr store")
             array = await self.root.create_array(
-                name=key,
-                shape=value.shape,
-                chunks=value.shape,
-                dtype=value.dtype,
-                dimension_names=[key],
+                name=name,
+                shape=values.shape,
+                chunks=values.shape,
+                dtype=values.dtype,
+                dimension_names=[str(dim) for dim in variable.dims],
+                attributes={str(key): value for key, value in variable.attrs.items()},
                 overwrite=self.overwrite,
                 compressors=self.zarr_codecs,
             )
-            await array.setitem(Ellipsis, value)
+            await array.setitem(Ellipsis, values)
 
-        # ======
-        # Data arrays
-        # ======
-        for name, dtype in zip(array_names, dtypes):
-            # if self.root.contains(name) and not self.overwrite:
+        attributes: dict[str, Any] = {
+            str(key): value for key, value in plan.attrs.items()
+        }
+        if auxiliary:
+            attributes["coordinates"] = " ".join(auxiliary)
+
+        sizes = dict(zip(plan.dims, plan.shape))
+        chunked = self._compute_chunks(sizes)
+        for name in plan.names:
             if await self.root.contains(name) and not self.overwrite:
                 continue
-            array_coords = coords.copy()
-            chunked: dict[str, int] = {
-                key: value.shape[0] for key, value in array_coords.items()
-            }
-            for key, value in self.parallel_coords.items():
-                if key in array_coords:
-                    array_coords[key] = value
-                    chunked[key] = 1
-            chunked.update(
-                {
-                    key: value
-                    for key, value in self.chunked_coords.items()
-                    if key in array_coords
-                }
-            )
-
-            shape: tuple[int] = tuple(value.shape[0] for value in array_coords.values())
-            chunks = tuple(value for value in chunked.values())
-            shards = self._compute_shards(name, array_coords, chunked, dtype)
-
+            chunks = tuple(chunked.values())
+            shards = self._compute_shards(name, sizes, chunked, plan.dtype)
             logger.debug(
-                f"Initializing array {name} with shape {shape} with chunks {chunks} "
-                + f"shards {shards} dtype {dtype}"
+                f"Initializing array {name} with shape {plan.shape} with chunks "
+                + f"{chunks} shards {shards} dtype {plan.dtype}"
             )
             await self.root.create_array(
                 name=name,
-                shape=shape,
+                shape=plan.shape,
                 chunks=chunks,
                 shards=shards,
-                dtype=dtype,
-                dimension_names=list(coords.keys()),
+                dtype=plan.dtype,
+                fill_value=plan.fill_value,
+                dimension_names=[str(dim) for dim in plan.dims],
+                attributes=attributes,
                 overwrite=self.overwrite,
                 compressors=self.zarr_codecs,
             )
 
         self.overwrite = False
+        await self._register_shard_specs(list(plan.names))
+
+    def _compute_chunks(self, sizes: Mapping[Hashable, int]) -> dict[Hashable, int]:
+        """Chunk size of each dimension of an array
+
+        Dimensions of `parallel_coords` are chunked with a size of one so writes along
+        them never share a chunk; every other dimension is a single chunk unless
+        `chunked_coords` says otherwise.
+
+        Parameters
+        ----------
+        sizes : Mapping[Hashable, int]
+            Size of each dimension of the array, in dimension order
+
+        Returns
+        -------
+        dict[Hashable, int]
+            Chunk size of each dimension, in dimension order
+        """
+        chunked = {
+            dim: 1 if dim in self.parallel_coords else size
+            for dim, size in sizes.items()
+        }
+        chunked.update(
+            {dim: size for dim, size in self.chunked_coords.items() if dim in chunked}
+        )
+        return chunked
 
     def _compute_shards(
         self,
         name: str,
-        array_coords: CoordSystem,
-        chunked: dict[str, int],
+        array_coords: Mapping[Hashable, int],
+        chunked: Mapping[Hashable, int],
         dtype: np.dtype,
     ) -> tuple[int, ...] | None:
         """Resolves the shard shape of an array from the user provided `shard_coords`
@@ -787,10 +857,10 @@ class AsyncZarrBackend:
         ----------
         name : str
             Array name, used for error messages
-        array_coords : CoordSystem
-            Complete coordinate system of the array
-        chunked : dict[str, int]
-            Chunk size of each coordinate of the array
+        array_coords : Mapping[Hashable, int]
+            Size of each dimension of the array, in dimension order
+        chunked : Mapping[Hashable, int]
+            Chunk size of each dimension of the array
         dtype : np.dtype
             Numpy data type of the array, used for the memory estimate
 
@@ -814,15 +884,11 @@ class AsyncZarrBackend:
                 + "and will be ignored. The array will be unsharded along those coordinates."
             )
 
-        shards: dict[str, int] = {}
-        for key in array_coords:
+        shards: dict[Hashable, int] = {}
+        for key, size in array_coords.items():
             chunk_size = chunked[key]
             if key not in self.shard_coords:
-                shards[key] = (
-                    chunk_size
-                    if key in self.parallel_coords
-                    else array_coords[key].shape[0]
-                )
+                shards[key] = chunk_size if key in self.parallel_coords else size
                 continue
 
             shard_size = self.shard_coords[key]
@@ -833,7 +899,7 @@ class AsyncZarrBackend:
                     + "Coordinates in `parallel_coords` have a chunk size of 1, others "
                     + "default to their full length unless set via `chunked_coords`."
                 )
-            dim_size = array_coords[key].shape[0]
+            dim_size = size
             if key not in self.parallel_coords and shard_size < dim_size:
                 raise ValueError(
                     f"Shard size {shard_size} for coordinate '{key}' of array '{name}' "
@@ -891,87 +957,6 @@ class AsyncZarrBackend:
                 )
 
         return coords
-
-    async def prepare_inputs(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> tuple[dict[str, torch.Tensor], CoordSystem]:
-        """Prepares input coordinates and tensors for writting
-
-        This function is a blocking function that will run any needed input checks as
-        well as handle the initialization of any arrays that are not present already
-        inside the Zarr store. This function will ensure that writes of the input
-        data / arrays at each index of an `index_coord` can be written in parallel.
-
-        Parameters
-        ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Input tensors to write
-        coords : CoordSystem
-            Tensor coordinate system
-        array_name : str | list[str]
-            Array name(s) to write
-
-        Returns
-        -------
-        tuple[dict[str, torch.Tensor], CoordSystem]
-            Prepared tensor list, coordinate system and array names for writting
-        """
-        coords = coords.copy()
-
-        if isinstance(x, torch.Tensor):
-            x = [x]
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        # Run input checks
-        if not (len(x) == len(array_name)):
-            raise ValueError(
-                f"Input tensors and array names must same length but got {len(x)} and {len(array_name)}."
-            )
-
-        # If fsspec store has a aiohttp session, collect it so we can then close it
-        # manually...
-        # https://s3fs.readthedocs.io/en/latest/#async
-        try:
-            session = await self.fs.set_session(refresh=True)
-        except AttributeError:
-            session = None
-
-        x = {array_name[i]: x[i] for i in range(len(x))}
-        dtypes = [torch_to_numpy_dtype_dict[x0.dtype] for x0 in x.values()]
-
-        coords = self._scrub_coordinates(coords.copy())
-        # Initialize arrays (coords and data) if needed
-        # Note that this is blocking, which is intentional so we avoid race conditions
-        # upon array creation
-        await self._initialize_arrays(coords, list(x.keys()), dtypes)
-        await self._register_shard_specs(list(x.keys()))
-
-        for key, value in coords.items():
-            zarray = await self.root.get(key)
-            if key in self.parallel_coords:
-                z0 = np.where(np.isin(await zarray.getitem(slice(None)), value))[0]
-                if len(z0) != value.shape[0]:
-                    raise ValueError(
-                        f"Could not find coordinate value {value} in zarr parallel coordinate array {key}. "
-                        + "All index coordinates must be fully defined on construction of the IO object via `parallel_coords`."
-                    )
-            # Otherwise check that the coordinate system is the complete coordinate system
-            # We do not support sliced writes of non-index coords... this is done for
-            # thread safety reasons
-            else:
-                if not np.array_equal(value, await zarray.getitem(slice(None))):
-                    raise ValueError(
-                        f"Non-index coordinate {key} must match the complete coordinate system defined in zarr array. "
-                        + "Sliced writes of non-index coordinates are not supported for thread safety reasons."
-                    )
-
-        if session:
-            await session.close()
-
-        return x, coords
 
     async def _register_shard_specs(self, array_names: list[str]) -> None:
         """Records the shard geometry of each array, read back from the Zarr metadata
@@ -1406,100 +1391,128 @@ class AsyncZarrBackend:
                 coords[dim] = await arrays[dim].getitem(slice(None))
         return coords
 
-    def add_array(
-        self,
-        coords: CoordSystem,
-        array_name: str | list[str],
-        dtype: Any = np.float32,
-        **kwargs: Any,
-    ) -> None:
-        """Create arrays and their coordinate arrays in the store
+    def add_array(self, template: xr.DataArray) -> None:
+        """Create storage for the arrays a template describes
 
-        Arrays are otherwise created lazily on first write, which is per process:
-        several processes writing the same array for the first time all see it as
-        absent and race on creation. Creating the schema up front, from one process,
-        avoids that race. It also allows arrays with different dimension sets, which
-        no single first write could imply.
+        Creates the dimension and auxiliary coordinate arrays, then one data array
+        per ``variable`` label (or one named after the template when it has no
+        ``variable`` dimension). Writes never create arrays: several processes
+        writing the same array for the first time would all see it as absent and
+        race on creation, so the schema is created up front, from one process.
+        Re-adding an identical array is a no-op, so resumed runs and every rank of
+        a distributed job can call this unconditionally.
 
         Parameters
         ----------
-        coords : CoordSystem
-            Coordinate system of the array(s).
-        array_name : str | list[str]
-            Name(s) of the array(s) to create.
-        dtype : np.dtype, optional
-            Data type of the array(s), by default np.float32 (matching
-            `ZarrBackend.add_array` without data). Arrays created lazily by
-            `write` instead use the written tensor's dtype.
-        kwargs : Any
-            Accepted for `IOBackend` compatibility (e.g. `ZarrBackend`'s `data=`)
-            but not supported here, array content comes from `write` and creation
-            options from the constructor. Ignored with a warning.
-        """
-        if kwargs:
-            logger.warning(
-                f"AsyncZarrBackend.add_array ignoring unsupported kwargs: "
-                f"{sorted(kwargs)}"
-            )
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        names = [str(name) for name in array_name]
-        dtypes = [np.dtype(dtype)] * len(names)
-        coords = self._scrub_coordinates(coords.copy())
-        fsspec.asyn.sync(self.loop, self._add_array, coords, names, dtypes)
+        template : xr.DataArray
+            Concrete coordinate signature; field values are never read. Along a
+            dimension of `parallel_coords` the template must hold exactly the values
+            given at construction, in order, since those size the stored arrays.
 
-    async def _add_array(
-        self, coords: CoordSystem, names: list[str], dtypes: list[np.dtype]
-    ) -> None:
-        # An existing coordinate array must match the values passed, otherwise data
-        # arrays sized from these coords disagree with the stored coordinate and the
-        # store cannot be opened by xarray
-        for key, value in coords.items():
-            if key in self.parallel_coords or not await self.root.contains(key):
+        Raises
+        ------
+        ValueError
+            If the template is not concrete, names no array, collides with a
+            coordinate, disagrees with a stored coordinate or dimension, or holds
+            different labels than `parallel_coords` along a parallel dimension
+        """
+        if self._closed:
+            raise RuntimeError("Cannot add arrays to a closed AsyncZarrBackend")
+        plan = plan_arrays(template, self._coords)
+        self._check_parallel_extent(template, plan)
+        clashes = set(map(str, plan.coords)).intersection(self._arrays)
+        if clashes:
+            raise ValueError(f"Coordinates collide with arrays: {sorted(clashes)}")
+        for name in plan.names:
+            stored = self._arrays.get(name)
+            if stored is None:
                 continue
-            existing = await (await self.root.get(key)).getitem(slice(None))
-            if existing.shape != value.shape or not np.array_equal(existing, value):
+            if tuple(stored) != tuple(plan.dims):
                 raise ValueError(
-                    f"Coordinate array '{key}' already exists in the store with "
-                    "different values, use a different dimension name"
+                    f"Array '{name}' exists with dimensions {tuple(stored)}"
                 )
-        await self._initialize_arrays(coords, names, dtypes)
-        await self._register_shard_specs(names)
+            if tuple(stored.values()) != plan.shape:
+                raise ValueError(
+                    f"Array '{name}' exists with shape {tuple(stored.values())}"
+                )
+        # Coordinates that are not dimension coordinates, such as the latitude and
+        # longitude of a curvilinear grid, are listed in a CF `coordinates` attribute
+        auxiliary = tuple(
+            str(key)
+            for key, value in template.coords.items()
+            if key not in template.dims and "variable" not in value.dims
+        )
+        fsspec.asyn.sync(self.loop, self._create_arrays, plan, auxiliary)
+        for key, variable in plan.coords.items():
+            self._cache_coord(key, variable)
+        for name in plan.names:
+            self._arrays[name] = dict(zip(plan.dims, plan.shape))
 
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """Write data
+    def _check_parallel_extent(self, template: xr.DataArray, plan: ArrayPlan) -> None:
+        """Requires parallel dimensions to hold their construction values, in order
+
+        `parallel_coords` holds the complete value set of every parallel dimension,
+        so a template that disagrees would create an array that later writes could
+        not be located in.
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to zarr store.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
-        """
-        # Block this until complete, prevents race conditions when initialization
-        x, coords = fsspec.asyn.sync(
-            self.loop, self.prepare_inputs, x, coords, array_name
-        )
+        template : xr.DataArray
+            Template being added
+        plan : ArrayPlan
+            Storage the template requires
 
-        if not self.blocking:
-            # prevents race conditions when the data is mutated in place before the
-            # write is completed.
-            x = {key: value.detach().to("cpu", copy=True) for key, value in x.items()}
+        Raises
+        ------
+        ValueError
+            If a parallel dimension of the template is unlabelled or holds different
+            labels than `parallel_coords`
+        """
+        for dim, values in self.parallel_coords.items():
+            if dim not in plan.dims:
+                continue
+            labels = template.coords[dim].values if dim in template.coords else None
+            if labels is None or not pd.Index(np.asarray(labels)).equals(
+                pd.Index(np.asarray(values))
+            ):
+                raise ValueError(
+                    f"Parallel dimension '{dim}' must hold the values given to "
+                    "`parallel_coords` at construction, in order; they size the "
+                    "stored arrays"
+                )
+
+    def write(self, x: xr.DataArray) -> None:
+        """Write a field at the positions its coordinate labels identify
+
+        Along a dimension of `parallel_coords` the field may hold any subset of the
+        store's labels; every other dimension must be written in full (see the write
+        restriction in the class docstring). Writes are chunk aligned, so parallel
+        steps never share a chunk.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy-, CuPy- or Torch-backed field holding the dimensions of its target
+            arrays in store order. It is never modified; in non-blocking mode the
+            payload is copied before returning so callers may reuse their buffers.
+
+        Raises
+        ------
+        ValueError
+            If an array was not created by `add_array`, the dimensions differ, a
+            label is unknown or duplicated, or a non-parallel dimension is written
+            in part
+        RuntimeError
+            If the backend is closed
+        """
+        writes = self._plan_write(x, copy=not self.blocking)
 
         # Threads are cycled based on rotating index, pretty crude but works
         self._limit_pool_size(len(self.loop_pool) - 1)
         future = asyncio.run_coroutine_threadsafe(
             asyncio.wait_for(
                 self._write(
-                    x,
-                    coords,
+                    writes,
                     self.zarr_pool[self.pool_index],
                     self.fs_pool[self.pool_index],
                 ),
@@ -1514,59 +1527,93 @@ class AsyncZarrBackend:
             self.io_futures.append(future)
             self.pool_index = (self.pool_index + 1) % len(self.loop_pool)
 
-    async def async_write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """Async write data
+    async def async_write(self, x: xr.DataArray) -> None:
+        """Async write of a field, the coroutine behind :meth:`write`
 
         Warning
         -------
         Unlike the non-blocking ``write``, no copy of the data is made here.
-        The tensors must not be mutated or re-allocated until this coroutine
+        The payload must not be mutated or re-allocated until this coroutine
         completes — scheduling it as a task while stepping a state tensor in
         place will silently store the mutated values.
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to zarr store.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
+        x : xr.DataArray
+            Field to write, see :meth:`write`
         """
-        x, coords = await self.prepare_inputs(x, coords, array_name)
-        await self._write(x, coords, self.root, self.fs)
+        await self._write(self._plan_write(x, copy=False), self.root, self.fs)
 
-    async def _write(
-        self,
-        x: dict[str, torch.Tensor],
-        coords: CoordSystem,
-        zs: AsyncGroup,
-        fs: fsspec.AbstractFileSystem | None,
-    ) -> None:
-        """_summary_
+    def _plan_write(self, x: xr.DataArray, copy: bool) -> list[_Write]:
+        """Validates a field and maps its labels to stored positions
+
+        Nothing is written and no array created here, so an invalid write leaves the
+        store untouched.
 
         Parameters
         ----------
-        x : dict[str, torch.Tensor]
-            Dictionary of tensor(s) to be written to zarr arrays.
-        coords : CoordSystem
-            Coordinates of the passed data.
+        x : xr.DataArray
+            Field to write. It is never modified
+
+        Returns
+        -------
+        list[_Write]
+            One entry per target array: its name, the stored positions of each
+            dimension (None spans the whole axis) and the host memory payload
+
+        Raises
+        ------
+        ValueError
+            If the field does not match the store, or writes a non-parallel
+            dimension in part
+        RuntimeError
+            If the backend is closed
+        """
+        if self._closed:
+            raise RuntimeError("Cannot write to a closed AsyncZarrBackend")
+
+        writes: list[_Write] = []
+        for name, indexers, field in plan_write(x, self._arrays, self._coord_values):
+            positions: dict[Hashable, np.ndarray | None] = {}
+            for dim, size in self._arrays[name].items():
+                if dim in self.parallel_coords:
+                    positions[dim] = _positions(indexers[dim], size)
+                elif not _spans_axis(indexers[dim], size):
+                    raise ValueError(
+                        f"Dimension '{dim}' of array '{name}' is not in "
+                        "`parallel_coords`, so it is a single chunk and must be "
+                        f"written in full ({size} labels); partial writes of such "
+                        "dimensions are not supported for thread safety reasons"
+                    )
+                else:
+                    positions[dim] = None
+            # Host memory payload, moved off the device here rather than on a pool
+            # thread so a CuPy or Torch payload is never touched after write returns
+            values = field.e2s.as_numpy().values
+            if copy:
+                # The caller may reuse or release the field the moment write returns
+                values = values.copy()
+            writes.append((name, positions, values))
+        return writes
+
+    async def _write(
+        self,
+        writes: list[_Write],
+        zs: AsyncGroup,
+        fs: fsspec.AbstractFileSystem | None,
+    ) -> None:
+        """Writes planned chunks into the store
+
+        Parameters
+        ----------
+        writes : list[_Write]
+            Planned array writes from :meth:`_plan_write`
         zs : zarr.AsyncGroup
             Zarr store to use
         fs : fsspec.AbstractFileSystem | None
             File system to use (relevant for session creation); None for
             obstore-backed stores, which manage their own sessions
         """
-
-        # Move data to CPU
-        # TODO: could this be asynced?
-        x = {key: value.detach().cpu().numpy() for key, value in x.items()}
-
         # If fsspec store has a aiohttp session, collect it so we can then close it
         # manually... (fs is None on the object-store path, which manages its own)
         # https://s3fs.readthedocs.io/en/latest/#async
@@ -1577,73 +1624,63 @@ class AsyncZarrBackend:
             except AttributeError:
                 pass
 
-        # Start with building a list of slices for every array and index that needs to
-        # be written
-        input_slices = []
-        output_slices = []
-        for i, key in enumerate(coords.keys()):
-            in_slices = []
-            out_slices = []
-            if key in self.parallel_coords:
-                for in_idx, out_idx in enumerate(
-                    np.where(np.isin(self.parallel_coords[key], coords[key]))[0]
-                ):
-                    in_slices.append(slice(in_idx, in_idx + 1))
-                    out_slices.append(slice(out_idx, out_idx + 1))
-            else:
-                in_slices.append(slice(None))
-                out_slices.append(slice(None))
-            output_slices.append(out_slices)
-            input_slices.append(in_slices)
-
-        # Mesh grid slices
-        slice_mesh = np.meshgrid(*output_slices, indexing="ij")
-        output_slice_arr = np.stack([mesh.flatten() for mesh in slice_mesh], axis=-1)
-
-        slice_mesh = np.meshgrid(*input_slices, indexing="ij")
-        input_slice_arr = np.stack([mesh.flatten() for mesh in slice_mesh], axis=-1)
-        n_slices = output_slice_arr.shape[0]
-
-        logger.debug(f"Writing {n_slices} chunks to {len(x)} Zarr arrays")
-        writes = []
-        for array in x.keys():
-            zarray = await zs.get(array)
-            spec = self._shard_specs.get(array)
-            # Loop through each element of the index mesh (chunk to write)
-            for i in range(n_slices):
-                input_slice = tuple(input_slice_arr[i])
-                array_slice = tuple(output_slice_arr[i])
+        tasks = []
+        for name, positions, values in writes:
+            zarray = await zs.get(name)
+            spec = self._shard_specs.get(name)
+            # One write per element of the parallel dimensions, which are chunked
+            # with a size of one, so each write covers whole chunks only
+            axes = [
+                (
+                    [(slice(None), slice(None))]
+                    if indices is None
+                    else [
+                        (slice(i, i + 1), slice(int(index), int(index) + 1))
+                        for i, index in enumerate(indices)
+                    ]
+                )
+                for indices in positions.values()
+            ]
+            for chunk in itertools.product(*axes):
+                input_slice = tuple(pair[0] for pair in chunk)
+                array_slice = tuple(pair[1] for pair in chunk)
                 if spec is None:
                     # Unsharded, one chunk is one object so it is written directly
-                    writes.append(
+                    tasks.append(
                         asyncio.create_task(
-                            zarray.setitem(array_slice, x[array][input_slice])
+                            zarray.setitem(array_slice, values[input_slice])
                         )
                     )
                 else:
                     # Sharded, accumulate in host memory and write once the shard is
                     # complete so each shard object is written exactly once
-                    writes.append(
+                    tasks.append(
                         asyncio.create_task(
                             self._stage_chunk(
-                                array, zarray, spec, array_slice, x[array][input_slice]
+                                name, zarray, spec, array_slice, values[input_slice]
                             )
                         )
                     )
+        logger.debug(f"Writing {len(tasks)} chunks to {len(writes)} Zarr arrays")
         # Every single chunk is written async...
-        await asyncio.gather(*writes)
+        await asyncio.gather(*tasks)
         if session:
             await session.close()
 
     def close(self) -> None:
-        """Cleans up an remaining io processes that are currently running. Should be
+        """Flush pending writes and reject later ones
+
+        Cleans up any remaining io processes that are currently running. Should be
         called explicitly at the end of an inference workflow to ensure all data has
-        been written.
+        been written. Repeated calls are no-ops and the store stays readable.
 
         When sharding is enabled this also writes out any shard that never filled. Note
-        that calling this mid run and then writing into the same shards again forces a
-        read-modify-write of those shards.
+        that calling `flush()` mid run and then writing into the same shards again
+        forces a read-modify-write of those shards.
         """
+        if self._closed:
+            return
+        self._closed = True
         # Clean up process pool and write out any partially filled shards
         self.flush()
 

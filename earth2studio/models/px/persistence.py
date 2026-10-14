@@ -274,6 +274,9 @@ class Persistence(torch.nn.Module, PrognosticMixin):
     def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
         """Yield forecasts starting with the first prediction after the input.
 
+        With a level 2 checkpoint, the latest forecast is saved after each yield and
+        a resumed run continues from it instead of re-initializing from ``x``.
+
         Parameters
         ----------
         x : xr.DataArray
@@ -285,4 +288,24 @@ class Persistence(torch.nn.Module, PrognosticMixin):
             Persisted forecasts after the rear hook. The front hook runs before
             subsequent steps; both hooks feed recurrence directly.
         """
-        return self._default_create_iterator(x)
+        y, restored = self._restore_checkpoint_state(x)
+        # A loaded state belongs to the rollout that saved it; a different batch of
+        # the same run (other ensemble members, say) starts from its own input
+        if restored and not all(
+            dim in y.coords
+            and np.array_equal(y.coords[dim].values, x.coords[dim].values)
+            for dim in x.dims
+            if dim != "lead_time"
+        ):
+            y, restored = x, False
+        if not restored:
+            y, _ = self.initialize(x)
+            y = self.rear_hook(y)
+            self._save_checkpoint_state(y)
+            yield y
+        while True:
+            y = self.front_hook(y)
+            y, _ = self.step(y, None)
+            y = self.rear_hook(y)
+            self._save_checkpoint_state(y)
+            yield y

@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-
 import numpy as np
 import pytest
 import xarray as xr
@@ -23,7 +21,6 @@ import xarray as xr
 from earth2studio.grids import E2S_CRS, LatLonGrid
 from earth2studio.io.utils import output_template, plan_arrays, plan_read, plan_write
 from earth2studio.models.px import Persistence
-from earth2studio.run import _output_dimensions
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_STATISTICS,
@@ -78,15 +75,6 @@ def test_output_template_rejects(signature: xr.DataArray) -> None:
         output_template(signature, {"time": TIMES}, {"lat": [0.0]})
     with pytest.raises(ValueError, match="nonempty"):
         output_template(signature, {"time": TIMES[:0]})
-
-
-def test_output_dimensions_matches_legacy_plan() -> None:
-    model = Persistence(["t2m"], GRID)
-    coords = _output_dimensions(model, TIMES, 2)
-    assert isinstance(coords, OrderedDict)
-    assert list(coords) == ["time", "lead_time", "variable", "lat", "lon"]
-    np.testing.assert_array_equal(coords["time"], TIMES)
-    np.testing.assert_array_equal(coords["lead_time"], LEADS)
 
 
 def test_plan_arrays(signature: xr.DataArray) -> None:

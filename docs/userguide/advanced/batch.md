@@ -189,27 +189,26 @@ Output: torch.Size([4]) OrderedDict([('dim2', array([0, 1, 2, 3]))])
 
 The IO backends require users to pre-define the output coordinate system on which the
 data will be exported.
-Typically, a good way to do this is to review the output coordinate system of the model,
-which will typically include a `batch` dimension.
+Typically, a good way to do this is to review the output coordinates of the model,
+which will typically include a dynamic `batch` dimension.
 But the model won't actually return a batch dimension, thus it's a common pattern to
 replace this batch dimension with whatever leading coordinate the input will have.
 
-For example, refer to the built-in workflows.
-The setup process for the IO backend is handled in a general manner by first getting the
-output coordinates of the model, removing empty dimensions such as `batch` and then
-prepending known leading dimensions like `time`.
+`earth2studio.io.utils.output_template` does this, as the built-in workflows do.
+It replaces the dynamic leading dimensions of the model's output signature with known
+leading dimensions like `time`, and replaces fixed labels such as `lead_time` with the
+full forecast horizon:
 
 ```python
-total_coords = prognostic.output_coords.copy()
-for key, value in prognostic.output_coords.items():
-    if value.shape == (0,):
-        del total_coords[key]
-total_coords["time"] = time
-total_coords["lead_time"] = np.asarray(
-    [prognostic.output_coords["lead_time"] * i for i in range(nsteps + 1)]
-).flatten()
-total_coords.move_to_end("lead_time", last=False)
-total_coords.move_to_end("time", last=False)
-var_names = total_coords.pop("variable")
-io.add_array(total_coords, var_names)
+from earth2studio.io.utils import output_template
+
+# (batch, lead_time, variable, lat, lon)
+signature = prognostic.output_coords(prognostic.input_coords())
+step = signature.coords["lead_time"].values[-1]
+template = output_template(
+    signature,
+    leading={"time": time},  # replaces batch
+    coords={"lead_time": np.arange(nsteps + 1) * step},
+)
+io.add_array(template)  # one (time, lead_time, lat, lon) array per variable
 ```
