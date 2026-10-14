@@ -154,3 +154,44 @@ def test_corrdiff_era5_hrrr_exceptions(model_args):
             CorrDiffEra5Hrrr(**(model_args | {key: value}))
     with pytest.raises(ValueError, match="variant"):
         CorrDiffEra5Hrrr.load_model(None, variant="v_pred")
+
+
+@pytest.mark.parametrize(
+    "solver",
+    [
+        "exponential_euler",
+        "edm_stochastic_exponential_euler",
+        "dpmpp_2m",
+        "dpmpp_2m_unic2",
+    ],
+)
+@pytest.mark.parametrize(
+    "kind,prediction",
+    [("edm", "x0"), ("rectified_flow", "flow"), ("rectified_flow", "x0")],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_solver_alternatives(model_args, solver, kind, prediction, device):
+    dx = CorrDiffEra5Hrrr(
+        **model_args,
+        network_kind=kind,
+        prediction_type=prediction,
+        solver=solver,
+        solver_options=(
+            {"S_churn": 0.1, "S_max": 0.5}
+            if solver.startswith("edm_stochastic")
+            else None
+        ),
+    ).to(device)
+    coords = dx.input_coords()
+    input_tensor = torch.ones(
+        len(coords["variable"]),
+        len(coords["lat"]),
+        len(coords["lon"]),
+        device=device,
+    )
+    condition = dx.preprocess_input(input_tensor, datetime(2025, 7, 1, 18))
+    with torch.inference_mode():
+        actual = dx._sample_one(condition, 17)
+        repeated = dx._sample_one(condition, 17)
+    assert torch.isfinite(actual).all()
+    torch.testing.assert_close(actual, repeated, atol=0, rtol=0)

@@ -1036,3 +1036,36 @@ def test_default_package_cache_serves(
     assert path2 != path6
     assert json.loads(Path(path2).read_text())["resolution"] == "rea2"
     assert json.loads(Path(path6).read_text())["resolution"] == "rea6"
+
+
+@pytest.mark.parametrize(
+    "solver",
+    [
+        "exponential_euler",
+        "edm_stochastic_exponential_euler",
+        "dpmpp_2m",
+        "dpmpp_2m_unic2",
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_diffusion_solver_alternatives(solver, device):
+    dx = _build(
+        mode="diffusion",
+        regression_model=None,
+        diffusion_model=PhooDiffusionDiT(len(OUTPUT_VARIABLES), gain=0.5),
+        number_of_samples=2,
+        seed=0,
+        channel_transforms={},
+        constraints={},
+        solver=solver,
+        solver_options=(
+            {"S_churn": 0.1} if solver.startswith("edm_stochastic") else None
+        ),
+    ).to(device)
+    x, coords = _diffusion_coords(dx)
+    x = x.to(device)
+    out, out_coords = dx(x, coords)
+    repeated, repeated_coords = dx(x, coords)
+    assert torch.isfinite(out).all()
+    torch.testing.assert_close(out, repeated, atol=0, rtol=0)
+    np.testing.assert_array_equal(out_coords["sample"], repeated_coords["sample"])

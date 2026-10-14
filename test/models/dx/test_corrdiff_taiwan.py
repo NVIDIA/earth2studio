@@ -19,6 +19,7 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+from jaxtyping import Float
 
 from earth2studio.models.dx import CorrDiffTaiwan
 from earth2studio.utils import handshake_dim
@@ -49,6 +50,33 @@ class PhooCorrDiff(torch.nn.Module):
 
     def round_sigma(self, sigma):
         return torch.as_tensor(sigma)
+
+
+class ChannelConditionedCorrDiff(torch.nn.Module):
+    sigma_min = 0.002
+    sigma_max = 80.0
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.projection = torch.nn.Conv2d(20, 4, kernel_size=1)
+
+    @property
+    def device(self) -> torch.device:
+        return self.projection.weight.device
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "B O H W"],
+        img_lr: Float[torch.Tensor, "B C H W"],
+        sigma: Float[torch.Tensor, " *dims"] | None = None,
+        class_labels: torch.Tensor | None = None,
+    ) -> Float[torch.Tensor, "B O H W"]:
+        return self.projection(torch.cat((x, img_lr), dim=1).float())
+
+    def round_sigma(
+        self, sigma: Float[torch.Tensor, " *dims"]
+    ) -> Float[torch.Tensor, " *dims"]:
+        return sigma
 
 
 @pytest.mark.parametrize(
@@ -219,3 +247,52 @@ def test_corrdiff_package(device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "sample", 1)
     handshake_dim(out_coords, "batch", 0)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("solver", ["euler", "heun"])
+def test_corrdiff_regression_mean_conditioning(device, solver):
+    lat = torch.linspace(19.5, 27, 450)
+    lon = torch.linspace(117, 125, 450)
+    out_lat, out_lon = torch.meshgrid(lat, lon, indexing="ij")
+    model = CorrDiffTaiwan(
+        ChannelConditionedCorrDiff(),
+        ChannelConditionedCorrDiff(),
+        torch.zeros(12, 1, 1),
+        torch.ones(12, 1, 1),
+        torch.zeros(4, 1, 1),
+        torch.ones(4, 1, 1),
+        out_lat,
+        out_lon,
+        number_of_samples=2,
+        number_of_steps=3,
+        solver=solver,
+        seed=17,
+    ).to(device)
+    x = torch.randn(1, 12, 36, 40, device=device)
+    coords = model.input_coords()
+    coords["batch"] = np.arange(1)
+    means = []
+    conditions = []
+
+    def record_mean(module, args, output):
+        means.append(output.clone())
+
+    def record_condition(module, args, output):
+        conditions.append(args[1].clone())
+
+    mean_handle = model.regression_model.register_forward_hook(record_mean)
+    residual_handle = model.residual_model.register_forward_hook(record_condition)
+    actual, _ = model(x, coords)
+    mean_handle.remove()
+    residual_handle.remove()
+    assert actual.shape == (1, 2, 4, 448, 448)
+    assert torch.isfinite(actual).all()
+    assert len(means) == 1
+    assert len(conditions) == (3 if solver == "euler" else 6)
+    interpolated = model._interpolate(x[0]).unsqueeze(0)  # (1, 12, H, W)
+    expected_condition = torch.cat((means[0], interpolated), dim=1).expand(
+        2, -1, -1, -1
+    )
+    for condition in conditions:
+        torch.testing.assert_close(condition, expected_condition)

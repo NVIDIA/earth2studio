@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,6 @@ from earth2studio.utils.type import CoordSystem, LeadTimeArray
 
 try:
     from physicsnemo.diffusion.generate.legacy_generate import (
-        diffusion_step,
         regression_step,
     )
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecondSuperResolution
@@ -46,7 +45,6 @@ try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
 except ImportError:  # pragma: no cover
     OptionalDependencyFailure("corrdiff")
-    diffusion_step = None  # type: ignore[assignment]
     regression_step = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
     UNet = None  # type: ignore[assignment]
@@ -100,8 +98,10 @@ class CorrDiffCMIP6(CorrDiff):
         Number of high resolution samples to draw from diffusion model, by default 1
     number_of_steps : int, optional
         Number of langevin diffusion steps during sampling algorithm, by default 18
-    solver : Literal["euler", "heun"], optional
-        Discretization of diffusion process, by default "euler"
+    solver : str | None, optional
+        PhysicsNeMo solver. None preserves stochastic Heun or deterministic Euler.
+    solver_options : dict[str, Any] | None, optional
+        Solver constructor overrides, by default None
     sampler_type : Literal["deterministic", "stochastic"], optional
         Type of sampler to use, by default "stochastic"
     inference_mode : Literal["regression", "both"], optional
@@ -248,7 +248,7 @@ class CorrDiffCMIP6(CorrDiff):
         invariant_scale: torch.Tensor | None = None,
         number_of_samples: int = 1,
         number_of_steps: int = 18,
-        solver: Literal["euler", "heun"] = "euler",
+        solver: str | None = None,
         sampler_type: Literal["deterministic", "stochastic"] = "stochastic",
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
@@ -260,6 +260,8 @@ class CorrDiffCMIP6(CorrDiff):
         time_feature_center: torch.Tensor | None = None,
         time_feature_scale: torch.Tensor | None = None,
         output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, "h")]),
+        *,
+        solver_options: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
             input_variables=input_variables,
@@ -280,6 +282,7 @@ class CorrDiffCMIP6(CorrDiff):
             number_of_samples=number_of_samples,
             number_of_steps=number_of_steps,
             solver=solver,
+            solver_options=solver_options,
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
@@ -413,6 +416,9 @@ class CorrDiffCMIP6(CorrDiff):
         package: Package,
         output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, "h")]),
         device: str = "cpu",
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load diagnostic from package
 
@@ -424,6 +430,11 @@ class CorrDiffCMIP6(CorrDiff):
             Output lead times to sample at, by default np.array([np.timedelta64(-12, "h")])
         device : str, optional
             Device to load model on, by default "cpu"
+
+        solver : str | None, optional
+            PhysicsNeMo solver override, by default None
+        solver_options : dict[str, Any] | None, optional
+            Solver constructor overrides, by default None
 
         Returns
         -------
@@ -469,8 +480,13 @@ class CorrDiffCMIP6(CorrDiff):
         invariant_variables = metadata.get("invariant_variables", None)
         number_of_samples = metadata.get("number_of_samples", 1)
         number_of_steps = metadata.get("number_of_steps", 18)
-        solver = metadata.get("solver", "euler")
         sampler_type = metadata.get("sampler_type", "stochastic")
+        if solver is None:
+            solver = (
+                "edm_stochastic_heun"
+                if sampler_type == "stochastic"
+                else metadata.get("solver", "euler")
+            )
         inference_mode = metadata.get("inference_mode", "both")
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
         sigma_max_metadata = metadata.get("sigma_max", 400)
@@ -571,6 +587,7 @@ class CorrDiffCMIP6(CorrDiff):
             number_of_samples=number_of_samples,
             number_of_steps=number_of_steps,
             solver=solver,
+            solver_options=solver_options,
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
@@ -762,11 +779,6 @@ class CorrDiffCMIP6(CorrDiff):
         This override keeps the base `CorrDiff` class unchanged, but allows the CMIP6 wrapper
         to reduce GPU peak memory by avoiding a GPU-side concat of all samples.
         """
-        if self.solver not in ["euler", "heun"]:
-            raise ValueError(
-                f"solver must be either 'euler' or 'heun' but got {self.solver}"
-            )
-
         # Preprocess input (CMIP6 requires valid_time)
         image_lr = self.preprocess_input(x, valid_time)
         image_lr = image_lr.to(torch.float32).to(memory_format=torch.channels_last)
@@ -820,16 +832,8 @@ class CorrDiffCMIP6(CorrDiff):
             for i in range(out.shape[0]):
                 mean_hr = image_reg[i : i + 1] if self.hr_mean_conditioning else None
                 for j in range(self.number_of_samples):
-                    image_res = diffusion_step(
-                        net=self.residual_model,
-                        sampler_fn=self.sampler,
-                        img_shape=image_lr.shape[-2:],
-                        img_out_channels=len(self.output_variables),
-                        rank_batches=[[seed0 + j]],
-                        img_lr=image_lr[i : i + 1],
-                        rank=1,
-                        device=image_lr.device,
-                        mean_hr=mean_hr,
+                    image_res = self._sample_residual(
+                        image_lr[i : i + 1], [seed0 + j], mean_hr
                     )
                     out[i, j] = self.postprocess_output(image_reg[i] + image_res).to(
                         out_device
