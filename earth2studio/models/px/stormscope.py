@@ -299,7 +299,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default StormScope package from Hugging Face."""
         return Package(
-            "hf://nvidia/stormscope-goes-mrms@34a61472c7c0eadc914fb73021b11017b97328fa",
+            "hf://nvidia/stormscope-goes-mrms@aea147432bd77e8113abfacff93d18dfe5cced20",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
                 "cache_mapper": BasenameCacheMapper(directory_levels=2),
