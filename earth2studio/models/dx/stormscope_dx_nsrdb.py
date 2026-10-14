@@ -17,7 +17,7 @@
 import json
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -43,6 +43,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo import Module  # type: ignore[import-untyped]
@@ -238,15 +241,20 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
         )
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "type[DataSource]":
+        """Recommend the GOES data source class.
+
+        The class itself is returned, not an instance, so that callers can
+        construct the source with their own arguments.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        type[DataSource]
+            ``GOES`` data source class (uninstantiated).
         """
-        return None
+        from earth2studio.data import GOES
+
+        return GOES
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

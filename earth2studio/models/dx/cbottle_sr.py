@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -31,6 +32,9 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import earth2grid
@@ -295,15 +299,20 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "type[DataSource]":
+        """Recommend the CBottle3D data source class.
+
+        The class itself is returned, not an instance, so that callers can
+        construct the source with their own arguments.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        type[DataSource]
+            ``CBottle3D`` data source class (uninstantiated).
         """
-        return None
+        from earth2studio.data import CBottle3D
+
+        return CBottle3D
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.

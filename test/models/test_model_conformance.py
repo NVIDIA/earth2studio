@@ -246,7 +246,9 @@ def test_diagnostic_protocol_declarations(model: type) -> None:
     source_parameters = inspect.signature(model.default_sources).parameters
     assert list(source_parameters) == ["self"]
     instance = object.__new__(model)
-    assert model.default_sources(instance) is None
+    # Defaults are None or an uninstantiated data source class
+    default = model.default_sources(instance)
+    assert default is None or inspect.isclass(default)
 
 
 def test_rng_control_is_owned_by_model_wrappers() -> None:

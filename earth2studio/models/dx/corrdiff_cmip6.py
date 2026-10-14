@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -37,6 +37,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import LeadTimeArray
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo.diffusion.generate.legacy_generate import (
@@ -335,6 +338,21 @@ class CorrDiffCMIP6(CorrDiff):
             for i, v in enumerate(self.output_variables)
             if v in self._NONNEGATIVE_VARS
         ]
+
+    def default_sources(self) -> "type[DataSource]":
+        """Recommend the CMIP6 multi-realm data source class.
+
+        The class itself is returned, not an instance, so that callers can
+        construct the source with their own arguments.
+
+        Returns
+        -------
+        type[DataSource]
+            ``CMIP6MultiRealm`` data source class (uninstantiated).
+        """
+        from earth2studio.data import CMIP6MultiRealm
+
+        return CMIP6MultiRealm
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.

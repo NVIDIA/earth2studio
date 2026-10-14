@@ -16,6 +16,7 @@
 
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -35,6 +36,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from earth2studio.models.nn.afno_precip import PrecipNet
@@ -110,15 +114,20 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
         self.eps = 1e-5
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "type[DataSource]":
+        """Recommend the ARCO ERA5 data source class.
+
+        The class itself is returned, not an instance, so that callers can
+        construct the source with their own arguments.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        type[DataSource]
+            ``ARCO_ERA5`` data source class (uninstantiated).
         """
-        return None
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
