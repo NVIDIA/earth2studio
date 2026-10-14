@@ -24,7 +24,6 @@ from typing import TYPE_CHECKING, Any, Literal, Self, cast
 import numpy as np
 import torch
 import torch.nn as nn
-from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from loguru import logger
 from numpy.typing import ArrayLike
 
@@ -302,8 +301,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "hf://nvidia/stormscope-goes-mrms@dcbe14a506e849b1afec9962dbf774f07d7aece8",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
-                # Keep model/variant folders to distinguish shared expert filenames.
-                "cache_mapper": BasenameCacheMapper(directory_levels=2),
+                "same_names": False,  # Distinguish matching filenames across directories.
             },
         )
 

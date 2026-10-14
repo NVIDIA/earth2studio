@@ -1040,7 +1040,8 @@ def test_curvilinear_request_outside_perimeter_is_rejected():
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="NATTEN execution requires CUDA"
 )
-def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
+@pytest.mark.parametrize("hashed_cache_name", [False, True])
+def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path, hashed_cache_name):
     torch.manual_seed(8)
     config = dict(
         height=8,
@@ -1068,6 +1069,8 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
     model.load_state_dict(reference.state_dict(), strict=True)
     path = tmp_path / "tiny.mdlus"
     model.save(str(path))
+    if hashed_cache_name:
+        path = path.rename(tmp_path / hashlib.sha256(b"tiny.mdlus").hexdigest())
     restored = Module.from_checkpoint(str(path), strict=True)
     assert isinstance(restored, FlashModel)
     assert isinstance(restored.model, PhysicsNeMoDiT)
@@ -1104,16 +1107,18 @@ def test_mdlus_round_trip_preserves_heads_and_updates(tmp_path):
         FlashModel(config, metadata).load_state_dict(incomplete, strict=True)
 
 
-def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
+@pytest.mark.parametrize("hashed_cache_name", [False, True])
+def test_mdlus_file_integrity_guard(tmp_path, monkeypatch, hashed_cache_name):
     from earth2studio.models.nn.stormscope_flash import (
         _validate_checkpoint_file,
     )
 
     payload = b"checkpoint integrity test"
     digest = hashlib.sha256(payload).hexdigest()
-    path = tmp_path / "expert_0.mdlus"
+    path = tmp_path / (digest if hashed_cache_name else "expert_0.mdlus")
     path.write_bytes(payload)
     spec = dict(
+        path="checkpoints/goes/3km_10min_flash/expert_0.mdlus",
         deployment_format="flash-mdlus-v1",
         deployment_sha256=digest,
         deployment_size_bytes=len(payload),
@@ -1127,6 +1132,8 @@ def test_mdlus_file_integrity_guard(tmp_path, monkeypatch):
         _validate_checkpoint_file(path, {**spec, "deployment_size_bytes": 1})
     with pytest.raises(ValueError, match="requires a .mdlus"):
         _validate_checkpoint_file(path, {**spec, "deployment_format": "flash-pt-v1"})
+    with pytest.raises(ValueError, match="requires a .mdlus"):
+        _validate_checkpoint_file(path, {**spec, "path": "expert_0.pt"})
 
 
 def test_flash_region_uses_fifteen_available_edge_pixels():
@@ -1268,7 +1275,9 @@ def test_shared_default_package_has_no_variant_arguments(cls):
 def test_flash_cache_separates_numbered_model_experts(tmp_path):
     import fsspec
 
-    mapper = StormScopeGOES.load_default_package().cache_options["cache_mapper"]
+    cache_options = StormScopeGOES.load_default_package().cache_options
+    assert cache_options["same_names"] is False
+    assert "cache_mapper" not in cache_options
     fs = fsspec.filesystem("memory")
     root = f"/flash-{tmp_path.name}"
     paths = [
@@ -1284,14 +1293,14 @@ def test_flash_cache_separates_numbered_model_experts(tmp_path):
         fs=fs,
         cache=True,
         cache_options={
+            **cache_options,
             "cache_storage": str(tmp_path / "cache"),
-            "cache_mapper": mapper,
         },
     )
     resolved = [Path(package.resolve(path)) for path in paths]
     assert len(set(resolved)) == 4
     for path, local, payload in zip(paths, resolved, payloads):
-        assert local.suffix == ".mdlus"
+        assert local.name != Path(path).name
         assert local.read_bytes() == payload
         assert Path(package.resolve(path)).read_bytes() == payload
 

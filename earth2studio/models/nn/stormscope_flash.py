@@ -1324,7 +1324,11 @@ def _validate_flash_expert(model: FlashModel, kind: str, region: str) -> None:
 
 
 def _validate_checkpoint_file(path: Path, spec: Mapping[str, Any]) -> None:
-    if path.suffix != ".mdlus" or spec.get("deployment_format") != "flash-mdlus-v1":
+    # Cached files may have hashed names without the original extension.
+    if (
+        Path(spec["path"]).suffix != ".mdlus"
+        or spec.get("deployment_format") != "flash-mdlus-v1"
+    ):
         raise ValueError("Flash requires a .mdlus deployment package")
     if path.stat().st_size != spec["deployment_size_bytes"]:
         raise ValueError(f"Packaged checkpoint size mismatch: {path}")
