@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 def recommended_sources(
     model: Any,
-) -> "DataSource | ForecastSource | type[DataSource | ForecastSource] | tuple[DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...] | None":
+) -> "DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None":
     """Recommended source for each input and forcing slot of a model.
 
     Prognostic, diagnostic and assimilation models declare ``default_sources()``. Models that
@@ -48,8 +48,8 @@ def recommended_sources(
 
     Returns
     -------
-    DataSource | ForecastSource | type[DataSource | ForecastSource] | tuple[DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...] | None
-        A source (instance or class) for a single slot, a tuple in input-then-forcing slot order, or
+    DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+        A source for a single slot, a tuple in input-then-forcing slot order, or
         ``None`` for no recommendations. A ``None`` tuple entry means no
         recommendation for that slot.
     """
