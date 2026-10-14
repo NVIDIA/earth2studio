@@ -16,8 +16,9 @@
 
 import json
 import os
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from datetime import datetime, timedelta
+from typing import Literal
 
 import numpy as np
 import torch
@@ -38,6 +39,8 @@ from earth2studio.utils.type import CoordSystem
 
 try:
     from physicsnemo import Module
+    from physicsnemo.diffusion import Denoiser
+    from physicsnemo.diffusion.samplers import Solver
 except ImportError:
     OptionalDependencyFailure("atlas")
     Module = None
@@ -126,6 +129,7 @@ _EPOCH = datetime(1970, 1, 1)
 
 
 def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
+    """Convert a NumPy timestamp to a naive UTC datetime."""
     delta_us = (
         t.astype("datetime64[us]") - np.datetime64("1970-01-01T00:00:00", "us")
     ).astype(int)
@@ -159,6 +163,13 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Stochastic interpolant for the low-resolution latent state.
     sinterpolant_sample_steps : int
         Number of steps to sample for the stochastic interpolant.
+    solver : str | Solver | Callable[[Denoiser], Solver], optional
+        Use the native Atlas SDE with ``None``. For experiments, pass ``"euler"``,
+        ``"heun"``, or a factory that receives a bound drift denoiser and returns
+        a fresh PhysicsNeMo solver per forecast. Custom solvers change the
+        dynamics unless they supply the SDE diffusion and score correction.
+        A direct solver instance retains caller-owned state across forecasts;
+        use a factory for stateful or condition-bound solvers.
 
     Warning
     ----------
@@ -190,6 +201,8 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         model_processor: nn.Module,
         sinterpolant: nn.Module,
         sinterpolant_sample_steps: int = 60,
+        *,
+        solver: "Literal['euler', 'heun'] | Solver | Callable[[Denoiser], Solver] | None" = None,
     ) -> None:
         super().__init__()
         self.autoencoders = autoencoders
@@ -198,6 +211,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model_processor = model_processor
         self.sinterpolant = sinterpolant
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
+        self.solver = solver
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system expected by Atlas.
@@ -383,6 +397,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             cond=cond,
             verbose=False,
             compute_normalization=True,
+            solver=self.solver,
         )
 
         # Decode
@@ -542,8 +557,36 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package) -> PrognosticModel:
-        """Instantiate and load Atlas from a package."""
+    def load_model(
+        cls,
+        package: Package,
+        *,
+        solver: "Literal['euler', 'heun'] | Solver | Callable[[Denoiser], Solver] | None" = None,
+    ) -> PrognosticModel:
+        """Instantiate and load Atlas from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Model checkpoints and configuration to load.
+        solver : str | Solver | Callable[[Denoiser], Solver], optional
+            Use the checkpoint's native SDE method with ``None``. Pass
+            ``"euler"`` or ``"heun"`` for experimental drift-only integration,
+            or a factory that receives the bound drift denoiser and creates a
+            fresh solver per forecast. A direct instance keeps caller-owned
+            state. See :class:`Atlas` for the dynamics and state contract.
+
+        Returns
+        -------
+        PrognosticModel
+            Atlas model with the requested solver configuration.
+
+        Examples
+        --------
+        >>> from physicsnemo.diffusion.samplers import HeunSolver
+        >>> package = Atlas.load_default_package()  # doctest: +SKIP
+        >>> model = Atlas.load_model(package, solver=HeunSolver)  # doctest: +SKIP
+        """
         if os.environ.get("TORCH_ALLOW_TF32_CUBLAS_OVERRIDE") != "1":
             logger.warning(
                 "Atlas inference expects TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1 for "
@@ -618,4 +661,5 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             model_processor=model_processor,
             sinterpolant=sinterpolant,
             sinterpolant_sample_steps=config["sinterpolant"]["sample_steps"],
+            solver=solver,
         )

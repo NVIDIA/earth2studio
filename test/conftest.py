@@ -67,6 +67,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/data/test_meteosat_fci.py": ["data"],
     "test/models/test_diffusion.py": ["nvidia-physicsnemo"],
     "test/models/test_cbottle_sampling.py": ["cbottle"],
+    "test/models/test_atlas_sampling.py": ["atlas"],
     # Model dx tests
     "test/models/dx/test_cbottle_infill.py": ["cbottle"],
     "test/models/dx/test_cbottle_sr.py": ["cbottle"],

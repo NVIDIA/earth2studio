@@ -16,15 +16,19 @@
 
 import datetime
 import math
+from collections.abc import Callable
 from enum import Enum
 from functools import cache, partial
 from timeit import default_timer
+from typing import Literal
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from jaxtyping import Float
 from loguru import logger
+from torch import Tensor
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from earth2studio.utils.imports import (
@@ -34,6 +38,8 @@ from earth2studio.utils.imports import (
 
 try:
     from physicsnemo import Module as PhysicsNeMoModule
+    from physicsnemo.diffusion import Denoiser
+    from physicsnemo.diffusion.samplers import Solver, sample
 except ImportError:
     PhysicsNeMoModule = object
 
@@ -678,68 +684,191 @@ class StochasticInterpolant(torch.nn.Module):
 
     def sample(
         self,
-        drift_velocity,
-        x,
-        t=None,
-        steps=200,
-        cond=None,
-        compute_normalization=False,
-        keep_every=None,
-        verbose=False,
-    ):
+        drift_velocity: Callable[..., Float[Tensor, " B *dims"]],
+        x: Float[Tensor, " B *dims"],
+        t: Float[Tensor, "B T"] | None = None,
+        steps: int = 200,
+        cond: (
+            dict[str, Float[Tensor, " B *dims"]] | Float[Tensor, " B *dims"] | None
+        ) = None,
+        compute_normalization: bool = False,
+        keep_every: int | None = None,
+        verbose: bool = False,
+        *,
+        solver: "Literal['euler', 'heun'] | Solver | Callable[[Denoiser], Solver] | None" = None,
+    ) -> Float[Tensor, " B *dims"] | Float[Tensor, " B K *dims"]:
+        """Sample the Atlas interpolant with PhysicsNeMo orchestration.
 
+        Parameters
+        ----------
+        drift_velocity : Callable
+            Atlas velocity model accepting ``I``, ``t`` and conditioning.
+        x : Tensor
+            Initial state with shape ``(batch, ...)``.
+        t : Tensor, optional
+            Per-example time grid with shape ``(batch, steps + 1)``.
+        steps : int, optional
+            Number of uniform steps from zero to one when ``t`` is absent.
+        cond : dict[str, Tensor] | Tensor, optional
+            Model conditioning, as keyword inputs or concatenated channels.
+        compute_normalization : bool, optional
+            Supply Atlas normalization coefficients to the velocity model.
+        keep_every : int, optional
+            Return each requested interval along a second output dimension.
+        verbose : bool, optional
+            Log elapsed time for native steps after the initial step.
+        solver : str | Solver | Callable[[Denoiser], Solver], optional
+            Keep the configured native SDE method with ``None``. Select
+            experimental drift-only ODE integration with ``"euler"`` or
+            ``"heun"``, or supply a factory receiving the bound drift denoiser.
+            The factory creates a fresh solver for each trajectory and can
+            configure higher-order methods. A supplied solver instance retains
+            caller-owned state; reset it before reuse when necessary.
+
+        Returns
+        -------
+        Tensor
+            Final state, or intermediate states selected by ``keep_every``.
+
+        Notes
+        -----
+        Custom solvers receive the normalized Atlas velocity without the SDE
+        diffusion or score correction. They change the sampling dynamics unless
+        the caller supplies these terms. Their forecast accuracy needs separate
+        validation. Native methods preserve their initial-step rule and RNG draws.
+
+        Examples
+        --------
+        >>> interpolant = StochasticInterpolant()
+        >>> x = torch.zeros(1, 2)
+        >>> velocity = lambda I, t: torch.ones_like(I)
+        >>> interpolant.sample(velocity, x, steps=2, solver="euler")
+        tensor([[1., 1.]])
+        >>> from physicsnemo.diffusion.samplers import HeunSolver
+        >>> interpolant.sample(velocity, x, steps=2, solver=HeunSolver).shape
+        torch.Size([1, 2])
+        """
         initial = x.clone()
-
         if t is None:
             t = torch.linspace(0.0, 1.0, steps + 1, device=x.device)
-            t = t.view(1, -1)
+            t = t.view(1, -1)  # (1, T)
             t = torch.repeat_interleave(t, x.shape[0], dim=0)
         else:
             steps = t.shape[1] - 1
 
-        expand_shape = [x.shape[0]] + [1] * (len(x.shape) - 1)
+        denoiser = _AtlasDenoiser(self, drift_velocity, cond, compute_normalization)
+        configured_solver: Literal["euler", "heun"] | Solver
+        if solver is None:
+            configured_solver = _AtlasSolver(denoiser, initial, t, verbose)
+        elif isinstance(solver, str):
+            configured_solver = solver
+        elif isinstance(solver, Solver) and not isinstance(solver, type):
+            configured_solver = solver
+        else:
+            configured_solver = solver(denoiser)
 
-        x = self.sample_step(
-            drift_velocity, x, t, 0, expand_shape, cond, compute_normalization, initial
+        if solver is not None and not torch.equal(t, t[:1].expand_as(t)):
+            raise ValueError("Custom Atlas solvers require a shared batch time grid.")
+        if keep_every is not None and keep_every < 1:
+            raise ValueError("keep_every must be positive.")
+        time_eval = (
+            list(range(keep_every - 1, steps, keep_every))
+            if keep_every is not None
+            else None
+        )
+        result = sample(
+            denoiser,
+            x,
+            # Explicit time steps bypass scheduler access in PhysicsNeMo.
+            noise_scheduler=None,  # type: ignore[arg-type]
+            num_steps=steps,
+            solver=configured_solver,
+            time_steps=t[0],
+            time_eval=time_eval,
+        )
+        if keep_every is None:
+            return result
+        # Atlas retained outputs use the default dtype, including empty outputs.
+        out = torch.zeros(
+            [x.shape[0], steps // keep_every] + list(x.shape[1:]), device=x.device
+        )
+        for index, retained in enumerate(result):
+            out[:, index, ...] = retained
+        return out
+
+
+class _AtlasDenoiser:
+    def __init__(
+        self,
+        interpolant: StochasticInterpolant,
+        model: Callable[..., Float[Tensor, " B *dims"]],
+        condition: (
+            dict[str, Float[Tensor, " B *dims"]] | Float[Tensor, " B *dims"] | None
+        ),
+        compute_normalization: bool,
+    ) -> None:
+        self.interpolant = interpolant
+        self.model = model
+        self._compute_drift: Callable[
+            [
+                Callable[..., Float[Tensor, " B *dims"]],
+                Float[Tensor, " B *dims"],
+                Float[Tensor, "B 1"],
+                dict[str, Float[Tensor, " B *dims"]] | Float[Tensor, " B *dims"] | None,
+                bool,
+            ],
+            Float[Tensor, " B *dims"],
+        ] = interpolant.compute_drift
+        self.condition = condition
+        self.compute_normalization = compute_normalization
+
+    def __call__(
+        self, x: Float[Tensor, " B *dims"], t: Float[Tensor, " B"]
+    ) -> Float[Tensor, " B *dims"]:
+        t = t.view(-1, 1)  # (B, 1)
+        return self._compute_drift(
+            self.model, x, t, self.condition, self.compute_normalization
         )
 
-        kept_samples = 0
-        if keep_every is not None:
-            out = torch.zeros(
-                [x.shape[0], steps // keep_every] + list(x.shape[1:]), device=x.device
+
+class _AtlasSolver:
+    def __init__(
+        self,
+        denoiser: _AtlasDenoiser,
+        initial: Float[Tensor, " B *dims"],
+        time_steps: Float[Tensor, "B T"],
+        verbose: bool,
+    ) -> None:
+        self.denoiser = denoiser
+        self.initial = initial
+        # Native steps keep per-example times and the original schedule dtype.
+        self.time_steps = time_steps
+        self.verbose = verbose
+        self.index = 0
+
+    def step(
+        self,
+        x: Float[Tensor, " B *dims"],
+        t_cur: Float[Tensor, " B"],
+        t_next: Float[Tensor, " B"],
+    ) -> Float[Tensor, " B *dims"]:
+        physical_time = default_timer()
+        denoiser = self.denoiser
+        x = denoiser.interpolant.sample_step(
+            denoiser.model,
+            x,
+            self.time_steps,
+            self.index,
+            [x.shape[0]] + [1] * (x.ndim - 1),
+            denoiser.condition,
+            denoiser.compute_normalization,
+            self.initial,
+        )
+        if self.verbose and self.index > 0:
+            logger.debug(
+                f"Sampling step: {self.index + 1}. Time: {default_timer() - physical_time}"
             )
-
-            if keep_every == 1:
-                out[:, 0, ...] = x
-                kept_samples += 1
-
-        for j in range(1, t.shape[1] - 1):
-            physical_time = default_timer()
-
-            x = self.sample_step(
-                drift_velocity,
-                x,
-                t,
-                j,
-                expand_shape,
-                cond,
-                compute_normalization,
-                initial,
-            )
-
-            if keep_every is not None:
-                if (j + 1) % keep_every == 0:
-                    out[:, kept_samples, ...] = x
-                    kept_samples += 1
-
-            if verbose:
-                logger.debug(
-                    f"Sampling step: {j+1}. Time: {default_timer() - physical_time}"
-                )
-
-        if keep_every is not None:
-            return out
-
+        self.index += 1
         return x
 
 
