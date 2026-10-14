@@ -609,14 +609,14 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
-    def default_sources(self) -> "type[DataSource] | None":
+    def default_sources(self) -> "DataSource | None":
         """Return no recommended input data source.
 
-        Subclasses may override this to recommend a data source class.
+        Subclasses may override this to recommend a data source.
 
         Returns
         -------
-        type[DataSource] | None
+        DataSource | None
             Input data sources are chosen by the caller.
         """
         return None
@@ -1370,20 +1370,17 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.solver = solver
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the GFS data source class.
-
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+    def default_sources(self) -> "DataSource":
+        """Recommend the GFS data source.
 
         Returns
         -------
-        type[DataSource]
-            ``GFS`` data source class (uninstantiated).
+        DataSource
+            ``GFS`` data source for the input slot.
         """
         from earth2studio.data import GFS
 
-        return GFS
+        return GFS()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

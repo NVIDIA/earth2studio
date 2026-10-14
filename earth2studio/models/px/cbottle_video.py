@@ -190,22 +190,21 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the CBottle3D data source class.
+    def default_sources(self) -> DataSource:
+        """Load the CBottle3D generator on the model's input grid.
 
-        The class is returned, not an instance, so no checkpoint is loaded here.
-        The caller is responsible for loading it, for example with
-        ``CBottle3D.load_model(CBottle3D.load_default_package(), lat_lon=...)``
-        matching this model's grid representation.
+        This recommendation loads the data generator's checkpoint on CPU.
 
         Returns
         -------
-        type[DataSource]
-            ``CBottle3D`` data source class (uninstantiated).
+        DataSource
+            Loaded CBottle3D generator using this model's grid representation.
         """
         from earth2studio.data import CBottle3D
 
-        return CBottle3D
+        return CBottle3D.load_model(
+            CBottle3D.load_default_package(), lat_lon=self.lat_lon
+        )
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

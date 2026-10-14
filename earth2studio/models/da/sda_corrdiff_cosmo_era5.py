@@ -309,22 +309,26 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         signature = self.model.input_coords()
         return (OrderedDict((str(d), signature[d].values) for d in signature.dims),)
 
-    def default_sources(
-        self,
-    ) -> tuple[type[DataSource], type[DataFrameSource]]:
-        """Recommend ARCO ERA5 initialization and GHCNh observation data source classes.
-
-        Data source classes are returned, not instances.
+    def default_sources(self) -> tuple["DataSource", "DataFrameSource"]:
+        """Recommend ARCO ERA5 initialization and GHCNh observation data sources.
 
         Returns
         -------
-        tuple[type[DataSource], type[DataFrameSource]]
-            ``ARCO_ERA5`` class for the ERA5 driving state followed by the
-            ``GHCNHourly`` class for the surface station observation slot.
+        tuple[DataSource, DataFrameSource]
+            ``ARCO_ERA5`` for the ERA5 driving state followed by ``GHCNHourly`` for
+            the surface station observation slot, restricted to the stations inside
+            the model's output domain and using the model's observation time
+            tolerance.
         """
         from earth2studio.data import ARCO_ERA5, GHCNHourly
 
-        return ARCO_ERA5, GHCNHourly
+        lat = self.model.lat_output_numpy
+        lon = self.model.lon_output_numpy
+        bbox = (float(lat.min()), float(lon.min()), float(lat.max()), float(lon.max()))
+        stations = GHCNHourly.get_stations_bbox(bbox)
+        return ARCO_ERA5(), GHCNHourly(
+            stations=stations, time_tolerance=self._tolerance, verbose=False
+        )
 
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system of the assimilation model.

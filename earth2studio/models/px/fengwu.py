@@ -173,7 +173,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center.unsqueeze(-1).unsqueeze(-1))
         self.register_buffer("scale", scale.unsqueeze(-1).unsqueeze(-1))
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -183,7 +183,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

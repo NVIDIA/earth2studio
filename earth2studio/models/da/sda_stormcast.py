@@ -287,24 +287,33 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             ),
         )
 
-    def default_sources(
-        self,
-    ) -> tuple["type[DataSource]", "type[DataFrameSource]"]:
-        """Recommend HRRR initialization and GHCNh observation data source classes.
+    def default_sources(self) -> tuple["DataSource", "DataFrameSource"]:
+        """Recommend HRRR initialization and GHCNh observation data sources.
 
-        Data source classes are returned, not instances. The global conditioning
-        source is not a slot; it is configured on the model through
-        ``conditioning_data_source``.
+        The global conditioning source is not a slot; it is configured on the model
+        through ``conditioning_data_source``.
 
         Returns
         -------
-        tuple[type[DataSource], type[DataFrameSource]]
-            ``HRRR`` class for the initialization state followed by the
-            ``GHCNHourly`` class for the surface station observation slot.
+        tuple[DataSource, DataFrameSource]
+            ``HRRR`` for the initialization state followed by ``GHCNHourly`` for the
+            surface station observation slot, restricted to the stations inside this
+            model's domain and using the model's observation time tolerance.
         """
         from earth2studio.data import GHCNHourly
 
-        return HRRR, GHCNHourly
+        # Model lon is in [0, 360); GHCN bbox for the western hemisphere CONUS
+        # domain uses [-180, 180)
+        bbox = (
+            float(self.lat.min()),
+            float(self.lon.min()) - 360.0,
+            float(self.lat.max()),
+            float(self.lon.max()) - 360.0,
+        )
+        stations = GHCNHourly.get_stations_bbox(bbox)
+        return HRRR(), GHCNHourly(
+            stations=stations, time_tolerance=self._tolerance, verbose=False
+        )
 
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system of the assimilation model.

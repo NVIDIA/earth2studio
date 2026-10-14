@@ -17,7 +17,6 @@ import json
 import os
 import zipfile
 from collections.abc import Generator, Hashable
-from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -42,9 +41,6 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
-
-if TYPE_CHECKING:
-    from earth2studio.data.base import DataSource
 
 try:
     import anemoi.models  # noqa: F401
@@ -297,7 +293,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         selected = [VARIABLES[i] for i in indices[mask].tolist()]
         return selected
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> "IFS":
         """Recommend IFS initial conditions.
 
         Returns
@@ -305,7 +301,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         IFS
             Raw IFS source for the input slot.
         """
-        return IFS
+        return IFS()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

@@ -299,20 +299,21 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the CBottle3D data source class.
+    def default_sources(self) -> "DataSource":
+        """Recommend the CBottle3D data source.
 
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+        This recommendation loads the data generator's checkpoint on CPU.
 
         Returns
         -------
-        type[DataSource]
-            ``CBottle3D`` data source class (uninstantiated).
+        DataSource
+            Loaded CBottle3D generator using this model's grid representation.
         """
         from earth2studio.data import CBottle3D
 
-        return CBottle3D
+        return CBottle3D.load_model(
+            CBottle3D.load_default_package(), lat_lon=self.input_type == "latlon"
+        )
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.

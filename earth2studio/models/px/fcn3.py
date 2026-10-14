@@ -205,7 +205,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if reset or self._rng is None:
             self._rng = torch.Generator().manual_seed(seed)
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -215,7 +215,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

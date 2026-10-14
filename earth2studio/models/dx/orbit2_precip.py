@@ -307,20 +307,17 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.div = div
         self.overlap = overlap
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the NCAR ERA5 data source class.
-
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+    def default_sources(self) -> "DataSource":
+        """Recommend the NCAR ERA5 data source.
 
         Returns
         -------
-        type[DataSource]
-            ``NCAR_ERA5`` data source class (uninstantiated).
+        DataSource
+            ``NCAR_ERA5`` data source for the input slot.
         """
         from earth2studio.data import NCAR_ERA5
 
-        return NCAR_ERA5
+        return NCAR_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

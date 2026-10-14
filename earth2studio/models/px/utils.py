@@ -124,10 +124,7 @@ class PrognosticMixin:
     ) -> (
         DataSource
         | ForecastSource
-        | type[DataSource | ForecastSource]
-        | tuple[
-            DataSource | ForecastSource | type[DataSource | ForecastSource] | None, ...
-        ]
+        | tuple[DataSource | ForecastSource | None, ...]
         | None
     ):
         """Recommend no source for any input or forcing slot.

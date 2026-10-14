@@ -240,26 +240,24 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         """Initialzation coords (not required)"""
         return None
 
-    def default_sources(
-        self,
-    ) -> tuple["type[DataFrameSource]", "type[DataFrameSource]"]:
-        """Recommend the UFS observation data source classes.
-
-        Data source classes are returned, not instances, so the caller can
-        construct them with their own arguments, for example the
-        ``time_tolerance=(timedelta(hours=-21), timedelta(hours=3))`` window
-        HealDA is designed for.
+    def default_sources(self) -> tuple["DataFrameSource", "DataFrameSource"]:
+        """Recommend the UFS observation data sources.
 
         Returns
         -------
-        tuple[type[DataFrameSource], type[DataFrameSource]]
-            ``UFSObsConv`` class for the conventional observation slot followed by
-            the ``UFSObsSat`` class for the satellite observation slot. This model
+        tuple[DataFrameSource, DataFrameSource]
+            ``UFSObsConv`` for the conventional observation slot followed by
+            ``UFSObsSat`` for the satellite observation slot, both with the
+            ``(-21h, +3h)`` time tolerance window HealDA is designed for. This model
             has no initialization slot.
         """
         from earth2studio.data import UFSObsConv, UFSObsSat
 
-        return UFSObsConv, UFSObsSat
+        tolerance = (dt.timedelta(hours=-21), dt.timedelta(hours=3))
+        return (
+            UFSObsConv(time_tolerance=tolerance),
+            UFSObsSat(time_tolerance=tolerance),
+        )
 
     def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
         """Input coordinate system of the assimilation model.

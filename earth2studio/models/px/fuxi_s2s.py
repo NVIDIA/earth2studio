@@ -239,7 +239,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort: InferenceSession | None = None
         self._time_step = np.timedelta64(1, "D")
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> DataSource:
         """Recommend hourly ARCO ERA5 for the declared daily-mean windows.
 
         Returns
@@ -250,7 +250,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

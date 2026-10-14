@@ -120,20 +120,17 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             (orography),
         )
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the ARCO ERA5 data source class.
-
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
 
         Returns
         -------
-        type[DataSource]
-            ``ARCO_ERA5`` data source class (uninstantiated).
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

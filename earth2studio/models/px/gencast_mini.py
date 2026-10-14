@@ -231,7 +231,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.prng_key, rng = jax.random.split(self.prng_key)
         return rng
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -241,7 +241,7 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

@@ -85,20 +85,17 @@ class _TCTrackerBase:
 
     stochastic = False
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the GFS data source class.
-
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+    def default_sources(self) -> "DataSource":
+        """Recommend the GFS data source.
 
         Returns
         -------
-        type[DataSource]
-            ``GFS`` data source class (uninstantiated).
+        DataSource
+            ``GFS`` data source for the input slot.
         """
         from earth2studio.data import GFS
 
-        return GFS
+        return GFS()
 
     def _track_coords(
         self, x: CoordinateSystem, paths: int = 0, steps: int = 0

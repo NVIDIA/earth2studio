@@ -24,7 +24,6 @@ components, or coupling. See ``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
 
 from __future__ import annotations
 
-import inspect
 from collections import OrderedDict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
@@ -114,17 +113,6 @@ class Runner(Protocol):
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Yield, per step, one output for each stream that published at it."""
         ...
-
-
-def _instantiate(source: object) -> Source | None:
-    """Instantiate a recommended source class with default arguments.
-
-    Models return data source classes from ``default_sources()``; sources that
-    are already instances (or ``None``) pass through unchanged.
-    """
-    if inspect.isclass(source):
-        return cast(Source, source())
-    return cast("Source | None", source)
 
 
 def _slots(signature: CoordinateSystem | tuple | None) -> tuple:
@@ -231,12 +219,8 @@ class PrognosticRunner:
         nslots = 1 + len(self.forcing_signatures)
         if not isinstance(recommended, tuple):
             recommended = (recommended,) + (None,) * (nslots - 1)
-        initial_source = source if source is not None else _instantiate(recommended[0])
-        forcing_sources = (
-            forcing
-            if forcing is not None
-            else tuple(_instantiate(s) for s in recommended[1:])
-        )
+        initial_source = source if source is not None else recommended[0]
+        forcing_sources = forcing if forcing is not None else tuple(recommended[1:])
         if initial_source is None or any(s is None for s in forcing_sources):
             raise ValueError("Every input and forcing slot needs a source")
         self.source: Source = initial_source
@@ -414,7 +398,7 @@ class DiagnosticRunner:
             recommended = recommended_sources(diagnostic)
             if isinstance(recommended, tuple):
                 recommended = recommended[0]
-            chosen = source if source is not None else _instantiate(recommended)
+            chosen = source if source is not None else recommended
             if chosen is None:
                 raise ValueError(f"Diagnostic {name!r} needs a source")
             self.signatures[name] = signature

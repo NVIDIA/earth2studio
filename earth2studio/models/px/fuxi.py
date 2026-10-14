@@ -178,7 +178,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Load short model into memory
         self.ort = create_ort_session(ort_short, self.device)
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> DataSource:
         """Recommend WeatherBench2 ERA5 for all FuXi input variables.
 
         The public dataset ends at January 10, 2023, 18:00 UTC.
@@ -190,7 +190,7 @@ class FuXi(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import WB2ERA5
 
-        return WB2ERA5
+        return WB2ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

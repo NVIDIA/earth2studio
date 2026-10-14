@@ -160,7 +160,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._ort24_session: InferenceSession | None = None
         self._ort6_session: InferenceSession | None = None
 
-    def default_sources(self) -> "type[DataSource]":
+    def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -170,7 +170,7 @@ class PanguBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

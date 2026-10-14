@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
+from datetime import timedelta
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from earth2studio.data import ARCO_ERA5, HRRR, GHCNHourly, UFSObsConv, UFSObsSat
@@ -25,22 +27,58 @@ from earth2studio.models.da import (
     InterpEquirectangular,
     StormCastSDA,
 )
+from earth2studio.utils.time import normalize_time_tolerance
 
 
-@pytest.mark.parametrize(
-    "model_cls,expected",
-    [
-        (StormCastSDA, (HRRR, GHCNHourly)),
-        (CorrDiffCosmoEra5SDA, (ARCO_ERA5, GHCNHourly)),
-        (HealDA, (UFSObsConv, UFSObsSat)),
-        (InterpEquirectangular, None),
-    ],
-)
-def test_default_sources(model_cls, expected):
-    # default_sources does not touch model state, so skip heavy construction
-    model = object.__new__(model_cls)
-    sources = model.default_sources()
-    assert sources == expected
-    if expected is not None:
-        # Classes must be returned uninstantiated
-        assert all(inspect.isclass(s) for s in sources)
+@pytest.fixture
+def fake_stations(monkeypatch):
+    """Avoid network access when looking up GHCN stations."""
+    calls = []
+
+    def get_stations_bbox(bbox):
+        calls.append(bbox)
+        return ["USW00000001"]
+
+    monkeypatch.setattr(
+        GHCNHourly, "get_stations_bbox", staticmethod(get_stations_bbox)
+    )
+    return calls
+
+
+def test_default_sources_stormcast_sda(fake_stations):
+    # default_sources only reads the domain and tolerance, skip heavy construction
+    model = object.__new__(StormCastSDA)
+    model.lat = np.array([[30.0, 40.0], [31.0, 41.0]])
+    model.lon = np.array([[250.0, 260.0], [251.0, 261.0]])
+    model._tolerance = normalize_time_tolerance(timedelta(minutes=15))
+    hrrr, ghcn = model.default_sources()
+    assert isinstance(hrrr, HRRR)
+    assert isinstance(ghcn, GHCNHourly)
+    assert ghcn.stations == ["USW00000001"]
+    assert fake_stations == [(30.0, -110.0, 41.0, -99.0)]
+
+
+def test_default_sources_corrdiff_cosmo_era5_sda(fake_stations):
+    model = object.__new__(CorrDiffCosmoEra5SDA)
+    model.model = SimpleNamespace(
+        lat_output_numpy=np.array([[20.0, 30.0]]),
+        lon_output_numpy=np.array([[100.0, 110.0]]),
+    )
+    model._tolerance = normalize_time_tolerance(timedelta(minutes=30))
+    era5, ghcn = model.default_sources()
+    assert isinstance(era5, ARCO_ERA5)
+    assert isinstance(ghcn, GHCNHourly)
+    assert ghcn.stations == ["USW00000001"]
+    assert fake_stations == [(20.0, 100.0, 30.0, 110.0)]
+
+
+def test_default_sources_healda():
+    model = object.__new__(HealDA)
+    conv, sat = model.default_sources()
+    assert isinstance(conv, UFSObsConv)
+    assert isinstance(sat, UFSObsSat)
+
+
+def test_default_sources_interp():
+    model = object.__new__(InterpEquirectangular)
+    assert model.default_sources() is None

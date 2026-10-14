@@ -529,21 +529,19 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if dimension in x.coords:
                 handshake_coords(forcing, x, dimension)
 
-    def default_sources(self) -> tuple["type[DataSource]", "type[DataSource]"]:
-        """Recommend the ACE2 ERA5 data source class for both slots.
-
-        Classes are returned, not instances. The caller must construct the
-        initial-condition slot with ``mode="initial_conditions"`` and the forcing
-        slot with ``mode="forcing"``.
+    def default_sources(self) -> tuple[DataSource, DataSource]:
+        """Recommend ACE2 ERA5 initial conditions and forcing sources.
 
         Returns
         -------
-        tuple[type[DataSource], type[DataSource]]
-            ``ACE2ERA5Data`` class for the initial-condition slot followed by the
-            same class for the forcing slot, which provides all forcing variables
-            described in the ACE2-ERA5 paper.
+        tuple[DataSource, DataSource]
+            Initial-condition source followed by the forcing source, which provides
+            all forcing variables described in the ACE2-ERA5 paper.
         """
-        return ACE2ERA5Data, ACE2ERA5Data
+        return (
+            ACE2ERA5Data(mode="initial_conditions"),
+            ACE2ERA5Data(mode="forcing"),
+        )
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Compute the first forecast using caller-provided forcing, without hooks.

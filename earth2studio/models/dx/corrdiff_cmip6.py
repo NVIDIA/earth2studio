@@ -339,21 +339,27 @@ class CorrDiffCMIP6(CorrDiff):
             if v in self._NONNEGATIVE_VARS
         ]
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the CMIP6 multi-realm data source class.
-
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+    def default_sources(self) -> "DataSource":
+        """Recommend the CMIP6 multi-realm data source.
 
         Returns
         -------
-        type[DataSource]
-            ``CMIP6MultiRealm`` data source class (uninstantiated).
+        DataSource
+            ``CMIP6MultiRealm`` over the day, Eday and SIday tables of the CanESM5
+            ssp585 run used in the model example.
         """
-        from earth2studio.data import CMIP6MultiRealm
+        from earth2studio.data import CMIP6, CMIP6MultiRealm
 
+        cmip6_kwargs = dict(
+            experiment_id="ssp585",
+            source_id="CanESM5",
+            variant_label="r1i1p2f1",
+            exact_time_match=True,
+        )
         # CMIP6MultiRealm is callable as a DataSource but has no async fetch
-        return CMIP6MultiRealm  # type: ignore[return-value]
+        return CMIP6MultiRealm(  # type: ignore[return-value]
+            [CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")]
+        )
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.

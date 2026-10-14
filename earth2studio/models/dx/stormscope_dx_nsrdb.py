@@ -241,20 +241,17 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
         )
 
-    def default_sources(self) -> "type[DataSource]":
-        """Recommend the GOES data source class.
-
-        The class itself is returned, not an instance, so that callers can
-        construct the source with their own arguments.
+    def default_sources(self) -> "DataSource":
+        """Recommend the GOES data source.
 
         Returns
         -------
-        type[DataSource]
-            ``GOES`` data source class (uninstantiated).
+        DataSource
+            ``GOES`` data source for the input slot.
         """
         from earth2studio.data import GOES
 
-        return GOES
+        return GOES()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
