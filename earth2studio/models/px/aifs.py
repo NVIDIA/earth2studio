@@ -386,7 +386,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )[0],
         )
 
-    def default_sources(self) -> "IFS":
+    def default_sources(self) -> "type[DataSource]":
         """Recommend IFS initial conditions.
 
         Returns
@@ -394,7 +394,7 @@ class AIFS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         IFS
             Raw IFS source for the input slot.
         """
-        return IFS()
+        return IFS
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

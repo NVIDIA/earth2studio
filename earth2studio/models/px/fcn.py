@@ -114,7 +114,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend NCAR ERA5, including pressure-level relative humidity.
 
         Returns
@@ -124,7 +124,7 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import NCAR_ERA5
 
-        return NCAR_ERA5()
+        return NCAR_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

@@ -676,19 +676,27 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             {"variable": self.conditioning_variables},
         )
 
-    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+    def default_sources(
+        self,
+    ) -> tuple[
+        "type[DataSource]",
+        "type[DataSource] | type[ForecastSource] | DataSource | ForecastSource",
+    ]:
         """Recommend HRRR inputs and configured conditioning, defaulting to GFS.
+
+        Data source classes are returned, not new instances.
 
         Returns
         -------
-        tuple[DataSource, DataSource | ForecastSource]
-            HRRR input source followed by the configured conditioning source,
-            or GFS when none was configured. Regridding remains caller-owned.
+        tuple[type[DataSource], type[DataSource] | type[ForecastSource] | DataSource | ForecastSource]
+            ``HRRR`` class followed by the configured conditioning source (returned
+            as configured), or the ``GFS`` class when none was configured.
+            Regridding remains caller-owned.
         """
         from earth2studio.data import GFS, HRRR
 
         source = self.conditioning_data_source
-        return HRRR(), source if source is not None else GFS()
+        return HRRR, source if source is not None else GFS
 
     def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
         """Predict one hour ahead using caller-provided conditioning, without hooks.

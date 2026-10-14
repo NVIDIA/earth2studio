@@ -725,7 +725,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             grid="latlon-1.5deg",
         )
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -735,7 +735,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5()
+        return ARCO_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

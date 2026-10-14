@@ -427,7 +427,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
         )
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -439,7 +439,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5()
+        return ARCO_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

@@ -222,7 +222,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def default_sources(self) -> "DataSource":
+    def default_sources(self) -> "type[DataSource]":
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -232,7 +232,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5()
+        return ARCO_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

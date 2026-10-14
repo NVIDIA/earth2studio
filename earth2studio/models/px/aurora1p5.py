@@ -221,7 +221,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -231,7 +231,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5()
+        return ARCO_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

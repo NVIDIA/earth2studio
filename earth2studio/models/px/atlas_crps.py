@@ -126,7 +126,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.autoencoder_processor = autoencoder_processor
         self.register_buffer("device_buffer", torch.empty(0))
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend ARCO ERA5 initial conditions.
 
         Returns
@@ -136,7 +136,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import ARCO_ERA5
 
-        return ARCO_ERA5()
+        return ARCO_ERA5
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.

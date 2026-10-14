@@ -28,7 +28,7 @@ from loguru import logger
 from numpy.typing import ArrayLike
 
 from earth2studio.data import HRRR
-from earth2studio.data.base import DataSource, ForecastSource
+from earth2studio.data.base import DataSource
 from earth2studio.grids import CurvilinearGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -1700,7 +1700,7 @@ class StormScopeGOES(StormScopeBase):
             compile=compile,
         )
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend GOES imagery.
 
         Returns
@@ -1710,7 +1710,7 @@ class StormScopeGOES(StormScopeBase):
         """
         from earth2studio.data import GOES
 
-        return GOES()
+        return GOES
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Compute the first GOES forecast without hooks.
@@ -2130,17 +2130,20 @@ class StormScopeMRMS(StormScopeBase):
         out = self.glm_interp(glm)
         return torch.nan_to_num(out, nan=0.0)
 
-    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+    def default_sources(self) -> tuple["type[DataSource]", "type[DataSource]"]:
         """Recommend MRMS radar inputs and GOES conditioning.
+
+        Data source classes are returned, not instances.
 
         Returns
         -------
-        tuple[DataSource, DataSource | ForecastSource]
-            MRMS input source followed by the GOES conditioning source.
+        tuple[type[DataSource], type[DataSource]]
+            ``MRMS`` class for the input slot followed by the ``GOES`` class for
+            the conditioning slot.
         """
         from earth2studio.data import GOES, MRMS
 
-        return MRMS(), GOES()
+        return MRMS, GOES
 
     def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
         """Compute the first radar forecast using caller-supplied GOES history.

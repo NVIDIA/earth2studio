@@ -335,7 +335,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.input_times = input_times
         self.output_times = output_times
 
-    def default_sources(self) -> DataSource:
+    def default_sources(self) -> "type[DataSource]":
         """Recommend MTG FCI imagery from Meteosat.
 
         Returns
@@ -345,7 +345,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         from earth2studio.data import MeteosatFCI
 
-        return MeteosatFCI()
+        return MeteosatFCI
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
