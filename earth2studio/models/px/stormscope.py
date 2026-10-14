@@ -299,7 +299,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_default_package(cls) -> Package:
         """Load the default StormScope package from Hugging Face."""
         return Package(
-            "hf://nvidia/stormscope-goes-mrms@b40b2a87a2dfa64cb6392b4ecf38f91a9a1cc3cd",
+            "hf://nvidia/stormscope-goes-mrms@dcbe14a506e849b1afec9962dbf774f07d7aece8",
             cache_options={
                 "cache_storage": Package.default_cache("stormscope"),
                 "cache_mapper": BasenameCacheMapper(directory_levels=2),
@@ -1698,7 +1698,7 @@ class StormScopeGOES(StormScopeBase):
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
     - MRMS forecasting skill: evaluation procedure, metrics, and score table:
-      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/b40b2a87a2dfa64cb6392b4ecf38f91a9a1cc3cd/mrms_forecast_skill.md
+      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/dcbe14a506e849b1afec9962dbf774f07d7aece8/mrms_forecast_skill.md
 
     Parameters
     ----------
@@ -2058,7 +2058,7 @@ class StormScopeMRMS(StormScopeBase):
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
     - MRMS forecasting skill: evaluation procedure, metrics, and score table:
-      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/b40b2a87a2dfa64cb6392b4ecf38f91a9a1cc3cd/mrms_forecast_skill.md
+      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/dcbe14a506e849b1afec9962dbf774f07d7aece8/mrms_forecast_skill.md
 
     Parameters
     ----------
