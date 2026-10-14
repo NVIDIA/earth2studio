@@ -309,7 +309,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         signature = self.model.input_coords()
         return (OrderedDict((str(d), signature[d].values) for d in signature.dims),)
 
-    def default_sources(self) -> tuple["DataSource", "DataFrameSource"]:
+    def default_sources(self) -> tuple[DataSource, DataFrameSource]:
         """Recommend ARCO ERA5 initialization and GHCNh observation data sources.
 
         Returns
