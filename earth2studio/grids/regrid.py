@@ -168,11 +168,26 @@ def _axis_neighbors(
     return lower, upper, weight, valid
 
 
+def _latlon_axes(grid: GridDefinition) -> tuple[NDArray[Any], NDArray[Any]]:
+    """Latitude and longitude axes of a rectilinear grid.
+
+    Longitude is unwrapped across the seam, so an axis such as ``[350, 0, 10]``
+    becomes monotonic while every value keeps its position.
+    """
+    lat_axis, lon_axis = _index_axes(grid)
+    return lat_axis, np.unwrap(lon_axis, period=360.0)
+
+
+def _monotonic(axis: NDArray[Any]) -> bool:
+    step = np.diff(axis)
+    return bool(np.all(step > 0) or np.all(step < 0))
+
+
 def _latlon_neighbors(
     grid: GridDefinition, latitude: NDArray[Any], longitude: NDArray[Any]
 ) -> tuple[tuple[NDArray[Any], ...], tuple[NDArray[Any], ...]]:
     """Bracket geographic points on a rectilinear latitude-longitude grid."""
-    lat_axis, lon_axis = _index_axes(grid)
+    lat_axis, lon_axis = _latlon_axes(grid)
     period = _longitude_period(lon_axis)
     if period is None:
         ascending = lon_axis if lon_axis[-1] > lon_axis[0] else lon_axis[::-1]
@@ -189,11 +204,14 @@ def _rectilinear_nearest(
     """Nearest point on the sphere of a rectilinear grid, without a search tree.
 
     Along every latitude row the nearest point lies in the column nearest in
-    longitude, so the nearest grid point lies on that column's meridian. Distance
-    along a meridian has a single minimum, where it passes closest to the target,
-    so the nearest row is one of the two rows bracketing that latitude.
+    longitude, so the nearest grid point lies on that column's meridian. When the
+    meridian's closest approach to the target lies between the poles, distance
+    along it has a single minimum there, so the nearest row brackets that
+    latitude. Otherwise the closest approach is on the far side of the globe,
+    distance peaks between the poles, and the nearest row is the first or last.
+    Both cases are covered by choosing among those four rows.
     """
-    lat_axis, lon_axis = _index_axes(grid)
+    lat_axis, lon_axis = _latlon_axes(grid)
     columns = np.zeros(latitude.shape, dtype=np.int64)
     if lon_axis.size > 1:
         period = _longitude_period(lon_axis)
@@ -209,12 +227,12 @@ def _rectilinear_nearest(
     if lat_axis.size > 1:
         lat, dlon = np.radians(latitude), np.radians(longitude - meridian)
         closest = np.degrees(np.arctan2(np.sin(lat), np.cos(lat) * np.cos(dlon)))
-        # Beyond a pole the meridian's nearest point is that pole.
-        closest = np.clip(closest, -90.0, 90.0)
-        lower, upper, _, _ = _axis_neighbors(lat_axis, closest)
-        lower_km = _great_circle_km(latitude, longitude, lat_axis[lower], meridian)
-        upper_km = _great_circle_km(latitude, longitude, lat_axis[upper], meridian)
-        rows = np.where(upper_km <= lower_km, upper, lower)
+        lower, upper, _, _ = _axis_neighbors(lat_axis, np.clip(closest, -90, 90))
+        ends = np.zeros_like(lower), np.full_like(lower, lat_axis.size - 1)
+        # Upper first, so exact ties resolve as rounding the bracket would.
+        candidates = np.stack((upper, lower, *ends))
+        km = _great_circle_km(latitude, longitude, lat_axis[candidates], meridian)
+        rows = np.take_along_axis(candidates, km.argmin(axis=0)[None], axis=0)[0]
     distance = _great_circle_km(latitude, longitude, lat_axis[rows], meridian)
     valid = np.isfinite(latitude) & np.isfinite(longitude)
     return rows * lon_axis.size + columns, distance, valid
@@ -506,7 +524,9 @@ class NearestRegridder(_IndexRegridder):
     def _build(self) -> _Tables:
         source, target = self._source_grid, self._target_grid
         latitude, longitude = _geographic(target)
-        if source.topology == "rectilinear":
+        if source.topology == "rectilinear" and all(
+            map(_monotonic, _latlon_axes(source))
+        ):
             index, distance, valid = _rectilinear_nearest(source, latitude, longitude)
         else:
             index, distance, valid = _tree_neighbors(

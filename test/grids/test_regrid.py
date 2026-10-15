@@ -303,6 +303,33 @@ def test_nearest_latlon_compares_rows_on_the_sphere():
     np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [[80.0]])
 
 
+def test_nearest_latlon_target_across_the_globe():
+    # The meridian passes closest on the far side, so the end row is nearest.
+    source = LatLonGrid(np.array([-80.0, -60.0, -40.0]), np.array([0.0]))
+    target = PointGrid(np.array([10.0]), np.array([180.0]))
+    x = field(source, lambda lat, lon: lat + 0 * lon)
+    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [-80.0])
+
+
+def test_longitude_axis_crossing_the_seam():
+    source = LatLonGrid(np.array([1.0, 0.0]), np.array([300.0, 350.0, 0.0, 10.0, 20.0]))
+    target = PointGrid(np.array([0.5, 0.5]), np.array([-8.0, 15.5]))
+    x = field(source, lambda lat, lon: np.mod(lon + 180, 360) + 0 * lat)
+    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [170, 200])
+    # Values are continuous across the seam here, so bilinear is exact.
+    np.testing.assert_allclose(
+        BilinearRegridder(source, target)(x)[0, 0], [172.0, 195.5]
+    )
+
+
+def test_nearest_non_monotonic_axes_use_search_tree():
+    pytest.importorskip("scipy")
+    source = LatLonGrid(np.array([0.0, 20.0, 10.0]), np.array([0.0, 10.0]))
+    target = PointGrid(np.array([18.0]), np.array([1.0]))
+    x = field(source, lambda lat, lon: lat + 0 * lon)
+    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [20.0])
+
+
 @pytest.mark.parametrize(
     "source",
     [
