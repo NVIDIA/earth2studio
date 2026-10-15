@@ -350,16 +350,18 @@ class CorrDiffCMIP6(CorrDiff):
         """
         from earth2studio.data import CMIP6, CMIP6MultiRealm
 
-        cmip6_kwargs = dict(
-            experiment_id="ssp585",
-            source_id="CanESM5",
-            variant_label="r1i1p2f1",
-            exact_time_match=True,
-        )
+        tables = [
+            CMIP6(
+                table_id=table_id,
+                experiment_id="ssp585",
+                source_id="CanESM5",
+                variant_label="r1i1p2f1",
+                exact_time_match=True,
+            )
+            for table_id in ("day", "Eday", "SIday")
+        ]
         # CMIP6MultiRealm is callable as a DataSource but has no async fetch
-        return CMIP6MultiRealm(  # type: ignore[return-value]
-            [CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")]
-        )
+        return CMIP6MultiRealm(tables)  # type: ignore[return-value]
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
