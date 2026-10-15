@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import shutil
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -65,6 +67,9 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+            "report_time": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 00:00:00"]
+            ),
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
@@ -72,6 +77,8 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
+            "report_lat": [40.0, 41.0],
+            "report_lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
@@ -80,6 +87,7 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
             "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
+            "cycle_time": pd.to_datetime(["2024-01-01 00:00:00"] * 2),
         }
     )
 
@@ -141,6 +149,14 @@ def test_nnja_obs_conv_exceptions():
     )
     with pytest.raises(TypeError):
         NNJAObsConv.resolve_fields(wrong_type_schema)
+
+
+def test_nnja_obs_conv_original_event():
+    latest = NNJAObsConv(cache=False, verbose=False)
+    original = NNJAObsConv(original_event=True, cache=False, verbose=False)
+
+    assert not latest._original_event
+    assert original._original_event
 
 
 def test_nnja_obs_conv_validate_time():
@@ -216,6 +232,9 @@ def test_nnja_obs_conv_mock_fetch():
     mock_df = pd.DataFrame(
         {
             "time": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+            "report_time": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 00:00:00"]
+            ),
             "pres": [85000.0, 92500.0],
             "elev": [100.0, 50.0],
             "type": [120, 120],
@@ -223,6 +242,8 @@ def test_nnja_obs_conv_mock_fetch():
             "class": ["ADPUPA", "ADPUPA"],
             "lat": [40.0, 41.0],
             "lon": [250.0, 251.0],
+            "report_lat": [40.0, 41.0],
+            "report_lon": [250.0, 251.0],
             "station": ["72469", "72469"],
             "station_elev": [1000.0, 1000.0],
             "quality": [2, 2],
@@ -231,6 +252,7 @@ def test_nnja_obs_conv_mock_fetch():
             "geoid_undulation": [np.nan, np.nan],
             "observation": [273.15, 280.0],
             "variable": ["t", "t"],
+            "cycle_time": pd.to_datetime(["2024-01-01 00:00:00"] * 2),
         }
     )
 
@@ -282,7 +304,7 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
     monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
     monkeypatch.setattr(source, "cleanup", fake_cleanup)
-    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame.copy())
 
     result = source(
         datetime(2024, 1, 1),
@@ -307,6 +329,30 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
             fields=["time", "observation", "variable"],
         )
     assert cleanup_calls["n"] == 2
+
+
+@pytest.mark.parametrize(
+    "cls, variable", [(NNJAObsConv, "t"), (nnja.NNJAObsSatwnd, "u")]
+)
+def test_nnja_obs_conv_decode_failure_raises(tmp_path, monkeypatch, cls, variable):
+    """A file that fails to decode fails the request instead of returning no rows."""
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+    source = cls(cache=True, verbose=False)
+
+    async def fake_fetch_files(uris):
+        pass
+
+    def broken_decode(path, task):
+        raise ModuleNotFoundError("No module named 'bitarray'")
+
+    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "_decode_file", broken_decode)
+    with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
+        source(datetime(2024, 1, 1), [variable])
+    assert err.value.context["reason"] == "task_failure"
+    assert isinstance(err.value.__cause__, ModuleNotFoundError)
 
 
 def test_nnja_obs_conv_available():
@@ -786,6 +832,7 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "scan_angle",
         "scan_position",
         "scan_line",
+        "detector",
         "sensor_index",
         "wavenumber",
         "solza",
@@ -793,9 +840,13 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
         "satellite_za",
         "satellite_aza",
         "quality",
+        "scan_quality",
+        "granule_quality",
+        "footprint_quality",
         "satellite",
         "observation",
         "variable",
+        "cycle_time",
     ]
     assert list(frame.columns) == NNJAObsSat.SCHEMA.names
     # _rows_to_dataframe delegates to _table_to_dataframe, so every column is
@@ -804,6 +855,20 @@ def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
     assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
     assert str(frame["lat"].dtype) == "float[pyarrow]"
     assert str(frame["observation"].dtype) == "float[pyarrow]"
+
+
+def test_nnja_obs_sat_decode_atms_footprint_quality():
+    pairs = _atms_microwave_pairs()
+    pairs[12:12] = [
+        (ncep_microwave._GRANULE_QUALITY, 2),
+        (ncep_microwave._SCAN_QUALITY, 5),
+    ]
+    rows = _decode_microwave_pairs(
+        pairs, (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),)
+    )
+    assert all(row["scan_quality"] == 5 for row in rows)
+    assert all(row["granule_quality"] == 2 for row in rows)
+    assert all(row["footprint_quality"] is None for row in rows)
 
 
 @pytest.mark.parametrize(
@@ -1031,7 +1096,9 @@ def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
         sensor="mhs",
     )
 
-    assert len(rows) == 1
+    # The missing channel 2 is a NaN row, so the footprint keeps all its channels
+    assert [row["sensor_index"] for row in rows] == [1, 2]
+    assert np.isnan(rows[1]["observation"])
     assert rows[0]["lat"] == pytest.approx(-1.2286)
     assert rows[0]["lon"] == pytest.approx(357.1021)
     assert rows[0]["satellite"] == "metop-b"
@@ -1228,8 +1295,11 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
         NNJAObsSat.resolve_fields(["unknown"])
     with pytest.raises(TypeError):
         NNJAObsSat.resolve_fields(pa.schema([pa.field("lat", pa.float64())]))
+    # ATMS starts in 2012, AMSU-A in 1998: plan the one that exists
+    tasks = source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+    assert {task.sensor for task in tasks} == {"amsua"}
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
-        source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
+        source._create_tasks([datetime(2000, 1, 1)], ["atms", "cris"])
     assert unavailable.value.context["reason"] == "archive_unavailable"
     with pytest.raises(KeyError):
         ncep_microwave.decode_microwave(
@@ -1335,6 +1405,10 @@ def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
 
     # Inside coverage plans normally
     assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
+
+    # A sensor outside its coverage does not stop the others from being planned
+    tasks = source._create_tasks([datetime(2025, 1, 1)], ["airs", "atms", "cris"])
+    assert {task.sensor for task in tasks} == {"atms", "cris"}
 
 
 def test_nnja_obs_sat_decode_file_routes_ir_and_microwave(monkeypatch):
@@ -1469,13 +1543,14 @@ def test_nnja_ir_decode_iasi_scaled_radiance_planck():
     assert rows[0]["wavenumber"] == pytest.approx(645.0)
     assert rows[0]["satellite"] == "metop-b"
 
-    # A channel outside every CHSF band cannot be converted and is skipped
+    # A channel outside every CHSF band cannot be converted: a NaN row, not a drop
     no_band = _ir_scalar_pairs(said=3) + [
         (31002, 1),
         (ncep_microwave._CHANNEL_NUMBER, 1),
         (ncep_microwave._SCRA, scra),
     ]
-    assert not _decode_ir_pairs(no_band, "iasi")
+    (row,) = _decode_ir_pairs(no_band, "iasi")
+    assert np.isnan(row["observation"])
 
 
 def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
@@ -1524,6 +1599,30 @@ def test_nnja_ir_decode_cris_quality_null_without_band_flags():
     rows = _decode_ir_pairs(pairs, "cris")
     assert len(rows) == 1
     assert rows[0]["quality"] is None
+
+
+def test_nnja_ir_decode_footprint_quality():
+    cris = _ir_scalar_pairs(said=224) + [
+        (ncep_microwave._FORN, 3),
+        (ncep_microwave._CRIS_SCAN_QUALITY, 8),
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 714),
+        (ncep_microwave._SRAD, 0.05),
+    ]
+    (row,) = _decode_ir_pairs(cris, "cris")
+    assert row["scan_quality"] == 8
+    assert row["granule_quality"] is None
+    assert row["footprint_quality"] is None
+
+    iasi = _ir_scalar_pairs(said=3) + [
+        (ncep_microwave._IASI_SYSTEM_QUALITY, 1),
+        (31002, 1),
+        (ncep_microwave._CHANNEL_NUMBER, 1),
+        (ncep_microwave._SCRA, 100),
+    ]
+    (row,) = _decode_ir_pairs(iasi, "iasi")
+    assert row["footprint_quality"] == 1
+    assert row["scan_quality"] is None
 
 
 def test_nnja_ir_decode_cris_guard_block_not_emitted():
@@ -1883,3 +1982,38 @@ def test_nnja_ir_decode_respects_channel_replication_count():
     ]
     rows = _decode_ir_pairs(pairs, "airs")
     assert [row["sensor_index"] for row in rows] == [1]
+
+
+def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
+    tmp_path, monkeypatch
+):
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+    frame = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2024-01-01 00:00:00"]),
+            "observation": [273.15],
+            "variable": ["t"],
+        }
+    )
+    source = NNJAObsConv(cache=True, verbose=False, async_timeout=1)
+
+    async def quick_fetch(uris):
+        return None
+
+    def slow_decode(path, task):
+        time.sleep(1.5)
+        return frame.copy()
+
+    monkeypatch.setattr(source, "fetch_files", quick_fetch)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "_decode_file", slow_decode)
+    fields = ["time", "observation", "variable"]
+    assert len(source(datetime(2024, 1, 1), ["t"], fields=fields)) == 1
+
+    async def slow_fetch(uris):
+        await asyncio.sleep(1.5)
+
+    monkeypatch.setattr(source, "fetch_files", slow_fetch)
+    with pytest.raises(TimeoutError):
+        source(datetime(2024, 1, 1), ["t"], fields=fields)
