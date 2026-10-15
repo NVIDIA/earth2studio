@@ -14,37 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from typing import Protocol, runtime_checkable
 
-import torch
-
-from earth2studio.utils.type import CoordSystem
+import xarray as xr
 
 
 # --8<-- [start:perturbation-interface]
 @runtime_checkable
 class Perturbation(Protocol):
-    """Perturbation interface."""
+    """Perturbation interface
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Apply perturbation method to input tensor
+    A perturbation is a callable that takes a single DataArray holding the state to
+    perturb and returns a DataArray of the same shape, dimensions and coordinates. The
+    array data of the input should be considered owned by the perturbation: methods
+    may return a new array or the (unmodified) input.
+    """
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Apply perturbation method to input DataArray
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, with NumPy or CuPy
+            array data. Coordinates and dimensions describe the array
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the same dimensions, coordinates and attributes
+            as the input
         """
         pass
 

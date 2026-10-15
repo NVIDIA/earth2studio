@@ -14,14 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from collections.abc import Callable
 
 import torch
+import xarray as xr
 from loguru import logger
 
+from earth2studio.perturbation._array import (
+    amplitude_like,
+    array_module,
+    as_host_or_cupy,
+)
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
-from earth2studio.utils.type import CoordSystem
 
 
 class BredVector:
@@ -30,8 +37,9 @@ class BredVector:
 
     Parameters
     ----------
-    model : Callable[[torch.Tensor], torch.Tensor]
-        Dynamical model, typically this is the prognostic AI model.
+    model : Callable[[xr.DataArray], xr.DataArray]
+        Dynamical model that maps a DataArray to a DataArray of the same shape,
+        typically this is the prognostic AI model.
         TODO: Update to prognostic looper
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor,
@@ -53,10 +61,7 @@ class BredVector:
 
     def __init__(
         self,
-        model: Callable[
-            [torch.Tensor, CoordSystem],
-            tuple[torch.Tensor, CoordSystem],
-        ],
+        model: Callable[[xr.DataArray], xr.DataArray],
         noise_amplitude: float | torch.Tensor = 0.05,
         integration_steps: int = 20,
         ensemble_perturb: bool = False,
@@ -72,47 +77,40 @@ class BredVector:
         self.integration_steps = integration_steps
         self.seeding_perturbation_method = seeding_perturbation_method
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
-
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        if "lead_time" in coords and coords["lead_time"].shape[0] > 1:
+        if "lead_time" in x.dims and x.sizes["lead_time"] > 1:
             logger.warning(
                 "Input data / models that require multiple lead times may lead to unexpected behavior"
             )
 
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        dx, coords = self.seeding_perturbation_method(x, coords)
-        dx -= x
+        x = as_host_or_cupy(x)
+        xp = array_module(x)
+        x0 = x.data
+        noise_amplitude = amplitude_like(self.noise_amplitude, xp, x0.dtype)
 
-        xd = torch.clone(x)
-        xd, _ = self.model(xd, coords)
+        dx = self.seeding_perturbation_method(x.copy(deep=True)).data - x0
+
+        xd = self.model(x.copy(deep=True)).data
         # Run forward model
-        for k in range(self.integration_steps):
-            x1 = x + dx
-            x2, _ = self.model(x1, coords)
+        for _ in range(self.integration_steps):
+            x2 = self.model(x.copy(data=x0 + dx)).data
             if self.ensemble_perturb:
                 dx1 = x2 - xd
-                dx = dx1 + noise_amplitude * (dx - dx.mean(dim=0))
+                dx = dx1 + noise_amplitude * (dx - dx.mean(axis=0))
             else:
                 dx = x2 - xd
 
-        gamma = torch.norm(x) / torch.norm(x + dx)
-        return x + dx * noise_amplitude * gamma, coords
+        gamma = xp.linalg.norm(x0.ravel()) / xp.linalg.norm((x0 + dx).ravel())
+        return x.copy(data=x0 + dx * noise_amplitude * gamma)

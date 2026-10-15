@@ -147,7 +147,6 @@ def christmas_five_day_ensemble(
     # Fetch Initialization Data
     prognostic_ic = prognostic.input_coords()
     from earth2studio.run import _map_field
-    from earth2studio.utils.cupy import from_torch
 
     times = to_time_array(times)
 
@@ -182,8 +181,7 @@ def christmas_five_day_ensemble(
     x = _map_field(x, prognostic_ic)
 
     # Perturb ensemble
-    tensor, coords = perturbation(*x.e2s.to_torch())
-    x = from_torch(tensor, x.assign_coords(coords))
+    x = perturbation(x)
 
     # Create prognostic iterator
     model = prognostic.create_iterator(x)

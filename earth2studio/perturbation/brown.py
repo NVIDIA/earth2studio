@@ -14,10 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+from __future__ import annotations
 
+from typing import Any
+
+import torch
+import xarray as xr
+
+from earth2studio.perturbation._array import (
+    amplitude_like,
+    array_module,
+    as_host_or_cupy,
+    randn,
+)
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.type import CoordSystem
 
 
 class Brown:
@@ -42,51 +52,45 @@ class Brown:
             else torch.Tensor([noise_amplitude])
         )
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor, must
-            contain "lat" and "lon" coordinates in last two dims
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, must contain "lat" and
+            "lon" dimensions in the last two dims
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        shape = x.shape
         # Check the required dimensions are present
-        handshake_dim(coords, required_dim="lat", required_index=-2)
-        handshake_dim(coords, required_dim="lon", required_index=-1)
+        handshake_dim(x, required_dim="lat", required_index=-2)
+        handshake_dim(x, required_dim="lon", required_index=-1)
 
-        noise = self._generate_noise_correlated(tuple(shape), device=x.device)
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * noise, coords
+        x = as_host_or_cupy(x)
+        xp = array_module(x)
+        data = x.data
+        noise = self._generate_noise_correlated(xp, data.shape, data.dtype)
+        noise_amplitude = amplitude_like(self.noise_amplitude, xp, data.dtype)
+        return x.copy(data=data + noise_amplitude * noise)
 
     def _generate_noise_correlated(
-        self, shape: tuple[int, ...], device: torch.device
-    ) -> torch.Tensor:
+        self, xp: Any, shape: tuple[int, ...], dtype: Any
+    ) -> Any:
         """Utility class for producing brown noise."""
-        noise = torch.randn(*shape, device=device)
-        x_white = torch.fft.rfft2(noise)
+        noise = randn(xp, shape, dtype)
+        x_white = xp.fft.rfft2(noise)
         S = (
-            torch.abs(torch.fft.fftfreq(shape[-2], device=device).reshape(-1, 1))
-            ** self.reddening
-            + torch.fft.rfftfreq(shape[-1], device=device) ** self.reddening
+            xp.abs(xp.fft.fftfreq(shape[-2]).reshape(-1, 1)) ** self.reddening
+            + xp.fft.rfftfreq(shape[-1]) ** self.reddening
         )
         S = 1 / S
         S[..., 0, 0] = 0
-        S = S / torch.sqrt(torch.mean(S**2))
+        S = S / xp.sqrt(xp.mean(S**2))
 
-        x_shaped = x_white * S
-        noise_shaped = torch.fft.irfft2(x_shaped, s=shape[-2:])
-        return noise_shaped
+        x_shaped = x_white * S.astype(noise.dtype)
+        noise_shaped = xp.fft.irfft2(x_shaped, s=shape[-2:])
+        return noise_shaped.astype(noise.dtype)

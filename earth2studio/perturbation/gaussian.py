@@ -14,20 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 from typing_extensions import Self
 
+from earth2studio.perturbation._array import as_host_or_cupy
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import bind_checkpoint_state
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from torch_harmonics import InverseRealSHT
@@ -66,33 +70,29 @@ class Gaussian:
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        generator = self._get_generator(x.device)
+        # Torch generator is used for seeding and checkpointing the noise stream
+        tensor, _ = as_host_or_cupy(x).e2s.to_torch()
+        generator = self._get_generator(tensor.device)
         pre_state = generator.get_state()
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        y = x + noise_amplitude * torch.randn(
-            x.shape, dtype=x.dtype, device=x.device, generator=generator
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        y = tensor + noise_amplitude * torch.randn(
+            tensor.shape, dtype=tensor.dtype, device=tensor.device, generator=generator
         )
         self._save_generator_state(pre_state, generator.get_state(), generator)
-        return y, coords
+        return from_torch(y, x)
 
     def _get_generator(self, device: torch.device) -> torch.Generator:
         if self.generator is None or self.generator.device != device:
@@ -174,30 +174,27 @@ class CorrelatedSphericalGaussian:
         )
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor, must
-            contain "lat" and "lon" coordinates
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, must contain "lat" and
+            "lon" dimensions in the last two dims
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        shape = x.shape
         # Check the required dimensions are present
-        handshake_dim(coords, required_dim="lat", required_index=-2)
-        handshake_dim(coords, required_dim="lon", required_index=-1)
+        handshake_dim(x, required_dim="lat", required_index=-2)
+        handshake_dim(x, required_dim="lon", required_index=-1)
+
+        # Spherical harmonic transform requires torch
+        tensor, _ = as_host_or_cupy(x).e2s.to_torch()
+        shape = tensor.shape
 
         # Check the ratio
         if 2 * (shape[-2] // 2) != shape[-1] / 2:
@@ -211,21 +208,21 @@ class CorrelatedSphericalGaussian:
             sigma=self.sigma,
             N=np.prod(shape[1:-2], dtype=int),
         )
-        sampler = sampler.to(x.device)
+        sampler = sampler.to(tensor.device)
 
-        sample_noise = sampler(x, None)
+        sample_noise = sampler(tensor, None)
         sample_noise = sample_noise.reshape(*shape[:-2], nlat, 2 * nlat)
 
         # Hack for odd lat coords
-        if x.shape[-2] % 2 == 1:
-            noise = torch.zeros_like(x)
+        if shape[-2] % 2 == 1:
+            noise = torch.zeros_like(tensor)
             noise[..., :-1, :] = sample_noise
             noise[..., -1:, :] = noise[..., -2:-1, :]
         else:
             noise = sample_noise
 
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        return from_torch(tensor + noise_amplitude * noise, x)
 
 
 class CorrelatedSphericalField(torch.nn.Module):

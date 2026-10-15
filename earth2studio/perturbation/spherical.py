@@ -14,15 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.perturbation._array import as_host_or_cupy
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from torch_harmonics import InverseRealSHT
@@ -71,30 +75,27 @@ class SphericalGaussian:
         self.sigma = sigma
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor, must
-            contain "lat" and "lon" coordinates
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, must contain "lat" and
+            "lon" dimensions in the last two dims
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        shape = x.shape
         # Check the required dimensions are present
-        handshake_dim(coords, required_dim="lat", required_index=-2)
-        handshake_dim(coords, required_dim="lon", required_index=-1)
+        handshake_dim(x, required_dim="lat", required_index=-2)
+        handshake_dim(x, required_dim="lon", required_index=-1)
+
+        # Spherical harmonic transform requires torch
+        tensor, _ = as_host_or_cupy(x).e2s.to_torch()
+        shape = tensor.shape
         # Check the ratio
         if 2 * (shape[-2] // 2) != shape[-1] / 2:
             raise ValueError("Lat/lon aspect ration must be N:2N or N+1:2N")
@@ -105,24 +106,24 @@ class SphericalGaussian:
             alpha=self.alpha,
             tau=self.tau,
             sigma=self.sigma,
-            device=x.device,
+            device=tensor.device,
         )
-        sampler = sampler.to(x.device)
+        sampler = sampler.to(tensor.device)
 
         sample_noise = sampler(np.array(shape[:-2]).prod()).reshape(
             *shape[:-2], nlat, 2 * nlat
         )
 
         # Hack for odd lat coords
-        if x.shape[-2] % 2 == 1:
-            noise = torch.zeros_like(x)
+        if shape[-2] % 2 == 1:
+            noise = torch.zeros_like(tensor)
             noise[..., :-1, :] = sample_noise
             noise[..., -1:, :] = noise[..., -2:-1, :]
         else:
             noise = sample_noise
 
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        return from_torch(tensor + noise_amplitude * noise, x)
 
 
 class GaussianRandomFieldS2(torch.nn.Module):

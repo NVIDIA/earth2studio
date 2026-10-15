@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated the `Perturbation` protocol and all built-in perturbation methods to use
+  xarray DataArrays: `__call__(x: xr.DataArray) -> xr.DataArray` replaces the
+  previous `(tensor, coords) -> (tensor, coords)` interface. Custom perturbation
+  methods and `BredVector` models must be updated accordingly. Brown noise now uses
+  NumPy / CuPy random number generation.
+
 ### Deprecated
 
 ### Removed

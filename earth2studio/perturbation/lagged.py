@@ -15,11 +15,15 @@
 # limitations under the License.
 
 
+from __future__ import annotations
+
 import torch
+import xarray as xr
 
 from earth2studio.data import DataSource, fetch_data
+from earth2studio.perturbation._array import as_host_or_cupy
 from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem, LeadTimeArray
+from earth2studio.utils.type import LeadTimeArray
 
 
 class LaggedEnsemble:
@@ -58,45 +62,46 @@ class LaggedEnsemble:
         self.source = source
         self.lags = lags
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, must have leading
+            dimensions ("ensemble", "time", "lead_time") with an ensemble size equal
+            to the number of lags
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            DataArray with each ensemble member filled with the initial condition from
+            the respective lag of the data source
         """
 
         # Assume order of dimensions here
-        handshake_dim(coords, "ensemble", 0)
-        handshake_dim(coords, "time", 1)
-        handshake_dim(coords, "lead_time", 2)
+        handshake_dim(x, "ensemble", 0)
+        handshake_dim(x, "time", 1)
+        handshake_dim(x, "lead_time", 2)
 
-        if len(coords["ensemble"]) != len(self.lags):
+        if x.sizes["ensemble"] != len(self.lags):
             raise ValueError(
                 f"Warning! The number of lags, {len(self.lags)}, does not match "
-                f"the number of ensemble members requested, {len(coords['ensemble'])}."
+                f"the number of ensemble members requested, {x.sizes['ensemble']}."
             )
-        y = torch.clone(x)
+        x = as_host_or_cupy(x)
+        device = (
+            torch.device("cuda", x.data.device.id)
+            if x.e2s.is_cupy
+            else torch.device("cpu")
+        )
+        y = x.copy(deep=True)
         for i, lag in enumerate(self.lags):
-            y[i] = fetch_data(
+            y.data[i] = fetch_data(
                 source=self.source,
-                time=coords["time"] + lag,
-                variable=coords["variable"],
-                lead_time=coords["lead_time"],
-                device=y.device,
-            ).e2s.to_torch()[0]
-
-        return y, coords
+                time=x.coords["time"].values + lag,
+                variable=x.coords["variable"].values,
+                lead_time=x.coords["lead_time"].values,
+                device=device,
+            ).data
+        return y
