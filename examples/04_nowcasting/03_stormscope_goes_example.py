@@ -80,7 +80,7 @@ from earth2studio.models.px.stormscope import (
 )
 
 # %%
-# We use the CONUS nowcasting variant (``3km_10min``), the recommended default.
+# We use the Flash CONUS nowcasting variant (``3km_10min_flash``) for faster inference.
 # The GOES model is "pure obs" (no external conditioning), forecasting the eight
 # ABI channels from their recent history. The MRMS model forecasts
 # ``[refc, refc_base, glm_density]`` conditioned on GOES, and additionally
@@ -89,15 +89,25 @@ from earth2studio.models.px.stormscope import (
 # [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid], a gridded 0.1-degree lightning
 # product; the model bilinearly regrids it onto the model grid internally.
 #
-# Other selectable variants (see ``StormScope*.list_available_models``):
+# Selectable variants (see ``StormScope*.list_available_models``):
 #
-# - "3km_10min": CONUS nowcasting, 3 km / 10 min (recommended, default)
+# - "3km_10min": baseline CONUS nowcasting, 3 km / 10 min
+# - "3km_10min_flash": accelerated CONUS nowcasting, 3 km / 10 min (example default)
 # - "6km_1hr": legacy 6 km / 60 min nearcasting
+#
+# For Flash, set ``region`` to (lat_min, lat_max, lon_min, lon_max) for local
+# inference within CONUS, or leave it as ``None`` for the full domain.
+# Flash retains up to 25 real context pixels per side (clipped at edges)
+# and expands the model input to at least 200 x 200 pixels, aligned to patches.
 
 # %%
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model_name = "3km_10min"
+model_name = "3km_10min_flash"
+# Flash only: (south_lat, north_lat, west_lon, east_lon), in degrees.
+# Negative longitude means west. Use None for the full CONUS domain.
+region = None  # Example: (39.075, 41.075, -97.0, -95.0)
+padding = 25
 
 package = StormScopeBase.load_default_package()
 
@@ -128,6 +138,10 @@ model_mrms = StormScopeMRMS.load_model(
 )
 model_mrms = model_mrms.to(device)
 model_mrms.eval()
+
+if region is not None:
+    model = model.set_domain(*region, padding=padding)
+    model_mrms = model_mrms.set_domain(*region, padding=padding)
 
 # %%
 # Setup GOES Data Source and Interpolators
@@ -288,6 +302,17 @@ mrms_ch_idx = list(model_mrms.variables).index("refc")
 y_pred = torch.where(model.valid_mask, y_pred, torch.nan)
 y_mrms_pred = torch.where(model_mrms.valid_mask, y_mrms_pred, torch.nan)
 
+# Crop only the final presentation; the forecast loop keeps the context grid.
+plot_valid_mask = model.valid_mask
+if region is not None:
+    y_pred, y_pred_coords = model.crop_output(y_pred, y_pred_coords)
+    y_mrms_pred, y_coords_mrms_pred = model_mrms.crop_output(
+        y_mrms_pred, y_coords_mrms_pred
+    )
+    ys, xs = model.region_info.output_slices
+    lat_out, lon_out = lat_out[ys, xs], lon_out[ys, xs]
+    plot_valid_mask = plot_valid_mask[ys, xs]
+
 # Prepare HRRR Lambert Conformal projection
 proj_hrrr = ccrs.LambertConformal(
     central_longitude=262.5,
@@ -320,8 +345,8 @@ im = ax.pcolormesh(
 # Overlay MRMS on top of GOES
 field_mrms = y_mrms_pred[0, 0, 0, mrms_ch_idx]
 field_mrms = (
-    torch.where(~model.valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
-)
+    torch.where(~plot_valid_mask, torch.nan, field_mrms).detach().cpu().numpy()
+)  # Regional plots use the cropped mask.
 field_mrms = np.where(field_mrms <= 0, np.nan, field_mrms)
 im_mrms = ax.pcolormesh(
     lon_out,

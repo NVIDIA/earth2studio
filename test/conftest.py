@@ -108,6 +108,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_stormcast.py": ["stormcast"],
     "test/models/px/test_stormcastconus.py": ["stormcast-conus"],
     "test/models/px/test_stormscope.py": ["stormscope"],
+    "test/models/px/test_stormscope_flash.py": ["stormscope"],
     "test/models/px/test_stormscope_meteosat.py": ["stormscope"],
     "test/models/px/test_dxwrapper.py": [
         "fcn3",
@@ -117,6 +118,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     ],
     # Model da tests
     "test/models/da/test_da_healda.py": ["da-healda"],
+    "test/models/da/test_da_healda_v2.py": ["da-healda-v2"],
     "test/models/da/test_da_interp.py": ["da-interp"],
     "test/models/da/test_da_sda_stormcast.py": ["da-stormcast"],
     "test/models/da/test_da_sda_corrdiff_cosmo_era5.py": ["da-cosmo"],
