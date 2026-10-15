@@ -24,13 +24,14 @@ class Perturbation(Protocol):
 Perturbations locate dimensions by name using `handshake_dim` / `handshake_size`
 and raise `KeyError` (missing dimension) or `ValueError` (wrong position or size).
 
-| Method | Required dimensions |
-| --- | --- |
-| `Zero`, `Gaussian` | none |
-| `Brown`, `SphericalGaussian`, `CorrelatedSphericalGaussian` | `lat` (-2), `lon` (-1) |
-| `BredVector` | none; `lead_time` size > 1 warns |
-| `HemisphericCentredBredVector` | `time` (-5, size 1), `lead_time` (-4), `variable` (-3), `lat` (-2), `lon` (-1); 5 or 6 dims, optional leading batch (`ValueError` otherwise) |
-| `LaggedEnsemble` | `ensemble` (0, size equals number of lags), `time` (1), `lead_time` (2) |
+- `Zero`, `Gaussian`: none.
+- `Brown`, `SphericalGaussian`, `CorrelatedSphericalGaussian`: `lat` (-2), `lon` (-1).
+- `BredVector`: none; `lead_time` of size > 1 warns.
+- `HemisphericCentredBredVector`: `time` (-5, size 1), `lead_time` (-4),
+  `variable` (-3), `lat` (-2), `lon` (-1). Must have 5 or 6 dims with an optional
+  leading batch dim (`ValueError` otherwise).
+- `LaggedEnsemble`: `ensemble` (0, size equals number of lags), `time` (1),
+  `lead_time` (2).
 
 Spherical methods require a lat/lon grid with aspect ratio N:2N or N+1:2N
 (`ValueError` otherwise).
