@@ -27,7 +27,13 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 # --8<-- [start:data-source-interface]
 @runtime_checkable
 class DataSource(Protocol):
-    """Data source interface."""
+    """Data source interface.
+
+    Sources return NumPy-backed fields by default. A source may instead accept a
+    ``device`` constructor argument, defaulting to ``"cpu"``, and return CuPy-backed
+    fields on that CUDA device, exposing it as a ``device`` attribute holding a
+    ``torch.device``. Sources without the attribute are treated as CPU sources.
+    """
 
     def __call__(
         self,
@@ -85,7 +91,11 @@ class DataSource(Protocol):
 
 @runtime_checkable
 class ForecastSource(Protocol):
-    """Forecast source interface."""
+    """Forecast source interface.
+
+    Device placement follows the same optional ``device`` convention as
+    :class:`DataSource`.
+    """
 
     def __call__(  # type: ignore[override]
         self,

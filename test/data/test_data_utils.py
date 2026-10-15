@@ -55,7 +55,12 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
-from earth2studio.grids import CurvilinearGrid, LatLonGrid
+from earth2studio.grids import (
+    BilinearRegridder,
+    CurvilinearGrid,
+    LatLonGrid,
+    NearestRegridder,
+)
 from earth2studio.utils.coords import coord_array
 
 
@@ -346,6 +351,134 @@ def test_regridded_source_errors():
         coarse(np.datetime64("2024-01-01"), "a")
 
 
+class _LoggingRegridder:
+    """Identity on the native grid that records each field it receives."""
+
+    source_grid = _NATIVE_GRID
+    target_grid = _NATIVE_GRID
+
+    def __init__(self, log, label):
+        self.log, self.label = log, label
+
+    def __call__(self, x):
+        self.log.append((self.label, x.sizes["time"]))
+        return x
+
+    def to(self, device):
+        return self
+
+
+class _LoggingCoarsener(_CoarseningRegridder):
+    def __init__(self, log):
+        self.log = log
+
+    def __call__(self, x):
+        self.log.append(dict(x.sizes))
+        return super().__call__(x)
+
+
+def test_fetch_data_defers_regridded_source():
+    time = np.array([np.datetime64("2024-01-01T12")])
+    variable = np.array(["a:mean:12h"])
+
+    # Deferred: one regrid of the reduced field, as with the regridder argument.
+    log = []
+    deferred = fetch_data(
+        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)), time, variable
+    )
+    assert [sizes["time"] for sizes in log] == [1]
+    log.clear()
+    keyword = fetch_data(
+        _NativeSource(), time, variable, regridder=_LoggingCoarsener(log)
+    )
+    assert [sizes["time"] for sizes in log] == [1]
+    xr.testing.assert_identical(deferred, keyword)
+
+    # Opaque: each fetched frame is regridded before the 12h reduction.
+    log.clear()
+    opaque = fetch_data(
+        RegriddedSource(_NativeSource(), _LoggingCoarsener(log), defer=False),
+        time,
+        variable,
+    )
+    assert [sizes["time"] for sizes in log] == [2]
+    xr.testing.assert_allclose(opaque, deferred)
+
+
+def test_fetch_data_unwraps_until_opaque_source():
+    log = []
+    inner = RegriddedSource(
+        _NativeSource(), _LoggingRegridder(log, "inner"), defer=False
+    )
+    outer = RegriddedSource(inner, _LoggingRegridder(log, "outer"))
+    fetch_data(
+        outer,
+        np.array([np.datetime64("2024-01-01T12")]),
+        np.array(["a:mean:12h"]),
+        regridder=_LoggingRegridder(log, "argument"),
+    )
+    assert log == [("inner", 2), ("outer", 1), ("argument", 1)]
+
+
+def test_regridded_source_forwards_device():
+    assert RegriddedSource(_NativeSource(), _CoarseningRegridder()).device == (
+        torch.device("cpu")
+    )
+
+    class _DeviceSource(_NativeSource):
+        device = torch.device("cuda", 1)
+
+    wrapped = RegriddedSource(_DeviceSource(), _CoarseningRegridder())
+    assert wrapped.device == torch.device("cuda", 1)
+
+
+def test_opaque_regridded_forecast_source_dispatch():
+    time = np.array([np.datetime64("2024-01-01")])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    source = RegriddedSource(
+        _NativeForecastSource(), _CoarseningRegridder(), defer=False
+    )
+    assert source.is_forecast
+    array = fetch_data(source, time, np.array(["a"]), lead_time)
+    assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+    np.testing.assert_array_equal(array["lead_time"], lead_time)
+    np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_fetch_data_device_aware_source():
+    cp = pytest.importorskip("cupy")
+
+    class _DeviceSource(_NativeSource):
+        def _field(self, time, variable, lead_time=None):
+            array = super()._field(time, variable, lead_time)
+            return array.copy(data=cp.asarray(array.data))
+
+    time = np.array([np.datetime64("2024-01-01T12")])
+    variable = np.array(["a:mean:12h"])
+    for defer in (True, False):
+        regridder = BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)
+        array = fetch_data(
+            RegriddedSource(_DeviceSource(), regridder, defer=defer),
+            time,
+            variable,
+            device="cuda:0",
+        )
+        assert isinstance(array.data, cp.ndarray)
+        assert array.data.device.id == 0
+        # Tables were cached on the device the field arrived on.
+        assert 0 in regridder._devices
+        np.testing.assert_allclose(cp.asnumpy(array.data), 1)
+
+    array = fetch_data(
+        RegriddedSource(_DeviceSource(), BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)),
+        time,
+        variable,
+        device="cpu",
+    )
+    assert isinstance(array.data, np.ndarray)
+
+
 @pytest.mark.parametrize(
     "source", [_AnalysisSequence(), _CadencedAnalysisSequence(), _ForecastSequence()]
 )
@@ -536,105 +669,39 @@ def test_fetch_dataframe(time, lead_time, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fetch_data_regridding_passthrough(time, lead_time, device):
+def test_fetch_data_regridding(time, lead_time, device):
     if device != "cpu":
         pytest.importorskip("cupy")
-    # Original (source) domain
     variable = np.array(["a", "b", "c"])
-    domain = OrderedDict(
-        {
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440),
-        }
+    source_grid = LatLonGrid(
+        np.linspace(90, -90, 721, endpoint=True), np.linspace(0, 360, 1440)
     )
-    r = Random(domain)
+    r = Random(OrderedDict(lat=source_grid.latitude, lon=source_grid.longitude))
 
-    # Target domain, 1d lat/lon coords
     lat = np.linspace(60, 20, num=256)
     lon = np.linspace(130, 60, num=512)
-    target_coords = LatLonGrid(lat, lon)
-
-    # Regridding is a pass-through for each target type and method.
-    x = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        target_grid=target_coords,
-        regridder="nearest",
+    targets = (
+        LatLonGrid(lat, lon),
+        CurvilinearGrid(*np.meshgrid(lat, lon, indexing="ij")),
     )
-
-    coords = x.coords
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    np.testing.assert_array_equal(coords["lat"], domain["lat"])
-    np.testing.assert_array_equal(coords["lon"], domain["lon"])
-    assert not np.isnan(x.data).any()
-
-    # bilinear interp
-    x = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        target_grid=target_coords,
-        regridder="linear",
-    )
-
-    coords = x.coords
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    np.testing.assert_array_equal(coords["lat"], domain["lat"])
-    np.testing.assert_array_equal(coords["lon"], domain["lon"])
-    assert not np.isnan(x.data).any()
-
-    # Target domain, 2d lat/lon coords
-    lat = np.linspace(60, 20, num=256)
-    lon = np.linspace(130, 60, num=512)
-    lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
-    target_coords = CurvilinearGrid(lat2d, lon2d)
-
-    # nearest neighbor interp
-    x = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        target_grid=target_coords,
-        regridder="nearest",
-    )
-
-    coords = x.coords
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    np.testing.assert_array_equal(coords["lat"], domain["lat"])
-    np.testing.assert_array_equal(coords["lon"], domain["lon"])
-    assert not np.isnan(x.data).any()
-
-    # bilinear interp
-    x = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        target_grid=target_coords,
-        regridder="linear",
-    )
-
-    coords = x.coords
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    np.testing.assert_array_equal(coords["lat"], domain["lat"])
-    np.testing.assert_array_equal(coords["lon"], domain["lon"])
-    assert not np.isnan(x.data).any()
+    for target in targets:
+        for regridder in (
+            NearestRegridder(source_grid, target),
+            BilinearRegridder(source_grid, target),
+        ):
+            x = fetch_data(
+                r, time, variable, lead_time, device=device, regridder=regridder
+            )
+            assert np.all(x.coords["time"] == time)
+            assert np.all(x.coords["lead_time"] == lead_time)
+            assert np.all(x.coords["variable"] == variable)
+            assert x.dims[-2:] == target.dims
+            for name, values in target.coords().items():
+                np.testing.assert_array_equal(x.coords[name], values)
+            assert not np.isnan(x.data).any()
+            assert type(x.data).__module__.split(".")[0] == (
+                "numpy" if device == "cpu" else "cupy"
+            )
 
 
 @pytest.mark.parametrize(

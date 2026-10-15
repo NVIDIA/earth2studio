@@ -4,11 +4,13 @@
 
 `earth2studio.data.fetch_data` adapts analysis and forecast sources to a field
 `xr.DataArray` with consistent time, lead-time, and variable dimensions. It owns
-source dispatch, temporal-statistic requests, output assembly, and device placement.
+source dispatch, temporal-statistic requests, output assembly, device placement, and
+the order in which regridding is applied.
 
 This contract reflects the API in [PR #1170](https://github.com/NVIDIA/earth2studio/pull/1170).
 Temporal windows follow [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md); spatial
-geometry follows [GRID_SPEC.md](GRID_SPEC.md).
+geometry follows [GRID_SPEC.md](GRID_SPEC.md) and regridding follows
+[REGRID_SPEC.md](REGRID_SPEC.md).
 
 ## Interface
 
@@ -19,8 +21,7 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device | str = "cpu",
-    target_grid: CoordinateSystem | GridDefinition | str | None = None,
-    regridder: str = "nearest",
+    regridder: Regridder | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     ...
@@ -34,46 +35,64 @@ def fetch_data(
   use `source.time_step`; statistical requests fail if neither is available.
   Instantaneous requests do not require a cadence.
 - `device` accepts CPU or CUDA destinations. CUDA output requires CuPy.
-- `target_grid` and `regridder` are reserved spatial arguments and currently have
-  no effect.
-
-The target grid owns its geometry, spatial extent, and CRS when constructed.
-`fetch_data` consumes that definition rather than requiring separate bounds or CRS
-arguments. Bounds describe the grid's extent; they do not replace its full
-coordinates, topology, or longitude-wrap semantics.
-
-### Target Grid from Model Coordinates
-
-`coord_array(..., grid=...)` resolves a grid definition and embeds its spatial
-coordinates and metadata in the model's coordinate DataArray. This is a
-serializable description, not a stored live grid object. The grid API reconstructs
-the target from that description:
-
-```python
-from earth2studio.grids import infer_grid
-
-coords = model.input_coords()
-target_grid = infer_grid(coords)
-field = fetch_data(source, time, variable, target_grid=target_grid)
-```
-
-The reconstructed grid must represent the model's actual geometry, including any
-crop, and own the corresponding extent and CRS. Fetch may consume those properties
-for future source subsetting or regridding; callers need not extract them manually.
-Reconstruction and spatial metadata interpretation belong to the grid API.
-
-Standard coordinate layouts already support this flow. Complete reconstruction
-for renamed spatial dimensions and explicit grid-owned extent support remain grid
-API work, as specified in [GRID_SPEC.md](GRID_SPEC.md). Fetch spatial processing
-remains a pass-through until that integration is implemented.
+- `regridder` is an optional `Regridder` applied after temporal reduction and
+  device placement. It owns both grids, so there is no separate target argument.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
-declared in variable labels. `target_grid` replaces `interp_to`; `regridder`
-replaces `interp_method`.
+declared in variable labels. `regridder` replaces the former `interp_to` and
+`interp_method` arguments; string methods are not accepted, because the source grid
+is unknown before fetching and weights must be built at construction (`R1`).
+
+### Regridding
+
+The regridder carries the target grid, typically reconstructed from a model
+signature:
+
+```python
+regridder = BilinearRegridder("latlon-0.25deg", infer_grid(model.input_coords()))
+field = fetch_data(source, time, variable, device="cuda", regridder=regridder)
+```
+
+`fetch_data` unwraps a `RegriddedSource` whose `defer` is true (the default) and
+applies its regridder itself, so these calls are equivalent:
+
+```python
+fetch_data(RegriddedSource(source, regridder), time, variable)
+fetch_data(source, time, variable, regridder=regridder)
+```
+
+Nested pairs unwrap from the outside in and stop at the first pair with
+`defer=False`, which is called as an opaque source. Unwrapped regridders apply
+innermost first, then the `regridder` argument. Without a regridder, fields stay on
+the source grid.
+
+### Order of Operations
+
+1. Fetch from the unwrapped source on its native grid.
+2. Apply temporal reductions on the backing the source returned.
+3. Move the result to `device` if it is not already there.
+4. Apply the regridders on `device`.
+
+Reducing first regrids each window once rather than once per sample, and moving
+first runs large regrids on the GPU. Nearest and bilinear regridding commute with
+`mean` and `sum`, but bilinear `max` and `min` do not; an opaque pair regrids each
+sample before step 2.
+
+### Source Backing and Device
+
+Sources return NumPy-backed fields unless constructed with a CUDA `device`. A
+source that does heavy array work, such as normalization, may accept a `device`
+constructor argument, default `"cpu"`, and return CuPy-backed fields on that device.
+It exposes the choice as a `device` attribute holding a `torch.device`. The source
+protocol is unchanged, and a source without the attribute is a CPU source.
+`RegriddedSource` and `CompositeSource` forward the attribute. `fetch_data` accepts
+either backing, and moves data only in step 3.
 
 ## Source Dispatch
 
-A source whose `__call__` signature contains `lead_time` is a forecast source:
+A source whose `__call__` signature contains `lead_time` is a forecast source.
+Wrappers that forward requests through `*args`, such as `RegriddedSource` and
+`CompositeSource`, declare this instead with a boolean `is_forecast` property:
 
 | Source | Call | Temporal interpretation |
 | --- | --- | --- |
@@ -121,9 +140,12 @@ leads remain the source's responsibility.
 
 - Return one `xr.DataArray`, ordered as `[time, lead_time, variable, ...]`, with
   remaining source dimensions retained. Lead coordinates use nanosecond precision.
-- Preserve source spatial coordinates, auxiliary geometry, array name, and source
-  attributes. Do not infer a grid, reconstruct grid metadata, or relabel geometry
-  to match a target. Groups must agree on shared coordinates when concatenated.
+- Without a regridder, preserve source spatial coordinates, auxiliary geometry,
+  array name, and source attributes. Do not infer a grid, reconstruct grid
+  metadata, or relabel geometry. Groups must agree on shared coordinates when
+  concatenated.
+- With a regridder, spatial coordinates and grid metadata follow its target grid
+  under `R3` and `R4`; other coordinates and attributes are preserved.
 - Record each performed reduction under its requested variable label in
   `earth2studio_statistics`, using the dictionary returned by
   `time_statistic_metadata(modifier)`. Preserve existing statistical metadata for
@@ -131,7 +153,8 @@ leads remain the source's responsibility.
 - Remove coordinate-signature markers `earth2studio_kind`,
   `earth2studio_schema_version`, and `earth2studio_dynamic_dims` from the field.
 - Return NumPy-backed values on CPU and CuPy-backed values on the selected CUDA
-  device. Device conversion occurs after fetching and temporal reduction.
+  device. Device conversion occurs after fetching and temporal reduction, and
+  before regridding.
 
 The former `(tensor, coords)` return and `legacy` switch are removed. Consumers
 access `field.data` and `field.coords`; tensor-based consumers can explicitly use
@@ -157,13 +180,14 @@ leads -24 through -6 hours for the mean at initialization time.
 
 ## Deferred Work and Verification
 
-Spatial mapping, interpolation, bounds selection, and target-grid validation are
-deferred. The regridding helper is a pass-through. A single coordinate-system
-request object, fetch-plan caching, and streaming are also outside this contract.
+Bounds selection, a single coordinate-system request object, fetch-plan caching,
+and streaming are outside this contract.
 
 Tests must cover both source types, multiple initializations and leads, mixed
 instantaneous/statistical labels, grouped source requests, output ordering and
-metadata, invalid or incomplete windows, native spatial geometry, and CPU/CUDA
-placement. The fetch regressions live in `test/data/test_fetch_data_xarray.py` and
-`test/data/test_data_utils.py`, with window semantics in
+metadata, invalid or incomplete windows, native spatial geometry, CPU/CUDA
+placement, regridding after reduction, deferred and opaque compositions, and
+sources returning device arrays. The fetch regressions live in
+`test/data/test_fetch_data_xarray.py` and `test/data/test_data_utils.py`, with
+regridders in `test/grids/test_regrid.py` and window semantics in
 `test/utils/test_time_statistics.py`.

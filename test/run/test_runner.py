@@ -28,6 +28,8 @@ import torch
 import xarray as xr
 
 import earth2studio.run as run
+from earth2studio.data import RegriddedSource
+from earth2studio.grids import BilinearRegridder, LatLonGrid, infer_grid
 from earth2studio.io import KVBackend
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
@@ -237,6 +239,32 @@ def test_forcing_is_fetched_requested_and_sent_each_step() -> None:
     requests = runner.data_requests(_item(18))
     requested = [list(r.lead_time // np.timedelta64(1, "h")) for r in requests[1:]]
     assert requested == hours
+
+
+class _CoarseOnes:
+    """Ones on a grid coarser in longitude than the model's."""
+
+    grid = LatLonGrid(np.array([10.0, 0.0]), np.array([0.0, 20.0]))
+
+    def __call__(self, time: np.ndarray, variable: np.ndarray) -> xr.DataArray:
+        time, variable = np.atleast_1d(time), np.atleast_1d(variable)
+        return xr.DataArray(
+            np.ones((len(time), len(variable), *self.grid.shape), dtype=np.float32),
+            dims=("time", "variable", *self.grid.dims),
+            coords={"time": time, "variable": variable, **self.grid.coords()},
+        )
+
+
+def test_off_grid_forcing_runs_through_regridded_source() -> None:
+    target = infer_grid(_Forced().forcing_coords())
+    forcing = RegriddedSource(
+        _CoarseOnes(), BilinearRegridder(_CoarseOnes.grid, target)
+    )
+    runner = PrognosticRunner(_Forced(), _Zeros(), forcing=(forcing,))
+    assert runner.data_requests(_item(6))[1].source is forcing
+    steps = list(runner.run_item(_item(12)))
+    # Each step adds one plus the mean regridded forcing, which is one.
+    np.testing.assert_allclose(steps[-1]["forecast"], 4.0)
 
 
 def test_missing_forcing_source_is_rejected() -> None:

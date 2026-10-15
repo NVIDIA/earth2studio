@@ -248,6 +248,7 @@ async def fetch(
 All other patterns from [e2s-004-data-sources.mdc](mdc:.cursor/rules/e2s-004-data-sources.mdc) still apply:
 
 - ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`)
+- ✅ Optional `device` constructor parameter for GPU-backed output
 - ✅ Cache property implementation
 - ✅ Available classmethod (if possible)
 - ✅ Async initialization pattern with `_async_init`

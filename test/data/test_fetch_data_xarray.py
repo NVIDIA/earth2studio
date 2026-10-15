@@ -23,10 +23,13 @@ from earth2studio.data import fetch_data
 from earth2studio.grids import (
     E2S_CRS,
     E2S_GRID_ID,
+    BilinearRegridder,
     CurvilinearGrid,
     LatLonGrid,
+    NearestRegridder,
     PointGrid,
     ProjectedGrid,
+    resolve_grid,
 )
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
@@ -77,8 +80,9 @@ class ForecastSource(AnalysisSource):
 
 
 def request(variables=("a",), grid=GRID, **kwargs):
+    dims = resolve_grid(grid).dims if isinstance(grid, str) else grid.dims
     return coord_array(
-        ("batch", "time", "lead_time", "variable", *grid.dims),
+        ("batch", "time", "lead_time", "variable", *dims),
         {"lead_time": [np.timedelta64(0, "h")], "variable": list(variables)},
         dynamic=("batch", "time"),
         grid=grid,
@@ -124,25 +128,12 @@ def test_source_variable_order_is_respected():
 def test_native_grid_preserves_auxiliaries(grid):
     signature = request(grid=grid)
     source = AnalysisSource(grid, attrs=signature.attrs)
-    array = fetch_data(source, TIME, np.array(["a"]), target_grid=signature)
+    array = fetch_data(source, TIME, np.array(["a"]))
     handshake_dataarray(array, signature)
     assert array.attrs["source"] == "offline"
 
 
-def test_renamed_target_spatial_dimensions():
-    signature = coord_array(
-        ("time", "lead_time", "variable", "height", "width"),
-        {"lead_time": [np.timedelta64(0, "h")], "variable": ["a"]},
-        dynamic=("time",),
-        grid=ProjectedGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]), "EPSG:4326"),
-        grid_dims={"y": "height", "x": "width"},
-    )
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=signature)
-    assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
-    np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
-
-
-def test_projected_source_regridding_is_passthrough():
+def test_projected_source_bilinear_regridding():
     grid = ProjectedGrid(
         np.array([0.0, 1.0, 2.0]), np.array([0.0, 1.0, 2.0]), "EPSG:4326"
     )
@@ -151,19 +142,12 @@ def test_projected_source_regridding_is_passthrough():
         AnalysisSource(grid, attrs=request(grid=grid).attrs),
         TIME,
         np.array(["a"]),
-        target_grid=target,
-        regridder="linear",
+        regridder=BilinearRegridder(grid, target),
     )
-    assert array.dims == ("time", "lead_time", "variable", "y", "x")
-    np.testing.assert_allclose(array[0, 0, 0], [[0, 2, 4], [1, 3, 5], [2, 4, 6]])
-
-
-def test_target_grid_validation_is_deferred():
-    signature = request(grid=GRID)
-    signature.attrs[E2S_GRID_ID] = "fetch-test-full"
-    signature = signature.assign_coords(lat=[20.0, 10.0, 0.0])
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=signature)
-    np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
+    assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+    handshake_dataarray(array, request(grid=target))
+    # The source field is linear in latitude and longitude, so bilinear is exact.
+    np.testing.assert_allclose(array[0, 0, 0], [[1.5, 3.5], [2.5, 4.5]])
 
 
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
@@ -280,46 +264,47 @@ def test_duplicate_normalized_quantities_fail_before_fetch():
     assert not source.requests
 
 
-def test_target_grid_does_not_declare_statistics():
-    source = AnalysisSource()
-    signature = request(("a:mean:3h",))
-    signature.attrs[E2S_STATISTICS] = {"a:mean:3h": time_statistic_metadata("sum:3h")}
-    array = fetch_data(source, TIME, np.array(["a:mean:3h"]), target_grid=signature)
-    assert array.attrs[E2S_STATISTICS] == {
-        "a:mean:3h": time_statistic_metadata("mean:3h")
-    }
-    np.testing.assert_allclose(array[0, 0, 0], [[0, 2, 4], [-1, 1, 3], [-2, 0, 2]])
-
-
-@pytest.mark.parametrize("method", ["nearest", "linear"])
-def test_grid_signature_regridding_is_passthrough(method):
+@pytest.mark.parametrize(
+    "regridder, expected",
+    [
+        (BilinearRegridder, [[1.0, 3.0], [0.0, 2.0]]),
+        # Midpoints round to the upper neighbor along each axis.
+        (NearestRegridder, [[2.5, 4.5], [1.5, 3.5]]),
+    ],
+)
+def test_regridding_follows_temporal_reduction(regridder, expected):
     target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
-    signature = request(("a:mean:2h",), grid=target)
     array = fetch_data(
         AnalysisSource(),
         TIME,
         np.array(["a:mean:2h"]),
-        target_grid=signature,
-        regridder=method,
+        regridder=regridder(GRID, target),
     )
-    np.testing.assert_array_equal(array.lat, GRID.coords()["lat"])
-    np.testing.assert_array_equal(array.lon, GRID.coords()["lon"])
-    np.testing.assert_allclose(
-        array[0, 0, 0], [[0.5, 2.5, 4.5], [-0.5, 1.5, 3.5], [-1.5, 0.5, 2.5]]
-    )
+    np.testing.assert_array_equal(array.lat, target.latitude)
+    np.testing.assert_array_equal(array.lon, target.longitude)
+    np.testing.assert_allclose(array[0, 0, 0], expected)
+    assert array.attrs[E2S_STATISTICS] == {
+        "a:mean:2h": time_statistic_metadata("mean:2h")
+    }
+    assert array.attrs["source"] == "offline"
 
 
-@pytest.mark.parametrize("kind", ["definition", "name", "signature"])
-def test_grid_target_is_passthrough(kind):
-    target = LatLonGrid(np.array([0.0, 2.0]), np.array([2.0, 0.0]))
-    target_grid = {
-        "definition": target,
-        "name": "fetch-test-subset",
-        "signature": request(grid=target),
-    }[kind]
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=target_grid)
-    np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
-    assert E2S_GRID_ID not in array.attrs
+@pytest.mark.parametrize("named", [False, True])
+def test_regridded_metadata_follows_target_grid(named):
+    target = resolve_grid("latlon-1deg")
+    regridder = NearestRegridder(GRID, "latlon-1deg" if named else target)
+    array = fetch_data(
+        AnalysisSource(attrs={E2S_CRS: "EPSG:4326", "crs": "EPSG:4326"}),
+        TIME,
+        np.array(["a"]),
+        regridder=regridder,
+    )
+    assert array.sizes["lat"] == 181 and array.sizes["lon"] == 360
+    assert array.attrs["type"] == "LatLonGrid"
+    assert array.attrs["dims"] == ["lat", "lon"]
+    assert array.attrs["shape"] == [181, 360]
+    assert (E2S_GRID_ID in array.attrs) is named
+    handshake_dataarray(array, request(grid="latlon-1deg" if named else target))
 
 
 @pytest.mark.parametrize(
@@ -330,22 +315,21 @@ def test_grid_target_is_passthrough(kind):
         ProjectedGrid(np.array([0.5, 1.5]), np.array([0.5, 1.5]), "EPSG:4326"),
     ],
 )
-def test_other_target_topologies_are_passthrough(target):
-    signature = request(grid=target)
+def test_bilinear_onto_other_target_topologies(target):
     array = fetch_data(
         AnalysisSource(),
         TIME,
         np.array(["a"]),
-        target_grid=signature,
-        regridder="linear",
+        regridder=BilinearRegridder(GRID, target),
     )
-    lat, lon = xr.broadcast(GRID.coords()["lat"], GRID.coords()["lon"])
+    handshake_dataarray(array, request(grid=target))
+    lat, lon = xr.broadcast(target.coords()["lat"], target.coords()["lon"])
     np.testing.assert_allclose(array[0, 0, 0], lat + 2 * lon)
 
 
 def test_source_metadata_mismatch_is_not_relabelled():
     source = AnalysisSource(attrs={E2S_CRS: "EPSG:3857"})
-    array = fetch_data(source, TIME, np.array(["a"]), target_grid=request())
+    array = fetch_data(source, TIME, np.array(["a"]))
     assert array.attrs[E2S_CRS] == "EPSG:3857"
 
 

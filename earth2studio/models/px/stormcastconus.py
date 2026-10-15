@@ -26,8 +26,8 @@ import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.data import GFS_FX, DataSource, ForecastSource
-from earth2studio.grids import ProjectedGrid, resolve_grid
+from earth2studio.data import DataSource, ForecastSource
+from earth2studio.grids import BilinearRegridder, ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import PrognosticMixin
@@ -100,8 +100,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - High-resolution land-sea mask and orography invariants
     - Coarse resolution (25km) global state (26 vars)
 
-    The high-resolution grid is the HRRR Lambert conformal projection
-    Coarse-resolution inputs are regridded to the HRRR grid internally.
+    The high-resolution grid is the HRRR Lambert conformal projection.
+    Coarse-resolution conditioning must arrive on that grid; the source recommended
+    by ``default_sources()`` regrids it there.
 
     Note
     ----
@@ -137,10 +138,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     conditioning_variables : np.ndarray, optional
         Low-resolution conditioning variable names, by default
         ``np.array(CONDITIONING_VARIABLES)``.
-    conditioning_data_source : DataSource or ForecastSource or None, optional
-        Recommended data source for global conditioning, returned by
-        ``default_sources`` (GFS when None). The model does not fetch conditioning
-        itself, it is passed explicitly to ``initialize`` and ``step``, by default None.
     sampler_args : dict, optional
         Overrides for the EDM sampler/scheduler. Recognised keys:
         ``sigma_min``, ``sigma_max``, ``rho`` (scheduler), and
@@ -194,7 +191,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         hrrr_lon_lim: tuple[int, int] = (3, 1795),
         variables: np.ndarray = np.array(VARIABLES),
         conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_args: dict[str, float | int] | None = None,
         num_diffusion_steps: int = 18,
         num_sda_diffusion_steps: int = 36,
@@ -278,7 +274,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         self.variables = variables
         self.conditioning_variables = conditioning_variables
-        self.conditioning_data_source = conditioning_data_source
         self.register_buffer("conditioning_means", conditioning_means)
         self.register_buffer("conditioning_stds", conditioning_stds)
 
@@ -677,18 +672,21 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend HRRR inputs and configured conditioning, defaulting to GFS.
+        """Recommend HRRR inputs and GFS conditioning on the model grid.
 
         Returns
         -------
         tuple[DataSource, DataSource | ForecastSource]
-            HRRR input source followed by the configured conditioning source,
-            or GFS when none was configured. Regridding remains caller-owned.
+            HRRR input source followed by GFS forecasts bilinearly regridded from
+            the global 0.25 degree grid onto the model grid. To condition on
+            another source, such as a global model's forecast, supply it to the
+            runner on the model grid, for example as a
+            :class:`~earth2studio.data.RegriddedSource`.
         """
-        from earth2studio.data import GFS, HRRR
+        from earth2studio.data import GFS_FX, HRRR, RegriddedSource
 
-        source = self.conditioning_data_source
-        return HRRR(), source if source is not None else GFS()
+        regridder = BilinearRegridder("latlon-0.25deg", self.grid)
+        return HRRR(), RegriddedSource(GFS_FX(), regridder)
 
     def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
         """Predict one hour ahead using caller-provided conditioning, without hooks.
@@ -717,8 +715,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : xr.DataArray
             Initial fields matching ``input_coords()``.
         conditioning : xr.DataArray
-            Fields matching ``forcing_coords()`` at the forecast valid time,
-            already regridded to the model grid by the caller.
+            Fields matching ``forcing_coords()`` at the forecast valid time, on
+            the model grid.
 
         Returns
         -------
@@ -847,7 +845,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
         **model_kwargs: Any,
     ) -> "StormCastCONUS":
         """Load a :class:`StormCastCONUS` model from a package.
@@ -856,8 +853,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        conditioning_data_source : DataSource | ForecastSource, optional
-            Data source to use for global conditioning, by default GFS_FX
         **model_kwargs
             Additional keyword arguments forwarded to the model constructor
             (e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
@@ -965,7 +960,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variables=variables,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_args=sampler_args,
             **model_kwargs,

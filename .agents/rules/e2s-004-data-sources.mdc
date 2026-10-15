@@ -36,6 +36,22 @@ def __init__(
     # ... initialization logic
 ```
 
+### Optional `device` Parameter
+
+Sources return NumPy-backed fields by default. A source whose post-processing is
+expensive on large arrays (normalization, unit conversion, decoding) may instead
+produce fields on a GPU. Such a source:
+
+- Accepts `device: torch.device | str = "cpu"` in its constructor, so the CPU
+  default keeps NumPy output.
+- Stores it as a `device` attribute holding a `torch.device`.
+- Returns CuPy-backed fields on that device when it is CUDA, from both
+  `__call__` and `fetch`.
+
+Do not add `device` to `__call__` or `fetch`; the source protocol is unchanged.
+`fetch_data` accepts either backing and only moves fields that are not already
+on its requested device.
+
 ## Required Components
 
 ### 1. Cache Property
