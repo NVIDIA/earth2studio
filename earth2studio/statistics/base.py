@@ -14,11 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from typing import Protocol, runtime_checkable
 
-import torch
+import xarray as xr
 
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 
 # --8<-- [start:statistic-interface]
@@ -33,34 +35,37 @@ class Statistic(Protocol):
         """
         pass
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate system (xr.DataArray signature) to transform into
+            output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
         pass
 
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Apply statistic to data `x`, with coordinates `coords` and reduce
-        over dimensions `reduction_dimensions`.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Apply statistic to data `x` and reduce over dimensions
+        `reduction_dimensions`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply statistic to.
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor.
-            `reduction_dimensions` must be in coords.
+        x : xr.DataArray
+            Input data array intended to apply statistic to. Dimensions and
+            coordinates are read from the array itself.
+            `reduction_dimensions` must be in the dimensions of x.
+
+        Returns
+        -------
+        xr.DataArray
+            Statistic with the reduced dimensions removed
         """
         pass
 
@@ -75,47 +80,45 @@ class Metric(Protocol):
 
     @property
     def reduction_dimensions(self) -> list[str]:
-        pass
-
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the computed statistic, corresponding to the given input coordinates
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
+        """Gives the input dimensions of which the metric performs a reduction
+        over. The is used to determine, a priori, the output dimensions of a metric.
         """
         pass
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the computed metric, corresponding to the given input coordinates
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate system (xr.DataArray signature) of `x` to transform into
+            output_coords
+
+        Returns
+        -------
+        CoordinateSystem
+            Coordinate system of the metric output
+        """
+        pass
+
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dimensions`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor #1 intended to apply metric to. `x` is typically understood
-            to be the forecast or prediction tensor.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            Input tensor #2 intended to apply statistic to. `y` is typically the observation
-            or validation tensor.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
+        x : xr.DataArray
+            Input data array #1 intended to apply metric to. `x` is typically understood
+            to be the forecast or prediction array.
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            Input data array #2 intended to apply metric to. `y` is typically the
+            observation or validation array.
+
+        Returns
+        -------
+        xr.DataArray
+            Metric with the reduced dimensions removed
         """
         pass
 

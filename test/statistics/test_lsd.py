@@ -23,6 +23,17 @@ import torch
 
 from earth2studio.statistics import log_spectral_distance
 from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.cupy import from_torch
+
+
+def _check_output(LSD, x, z) -> None:
+    """Check output DataArray against the allocation-free output signature"""
+    out = LSD.output_coords(x)
+    assert z.dims == out.dims
+    assert z.shape == out.shape
+    for i, ci in enumerate(z.dims):
+        handshake_dim(out, ci, i)
+        handshake_coords(out, z, ci)
 
 
 @pytest.mark.parametrize("wavenumber_cutoff", [-10, 10, None])
@@ -32,8 +43,6 @@ def test_lsd(
     ensemble_dimension: str | None, device: str, wavenumber_cutoff: int
 ) -> None:
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -43,12 +52,13 @@ def test_lsd(
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), x_coords)
 
     y_coords = copy.deepcopy(x_coords)
     if ensemble_dimension is not None:
         y_coords.pop(ensemble_dimension)
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = torch.randn(y_shape, device=device)
+    y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
     LSD = log_spectral_distance(
         reduction_dimensions=["time"],
@@ -56,20 +66,16 @@ def test_lsd(
         ensemble_dimension=ensemble_dimension,
     )
 
-    z, c = LSD(x, x_coords, y, y_coords)
-    assert "time" not in c
-    assert list(z.shape) == [len(val) for val in c.values()]
+    z = LSD(x, y)
+    assert "time" not in z.dims
+    assert list(z.shape) == [z.sizes[d] for d in z.dims]
+    assert "lat" not in z.dims and "lon" not in z.dims
 
-    out_test_coords = LSD.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output(LSD, x, z)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_lsd_failures(device: str) -> None:
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -79,10 +85,11 @@ def test_lsd_failures(device: str) -> None:
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), x_coords)
 
     LSD = log_spectral_distance(
         reduction_dimensions=["time"],
-        spatial_dimensions=["lat", "lon"],
+        spatial_dimensions=("lat", "lon"),
         ensemble_dimension="ensemble",
     )
 
@@ -90,36 +97,50 @@ def test_lsd_failures(device: str) -> None:
     with pytest.raises(ValueError):
         y_coords = copy.deepcopy(x_coords)
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        z, c = LSD(x, x_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        LSD(x, y)
 
     # Test x and y don't have broadcastable shapes
     with pytest.raises(ValueError):
         y_coords = OrderedDict({"phony": np.arange(1)})
         for c in x_coords:
-            y_coords[c] = x_coords[c]
+            if c != "ensemble":
+                y_coords[c] = x_coords[c]
 
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        z, c = LSD(x, x_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        LSD(x, y)
 
-    # Test reduction_dimension not in x_coords
+    # Test ensemble_dimension not in x
     with pytest.raises(ValueError):
-        y_coords = OrderedDict({})
-        for c in x_coords:
-            y_coords[c] = x_coords[c]
-
+        y_coords = copy.deepcopy(x_coords)
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
-        x_coords.pop("time")
-        z, c = LSD(x, x_coords, y, y_coords)
+        xc = copy.deepcopy(x_coords)
+        xc.pop("ensemble")
+        xs = from_torch(torch.randn((1, 2, 361, 720), device=device), xc)
+        LSD(xs, y)
+
+    # Test incompatible coordinate values
+    yc = copy.deepcopy(x_coords)
+    yc.pop("ensemble")
+    yc["lat"] = np.linspace(-80.0, 80.0, 361)
+    y = from_torch(torch.randn((1, 2, 361, 720), device=device), yc)
+    with pytest.raises(ValueError):
+        LSD(x, y)
+
+    # Test reduction_dimension not in x_coords (output signature)
+    xc = copy.deepcopy(x_coords)
+    xc.pop("time")
+    xs = from_torch(torch.randn((10, 2, 361, 720), device=device), xc)
+    with pytest.raises(KeyError):
+        LSD.output_coords(xs)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_lsd_accuracy(device: str, atol: float = 1e-5) -> None:
-    # make a test x with 50% of the data set to 1 and the rest to 0
-    x = torch.randn((1, 2, 128, 128), device=device)
+    x_t = torch.randn((1, 2, 128, 128), device=device)
 
     x_coords = OrderedDict(
         {
@@ -129,22 +150,22 @@ def test_lsd_accuracy(device: str, atol: float = 1e-5) -> None:
             "lon": np.linspace(0.0, 360.0, 128, endpoint=False),
         }
     )
+    x = from_torch(x_t, x_coords)
 
     # y is a constant factor times x
     factor = 2.0
-    y = x * factor
-    y_coords = copy.deepcopy(x_coords)
+    y = from_torch(x_t * factor, copy.deepcopy(x_coords))
 
-    FSS = log_spectral_distance(reduction_dimensions=["time"])
+    LSD = log_spectral_distance(reduction_dimensions=["time"])
 
-    z, c = FSS(x, x_coords, y, y_coords)
+    z = LSD(x, y).e2s.to_torch()[0]
 
     # LSD should be this value
     ref_value = 10 * np.log10(factor)
     assert abs(z - ref_value).all()
 
     # test that LSD to self is 0
-    z, c = FSS(x, x_coords, x, x_coords)
+    z = LSD(x, x).e2s.to_torch()[0]
     assert (abs(z) < atol).all()
 
 
@@ -155,8 +176,6 @@ def test_fss_spatial_dims(
     ensemble_dimension: str | None, device: str, wavenumber_cutoff: int | None
 ) -> None:
     # test that we can use spatial dimensions that are not the last 2 dims
-    x = torch.zeros((10, 1, 128, 128, 2), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -166,23 +185,20 @@ def test_fss_spatial_dims(
             "variable": np.array(["t2m", "tcwv"]),
         }
     )
+    x = from_torch(torch.zeros((10, 1, 128, 128, 2), device=device), x_coords)
 
     y_coords = copy.deepcopy(x_coords)
     if ensemble_dimension is not None:
         y_coords.pop(ensemble_dimension)
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = torch.randn(y_shape, device=device)
+    y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
     LSD = log_spectral_distance(
         reduction_dimensions=["time"],
-        spatial_dimensions=["lat", "lon"],
+        spatial_dimensions=("lat", "lon"),
         wavenumber_cutoff=wavenumber_cutoff,
         ensemble_dimension=ensemble_dimension,
     )
 
-    z, c = LSD(x, x_coords, y, y_coords)
-    out_test_coords = LSD.output_coords(x_coords)
-
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    z = LSD(x, y)
+    _check_output(LSD, x, z)

@@ -14,19 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+from __future__ import annotations
 
 import torch
+import xarray as xr
 
-from earth2studio.utils import handshake_dim
+from earth2studio.statistics.moments import mean
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _array_module,
+    _as_host_or_cupy,
+    _output_signature,
+    _spatial_dims_to_end,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
-
-from .moments import mean
-from .utils import _spatial_dims_to_end
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.metrics.general.power_spectrum import power_spectrum
@@ -39,7 +45,7 @@ except ImportError:
 class log_spectral_distance:
     """
     Statistic for calculating the radially averaged 2D log spectral distance (LSD)
-    of one tensor with respect to another over a set of given dimensions. This is given
+    of one array with respect to another over a set of given dimensions. This is given
     in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).
 
     Parameters
@@ -86,59 +92,32 @@ class log_spectral_distance:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
         removed_dims = list(self._reduction_dimensions)
         spatial_dimensions = (
-            list(input_coords)[-2:]
+            list(input_coords.dims)[-2:]
             if self.spatial_dimensions is None
             else self.spatial_dimensions
         )
         removed_dims.extend(spatial_dimensions)
+        return _output_signature(input_coords, removed_dims)
 
-        output_coords = input_coords.copy()
-        for dimension in removed_dims:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+    def _validate_coords(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
+        return _align_xy(x, y, self.ensemble_dimension)
 
-        return output_coords
-
-    def _validate_coords(self, x_coords: CoordSystem, y_coords: CoordSystem) -> None:
-        x_coords = x_coords.copy()
-        if self.ensemble_dimension is not None:
-            if self.ensemble_dimension not in x_coords:
-                raise ValueError(
-                    f"Ensemble dimension '{self.ensemble_dimension}' set but not present in x_coords."
-                )
-            if self.ensemble_dimension in y_coords:
-                raise ValueError(
-                    f"Ensemble dimension '{self.ensemble_dimension}' present in y_coords."
-                )
-            x_coords.pop("ensemble", None)
-        for (x_dim, x_coord), (y_dim, y_coord) in zip(
-            x_coords.items(), y_coords.items()
-        ):
-            if (x_dim != y_dim) or (x_coord != y_coord).any():
-                raise ValueError("Coordinates are incompatible.")
-
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -148,48 +127,52 @@ class log_spectral_distance:
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor, typically the forecast or prediction tensor.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
+        x : xr.DataArray
+            Input array, typically the forecast or prediction array.
+            `reduction_dimensions` must be in x, as must `ensemble_dimension` and
             `spatial_dimensions` if provided in constructor.
-        y : torch.Tensor
-            Input tensor #2 intended to be used as validation data.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
-            provided in constructor.
+        y : xr.DataArray
+            Input array #2 intended to be used as validation data. Must not contain
+            the ensemble dimension.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns log spectral distance array with appropriate reduced coordinates.
         """
-        self._validate_coords(x_coords, y_coords)
+        y = self._validate_coords(x, y)
 
         if self.spatial_dimensions is not None:
-            x, x_coords = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
-            y, y_coords = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
+            x = _spatial_dims_to_end(x, self.spatial_dimensions)
+            y = _spatial_dims_to_end(y, self.spatial_dimensions)
+
+        x_t, _ = _as_host_or_cupy(x).e2s.to_torch()
+        y_t, _ = _as_host_or_cupy(y).e2s.to_torch()
 
         if self.ensemble_dimension is not None:
-            ensemble_dim = list(x_coords).index(self.ensemble_dimension)
-            y = y.unsqueeze(ensemble_dim)
+            ensemble_dim = list(x.dims).index(self.ensemble_dimension)
+            y_t = y_t.unsqueeze(ensemble_dim)
 
-        k, spectrum_x = power_spectrum(x)
-        spectrum_y = power_spectrum(y)[1]
+        # Power spectrum computed with torch (physicsnemo)
+        k, spectrum_x = power_spectrum(x_t)
+        spectrum_y = power_spectrum(y_t)[1]
 
         if self.wavenumber_cutoff is not None:
             k = k[: self.wavenumber_cutoff]
             spectrum_x = spectrum_x[..., : self.wavenumber_cutoff]
             spectrum_y = spectrum_y[..., : self.wavenumber_cutoff]
 
-        spectrum_coords = OrderedDict(list(x_coords.items())[:-2])
-        spectrum_coords["wavenumber"] = k
-
-        lsd, out_coords = self.mean(
-            torch.log10(spectrum_x / spectrum_y) ** 2, spectrum_coords
+        spectrum_dims = list(x.dims)[:-2]
+        spectrum = from_torch(
+            torch.log10(spectrum_x / spectrum_y) ** 2,
+            _output_signature(
+                x,
+                list(x.dims)[-2:],
+                add={"wavenumber": k.detach().cpu().numpy()},
+            ),
         )
-        lsd = 10 * lsd.sqrt()  # to dB
+        assert list(spectrum.dims) == spectrum_dims + ["wavenumber"]
 
-        return (lsd, out_coords)
+        lsd = self.mean(spectrum)
+        xp = _array_module(lsd)
+        return lsd.copy(data=10 * xp.sqrt(lsd.data))  # to dB

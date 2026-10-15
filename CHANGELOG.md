@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated the `earth2studio.statistics` `Statistic` and `Metric` protocols and all
+  built-in statistics (`mean`, `variance`, `std`, `acc`, `brier_score`, `crps`,
+  `energy_score`, `fss`, `log_spectral_distance`, `rank_histogram`, `rmse`, `mae`,
+  `spread_skill_ratio`, `skill_spread`) to use xarray: `stat(x: xr.DataArray) -> xr.DataArray`,
+  `metric(x, y)`, and `output_coords` returns a `CoordinateSystem`. This is a breaking
+  change; the previous `(tensor, coords)` call style is no longer supported.
+
 ### Deprecated
 
 ### Removed

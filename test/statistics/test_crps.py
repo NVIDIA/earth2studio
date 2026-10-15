@@ -20,10 +20,12 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.statistics import crps, lat_weight
 from earth2studio.statistics.crps import _crps_from_empirical_cdf
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import handshake_coords
+from earth2studio.utils.cupy import from_torch
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
@@ -53,8 +55,6 @@ def test_crps(
     fair: bool,
 ) -> None:
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -64,11 +64,12 @@ def test_crps(
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), x_coords)
 
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop(ensemble_dimension)
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = torch.randn(y_shape, device=device)
+    y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
     reduction_dimensions, weights = reduction_weights
     if weights is not None:
@@ -80,22 +81,22 @@ def test_crps(
         fair=fair,
     )
 
-    z, c = CRPS(x, x_coords, y, y_coords)
-    assert ensemble_dimension not in c
+    z = CRPS(x, y)
+    assert isinstance(z, xr.DataArray)
+    assert ensemble_dimension not in z.dims
     if reduction_dimensions is not None:
-        assert all([rd not in c for rd in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
+        assert all([rd not in z.dims for rd in reduction_dimensions])
 
-    out_test_coords = CRPS.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    out_test_coords = CRPS.output_coords(x)
+    assert z.dims == out_test_coords.dims
+    assert z.shape == out_test_coords.shape
+    for ci in z.dims:
+        handshake_coords(out_test_coords, z, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_crps_failures(device: str) -> None:
     reduction_dimension = "ensemble"
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
 
     x_coords = OrderedDict(
         {
@@ -106,6 +107,8 @@ def test_crps_failures(device: str) -> None:
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x_t = torch.randn((10, 1, 2, 361, 720), device=device)
+    x = from_torch(x_t, x_coords)
 
     # Raise error for trying to pass a list
     with pytest.raises(ValueError):
@@ -117,8 +120,8 @@ def test_crps_failures(device: str) -> None:
     with pytest.raises(ValueError):
         y_coords = copy.deepcopy(x_coords)
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        z, c = CRPS(x, x_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        CRPS(x, y)
 
     # Test x and y don't have broadcastable shapes
     with pytest.raises(ValueError):
@@ -128,10 +131,21 @@ def test_crps_failures(device: str) -> None:
                 y_coords[c] = x_coords[c]
 
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        z, c = CRPS(x, x_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        CRPS(x, y)
 
-    # Test reduction_dimension not in x_coords
+    # Test incompatible coordinates between x and y
+    with pytest.raises(ValueError):
+        y_coords = OrderedDict()
+        for c in x_coords:
+            if c != reduction_dimension:
+                y_coords[c] = x_coords[c]
+        y_coords["lat"] = np.linspace(-90.0, 90.0, 181)
+        y_shape = [len(y_coords[c]) for c in y_coords]
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        CRPS(x, y)
+
+    # Test reduction_dimension not in x
     with pytest.raises(ValueError):
         y_coords = OrderedDict({})
         for c in x_coords:
@@ -139,37 +153,46 @@ def test_crps_failures(device: str) -> None:
                 y_coords[c] = x_coords[c]
 
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
-        x_coords.pop("ensemble")
-        z, c = CRPS(x, x_coords, y, y_coords)
+        x_bad = from_torch(x_t[0], y_coords)
+        CRPS(x_bad, y)
+
+    # output_coords of a missing reduction dimension raises
+    with pytest.raises(KeyError):
+        CRPS.output_coords(from_torch(x_t[0], y_coords))
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_crps_accuracy(device: str, rtol: float = 1e-2, atol: float = 1e-2) -> None:
     # Uses eq (5) from Gneiting et al. https://doi.org/10.1175/MWR2904.1
     # crps(N(0, 1), 0.0) = 2 / sqrt(2*pi) - 1/sqrt(pi) ~= 0.23...
+    # Raw arrays are numpy (cpu) or cupy (cuda) backed
     x = 3.0 + torch.randn((10_000, 1), device=device, dtype=torch.float32)
     y = 3.0 + torch.zeros((1,), device=device, dtype=torch.float32)
+    x = from_torch(x, OrderedDict(a=np.arange(10_000), b=np.arange(1))).data
+    y = from_torch(y, OrderedDict(b=np.arange(1))).data
 
     # Test pure crps
     c = _crps_from_empirical_cdf(x, y, dim=0)
     true_crps = (np.sqrt(2) - 1.0) / np.sqrt(np.pi)
-    assert torch.allclose(
+    c = c.get() if hasattr(c, "get") else c
+    assert np.allclose(
         c,
-        true_crps * torch.ones([1], dtype=torch.float32, device=device),
+        true_crps * np.ones([1], dtype=np.float32),
         rtol=rtol,
         atol=atol,
     )
 
     x = 3.0 + torch.randn((1, 10_000), device=device, dtype=torch.float32)
+    x = from_torch(x, OrderedDict(b=np.arange(1), a=np.arange(10_000))).data
 
     # Test pure crps
     c = _crps_from_empirical_cdf(x, y, dim=1)
-    true_crps = (np.sqrt(2) - 1.0) / np.sqrt(np.pi)
-    assert torch.allclose(
+    c = c.get() if hasattr(c, "get") else c
+    assert np.allclose(
         c,
-        true_crps * torch.ones([1], dtype=torch.float32, device=device),
+        true_crps * np.ones([1], dtype=np.float32),
         rtol=rtol,
         atol=atol,
     )
