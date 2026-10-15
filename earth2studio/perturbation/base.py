@@ -28,8 +28,7 @@ class Perturbation(Protocol):
 
     A perturbation is a callable that takes a single DataArray holding the state to
     perturb and returns a DataArray of the same shape, dimensions and coordinates. The
-    array data of the input should be considered owned by the perturbation: methods
-    may return a new array or the (unmodified) input.
+    input is not modified in place: methods return a new array or the unmodified input.
     """
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
@@ -38,8 +37,8 @@ class Perturbation(Protocol):
         Parameters
         ----------
         x : xr.DataArray
-            xarray DataArray intended to apply perturbation on, with NumPy or CuPy
-            array data. Coordinates and dimensions describe the array
+            xarray DataArray intended to apply perturbation on, with NumPy, CuPy or
+            Torch array data. Coordinates and dimensions describe the array
 
         Returns
         -------
