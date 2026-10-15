@@ -62,18 +62,27 @@ shape equal to the sizes of the reduction dimensions in `x` order (`AssertionErr
 
 ## Methods
 
-| Method | Notes |
-| --- | --- |
-| `mean`, `std`, `variance` | `batch_update` keeps running sums across calls; `mean` with no reduction dims is the identity; `variance`/`std` require at least one |
-| `acc` | requires `time` and `variable`; climatology is a `DataSource` (fetched with `fetch_data` when `lead_time` is present) or `None` for zero |
-| `brier_score` | `thresholds`; optional `ensemble_dimension`; trailing `threshold` dim |
-| `crps` | `ensemble_dimension` (str); optional `reduction_dimensions`, `weights`; `fair` selects the unbiased estimator |
-| `rank_histogram` | leading `histogram_data` (`bin_centers`, `bin_counts`) and `bin`; bins default to ensemble size + 1; `randomize_ties` |
-| `energy_score` | `ensemble_dimension`, non-empty `multivariate_dimensions`; `fair` needs at least 2 members (`ValueError`) |
-| `fss` | `window_sizes`, `thresholds`; `spatial_dimensions` default to the last two; spatial dims must be reduced; spatial coordinates are cropped by the window margin; trailing `threshold`, `window_size` |
-| `log_spectral_distance` | `spatial_dimensions` default to the last two; adds `wavenumber` before reduction; optional `wavenumber_cutoff` |
-| `rmse`, `mae` | optional `ensemble_dimension` (ensemble mean taken first) |
-| `spread_skill_ratio`, `skill_spread` | `skill_spread` has a leading `metric` dim (`mse`, `variance`) |
+- `mean`, `std`, `variance`: `batch_update` keeps running sums across calls.
+  `mean` with no reduction dims is the identity; `variance` and `std` require at
+  least one.
+- `acc`: requires `time` and `variable`. The climatology is a `DataSource` (fetched
+  with `fetch_data` when `lead_time` is present) or `None` for zero.
+- `brier_score`: takes `thresholds` and an optional `ensemble_dimension`; adds a
+  trailing `threshold` dim.
+- `crps`: `ensemble_dimension` (str) with optional `reduction_dimensions` and
+  `weights`; `fair` selects the unbiased estimator.
+- `rank_histogram`: leading `histogram_data` (`bin_centers`, `bin_counts`) and `bin`
+  dims. Bins default to ensemble size + 1; `randomize_ties` breaks ties.
+- `energy_score`: `ensemble_dimension` and non-empty `multivariate_dimensions`.
+  `fair` needs at least 2 members (`ValueError`).
+- `fss`: `window_sizes` and `thresholds`. `spatial_dimensions` default to the last
+  two and must be reduced; spatial coordinates are cropped by the window margin.
+  Adds trailing `threshold` and `window_size` dims.
+- `log_spectral_distance`: `spatial_dimensions` default to the last two; adds
+  `wavenumber` before reduction; optional `wavenumber_cutoff`.
+- `rmse`, `mae`: optional `ensemble_dimension` (ensemble mean is taken first).
+- `spread_skill_ratio`, `skill_spread`: `skill_spread` has a leading `metric` dim
+  (`mse`, `variance`).
 
 ## Custom Statistics
 
