@@ -20,7 +20,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.perturbation._array import as_host_or_cupy
+from earth2studio.perturbation._array import backend_of
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -94,7 +94,7 @@ class SphericalGaussian:
         handshake_dim(x, required_dim="lon", required_index=-1)
 
         # Spherical harmonic transform requires torch
-        tensor, _ = as_host_or_cupy(x).e2s.to_torch()
+        tensor, _ = x.e2s.to_torch()
         shape = tensor.shape
         # Check the ratio
         if 2 * (shape[-2] // 2) != shape[-1] / 2:
@@ -123,7 +123,7 @@ class SphericalGaussian:
             noise = sample_noise
 
         noise_amplitude = self.noise_amplitude.to(tensor.device)
-        return from_torch(tensor + noise_amplitude * noise, x)
+        return from_torch(tensor + noise_amplitude * noise, x, backend=backend_of(x))
 
 
 class GaussianRandomFieldS2(torch.nn.Module):

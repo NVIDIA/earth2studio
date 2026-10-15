@@ -21,7 +21,7 @@ import torch
 import xarray as xr
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.perturbation._array import as_host_or_cupy
+from earth2studio.perturbation._array import as_host_or_cupy, match_backend
 from earth2studio.utils.coords import handshake_dim
 from earth2studio.utils.type import LeadTimeArray
 
@@ -89,6 +89,7 @@ class LaggedEnsemble:
                 f"Warning! The number of lags, {len(self.lags)}, does not match "
                 f"the number of ensemble members requested, {x.sizes['ensemble']}."
             )
+        orig = x
         x = as_host_or_cupy(x)
         device = (
             torch.device("cuda", x.data.device.id)
@@ -104,4 +105,4 @@ class LaggedEnsemble:
                 lead_time=x.coords["lead_time"].values,
                 device=device,
             ).data
-        return y
+        return match_backend(y, orig)

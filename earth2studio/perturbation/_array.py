@@ -22,7 +22,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.utils.cupy import _get_cupy
+from earth2studio.utils.cupy import ArrayBackend, _get_cupy, _TorchArray
 
 
 def as_host_or_cupy(x: xr.DataArray) -> xr.DataArray:
@@ -41,6 +41,57 @@ def as_host_or_cupy(x: xr.DataArray) -> xr.DataArray:
     if isinstance(x.variable._data, np.ndarray) or x.e2s.is_cupy:
         return x
     return x.e2s.to_backend("auto")
+
+
+def is_torch_backed(x: xr.DataArray) -> bool:
+    """Whether a DataArray uses the Torch array backend
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Input DataArray
+
+    Returns
+    -------
+    bool
+        True if the data is stored in a Torch tensor
+    """
+    return isinstance(x.data, _TorchArray)
+
+
+def backend_of(x: xr.DataArray) -> ArrayBackend | None:
+    """Backend override needed to produce outputs matching an input DataArray
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Input DataArray
+
+    Returns
+    -------
+    ArrayBackend | None
+        ``"torch"`` for Torch-backed inputs, otherwise None so that the output defaults
+        follow the data device (NumPy for CPU, CuPy for CUDA)
+    """
+    return "torch" if is_torch_backed(x) else None
+
+
+def match_backend(out: xr.DataArray, like: xr.DataArray) -> xr.DataArray:
+    """Convert ``out`` to the Torch backend if ``like`` is Torch-backed
+
+    Parameters
+    ----------
+    out : xr.DataArray
+        Output DataArray (NumPy or CuPy backed)
+    like : xr.DataArray
+        Original perturbation input
+
+    Returns
+    -------
+    xr.DataArray
+        ``out`` unchanged, or converted to Torch when ``like`` is Torch-backed
+    """
+    return out.e2s.to_backend("torch") if is_torch_backed(like) else out
 
 
 def array_module(x: xr.DataArray) -> Any:
@@ -82,6 +133,10 @@ def amplitude_like(amplitude: torch.Tensor, xp: Any, dtype: Any) -> Any:
 def randn(xp: Any, shape: tuple[int, ...], dtype: Any) -> Any:
     """Standard normal samples using numpy or cupy
 
+    Samples are drawn from the global NumPy / CuPy random streams, which are seeded with
+    ``numpy.random.seed`` / ``cupy.random.seed`` respectively (and not by
+    ``torch.manual_seed``).
+
     Parameters
     ----------
     xp : Any
@@ -100,5 +155,7 @@ def randn(xp: Any, shape: tuple[int, ...], dtype: Any) -> Any:
     if dtype not in (np.float32, np.float64):
         dtype = np.dtype(np.float32)
     if xp is np:
-        return np.random.default_rng().standard_normal(shape, dtype=dtype)
+        # Global NumPy stream so that np.random.seed gives repeatable noise
+        return np.random.standard_normal(shape).astype(dtype, copy=False)
+    # Global CuPy stream, seeded with cupy.random.seed
     return xp.random.standard_normal(shape, dtype=dtype)

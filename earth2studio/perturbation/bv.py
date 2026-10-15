@@ -26,6 +26,7 @@ from earth2studio.perturbation._array import (
     amplitude_like,
     array_module,
     as_host_or_cupy,
+    match_backend,
 )
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
@@ -95,17 +96,21 @@ class BredVector:
                 "Input data / models that require multiple lead times may lead to unexpected behavior"
             )
 
+        orig = x
         x = as_host_or_cupy(x)
         xp = array_module(x)
         x0 = x.data
         noise_amplitude = amplitude_like(self.noise_amplitude, xp, x0.dtype)
 
-        dx = self.seeding_perturbation_method(x.copy(deep=True)).data - x0
+        dx = (
+            as_host_or_cupy(self.seeding_perturbation_method(x.copy(deep=True))).data
+            - x0
+        )
 
-        xd = self.model(x.copy(deep=True)).data
+        xd = as_host_or_cupy(self.model(x.copy(deep=True))).data
         # Run forward model
         for _ in range(self.integration_steps):
-            x2 = self.model(x.copy(data=x0 + dx)).data
+            x2 = as_host_or_cupy(self.model(x.copy(data=x0 + dx))).data
             if self.ensemble_perturb:
                 dx1 = x2 - xd
                 dx = dx1 + noise_amplitude * (dx - dx.mean(axis=0))
@@ -113,4 +118,4 @@ class BredVector:
                 dx = x2 - xd
 
         gamma = xp.linalg.norm(x0.ravel()) / xp.linalg.norm((x0 + dx).ravel())
-        return x.copy(data=x0 + dx * noise_amplitude * gamma)
+        return match_backend(x.copy(data=x0 + dx * noise_amplitude * gamma), orig)

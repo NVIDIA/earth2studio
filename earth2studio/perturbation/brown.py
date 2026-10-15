@@ -25,6 +25,7 @@ from earth2studio.perturbation._array import (
     amplitude_like,
     array_module,
     as_host_or_cupy,
+    match_backend,
     randn,
 )
 from earth2studio.utils import handshake_dim
@@ -70,12 +71,13 @@ class Brown:
         handshake_dim(x, required_dim="lat", required_index=-2)
         handshake_dim(x, required_dim="lon", required_index=-1)
 
+        orig = x
         x = as_host_or_cupy(x)
         xp = array_module(x)
         data = x.data
         noise = self._generate_noise_correlated(xp, data.shape, data.dtype)
         noise_amplitude = amplitude_like(self.noise_amplitude, xp, data.dtype)
-        return x.copy(data=data + noise_amplitude * noise)
+        return match_backend(x.copy(data=data + noise_amplitude * noise), orig)
 
     def _generate_noise_correlated(
         self, xp: Any, shape: tuple[int, ...], dtype: Any
