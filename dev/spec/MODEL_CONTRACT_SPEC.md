@@ -42,8 +42,8 @@ and an observation model with optional channels with its available variables. Th
 declaration then has concrete spatial coordinates and labels, so fetching and output
 planning are unambiguous. Keep the configuration fixed for a run; changing it
 requires new signatures and a new fetch/output plan. Models with a selectable spatial
-domain implement `DomainAdaptable` (see Domain selection), which returns a new model
-per domain instead of reconfiguring one in place. Constructors or model-specific
+domain implement `DomainAdaptable` (see Domain selection), which returns a new view
+per region instead of reconfiguring a model in place. Constructors or model-specific
 setters configure other flexible declarations; a shared variable-selection interface
 is an open question, not a method callers can rely on. An unresolved
 wildcard never requests an unspecified region or variable set. Model-specific
@@ -463,7 +463,7 @@ Forcing, `initialize`, `step` and hooks do not apply.
 ### Domain selection
 
 A model whose spatial domain can be chosen implements the optional `DomainAdaptable`
-protocol (`earth2studio.models.domain`) in addition to `PrognosticModel` or
+protocol (`earth2studio.models.base`) in addition to `PrognosticModel` or
 `DiagnosticModel`. Generic callers detect it with `isinstance`; fixed-domain models do
 not implement it. Design notes and wrapper guidance are in
 [flexible_domain.md](../scratch/flexible_domain.md).
@@ -471,28 +471,29 @@ not implement it. Design notes and wrapper guidance are in
 ```python
 @runtime_checkable
 class DomainAdaptable(Protocol):
-    def domain_for(self, region: Region, /) -> GridDefinition: ...
-    def with_domain(self, grid: GridDefinition, /) -> Self: ...
+    def with_region(self, region: Region, /) -> Self: ...
 ```
 
-`domain_for` translates a geographic request into the model's own grid without
-fetching fields or creating a view. A crop model selects and snaps cells from its
-supported footprint; a globe-wide patch model builds a local grid at its native
-spacing and shape. It may reject region kinds it cannot honor. The result is the
-precise grid to pass to `with_domain`.
+A loaded model starts on its default domain, usually its full native footprint, and
+`with_region` is the only way to change it. A model with no natural full domain, such
+as one that builds a local projection anywhere on the globe, ships a documented
+default region so that its signatures are concrete (`P2`, `D2`).
 
-`with_domain` returns a new model bound to **exactly** the given grid, or raises
-`ValueError`; it never snaps, resizes or rotates. Callers may construct a
-`GridDefinition` directly and skip `domain_for`. Model-specific settings such as
-CorrDiff's halo and input margin are configuration of the model a view is made from,
-not protocol arguments.
+`with_region` returns a **view**: a new model instance with its own coordinate
+signatures that shares the loaded weights and statics. The model selects the grid of
+every input, forcing and output slot itself, so multi-grid models keep their slots
+consistent. Selection uses each grid's own logic: a crop model selects and snaps cells
+from its supported footprint, and a globe-wide patch model builds a local grid at its
+native spacing and shape. A model rejects region kinds its grids cannot select with
+`ValueError`; grid-native selections such as HEALPix faces remain model-specific until
+a region kind is added for them. Model-specific settings such as CorrDiff's halo and
+input margin are configuration of the model a view is made from, not protocol
+arguments.
 
-The bound grid is the prognostic state grid or the diagnostic output grid. Input and
-forcing slots may use grids derived from it, and each view's `input_coords()`,
-`forcing_coords()` and `output_coords()` are authoritative. An internal run grid may
-be larger than the declared grid, as when CorrDiff computes a halo and trims it. A
-run binds one view and keeps it fixed (see Coordinate Systems). Views may share
-parameter storage; they run safely in sequence, and concurrently only where the
+Each view's `input_coords()`, `forcing_coords()` and `output_coords()` are
+authoritative. An internal run grid may be larger than a declared grid, as when
+CorrDiff computes a halo and trims it. A run binds one view and keeps it fixed (see
+Coordinate Systems). Views run safely in sequence, and concurrently only where the
 wrapper documents it.
 
 #### Regions
@@ -503,16 +504,16 @@ is a frozen value type built through classmethods that validate and normalize it
 ```python
 Region.box(west, south, east, north)
 Region.band(south, north)
-Region.around(lat, lon, half_width_m, half_height_m=None, bearing_deg=0.0)
-Region.polygon(vertices, edges="geodesic")
+Region.rectangle(lat, lon, half_width_m, half_height_m=None, bearing_deg=0.0)
+Region.circle(lat, lon, radius_m)
 ```
 
-| `kind` | `params` | `edges` |
-| --- | --- | --- |
-| `"box"` | `(west, south, east, north)` | `None` |
-| `"band"` | `(south, north)` | `None` |
-| `"around"` | `(lat, lon, half_width_m, half_height_m, bearing_deg)` | `None` |
-| `"polygon"` | Flat `(lon_0, lat_0, lon_1, lat_1, ...)`; closure is implicit | `"geodesic"` |
+| `kind` | `params` |
+| --- | --- |
+| `"box"` | `(west, south, east, north)` |
+| `"band"` | `(south, north)` |
+| `"rectangle"` | `(lat, lon, half_width_m, half_height_m, bearing_deg)` |
+| `"circle"` | `(lat, lon, radius_m)` |
 
 - `box` uses CRS84 longitude/latitude, with edges along meridians and parallels.
   `west > east` crosses the antimeridian; `west == east` is a zero-width box, not
@@ -520,25 +521,22 @@ Region.polygon(vertices, edges="geodesic")
 - `band` spans every longitude between two parallels, such as the tropics, a polar
   cap (`band(60, 90)`) or the whole globe (`band(-90, 90)`). It has no east or west
   edge, so coverage checks treat longitude as continuous.
-- `around` is a rectangle in the local azimuthal-equidistant plane centered at
-  `(lat, lon)`; `half_height_m=None` makes a square. `bearing_deg` is the clockwise
-  angle from true north to the local positive *y* axis, with positive *x* to its
-  right; at a pole, `lon` is the reference meridian. A model accepting `around` must
-  honor its center and orientation, or raise `ValueError`.
-- `polygon` keeps its defining `(lon, lat)` vertices and edge interpretation;
-  sampling for a coverage check belongs in `domain_for`, where grid spacing is known.
-  Its interior is the smaller of the two regions the ring encloses, and vertices are
-  stored counterclockwise around it, so traversal direction does not change a request.
+- `rectangle` lies in the local azimuthal-equidistant plane centered at `(lat, lon)`;
+  `half_height_m=None` makes a square. `bearing_deg` is the clockwise angle from true
+  north to the local positive *y* axis, with positive *x* to its right; at a pole,
+  `lon` is the reference meridian. A model accepting `rectangle` must honor its center
+  and orientation, or raise `ValueError`.
+- `circle` holds every point within geodesic distance `radius_m` of `(lat, lon)`, a
+  circle in the same local plane. At a pole, `lon` is irrelevant and normalized to 0.
 
 Direct construction applies the same validation and normalization as the
 classmethods, so equal requests compare and hash equal. Validation covers finite
-values, coordinate ranges, positive half-widths and polygon structure (at least three
-vertices, no repeated consecutive or antipodal vertices, nonzero area). Longitude is
-normalized to `[-180, 180)` and bearing to `[0, 360)`; in-range values are kept
-exactly and coordinates are never rounded, which could change the requested footprint.
-A `box` spanning a nonzero multiple of 360° of longitude is rejected rather than
-collapsed to zero width; use `band` instead. Masks, vertical extent and variables are not part of a
-region.
+values, coordinate ranges and positive half-widths and radii. Longitude is normalized to
+`[-180, 180)` and bearing to `[0, 360)`; in-range values are kept exactly and
+coordinates are never rounded, which could change the requested footprint. A `box`
+spanning a nonzero multiple of 360° of longitude is rejected rather than collapsed to
+zero width; use `band` instead. Masks, vertical extent and variables are not part of
+a region. Further kinds (polygons, tracks) are additive.
 
 Coverage checks are model-specific: on projected and curvilinear grids, selecting
 cell centers inside a geographic box does not guarantee coverage. `subset_indexers()`
@@ -600,18 +598,16 @@ These rules apply only to models implementing `DomainAdaptable`.
 
 | Rule | Requirement |
 | --- | --- |
-| `G1` | `domain_for(region)` returns a grid covering the region, or raises `ValueError` |
-| `G2` | `with_domain(grid)` binds exactly that grid, or raises `ValueError` |
-| `G3` | Views leave the parent and sibling views' signatures, parameters and results unchanged |
-| `G4` | A view reaches the full supported footprint, with the original model's validation |
-| `G5` | Domain-dependent prognostic state is rejected by a view on an incompatible domain |
+| `G1` | `with_region(region)` returns a view covering the region, or raises `ValueError` |
+| `G2` | Views leave the parent and sibling views' signatures, parameters and results unchanged |
+| `G3` | A view reaches the full supported footprint, with the original model's validation |
+| `G4` | Domain-dependent prognostic state is rejected by a view on an incompatible domain |
 
-`G1` coverage is geometric: the usable output area contains the region, and an
-`around` request's center and orientation are honored. It does not guarantee skill or
-the absence of edge artifacts. Under `G2`, the view's signatures describe the bound
-grid and its derived input and forcing grids. `G3` holds for sequential use with
-equivalent seeding; for example, seeding before each rollout of A in an A, B, A
-sequence reproduces A, and the root `state_dict` is unchanged.
+`G1` coverage is geometric: the usable area of every output slot contains the region,
+and a `rectangle` request's center and orientation are honored. It does not guarantee
+skill or the absence of edge artifacts. `G2` holds for sequential use with equivalent
+seeding; for example, seeding before each rollout of A in an A, B, A sequence
+reproduces A, and the root `state_dict` is unchanged.
 
 ## Lead Time
 
@@ -832,7 +828,7 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   `default_sources()` recommending nothing, inherited by every diagnostic wrapper.
   `default_sources()` then becomes a required `DiagnosticModel` member, as for
   `PrognosticModel`, and drivers drop their `getattr` fallbacks for both attributes.
-- **Domain selection.** Add `DomainAdaptable`, `Region` and checks for `G1`–`G5`.
+- **Domain selection.** Add `DomainAdaptable`, `Region` and checks for `G1`–`G4`.
   `CorrDiffCosmoEra5`, `StormCastCONUS`/`StormCast` and `cBottleSR` adopt the
   protocol additively, keeping their constructor limits, `set_domain` and
   `set_super_resolution_window` as adapters; see

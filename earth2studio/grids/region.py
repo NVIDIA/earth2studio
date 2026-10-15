@@ -19,16 +19,9 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal, get_args
-
-from pyproj import Geod
-
-RegionKind = Literal["box", "band", "around", "polygon"]
-PolygonEdges = Literal["geodesic"]
-
-_GEOD = Geod(ellps="WGS84")
+from typing import Literal
 
 
 def _finite(values: Iterable[float]) -> tuple[float, ...]:
@@ -55,11 +48,6 @@ def _wrap(value: float, start: float) -> float:
 
 def _longitude(value: float) -> float:
     return _wrap(value, -180.0)
-
-
-def _same_point(a: tuple[float, float], b: tuple[float, float]) -> bool:
-    # All longitudes coincide at a pole
-    return a[1] == b[1] and (abs(a[1]) == 90.0 or a[0] == b[0])
 
 
 def _latitudes(south: float, north: float, kind: str) -> None:
@@ -89,90 +77,59 @@ def _band(params: tuple[float, ...]) -> tuple[float, ...]:
     return params
 
 
-def _around(params: tuple[float, ...]) -> tuple[float, ...]:
+def _rectangle(params: tuple[float, ...]) -> tuple[float, ...]:
     if len(params) != 5:
         raise ValueError(
-            "around requires (lat, lon, half_width_m, half_height_m, bearing_deg)"
+            "rectangle requires (lat, lon, half_width_m, half_height_m, bearing_deg)"
         )
     lat, lon, half_width, half_height, bearing = params
     _latitude(lat, "lat")
     if half_width <= 0.0 or half_height <= 0.0:
-        raise ValueError("around half-widths must be positive")
+        raise ValueError("rectangle half-widths must be positive")
     return (lat, _longitude(lon), half_width, half_height, _wrap(bearing, 0.0))
 
 
-def _polygon(params: tuple[float, ...]) -> tuple[float, ...]:
-    if len(params) % 2:
-        raise ValueError("polygon parameters must be (lon, lat) pairs")
-    vertices = [
-        (_longitude(lon), _latitude(lat, "polygon latitude"))
-        for lon, lat in zip(params[::2], params[1::2])
-    ]
-    # Closure is implicit
-    if len(vertices) > 1 and _same_point(vertices[0], vertices[-1]):
-        vertices.pop()
-    if len(vertices) < 3:
-        raise ValueError("polygon requires at least three distinct vertices")
-    for (lon_a, lat_a), (lon_b, lat_b) in zip(vertices, vertices[1:] + vertices[:1]):
-        if _same_point((lon_a, lat_a), (lon_b, lat_b)):
-            raise ValueError("polygon must not repeat consecutive vertices")
-        if lat_a == -lat_b and (abs(lat_a) == 90.0 or abs(lon_a - lon_b) == 180.0):
-            raise ValueError("polygon geodesic edges must not join antipodes")
+def _circle(params: tuple[float, ...]) -> tuple[float, ...]:
+    if len(params) != 3:
+        raise ValueError("circle requires (lat, lon, radius_m)")
+    lat, lon, radius = params
+    _latitude(lat, "lat")
+    if radius <= 0.0:
+        raise ValueError("circle radius must be positive")
+    # Every longitude names the same center at a pole
+    return (lat, 0.0 if abs(lat) == 90.0 else _longitude(lon), radius)
 
-    lons, lats = zip(*vertices)
-    area, _ = _GEOD.polygon_area_perimeter(lons, lats)
-    if area == 0.0:
-        raise ValueError("polygon must enclose a nonzero area")
-    # The interior is the smaller enclosed region; store it counterclockwise
-    if area < 0.0:
-        vertices = vertices[:1] + vertices[:0:-1]
-    return tuple(value for vertex in vertices for value in vertex)
+
+_NORMALIZERS = {"box": _box, "band": _band, "rectangle": _rectangle, "circle": _circle}
 
 
 @dataclass(frozen=True)
 class Region:
     """Geographic request independent of any model grid.
 
-    Build regions with :meth:`box`, :meth:`band`, :meth:`around` or
-    :meth:`polygon`. Direct construction applies the same validation and
-    normalization, so equal requests compare and hash equal. Longitudes are
-    normalized to ``[-180, 180)`` and bearings to ``[0, 360)``; coordinates are
-    never rounded.
+    Build regions with :meth:`box`, :meth:`band`, :meth:`rectangle` or
+    :meth:`circle`. Direct construction applies the same validation and
+    normalization, so equal requests compare and hash equal. Longitudes are normalized to ``[-180, 180)`` and
+    bearings to ``[0, 360)``; coordinates are never rounded.
 
     Parameters
     ----------
-    kind : {"box", "band", "around", "polygon"}
+    kind : {"box", "band", "rectangle", "circle"}
         Region shape.
     params : tuple[float, ...]
         ``box``: ``(west, south, east, north)``. ``band``: ``(south, north)``.
-        ``around``: ``(lat, lon, half_width_m, half_height_m, bearing_deg)``.
-        ``polygon``: flat ``(lon_0, lat_0, lon_1, lat_1, ...)``, stored
-        counterclockwise around the smaller enclosed region, with implicit closure.
-    edges : {"geodesic"} | None, optional
-        Polygon edge interpretation; required for polygons and ``None`` otherwise,
-        by default None.
+        ``rectangle``: ``(lat, lon, half_width_m, half_height_m, bearing_deg)``.
+        ``circle``: ``(lat, lon, radius_m)``.
     """
 
-    kind: RegionKind
+    kind: Literal["box", "band", "rectangle", "circle"]
     params: tuple[float, ...]
-    edges: PolygonEdges | None = None
 
     def __post_init__(self) -> None:
-        if self.kind not in get_args(RegionKind):
+        if self.kind not in _NORMALIZERS:
             raise ValueError(f"Unknown region kind {self.kind!r}")
-        if self.kind == "polygon":
-            if self.edges not in get_args(PolygonEdges):
-                raise ValueError(f"Unsupported polygon edges {self.edges!r}")
-        elif self.edges is not None:
-            raise ValueError(f"{self.kind} regions do not take edges")
-        params = _finite(self.params)
-        normalize = {
-            "box": _box,
-            "band": _band,
-            "around": _around,
-            "polygon": _polygon,
-        }[self.kind]
-        object.__setattr__(self, "params", normalize(params))
+        normalize = _NORMALIZERS[self.kind]
+        object.__setattr__(self, "params", normalize(_finite(self.params)))
 
     @classmethod
     def box(cls, west: float, south: float, east: float, north: float) -> Region:
@@ -218,7 +175,7 @@ class Region:
         return cls("band", (south, north))
 
     @classmethod
-    def around(
+    def rectangle(
         cls,
         lat: float,
         lon: float,
@@ -249,35 +206,27 @@ class Region:
             Oriented rectangle region.
         """
         height = half_width_m if half_height_m is None else half_height_m
-        return cls("around", (lat, lon, half_width_m, height, bearing_deg))
+        return cls("rectangle", (lat, lon, half_width_m, height, bearing_deg))
 
     @classmethod
-    def polygon(
-        cls,
-        vertices: Sequence[tuple[float, float]],
-        edges: PolygonEdges = "geodesic",
-    ) -> Region:
-        """Polygon through ``(lon, lat)`` vertices enclosing the smaller region.
+    def circle(cls, lat: float, lon: float, radius_m: float) -> Region:
+        """Points within a geodesic distance of a center point.
+
+        Equivalent to a circle in the local azimuthal-equidistant plane centered on
+        the point. At a pole the longitude is irrelevant and normalized to zero.
 
         Parameters
         ----------
-        vertices : Sequence[tuple[float, float]]
-            At least three ``(lon, lat)`` vertices in degrees; closure is implicit.
-        edges : {"geodesic"}, optional
-            How consecutive vertices are joined, by default "geodesic".
+        lat : float
+            Center latitude in degrees.
+        lon : float
+            Center longitude in degrees.
+        radius_m : float
+            Geodesic radius in meters.
 
         Returns
         -------
         Region
-            Polygon region.
+            Circle region.
         """
-        if any(len(vertex) != 2 for vertex in vertices):
-            raise ValueError("polygon vertices must be (lon, lat) pairs")
-        return cls("polygon", tuple(v for vertex in vertices for v in vertex), edges)
-
-    @property
-    def vertices(self) -> tuple[tuple[float, float], ...]:
-        """Polygon ``(lon, lat)`` vertices in stored counterclockwise order."""
-        if self.kind != "polygon":
-            raise AttributeError(f"{self.kind} regions have no vertices")
-        return tuple(zip(self.params[::2], self.params[1::2]))
+        return cls("circle", (lat, lon, radius_m))
