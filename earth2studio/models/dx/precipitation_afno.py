@@ -115,16 +115,16 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.eps = 1e-5
 
     def default_sources(self) -> "DataSource":
-        """Recommend the ARCO ERA5 data source.
+        """Recommend the WeatherBench2 ERA5 data source.
 
         Returns
         -------
         DataSource
-            ``ARCO_ERA5`` data source for the input slot.
+            ``WB2ERA5`` data source for the input slot, including relative humidity.
         """
-        from earth2studio.data import ARCO_ERA5
+        from earth2studio.data import WB2ERA5
 
-        return ARCO_ERA5()
+        return WB2ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

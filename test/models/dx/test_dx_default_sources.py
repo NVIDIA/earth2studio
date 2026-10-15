@@ -16,7 +16,7 @@
 
 import pytest
 
-from earth2studio.data import ARCO_ERA5, GFS, GOES, NCAR_ERA5
+from earth2studio.data import ARCO_ERA5, GFS, GOES, NCAR_ERA5, WB2ERA5
 from earth2studio.models.dx import (
     CBottleInfill,
     ClimateNet,
@@ -44,7 +44,7 @@ from earth2studio.models.dx import (
         (CorrDiffEra5Hrrr, ARCO_ERA5),
         (CorrDiffTaiwan, GFS),
         (OrbitGlobalPrecip, NCAR_ERA5),
-        (PrecipitationAFNO, ARCO_ERA5),
+        (PrecipitationAFNO, WB2ERA5),
         (PrecipitationAFNOv2, ARCO_ERA5),
         (SolarRadiationAFNO1H, ARCO_ERA5),
         (SolarRadiationAFNO6H, ARCO_ERA5),
