@@ -210,7 +210,16 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
     def sample(
         self, noise: torch.Tensor, condition: "TensorDict", nfe: int = 2
     ) -> torch.Tensor:
-        """Few-step sample in normalized units: ``nfe`` blocks of ``n_grid / nfe`` intervals."""
+        """Few-step sample in normalized units: ``nfe`` blocks of ``n_grid / nfe`` intervals.
+
+        Only the trained block layouts are allowed: ``nfe=1`` (one block) or ``nfe=2``
+        (two blocks). Other values would run the heads at block starts they were never
+        trained for, so they are rejected.
+        """
+        if nfe not in (1, 2):
+            raise ValueError(
+                "the distilled generator supports nfe 1 or 2 (its trained block layouts)"
+            )
         N = self.n_grid
         if N % nfe != 0:
             raise ValueError(f"nfe must divide the grid size {N}")

@@ -156,26 +156,122 @@ def test_corrdiff_era5_hrrr_exceptions(model_args):
         CorrDiffEra5Hrrr.load_model(None, variant="v_pred")
 
 
-def test_corrdiff_era5_hrrr_distilled_steps(model_args):
-    """The distilled generator only supports its trained block layouts (1 or 2 steps)."""
+@pytest.fixture
+def tiny_distilled():
+    """A distilled generator around a toy DiT (timm attention, runs on CPU)."""
     from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5HrrrDistilled
 
-    class _DistilledStub(CorrDiffEra5HrrrDistilled):
-        # stands in for the distilled generator without building its 678M backbone
-        def __init__(self):
-            torch.nn.Module.__init__(self)
-            self.n_grid = 64
+    torch.manual_seed(0)
+    dit_args = dict(
+        input_size=(4, 6),
+        in_channels=99 + 30,  # 99 latents + 26 ERA5 + cos zenith + 3 invariants
+        out_channels=99,
+        patch_size=2,
+        hidden_size=16,
+        depth=1,
+        num_heads=2,
+        condition_dim=4,
+        attention_backend="timm",
+    )
+    net = CorrDiffEra5HrrrDistilled(dit_args, n_grid=8)
+    # the DiT initialization zeroes the output projection; give it and the
+    # heads some signal so the tests see non-trivial fields
+    with torch.no_grad():
+        for linear in (net.dit.detokenizer.proj_layer.output_projection, *net.heads):
+            torch.nn.init.normal_(linear.weight, std=0.02)
+            torch.nn.init.normal_(linear.bias, std=0.02)
+    return net.eval().requires_grad_(False)
 
-        def sample(self, noise, condition, nfe=2):
-            return torch.zeros_like(noise)
 
-    args = dict(model_args)
-    args["network"] = _DistilledStub()
-    args["number_of_steps"] = 3
+def _tiny_condition():
+    from tensordict import TensorDict
+
+    torch.manual_seed(1)
+    return TensorDict(
+        {"cond_concat": torch.randn(1, 30, 4, 6), "cond_vec": torch.randn(1, 4)},
+        batch_size=[1],
+    )
+
+
+def test_corrdiff_era5_hrrr_distilled_grid_and_heads(tiny_distilled):
+    net = tiny_distilled
+    grid = net.grid
+    assert grid.shape == (net.n_grid + 1,) and len(net.heads) == net.n_grid
+    assert float(grid[0]) <= net.t_max and float(grid[-1]) == 0.0
+    assert torch.all(grid[1:] < grid[:-1])
+    # a head loaded with the backbone's own output projection must reproduce
+    # the full DiT forward: features() + head() is an exact split of the DiT
+    cond = _tiny_condition()
+    x = torch.randn(1, 99, 4, 6)
+    t = torch.full((1,), 0.7)
+    base = net.dit.detokenizer.proj_layer.output_projection
+    net.heads[3].load_state_dict(base.state_dict())
+    feats = net.features(x, t, cond)
+    assert feats.shape == (1, 2 * 3, 16)
+    expected = net.dit(
+        torch.cat([x, cond["cond_concat"]], dim=1),
+        t * net.time_scale,
+        condition=cond["cond_vec"],
+    )
+    torch.testing.assert_close(net.head(feats, 3), expected)
+    assert net.head(feats, 3).shape == (1, 99, 4, 6)
+
+
+def test_corrdiff_era5_hrrr_distilled_sample(tiny_distilled):
+    net = tiny_distilled
+    cond = _tiny_condition()
+    noise = torch.randn(1, 99, 4, 6)
+    out1 = net.sample(noise, cond, nfe=1)
+    out2 = net.sample(noise, cond, nfe=2)
+    for out in (out1, out2):
+        assert out.shape == noise.shape and torch.isfinite(out).all()
+    assert not torch.allclose(out1, out2)
+    torch.testing.assert_close(net(noise, cond, nfe=2), out2)  # forward aliases sample
+    torch.testing.assert_close(net.sample(noise.clone(), cond, nfe=2), out2)
+    for nfe in (3, 4, 8):
+        with pytest.raises(ValueError, match="1 or 2"):
+            net.sample(noise, cond, nfe=nfe)
+
+
+def test_corrdiff_era5_hrrr_distilled_checkpoint_roundtrip(tiny_distilled, tmp_path):
+    from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5HrrrDistilled
+
+    net = tiny_distilled
+    path = tmp_path / "distilled.mdlus"
+    net.save(str(path))
+    loaded = CorrDiffEra5HrrrDistilled.from_checkpoint(str(path)).eval()
+    assert isinstance(loaded, CorrDiffEra5HrrrDistilled)
+    assert loaded.n_grid == net.n_grid and loaded.shift == net.shift
+    assert loaded.time_scale == net.time_scale and loaded.x0v_clip == net.x0v_clip
+    torch.testing.assert_close(loaded.grid, net.grid)
+    cond = _tiny_condition()
+    noise = torch.randn(1, 99, 4, 6)
+    torch.testing.assert_close(
+        loaded.sample(noise, cond, nfe=2), net.sample(noise, cond, nfe=2)
+    )
+
+
+def test_corrdiff_era5_hrrr_distilled_wrapper(model_args, tiny_distilled):
+    args = model_args | {"network": tiny_distilled, "number_of_steps": 2}
+    dx = CorrDiffEra5Hrrr(**args)
+    assert dx.distilled and not CorrDiffEra5Hrrr(**model_args).distilled
+    coords = dx.input_coords()
+    coords.update(
+        batch=np.arange(1),
+        time=np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+    )
+    x = torch.randn(*(len(c) for c in coords.values()))
+    out, out_coords = dx(x, coords)
+    assert out.shape == (1, 2, 2, 99, 4, 6) and torch.isfinite(out).all()
+    np.testing.assert_array_equal(out_coords["variable"], OUTPUT_VARIABLES)
+    torch.testing.assert_close(out, dx(x, coords)[0])  # seeded -> reproducible
+    assert not torch.allclose(out[:, 0], out[:, 1])  # members differ
+    dx.number_of_steps = 1
+    out_1 = dx(x, coords)[0]
+    assert out_1.shape == out.shape and not torch.allclose(out_1, out)
+    # unsupported layouts are rejected both at construction and at call time
     with pytest.raises(ValueError, match="1 or 2"):
-        CorrDiffEra5Hrrr(**args)
-    args["number_of_steps"] = 2
-    model = CorrDiffEra5Hrrr(**args)
-    assert model.distilled and model.number_of_steps == 2
-    # a plain network keeps the multi-step path
-    assert not CorrDiffEra5Hrrr(**model_args).distilled
+        CorrDiffEra5Hrrr(**(args | {"number_of_steps": 3}))
+    dx.number_of_steps = 4
+    with pytest.raises(ValueError, match="1 or 2"):
+        dx(x, coords)
