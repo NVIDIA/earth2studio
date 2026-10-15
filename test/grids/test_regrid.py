@@ -322,6 +322,17 @@ def test_longitude_axis_crossing_the_seam():
     )
 
 
+@pytest.mark.parametrize("cls", [NearestRegridder, BilinearRegridder])
+@pytest.mark.parametrize("longitude", [[0.0, 200.0, 300.0], [0.0, 270.0]])
+def test_coarse_longitude_axes_keep_coverage(cls, longitude):
+    source = LatLonGrid(np.array([1.0, 0.0]), np.array(longitude))
+    target = PointGrid(np.array([0.5, 0.5]), np.array([100.0, 250.0]))
+    y = cls(source, target)(field(source, linear))
+    assert cls(source, target).coverage.all()
+    if cls is BilinearRegridder:
+        np.testing.assert_allclose(y[0, 0], 0.5 + 2 * np.array([100.0, 250.0]))
+
+
 def test_nearest_non_monotonic_axes_use_search_tree():
     pytest.importorskip("scipy")
     source = LatLonGrid(np.array([0.0, 20.0, 10.0]), np.array([0.0, 10.0]))

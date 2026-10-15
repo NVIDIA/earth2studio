@@ -171,11 +171,16 @@ def _axis_neighbors(
 def _latlon_axes(grid: GridDefinition) -> tuple[NDArray[Any], NDArray[Any]]:
     """Latitude and longitude axes of a rectilinear grid.
 
-    Longitude is unwrapped across the seam, so an axis such as ``[350, 0, 10]``
-    becomes monotonic while every value keeps its position.
+    A longitude axis crossing the seam, such as ``[350, 0, 10]``, is unwrapped to
+    become monotonic while every value keeps its position. Monotonic axes are
+    kept as they are, since unwrapping would fold steps wider than 180 degrees.
     """
     lat_axis, lon_axis = _index_axes(grid)
-    return lat_axis, np.unwrap(lon_axis, period=360.0)
+    if not _monotonic(lon_axis):
+        unwrapped = np.unwrap(lon_axis, period=360.0)
+        if _monotonic(unwrapped):
+            lon_axis = unwrapped
+    return lat_axis, lon_axis
 
 
 def _monotonic(axis: NDArray[Any]) -> bool:
