@@ -10,7 +10,8 @@ description: >
   transformations, including simple derived diagnostics, packaged AutoModel
   diagnostics, and generative or diffusion diagnostics. Do NOT use for
   prognostic time-stepping models, data sources, or installation.
-argument-hint: URL or local path to reference inference script (optional)
+  The user may optionally supply a URL or local path to reference material,
+  such as an inference script, repository, paper, or model documentation.
 ---
 
 ## Quick Start Checklist

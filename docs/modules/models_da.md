@@ -24,6 +24,7 @@ output: generated/models/da
 {% autosummary %}
 earth2studio.models.da.CorrDiffCosmoEra5SDA
 earth2studio.models.da.HealDA
+earth2studio.models.da.HealDAv2
 earth2studio.models.da.InterpEquirectangular
 earth2studio.models.da.StormCastSDA
 {% endautosummary %}

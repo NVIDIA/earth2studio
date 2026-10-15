@@ -1666,7 +1666,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         # rea2/ subfolders; ``load_model(..., resolution=)`` selects the subfolder, so
         # one URI serves all four models.
         return Package(
-            "hf://nvidia/corrdiff-cosmo-era5@44064f304158f863f6ae02948b1b8e08d523458e",
+            "hf://nvidia/corrdiff-cosmo-era5@9e2e2388fc29e4a1aabc3d5869644c441d79af83",
             cache_options={
                 "cache_storage": Package.default_cache("corrdiff_cosmo_era5"),
                 # Include the resolution directory to distinguish files with
