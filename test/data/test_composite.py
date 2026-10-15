@@ -30,6 +30,8 @@ from earth2studio.data import (
     fetch_data,
 )
 from earth2studio.grids import BilinearRegridder, LatLonGrid
+from earth2studio.utils.coords import E2S_STATISTICS
+from earth2studio.utils.time_statistics import time_statistic_metadata
 
 GRID = LatLonGrid(np.array([10.0, 0.0]), np.array([0.0, 10.0, 20.0]))
 FINE = LatLonGrid(np.array([10.0, 5.0, 0.0]), np.array([0.0, 5.0, 10.0, 15.0, 20.0]))
@@ -215,6 +217,40 @@ def test_device_is_first_non_cpu_component():
     assert source.device == torch.device("cpu")
     satellite.device = "cuda:1"
     assert source.device == torch.device("cuda", 1)
+
+
+def test_statistics_metadata_merged_from_every_component():
+    def _aggregated(source, label):
+        def call(time, variable):
+            array = _Source.__call__(source, time, variable)
+            array.attrs[E2S_STATISTICS] = {label: time_statistic_metadata("sum:6h")}
+            return array
+
+        return call
+
+    radar, satellite = _Source({"refc": 1.0}), _Source({"tp": 2.0})
+    radar.__call__ = _aggregated(radar, "refc")
+    satellite.__call__ = _aggregated(satellite, "tp")
+
+    class _Wrapped:
+        time_step = np.timedelta64(6, "h")
+
+        def __init__(self, inner):
+            self.inner = inner
+
+        def __call__(self, time, variable):
+            return self.inner.__call__(time, variable)
+
+    source = CompositeSource(
+        {"radar": _Wrapped(radar), "satellite": _Wrapped(satellite)},
+        {"radar": ["refc"], "satellite": ["tp"]},
+    )
+    array = source(TIME, ["refc", "tp"])
+    assert set(array.attrs[E2S_STATISTICS]) == {"refc", "tp"}
+    assert set(source(TIME, ["tp"]).attrs[E2S_STATISTICS]) == {"tp"}
+    # Already aggregated variables from any component cannot be reduced again.
+    with pytest.raises(ValueError, match="statistic"):
+        fetch_data(source, TIME, np.array(["refc:sum:12h", "tp:sum:12h"]))
 
 
 def test_temporal_statistics_through_regridded_components():

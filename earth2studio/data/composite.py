@@ -29,6 +29,7 @@ import xarray as xr
 
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.data.utils import _is_forecast_source
+from earth2studio.utils.coords import E2S_STATISTICS
 
 try:
     import cupy as cp
@@ -243,7 +244,18 @@ def _join(parts: list[xr.DataArray], requested: list[str]) -> xr.DataArray:
             ) from error
     else:
         field = parts[0]
-    return field.sel(variable=requested)
+    field = field.sel(variable=requested)
+    # Concatenation keeps only the first part's attributes; merge statistics, which
+    # are recorded per variable, from every part.
+    statistics = {}
+    for part in parts:
+        statistics.update(part.attrs.get(E2S_STATISTICS, {}))
+    field.attrs = dict(field.attrs)
+    field.attrs.pop(E2S_STATISTICS, None)
+    statistics = {name: statistics[name] for name in requested if name in statistics}
+    if statistics:
+        field.attrs[E2S_STATISTICS] = statistics
+    return field
 
 
 def _common_backing(parts: list[xr.DataArray]) -> list[xr.DataArray]:

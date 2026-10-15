@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from typing import Any
 
 import numpy as np
@@ -108,6 +109,8 @@ def _index_axes(grid: GridDefinition) -> tuple[NDArray[Any], NDArray[Any]]:
 
 def _longitude_period(axis: NDArray[Any]) -> float | None:
     """Return 360 when a longitude axis wraps the globe without repeating a point."""
+    if axis.size < 2:
+        return None
     span = abs(axis[-1] - axis[0])
     gap = 360.0 - span
     step = np.abs(np.diff(axis)).max()
@@ -178,6 +181,43 @@ def _latlon_neighbors(
         _axis_neighbors(lat_axis, latitude),
         _axis_neighbors(lon_axis, longitude, period=period),
     )
+
+
+def _rectilinear_nearest(
+    grid: GridDefinition, latitude: NDArray[Any], longitude: NDArray[Any]
+) -> tuple[NDArray[np.int64], NDArray[Any], NDArray[np.bool_]]:
+    """Nearest point on the sphere of a rectilinear grid, without a search tree.
+
+    Along every latitude row the nearest point lies in the column nearest in
+    longitude, so the nearest grid point lies on that column's meridian. Distance
+    along a meridian has a single minimum, where it passes closest to the target,
+    so the nearest row is one of the two rows bracketing that latitude.
+    """
+    lat_axis, lon_axis = _index_axes(grid)
+    columns = np.zeros(latitude.shape, dtype=np.int64)
+    if lon_axis.size > 1:
+        period = _longitude_period(lon_axis)
+        wrapped = longitude
+        if period is None:
+            ascending = lon_axis if lon_axis[-1] > lon_axis[0] else lon_axis[::-1]
+            wrapped = _wrap_longitude(longitude, ascending)
+        lower, upper, weight, _ = _axis_neighbors(lon_axis, wrapped, period=period)
+        columns = np.where(weight >= 0.5, upper, lower)
+    meridian = lon_axis[columns]
+
+    rows = np.zeros(latitude.shape, dtype=np.int64)
+    if lat_axis.size > 1:
+        lat, dlon = np.radians(latitude), np.radians(longitude - meridian)
+        closest = np.degrees(np.arctan2(np.sin(lat), np.cos(lat) * np.cos(dlon)))
+        # Beyond a pole the meridian's nearest point is that pole.
+        closest = np.clip(closest, -90.0, 90.0)
+        lower, upper, _, _ = _axis_neighbors(lat_axis, closest)
+        lower_km = _great_circle_km(latitude, longitude, lat_axis[lower], meridian)
+        upper_km = _great_circle_km(latitude, longitude, lat_axis[upper], meridian)
+        rows = np.where(upper_km <= lower_km, upper, lower)
+    distance = _great_circle_km(latitude, longitude, lat_axis[rows], meridian)
+    valid = np.isfinite(latitude) & np.isfinite(longitude)
+    return rows * lon_axis.size + columns, distance, valid
 
 
 def _unit_vectors(latitude: NDArray[Any], longitude: NDArray[Any]) -> NDArray[Any]:
@@ -369,27 +409,33 @@ class _IndexRegridder:
         leading = tuple(dim for dim in x.dims if dim not in source_dims)
         x = x.transpose(*leading, *source_dims)
         data = x.data
+        context: AbstractContextManager[Any]
         if cp is not None and isinstance(data, cp.ndarray):
             xp = cp
             index, weight, valid = self._device_tables(data.device.id)
+            # Allocate on the field's device, not the current one.
+            context = cp.cuda.Device(data.device.id)
         else:
             xp, data = np, np.asarray(data)
             index, weight, valid = self._host
+            context = nullcontext()
         dtype = data.dtype if np.issubdtype(data.dtype, np.floating) else np.float32
         leading_shape = data.shape[: len(leading)]
-        flat = data.reshape(*leading_shape, -1).astype(dtype, copy=False)
-
-        if weight is None:
-            values = xp.take(flat, index[0], axis=-1)
-        else:
-            values = xp.zeros((*leading_shape, index.shape[1]), dtype=dtype)
-            for neighbor, factor in zip(index, weight.astype(dtype, copy=False)):
-                # Skip zero-weight neighbors so their NaNs do not leak into exact hits.
-                values += xp.where(
-                    factor != 0, xp.take(flat, neighbor, axis=-1) * factor, 0
-                )
-        values = xp.where(valid, values, xp.asarray(self.fill_value, dtype=dtype))
-        values = values.reshape(*leading_shape, *self._target_grid.shape)
+        with context:
+            flat = data.reshape(*leading_shape, -1).astype(dtype, copy=False)
+            if weight is None:
+                values = xp.take(flat, index[0], axis=-1)
+            else:
+                values = xp.zeros((*leading_shape, index.shape[1]), dtype=dtype)
+                for neighbor, factor in zip(index, weight.astype(dtype, copy=False)):
+                    # Skip zero-weight neighbors so their NaNs do not leak into
+                    # exact hits.
+                    values += xp.where(
+                        factor != 0, xp.take(flat, neighbor, axis=-1) * factor, 0
+                    )
+            fill = xp.asarray(self.fill_value, dtype=dtype)
+            values = xp.where(valid, values, fill)
+            values = values.reshape(*leading_shape, *self._target_grid.shape)
 
         coords = {
             name: coordinate.variable
@@ -424,8 +470,8 @@ class NearestRegridder(_IndexRegridder):
 
     Distances are great-circle, so the regridder is indifferent to the longitude
     convention of either grid. Source points without finite coordinates, such as
-    off-disk satellite pixels, are never selected. Between two latitude-longitude
-    grids the nearest point is found along each axis, without a search tree.
+    off-disk satellite pixels, are never selected. On a latitude-longitude source
+    the nearest point is found exactly from the grid axes, without a search tree.
 
     Parameters
     ----------
@@ -442,8 +488,8 @@ class NearestRegridder(_IndexRegridder):
 
     Note
     ----
-    Grids other than two latitude-longitude grids need SciPy (the ``utils``
-    extra) to build the search tree.
+    Sources other than latitude-longitude grids need SciPy (the ``utils`` extra)
+    to build the search tree.
     """
 
     def __init__(
@@ -460,16 +506,8 @@ class NearestRegridder(_IndexRegridder):
     def _build(self) -> _Tables:
         source, target = self._source_grid, self._target_grid
         latitude, longitude = _geographic(target)
-        if source.topology == target.topology == "rectilinear":
-            lat, lon = _latlon_neighbors(source, latitude, longitude)
-            rows = np.where(lat[2] >= 0.5, lat[1], lat[0])
-            columns = np.where(lon[2] >= 0.5, lon[1], lon[0])
-            index = rows * source.shape[1] + columns
-            lat_axis, lon_axis = _index_axes(source)
-            distance = _great_circle_km(
-                latitude, longitude, lat_axis[rows], lon_axis[columns]
-            )
-            valid = np.isfinite(latitude) & np.isfinite(longitude)
+        if source.topology == "rectilinear":
+            index, distance, valid = _rectilinear_nearest(source, latitude, longitude)
         else:
             index, distance, valid = _tree_neighbors(
                 _geographic(source), (latitude, longitude)

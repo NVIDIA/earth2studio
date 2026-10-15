@@ -266,17 +266,59 @@ def test_nearest_tree_skips_invalid_source_points():
     assert y[0, 0, 0] != 4 and y[0, 0, 1] == 0
 
 
-def test_nearest_tree_matches_latlon_fast_path():
+def test_nearest_latlon_matches_search_tree():
     pytest.importorskip("scipy")
-    # Off-grid points (no ties), as a lat-lon grid and as the same curvilinear grid.
-    regular = LatLonGrid(np.linspace(83.0, -77.0, 23), np.linspace(-173.0, 351.0, 41))
+    # The same geometry as a curvilinear source is searched with the tree.
     curvilinear = CurvilinearGrid(
-        *np.meshgrid(regular.latitude, regular.longitude, indexing="ij")
+        *np.meshgrid(GLOBAL.latitude, GLOBAL.longitude, indexing="ij")
     )
-    x = field(GLOBAL, linear)
-    fast = NearestRegridder(GLOBAL, regular)(x)
-    tree = NearestRegridder(GLOBAL, curvilinear)(x)
-    np.testing.assert_allclose(fast.values, tree.values)
+    rng = np.random.default_rng(0)
+    lat, lon = rng.uniform(-90, 90, 500), rng.uniform(-180, 360, 500)
+    target = PointGrid(lat, lon)
+
+    def selected(source):
+        # Regrid the source's own coordinates to recover each selected point.
+        x = field(source, lambda lat, lon: lat)
+        y = field(source, lambda lat, lon: lon)
+        regridder = NearestRegridder(source, target)
+        return regridder(x)[0, 0].values, regridder(y)[0, 0].values
+
+    def great_circle(points):
+        a, b = np.radians(points[0]), np.radians(points[1])
+        p, q = np.radians(lat), np.radians(lon)
+        cosine = np.sin(a) * np.sin(p) + np.cos(a) * np.cos(p) * np.cos(b - q)
+        return np.arccos(np.clip(cosine, -1, 1))
+
+    # Pole rows tie across longitudes, so compare distances rather than indices.
+    np.testing.assert_allclose(
+        great_circle(selected(GLOBAL)), great_circle(selected(curvilinear)), atol=1e-12
+    )
+
+
+def test_nearest_latlon_compares_rows_on_the_sphere():
+    # Latitude 60 is nearer in degrees, but 80 is nearer on the sphere.
+    source = LatLonGrid(np.array([60.0, 80.0]), np.array([0.0, 60.0]))
+    target = LatLonGrid(np.array([69.0]), np.array([25.0]))
+    x = field(source, lambda lat, lon: lat + 0 * lon)
+    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [[80.0]])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        LatLonGrid(np.array([10.0]), np.array([20.0])),
+        LatLonGrid(np.array([10.0]), np.array([20.0, 30.0])),
+        LatLonGrid(np.array([10.0, 0.0]), np.array([20.0])),
+    ],
+)
+def test_nearest_single_point_axes(source):
+    target = LatLonGrid(np.array([0.0, 5.0]), np.array([0.0, 30.0]))
+    x = field(source, linear)
+    y = NearestRegridder(source, target)(x)
+    assert not np.isnan(y).any()
+    assert set(np.unique(y[0, 0])) <= set(np.unique(x[0, 0]))
+    with pytest.raises(ValueError, match="two points"):
+        BilinearRegridder(source, target)
 
 
 def test_parity_with_interp_kernels():
@@ -324,3 +366,21 @@ def test_cupy_fields_stay_on_device(cls):
     assert 0 in regridder._devices
     np.testing.assert_allclose(cp.asnumpy(gpu.data), expected.values, equal_nan=True)
     assert regridder.to("cuda:0") is regridder
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.device_count() < 2,
+    reason="needs two GPUs",
+)
+@pytest.mark.parametrize("cls", [NearestRegridder, BilinearRegridder])
+def test_cupy_fields_stay_on_their_device(cls):
+    cp = pytest.importorskip("cupy")
+    regridder = cls(REGION, GLOBAL)
+    x = field(REGION, linear)
+    expected = regridder(x)
+    with cp.cuda.Device(1):
+        data = cp.asarray(x.data)
+    with cp.cuda.Device(0):
+        y = regridder(x.copy(data=data))
+    assert y.data.device.id == 1
+    np.testing.assert_allclose(cp.asnumpy(y.data), expected.values, equal_nan=True)
