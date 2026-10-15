@@ -28,7 +28,7 @@ from collections import OrderedDict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Protocol, TypeAlias
+from typing import Protocol, TypeAlias, cast
 
 import numpy as np
 import torch
@@ -37,9 +37,13 @@ import xarray as xr
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin, initial_condition
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
-from earth2studio.run._fields import _map_field, _output_dimensions
+from earth2studio.run._fields import (
+    _lead_times,
+    _map_field,
+    _yields_initial_condition,
+)
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.type import CoordinateSystem
 
@@ -117,12 +121,6 @@ def _slots(signature: CoordinateSystem | tuple | None) -> tuple:
     return signature if isinstance(signature, tuple) else (signature,)
 
 
-def _yields_initial_condition(model: object) -> bool:
-    """Whether an unmigrated wrapper's iterator still yields the initial condition."""
-    initialize = getattr(type(model), "initialize", PrognosticMixin.initialize)
-    return initialize is PrognosticMixin.initialize
-
-
 def _module_device(model: object) -> torch.device:
     if isinstance(model, torch.nn.Module):
         for tensor in chain(model.parameters(), model.buffers()):
@@ -156,20 +154,28 @@ def _fetch(
     return _map_field(x, signature)
 
 
+def _stream_coords(signature: xr.DataArray, leads: np.ndarray) -> CoordSystem:
+    """Stream coordinates for fields like ``signature`` over lead times ``leads``.
+
+    Drops ``time`` and empty dynamic dimensions, which supervision replaces.
+    """
+    return OrderedDict(
+        [("lead_time", leads)]
+        + [
+            (dim, signature.coords[dim].values)
+            for dim in signature.dims
+            if dim not in ("time", "lead_time") and signature.sizes[dim]
+        ]
+    )
+
+
 def _diagnostic_coords(
     diagnostic: DiagnosticModel, signature: CoordinateSystem, leads: np.ndarray
 ) -> CoordSystem:
     """Stream coordinates for ``diagnostic`` applied to fields like ``signature``."""
     # Selects the diagnostic's variables and domain; never regrids.
     output = diagnostic.output_coords(_map_field(signature, diagnostic.input_coords()))
-    return OrderedDict(
-        [("lead_time", leads)]
-        + [
-            (dim, output.coords[dim].values)
-            for dim in output.dims
-            if dim not in ("time", "lead_time") and output.sizes[dim]
-        ]
-    )
+    return _stream_coords(output, leads)
 
 
 class PrognosticRunner:
@@ -204,25 +210,30 @@ class PrognosticRunner:
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
     ) -> None:
         self.prognostic = prognostic
-        self.input_signature = prognostic.input_coords()
-        if isinstance(self.input_signature, tuple):
+        input_signature = prognostic.input_coords()
+        if isinstance(input_signature, tuple):
             raise ValueError("PrognosticRunner supports single-input-slot models")
+        self.input_signature: CoordinateSystem = input_signature
         self.forcing_signatures = _slots(prognostic.forcing_coords())
         recommended = recommended_sources(prognostic)
         nslots = 1 + len(self.forcing_signatures)
         if not isinstance(recommended, tuple):
             recommended = (recommended,) + (None,) * (nslots - 1)
-        self.source = source if source is not None else recommended[0]
-        self.forcing = forcing if forcing is not None else tuple(recommended[1:])
-        if self.source is None or any(s is None for s in self.forcing):
+        initial_source = source if source is not None else recommended[0]
+        forcing_sources = forcing if forcing is not None else tuple(recommended[1:])
+        if initial_source is None or any(s is None for s in forcing_sources):
             raise ValueError("Every input and forcing slot needs a source")
+        self.source: Source = initial_source
+        self.forcing: tuple[Source, ...] = tuple(
+            s for s in forcing_sources if s is not None
+        )
         if len(self.forcing) != len(self.forcing_signatures):
             raise ValueError("Pass one forcing source per forcing slot")
         self.diagnostics = dict(diagnostics or {})
         if "forecast" in self.diagnostics:
             raise ValueError("Stream name 'forecast' is reserved for the prognostic")
         self.device = _module_device(prognostic)
-        oc = prognostic.output_coords(self.input_signature)
+        oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
         self.step = self.output_leads[-1] - self.input_signature["lead_time"].values[-1]
 
@@ -243,12 +254,9 @@ class PrognosticRunner:
         Includes ``lead_time``; excludes ``time`` and ``ensemble``, which
         supervision adds.
         """
-        forecast = _output_dimensions(
-            self.prognostic, np.empty(0, "datetime64[ns]"), self.nsteps(horizon)
-        )
-        del forecast["time"]
-        coords: dict[str, CoordSystem] = {"forecast": forecast}
         oc = self.prognostic.output_coords(self.input_signature)
+        forecast = _stream_coords(oc, _lead_times(oc, self.nsteps(horizon)))
+        coords: dict[str, CoordSystem] = {"forecast": forecast}
         for name, diagnostic in self.diagnostics.items():
             coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
         return coords
@@ -336,12 +344,12 @@ class PrognosticRunner:
         try:
             if _yields_initial_condition(self.prognostic):
                 next(iterator)  # Already published above.
-            y = next(iterator)
+            y = cast(xr.DataArray, next(iterator))
             yield self._publish(y)
             for _ in range(nsteps - 1):
                 leads = y.coords["lead_time"].values
                 step_forcing = self._fetch_forcing(self._forcing_requests(item, leads))
-                y = iterator.send(step_forcing or None)
+                y = cast(xr.DataArray, iterator.send(step_forcing or None))
                 yield self._publish(y)
         finally:
             iterator.close()

@@ -293,6 +293,13 @@ def plan_read(
     ValueError
         If an array is unknown, dimensions differ, or a label is unknown or
         duplicated.
+
+    Notes
+    -----
+    Unlike :func:`plan_write`, the position arrays follow the selection's label
+    order and may therefore descend or step backwards. Backends whose indexing
+    requires ascending positions, such as zarr's orthogonal indexing, must read
+    sorted positions and restore the requested order afterwards.
     """
     if not isinstance(selection, xr.DataArray):
         selection = coord_array(tuple(selection), dict(selection))

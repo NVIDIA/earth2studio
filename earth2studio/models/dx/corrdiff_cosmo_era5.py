@@ -1428,7 +1428,20 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         return out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale labelled ERA5 frames on the configured domain."""
+        """Downscale labelled ERA5 frames on the configured domain.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            ERA5 conditioning fields matching ``input_coords()`` on the native
+            footprint; select a supported subdomain with ``set_domain``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled samples matching ``output_coords(x)`` on the rotated-pole
+            target grid. Sample dimensions follow time.
+        """
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)

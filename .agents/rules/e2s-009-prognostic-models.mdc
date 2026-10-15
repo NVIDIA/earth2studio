@@ -21,7 +21,9 @@ An explicit method may delegate to a generic mixin helper.
 Single-input, single-output signatures include:
 
 - `__call__(x: xr.DataArray) -> xr.DataArray`
-- `create_iterator(x: xr.DataArray) -> Iterator[xr.DataArray]`
+- `initialize(x: xr.DataArray) -> tuple[xr.DataArray, State]`
+- `step(y: xr.DataArray, state: State) -> tuple[xr.DataArray, State]`
+- `create_iterator(x: xr.DataArray) -> Generator[xr.DataArray, None, None]`
 - `input_coords() -> CoordinateSystem`
 - `output_coords(input_coords: CoordinateSystem) -> CoordinateSystem`
 - `to(device) -> PrognosticModel`
@@ -48,13 +50,17 @@ than adding generic compatibility frameworks.
 
 ## Iterators and randomness
 
-- Yield the latest input history frame first; checkpoints resume at the next step.
-- Hooks take and return one DataArray in original leading dimensions, only during
-  iteration. Declare `front_hook_interval` for multi-output core cadence.
-- Preserve hook-updated recurrent values and metadata, and stable earlier yields.
-- Preserve each existing wrapper's seeding API, defaults, stream ownership and
-  stochastic declarations during the DataArray migration. Existing RNG contract
-  deviations remain explicitly documented follow-up work.
+- Initialize computes the first prediction; iterators never yield initial conditions.
+  Each step/yield returns the whole forecast chunk produced by the core.
+- Retain missing history, latents and RNG positions in serializable explicit state.
+  Replaying `step(y, state)` must reproduce the result without modifying either input.
+- Hooks receive complete outputs directly in original dimensions, only during
+  iteration: rear before each yield, front before each subsequent step. Both feed
+  recurrence; explicit in-place hook edits may modify earlier yields.
+- Stochastic models implement `set_rng(seed, reset=True)` with isolated RNG streams;
+  a model reset affects new initializations, not existing explicit-state rollouts.
+- Declare forcing only for caller-supplied conditioning. Never fetch inside execution;
+  unforced wrappers inherit `forcing_coords() -> None`.
 
 ## Loading, tests and documentation
 

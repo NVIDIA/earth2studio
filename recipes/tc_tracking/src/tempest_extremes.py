@@ -27,6 +27,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from physicsnemo.distributed import DistributedManager
 from rich.console import Console
@@ -37,10 +38,11 @@ from earth2studio.io import KVBackend
 from earth2studio.utils.coords import (
     CoordSystem,
     cat_coords,
+    coord_array,
     map_coords,
-    split_coords,
     tile_coords,
 )
+from earth2studio.utils.cupy import from_torch
 
 
 class TempestExtremes:
@@ -358,16 +360,16 @@ class TempestExtremes:
         # create store
         self.store = KVBackend()
 
-        # add arrays to the store
+        # add arrays to the store, one per output variable
         oco = copy.deepcopy(self._store_coords)
-        out_vars = oco.pop("variable")
 
-        oco["time"] = np.array([None])
-        oco["ensemble"] = np.array([None] * self.batch_size)
+        # placeholder labels, replaced with this batch's values in record_state
+        oco["time"] = np.array([np.datetime64("NaT", "ns")])
+        oco["ensemble"] = np.arange(self.batch_size)
         oco.move_to_end("time", last=False)
         oco.move_to_end("ensemble", last=False)
 
-        self.store.add_array(coords=oco, array_name=out_vars)
+        self.store.add_array(coord_array(tuple(oco), oco))
 
     def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
         """Dump raw data from store to NetCDF files.
@@ -385,25 +387,30 @@ class TempestExtremes:
                 "Currently, TempestExtremes interface only works for single IC per evaluation cycle."
             )
 
-        ic = self.store.coords["time"][0]
-        mems = self.store.coords["ensemble"]
+        ic = self.store.coords["time"].values[0]
+        mems = self.store.coords["ensemble"].values
 
         # morph store to TempestExtremes-compatible [time, lat, lon] structure
-        lead_times = self.store.coords.pop("lead_time")
-        self.store.coords["time"] = [ic + lt for lt in lead_times]
+        lead_times = self.store.coords.pop("lead_time").values
+        self.store.coords["time"] = xr.Variable(
+            ("time",), np.array([ic + lt for lt in lead_times])
+        )
 
         for var in self.store.root.keys():
             self.store.root[var] = self.store.root[var].squeeze(1)
-            self.store.dims[var] = ["ensemble", "time", "lat", "lon"]
+            self.store.dims[var] = ("ensemble", "time", "lat", "lon")
 
         # for each member, write te compatible nc file
         raw_files = []
 
         # in case last batch has less ensemble members than batch size, expand coords of store so to_xarray() does not fail
         if len(mems) < self.batch_size:
-            self.store.coords["ensemble"] = list(self.store.coords["ensemble"]) + [
-                None
-            ] * (self.batch_size - len(mems))
+            self.store.coords["ensemble"] = xr.Variable(
+                ("ensemble",),
+                np.array(
+                    list(mems) + [None] * (self.batch_size - len(mems)), dtype=object
+                ),
+            )
 
         for mem in mems:
             raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
@@ -493,8 +500,8 @@ class TempestExtremes:
         """
         # update store mem and time
         for dim in ["time", "ensemble"]:
-            if not np.array_equal(self.store.coords[dim], coords[dim]):
-                self.store.coords[dim] = coords[dim]
+            if not np.array_equal(self.store.coords[dim].values, coords[dim]):
+                self.store.coords[dim] = xr.Variable((dim,), np.asarray(coords[dim]))
 
         # concatenate static data
         if self.static_vars is not None and self.static_coords is not None:
@@ -510,7 +517,7 @@ class TempestExtremes:
 
         # select output data and write to store
         xx_sub, coords_sub = map_coords(xx, coords, self._store_coords)
-        self.store.write(*split_coords(xx_sub, coords_sub, dim="variable"))
+        self.store.write(from_torch(xx_sub, coords_sub))
 
     @staticmethod
     def run_te(command: list[str], print_output: bool) -> None:

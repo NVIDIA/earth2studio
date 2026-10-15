@@ -24,6 +24,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.grids import HEALPixGrid, LatLonGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -34,6 +35,7 @@ from earth2studio.utils.coords import (
     coord_array_like,
     handshake_dataarray,
     handshake_dim,
+    handshake_nonempty,
     handshake_size,
     handshake_time,
 )
@@ -424,6 +426,20 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
         )
+
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source. Native-grid inputs additionally require
+            derived fields and regridding; the lat-lon wrapper prepares these
+            from its declared input variables.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -1059,7 +1075,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ]
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -1102,7 +1118,6 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output_data
 
-    @batch_func()
     def __call__(
         self,
         x: xr.DataArray,
@@ -1120,13 +1135,75 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Complete coupled-cycle prediction. Invalid ocean times contain NaNs.
         """
 
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Compute a coupled forecast and save the continuation random stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial coupled history matching ``input_coords()`` on the native grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            Complete coupled forecast chunk and conditional-layer-normalization
+            RNG state, or ``None`` for deterministic execution. No hooks run.
+        """
+        handshake_nonempty(x)
         self.output_coords(x)
-        return self._advance_array(self._initial_state(x))
+        return self._forward(self._initial_state(x))
+
+    def step(
+        self, y: xr.DataArray, state: torch.Tensor | None
+    ) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Advance the coupled components using the preceding output history.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous complete forecast chunk in native variables, including
+            caller-applied edits. Initial-input conversions are not repeated.
+        state : torch.Tensor | None
+            RNG state returned by ``initialize`` or ``step``, or ``None`` for
+            deterministic execution.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            Next coupled forecast chunk and updated RNG state, without hooks.
+        """
+        x = y.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
+            variable=self.atmos_variables + self.ocean_variables
+        )
+        previous = self._cln_generator
+        if state is not None:
+            self._cln_generator = torch.Generator().set_state(state.clone())
+        try:
+            return self._forward(x)
+        finally:
+            self._cln_generator = previous
+
+    def _forward(self, x: xr.DataArray) -> tuple[xr.DataArray, torch.Tensor | None]:
+        handshake_nonempty(x)
+        handshake_dataarray(
+            x.assign_coords(lead_time=x.lead_time.values - x.lead_time.values[-1]),
+            DLESyM.input_coords(self),
+        )
+        if self.stochastic and self._cln_generator is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        out = self._forward_array(x)
+        return out, (
+            self._cln_generator.get_state().clone()
+            if self.stochastic and self._cln_generator is not None
+            else None
+        )
 
     def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
         return x.copy(deep=True)
 
-    def _advance_array(self, x: xr.DataArray) -> xr.DataArray:
+    def _forward_array(self, x: xr.DataArray) -> xr.DataArray:
         handshake_time(x)
         tensor, _ = x.e2s.to_torch()
         # Preserve arbitrary leading axes, including axes without labels.
@@ -1136,7 +1213,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             batch=np.arange(tensor.shape[0]),
             **{d: x.coords[d].values for d in x.dims[-6:]},
         )
-        out = self._forward(tensor, coords)
+        out = self._forward_tensor(tensor, coords)
         signature = coord_array_like(
             x,
             {
@@ -1150,38 +1227,27 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             },
         )
         out = out.reshape(*(x.sizes[d] for d in leading), *out.shape[1:])
-        result = from_torch(out, signature)
+        result = from_torch(out, signature, name=x.name)
         result.encoding = x.encoding.copy()
         return result
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+        """Create a forecasts-only iterator over complete coupled cycles.
 
         Parameters
         ----------
         x : xr.DataArray
-            Initial history; hooks receive owned arrays in original dimensions.
+            Initial history matching ``input_coords()`` on the native grid.
 
 
         Yields
         ------
         xr.DataArray
-            Final initial frame, then complete coupled cycles. Each cycle is one
-            output with one front/rear hook pair (``front_hook_interval = 1``).
+            Complete coupled cycles starting with initialization's prediction.
+            The rear hook runs before every yield and the front hook before each
+            subsequent step; both hooks feed recurrence directly.
         """
-        self.output_coords(x)
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        state = self._initial_state(x)
-        while True:
-            state = self.front_hook(state.copy(deep=True))
-            out = self.rear_hook(self._advance_array(state))
-            state = (
-                out.isel(lead_time=slice(-len(self.full_input_times), None))
-                .sel(variable=np.array(self.atmos_variables + self.ocean_variables))
-                .copy(deep=True)
-            )
-            yield out
+        return self._default_create_iterator(x)
 
 
 class DLESyMLatLon(DLESyM):
@@ -1669,43 +1735,126 @@ class DLESyMLatLon(DLESyM):
         result.encoding = x.encoding.copy()
         return result
 
-    @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Advance one coupled cycle, regridding only at the kernel boundary."""
+        """Advance one coupled cycle on the public lat-lon grid without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Lat-lon history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Complete coupled forecast chunk matching ``output_coords(x)``.
+        """
+        return self.initialize(x)[0]
+
+    def initialize(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]:
+        """Compute the first cycle and retain native HEALPix continuation.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial lat/lon history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]
+            Complete public-grid forecast chunk and native HEALPix history,
+            published reference and optional RNG state. No iterator hooks run.
+        """
+        handshake_nonempty(x)
         signature = self.output_coords(x)
-        out = self._advance_array(self._initial_state(x))
+        if self.stochastic and self._cln_generator is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        packed, restore = batch_func()._compress_array(self, x)
+        out = restore(self._forward_array(self._initial_state(packed)))
+        return self._publish(out, signature)
+
+    def _publish(
+        self, out: xr.DataArray, signature: CoordinateSystem
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]:
         tensor, _ = out.e2s.to_torch()
-        result = from_torch(self.to_ll(tensor), signature)
-        result.encoding = x.encoding.copy()
-        return result
+        result = from_torch(self.to_ll(tensor), signature, name=out.name)
+        result.encoding = out.encoding.copy()
+        native = (
+            out.isel(lead_time=slice(-len(self.full_input_times), None))
+            .sel(variable=self.atmos_variables + self.ocean_variables)
+            .copy(deep=True)
+        )
+        rng = (
+            self._cln_generator.get_state().clone()
+            if self.stochastic and self._cln_generator is not None
+            else None
+        )
+        return result, (native, result.copy(deep=True), rng)
+
+    def step(
+        self,
+        y: xr.DataArray,
+        state: tuple[xr.DataArray, xr.DataArray, torch.Tensor | None],  # type: ignore[override]  # Public-grid recurrence retains native fields.
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]:
+        """Advance native history, applying public-grid edits before inference.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous public-grid forecast chunk, including caller-applied edits.
+        state : tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]
+            Native history, published reference and optional RNG state returned
+            by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]
+            Next public-grid forecast chunk and updated state, without hooks.
+        """
+        native, published, rng = state
+        current = y.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
+            variable=self.atmos_variables + self.ocean_variables
+        )
+        baseline = published.isel(
+            lead_time=slice(-len(self.full_input_times), None)
+        ).sel(variable=self.atmos_variables + self.ocean_variables)
+        tensor, _ = native.e2s.to_torch()
+        current_tensor, _ = current.e2s.to_torch()
+        baseline_tensor, _ = baseline.e2s.to_torch()
+        # Add only the projected edits; unchanged publication must not be regridded.
+        delta = torch.where(
+            current_tensor == baseline_tensor, 0, current_tensor - baseline_tensor
+        )
+        x = from_torch(
+            tensor + self.to_hpx(delta),
+            self.coords_to_hpx(coord_array_like(current)),
+            name=y.name,
+        )
+        x.encoding = y.encoding.copy()
+        previous = self._cln_generator
+        if rng is not None:
+            self._cln_generator = torch.Generator().set_state(rng.clone())
+        try:
+            out = self._forward_array(x)
+            signature = coord_array_like(y, {"lead_time": out.lead_time.values})
+            return self._publish(out, signature)
+        finally:
+            self._cln_generator = previous
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the input then coupled cycles, retaining HEALPix history.
+        """Yield coupled forecast chunks with hooks on the public lat/lon grid.
 
-        Hooks see HEALPix fields with the caller's original leading dimensions.
-        One core advance emits one complete coupled-cycle DataArray.
-        Public-grid auxiliaries are retained separately; HEALPix hooks do not
-        receive them. Auxiliaries depending on replaced variables/leads are dropped.
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial lat/lon history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Coupled chunks, starting with initialization's prediction. The rear
+            hook runs before each yield and the front hook before later steps;
+            edits are projected onto native HEALPix history.
         """
-        signature = self.output_coords(x)
-        spatial_coords = {
-            name: coord.variable.copy(deep=True)
-            for name, coord in signature.coords.items()
-            if name not in ("lat", "lon")
-            and set(coord.dims).intersection(("lat", "lon"))
-        }
-        yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-        state = self._initial_state(x)
-        while True:
-            state = self.front_hook(state.copy(deep=True))
-            out = self.rear_hook(self._advance_array(state))
-            state = (
-                out.isel(lead_time=slice(-len(self.full_input_times), None))
-                .sel(variable=np.array(self.atmos_variables + self.ocean_variables))
-                .copy(deep=True)
-            )
-            tensor, _ = out.e2s.to_torch()
-            signature = self.coords_to_ll(out).assign_coords(spatial_coords)
-            result = from_torch(self.to_ll(tensor), signature)
-            result.encoding = out.encoding.copy()
-            yield result
+        return self._default_create_iterator(x)

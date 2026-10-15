@@ -47,7 +47,7 @@ def test_fuxi_call_resets_short_session(monkeypatch):
     monkeypatch.setattr(model, "input_coords", lambda: signature.copy())
     monkeypatch.setattr(
         model,
-        "_forward",
+        "_forward_tensor",
         lambda x, coords, session: x
         + {"short": 1, "medium": 2, "long": 3}[session._model_path],
     )
@@ -61,7 +61,7 @@ def test_fuxi_call_resets_short_session(monkeypatch):
     x.encoding = {"source": "fixture"}
     original = x.copy(deep=True)
     iterator = model.create_iterator(x)
-    initial = next(iterator)
+    initial = x.isel(lead_time=slice(-1, None)).copy(deep=True)
     total = 0
     for step in range(42):
         out = next(iterator)
@@ -136,7 +136,7 @@ def test_fuxi_onnx_integration(device, fuxi_test_package):
     np.testing.assert_array_equal(out.coords["variable"], x.coords["variable"])
     np.testing.assert_array_equal(out.time, x.time)
     iterator = model.create_iterator(x)
-    initial = next(iterator).e2s.to_torch()[0].clone()
+    initial = x.isel(lead_time=slice(-1, None)).e2s.to_torch()[0].clone()
     total = 0
     for step in range(43):
         out = next(iterator)

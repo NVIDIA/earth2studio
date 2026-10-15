@@ -52,7 +52,7 @@ In this example you will learn:
 # In the CONUS nowcasting (``3km_10min``) configuration the GOES model is
 # "pure obs" (no external conditioning), while the MRMS model is conditioned on
 # GOES — the GOES model provides that conditioning during the rollout via
-# ``call_with_conditioning``. The MRMS model additionally has a GLM lightning
+# ``initialize`` and ``step``. The MRMS model additionally has a GLM lightning
 # channel (``glm_density``) as part of its state, which we assemble for the
 # initial condition and which then evolves autoregressively over the rollout.
 
@@ -105,7 +105,6 @@ package = StormScopeBase.load_default_package()
 # We enable automatic mixed precision (autocast) and compile the model for faster inference.
 model = StormScopeGOES.load_model(
     package=package,
-    conditioning_data_source=None,
     model_name=model_name,
     amp=True,
     compile=True,
@@ -113,15 +112,10 @@ model = StormScopeGOES.load_model(
 model = model.to(device)
 model.eval()
 
-# MRMS+GLM nowcast model: conditioned on GOES, with a gridded GLM source. Here
-# we drive it via call_with_conditioning, so glm_data_source is used only to
-# fetch the initial GLM state (via fetch_glm); the bilinear GLM interpolator is
-# built lazily on the first call. (In a standalone __call__/create_iterator run
-# the same glm_data_source would inject GLM automatically each step.)
+# MRMS+GLM nowcast model: conditioned on GOES. Here we drive it via initialize and
+# step, and fetch the initial GLM state ourselves from a gridded GLM source.
 model_mrms = StormScopeMRMS.load_model(
     package=package,
-    conditioning_data_source=GOES(),
-    glm_data_source=GOESGLMGrid(satellite="east"),
     model_name=model_name,
     amp=True,
     compile=True,
@@ -133,7 +127,7 @@ model_mrms.eval()
 # Setup GOES Data Source and Interpolators
 # ----------------------------------------
 # We fetch GOES data for the model inputs and build interpolators that map the
-# GOES grid and GFS grid into the StormScope model grid. StormScope operates on
+# GOES grid into the StormScope model grid. StormScope operates on
 # the HRRR grid, or a downsampled version of it, and for convenience each model
 # defines grid coordinates `model.latitudes` and `model.longitudes` to help with
 # the regridding functionality.
@@ -171,14 +165,13 @@ x = fetch_data(
 # The MRMS+GLM model forecasts ``[refc, refc_base, glm_density]``. The radar
 # channels come from [`earth2studio.data.MRMS`][earth2studio.data.MRMS]; the GLM channel comes
 # from [`earth2studio.data.GOESGLMGrid`][earth2studio.data.GOESGLMGrid]. Because we drive the rollout
-# with ``call_with_conditioning`` (the coupled path), we own the full initial
+# with ``initialize`` and ``step``, we own the full initial
 # state: we fetch radar and GLM, regrid each onto the shared model grid (GLM uses
 # bilinear regridding, unlike the nearest-neighbor radar/satellite path), and
 # stack them in the model's ``variables`` order (radar channels first, GLM last).
 # After the first step GLM flows autoregressively from the model's own
-# predictions, exactly like the radar channels. (If you instead ran the MRMS
-# model standalone via ``__call__`` / ``create_iterator``, ``glm_data_source``
-# would inject GLM automatically and only radar would need to be assembled here.)
+# predictions, exactly like the radar channels. Model execution does not fetch
+# observations automatically.
 
 # %%
 mrms = MRMS()
@@ -196,15 +189,13 @@ x_radar = fetch_data(
     device=device,
 )
 
-# Interpolators: radar/GOES use nearest-neighbor; GLM is built lazily (bilinear)
-# inside fetch_glm.
+# Interpolators: radar/GOES use nearest-neighbor; GLM is built below (bilinear).
 model_mrms.build_input_interpolator(
     x_radar.coords["lat"].values, x_radar.coords["lon"].values
 )
 model_mrms.build_conditioning_interpolator(goes_lat, goes_lon)
 
 # Regrid the radar channels onto the model grid (nearest-neighbor).
-from earth2studio.run import _dimension_coords
 from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.cupy import from_torch
 
@@ -212,9 +203,16 @@ radar_tensor = model_mrms.input_interp(x_radar.e2s.to_torch()[0])
 
 # Fetch + bilinearly regrid the GLM observation window onto the model grid. The
 # returned counts are physical (the model applies log1p internally).
-glm_coords = _dimension_coords(mrms_in_coords)
-glm_coords["time"] = np.array(start_date)
-x_glm, _ = model_mrms.fetch_glm(glm_coords, device=device)
+glm_field = fetch_data(
+    GOESGLMGrid(satellite="east"),
+    time=start_date,
+    variable=np.asarray(model_mrms.glm_variables),
+    lead_time=mrms_in_coords.coords["lead_time"].values,
+    device=device,
+)
+glm_tensor, glm_coords = glm_field.e2s.to_torch()
+model_mrms.build_glm_interpolator(glm_coords["lat"], glm_coords["lon"])
+x_glm = model_mrms.interpolate_glm(glm_tensor)
 
 # Stack into the full MRMS+GLM state on the model grid, matching `variables` order
 # ([refc, refc_base, glm_density]); the variable axis is dim 2 of [T, L, C, H, W].
@@ -260,26 +258,16 @@ x_mrms = (
 # a custom forecast loop rather than a built-in workflow. Here, the GOES model
 # predicts future satellite imagery, and the MRMS model predicts radar
 # reflectivity (and GLM) conditioned on GOES (initially the raw data, then the
-# forecasted GOES imagery) via ``call_with_conditioning``.
+# forecasted GOES imagery) via explicit ``initialize`` and ``step`` calls.
 
 # %%
-y = x
-y_mrms = x_mrms
+y_pred, state = model.initialize(x)
+y_mrms_pred, state_mrms = model_mrms.initialize(x_mrms, x)
 
 n_steps = 2
-for step_idx in trange(n_steps, desc="Forecast steps"):
-    # Run one prognostic step with the GOES model
-    y_pred = model(y)
-
-    # Run one prognostic step with the MRMS model conditioned on GOES
-    y_mrms_pred = model_mrms.call_with_conditioning(y_mrms, conditioning=y)
-
-    # Advance the sliding window for the next step: drop the oldest input frame
-    # and append the new prediction. We assign directly into the loop carry
-    # variables (y/y_mrms) and keep y_pred/y_mrms_pred pointing at the single
-    # latest prediction (lead time +step), which is what we plot below.
-    y = model.next_input(y_pred, y)
-    y_mrms = model_mrms.next_input(y_mrms_pred, y_mrms)
+for step_idx in trange(n_steps - 1, desc="Forecast steps"):
+    y_mrms_pred, state_mrms = model_mrms.step(y_mrms_pred, y_pred, state=state_mrms)
+    y_pred, state = model.step(y_pred, state=state)
 # %%
 # Post Processing
 # ---------------

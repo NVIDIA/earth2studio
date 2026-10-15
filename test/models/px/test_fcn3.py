@@ -201,7 +201,6 @@ def test_fcn3_iter(ensemble, device, dummy_model, monkeypatch):
         time = [time]
 
     # Get generator
-    initial = next(p_iter)
     assert dummy_model.preprocessor.refreshes == 0
     retained = []
     for i, out in enumerate(p_iter):
@@ -227,7 +226,6 @@ def test_fcn3_iter(ensemble, device, dummy_model, monkeypatch):
     assert dummy_model.preprocessor.refreshes == ensemble
     for out, saved in retained:
         xr.testing.assert_identical(out, saved)
-    xr.testing.assert_identical(initial, original)
     xr.testing.assert_identical(x, original)
     assert retained[-1][0].e2s.to_torch()[0].device == torch.device(device)
     p_iter.close()

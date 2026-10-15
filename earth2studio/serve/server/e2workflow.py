@@ -21,7 +21,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from typing import Any, ClassVar, cast, get_type_hints
 
-import torch
+import xarray as xr
 import zarr
 
 from earth2studio.utils.imports import (
@@ -36,8 +36,7 @@ except ImportError:
     Field = None  # type: ignore[assignment]
     create_model = None  # type: ignore[assignment]
 
-from earth2studio.io import NetCDF4Backend, ZarrBackend
-from earth2studio.io.base import _LegacyIOBackend
+from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.serve.server.config import get_config
 from earth2studio.serve.server.workflow import (
     Workflow,
@@ -45,7 +44,6 @@ from earth2studio.serve.server.workflow import (
     WorkflowParameters,
     WorkflowProgress,
 )
-from earth2studio.utils.type import CoordSystem
 
 
 @check_optional_dependencies()
@@ -120,7 +118,7 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
         self.execution_id: str | None = None
 
     @abstractmethod
-    def __call__(self, io: _LegacyIOBackend) -> None:
+    def __call__(self, io: IOBackend) -> None:
         """Subclasses must implement the workflow logic in the __call__ method.
         The method must accept an IOBackend in the ``io`` argument to store
         the results.
@@ -183,10 +181,10 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             output_dir = self.get_output_path(execution_id)
             if output_format == "zarr":
                 output_path = str(output_dir / "results.zarr")
-                results_io: _LegacyIOBackend = ZarrBackend(output_path)
+                results_io: IOBackend = ZarrBackend(output_path)
             elif output_format == "netcdf4":
                 output_path = str(output_dir / "results.nc")
-                results_io = NetCDF4Backend(output_path)  # type: ignore[assignment]
+                results_io = NetCDF4Backend(output_path)
             else:
                 raise ValueError(
                     f"Unsupported output format: {output_format}. Supported formats are 'zarr' and 'netcdf4'"
@@ -198,13 +196,12 @@ class Earth2Workflow(Workflow, metaclass=AutoParameters):
             self.update_execution_data(execution_id, progress)
             self(io=results_io, **validated.model_dump())
 
+            # Finalize the store; BackendProgress delegates close to the wrapped backend
+            results_io.close()
+
             # Consolidate zarr metadata for faster remote access
             if output_format == "zarr":
                 zarr.consolidate_metadata(output_path)
-            elif output_format == "netcdf4":
-                inner = getattr(results_io, "io", results_io)
-                inner.root.sync()
-                inner.close()
 
             # Update final metadata and progress
             progress = WorkflowProgress(progress="Finished workflow successfully")
@@ -266,7 +263,7 @@ class BackendProgress:
 
     def __init__(
         self,
-        io: _LegacyIOBackend,
+        io: IOBackend,
         workflow: Earth2Workflow,
         execution_id: str,
         progress_dim: str = "lead_time",
@@ -278,44 +275,63 @@ class BackendProgress:
         self.progress_coords: list[Any] | None = None
         self.progress_array: str | None = None
 
-    def add_array(
-        self,
-        coords: CoordSystem,
-        array_name: str | list[str],
-        **kwargs: dict[str, Any],
-    ) -> None:
-        """Add array and initialize progress report."""
-        self.io.add_array(coords, array_name, **kwargs)
-        if (
-            self.progress_dim in coords and self.progress_array is None
-        ):  # perform updates only with one array to avoid redundant updates
-            self.progress_array = (
-                array_name if isinstance(array_name, str) else array_name[0]
-            )
-            self.progress_coords = list(coords[self.progress_dim].copy())
-            # Initialize progress tracking using WorkflowProgress
-            if self.progress_coords is not None:
-                progress = WorkflowProgress(
-                    current_step=0, total_steps=len(self.progress_coords)
-                )
-                self.workflow.update_progress(progress)
+    def add_array(self, template: xr.DataArray) -> None:
+        """Add array and initialize progress report for the first progress array."""
+        self.io.add_array(template)
+        if self.progress_array is not None or self.progress_dim not in template.dims:
+            return
 
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """Write results and log progress."""
-        self.io.write(x, coords, array_name)
-        if not isinstance(array_name, str):
-            array_name = array_name[0]
-        if array_name == self.progress_array and self.progress_coords is not None:
-            current_coord = coords[self.progress_dim][-1]
+        names = self._array_names(template)
+        if not names:
+            return
+
+        self.progress_array = names[0]
+        self.progress_coords = [
+            template.coords[self.progress_dim].values[i]
+            for i in range(template.sizes[self.progress_dim])
+        ]
+        progress = WorkflowProgress(
+            current_step=0, total_steps=len(self.progress_coords)
+        )
+        self.workflow.update_progress(progress)
+
+    def write(self, x: xr.DataArray) -> None:
+        """Write results and update progress for the tracked array."""
+        self.io.write(x)
+        if self.progress_array is None or self.progress_coords is None:
+            return
+
+        names = self._array_names(x)
+        if self.progress_array not in names:
+            return
+
+        if self.progress_dim not in x.coords:
+            return
+
+        current_coord = x.coords[self.progress_dim].values[-1]
+        try:
             step_index = self.progress_coords.index(current_coord)
-            # Update progress using WorkflowProgress
-            progress = WorkflowProgress(current_step=step_index + 1)
-            self.workflow.update_progress(progress)
+        except ValueError:
+            return
+        progress = WorkflowProgress(current_step=step_index + 1)
+        self.workflow.update_progress(progress)
+
+    def flush(self) -> None:
+        """Flush the wrapped backend."""
+        self.io.flush()
+
+    def close(self) -> None:
+        """Close the wrapped backend."""
+        self.io.close()
+
+    @staticmethod
+    def _array_names(x: xr.DataArray) -> tuple[str, ...]:
+        """Return stored array names for a DataArray, mirroring plan_arrays."""
+        if "variable" in x.dims:
+            return tuple(str(name) for name in x.coords["variable"].values)
+        if x.name is not None:
+            return (str(x.name),)
+        return ()
 
     def __getattr__(self, name: str) -> Any:
         """Allow passthrough of unwrapped attributes."""

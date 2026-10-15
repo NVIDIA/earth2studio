@@ -162,6 +162,14 @@ def test_steps_through_horizon() -> None:
     )
 
 
+def test_output_coords_exclude_time_and_dynamic_dims() -> None:
+    coords = PrognosticRunner(_model(), _Zeros()).output_coords(_item().horizon)
+    assert list(coords["forecast"]) == ["lead_time", "variable", "lat", "lon"]
+    np.testing.assert_array_equal(
+        coords["forecast"]["lead_time"], np.arange(4) * np.timedelta64(6, "h")
+    )
+
+
 def test_matches_deterministic_workflow() -> None:
     model, source = _model(), _Zeros()
     # Pin CPU: deterministic moves the shared model to CUDA when available, and the

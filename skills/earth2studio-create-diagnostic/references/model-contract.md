@@ -110,6 +110,28 @@ Verify numerical results, invalid/empty inputs, arbitrary leading axes, metadata
 input nonmutation, source ordering and RNG isolation. Package tests load real
 weights only when explicitly enabled; dependency skips are not conformance.
 
+## Method Docstrings
+
+Use NumPy-style docstrings on every public method. Follow the bundled skeleton and
+multi-grid method examples, matching names and types to the concrete signature.
+Private numerical helpers use comments instead of docstrings in generated code.
+
+| Method | Required description |
+| --- | --- |
+| `input_coords` | `Returns`: allocation-free signature(s), fixed variables and grid, leading axes and input-slot order. |
+| `output_coords` | `Parameters`: each named input signature separately. `Returns`: allocation-free output signature(s), changed grids, sample axes and output-slot order. |
+| `default_sources` | `Returns`: raw input source(s) or `None`; explain any per-slot `None` and necessary preparation. |
+| `__call__` | `Parameters`: each named DataArray input. `Returns`: one DataArray or a tuple in output-slot order, including the model-specific quantity, units/statistics and grid where relevant. |
+| `set_rng` | `Parameters`: `seed` and `reset`, including its default and preservation of an existing stream when `reset=False`. |
+| Package loaders and `to` overrides | Document their concrete arguments and returned package, wrapper or moved model. |
+
+Diagnostics do not have prognostic initialization, continuation state, forcing or
+iterator hooks. Temporal inputs and outputs should describe their actual history
+or accumulation windows. Keep class examples, coordinate planning and execution
+docstrings consistent about dimensions and device behavior; do not describe a
+DataArray return as a separate tensor/coordinate pair. Prefer a concrete summary
+such as "Compute wind speed" over "Forward pass."
+
 ## Optional Checkpoint Integration
 
 Ask whether the user wants integration with Earth2Studio's checkpoint system.

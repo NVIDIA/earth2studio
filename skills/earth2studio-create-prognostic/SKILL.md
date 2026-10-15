@@ -18,8 +18,8 @@ Implement the [PrognosticModel protocol](../../earth2studio/models/px/base.py).
 Read [the local prognostic contract](references/model-contract.md) before coding;
 it specifies slots, state, forcing, forecasts-only iteration, hooks and RNG.
 Follow every rule in its [P1–P24 checklist](references/model-contract.md#rules-and-verification).
-Use [PrognosticMixin](../../earth2studio/models/px/utils.py) optionally: its public
-execution methods are stubs; explicit wrapper methods can delegate to its private
+Use [PrognosticMixin](../../earth2studio/models/px/utils.py) optionally: it supplies
+no public execution methods; explicit wrapper methods can delegate to its private
 helpers.
 
 ## Workflow
@@ -49,7 +49,11 @@ helpers.
    arrays as a positional-or-keyword parameter. `initialize` computes the first
    forecast. `step` consumes previous outputs plus new forcing and serializable
    state, returning the next `(y, state)` without modifying its inputs. Use
-   `_default_call` and `_default_create_iterator` for thin wrapper delegates.
+   `return self._default_call(...)` and
+   `yield from self._default_create_iterator(...)` for thin wrapper delegates.
+   The mixin has no execution stubs: implement all four methods rather than
+   calling `super().__call__`, `super().initialize`, `super().step` or
+   `super().create_iterator`. No mixin override suppressions are needed.
    Each iterator yield is a complete forecast, including all core-produced leads.
 6. **Handle weights and RNG.** Resolve immutable `Package` assets, load on CPU,
    call `eval()`, register buffers and guard optional backend dependencies.
@@ -79,6 +83,10 @@ make format && make lint && make license
 
 Use `uv run` or the project virtualenv for Python. Include SPDX headers, typed
 public methods and NumPy-style docstrings; use `loguru.logger` in library code.
+Follow the [method docstring checklist](references/model-contract.md#method-docstrings)
+and the complete docstrings in the templates. Adapt descriptions to the model's
+state, forcing windows and forecast chunk; avoid stale initial-condition-first
+or single-frame wording from older wrappers.
 
 ## Reference Map
 

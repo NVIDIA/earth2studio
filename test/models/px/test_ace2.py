@@ -177,8 +177,7 @@ def test_ACE2ERA5_call(device):
     # Use a single timestamp; forcing source will handle needed adjustments
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
+    p = ACE2ERA5(PhooStepper()).to(device)
 
     # Build a Random data source over the model grid
     dc = p.input_coords()
@@ -203,7 +202,19 @@ def test_ACE2ERA5_call(device):
         }
     )
 
-    out = p(x)
+    forcing = forcing_input(p, x).assign_coords(forcing_note="user metadata")
+    out = p(x, forcing)
+    for invalid in (
+        forcing.assign_coords(variable=forcing.coords["variable"].values[::-1]),
+        forcing.assign_coords(lat=forcing.lat.values[::-1]),
+        forcing.assign_coords(time=forcing.time.values + np.timedelta64(6, "h")),
+        forcing.assign_coords(
+            lead_time=forcing.lead_time.values + np.timedelta64(6, "h")
+        ),
+        forcing.expand_dims(member=[0]),
+    ):
+        with pytest.raises(ValueError):
+            p(x, invalid)
     out_coords = out.coords
     coords = x
 
@@ -228,8 +239,7 @@ def test_ACE2ERA5_iter(batch, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2001-01-01T00:00")])
 
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(PhooStepper(), forcing_source).to(device)
+    p = ACE2ERA5(PhooStepper()).to(device)
 
     dc = p.input_coords()
     r = Random({d: dc[d].values for d in ("lat", "lon")})
@@ -279,26 +289,44 @@ def test_ACE2ERA5_iter(batch, device):
     p.front_hook, p.rear_hook = front, rear
     coords = x
 
-    p_iter = p.create_iterator(x)
+    p_iter = p.create_iterator(x, forcing_input(p, x))
 
     # First yield returns the first forecast step
     out = next(p_iter)
     out_coords = out.coords
     assert len(out.shape) == 6
     assert out.shape[0] == batch
-    assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
+    assert out_coords["lead_time"][0] == np.timedelta64(6, "h")
 
-    for i, out in enumerate(p_iter):
+    for i in range(4):
+        out = p_iter.send(forcing_input(p, out, continuation=True))
         out_coords = out.coords
         assert len(out.shape) == 6
         assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
         assert (out_coords["batch"] == np.arange(batch)).all()
         assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 2), "h")
         np.testing.assert_array_equal(out_coords["lat"], ACE_GRID_LAT)
         np.testing.assert_array_equal(out_coords["lon"], ACE_GRID_LON)
         if i > 2:
             break
+
+
+def forcing_input(model, x, continuation=False):
+    signature = model.forcing_coords()
+    leads = x.lead_time.values[-1:] + signature.lead_time.values
+    if continuation:
+        leads = leads[-1:]
+    forcing = fetch_data(
+        Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON}),
+        x.time.values,
+        signature.coords["variable"].values,
+        leads,
+        device=x.e2s.to_torch()[0].device,
+    )
+    for dim in reversed(x.dims[: x.get_axis_num("time")]):
+        forcing = forcing.expand_dims({dim: x.coords[dim].values}).copy(deep=True)
+    return forcing
 
 
 class _DeterministicPhooStepper(PhooStepper):
@@ -351,7 +379,7 @@ def test_ace2era5_input_dtype(dtype, device):
             )
 
     source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    model = ACE2ERA5(Float32Stepper(), source).to(device)
+    model = ACE2ERA5(Float32Stepper()).to(device)
     signature = model.input_coords()
     x = fetch_data(
         source,
@@ -374,13 +402,17 @@ def test_ace2era5_input_dtype(dtype, device):
     )
     before = x.copy(deep=True)
 
-    out = model(x)
+    forcing = forcing_input(model, x)
+    out = model(x, forcing)
     assert out.dtype == np.float32
     assert out.e2s.to_torch()[0].device == torch.device(device)
-    iterator = model.create_iterator(x)
-    xr.testing.assert_identical(next(iterator).e2s.as_numpy(), before.e2s.as_numpy())
+    iterator = model.create_iterator(x, forcing)
     for step in (1, 2):
-        out = next(iterator)
+        out = (
+            next(iterator)
+            if step == 1
+            else iterator.send(forcing_input(model, out, continuation=True))
+        )
         assert out.dtype == np.float32
         assert out.lead_time.values[0] == np.timedelta64(6 * step, "h")
     iterator.close()
@@ -389,8 +421,7 @@ def test_ace2era5_input_dtype(dtype, device):
 
 @pytest.mark.parametrize("device", ["cuda:0"])
 def test_ace2era5_conformance(device):
-    forcing_source = Random({"lat": ACE_GRID_LAT, "lon": ACE_GRID_LON})
-    p = ACE2ERA5(_DeterministicPhooStepper(), forcing_source).to(device)
+    p = ACE2ERA5(_DeterministicPhooStepper()).to(device)
     check_prognostic_contract(p, device=device)
 
 
@@ -425,7 +456,7 @@ def test_ace2era5_package(device):
         }
     )
 
-    out = p(x)
+    out = p(x, forcing_input(p, x))
     out_coords = out.coords
     coords = x
 

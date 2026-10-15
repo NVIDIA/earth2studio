@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Generator, Hashable, Iterator
+from collections.abc import Generator, Hashable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -216,32 +216,96 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         return xr.concat([x.isel(lead_time=slice(1, None)), output], dim="lead_time")
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Persist the final history field for one time step on the same device."""
-        x, _ = self._restore_checkpoint_state(x)
-        output = self._forward(x)
-        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
-            x = self._advance_history(x, output)
-        self._save_checkpoint_state(x)
-        return output
+        """Persist the final history field for one time step without hooks.
 
-    def _default_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
-        x, restored = self._restore_checkpoint_state(x)
-        handshake_nonempty(x)
-        self.output_coords(x)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Owned copy of the final history field on the same device, with
+            lead time advanced by the configured time step.
+        """
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        """Return the first prediction and no additional continuation state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields with the configured history.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            First forecast and empty state; persistence needs only its latest output.
+        """
+        return self._forward(x), None
+
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        """Persist a previous prediction for one more time step.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast.
+        state : None
+            Empty continuation state returned by initialization.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next forecast and empty state.
+        """
+        if state is not None:
+            raise ValueError("Persistence state must be None")
+        handshake_nonempty(y)
+        handshake_time(y, "lead_time")
+        handshake_dataarray(
+            y.assign_coords(lead_time=y.lead_time.values - y.lead_time.values[-1]),
+            self.input_coords().isel(lead_time=slice(-1, None)),
+        )
+        return y.assign_coords(lead_time=y.lead_time + self._dt).copy(deep=True), None
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield forecasts starting with the first prediction after the input.
+
+        With a level 2 checkpoint, the latest forecast is saved after each yield and
+        a resumed run continues from it instead of re-initializing from ``x``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Persisted forecasts after the rear hook. The front hook runs before
+            subsequent steps; both hooks feed recurrence directly.
+        """
+        y, restored = self._restore_checkpoint_state(x)
+        # A loaded state belongs to the rollout that saved it; a different batch of
+        # the same run (other ensemble members, say) starts from its own input
+        if restored and not all(
+            dim in y.coords
+            and np.array_equal(y.coords[dim].values, x.coords[dim].values)
+            for dim in x.dims
+            if dim != "lead_time"
+        ):
+            y, restored = x, False
         if not restored:
-            self._save_checkpoint_state(x)
-            yield x.isel(lead_time=slice(-1, None)).copy(deep=True)
-
+            y, _ = self.initialize(x)
+            y = self.rear_hook(y)
+            self._save_checkpoint_state(y)
+            yield y
         while True:
-            # Hooks may mutate data and metadata in place, including restored state.
-            x = self.front_hook(x.copy(deep=True))
-            output = self.rear_hook(self._forward(x))
-            x = self._advance_history(x, output)
-            self._save_checkpoint_state(x)
-            yield output.copy(deep=False)
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        """Yield the final input field, then forecasts; checkpoints resume next step."""
-        yield from self._default_generator(x)
+            y = self.front_hook(y)
+            y, _ = self.step(y, None)
+            y = self.rear_hook(y)
+            self._save_checkpoint_state(y)
+            yield y

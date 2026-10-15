@@ -450,10 +450,9 @@ def test_stormscope_meteosat_iter(time, batch, device):
     model.front_hook, model.rear_hook = front, rear
     p_iter = model.create_iterator(x)
 
-    # First value from the generator is the unchanged initial condition
     x0 = next(p_iter)
-    assert events == []
-    xr.testing.assert_identical(x0, x.isel(lead_time=slice(-1, None)))
+    assert events == ["rear"]
+    assert x0.lead_time.values[0] == model.output_times[0]
     retained = x0.copy(deep=True)
 
     h, w = len(model.mtg_y), len(model.mtg_x)
@@ -462,13 +461,13 @@ def test_stormscope_meteosat_iter(time, batch, device):
         out_coords = out
         assert out.name == x.name and "removed" not in out.attrs
         assert out.encoding == {} and "member" not in out.coords
-        assert events == ["front", "rear"] * (i + 1)
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
         assert np.isfinite(out.e2s.as_numpy()).all()
         xr.testing.assert_identical(x, original)
         xr.testing.assert_identical(x0, retained)
         assert (out_coords["batch"] == np.arange(batch)).all()
-        assert out_coords["lead_time"][0] == time_step * (i + 1)
+        assert out_coords["lead_time"][0] == time_step * (i + 2)
 
         if i > 1:
             break
