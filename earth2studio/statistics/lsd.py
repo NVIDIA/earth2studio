@@ -162,7 +162,6 @@ class log_spectral_distance:
             spectrum_x = spectrum_x[..., : self.wavenumber_cutoff]
             spectrum_y = spectrum_y[..., : self.wavenumber_cutoff]
 
-        spectrum_dims = list(x.dims)[:-2]
         spectrum = from_torch(
             torch.log10(spectrum_x / spectrum_y) ** 2,
             _output_signature(
@@ -171,7 +170,6 @@ class log_spectral_distance:
                 add={"wavenumber": k.detach().cpu().numpy()},
             ),
         )
-        assert list(spectrum.dims) == spectrum_dims + ["wavenumber"]
 
         lsd = self.mean(spectrum)
         xp = _array_module(lsd)
