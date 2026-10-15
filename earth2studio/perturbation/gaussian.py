@@ -24,7 +24,6 @@ import torch
 import xarray as xr
 from typing_extensions import Self
 
-from earth2studio.perturbation._array import backend_of
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
@@ -92,7 +91,7 @@ class Gaussian:
             tensor.shape, dtype=tensor.dtype, device=tensor.device, generator=generator
         )
         self._save_generator_state(pre_state, generator.get_state(), generator)
-        return from_torch(y, x, backend=backend_of(x))
+        return from_torch(y, x)
 
     def _get_generator(self, device: torch.device) -> torch.Generator:
         if self.generator is None or self.generator.device != device:
@@ -222,7 +221,7 @@ class CorrelatedSphericalGaussian:
             noise = sample_noise
 
         noise_amplitude = self.noise_amplitude.to(tensor.device)
-        return from_torch(tensor + noise_amplitude * noise, x, backend=backend_of(x))
+        return from_torch(tensor + noise_amplitude * noise, x)
 
 
 class CorrelatedSphericalField(torch.nn.Module):

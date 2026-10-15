@@ -26,7 +26,6 @@ from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation._array import as_host_or_cupy, backend_of
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
 from earth2studio.utils.cupy import from_torch
@@ -261,9 +260,7 @@ class HemisphericCentredBredVector:
         if x.ndim != 5 and x.ndim != 6:
             raise ValueError("Input DataArray needs 5 or 6 dimensions")
 
-        orig = x
-        x = as_host_or_cupy(x)
-        device = torch.device("cuda", x.data.device.id) if x.e2s.is_cupy else "cpu"
+        device = x.e2s.to_torch()[0].device
         self.noise_amplitude = self.noise_amplitude.to(device)
 
         # Not the cleanest but works
@@ -302,4 +299,4 @@ class HemisphericCentredBredVector:
         if x.ndim == 5:
             out = out.squeeze(0)
 
-        return from_torch(out, x, backend=backend_of(orig))
+        return from_torch(out, x)

@@ -16,19 +16,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import torch
 import xarray as xr
 
-from earth2studio.perturbation._array import (
-    amplitude_like,
-    array_module,
-    as_host_or_cupy,
-    match_backend,
-    randn,
-)
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.cupy import from_torch
 
 
 class Brown:
@@ -53,6 +45,7 @@ class Brown:
             else torch.Tensor([noise_amplitude])
         )
 
+    @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
@@ -71,28 +64,27 @@ class Brown:
         handshake_dim(x, required_dim="lat", required_index=-2)
         handshake_dim(x, required_dim="lon", required_index=-1)
 
-        orig = x
-        x = as_host_or_cupy(x)
-        xp = array_module(x)
-        data = x.data
-        noise = self._generate_noise_correlated(xp, data.shape, data.dtype)
-        noise_amplitude = amplitude_like(self.noise_amplitude, xp, data.dtype)
-        return match_backend(x.copy(data=data + noise_amplitude * noise), orig)
+        tensor, _ = x.e2s.to_torch()
+        noise = self._generate_noise_correlated(tuple(tensor.shape), tensor.device)
+        noise = noise.to(tensor.dtype)
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        return from_torch(tensor + noise_amplitude * noise, x)
 
     def _generate_noise_correlated(
-        self, xp: Any, shape: tuple[int, ...], dtype: Any
-    ) -> Any:
+        self, shape: tuple[int, ...], device: torch.device
+    ) -> torch.Tensor:
         """Utility class for producing brown noise."""
-        noise = randn(xp, shape, dtype)
-        x_white = xp.fft.rfft2(noise)
+        noise = torch.randn(*shape, device=device)
+        x_white = torch.fft.rfft2(noise)
         S = (
-            xp.abs(xp.fft.fftfreq(shape[-2]).reshape(-1, 1)) ** self.reddening
-            + xp.fft.rfftfreq(shape[-1]) ** self.reddening
+            torch.abs(torch.fft.fftfreq(shape[-2], device=device).reshape(-1, 1))
+            ** self.reddening
+            + torch.fft.rfftfreq(shape[-1], device=device) ** self.reddening
         )
         S = 1 / S
         S[..., 0, 0] = 0
-        S = S / xp.sqrt(xp.mean(S**2))
+        S = S / torch.sqrt(torch.mean(S**2))
 
-        x_shaped = x_white * S.astype(noise.dtype)
-        noise_shaped = xp.fft.irfft2(x_shaped, s=shape[-2:])
-        return noise_shaped.astype(noise.dtype)
+        x_shaped = x_white * S
+        noise_shaped = torch.fft.irfft2(x_shaped, s=shape[-2:])
+        return noise_shaped

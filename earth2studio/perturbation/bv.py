@@ -22,14 +22,9 @@ import torch
 import xarray as xr
 from loguru import logger
 
-from earth2studio.perturbation._array import (
-    amplitude_like,
-    array_module,
-    as_host_or_cupy,
-    match_backend,
-)
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
+from earth2studio.utils.cupy import from_torch
 
 
 class BredVector:
@@ -78,6 +73,7 @@ class BredVector:
         self.integration_steps = integration_steps
         self.seeding_perturbation_method = seeding_perturbation_method
 
+    @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
@@ -96,26 +92,24 @@ class BredVector:
                 "Input data / models that require multiple lead times may lead to unexpected behavior"
             )
 
-        orig = x
-        x = as_host_or_cupy(x)
-        xp = array_module(x)
-        x0 = x.data
-        noise_amplitude = amplitude_like(self.noise_amplitude, xp, x0.dtype)
+        x0, _ = x.e2s.to_torch()
+        noise_amplitude = self.noise_amplitude.to(x0.device)
 
-        dx = (
-            as_host_or_cupy(self.seeding_perturbation_method(x.copy(deep=True))).data
-            - x0
-        )
+        def run_model(data: torch.Tensor) -> torch.Tensor:
+            return self.model(from_torch(data, x)).e2s.to_torch()[0]
 
-        xd = as_host_or_cupy(self.model(x.copy(deep=True))).data
+        dx, _ = self.seeding_perturbation_method(x.copy(deep=True)).e2s.to_torch()
+        dx = dx - x0
+
+        xd = run_model(torch.clone(x0))
         # Run forward model
         for _ in range(self.integration_steps):
-            x2 = as_host_or_cupy(self.model(x.copy(data=x0 + dx))).data
+            x2 = run_model(x0 + dx)
             if self.ensemble_perturb:
                 dx1 = x2 - xd
-                dx = dx1 + noise_amplitude * (dx - dx.mean(axis=0))
+                dx = dx1 + noise_amplitude * (dx - dx.mean(dim=0))
             else:
                 dx = x2 - xd
 
-        gamma = xp.linalg.norm(x0.ravel()) / xp.linalg.norm((x0 + dx).ravel())
-        return match_backend(x.copy(data=x0 + dx * noise_amplitude * gamma), orig)
+        gamma = torch.norm(x0) / torch.norm(x0 + dx)
+        return from_torch(x0 + dx * noise_amplitude * gamma, x)

@@ -36,7 +36,7 @@ from earth2studio.perturbation import (
     Zero,
 )
 from earth2studio.utils.coords import coord_array, coord_array_like
-from earth2studio.utils.cupy import _TorchArray, from_torch
+from earth2studio.utils.cupy import _TorchArray, backend, from_torch
 
 cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
 
@@ -58,6 +58,12 @@ def _make(shape, dims, backend):
         backend="numpy",
     )
     return da.e2s.to_backend(name, device=device)
+
+
+def _call(p, x):
+    # Output backend follows the configured array backend policy
+    with backend("torch" if isinstance(x.data, _TorchArray) else "auto"):
+        return p(x)
 
 
 def _check(out, x, dtype=True):
@@ -88,11 +94,9 @@ def _check(out, x, dtype=True):
 )
 def test_backend_simple(perturbation, backend):
     # N:2N lat/lon grid for spherical methods
-    x = _make(
-        (2, 1, 3, 16, 32), ("ensemble", "time", "variable", "lat", "lon"), backend
-    )
+    x = _make((2, 1, 3, 16, 32), ("ensemble", "time", "variable", "lat", "lon"), backend)
     before = x.e2s.to_torch()[0].clone()
-    out = perturbation(x)
+    out = _call(perturbation, x)
     _check(out, x)
     # Input is not modified in place
     assert torch.equal(x.e2s.to_torch()[0], before)
@@ -101,51 +105,33 @@ def test_backend_simple(perturbation, backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_backend_brown_numpy_seed(backend):
-    if backend[0] == "torch":
-        pytest.skip("Brown noise is generated with numpy/cupy RNG")
-    x = _make(
-        (2, 1, 3, 16, 16), ("ensemble", "time", "variable", "lat", "lon"), backend
-    )
+def test_backend_brown_seed(backend):
+    x = _make((2, 1, 3, 16, 16), ("ensemble", "time", "variable", "lat", "lon"), backend)
     p = Brown()
-    if backend[0] == "numpy":
-        np.random.seed(7)
-        a = p(x)
-        np.random.seed(7)
-        b = p(x)
-    else:
-        import cupy as cp
-
-        cp.random.seed(7)
-        a = p(x)
-        cp.random.seed(7)
-        b = p(x)
+    torch.manual_seed(7)
+    a = _call(p, x)
+    torch.manual_seed(7)
+    b = _call(p, x)
     assert torch.equal(a.e2s.to_torch()[0], b.e2s.to_torch()[0])
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("model_backend", ["auto", "torch"])
-@pytest.mark.parametrize(
-    "seeding", [Brown(), Gaussian()], ids=lambda p: type(p).__name__
-)
+@pytest.mark.parametrize("seeding", [Brown(), Gaussian()], ids=lambda p: type(p).__name__)
 def test_backend_bred_vector(seeding, model_backend, backend):
     # Model output backend can differ from perturbation input backend
     def model(x: xr.DataArray) -> xr.DataArray:
         t, _ = x.e2s.to_torch()
         return from_torch(t * 0.1, x, backend=model_backend)
 
-    x = _make(
-        (2, 1, 3, 16, 16), ("ensemble", "time", "variable", "lat", "lon"), backend
-    )
+    x = _make((2, 1, 3, 16, 16), ("ensemble", "time", "variable", "lat", "lon"), backend)
     prtb = BredVector(model, noise_amplitude=0.1, integration_steps=2)
     prtb.seeding_perturbation_method = seeding
-    _check(prtb(x), x)
+    _check(_call(prtb, x), x)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize(
-    "seeding", [Brown(), Gaussian()], ids=lambda p: type(p).__name__
-)
+@pytest.mark.parametrize("seeding", [Brown(), Gaussian()], ids=lambda p: type(p).__name__)
 def test_backend_hcbv(seeding, backend):
     class FooModel(torch.nn.Module):
         def __init__(self, coords):
@@ -196,7 +182,7 @@ def test_backend_hcbv(seeding, backend):
         integration_steps=2,
     )
     # Output dtype follows the data source in HCBV
-    _check(prtb(x), x, dtype=False)
+    _check(_call(prtb, x), x, dtype=False)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -215,5 +201,5 @@ def test_backend_lagged(backend):
         lat=dc["lat"],
         lon=dc["lon"],
     )
-    out = LaggedEnsemble(Random(dc), lags=lags)(x)
+    out = _call(LaggedEnsemble(Random(dc), lags=lags), x)
     _check(out, x)

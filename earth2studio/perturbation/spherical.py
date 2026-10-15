@@ -20,7 +20,6 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.perturbation._array import backend_of
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -123,7 +122,7 @@ class SphericalGaussian:
             noise = sample_noise
 
         noise_amplitude = self.noise_amplitude.to(tensor.device)
-        return from_torch(tensor + noise_amplitude * noise, x, backend=backend_of(x))
+        return from_torch(tensor + noise_amplitude * noise, x)
 
 
 class GaussianRandomFieldS2(torch.nn.Module):
