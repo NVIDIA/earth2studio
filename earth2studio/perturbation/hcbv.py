@@ -93,7 +93,7 @@ class HemisphericCentredBredVector:
     @torch.inference_mode()
     def create_generator(
         self, time: TimeArray, generator_size: int = 1, device: torch.device = "cpu"
-    ) -> Generator[torch.Tensor, None, None]:
+    ) -> Generator[torch.Tensor]:
         """Creates and initializes the perturbation generator"""
         from earth2studio.run import _map_field
 
