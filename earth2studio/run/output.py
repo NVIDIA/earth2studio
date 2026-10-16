@@ -272,7 +272,7 @@ def _member_groups(items: Sequence[WorkItem]) -> list[set[tuple[int, ...]]]:
     for item in items:
         if not item.member_ids:
             continue
-        key = int(np.datetime64(item.time, "ns").astype("int64"))
+        key = int(item.time.astype("datetime64[ns]").astype("int64"))
         grouped.setdefault(key, set()).add(
             tuple(sorted(int(member) for member in item.member_ids))
         )
