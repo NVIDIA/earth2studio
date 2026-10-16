@@ -168,26 +168,17 @@ def _with_lead_time(x: xr.DataArray, lead_time: np.ndarray) -> xr.DataArray:
     return x.expand_dims(lead_time=np.atleast_1d(lead_time), axis=position)
 
 
-def _yields_initial_condition(model: object) -> bool:
-    """Whether an unmigrated wrapper's iterator still yields the initial condition."""
-    return not callable(getattr(type(model), "initialize", None))
-
-
 def _rollout(
     prognostic: Any, x: xr.DataArray, publish_initial_condition: bool = True
 ) -> Generator[xr.DataArray, None, None]:
     """Iterate a rollout, publishing the initial condition as its first field.
 
-    ``create_iterator`` of an explicit-state model yields forecasts only, so the
-    initial condition is taken from ``x``; unmigrated wrappers still yield it
-    themselves. Pass ``publish_initial_condition=False`` when resuming a rollout
+    ``create_iterator`` yields forecasts only, so the initial condition is taken
+    from ``x``. Pass ``publish_initial_condition=False`` when resuming a rollout
     whose initial condition has already been written.
     """
     iterator = prognostic.create_iterator(x)
     try:
-        if _yields_initial_condition(prognostic):
-            yield from iterator
-            return
         if publish_initial_condition:
             yield initial_condition(x)
         yield from iterator

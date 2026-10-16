@@ -29,11 +29,14 @@ import xarray as xr
 
 import earth2studio.run as run
 from earth2studio.io import KVBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner, WorkItem
+from earth2studio.run.work import member_seed
 from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.coords import E2S_DYNAMIC_DIMS
 from earth2studio.utils.type import CoordinateSystem
 
 T0 = np.datetime64("2026-01-01T00")
@@ -56,6 +59,25 @@ class _TinyFCN(FCN):
             },
             dynamic=("batch",),
         )
+
+
+class _StochasticFCN(_TinyFCN):
+    """Stochastic model recording the seeds the runner sets on it."""
+
+    stochastic = True
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.seeds: list[tuple[int, bool]] = []
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        self.seeds.append((seed, reset))
+
+
+class _UnseededFCN(_StochasticFCN):
+    """Declares no randomness, so the runner must leave its stream alone."""
+
+    stochastic = False
 
 
 class _Zeros:
@@ -104,6 +126,18 @@ class _WindSpeed:
         return speed.expand_dims(variable=["ws10m"], axis=x.get_axis_num("variable"))
 
 
+class _StochasticWindSpeed(_WindSpeed):
+    """Stochastic diagnostic recording the seeds the runner sets on it."""
+
+    stochastic = True
+
+    def __init__(self) -> None:
+        self.seeds: list[tuple[int, bool]] = []
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        self.seeds.append((seed, reset))
+
+
 class _Forced(PrognosticMixin):
     """Migrated model adding its forcing; records the forcing leads it receives."""
 
@@ -146,6 +180,10 @@ def _model() -> _TinyFCN:
     return _TinyFCN(_AddOne(), torch.zeros(2, 1, 1), torch.ones(2, 1, 1))
 
 
+def _stochastic_model() -> _StochasticFCN:
+    return _StochasticFCN(_AddOne(), torch.zeros(2, 1, 1), torch.ones(2, 1, 1))
+
+
 def _item(hours: int = 18) -> WorkItem:
     return WorkItem(T0, np.timedelta64(hours, "h"))
 
@@ -162,12 +200,36 @@ def test_steps_through_horizon() -> None:
     )
 
 
-def test_output_coords_exclude_time_and_dynamic_dims() -> None:
+def test_output_coords_are_allocation_free_stream_signatures() -> None:
     coords = PrognosticRunner(_model(), _Zeros()).output_coords(_item().horizon)
-    assert list(coords["forecast"]) == ["lead_time", "variable", "lat", "lon"]
+    forecast = coords["forecast"]
+    # One DataArray signature per stream, with lead_time leading the fixed dims
+    # and time and ensemble left to the dynamic prefix.
+    assert forecast.dims == ("batch", "lead_time", "variable", "lat", "lon")
+    assert forecast.attrs[E2S_DYNAMIC_DIMS] == ("batch",)
+    assert forecast.sizes["batch"] == 0
+    assert forecast.data.nbytes == 0
+    assert forecast.dtype == np.float32
     np.testing.assert_array_equal(
-        coords["forecast"]["lead_time"], np.arange(4) * np.timedelta64(6, "h")
+        forecast["lead_time"], np.arange(4) * np.timedelta64(6, "h")
     )
+    np.testing.assert_array_equal(forecast["variable"], ["u10m", "v10m"])
+
+
+def test_output_coords_round_trip_to_io_templates() -> None:
+    runner = PrognosticRunner(_model(), _Zeros())
+    signature = runner.output_coords(_item().horizon)["forecast"]
+    template = output_template(
+        signature,
+        leading={"ensemble": np.array([0, 1]), "time": np.array([T0])},
+    )
+    assert template.dims == ("ensemble", "time", "lead_time", "variable", "lat", "lon")
+    io = KVBackend()
+    io.add_array(template)
+    for step in PrognosticRunner(_model(), _Zeros()).run_item(_item()):
+        io.write(step["forecast"].expand_dims(ensemble=[0]))
+    assert io["u10m"].shape == (2, 1, 4, 2, 3)
+    np.testing.assert_array_equal(io["u10m"][0, 0, :, 0, 0], np.arange(4))
 
 
 def test_matches_deterministic_workflow() -> None:
@@ -271,7 +333,7 @@ def test_diagnostic_runner_steps_through_source_times() -> None:
     assert list(coords["variable"]) == ["ws10m"]
     requests = runner.data_requests(_item(12))
     assert [r.lead_time.tolist() for r in requests] == [
-        [lead] for lead in coords["lead_time"].tolist()
+        [lead] for lead in coords["lead_time"].values.tolist()
     ]
 
 
@@ -290,3 +352,40 @@ def test_diagnostic_runner_needs_a_source() -> None:
 def test_diagnostic_runner_needs_declared_input_variables() -> None:
     with pytest.raises(ValueError):
         DiagnosticRunner({"copy": Identity()}, _Ones())
+
+
+def test_every_stochastic_model_is_seeded_per_member() -> None:
+    model, diagnostic = _stochastic_model(), _StochasticWindSpeed()
+    runner = PrognosticRunner(model, _Zeros(), diagnostics={"wind": diagnostic}, seed=7)
+    for member in (0, 3):
+        item = WorkItem(T0, np.timedelta64(6, "h"), member_ids=(member,))
+        list(runner.run_item(item))
+    expected = [(member_seed(7, T0, member), True) for member in (0, 3)]
+    assert model.seeds == expected
+    assert diagnostic.seeds == expected
+    assert len({seed for seed, _ in expected}) == 2
+
+
+def test_seeding_defaults_to_base_zero_and_member_zero() -> None:
+    model = _stochastic_model()
+    runner = PrognosticRunner(model, _Zeros())
+    assert runner.seed == 0
+    list(runner.run_item(_item(6)))  # No member_ids: the single member is member 0.
+    assert model.seeds == [(member_seed(0, T0, 0), True)]
+
+
+def test_seeding_leaves_models_without_randomness_and_global_rng_alone() -> None:
+    model = _UnseededFCN(_AddOne(), torch.zeros(2, 1, 1), torch.ones(2, 1, 1))
+    before = torch.random.get_rng_state()
+    list(PrognosticRunner(model, _Zeros(), seed=11).run_item(_item(6)))
+    assert model.seeds == []
+    list(PrognosticRunner(_stochastic_model(), _Zeros(), seed=11).run_item(_item(6)))
+    assert torch.equal(torch.random.get_rng_state(), before)
+
+
+def test_diagnostic_runner_seeds_stochastic_diagnostics() -> None:
+    diagnostic = _StochasticWindSpeed()
+    runner = DiagnosticRunner({"wind": diagnostic}, _Ones(), seed=5)
+    item = WorkItem(T0, np.timedelta64(0, "h"), member_ids=(2,))
+    list(runner.run_item(item))
+    assert diagnostic.seeds == [(member_seed(5, T0, 2), True)]
