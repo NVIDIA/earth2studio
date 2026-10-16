@@ -562,6 +562,7 @@ nav:
 - Blog:
   - Overview: blog/index.md
   - Posts:
+    - Access Earthmover Marketplace Data with Earth2Studio: blog/posts/earthmover-marketplace.md
     - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
     - A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI: blog/posts/earth2_soil_health_prediction.md
   - Archive: blog/archive.md

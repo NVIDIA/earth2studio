@@ -121,6 +121,15 @@ We recommend that you review the [extension examples](../../examples/index.md#ex
 examples, which will step you through the basic process of implementing your own
 data source.
 
+## Earthmover Marketplace
+
+Earth2Studio includes data sources that read directly from the
+[Earthmover Marketplace](https://app.earthmover.io/marketplace), a catalog of
+analysis-ready weather/climate datasets stored as Arraylake/Icechunk Zarr
+repositories. See
+[Access Earthmover Marketplace Data with Earth2Studio](../../blog/posts/earthmover-marketplace.md)
+for subscription, authentication and usage details.
+
 ## Contributing a Datasource
 
 We are always looking for new remote data stores that our users may be interested in for
