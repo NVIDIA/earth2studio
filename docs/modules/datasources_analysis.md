@@ -27,6 +27,7 @@ earth2studio.data.CAMulatorForcing
 earth2studio.data.CDS_ERA5
 earth2studio.data.CMIP6
 earth2studio.data.CMIP6MultiRealm
+earth2studio.data.DailyMean
 earth2studio.data.DynamicalAIFS
 earth2studio.data.DynamicalAIFS_ENS
 earth2studio.data.DynamicalGFS
@@ -36,6 +37,7 @@ earth2studio.data.DynamicalIFS_ENS
 earth2studio.data.DynamicalMRMS
 earth2studio.data.EarthMoverBrightBandIFS
 earth2studio.data.EarthMoverERA5
+earth2studio.data.FuXiS2SERA5
 earth2studio.data.GFS
 earth2studio.data.GOES
 earth2studio.data.GOESGLMGrid
