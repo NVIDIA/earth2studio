@@ -51,7 +51,20 @@ def test_opendata_client_kwargs(source_class, model, source, monkeypatch):
     client_factory.assert_called_once_with(
         source=source,
         model=model,
+        maximum_retries=source_class._MAX_RETRIES,
+        retry_after=source_class._RETRY_AFTER,
         preserve_request_order=True,
+    )
+
+
+def test_opendata_client_retry_kwargs_override(monkeypatch):
+    client_factory = Mock(return_value=Mock())
+    monkeypatch.setattr(ecmwf_module.opendata, "Client", client_factory)
+
+    IFS(client_kwargs={"maximum_retries": 2, "retry_after": 1})
+
+    client_factory.assert_called_once_with(
+        source="aws", model="ifs", maximum_retries=2, retry_after=1
     )
 
 
@@ -82,6 +95,45 @@ def test_accumulation_alias_tasks_reject_short_lead_time():
                 ["sf06"],
             )
         )
+
+
+def test_blocking_download_does_not_stall_event_loop(tmp_path):
+    """A slow/retrying opendata client must not block the shared IO loop"""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    release = threading.Event()
+
+    class SlowClient:
+        def retrieve(self, request):
+            release.wait(10)  # stands in for multiurl's 503 retry sleeps
+            pathlib.Path(request["target"]).write_bytes(b"data")
+
+    ds = object.__new__(IFS)
+    ds.client = SlowClient()
+    ds._executor = ThreadPoolExecutor(1)
+    ds._fc_type, ds._members, ds._cache = "fc", [0], True
+    ds._model, ds._tmp_cache_hash = "IFS", None
+    type(ds).cache = property(lambda self: str(tmp_path))
+
+    async def run():
+        task = asyncio.create_task(
+            ds._download_ifs_grib_cached(
+                datetime(2026, 7, 1), timedelta(0), "2t", "sfc", "sfc"
+            )
+        )
+        await asyncio.sleep(0.1)
+        # Loop must stay responsive while the client call is blocked
+        await asyncio.wait_for(asyncio.sleep(0), timeout=1)
+        release.set()
+        return await task
+
+    try:
+        path = asyncio.run(run())
+    finally:
+        del type(ds).cache
+    assert pathlib.Path(path).read_bytes() == b"data"
+    assert not list(tmp_path.glob("*.part"))
 
 
 def now6h():
