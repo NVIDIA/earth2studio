@@ -14,21 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections import OrderedDict
+
 import numpy as np
 import torch
 import torch.nn.functional as F
+import xarray as xr
 from numpy.typing import ArrayLike
 
-from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem
-
-from .moments import mean
-from .utils import _spatial_dims_to_end
+from earth2studio.statistics.moments import mean
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _array_module,
+    _as_host_or_cupy,
+    _output_signature,
+    _spatial_dims_to_end,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 
 class fss:
     """
-    Statistic for calculating the fractions skill score (FSS) of one tensors
+    Statistic for calculating the fractions skill score (FSS) of one array
     with respect to another over a set of given dimensions.
 
     If `ensemble_dimension` is provided, computes the probabilistic FSS as defined by
@@ -92,31 +102,32 @@ class fss:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output, with trailing `threshold`
+            and `window_size` dimensions
         """
         removed_dims = list(self._reduction_dimensions)
         if self.ensemble_dimension is not None:
             removed_dims.append(self.ensemble_dimension)
 
-        output_coords = input_coords.copy()
-        for dimension in removed_dims:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
-        output_coords["threshold"] = self.thresholds.copy()
-        output_coords["window_size"] = self.window_sizes.copy()
-
-        return output_coords
+        return _output_signature(
+            input_coords,
+            removed_dims,
+            add={
+                "threshold": self.thresholds.copy(),
+                "window_size": self.window_sizes.copy(),
+            },
+        )
 
     def _get_window(
         self, window_size: int, dtype: torch.dtype | str, device: torch.device | str
@@ -140,31 +151,16 @@ class fss:
 
         return window
 
-    def _validate_coords(self, x_coords: CoordSystem, y_coords: CoordSystem) -> None:
+    def _validate_coords(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         for forbidden_dim in ["threshold", "window_size"]:
-            if (forbidden_dim in x_coords) or (forbidden_dim in y_coords):
+            if (forbidden_dim in x.dims) or (forbidden_dim in y.dims):
                 raise ValueError(
-                    f"Dimension 'f{forbidden_dim}' cannot be present in FSS input coordinates."
+                    f"Dimension '{forbidden_dim}' cannot be present in FSS input dimensions."
                 )
-        x_coords = x_coords.copy()
-        if self.ensemble_dimension is not None:
-            if self.ensemble_dimension not in x_coords:
-                raise ValueError(
-                    f"Ensemble dimension '{self.ensemble_dimension}' set but not present in x_coords."
-                )
-            if self.ensemble_dimension in y_coords:
-                raise ValueError(
-                    f"Ensemble dimension '{self.ensemble_dimension}' present in y_coords."
-                )
-            x_coords.pop(self.ensemble_dimension)
-        for (x_dim, x_coord), (y_dim, y_coord) in zip(
-            x_coords.items(), y_coords.items()
-        ):
-            if (x_dim != y_dim) or (x_coord != y_coord).any():
-                raise ValueError("Coordinates are incompatible.")
+        y = _align_xy(x, y, self.ensemble_dimension)
 
         spatial_dims = (
-            list(x_coords)[-2:]
+            [d for d in y.dims][-2:]
             if self.spatial_dimensions is None
             else self.spatial_dimensions
         )
@@ -172,6 +168,7 @@ class fss:
             raise ValueError(
                 f"Spatial dimensions {spatial_dims} must be included in reduction_dimensions."
             )
+        return y
 
     def _neighborhood_probability(
         self,
@@ -184,7 +181,7 @@ class fss:
 
         # squeeze batch dimensions
         x_shape = x.shape
-        x = x.view(int(np.prod(x_shape[:-2])), 1, *x_shape[-2:])
+        x = x.reshape(int(np.prod(x_shape[:-2])), 1, *x_shape[-2:])
 
         # mask input points that exceed each threshold
         binary_prob = (x >= thresholds[None, :, None, None]).to(dtype=x.dtype)
@@ -205,80 +202,94 @@ class fss:
 
         return neighborhood_prob
 
-    def _neighborhood_probability_coords(
-        self, coords: CoordSystem, out_coords: CoordSystem, window_size: int
-    ) -> CoordSystem:
-        coords = coords.copy()
-        spatial_dims = list(coords)[-2:]
+    def _neighborhood_probability_array(
+        self, data: torch.Tensor, template: xr.DataArray, window_size: int
+    ) -> xr.DataArray:
+        """Wrap neighborhood probability data into a DataArray with spatial
+        coordinates cropped by the window margin and a trailing threshold dimension.
+        """
+        spatial_dims = list(template.dims)[-2:]
         margin = _get_margin(window_size)
-        for dim in spatial_dims:
-            coords[dim] = coords[dim][margin[0] : -margin[1]].copy()
-        coords["threshold"] = out_coords["threshold"].copy()
-        return coords
+        template = template.isel(
+            {
+                dim: slice(margin[0], template.sizes[dim] - margin[1])
+                for dim in spatial_dims
+            }
+        )
+        dims = list(template.dims) + ["threshold"]
+        coords = {k: v.variable for k, v in template.coords.items()}
+        coords["threshold"] = xr.Variable("threshold", self.thresholds.copy())
+        array = _as_host_or_cupy(
+            from_torch(
+                data,
+                OrderedDict((d, np.arange(n)) for d, n in zip(dims, data.shape)),
+            )
+        )
+        return xr.DataArray(array.data, dims=dims, coords=coords)
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor, typically the forecast or prediction tensor.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
+        x : xr.DataArray
+            Input array, typically the forecast or prediction array.
+            `reduction_dimensions` must be in x, as must `ensemble_dimension` and
             `spatial_dimensions` if provided in constructor.
-        y : torch.Tensor
-            Input tensor #2 intended to be used as validation data..
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
-            provided in constructor.
+        y : xr.DataArray
+            Input array #2 intended to be used as validation data. Must not contain
+            the ensemble dimension.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns fractions skill score array with appropriate reduced coordinates
+            and trailing threshold and window_size dimensions.
         """
-        self._validate_coords(x_coords, y_coords)
+        y = self._validate_coords(x, y)
 
         if self.spatial_dimensions is not None:
-            x, x_coords = _spatial_dims_to_end(x, x_coords, self.spatial_dimensions)
-            y, y_coords = _spatial_dims_to_end(y, y_coords, self.spatial_dimensions)
+            x = _spatial_dims_to_end(x, self.spatial_dimensions)
+            y = _spatial_dims_to_end(y, self.spatial_dimensions)
 
-        thresholds = torch.as_tensor(self.thresholds).to(dtype=x.dtype, device=x.device)
-        out_coords = self.output_coords(x_coords)
+        x = _as_host_or_cupy(x)
+        y = _as_host_or_cupy(y)
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
+
+        thresholds = torch.as_tensor(self.thresholds).to(
+            dtype=x_t.dtype, device=x_t.device
+        )
+        out_sig = self.output_coords(x)
         ensemble_dim = (
             None
             if self.ensemble_dimension is None
-            else list(x_coords).index(self.ensemble_dimension)
+            else list(x.dims).index(self.ensemble_dimension)
         )
-        fss_shape = [len(c) for c in out_coords.values()]
-        fss = torch.empty(fss_shape, dtype=x.dtype, device=x.device)
+        xp = _array_module(x)
+        fss = xp.empty(out_sig.shape, dtype=x.dtype)
 
         for i, window_size in enumerate(self.window_sizes):
             np_fc = self._neighborhood_probability(
-                x, thresholds, window_size, ensemble_dim=ensemble_dim
+                x_t, thresholds, window_size, ensemble_dim=ensemble_dim
             )
-            np_obs = self._neighborhood_probability(y, thresholds, window_size)
-            np_coords = self._neighborhood_probability_coords(
-                y_coords, out_coords, window_size
-            )
+            np_obs = self._neighborhood_probability(y_t, thresholds, window_size)
+            np_fc = self._neighborhood_probability_array(np_fc, y, window_size)
+            np_obs = self._neighborhood_probability_array(np_obs, y, window_size)
             fss[..., i] = 1 - self.diff_mean[window_size](
-                (np_fc - np_obs) ** 2, np_coords
-            )[0] / (
-                self.fc_mean[window_size](np_fc**2, np_coords)[0]
-                + self.obs_mean[window_size](np_obs**2, np_coords)[0]
+                (np_fc - np_obs) ** 2
+            ).data / (
+                self.fc_mean[window_size](np_fc**2).data
+                + self.obs_mean[window_size](np_obs**2).data
             )
 
-        return (fss, out_coords)
+        return xr.DataArray(
+            fss,
+            dims=out_sig.dims,
+            coords={k: v.variable for k, v in out_sig.coords.items()},
+        )
 
 
 def _get_margin(window_size: int) -> tuple[int, int]:

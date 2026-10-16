@@ -14,18 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem
-
-from .moments import mean, variance
+from earth2studio.statistics.moments import mean, variance
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _array_module,
+    _as_host_or_cupy,
+    _output_signature,
+    _validate_dims,
+    _wrap,
+)
+from earth2studio.utils.type import CoordinateSystem
 
 
 class rmse:
     """
-    Statistic for calculating the root mean squared error of two tensors
+    Statistic for calculating the root mean squared error of two arrays
     over a set of given dimensions.
 
     Parameters
@@ -33,8 +42,8 @@ class rmse:
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: torch.Tensor | None = None
-        A tensor containing weights to assign to the reduction dimensions.
+    weights: torch.Tensor | np.ndarray | None = None
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -52,7 +61,7 @@ class rmse:
     def __init__(
         self,
         reduction_dimensions: list[str],
-        weights: torch.Tensor | None = None,
+        weights: torch.Tensor | np.ndarray | None = None,
         batch_update: bool = False,
         ensemble_dimension: str | None = None,
     ):
@@ -77,35 +86,35 @@ class rmse:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        remove = list(self.reduction_dimensions)
         if self.ensemble_dimension is not None:
-            output_coords.pop(self.ensemble_dimension)
+            remove.append(self.ensemble_dimension)
+        return _output_signature(input_coords, remove)
 
-        return output_coords
+    def _difference(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
+        """Ensemble mean (if requested) and difference between x and y"""
+        _validate_dims(x, self._reduction_dimensions)
+        if self.ensemble_dimension is not None:
+            x = self.ensemble_mean(x)
+        y = _align_xy(x, y)
+        x = _as_host_or_cupy(x)
+        y = _as_host_or_cupy(y)
+        return x.copy(data=x.data - y.data)
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -115,33 +124,27 @@ class rmse:
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor, typically the forecast or prediction tensor, but RMSE is
+        x : xr.DataArray
+            Input array, typically the forecast or prediction array, but RMSE is
             symmetric with respect to `x` and `y`.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            Input tensor #2 intended to be used as validation data, but RMSE is symmetric
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            Input array #2 intended to be used as validation data, but RMSE is symmetric
             with respect to `x` and `y`.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns root mean squared error array with appropriate reduced coordinates.
         """
-        if self.ensemble_dimension is not None:
-            x, x_coords = self.ensemble_mean(x, x_coords)
-        mse, output_coords = self.mean((x - y) ** 2, x_coords)
-        return torch.sqrt(mse), output_coords
+        diff = self._difference(x, y)
+        mse = self.mean(diff**2)
+        return mse.copy(data=_array_module(mse).sqrt(mse.data))
 
 
 class mae(rmse):
     """
-    Statistic for calculating the mean absolute error of two tensors
+    Statistic for calculating the mean absolute error of two arrays
     over a set of given dimensions.
 
     Parameters
@@ -149,8 +152,8 @@ class mae(rmse):
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: torch.Tensor = None
-        A tensor containing weights to assign to the reduction dimensions.
+    weights: torch.Tensor | np.ndarray | None = None
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -168,13 +171,7 @@ class mae(rmse):
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["mae"])
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -184,28 +181,21 @@ class mae(rmse):
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor, typically the forecast or prediction tensor, but MAE is
+        x : xr.DataArray
+            Input array, typically the forecast or prediction array, but MAE is
             symmetric with respect to `x` and `y`.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            Input tensor #2 intended to be used as validation data, but MAE is symmetric
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            Input array #2 intended to be used as validation data, but MAE is symmetric
             with respect to `x` and `y`.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns mean absolute error array with appropriate reduced coordinates.
         """
-        if self.ensemble_dimension is not None:
-            x, x_coords = self.ensemble_mean(x, x_coords)
-        mae, output_coords = self.mean(abs(x - y), x_coords)
-        return mae, output_coords
+        diff = self._difference(x, y)
+        return self.mean(diff.copy(data=_array_module(diff).abs(diff.data)))
 
 
 class spread_skill_ratio:
@@ -224,11 +214,11 @@ class spread_skill_ratio:
         Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
         over time but can also be the globe or some region.
         Example: ['time', 'lat', 'lon']
-    ensemble_weights : torch.Tensor | None, optional
-        A one-dimensional tensor containing weights to assign to the ensemble_dimension,
+    ensemble_weights : torch.Tensor | np.ndarray | None, optional
+        A one-dimensional array containing weights to assign to the ensemble_dimension,
         by default None.
-    reduction_weights : torch.Tensor, optional
-        A tensor containing weights to assign to the reduction dimensions.
+    reduction_weights : torch.Tensor | np.ndarray | None, optional
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -248,8 +238,8 @@ class spread_skill_ratio:
         self,
         ensemble_dimension: str,
         reduction_dimensions: list[str],
-        ensemble_weights: torch.Tensor | None = None,
-        reduction_weights: torch.Tensor = None,
+        ensemble_weights: torch.Tensor | np.ndarray | None = None,
+        reduction_weights: torch.Tensor | np.ndarray | None = None,
         ensemble_batch_update: bool = False,
         reduction_batch_update: bool = False,
     ):
@@ -285,33 +275,32 @@ class spread_skill_ratio:
     def reduction_dimensions(self) -> list[str]:
         return self.ensemble_dimension + self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        return _output_signature(input_coords, self.reduction_dimensions)
 
-        return output_coords
+    def _components(
+        self, x: xr.DataArray, y: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Squared skill (mse of ensemble mean) and spread (variance) components"""
+        _validate_dims(x, self.reduction_dimensions)
+        em = self.ensemble_mean(x)
+        skill = self.reduced_rmse(em, y)
+        spread = self.reduced_mean(self.ensemble_var(x))
+        return skill, spread
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -321,28 +310,21 @@ class spread_skill_ratio:
 
         Parameters
         ----------
-        x : torch.Tensor
-            The ensemble forecast input tensor. This is the tensor over which the
+        x : xr.DataArray
+            The ensemble forecast input array. This is the array over which the
             ensemble mean and spread are calculated with respect to.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            The observation input tensor.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            The observation input array.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns spread/skill ratio array with appropriate reduced coordinates.
         """
-
-        em, output_coords = self.ensemble_mean(x, x_coords)
-        skill, output_coords = self.reduced_rmse(em, output_coords, y, y_coords)
-        spread, output_coords = self.reduced_mean(*self.ensemble_var(x, x_coords))
-        return torch.sqrt(spread) / skill, output_coords
+        skill, spread = self._components(x, y)
+        xp = _array_module(spread)
+        return spread.copy(data=xp.sqrt(spread.data) / skill.data)
 
 
 class skill_spread(spread_skill_ratio):
@@ -357,36 +339,28 @@ class skill_spread(spread_skill_ratio):
     of the ratio, i.e. the spread and the skill.
     """
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output with a leading `metric`
+            dimension
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        return _output_signature(
+            input_coords,
+            self.reduction_dimensions,
+            add={"metric": np.array(["mse", "variance"])},
+            add_first=True,
+        )
 
-        output_coords.update({"metric": np.array(["mse", "variance"])})
-        output_coords.move_to_end("metric", last=False)
-
-        return output_coords
-
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
@@ -396,31 +370,20 @@ class skill_spread(spread_skill_ratio):
 
         Parameters
         ----------
-        x : torch.Tensor
-            The ensemble forecast input tensor. This is the tensor over which the
+        x : xr.DataArray
+            The ensemble forecast input array. This is the array over which the
             ensemble mean and spread are calculated with respect to.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            The observation input tensor.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            The observation input array.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns a tensor containing MSE and variance with appropriate reduced coordinates.
+        xr.DataArray
+            Returns an array containing MSE and variance, stacked along a leading
+            `metric` dimension, with appropriate reduced coordinates.
         """
-
-        em, output_coords = self.ensemble_mean(x, x_coords)
-        skill, output_coords = self.reduced_rmse(em, output_coords, y, y_coords)
-        var, output_coords = self.reduced_mean(*self.ensemble_var(x, x_coords))
-
-        mse = torch.square(skill)
-
-        output_coords.update({"metric": np.array(["mse", "variance"])})
-        output_coords.move_to_end("metric", last=False)
-
-        return torch.stack((mse, var)), output_coords
+        skill, var = self._components(x, y)
+        xp = _array_module(var)
+        mse = xp.square(skill.data)
+        return _wrap(xp.stack((mse, var.data)), self.output_coords(x))

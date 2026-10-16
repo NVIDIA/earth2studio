@@ -14,11 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.statistics.moments import mean
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _as_host_or_cupy,
+    _output_signature,
+    _validate_dims,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 
 class energy_score:
@@ -44,7 +56,7 @@ class energy_score:
         Setting `multivariate_dimensions` to large spatial grids (e.g.,
         `['lat', 'lon']` with 721x1440 = ~1M elements) produces a feature
         vector of that size per ensemble member. For M=50 members this requires
-        ~200 MB per tensor in float32. Prefer selecting a subset of dimensions
+        ~200 MB per array in float32. Prefer selecting a subset of dimensions
         unless full-field verification is explicitly needed.
 
     Parameters
@@ -59,7 +71,7 @@ class energy_score:
     reduction_dimensions: list[str], optional
         Dimensions over which to average the energy score after computation.
         By default None (no additional reduction).
-    weights: torch.Tensor, optional
+    weights: torch.Tensor | np.ndarray, optional
         Weights for the reduction dimensions. Must have the same number of
         dimensions as passed in reduction_dimensions. By default None.
     fair: bool, optional
@@ -80,7 +92,7 @@ class energy_score:
         ensemble_dimension: str,
         multivariate_dimensions: list[str],
         reduction_dimensions: list[str] | None = None,
-        weights: torch.Tensor = None,
+        weights: torch.Tensor | np.ndarray | None = None,
         fair: bool = False,
     ):
         if not isinstance(ensemble_dimension, str):
@@ -114,113 +126,88 @@ class energy_score:
             dims = dims + self._reduction_dimensions
         return dims
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to
         the given input coordinates.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        return _output_signature(input_coords, self.reduction_dimensions)
 
-        return output_coords
-
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply the Energy Score metric to ensemble forecast `x` and observation `y`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Ensemble forecast tensor. Must contain the ensemble dimension.
-        x_coords : CoordSystem
-            Coordinate system describing the `x` tensor. Must contain
-            `ensemble_dimension` and all `multivariate_dimensions`.
-        y : torch.Tensor
-            Observation tensor. Must not contain the ensemble dimension.
-        y_coords : CoordSystem
-            Coordinate system describing the `y` tensor. Must contain
+        x : xr.DataArray
+            Ensemble forecast array. Must contain the ensemble dimension and all
+            `multivariate_dimensions`.
+        y : xr.DataArray
+            Observation array. Must not contain the ensemble dimension. Must contain
             all `multivariate_dimensions`.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Energy Score tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Energy Score array with appropriate reduced coordinates.
         """
-        # Validate reduction dimensions exist in x_coords
-        if not all(rd in x_coords for rd in self.reduction_dimensions):
-            raise ValueError(
-                "Initialized reduction dimension does not appear in passed coords"
-            )
+        # Validate reduction dimensions exist in x
+        _validate_dims(x, self.reduction_dimensions)
 
         # Ensemble dimension should be in x but not in y
-        if self.ensemble_dimension in y_coords:
-            raise ValueError(
-                f"{self.ensemble_dimension} should not be in y_coords but is."
-            )
+        if self.ensemble_dimension in y.dims:
+            raise ValueError(f"{self.ensemble_dimension} should not be in y but is.")
         if x.ndim != y.ndim + 1:
             raise ValueError(
                 "x and y must have broadcastable shapes but got "
                 + f"{x.shape} and {y.shape}"
             )
 
-        # Validate multivariate dimensions exist in y_coords
+        # Validate multivariate dimensions exist in y
         for mv_dim in self.multivariate_dimensions:
-            if mv_dim not in y_coords:
-                raise ValueError(
-                    f"Multivariate dimension '{mv_dim}' not found in y_coords."
-                )
+            if mv_dim not in y.dims:
+                raise ValueError(f"Multivariate dimension '{mv_dim}' not found in y.")
 
         # Input coordinate checking (skip ensemble dim)
-        coord_count = 0
-        for c in x_coords:
-            if c != self.ensemble_dimension:
-                handshake_dim(y_coords, c, coord_count)
-                handshake_coords(y_coords, x_coords, c)
-                coord_count += 1
+        y = _align_xy(x, y, self.ensemble_dimension)
 
-        # Compute the Energy Score
-        out = _energy_score_compute(
-            x,
-            y,
-            x_coords,
+        # Compute the Energy Score (torch is used for the pairwise distances)
+        x_t, _ = _as_host_or_cupy(x).e2s.to_torch()
+        y_t, _ = _as_host_or_cupy(y).e2s.to_torch()
+        out_t = _energy_score_compute(
+            x_t,
+            y_t,
+            list(x.dims),
             self.ensemble_dimension,
             self.multivariate_dimensions,
             self.fair,
         )
 
-        # Build output coords: remove ensemble and multivariate dims from y_coords
-        out_coords = y_coords.copy()
-        for mv_dim in self.multivariate_dimensions:
-            out_coords.pop(mv_dim, None)
+        # Build output: remove ensemble and multivariate dims
+        out = from_torch(
+            out_t, _output_signature(y, list(self.multivariate_dimensions))
+        )
 
         # Apply additional reduction if requested
         if self._reduction_dimensions is not None:
-            out, out_coords = self.mean(out, out_coords)
+            out = self.mean(out)
 
-        return out, out_coords
+        return out
 
 
 def _energy_score_compute(
     ensemble: torch.Tensor,
     truth: torch.Tensor,
-    x_coords: CoordSystem,
+    dims: Sequence[str],
     ensemble_dimension: str,
     multivariate_dimensions: list[str],
     fair: bool = False,
@@ -239,8 +226,8 @@ def _energy_score_compute(
         Ensemble forecast tensor with ensemble dimension.
     truth : torch.Tensor
         Observation tensor without ensemble dimension.
-    x_coords : CoordSystem
-        Coordinate system for the ensemble tensor.
+    dims : Sequence[str]
+        Ordered dimension names of the ensemble tensor.
     ensemble_dimension : str
         Name of the ensemble dimension.
     multivariate_dimensions : list[str]
@@ -253,7 +240,7 @@ def _energy_score_compute(
     torch.Tensor
         Energy Score values.
     """
-    coord_keys = list(x_coords.keys())
+    coord_keys = list(dims)
     ens_dim = coord_keys.index(ensemble_dimension)
     M = ensemble.shape[ens_dim]
     mv_dims = [coord_keys.index(d) for d in multivariate_dimensions]

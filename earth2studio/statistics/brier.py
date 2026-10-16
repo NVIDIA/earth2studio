@@ -14,19 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import numpy as np
-import torch
+import xarray as xr
 from numpy.typing import ArrayLike
 
-from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem
-
-from .moments import mean
+from earth2studio.statistics.moments import mean
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _array_module,
+    _as_host_or_cupy,
+    _output_signature,
+)
+from earth2studio.utils.type import CoordinateSystem
 
 
 class brier_score:
     """
-    Statistic for calculating the Brier score (BS) of one tensors
+    Statistic for calculating the Brier score (BS) of one array
     with respect to another over a set of given dimensions.
 
     Follows the definition here:
@@ -70,110 +76,77 @@ class brier_score:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
         removed_dims = list(self._reduction_dimensions)
         if self.ensemble_dimension is not None:
             removed_dims.append(self.ensemble_dimension)
+        return _output_signature(
+            input_coords, removed_dims, add={"threshold": self.thresholds.copy()}
+        )
 
-        output_coords = input_coords.copy()
-        for dimension in removed_dims:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
-        output_coords["threshold"] = self.thresholds.copy()
-
-        return output_coords
-
-    def _validate_coords(self, x_coords: CoordSystem, y_coords: CoordSystem) -> None:
-        if ("threshold" in x_coords) or ("threshold" in y_coords):
+    def _validate_coords(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
+        if ("threshold" in x.dims) or ("threshold" in y.dims):
             raise ValueError(
-                "Dimension 'threshold' cannot be present in brier_score input coordinates."
+                "Dimension 'threshold' cannot be present in brier_score input dimensions."
             )
-
-        x_coords = x_coords.copy()
-        if self.ensemble_dimension is not None:
-            if self.ensemble_dimension not in x_coords:
-                raise ValueError(
-                    f"Ensemble dimension '{self.ensemble_dimension}' set but not present in x_coords."
-                )
-            if self.ensemble_dimension in y_coords:
-                raise ValueError(
-                    f"Ensemble dimension '{self.ensemble_dimension}' present in y_coords."
-                )
-            x_coords.pop("ensemble")
-        for (x_dim, x_coord), (y_dim, y_coord) in zip(
-            x_coords.items(), y_coords.items()
-        ):
-            if (x_dim != y_dim) or (x_coord != y_coord).any():
-                raise ValueError("Coordinates are incompatible.")
+        return _align_xy(x, y, self.ensemble_dimension)
 
     def _exceedance_probability(
-        self, x: torch.Tensor, thresholds: torch.Tensor, ensemble_dim: int | None = None
-    ) -> torch.Tensor:
-        thresholds = thresholds.view(*((1,) * x.ndim), len(self.thresholds))
-        x = x.unsqueeze(-1)
-        exc_prob = (x >= thresholds).to(dtype=x.dtype)
-        if ensemble_dim is not None:
-            exc_prob = exc_prob.mean(dim=ensemble_dim)
-        return exc_prob
+        self, x: xr.DataArray, ensemble_dimension: str | None = None
+    ) -> xr.DataArray:
+        xp = _array_module(x)
+        thresholds = xp.asarray(self.thresholds, dtype=x.dtype)
+        data = x.data[..., None] >= thresholds
+        data = data.astype(x.dtype)
+        if ensemble_dimension is not None:
+            data = data.mean(axis=x.dims.index(ensemble_dimension))
+        dims = [d for d in x.dims if d != ensemble_dimension] + ["threshold"]
+        coords = {
+            k: v.variable
+            for k, v in x.coords.items()
+            if set(v.dims) <= set(dims) - {"threshold"}
+        }
+        coords["threshold"] = xr.Variable("threshold", self.thresholds.copy())
+        return xr.DataArray(data, dims=dims, coords=coords)
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor, typically the forecast or prediction tensor.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
-            `spatial_dimensions` if provided in constructor.
-        y : torch.Tensor
-            Input tensor #2 intended to be used as validation data..
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
-            provided in constructor.
+        x : xr.DataArray
+            Input array, typically the forecast or prediction array.
+            `reduction_dimensions` must be in the dimensions of x, as must
+            `ensemble_dimension` if provided in constructor.
+        y : xr.DataArray
+            Input array #2 intended to be used as validation data. Must not contain
+            `ensemble_dimension`. `reduction_dimensions` must be in y.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns root mean squared error tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns Brier score array with appropriate reduced coordinates and
+            a trailing threshold dimension.
         """
-        self._validate_coords(x_coords, y_coords)
+        y = self._validate_coords(x, y)
+        x = _as_host_or_cupy(x)
+        y = _as_host_or_cupy(y)
 
-        thresholds = torch.as_tensor(self.thresholds).to(dtype=x.dtype, device=x.device)
-        ensemble_dim = (
-            None
-            if self.ensemble_dimension is None
-            else list(x_coords).index(self.ensemble_dimension)
-        )
-        exc_prob_fc = self._exceedance_probability(
-            x, thresholds, ensemble_dim=ensemble_dim
-        )
-        exc_prob_obs = self._exceedance_probability(y, thresholds)
-        exc_prob_coords = y_coords.copy()
-        exc_prob_coords["threshold"] = self.thresholds.copy()
+        exc_prob_fc = self._exceedance_probability(x, self.ensemble_dimension)
+        exc_prob_obs = self._exceedance_probability(y)
 
-        bs, out_coords = self.mean((exc_prob_fc - exc_prob_obs) ** 2, exc_prob_coords)
-
-        return (bs, out_coords)
+        return self.mean((exc_prob_fc - exc_prob_obs) ** 2)

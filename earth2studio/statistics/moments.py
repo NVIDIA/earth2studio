@@ -14,11 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+from __future__ import annotations
 
-from earth2studio.statistics.utils import _broadcast_weights
-from earth2studio.utils.coords import handshake_dim
-from earth2studio.utils.type import CoordSystem
+from typing import Any
+
+import numpy as np
+import torch
+import xarray as xr
+
+from earth2studio.statistics.utils import (
+    _array_module,
+    _as_host_or_cupy,
+    _axes,
+    _broadcast_weights,
+    _output_signature,
+    _validate_dims,
+    _wrap,
+)
+from earth2studio.utils.type import CoordinateSystem
 
 
 class mean:
@@ -30,8 +43,8 @@ class mean:
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: torch.Tensor, optional
-        A tensor containing weights to assign to the reduction dimensions.
+    weights: torch.Tensor | np.ndarray, optional
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -47,7 +60,7 @@ class mean:
     def __init__(
         self,
         reduction_dimensions: list[str],
-        weights: torch.Tensor = None,
+        weights: torch.Tensor | np.ndarray | None = None,
         batch_update: bool = False,
     ):
         if weights is not None:
@@ -60,7 +73,8 @@ class mean:
 
         self.batch_update = batch_update
         if self.batch_update:
-            self.n = 0
+            self.n: Any = 0
+            self.sum: Any = None
 
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["mean"])
@@ -69,79 +83,62 @@ class mean:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        return _output_signature(input_coords, self.reduction_dimensions)
 
-        return output_coords
-
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """
-        Apply the mean operation over the tensor x.
+        Apply the mean operation over the array x.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample mean over all seen batches.
 
         Parameters
         ----------
-        x: torch.Tensor
+        x: xr.DataArray
             Input data to compute sample mean.
-        coords: CoordSystem
-            Coordinates referring to the input data, x.
+
+        Returns
+        -------
+        xr.DataArray
+            Mean with the reduction dimensions removed
         """
-        if not all([rd in coords for rd in self._reduction_dimensions]):
-            raise ValueError(
-                "Initialized reduction_dimensions do not appear in passed coords."
-            )
+        _validate_dims(x, self._reduction_dimensions)
+        # Empty reduction dimensions represents an identity operation
+        if not self._reduction_dimensions:
+            return x
 
-        dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
-        output_coords = CoordSystem(
-            {
-                key: coords[key]
-                for key in coords
-                if key not in self._reduction_dimensions
-            }
-        )
-
-        # torch.sum(..., dim=[]) reduces over every dimension. An empty list of
-        # reduction dimensions instead represents an identity operation.
-        if not dims:
-            return x, output_coords
-
-        weights = _broadcast_weights(
-            self.weights, self._reduction_dimensions, coords
-        ).to(x.device)
-        weights_sum = torch.sum(weights)
+        signature = self.output_coords(x)
+        x = _as_host_or_cupy(x)
+        xp = _array_module(x)
+        axes = _axes(x, self._reduction_dimensions)
+        weights = _broadcast_weights(self.weights, self._reduction_dimensions, x, xp)
+        weights_sum = xp.sum(weights)
+        total = xp.sum(weights * x.data, axis=axes)
 
         # If not applying batch updating then return regular mean.
         if not self.batch_update:
-            return torch.sum(weights * x, dim=dims) / weights_sum, output_coords
+            return _wrap(total / weights_sum, signature)
 
         # If batch updating then calculate updated mean
+        if self.n == 0:
+            self.sum = total
         else:
-            if self.n == 0:
-                self.sum = torch.sum(weights * x, dim=dims)
-            else:
-                self.sum += torch.sum(weights * x, dim=dims)
-
-            self.n += weights_sum
-            return self.sum / self.n, output_coords
+            self.sum = self.sum + total
+        self.n = self.n + weights_sum
+        return _wrap(self.sum / self.n, signature)
 
 
 class variance:
@@ -153,8 +150,8 @@ class variance:
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: torch.Tensor, optional
-        A tensor containing weights to assign to the reduction dimensions.
+    weights: torch.Tensor | np.ndarray, optional
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -170,7 +167,7 @@ class variance:
     def __init__(
         self,
         reduction_dimensions: list[str],
-        weights: torch.Tensor = None,
+        weights: torch.Tensor | np.ndarray | None = None,
         batch_update: bool = False,
     ):
         if not reduction_dimensions:
@@ -185,98 +182,85 @@ class variance:
 
         self.batch_update = batch_update
         if self.batch_update:
-            self.n = 0
+            self.n: Any = 0
+            self.sum: Any = None
+            self.sum2: Any = None
 
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["variance"])
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
-
-        return output_coords
+        return _output_signature(input_coords, self.reduction_dimensions)
 
     @property
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """
-        Apply the sample variance operation over the tensor x.
+        Apply the sample variance operation over the array x.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample variance over all seen batches.
 
         Parameters
         ----------
-        x: torch.Tensor
+        x: xr.DataArray
             Input data to compute sample variance.
-        coords: CoordSystem
-            Coordinates referring to the input data, x.
+
+        Returns
+        -------
+        xr.DataArray
+            Variance with the reduction dimensions removed
         """
-        if not all([rd in coords for rd in self._reduction_dimensions]):
-            raise ValueError(
-                "Initialized reduction_dimensions do not appear in passed coords."
-            )
-
-        dims = [list(coords).index(rd) for rd in self._reduction_dimensions]
-        output_coords = CoordSystem(
-            {
-                key: coords[key]
-                for key in coords
-                if key not in self._reduction_dimensions
-            }
-        )
-
-        weights = _broadcast_weights(
-            self.weights, self._reduction_dimensions, coords
-        ).to(x.device)
-        weights_sum = torch.sum(weights)
+        _validate_dims(x, self._reduction_dimensions)
+        signature = self.output_coords(x)
+        x = _as_host_or_cupy(x)
+        xp = _array_module(x)
+        axes = _axes(x, self._reduction_dimensions)
+        weights = _broadcast_weights(self.weights, self._reduction_dimensions, x, xp)
+        weights_sum = xp.sum(weights)
 
         # If not applying batch updating then return regular variance.
         if not self.batch_update:
-            m = torch.sum(weights * x, dim=dims, keepdims=True) / weights_sum
-            div = weights_sum - torch.sum(weights**2) / weights_sum
-            return torch.sum(weights * (x - m) ** 2, dim=dims) / div, output_coords
+            m = xp.sum(weights * x.data, axis=axes, keepdims=True) / weights_sum
+            div = weights_sum - xp.sum(weights**2) / weights_sum
+            out = xp.sum(weights * (x.data - m) ** 2, axis=axes) / div
+            return _wrap(out, signature)
 
-        # If batch updating then calculate updated mean
+        # If batch updating then calculate updated variance
+        temp_n = weights_sum
+        temp_sum = xp.sum(weights * x.data, axis=axes)
+        temp_mean = xp.sum(weights * x.data, axis=axes, keepdims=True) / temp_n
+        temp_sum2 = xp.sum(weights * (x.data - temp_mean) ** 2, axis=axes)
+
+        # First batch then no correction
+        if self.n == 0:
+            self.n = temp_n
+            self.sum = temp_sum
+            self.sum2 = temp_sum2
+        # Second-order correction with each batch
         else:
-            temp_n = weights_sum
-            temp_sum = torch.sum(weights * x, dim=dims)
-            temp_sum2 = torch.sum(weights * (x - temp_sum / temp_n) ** 2, dim=dims)
-
-            # First batch then no correction
-            if self.n == 0:
-                self.n = temp_n
-                self.sum = temp_sum
-                self.sum2 = temp_sum2
-            # Second-order correction with each batch
-            else:
-                delta = self.sum * temp_n / self.n - temp_sum
-                self.sum += temp_sum
-                self.sum2 += temp_sum2 + self.n / temp_n / (self.n + temp_n) * delta**2
-                self.n += temp_n
-
-            return (
-                self.sum2 / torch.maximum(self.n - 1.0, torch.tensor(1.0)),
-                output_coords,
+            delta = self.sum * temp_n / self.n - temp_sum
+            self.sum = self.sum + temp_sum
+            self.sum2 = (
+                self.sum2 + temp_sum2 + self.n / temp_n / (self.n + temp_n) * delta**2
             )
+            self.n = self.n + temp_n
+
+        return _wrap(self.sum2 / xp.maximum(self.n - 1.0, 1.0), signature)
 
 
 class std:
@@ -288,8 +272,8 @@ class std:
     reduction_dimensions: List[str]
         A list of names corresponding to dimensions to perform the
         statistical reduction over. Example: ['lat', 'lon']
-    weights: torch.Tensor, optional
-        A tensor containing weights to assign to the reduction dimensions.
+    weights: torch.Tensor | np.ndarray, optional
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -305,7 +289,7 @@ class std:
     def __init__(
         self,
         reduction_dimensions: list[str],
-        weights: torch.Tensor = None,
+        weights: torch.Tensor | np.ndarray | None = None,
         batch_update: bool = False,
     ):
         self.var = variance(
@@ -321,41 +305,38 @@ class std:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        return _output_signature(input_coords, self.reduction_dimensions)
 
-        return output_coords
-
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """
-        Apply the sample standard deviation operation over the tensor x.
+        Apply the sample standard deviation operation over the array x.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample standard deviation over all seen batches.
 
         Parameters
         ----------
-        x: torch.Tensor
+        x: xr.DataArray
             Input data to compute sample standard deviation.
-        coords: CoordSystem
-            Coordinates referring to the input data, x.
+
+        Returns
+        -------
+        xr.DataArray
+            Standard deviation with the reduction dimensions removed
         """
-        var, output_coords = self.var(x, coords)
-        return torch.sqrt(var), output_coords
+        var = self.var(x)
+        xp = _array_module(var)
+        return var.copy(data=xp.sqrt(var.data))

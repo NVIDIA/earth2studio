@@ -20,11 +20,13 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.statistics import crps, energy_score, lat_weight
 from earth2studio.statistics.base import Metric
 from earth2studio.statistics.energy_score import _energy_score_compute
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import handshake_coords
+from earth2studio.utils.cupy import from_torch
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 10)))
 
@@ -52,8 +54,6 @@ def test_energy_score(
     fair: bool,
 ) -> None:
 
-    x = torch.randn((8, 1, 2, 10, 20), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(8),
@@ -65,17 +65,23 @@ def test_energy_score(
     )
 
     # Swap ensemble_dimension into coords (e.g. treat "time" as the ensemble dim)
+    # by exchanging the dimension names, keeping the data shape (8, 1, 2, 10, 20)
     if ensemble_dimension != "ensemble":
         keys = list(x_coords.keys())
         ens_idx = keys.index("ensemble")
         mv_idx = keys.index(ensemble_dimension)
+        values = list(x_coords.values())
         keys[ens_idx], keys[mv_idx] = keys[mv_idx], keys[ens_idx]
-        x_coords = OrderedDict((k, x_coords[k]) for k in keys)
+        x_coords = OrderedDict(zip(keys, values))
+
+    x = from_torch(
+        torch.randn([len(v) for v in x_coords.values()], device=device), x_coords
+    )
 
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop(ensemble_dimension)
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = torch.randn(y_shape, device=device)
+    y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
     reduction_dimensions, weights = reduction_weights
     if weights is not None:
@@ -90,27 +96,26 @@ def test_energy_score(
         fair=fair,
     )
 
-    z, c = ES(x, x_coords, y, y_coords)
+    z = ES(x, y)
+    assert isinstance(z, xr.DataArray)
 
     # Ensemble dim and multivariate dims should be removed
-    assert ensemble_dimension not in c
-    assert "lon" not in c
+    assert ensemble_dimension not in z.dims
+    assert "lon" not in z.dims
     if reduction_dimensions is not None:
-        assert all(rd not in c for rd in reduction_dimensions)
-    assert list(z.shape) == [len(val) for val in c.values()]
+        assert all(rd not in z.dims for rd in reduction_dimensions)
 
     # Check output coords match
-    out_test_coords = ES.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    out_test_coords = ES.output_coords(x)
+    assert z.dims == out_test_coords.dims
+    assert z.shape == out_test_coords.shape
+    for ci in z.dims:
+        handshake_coords(out_test_coords, z, ci)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_energy_score_fair(device: str) -> None:
     """Test fair Energy Score with > 1 ensemble members."""
-    x = torch.randn((8, 1, 2, 10, 20), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(8),
@@ -121,10 +126,12 @@ def test_energy_score_fair(device: str) -> None:
         }
     )
 
+    x = from_torch(torch.randn((8, 1, 2, 10, 20), device=device), x_coords)
+
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop("ensemble")
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = torch.randn(y_shape, device=device)
+    y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
     ES = energy_score(
         "ensemble",
@@ -132,17 +139,17 @@ def test_energy_score_fair(device: str) -> None:
         fair=True,
     )
 
-    z, c = ES(x, x_coords, y, y_coords)
+    z = ES(x, y)
 
-    assert "ensemble" not in c
-    assert "lon" not in c
-    assert list(z.shape) == [len(val) for val in c.values()]
+    assert "ensemble" not in z.dims
+    assert "lon" not in z.dims
+    out_test_coords = ES.output_coords(x)
+    assert z.dims == out_test_coords.dims
+    assert z.shape == out_test_coords.shape
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_energy_score_failures(device: str) -> None:
-    x = torch.randn((8, 1, 2, 10, 20), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(8),
@@ -152,6 +159,8 @@ def test_energy_score_failures(device: str) -> None:
             "lon": np.linspace(0.0, 360.0, 20, endpoint=False),
         }
     )
+    x_t = torch.randn((8, 1, 2, 10, 20), device=device)
+    x = from_torch(x_t, x_coords)
 
     # Error: ensemble_dimension not a string
     with pytest.raises(ValueError):
@@ -163,12 +172,12 @@ def test_energy_score_failures(device: str) -> None:
 
     ES = energy_score("ensemble", multivariate_dimensions=["lon"])
 
-    # Error: ensemble_dimension in y_coords
+    # Error: ensemble_dimension in y
     with pytest.raises(ValueError):
         y_coords = copy.deepcopy(x_coords)
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        ES(x, x_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        ES(x, y)
 
     # Error: x and y shapes not broadcastable
     with pytest.raises(ValueError):
@@ -178,10 +187,21 @@ def test_energy_score_failures(device: str) -> None:
                 y_coords[c] = x_coords[c]
 
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        ES(x, x_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        ES(x, y)
 
-    # Error: reduction_dimension not in x_coords
+    # Error: incompatible coordinates between x and y
+    with pytest.raises(ValueError):
+        y_coords = OrderedDict()
+        for c in x_coords:
+            if c != "ensemble":
+                y_coords[c] = x_coords[c]
+        y_coords["lat"] = np.linspace(-90.0, 90.0, 5)
+        y_shape = [len(y_coords[c]) for c in y_coords]
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        ES(x, y)
+
+    # Error: reduction_dimension not in x
     with pytest.raises(ValueError):
         y_coords = OrderedDict()
         for c in x_coords:
@@ -189,25 +209,28 @@ def test_energy_score_failures(device: str) -> None:
                 y_coords[c] = x_coords[c]
 
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
-        bad_x_coords = copy.deepcopy(x_coords)
-        bad_x_coords.pop("ensemble")
-        ES(x, bad_x_coords, y, y_coords)
+        bad_x = from_torch(x_t[0], y_coords)
+        ES(bad_x, y)
+
+    # output_coords of a missing reduction dimension raises
+    with pytest.raises(KeyError):
+        ES.output_coords(from_torch(x_t[0], y_coords))
 
     # Error: fair with < 2 ensemble members
     with pytest.raises(ValueError):
         ES_fair = energy_score("ensemble", multivariate_dimensions=["lon"], fair=True)
-        x1 = torch.randn((1, 1, 2, 10, 20), device=device)
         x1_coords = copy.deepcopy(x_coords)
         x1_coords["ensemble"] = np.arange(1)
+        x1 = from_torch(torch.randn((1, 1, 2, 10, 20), device=device), x1_coords)
         y_coords = OrderedDict()
         for c in x1_coords:
             if c != "ensemble":
                 y_coords[c] = x1_coords[c]
         y_shape = [len(y_coords[c]) for c in y_coords]
-        y = torch.randn(y_shape, device=device)
-        ES_fair(x1, x1_coords, y, y_coords)
+        y = from_torch(torch.randn(y_shape, device=device), y_coords)
+        ES_fair(x1, y)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -234,17 +257,12 @@ def test_energy_score_accuracy(
     expected_es = term1 - term2
 
     # Compute via our function
-    x_coords = OrderedDict(
-        {
-            "ensemble": np.arange(M),
-            "variable": np.array([f"v{i}" for i in range(D)]),
-        }
-    )
+    dims = ["ensemble", "variable"]
 
     computed_es = _energy_score_compute(
         x,
         y,
-        x_coords,
+        dims,
         ensemble_dimension="ensemble",
         multivariate_dimensions=["variable"],
         fair=False,
@@ -266,18 +284,12 @@ def test_energy_score_nonnegativity(device: str) -> None:
     x = torch.randn((M, 3, 10), device=device)
     y = torch.randn((3, 10), device=device)
 
-    x_coords = OrderedDict(
-        {
-            "ensemble": np.arange(M),
-            "variable": np.array(["a", "b", "c"]),
-            "lon": np.linspace(0, 360, 10),
-        }
-    )
+    dims = ["ensemble", "variable", "lon"]
 
     es = _energy_score_compute(
         x,
         y,
-        x_coords,
+        dims,
         ensemble_dimension="ensemble",
         multivariate_dimensions=["variable", "lon"],
         fair=False,
@@ -297,17 +309,12 @@ def test_energy_score_perfect_ensemble(device: str, fair: bool) -> None:
     y = torch.randn((D,), device=device, dtype=torch.float64)
     x = y.unsqueeze(0).repeat(M, 1)
 
-    x_coords = OrderedDict(
-        {
-            "ensemble": np.arange(M),
-            "variable": np.array([f"v{i}" for i in range(D)]),
-        }
-    )
+    dims = ["ensemble", "variable"]
 
     es = _energy_score_compute(
         x,
         y,
-        x_coords,
+        dims,
         ensemble_dimension="ensemble",
         multivariate_dimensions=["variable"],
         fair=fair,
@@ -347,9 +354,6 @@ def test_energy_score_multiple_mv_dims(device: str) -> None:
     """Test with multiple multivariate dimensions."""
     torch.manual_seed(99)
     M = 5
-    x = torch.randn((M, 1, 2, 10, 20), device=device)
-    y = torch.randn((1, 2, 10, 20), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(M),
@@ -363,19 +367,24 @@ def test_energy_score_multiple_mv_dims(device: str) -> None:
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop("ensemble")
 
+    x = from_torch(torch.randn((M, 1, 2, 10, 20), device=device), x_coords)
+    y = from_torch(torch.randn((1, 2, 10, 20), device=device), y_coords)
+
     ES = energy_score(
         "ensemble",
         multivariate_dimensions=["variable", "lat", "lon"],
     )
 
-    z, c = ES(x, x_coords, y, y_coords)
+    z = ES(x, y)
 
-    assert "ensemble" not in c
-    assert "variable" not in c
-    assert "lat" not in c
-    assert "lon" not in c
-    assert "time" in c
-    assert list(z.shape) == [len(val) for val in c.values()]
+    assert "ensemble" not in z.dims
+    assert "variable" not in z.dims
+    assert "lat" not in z.dims
+    assert "lon" not in z.dims
+    assert "time" in z.dims
+    out_test_coords = ES.output_coords(x)
+    assert z.dims == out_test_coords.dims
+    assert z.shape == out_test_coords.shape
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -401,18 +410,11 @@ def test_energy_score_univariate_equals_crps(
     # Reshape to add a size-1 variable dimension
     x_mv = x.unsqueeze(-1)  # (M, 5, 1)
     y_mv = y.unsqueeze(-1)  # (5, 1)
-    x_coords_mv = OrderedDict(
-        {
-            "ensemble": np.arange(M),
-            "lat": x_coords["lat"],
-            "variable": np.array(["v0"]),
-        }
-    )
 
     es_vals = _energy_score_compute(
         x_mv,
         y_mv,
-        x_coords_mv,
+        ["ensemble", "lat", "variable"],
         ensemble_dimension="ensemble",
         multivariate_dimensions=["variable"],
         fair=False,
@@ -420,11 +422,12 @@ def test_energy_score_univariate_equals_crps(
 
     # CRPS per grid point: sort ensemble members and compute
     CRPS = crps("ensemble", fair=False)
-    crps_vals, _ = CRPS(x, x_coords, y, y_coords)  # shape: (5,)
+    crps_vals = CRPS(from_torch(x, x_coords), from_torch(y, y_coords))  # shape: (5,)
+    crps_t = crps_vals.e2s.to_torch()[0].to(es_vals.device)
 
     assert torch.allclose(
         es_vals,
-        crps_vals,
+        crps_t,
         rtol=rtol,
         atol=atol,
-    ), f"ES (D=1) should equal CRPS but max diff = {(es_vals - crps_vals).abs().max().item()}"
+    ), f"ES (D=1) should equal CRPS but max diff = {(es_vals - crps_t).abs().max().item()}"

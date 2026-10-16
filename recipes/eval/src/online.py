@@ -92,6 +92,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import DataSource
 from earth2studio.utils.coords import CoordSystem, coord_array
+from earth2studio.utils.cupy import from_torch
 
 from .distributed import run_on_rank0_first
 from .output import OutputManager
@@ -1271,7 +1272,9 @@ class LogSpectralDistance:
         x_coords: CoordSystem = OrderedDict(
             {"ensemble": np.array(ctx.member_ids), **y_coords}
         )
-        values, _ = self._metric(ctx.f_local, x_coords, ctx.y, y_coords)
+        values = self._metric(
+            from_torch(ctx.f_local, x_coords), from_torch(ctx.y, y_coords)
+        ).e2s.to_torch()[0]
         values = values.double()  # [K, variable]
 
         block = torch.zeros(
