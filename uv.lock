@@ -2470,12 +2470,12 @@ requires-dist = [
     { name = "eccodes", marker = "extra == 'data'", specifier = ">=2.39.2" },
     { name = "eccodeslib", marker = "extra == 'all'", specifier = ">=2.39.2" },
     { name = "eccodeslib", marker = "extra == 'data'", specifier = ">=2.39.2" },
-    { name = "ecmwf-opendata", marker = "extra == 'aifs'", specifier = ">=0.3.29" },
-    { name = "ecmwf-opendata", marker = "extra == 'aifs2'", specifier = ">=0.3.29" },
-    { name = "ecmwf-opendata", marker = "extra == 'aifs2ens'", specifier = ">=0.3.29" },
-    { name = "ecmwf-opendata", marker = "extra == 'aifsens'", specifier = ">=0.3.29" },
-    { name = "ecmwf-opendata", marker = "extra == 'all'", specifier = ">=0.3.29" },
-    { name = "ecmwf-opendata", marker = "extra == 'data'", specifier = ">=0.3.29" },
+    { name = "ecmwf-opendata", marker = "extra == 'aifs'", specifier = ">=0.3.34" },
+    { name = "ecmwf-opendata", marker = "extra == 'aifs2'", specifier = ">=0.3.34" },
+    { name = "ecmwf-opendata", marker = "extra == 'aifs2ens'", specifier = ">=0.3.34" },
+    { name = "ecmwf-opendata", marker = "extra == 'aifsens'", specifier = ">=0.3.34" },
+    { name = "ecmwf-opendata", marker = "extra == 'all'", specifier = ">=0.3.34" },
+    { name = "ecmwf-opendata", marker = "extra == 'data'", specifier = ">=0.3.34" },
     { name = "einops", marker = "extra == 'all'" },
     { name = "einops", marker = "extra == 'all'", specifier = ">=0.8.1" },
     { name = "einops", marker = "extra == 'atlas'" },
@@ -2868,14 +2868,14 @@ wheels = [
 
 [[package]]
 name = "ecmwf-opendata"
-version = "0.3.30"
+version = "0.3.35"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "multiurl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/b6/b4ff53251724bab74f9ab6729ca9f2aff615db41ba1e4414781ae1750ad2/ecmwf_opendata-0.3.30.tar.gz", hash = "sha256:bf8b989fb9526e413e1aa51f7ae96d689df442c8339d6804561ad387dc39e7d7", size = 30446, upload-time = "2026-06-15T12:03:58.59Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/0b/6325a31d6538283549affe7b39d45e1ddfdd3359aa3e5e8713081cf6ea8d/ecmwf_opendata-0.3.35.tar.gz", hash = "sha256:690439816a455745aa107e7dd207eee4a2eb01d6f88bb0be11917286dedbe449", size = 37372, upload-time = "2026-10-16T10:19:46.622Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/95/e7/f4742ee0b3588e7cb0e1506bad2604a90bad288321ac43b26c806a9f5704/ecmwf_opendata-0.3.30-py3-none-any.whl", hash = "sha256:df61a8efb260e53cf2c66beb89146cf116eeb6f0beaf6ed16e6315c412e05234", size = 23570, upload-time = "2026-06-15T12:03:57.536Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/44/09d6faa835f595c5b15f57a63296173cff12f853ed2a01f5f7dbc461bff9/ecmwf_opendata-0.3.35-py3-none-any.whl", hash = "sha256:8bf1505db3dd4d98e007c4206bd76aa40c32aa2ac72b4a9af739335c9aa5342b", size = 26453, upload-time = "2026-10-16T10:19:45.546Z" },
 ]
 
 [[package]]
