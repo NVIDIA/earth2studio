@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Correct the ensemble reduction axis in Energy Score when multivariate
+  dimensions precede the ensemble dimension.
+
 - `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
   messages, or any DX-table message fails to decode, instead of silently returning
   fewer rows.

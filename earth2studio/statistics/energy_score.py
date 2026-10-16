@@ -260,7 +260,9 @@ def _energy_score_compute(
 
     # Term 1: (1/M) * sum_m ||x_m - y||
     diff_xy = ensemble - truth.unsqueeze(ens_dim)
-    term1 = torch.sqrt((diff_xy * diff_xy).sum(dim=mv_dims)).mean(dim=ens_dim)
+    # Reducing the multivariate axes shifts the position of the ensemble axis.
+    reduced_ens_dim = ens_dim - sum(d < ens_dim for d in mv_dims)
+    term1 = torch.sqrt((diff_xy * diff_xy).sum(dim=mv_dims)).mean(dim=reduced_ens_dim)
 
     # Term 2: pairwise ensemble spread via cdist
     # Permute to (*remaining, M, *mv) then flatten to (batch, M, D)
