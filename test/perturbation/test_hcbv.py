@@ -30,6 +30,7 @@ from earth2studio.perturbation import (
     HemisphericCentredBredVector,
 )
 from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 
 # Fake PX model
@@ -131,7 +132,12 @@ def test_hem_centered_bred(
         noise_amplitude=amplitude,
         integration_steps=steps,
     )
-    xout, coords = prtb(x, coords)
+    xda = from_torch(x, coords, attrs={"a": 1})
+    xout_da = prtb(xda)
+    assert xout_da.dims == xda.dims
+    assert xout_da.attrs == xda.attrs
+    assert xout_da.e2s.is_cupy == (device != "cpu")
+    xout = xout_da.e2s.to_torch()[0]
     dx = xout - x
 
     # Don't have a good statistical test for this at the moment
@@ -163,7 +169,7 @@ def test_hem_centered_bred(
         noise_amplitude=amplitude,
         integration_steps=steps,
     )
-    xout, coords = prtb(x, coords)
+    xout = prtb(xda).e2s.to_torch()[0]
     # Don't have a good statistical test for this at the moment
     assert xout.shape == x.shape
     assert xout.device == x.device
@@ -228,8 +234,8 @@ def test_hem_centered_bred_batching(steps, device):
         noise_amplitude=1.0,
         integration_steps=steps,
     )
-    xout1, coords = prtb(x, coords)
-    xout2, coords = prtb(x, coords)
+    xout1 = prtb(from_torch(x, coords)).e2s.to_torch()[0]
+    xout2 = prtb(from_torch(x, coords)).e2s.to_torch()[0]
 
     assert torch.allclose(xout1, -xout2)
 
@@ -243,8 +249,8 @@ def test_hem_centered_bred_batching(steps, device):
         integration_steps=steps,
     )
     coords["ensemble"] = np.arange(3)
-    xout1a, coords = prtb(x, coords)
-    xout1b, coords = prtb(x2, coords)
+    xout1a = prtb(from_torch(x.repeat(3, 1, 1, 1, 1, 1), coords)).e2s.to_torch()[0]
+    xout1b = prtb(from_torch(x2.repeat(3, 1, 1, 1, 1, 1), coords)).e2s.to_torch()[0]
 
     prtb = HemisphericCentredBredVector(
         model=model,
@@ -254,7 +260,7 @@ def test_hem_centered_bred_batching(steps, device):
         integration_steps=steps,
     )
     coords["ensemble"] = np.arange(6)
-    xout2, coords = prtb(x, coords)
+    xout2 = prtb(from_torch(x.repeat(6, 1, 1, 1, 1, 1), coords)).e2s.to_torch()[0]
 
     # Note that the last two batches are not gaurenteed to be the same here
     # since the batch size 3 run requires two different generators

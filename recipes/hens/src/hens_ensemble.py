@@ -349,7 +349,7 @@ class EnsembleBase:
         torch.manual_seed(torch_seed)
 
         # Perturb ensemble
-        xx, coords = self.perturbation(xx, coords)
+        xx, coords = self.perturbation(from_torch(xx, coords)).e2s.to_torch()
 
         # Create prognostic iterator
         model = self.prognostic.create_iterator(xx, coords)

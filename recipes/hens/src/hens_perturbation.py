@@ -15,6 +15,7 @@
 # limitations under the License.
 # mypy: disable-error-code="call-overload"
 
+import xarray as xr
 from numpy import asarray
 from torch import Tensor, inference_mode
 from xarray import open_dataset
@@ -25,7 +26,6 @@ from earth2studio.perturbation import (
     CorrelatedSphericalGaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.coords import CoordSystem
 
 
 class HENSPerturbation:
@@ -152,23 +152,17 @@ class HENSPerturbation:
         return scale_vec.reshape(1, 1, 1, -1, 1, 1) * noise_amplification
 
     @inference_mode()
-    def __call__(
-        self,
-        x: Tensor,
-        coords: CoordSystem,
-    ) -> tuple[Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply the perturbation.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor to be perturbed
-        coords : CoordSystem
-            Coordinate system describing the input tensor
+        x : xr.DataArray
+            Input data array to be perturbed
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            The perturbed tensor and its corresponding coordinate system
+        xr.DataArray
+            The perturbed data array
         """
-        return self.perturbation(x, coords)
+        return self.perturbation(x)
