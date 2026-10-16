@@ -41,9 +41,7 @@ writes raise; repeated `close` calls are no-ops.
 
 Backend-specific methods (`read`, `__getitem__`, commits, `to_xarray`) remain on
 the implementations and are not part of the protocol. Any store can be opened with
-Xarray (see Round Trip). The optional `write_chunks` method, which distributed
-writers use to check shard ownership, is specified in
-[EXECUTION_CONTRACT_SPEC.md](EXECUTION_CONTRACT_SPEC.md).
+Xarray (see Round Trip).
 
 ## Templates
 
