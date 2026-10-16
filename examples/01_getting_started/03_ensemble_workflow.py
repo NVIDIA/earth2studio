@@ -49,18 +49,11 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, we will use the built in ensemble workflow
-# [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
-
-# %%
-# .. literalinclude:: ../../earth2studio/run.py
-#    :language: python
-#    :start-after: # sphinx - ensemble start
-#    :end-before: # sphinx - ensemble end
-
-# %%
-# We need the following:
+# All workflows inside Earth2Studio require constructed components to be handed to
+# them. In this example, let's take a look at the ensemble workflow:
+# [`earth2studio.run.ensemble`](https://nvidia.github.io/earth2studio/main/modules/generated/workflows/ensemble/#earth2studio.run.ensemble).
+#
+# Thus, we need the following:
 #
 # - Prognostic Model: Use the built in FourCastNet model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
 # - Perturbation Method: Use the Spherical Gaussian Method [`earth2studio.perturbation.SphericalGaussian`][earth2studio.perturbation.SphericalGaussian].
