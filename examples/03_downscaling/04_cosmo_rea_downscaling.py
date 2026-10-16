@@ -23,8 +23,10 @@ Diffusion downscaling from a global forecast to km-scale European reanalysis gri
 
 This example demonstrates composing a global prognostic model (SFNO) with a
 regional diffusion downscaler (``CorrDiffCosmoEra5``). SFNO's 73-variable output
-is a superset of the downscaler's 47-channel ERA5 input, so the hand-off is a
-variable subset plus a bilinear regrid onto the regional input grid. The package
+is a superset of the downscaler's 47-channel ERA5 input, and the downscaler's grid
+is a subset of the 0.25 deg grid SFNO runs on, so the hand-off is a pure selection of
+variables and of the regional footprint. The hand-off needs no interpolation;
+CorrDiff interpolates internally onto its rotated output grid. The package
 bundles both a generative *diffusion* downscaler and a deterministic *regression*
 (mean) model, selected via ``mode`` on ``load_model``.
 
@@ -62,7 +64,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from dotenv import load_dotenv
-from scipy.interpolate import RegularGridInterpolator
 
 load_dotenv()  # pick up $COSMO_REA_PACKAGE from a .env file if present
 
@@ -103,6 +104,8 @@ from earth2studio.data import ARCO_ERA5, fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiffCosmoEra5
 from earth2studio.models.px import SFNO
+from earth2studio.utils.coords import map_coords
+from earth2studio.utils.type import CoordSystem
 
 # Resolve the downscaling package: the hosted default, or a local build if
 # $COSMO_REA_PACKAGE was set above.
@@ -149,36 +152,51 @@ for _ in range(lead_hours // dt_hours + 1):
 # %%
 # Hand the forecast state to the downscaler
 # -----------------------------------------
-# Select the 47 ERA5 channels the downscaler needs and bilinearly regrid the
-# global SFNO field onto the downscaler's regional input grid (handling the seam
-# where longitude wraps at 0/360 deg). The forecast validity time is passed as the
-# ``time`` coord; it drives the model's day/night (solar-zenith) input channel. One
-# shared regrid helper backs both the manual calls and the ``DiagnosticWrapper``
-# hook below.
+# The downscaler's input grid is a regional subset of SFNO's standard 0.25-degree
+# ERA5 grid. Input preparation selects the required 47 channels and this regional
+# footprint. The forecast valid time is also passed so the downscaler can compute
+# its solar-zenith conditioning.
 
 # %%
 
 
-def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
-    """Subset to the downscaler's ERA5 variables and bilinearly regrid a global
-    regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon]."""
-    svars = list(src_coords["variable"])
-    slat = np.asarray(src_coords["lat"]).astype(float)
-    slon = np.asarray(src_coords["lon"]).astype(float)
-    field = x_src.reshape(-1, len(svars), len(slat), len(slon))[0].float().cpu().numpy()
-    field = field[[svars.index(v) for v in dvars]]  # select the 47 channels
-    if slat[0] > slat[-1]:  # ensure ascending latitude
-        slat, field = slat[::-1], field[:, ::-1, :]
-    field_w = np.concatenate([field, field[:, :, 0:1]], axis=-1)  # lon wrap column
-    slon_w = np.concatenate([slon, [slon[0] + 360.0]])
-    lon2d, lat2d = np.meshgrid(dlon % 360.0, dlat)
-    pts = np.stack([lat2d.ravel(), lon2d.ravel()], axis=-1)
-    out = np.empty((len(dvars), len(dlat), len(dlon)), np.float32)
-    for c in range(len(dvars)):
-        out[c] = RegularGridInterpolator(
-            (slat, slon_w), field_w[c], bounds_error=False, fill_value=None
-        )(pts).reshape(len(dlat), len(dlon))
-    return out
+def select_downscaler_input(
+    x_src: torch.Tensor,
+    src_coords: CoordSystem,
+    dvars: list[str],
+    dlat: np.ndarray,
+    dlon: np.ndarray,
+) -> torch.Tensor:
+    """Select one forecast state for the downscaler.
+
+    Any batch, time, and lead-time dimensions must have size one. The result has
+    shape ``[batch=1, time=1, variable, lat, lon]``.
+    """
+    # Select using the source's [0, 360) longitude convention. map_coords returns
+    # coordinates in the requested order; here that reverses SFNO's descending
+    # latitude axis. Callers assign the model's native [-180, 180] longitudes.
+    tgt_lon = dlon % 360
+    # Input can be selected without interpolation only when every target latitude
+    # and longitude exists in the source grid.
+    if not (
+        np.isin(dlat, np.asarray(src_coords["lat"])).all()
+        and np.isin(tgt_lon, np.asarray(src_coords["lon"])).all()
+    ):
+        raise ValueError(
+            "Target coordinates are not present in the source grid; check the "
+            "longitude convention or interpolate the source."
+        )
+    x_sel, _ = map_coords(
+        x_src, src_coords, {"variable": np.array(dvars), "lat": dlat, "lon": tgt_lon}
+    )
+    # This helper prepares one forecast state at a time; the downscaler itself
+    # loops over any number of batch members and times.
+    if x_sel.shape[:-3] != (1,) * (x_sel.ndim - 3):
+        raise ValueError(
+            "Expected one forecast state; all dimensions before variable must "
+            "have size 1."
+        )
+    return x_sel.reshape(1, 1, len(dvars), len(dlat), len(dlon)).float()
 
 
 def sfno_to_downscaler(x_fc, coords_fc, dx, valid_time):
@@ -186,7 +204,7 @@ def sfno_to_downscaler(x_fc, coords_fc, dx, valid_time):
     ic = dx.input_coords()
     dvars = list(ic["variable"])
     dlat, dlon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
-    out = regrid_to_input(x_fc, coords_fc, dvars, dlat, dlon)
+    out = select_downscaler_input(x_fc, coords_fc, dvars, dlat, dlon)
     coords_dx = OrderedDict(
         batch=np.array([0]),
         time=np.array([np.datetime64(valid_time)]),
@@ -194,7 +212,7 @@ def sfno_to_downscaler(x_fc, coords_fc, dx, valid_time):
         lat=dlat,
         lon=dlon,
     )
-    return torch.from_numpy(out)[None, None].to(x_fc.device), coords_dx
+    return out, coords_dx
 
 
 valid_time = init_time + timedelta(hours=lead_hours)
@@ -279,7 +297,7 @@ plt.savefig("outputs/04_cosmo_rea_downscaling_germany.jpg", dpi=150)
 # ``DiagnosticWrapper`` turns the prognostic + diagnostic into a single
 # prognostic, so a forecast *rollout* automatically emits the downscaled output
 # at every lead time. Our downscaler needs the per-step *valid* time (for the
-# day/night channel) and a regrid onto its regional grid, so we supply a small
+# day/night channel) and a crop to its regional input grid, so we supply a small
 # callable for the wrapper's input-prep hook. We roll out over the Germany
 # sub-domain so each step stays fast.
 
@@ -290,7 +308,7 @@ from earth2studio.models.px import DiagnosticWrapper
 class PrepareCosmoREAInput:
     """Map a prognostic step output to the COSMO-REA downscaler input: the valid
     time (= time + lead_time) for the zenith channel, the ERA5 variable subset,
-    and a lon-wrap regrid onto the downscaler's regional grid."""
+    and a crop to the downscaler's regional input grid."""
 
     def __call__(self, x, px_coords, dx_coords):
         valid = (
@@ -299,7 +317,7 @@ class PrepareCosmoREAInput:
         )
         dvars = list(dx_coords["variable"])
         dlat, dlon = np.asarray(dx_coords["lat"]), np.asarray(dx_coords["lon"])
-        out = regrid_to_input(x, px_coords, dvars, dlat, dlon)
+        out = select_downscaler_input(x, px_coords, dvars, dlat, dlon)
         coords = OrderedDict(
             batch=np.array([0]),
             time=np.array([np.datetime64(valid)]),
@@ -307,7 +325,7 @@ class PrepareCosmoREAInput:
             lat=dlat,
             lon=dlon,
         )
-        return torch.from_numpy(out)[None, None].to(x.device), coords
+        return out, coords
 
 
 wrapped = DiagnosticWrapper(sfno, dx_de, prepare_dx_input_tensor=PrepareCosmoREAInput())

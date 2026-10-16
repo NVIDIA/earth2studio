@@ -40,7 +40,7 @@ ensemble does not guarantee improvement.
 In this example you will learn:
 
 - Load ``CorrDiffCosmoEra5SDA`` on a COSMO-REA2 sub-domain
-- Fetch an ERA5 driving state (ARCO ERA5) and regrid it onto the downscaler's input grid
+- Fetch an ERA5 driving state (ARCO ERA5) and crop it to the downscaler's input grid
 - Fetch GHCNHourly 10 m wind observations over the model domain
 - Produce a prior (free, no-obs) downscaling and an observation-guided analysis
 - Compare both fields to held-out stations (prior vs analysis RMSE)
@@ -77,7 +77,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial import cKDTree
 
 INIT_TIME = datetime(2024, 1, 1, 0)
@@ -107,6 +106,7 @@ os.makedirs("outputs", exist_ok=True)
 # %% tags=["e2sg-profile:setup"]
 from earth2studio.data import ARCO_ERA5, GHCNHourly, fetch_data
 from earth2studio.models.da import CorrDiffCosmoEra5SDA
+from earth2studio.utils.coords import map_coords
 
 package = CorrDiffCosmoEra5SDA.load_default_package()
 
@@ -127,35 +127,13 @@ sda.seed = 0
 # %%
 # Fetch Coarse-Resolution State
 # ------------------------------
-# Fetch an ERA5 reanalysis for the historical time and regrid it onto the
-# downscaler's regional input grid. The result is an ``xr.DataArray`` with dims
-# ``(time, variable, lat, lon)`` -- the same driving state the downscaler
-# conditions on; the ``time`` coord also drives its day/night (solar) input.
-
+# Fetch an ERA5 reanalysis for the historical time and crop it to the downscaler's
+# regional input grid. That grid is a sub-grid of the standard 0.25 degree ERA5 grid,
+# so this is a coordinate selection rather than a resampling. The result is an
+# ``xr.DataArray`` carrying the same driving state the downscaler conditions on; the
+# ``time`` coord also drives its day/night (solar) input.
 
 # %% tags=["e2sg-profile:setup"]
-def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
-    """Subset to the downscaler's ERA5 variables and bilinearly regrid a global
-    regular lat/lon field onto its regional grid. Returns [n_var, n_lat, n_lon]."""
-    svars = list(src_coords["variable"])
-    slat = np.asarray(src_coords["lat"]).astype(float)
-    slon = np.asarray(src_coords["lon"]).astype(float)
-    field = x_src.reshape(-1, len(svars), len(slat), len(slon))[0].float().cpu().numpy()
-    field = field[[svars.index(v) for v in dvars]]  # select the ERA5 channels
-    if slat[0] > slat[-1]:  # ensure ascending latitude
-        slat, field = slat[::-1], field[:, ::-1, :]
-    field_w = np.concatenate([field, field[:, :, 0:1]], axis=-1)  # lon wrap column
-    slon_w = np.concatenate([slon, [slon[0] + 360.0]])
-    lon2d, lat2d = np.meshgrid(dlon % 360.0, dlat)
-    pts = np.stack([lat2d.ravel(), lon2d.ravel()], axis=-1)
-    out = np.empty((len(dvars), len(dlat), len(dlon)), np.float32)
-    for c in range(len(dvars)):
-        out[c] = RegularGridInterpolator(
-            (slat, slon_w), field_w[c], bounds_error=False, fill_value=None
-        )(pts).reshape(len(dlat), len(dlon))
-    return out
-
-
 ic = sda.init_coords()[0]
 dvars = list(ic["variable"])
 dlat, dlon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
@@ -168,11 +146,33 @@ x_src, c_src = fetch_data(
     lead_time=np.array([np.timedelta64(0, "h")]),
     device=DEVICE,
 )
-era5 = regrid_to_input(x_src, c_src, dvars, dlat, dlon)
+# The source grid used here labels longitude in [0, 360), while CorrDiff uses
+# [-180, 180]. Convert before selection; for example, -5 becomes 355 degrees.
+tgt_lon = dlon % 360
+# This is a crop only when every target coordinate exists in the source grid.
+# Check exact alignment before selecting; other grids must be interpolated.
+if not (
+    np.isin(dlat, np.asarray(c_src["lat"])).all()
+    and np.isin(tgt_lon, np.asarray(c_src["lon"])).all()
+):
+    raise ValueError(
+        "Target coordinates are not present in the source grid; check the longitude "
+        "convention or interpolate the source."
+    )
+x_sel, _ = map_coords(
+    x_src, c_src, {"variable": np.array(dvars), "lat": dlat, "lon": tgt_lon}
+)
+# Keep the singleton ``lead_time`` dimension; the model validates and drops it.
 x_da = xr.DataArray(
-    data=era5[None],
-    dims=["time", "variable", "lat", "lon"],
-    coords={"time": t, "variable": np.array(dvars), "lat": dlat, "lon": dlon},
+    data=x_sel.float().cpu().numpy(),
+    dims=["time", "lead_time", "variable", "lat", "lon"],
+    coords={
+        "time": t,
+        "lead_time": np.array([np.timedelta64(0, "h")]),
+        "variable": np.array(dvars),
+        "lat": dlat,
+        "lon": dlon,
+    },
 )
 
 # %%
