@@ -1,0 +1,27 @@
+[project]
+name = "earth2studio.recipe.distributed"
+version = "0.1.0"
+description = "Distributed Inference Recipe"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name="NVIDIA Earth-2 Team" },
+]
+dependencies = [
+    "earth2studio[fcn,precip-afno]",
+    "hydra-core>=1.3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/earth2studio/recipes/distributed"
+Documentation = "https://nvidia.github.io/earth2studio"
+Issues = "https://github.com/NVIDIA/earth2studio/issues"
+Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
+
+[tool.uv.sources]
+omegaconf = { git = "https://github.com/omry/omegaconf.git" }
+earth2studio = { path = "../../", editable = true }
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**/*.py"]
+exclude = []
