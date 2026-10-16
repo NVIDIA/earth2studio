@@ -269,7 +269,11 @@ for _level in (3, 6, 10):
             ),
         )
 
+# Imported last: regridders resolve registered names through this module.
+from earth2studio.grids.regrid import BilinearRegridder, NearestRegridder  # noqa: E402
+
 __all__ = [
+    "BilinearRegridder",
     "E2S_CRS",
     "E2S_GRID_ID",
     "CurvilinearGrid",
@@ -280,6 +284,7 @@ __all__ = [
     "HEALPixOrdering",
     "HEALPixOrigin",
     "LatLonGrid",
+    "NearestRegridder",
     "PointGrid",
     "ProjectedGrid",
     "Region",

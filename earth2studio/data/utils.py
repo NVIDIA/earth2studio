@@ -54,7 +54,7 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
-from earth2studio.grids import GridDefinition, Regridder
+from earth2studio.grids import Regridder
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -75,7 +75,6 @@ from earth2studio.utils.time_statistics import (
     time_statistic_metadata,
 )
 from earth2studio.utils.type import (
-    CoordinateSystem,
     CoordSystem,
     FieldArray,
     LeadTimeArray,
@@ -118,6 +117,28 @@ def _offset_times(time: TimeArray, lead: np.timedelta64) -> TimeArray:
     return cast(TimeArray, normalize_time_precision(np.asarray(time) + lead))
 
 
+def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
+    """Return whether a source takes ``(time, lead_time, variable)`` requests.
+
+    Wrappers that forward requests, such as :class:`RegriddedSource`, declare this
+    through an ``is_forecast`` property; other sources by their call signature.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to inspect.
+
+    Returns
+    -------
+    bool
+        True for a forecast source.
+    """
+    declared = getattr(source, "is_forecast", None)
+    if isinstance(declared, bool):
+        return declared
+    return "lead_time" in signature(source.__call__).parameters
+
+
 def _fetch_instantaneous(
     source: DataSource | ForecastSource,
     time: TimeArray,
@@ -125,7 +146,7 @@ def _fetch_instantaneous(
     variable: Sequence[str],
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
-    if "lead_time" in signature(source.__call__).parameters:
+    if _is_forecast_source(source):
         return cast(ForecastSource, source)(time, lead_time, variables).sel(
             time=time, lead_time=lead_time, variable=variables
         )
@@ -152,7 +173,7 @@ def _fetch_statistic(
     delta_t: np.timedelta64,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
-    forecast = "lead_time" in signature(source.__call__).parameters
+    forecast = _is_forecast_source(source)
     dimension = "lead_time" if forecast else "time"
     if forecast:
         required = source_lead_times(modifier, lead_time, delta_t)
@@ -261,13 +282,15 @@ def _fetch_dataarray(
     return array
 
 
-def _map_grid(
-    array: xr.DataArray,
-    target: CoordinateSystem | GridDefinition | str | None,
-    method: str,
-) -> xr.DataArray:
-    # Regridding is deferred; preserve the source geometry and metadata.
-    return array
+def _deferred_regridders(
+    source: DataSource | ForecastSource,
+) -> tuple[DataSource | ForecastSource, list[Regridder]]:
+    """Unwrap deferred regridded sources, returning regridders in application order."""
+    regridders: list[Regridder] = []
+    while isinstance(source, RegriddedSource) and source.defer:
+        regridders.insert(0, source.regridder)
+        source = source.source
+    return source, regridders
 
 
 def fetch_data(
@@ -276,11 +299,10 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
     device: torch.device | str = "cpu",
-    target_grid: CoordinateSystem | GridDefinition | str | None = None,
-    regridder: str = "nearest",
+    regridder: Regridder | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
-    """Fetch field DataArrays on the source grid with temporal statistics.
+    """Fetch field DataArrays with temporal statistics, optionally regridded.
 
     Parameters
     ----------
@@ -296,10 +318,10 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device | str, optional
         NumPy CPU or CuPy CUDA destination, by default "cpu"
-    target_grid : CoordinateSystem | GridDefinition | str, optional
-        Reserved target for future regridding. Currently a pass-through.
-    regridder : str, optional
-        Reserved regridding method, by default "nearest". Currently unused.
+    regridder : Regridder, optional
+        Regridder applied on ``device`` after temporal reduction, by default None.
+        A :class:`RegriddedSource` with ``defer=True`` is unwrapped and its
+        regridder applied at the same point, before this one.
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
@@ -308,7 +330,14 @@ def fetch_data(
     -------
     xr.DataArray
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
-        coordinates, actual grid metadata and normalized temporal statistics.
+        coordinates, actual grid metadata and normalized temporal statistics. The
+        field is on the source grid unless regridded.
+
+    Note
+    ----
+    Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
+    that backing; the result then moves to ``device`` only if it is not already
+    there, and deferred regridders run last, on ``device``.
     """
     device = torch.device(device)
     if device.type not in {"cpu", "cuda"}:
@@ -329,8 +358,10 @@ def fetch_data(
     if variable.ndim != 1 or not variable.size:
         raise ValueError("variable must be a nonempty 1D array")
     lead_time = lead_time.astype("timedelta64[ns]")
+    source, regridders = _deferred_regridders(source)
+    if regridder is not None:
+        regridders.append(regridder)
     da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
-    da = _map_grid(da, target_grid, regridder)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
     if device.type == "cuda":
@@ -344,6 +375,8 @@ def fetch_data(
         da = da.copy(data=cp.asnumpy(da.data))
     else:
         da = da.copy(data=np.asarray(da.data))
+    for step in regridders:
+        da = step(da)
     return da
 
 
@@ -420,22 +453,43 @@ class RegriddedSource:
     source : DataSource | ForecastSource
         Source to wrap, whose native grid is the regridder's ``source_grid``.
     regridder : Regridder
-        Regridder applied to every fetched field. Sources return NumPy-backed
-        fields, so it must accept them.
+        Regridder applied to fetched fields, on whatever backing and device the
+        source returns them.
+    defer : bool, optional
+        Let :func:`fetch_data` unwrap this source and regrid after temporal
+        reduction and device placement, by default True. Set False to regrid each
+        fetched frame first, for example when a NumPy source maps onto a much
+        smaller target, or when a statistic must reduce regridded frames. Calling
+        the source directly always regrids immediately.
     """
 
     def __init__(
-        self, source: DataSource | ForecastSource, regridder: Regridder
+        self,
+        source: DataSource | ForecastSource,
+        regridder: Regridder,
+        *,
+        defer: bool = True,
     ) -> None:
         if not isinstance(regridder, Regridder):
             raise TypeError("regridder must implement the Regridder protocol")
         self.source = source
         self.regridder = regridder
+        self.defer = defer
 
     @property
     def time_step(self) -> np.timedelta64 | None:
         """Cadence of the wrapped source, used for temporal statistics."""
         return getattr(self.source, "time_step", None)
+
+    @property
+    def is_forecast(self) -> bool:
+        """Whether the wrapped source is a forecast source."""
+        return _is_forecast_source(self.source)
+
+    @property
+    def device(self) -> torch.device:
+        """Device the wrapped source returns fields on."""
+        return torch.device(getattr(self.source, "device", "cpu"))
 
     # Requests are forwarded as given, so one wrapper serves both source protocols:
     # ``(time, variable)`` for a DataSource, ``(time, lead_time, variable)`` for a

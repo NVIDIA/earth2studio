@@ -137,19 +137,15 @@ def _nsteps(horizon: np.timedelta64, step: np.timedelta64) -> int:
 
 
 def _fetch(
-    request: DataRequest,
-    signature: CoordinateSystem,
-    device: torch.device,
-    interp_method: str | None,
+    request: DataRequest, signature: CoordinateSystem, device: torch.device
 ) -> xr.DataArray:
+    # Off-grid sources arrive as RegriddedSource, which fetch_data applies.
     x = fetch_data(
         source=request.source,
         time=request.time,
         variable=request.variable,
         lead_time=request.lead_time,
         device=device,
-        target_grid=signature if interp_method else None,
-        regridder=interp_method or "nearest",
     )
     return _map_field(x, signature)
 
@@ -310,10 +306,9 @@ class PrognosticRunner:
     def _fetch_forcing(
         self, requests: tuple[tuple[DataRequest, CoordinateSystem], ...]
     ) -> tuple[xr.DataArray, ...]:
-        interp_method = getattr(self.prognostic, "interp_method", None)
         fields = []
         for request, signature in requests:
-            x = _fetch(request, signature, self.device, interp_method)
+            x = _fetch(request, signature, self.device)
             if "lead_time" not in signature.dims:  # Static slot.
                 x = x.isel(lead_time=0, drop=True)
             fields.append(x)
@@ -330,12 +325,7 @@ class PrognosticRunner:
         if len(item.member_ids) > 1:
             raise ValueError("PrognosticRunner does not batch ensemble members")
         nsteps = self.nsteps(item.horizon)
-        x = _fetch(
-            self._initial_request(item),
-            self.input_signature,
-            self.device,
-            getattr(self.prognostic, "interp_method", None),
-        )
+        x = _fetch(self._initial_request(item), self.input_signature, self.device)
         yield self._publish(initial_condition(x))
         if nsteps == 0:
             return
@@ -459,11 +449,6 @@ class DiagnosticRunner:
             outputs = {}
             for name, request in self._requests(item, lead).items():
                 diagnostic = self.diagnostics[name]
-                x = _fetch(
-                    request,
-                    self.signatures[name],
-                    self.device,
-                    getattr(diagnostic, "interp_method", None),
-                )
+                x = _fetch(request, self.signatures[name], self.device)
                 outputs[name] = diagnostic(x)
             yield outputs

@@ -30,6 +30,37 @@ output: generated/utils/interp
 earth2studio.utils.interp.LatLonInterpolation
 {% endautosummary %}
 
+## Regridders
+
+Implementations of the `earth2studio.grids.Regridder` protocol, which map fields
+between grid definitions.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.grids
+template: class
+output: generated/grids
+-->
+
+{% autosummary %}
+earth2studio.grids.BilinearRegridder
+earth2studio.grids.NearestRegridder
+{% endautosummary %}
+
+## Data Source Wrappers
+
+Compositions that stand in for a data or forecast source.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data
+template: class
+output: generated/data
+-->
+
+{% autosummary %}
+earth2studio.data.CompositeSource
+earth2studio.data.RegriddedSource
+{% endautosummary %}
+
 ## Observation Utilities
 
 <!-- e2s-autosummary

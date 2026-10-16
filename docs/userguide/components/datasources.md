@@ -97,7 +97,7 @@ when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordin
 the array name, and source attributes travel with the values.
 
 Use qualified variable labels to request temporal statistics.
-The source grid is preserved; spatial regridding is deferred.
+Fields stay on the source grid unless a regridder is supplied (see below).
 
 ```python
 import numpy as np
@@ -129,6 +129,33 @@ samples raise an error.
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.
 
+#### Regridding
+
+Pass a regridder to map fields onto another grid. A regridder computes its weights
+once at construction, so build it once and reuse it:
+
+```python
+from earth2studio.data import GFS, fetch_data
+from earth2studio.grids import BilinearRegridder, infer_grid
+
+regridder = BilinearRegridder("latlon-0.25deg", infer_grid(model.input_coords()))
+field = fetch_data(GFS(), time, variable, device="cuda", regridder=regridder)
+```
+
+`fetch_data` reduces on the source grid, moves the field to `device`, then
+regrids. `RegriddedSource(source, regridder)` packages the pair so it can be used
+wherever a source is accepted. Models use it to recommend sources on another grid.
+`fetch_data` regrids such a pair at the same point; pass `defer=False` to regrid
+each fetched frame before reduction instead. `CompositeSource` joins sources that
+provide different variables on a shared grid.
+
+#### Device
+
+Sources return NumPy-backed fields by default. Some sources accept a `device`
+constructor argument and return CuPy-backed fields directly on that GPU, which
+avoids slow NumPy post-processing of large arrays. `fetch_data` accepts either and
+moves data only when it is not already on the requested `device`.
+
 ### `earth2studio.data.prep_data_array`
 
 The `prep_data_array` function is another useful utility when interacting more directly
@@ -144,6 +171,8 @@ Custom data sources are often essential when working with large or on-prem
 datasets.
 So long as the data source can satisfy the API outlined in the interface above, it can
 integrate seamlessly into Earth2Studio.
+To return data on a GPU, accept a `device` constructor argument defaulting to
+`"cpu"`, store it as a `device` attribute, and return CuPy-backed arrays on it.
 We recommend that you review the [extension examples](../../examples/index.md#extend)
 examples, which will step you through the basic process of implementing your own
 data source.

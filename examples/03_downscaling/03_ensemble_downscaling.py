@@ -135,8 +135,6 @@ def corrdiff_on_hens_ensemble(
         variable=prognostic_ic.coords["variable"].values,
         lead_time=prognostic_ic.coords["lead_time"].values,
         device=device,
-        target_grid=prognostic_ic,
-        regridder=getattr(prognostic, "interp_method", "nearest"),
     )
 
     # Prepare the CorrDiff output template for the IO backend. CorrDiff's planning
