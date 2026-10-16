@@ -24,11 +24,10 @@ components, or coupling. See ``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from collections.abc import Iterator, Mapping
+from collections.abc import Hashable, Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Protocol, TypeAlias, cast
+from typing import Any, Protocol, TypeAlias, cast
 
 import numpy as np
 import torch
@@ -39,12 +38,8 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
-from earth2studio.run._fields import (
-    _lead_times,
-    _map_field,
-    _yields_initial_condition,
-)
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.run._fields import _lead_times, _map_field
+from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
 
 Source: TypeAlias = DataSource | ForecastSource
@@ -98,11 +93,13 @@ class Runner(Protocol):
         """Move models to ``device`` and fetch onto it."""
         ...
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordSystem]:
-        """Return each stream's coordinates for one item.
+    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
+        """Return each stream's planning signature for one item.
 
-        Includes ``lead_time``; excludes ``time`` and ``ensemble``, which
-        supervision adds.
+        Each signature is an allocation-free DataArray whose fixed dimensions are
+        ``lead_time`` followed by the field dimensions. ``time`` and ``ensemble``
+        appear only in the dynamic prefix; supervision replaces them with the
+        concrete values from the items.
         """
         ...
 
@@ -154,28 +151,76 @@ def _fetch(
     return _map_field(x, signature)
 
 
-def _stream_coords(signature: xr.DataArray, leads: np.ndarray) -> CoordSystem:
-    """Stream coordinates for fields like ``signature`` over lead times ``leads``.
+def _signature_for_stream(
+    signature: CoordinateSystem, leads: np.ndarray
+) -> CoordinateSystem:
+    """Plan a stream's schema over ``leads`` from one step's model signature.
 
-    Drops ``time`` and empty dynamic dimensions, which supervision replaces.
+    ``signature`` keeps whatever dynamic prefix the model declared, such as
+    ``(batch, time)``; the stream schema keeps that prefix and fixes
+    ``lead_time`` -- the rollout's whole extent -- ahead of the field
+    dimensions. A model that drops ``lead_time``, as some diagnostics do, still
+    gets the axis, so supervision can label each write with it. Grid metadata,
+    auxiliary coordinates, dtype and attributes carry over, and nothing is
+    allocated.
     """
-    return OrderedDict(
-        [("lead_time", leads)]
-        + [
-            (dim, signature.coords[dim].values)
-            for dim in signature.dims
-            if dim not in ("time", "lead_time") and signature.sizes[dim]
-        ]
+    dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
+    for reserved in ("time", "ensemble"):
+        if reserved in signature.dims and reserved not in dynamic:
+            raise ValueError(
+                f"Runner output_coords: {reserved!r} must be a dynamic leading "
+                "dimension, not a fixed dimension"
+            )
+    field_dims = tuple(
+        dim for dim in signature.dims if dim not in dynamic and dim != "lead_time"
+    )
+
+    coordinates: dict[Hashable, Any] = {
+        name: coord.variable
+        for name, coord in signature.coords.items()
+        if set(coord.dims).issubset(set(dynamic).union(field_dims))
+    }
+    coordinates["lead_time"] = leads
+    sizes: dict[Hashable, int] = {
+        dim: signature.sizes[dim] for dim in (*dynamic, *field_dims)
+    }
+
+    return coord_array(
+        (*dynamic, "lead_time", *field_dims),
+        coordinates,
+        sizes=sizes,
+        dynamic=dynamic,
+        dtype=signature.dtype,
+        name=signature.name,
+        attrs=signature.attrs,
     )
 
 
 def _diagnostic_coords(
     diagnostic: DiagnosticModel, signature: CoordinateSystem, leads: np.ndarray
-) -> CoordSystem:
-    """Stream coordinates for ``diagnostic`` applied to fields like ``signature``."""
+) -> CoordinateSystem:
+    """Stream signature for ``diagnostic`` applied to fields like ``signature``."""
     # Selects the diagnostic's variables and domain; never regrids.
     output = diagnostic.output_coords(_map_field(signature, diagnostic.input_coords()))
-    return _stream_coords(output, leads)
+    return _signature_for_stream(output, leads)
+
+
+def _seed_model(
+    base: int, time: np.datetime64, member_id: int, model: object
+) -> int | None:
+    """Seed one model's own random stream for a member, never global RNG (``X5``).
+
+    Returns the seed applied, or ``None`` when ``model`` is not stochastic.
+    """
+    # Imported here: `run.work` imports `WorkItem` from this module.
+    from earth2studio.run.work import member_seed
+
+    set_rng = getattr(model, "set_rng", None)
+    if not getattr(model, "stochastic", False) or not callable(set_rng):
+        return None
+    seed = member_seed(base, time, member_id)
+    set_rng(seed, reset=True)
+    return seed
 
 
 class PrognosticRunner:
@@ -198,6 +243,8 @@ class PrognosticRunner:
         Diagnostics applied to every step, by default none. Each key names the
         stream that diagnostic's outputs are yielded under; supervision writes
         each stream to its own store.
+    seed : int, optional
+        Base seed for per-member seeding of stochastic models, by default 0
     """
 
     supports_member_batching = False  # Member perturbation is not implemented.
@@ -208,6 +255,7 @@ class PrognosticRunner:
         source: Source | None = None,
         forcing: tuple[Source, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
+        seed: int = 0,
     ) -> None:
         self.prognostic = prognostic
         input_signature = prognostic.input_coords()
@@ -232,6 +280,7 @@ class PrognosticRunner:
         self.diagnostics = dict(diagnostics or {})
         if "forecast" in self.diagnostics:
             raise ValueError("Stream name 'forecast' is reserved for the prognostic")
+        self.seed = seed
         self.device = _module_device(prognostic)
         oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
@@ -248,15 +297,16 @@ class PrognosticRunner:
         """Return the number of model steps needed to reach ``horizon``."""
         return _nsteps(horizon, self.step)
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordSystem]:
-        """Return each stream's coordinates for one item.
+    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
+        """Return each stream's planning signature for one item.
 
-        Includes ``lead_time``; excludes ``time`` and ``ensemble``, which
-        supervision adds.
+        Fixed dimensions are ``lead_time`` followed by the field dimensions;
+        ``time`` and ``ensemble`` are part of the dynamic prefix, which
+        supervision concretizes.
         """
         oc = self.prognostic.output_coords(self.input_signature)
-        forecast = _stream_coords(oc, _lead_times(oc, self.nsteps(horizon)))
-        coords: dict[str, CoordSystem] = {"forecast": forecast}
+        forecast = _signature_for_stream(oc, _lead_times(oc, self.nsteps(horizon)))
+        coords: dict[str, CoordinateSystem] = {"forecast": forecast}
         for name, diagnostic in self.diagnostics.items():
             coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
         return coords
@@ -329,6 +379,10 @@ class PrognosticRunner:
         """Publish the initial condition, then every forecast through the horizon."""
         if len(item.member_ids) > 1:
             raise ValueError("PrognosticRunner does not batch ensemble members")
+        member_id = item.member_ids[0] if item.member_ids else 0
+        _seed_model(self.seed, item.time, member_id, self.prognostic)
+        for diagnostic in self.diagnostics.values():
+            _seed_model(self.seed, item.time, member_id, diagnostic)
         nsteps = self.nsteps(item.horizon)
         x = _fetch(
             self._initial_request(item),
@@ -342,8 +396,6 @@ class PrognosticRunner:
         forcing = self._fetch_forcing(self._forcing_requests(item))
         iterator = self.prognostic.create_iterator(x, *forcing)
         try:
-            if _yields_initial_condition(self.prognostic):
-                next(iterator)  # Already published above.
             y = cast(xr.DataArray, next(iterator))
             yield self._publish(y)
             for _ in range(nsteps - 1):
@@ -374,15 +426,18 @@ class DiagnosticRunner:
     step : np.timedelta64, optional
         Spacing between steps, by default none: each item is one step and its
         horizon must be zero
+    seed : int, optional
+        Base seed for per-member seeding of stochastic diagnostics, by default 0
     """
 
-    supports_member_batching = False  # Member seeding is not implemented.
+    supports_member_batching = False  # Member batching is not implemented.
 
     def __init__(
         self,
         diagnostics: Mapping[str, DiagnosticModel],
         source: Source | None = None,
         step: np.timedelta64 | None = None,
+        seed: int = 0,
     ) -> None:
         if not diagnostics:
             raise ValueError("DiagnosticRunner needs at least one diagnostic")
@@ -403,6 +458,7 @@ class DiagnosticRunner:
                 raise ValueError(f"Diagnostic {name!r} needs a source")
             self.signatures[name] = signature
             self.sources[name] = chosen
+        self.seed = seed
         self.step = step
         self.device = _module_device(next(iter(self.diagnostics.values())))
 
@@ -420,11 +476,11 @@ class DiagnosticRunner:
             return np.array([np.timedelta64(0, "h")])
         return np.arange(_nsteps(horizon, self.step) + 1) * self.step
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordSystem]:
-        """Return each stream's coordinates for one item.
+    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
+        """Return each stream's planning signature for one item.
 
-        Includes ``lead_time``; excludes ``time`` and ``ensemble``, which
-        supervision adds.
+        Fixed dimensions are ``lead_time`` followed by the field dimensions;
+        ``time`` and ``ensemble`` are part of the dynamic prefix.
         """
         leads = self.lead_times(horizon)
         return {
@@ -455,6 +511,9 @@ class DiagnosticRunner:
         """Fetch inputs and apply every diagnostic at each step."""
         if len(item.member_ids) > 1:
             raise ValueError("DiagnosticRunner does not batch ensemble members")
+        member_id = item.member_ids[0] if item.member_ids else 0
+        for diagnostic in self.diagnostics.values():
+            _seed_model(self.seed, item.time, member_id, diagnostic)
         for lead in self.lead_times(item.horizon):
             outputs = {}
             for name, request in self._requests(item, lead).items():
