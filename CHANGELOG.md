@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed reopening Zarr and Icechunk stores containing root-level subgroups.
+
 - `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
   messages, or any DX-table message fails to decode, instead of silently returning
   fewer rows.
