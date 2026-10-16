@@ -94,28 +94,6 @@ def deterministic(
     prognostic_ic = prognostic.input_coords()
     time = to_time_array(time)
 
-    # Set up IO backend
-    total_coords = prognostic.output_coords(prognostic.input_coords()).copy()
-    for key, value in prognostic.output_coords(
-        prognostic.input_coords()
-    ).items():  # Scrub batch dims
-        if value.shape == (0,):
-            del total_coords[key]
-    total_coords["time"] = time
-    total_coords["lead_time"] = np.asarray(
-        [
-            prognostic.output_coords(prognostic.input_coords())["lead_time"] * i
-            for i in range(nsteps + 1)
-        ]
-    ).flatten()
-    total_coords.move_to_end("lead_time", last=False)
-    total_coords.move_to_end("time", last=False)
-
-    for key, value in total_coords.items():
-        total_coords[key] = output_coords.get(key, value)
-    var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
-
     with checkpoint as ckpt:
         restart_step = None
         if ckpt.exists and ckpt.write_count > 0:
@@ -156,6 +134,24 @@ def deterministic(
 
         # Map lat and lon if needed
         x, coords = map_coords(x, coords, prognostic.input_coords())
+
+        # Set up IO backend, preserving dimensions batched by the model wrapper
+        prognostic_oc = prognostic.output_coords(prognostic_ic)
+        total_coords = OrderedDict(
+            (key, value) for key, value in prognostic_oc.items() if value.shape != (0,)
+        )
+        leading_dim_count = len(coords) - len(prognostic_ic) + 1
+        leading_coords = OrderedDict(list(coords.items())[:leading_dim_count])
+        total_coords = leading_coords | total_coords
+        total_coords["lead_time"] = np.asarray(
+            [prognostic_oc["lead_time"] * i for i in range(nsteps + 1)]
+        ).flatten()
+
+        for key, value in total_coords.items():
+            total_coords[key] = output_coords.get(key, value)
+        var_names = total_coords.pop("variable")
+        io.add_array(total_coords, var_names)
+
         # Create prognostic iterator
         model = prognostic.create_iterator(x, coords)
 

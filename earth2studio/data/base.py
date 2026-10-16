@@ -47,7 +47,8 @@ class DataSource(Protocol):
         Returns
         -------
         xr.DataArray
-            An xarray data-array with the dimensions [time, variable, ....]. The coords
+            An xarray data-array with the dimensions
+            [optional leading batch dimensions, time, variable, ...]. The coords
             should be provided. Time coordinate should be a datetime array and the
             variable coordinate should be array of strings with Earth2Studio variable
             ids.
@@ -72,7 +73,8 @@ class DataSource(Protocol):
         Returns
         -------
         xr.DataArray
-            An xarray data-array with the dimensions [time, variable, ....]. The coords
+            An xarray data-array with the dimensions
+            [optional leading batch dimensions, time, variable, ...]. The coords
             should be provided. Time coordinate should be a datetime array and the
             variable coordinate should be array of strings with Earth2Studio variable
             ids.
@@ -109,7 +111,8 @@ class ForecastSource(Protocol):
         Returns
         -------
         xr.DataArray
-            An xarray data-array with the dimensions [time, variable, lead_time, ...].
+            An xarray data-array with the dimensions
+            [optional leading batch dimensions, time, lead_time, variable, ...].
             The coords should be provided. Time coordinate should be a TimeArray,
             lead time coordinate a LeadTimeArray and the variable coordinate should be
             an array of strings with Earth2Studio variable ids.
@@ -138,7 +141,8 @@ class ForecastSource(Protocol):
         Returns
         -------
         xr.DataArray
-            An xarray data-array with the dimensions [time, variable, lead_time, ...].
+            An xarray data-array with the dimensions
+            [optional leading batch dimensions, time, lead_time, variable, ...].
             The coords should be provided. Time coordinate should be a TimeArray,
             lead time coordinate a LeadTimeArray and the variable coordinate should be
             an array of strings with Earth2Studio variable ids.

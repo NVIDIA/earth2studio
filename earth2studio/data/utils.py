@@ -153,7 +153,9 @@ def fetch_data(
         for lead in lead_time:
             adjust_times = _offset_times(time, lead)
             da0 = source(adjust_times, variable)  # type: ignore
-            da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
+            da0 = da0.expand_dims(
+                dim={"lead_time": 1}, axis=da0.get_axis_num("time") + 1
+            )
             da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
             da0 = da0.assign_coords(time=time)
             da.append(da0)
