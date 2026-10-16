@@ -114,7 +114,7 @@ def run_inference(
         # run inference
         io_dict = ensemble_runner()
 
-        # if in-memory flavour of io backend was chosen, write content to disk now
+        # Add metadata and write in-memory output to disk.
         if io_dict:
             writer_executor, writer_threads = write_to_disk(
                 cfg,
@@ -123,6 +123,7 @@ def run_inference(
                 io_dict,
                 writer_executor,
                 writer_threads,
+                base_random_seed,
             )
 
     if writer_executor is not None:
