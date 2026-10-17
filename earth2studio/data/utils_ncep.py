@@ -2143,10 +2143,19 @@ class _ChannelRows:
     def entry(self, values: np.ndarray) -> np.ndarray:
         return values[self.index]
 
+    # np.tile and np.repeat hold the GIL; broadcast copies of uniform rows do not
     def channel_numbers(self) -> np.ndarray:
         if self.width:
-            return np.tile(self.channels, len(self.kept))
+            return np.broadcast_to(self.channels, (len(self.kept), self.width)).ravel()
         return self.entry(physical_values(self.values, "CHNM"))
+
+    def footprints(self) -> np.ndarray:
+        """Batch row of each entry."""
+        if self.width:
+            return np.broadcast_to(
+                self.kept[:, None], (len(self.kept), self.width)
+            ).ravel()
+        return np.repeat(self.kept, self.counts)
 
     def lists(self, flat: pa.Array) -> pa.Array:
         if self.width:
@@ -2223,7 +2232,7 @@ def _iasi_scale_factor(
                 lut[i, int(first) : int(last) + 1] = exponent
     with np.errstate(invalid="ignore"):
         factor = np.power(10.0, -lut)
-    footprint = np.repeat(rows.kept, rows.counts)
+    footprint = rows.footprints()
     return factor[layout_of[footprint], channels.astype(np.int64)]
 
 
@@ -2300,7 +2309,7 @@ def _sat_batch(
             # SRAD W m-2 sr-1 (cm-1)-1 -> mW
             radiance = coded * 1000.0
             packed, packed_ok = _cris_band_quality(batch)
-            footprint = np.repeat(rows.kept, rows.counts)
+            footprint = rows.footprints()
             band = _CRIS_CHANNEL_BAND[channels.astype(np.int64)]
             quality = np.where(
                 packed_ok[footprint, band], packed[footprint, band], np.nan
