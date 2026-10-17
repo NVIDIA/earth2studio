@@ -693,8 +693,9 @@ class NNJAObsSat:
     This source reads the NCEP satellite microwave (ATMS, MHS, AMSU-A,
     AMSU-B) and hyperspectral infrared sounder (AIRS, IASI, CrIS) BUFR
     products from the NNJA archive. It returns one long-format row per
-    finite encoded channel value. ``sensor_index`` is the physical ``CHNM``
-    channel number, not a dense index into a selected channel list.
+    decoded channel, a missing value being a null observation.
+    ``sensor_index`` is the physical ``CHNM`` channel number, not a dense index
+    into a selected channel list.
 
     The IR sounders are returned in brightness temperature (K) regardless of
     how the archive stores them: AIRS is encoded as brightness temperature
@@ -733,7 +734,7 @@ class NNJAObsSat:
     the 3x3 field of regard, is the ``detector`` column (null for the other
     sensors). ``scan_angle`` is
     the signed nominal instrument look angle derived from the FOV for the
-    microwave sensors; it is always NaN for the IR sounders, whose scan
+    microwave sensors; it is always null for the IR sounders, whose scan
     geometry is sensor-specific — use ``satellite_za`` (the unsigned
     Earth-view zenith magnitude) for view-angle screening.
 
