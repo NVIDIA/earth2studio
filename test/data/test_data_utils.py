@@ -965,6 +965,44 @@ async def test_obstore_read_chunked_small():
 
 
 @pytest.mark.asyncio
+async def test_obstore_read_chunked_size_adaptive_defaults():
+    rng = np.random.default_rng(2)
+    small = rng.integers(0, 256, 3 * 1024 * 1024, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(small)
+    assert await obstore_read_chunked(store, "small") == small
+    assert {end - start for start, end in store.requested_ranges} == {1024 * 1024}
+
+    large = rng.integers(0, 256, 20 * 1024 * 1024 + 7, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(large)
+    assert await obstore_read_chunked(store, "large") == large
+    assert sorted(end - start for start, end in store.requested_ranges)[-1] == (
+        8 * 1024 * 1024
+    )
+    assert len(store.requested_ranges) == 3
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_hedges_a_stalled_range(monkeypatch):
+    import earth2studio.data.utils as data_utils
+
+    monkeypatch.setattr(data_utils, "_READ_HEDGE_AFTER_SECONDS", 0.05)
+    blob = bytes(range(256)) * 16
+
+    class _StallingStore(_FakeByteRangeStore):
+        async def get_range_async(self, key, *, start, end=None, length=None):
+            stall = not self.requested_ranges
+            data = await super().get_range_async(key, start=start, end=end)
+            if stall:
+                await asyncio.sleep(30)
+            return data
+
+    store = _StallingStore(blob)
+    data = await asyncio.wait_for(obstore_read_chunked(store, "key"), timeout=5)
+    assert data == blob
+    assert store.requested_ranges == [(0, len(blob)), (0, len(blob))]
+
+
+@pytest.mark.asyncio
 async def test_obstore_read_chunked_not_found():
     """Missing objects surface as FileNotFoundError so retry semantics hold."""
 

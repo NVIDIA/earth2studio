@@ -22,6 +22,7 @@ import os
 import random
 import tempfile
 import uuid
+import weakref
 from collections import OrderedDict
 from collections.abc import Callable, Collection
 from contextlib import asynccontextmanager
@@ -1096,29 +1097,62 @@ def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
         raise
 
 
-# Defaults for chunked whole-object reads. 1 MiB chunks with 8 in flight
-# measured ~5x faster and far less variable than a single whole-object GET on
-# tens-of-MB S3 objects (2--8 MiB chunks yield too few concurrent streams).
-# Callers that also parallelize across files should keep files x chunks near
-# their store's connection-pool size.
+# Defaults for chunked whole-object reads. Objects up to 8 MiB are read as
+# 1 MiB ranges with 8 in flight; larger objects as 8 MiB ranges with up to 64 in
+# flight, since 1 MiB ranges leave a single large object latency bound. All
+# chunked reads on one event loop share a cap on in-flight ranges, and a range
+# still outstanding after a delay gets one duplicate request; the first reply wins.
 _READ_CHUNK_SIZE_BYTES: int = 1024 * 1024
 _READ_CHUNK_CONCURRENCY: int = 8
+_LARGE_OBJECT_BYTES: int = 8 * 1024 * 1024
+_LARGE_CHUNK_SIZE_BYTES: int = 8 * 1024 * 1024
+_LARGE_CHUNK_CONCURRENCY: int = 64
+_READ_INFLIGHT_LIMIT: int = 256
+_READ_HEDGE_AFTER_SECONDS: float = 1.5
+_read_inflight: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, asyncio.Semaphore
+] = weakref.WeakKeyDictionary()
+
+
+def _inflight_semaphore() -> asyncio.Semaphore:
+    loop = asyncio.get_running_loop()
+    semaphore = _read_inflight.get(loop)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(_READ_INFLIGHT_LIMIT)
+        _read_inflight[loop] = semaphore
+    return semaphore
+
+
+async def _get_range_hedged(
+    store: AsyncReadableStore, key: str, start: int, end: int
+) -> bytes:
+    first = asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
+    done, _ = await asyncio.wait({first}, timeout=_READ_HEDGE_AFTER_SECONDS)
+    if not done:
+        second = asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
+        done, pending = await asyncio.wait(
+            {first, second}, return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in pending:
+            task.cancel()
+    return bytes(done.pop().result())
 
 
 async def obstore_read_chunked(
     store: AsyncReadableStore,
     key: str,
-    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
-    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    chunk_size: int | None = None,
+    max_concurrent: int | None = None,
 ) -> bytes:
     """Reads a whole object, fetching large objects as parallel byte ranges.
 
     A single whole-object GET runs at single-stream throughput; splitting
-    large objects (e.g. tens-of-MB HDF5 granules) into ``chunk_size`` byte
-    ranges fetched concurrently recovers multi-stream throughput. Objects of
-    at most ``chunk_size`` bytes are read with a single range GET; larger
-    objects are split with at most ``max_concurrent`` ranges in flight, then
-    reassembled in order.
+    large objects into byte ranges fetched concurrently recovers multi-stream
+    throughput. Objects of at most ``chunk_size`` bytes are read with a single
+    range GET; larger objects are split with at most ``max_concurrent`` ranges
+    in flight, then reassembled in order. All chunked reads running on one event
+    loop share a limit of 256 ranges in flight, and a range that has not
+    completed after 1.5 s is requested a second time, the first reply winning.
 
     Parameters
     ----------
@@ -1126,10 +1160,12 @@ async def obstore_read_chunked(
         obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
-    chunk_size : int, optional
-        Byte-range size per GET, by default 1 MiB
-    max_concurrent : int, optional
-        Maximum concurrent range GETs for one object, by default 8
+    chunk_size : int | None, optional
+        Byte-range size per GET. By default 1 MiB for objects up to 8 MiB and
+        8 MiB for larger objects
+    max_concurrent : int | None, optional
+        Maximum concurrent range GETs for one object. By default 8, or 64 for
+        objects larger than 8 MiB when ``chunk_size`` is not given
 
     Returns
     -------
@@ -1146,18 +1182,25 @@ async def obstore_read_chunked(
     try:
         meta = await store.head_async(key)
         size = int(meta["size"])
+        large = size > _LARGE_OBJECT_BYTES
+        if chunk_size is None:
+            chunk_size = _LARGE_CHUNK_SIZE_BYTES if large else _READ_CHUNK_SIZE_BYTES
+            if max_concurrent is None and large:
+                max_concurrent = _LARGE_CHUNK_CONCURRENCY
+        if max_concurrent is None:
+            max_concurrent = _READ_CHUNK_CONCURRENCY
+        inflight = _inflight_semaphore()
 
         if size <= chunk_size:
-            return bytes(await store.get_range_async(key, start=0, end=size))
+            async with inflight:
+                return await _get_range_hedged(store, key, 0, size)
 
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def _fetch_range(start: int) -> bytes:
-            async with semaphore:
-                return bytes(
-                    await store.get_range_async(
-                        key, start=start, end=min(start + chunk_size, size)
-                    )
+            async with semaphore, inflight:
+                return await _get_range_hedged(
+                    store, key, start, min(start + chunk_size, size)
                 )
 
         chunks = await asyncio.gather(
