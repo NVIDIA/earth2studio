@@ -65,9 +65,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import numpy as np
+import pandas as pd
 from loguru import logger
 from tqdm import tqdm
 
@@ -96,7 +98,8 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # configured as in training, in the wide layout the model reads (one row per report
 # level, wind or footprint): each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
-# `fetch_dataframe` attaches the ``request_time`` metadata the model requires.
+# `fetch_dataframe` attaches the ``request_time`` metadata the model requires. The three
+# sources are fetched on a thread pool so their downloads and decodes overlap.
 
 # %%
 analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
@@ -114,20 +117,28 @@ sat_source = NNJAObsSat(
 )
 
 conv_schema, satwnd_schema, sat_schema = model.input_coords()
-frames = {}
-for name, source, schema in (
-    ("conv_obs", conv_source, conv_schema),
-    ("satwnd_obs", satwnd_source, satwnd_schema),
-    ("sat_obs", sat_source, sat_schema),
-):
-    frames[name] = fetch_dataframe(
+requests = {
+    "conv_obs": (conv_source, conv_schema),
+    "satwnd_obs": (satwnd_source, satwnd_schema),
+    "sat_obs": (sat_source, sat_schema),
+}
+
+
+def fetch(name: str) -> pd.DataFrame:
+    source, schema = requests[name]
+    return fetch_dataframe(
         source,
         time=analysis_time,
         variable=np.array(schema["variable"]),
         # The "variable" entry lists the variables; the other keys are columns
         fields=[column for column in schema if column != "variable"],
     )
-    logger.info(f"Fetched {len(frames[name])} {name} rows")
+
+
+with ThreadPoolExecutor(len(requests)) as pool:
+    frames = dict(zip(requests, pool.map(fetch, requests)))
+for name, frame in frames.items():
+    logger.info(f"Fetched {len(frame)} {name} rows")
 
 # %%
 # Run the Model
