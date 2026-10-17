@@ -984,6 +984,11 @@ def map_aircraft_profile_types(table: pa.Table) -> pa.Table:
     )
 
 
+# Files decoded at once by compile_tables; each also runs earth2bufr's threads and
+# decode_workers batch threads
+_FILES_IN_FLIGHT = 2
+
+
 def compile_tables(
     tasks: Sequence[Any],
     source_id: str,
@@ -1015,27 +1020,34 @@ def compile_tables(
     pieces: list[tuple[Any, pa.Table]] = []
     n_tasks = len(tasks)
     compile_t0 = time.perf_counter()
-    for idx, task in enumerate(tasks, start=1):
-        uri = task.uri
-        path = local_path(uri)
+
+    def decode(task: Any) -> tuple[pa.Table | Exception | None, float]:
+        path = local_path(task.uri)
         if not pathlib.Path(path).is_file():
-            logger.warning(f"Cached file missing for {uri}, skipping")
-            continue
-        short_uri = uri.rsplit("/", 1)[-1]
+            return None, 0.0
         t0 = time.perf_counter()
         try:
-            table = decode_task(path, task)
+            return decode_task(path, task), time.perf_counter() - t0
         except Exception as exc:
+            return exc, 0.0
+
+    decoded = map_ordered(decode, tasks, _FILES_IN_FLIGHT)
+    for idx, (task, (table, seconds)) in enumerate(zip(tasks, decoded), start=1):
+        uri = task.uri
+        if table is None:
+            logger.warning(f"Cached file missing for {uri}, skipping")
+            continue
+        if isinstance(table, Exception):
             # A skipped file is indistinguishable from missing observations, so
             # files are skipped only when the caller passes on_error.
             if on_error is None:
-                raise
-            on_error(uri, idx, n_tasks, exc)
-            logger.error(f"Failed to decode {path}: {exc}")
+                raise table
+            on_error(uri, idx, n_tasks, table)
+            logger.error(f"Failed to decode {local_path(uri)}: {table}")
             continue
         logger.info(
-            f"[{source_id}] decode {idx}/{n_tasks}: {short_uri} "
-            f"({table.num_rows:,} rows) in {time.perf_counter() - t0:.1f}s"
+            f"[{source_id}] decode {idx}/{n_tasks}: {uri.rsplit('/', 1)[-1]} "
+            f"({table.num_rows:,} rows) in {seconds:.1f}s"
         )
         if table.num_rows:
             table = table.append_column(
