@@ -19,7 +19,7 @@ import math
 import warnings
 from collections import OrderedDict
 from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -36,6 +36,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource
 
 try:
     import cupy as cp
@@ -236,6 +239,25 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def init_coords(self) -> None:
         """Initialzation coords (not required)"""
         return None
+
+    def default_sources(self) -> tuple["DataFrameSource", "DataFrameSource"]:
+        """Recommend the UFS observation data sources.
+
+        Returns
+        -------
+        tuple[DataFrameSource, DataFrameSource]
+            ``UFSObsConv`` for the conventional observation slot followed by
+            ``UFSObsSat`` for the satellite observation slot, both with the
+            ``(-21h, +3h)`` time tolerance window HealDA is designed for. This model
+            has no initialization slot.
+        """
+        from earth2studio.data import UFSObsConv, UFSObsSat
+
+        tolerance = (dt.timedelta(hours=-21), dt.timedelta(hours=3))
+        return (
+            UFSObsConv(time_tolerance=tolerance),
+            UFSObsSat(time_tolerance=tolerance),
+        )
 
     def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
         """Input coordinate system of the assimilation model.

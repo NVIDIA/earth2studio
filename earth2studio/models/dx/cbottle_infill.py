@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import VariableArray
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import earth2grid
@@ -206,15 +210,17 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             varidx.append(idx[0])
         return np.array(varidx)
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
         """
-        return None
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.

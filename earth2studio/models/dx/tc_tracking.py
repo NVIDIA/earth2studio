@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -32,6 +33,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import cupy as cp
@@ -81,15 +85,17 @@ class _TCTrackerBase:
 
     stochastic = False
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "DataSource":
+        """Recommend the GFS data source.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        DataSource
+            ``GFS`` data source for the input slot.
         """
-        return None
+        from earth2studio.data import GFS
+
+        return GFS()
 
     def _track_coords(
         self, x: CoordinateSystem, paths: int = 0, steps: int = 0
