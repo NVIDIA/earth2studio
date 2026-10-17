@@ -377,14 +377,17 @@ class NNJAObsConv:
             self.fetch_files(list({task.uri for task in tasks})), self.async_timeout
         )
 
-        pieces = compile_tables(
+        # Decoding is CPU-bound; it runs off the event loop so gathered sources overlap
+        pieces = await asyncio.to_thread(
+            compile_tables,
             tasks,
             self.SOURCE_ID,
             self.local_path,
             self._decode_file,
             _raise_task_failure,
         )
-        return assemble_frame(
+        return await asyncio.to_thread(
+            assemble_frame,
             pieces,
             self._layout,
             variable_list,
@@ -952,14 +955,17 @@ class NNJAObsSat:
         except Exception as exc:
             self._handle_fetch_failure(uris, exc)
 
-        pieces = compile_tables(
+        # Decoding is CPU-bound; it runs off the event loop so gathered sources overlap
+        pieces = await asyncio.to_thread(
+            compile_tables,
             tasks,
             self.SOURCE_ID,
             self.local_path,
             self._decode_file,
             _raise_task_failure,
         )
-        return assemble_frame(
+        return await asyncio.to_thread(
+            assemble_frame,
             pieces,
             self._layout,
             variable_list,
