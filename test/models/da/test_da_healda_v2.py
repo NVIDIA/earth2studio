@@ -67,14 +67,13 @@ def _build_model(device="cpu") -> HealDAv2:
 
 
 def _gpsro_df(request_time, n_levels=3):
-    """Raw NNJAObsConv rows for one occultation: bending angles plus refractivity."""
+    """Wide NNJAObsConv rows for one occultation: bending angles plus refractivity."""
     t = pd.Timestamp(request_time[0]) - pd.Timedelta(minutes=30)
     heights = np.arange(0.0, 40_001.0, 500.0)
     common = {
         "time": t,
         "type": 750,
         "station": "07500027",
-        "quality": 0.0,
         "radius_curvature": ELRC,
         "geoid_undulation": 10.0,
     }
@@ -84,8 +83,8 @@ def _gpsro_df(request_time, n_levels=3):
             "lat": np.linspace(-9.0, -10.0, n_levels),
             "lon": np.linspace(290.0, 291.0, n_levels),
             "elev": np.linspace(2_500.0, 25_000.0, n_levels),
-            "observation": np.linspace(0.02, 0.001, n_levels),
-            "variable": "gps",
+            "observation_gps": np.linspace(0.02, 0.001, n_levels),
+            "quality_gps": 0,
         }
     )
     profile = pd.DataFrame(
@@ -94,8 +93,8 @@ def _gpsro_df(request_time, n_levels=3):
             "lat": -10.5,
             "lon": 289.75,
             "elev": heights,
-            "observation": 300.0 * np.exp(-heights / 7_000.0),
-            "variable": "gps_refractivity",
+            "observation_gps_refractivity": 300.0 * np.exp(-heights / 7_000.0),
+            "quality_gps_refractivity": 0,
         }
     )
     df = pd.concat([levels, profile], ignore_index=True)
@@ -105,7 +104,7 @@ def _gpsro_df(request_time, n_levels=3):
 
 
 def _satwnd_df(request_time):
-    """Raw NNJAObsSatwnd rows: two winds as u and v components."""
+    """Wide NNJAObsSatwnd rows: two winds."""
     t = pd.Timestamp(request_time[0])
     winds = pd.DataFrame(
         {
@@ -122,9 +121,7 @@ def _satwnd_df(request_time):
             "quality": [np.nan, np.nan],
         }
     )
-    u = winds.assign(observation=[5.0, -3.0], variable="u")
-    v = winds.assign(observation=[1.0, 2.0], variable="v")
-    df = pd.concat([u, v], ignore_index=True)
+    df = winds.assign(observation_u=[5.0, -3.0], observation_v=[1.0, 2.0])
     df["cycle_time"] = pd.Timestamp(request_time[0])
     df.attrs = {"request_time": request_time}
     return df
@@ -198,6 +195,15 @@ def test_healda_v2_call_mismatched_request_times():
     later = np.array([CYCLE + np.timedelta64(6, "h")])
     with pytest.raises(ValueError, match="different 'request_time'"):
         model(conv_obs=_gpsro_df(np.array([CYCLE])), satwnd_obs=_satwnd_df(later))
+
+
+def test_healda_v2_rejects_long_frames():
+    model = _build_model()
+    long = _satwnd_df(np.array([CYCLE])).rename(
+        columns={"observation_u": "observation"}
+    )
+    with pytest.raises(ValueError, match='layout="wide"'):
+        model(satwnd_obs=long)
 
 
 def test_healda_v2_call_no_inputs():

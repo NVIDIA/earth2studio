@@ -93,7 +93,8 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # ------------------
 # One analysis reads observations spanning ``[t - 45h, t + 3h]``. Any source returning
 # DataFrames that match `HealDAv2.input_coords` works; here the NNJA sources are
-# configured as in training: each PrepBUFR observation's original event, satellite
+# configured as in training, in the wide layout the model reads (one row per report
+# level, wind or footprint): each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
 # `fetch_dataframe` attaches the ``request_time`` metadata the model requires.
 
@@ -105,9 +106,12 @@ conv_source = NNJAObsConv(
     time_tolerance=tolerance,
     original_event=True,
     exclude_message_types=("SATWND",),
+    layout="wide",
 )
-satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance)
-sat_source = NNJAObsSat(time_tolerance=tolerance, sensor_indices=model.sensor_indices)
+satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance, layout="wide")
+sat_source = NNJAObsSat(
+    time_tolerance=tolerance, sensor_indices=model.sensor_indices, layout="wide"
+)
 
 conv_schema, satwnd_schema, sat_schema = model.input_coords()
 frames = {}
@@ -120,7 +124,8 @@ for name, source, schema in (
         source,
         time=analysis_time,
         variable=np.array(schema["variable"]),
-        fields=np.array(list(schema.keys())),
+        # The "variable" entry lists the variables; the other keys are columns
+        fields=[column for column in schema if column != "variable"],
     )
     logger.info(f"Fetched {len(frames[name])} {name} rows")
 
