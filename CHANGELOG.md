@@ -77,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
+- The `data` extra depends on earth2bufr (the BUFR decoder of the NCEP sources)
+  instead of pybufrkit.
+
 ## [0.19.0] - 2026-09-30
 
 ### Added
