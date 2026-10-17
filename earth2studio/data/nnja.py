@@ -791,11 +791,12 @@ class NNJAObsSat:
         ``"long"`` returns one row per (footprint, channel) with the columns of
         ``SCHEMA``. ``"wide"`` returns one row per footprint with the footprint
         columns of ``SCHEMA`` and the per-channel values as lists in channel
-        order: per sensor
-        ``sensor_index_<sensor>``, ``wavenumber_<sensor>`` and
-        ``quality_<sensor>``, and per variable ``observation_<variable>``, null
-        on footprints of other sensors. The lists are fixed-size when every
-        footprint of the request carries the same channels. By default "long".
+        order: per sensor ``sensor_index_<sensor>`` and ``quality_<sensor>``
+        (and ``wavenumber_<sensor>`` for ATMS and AIRS, which encode it; the
+        IASI and CrIS wavenumbers follow from the channel number), and per
+        variable ``observation_<variable>``, null on footprints of other
+        sensors. The lists are fixed-size when every footprint of the request
+        is from one sensor and carries the same channels. By default "long".
 
     Warning
     -------

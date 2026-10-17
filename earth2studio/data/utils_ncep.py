@@ -648,6 +648,9 @@ SAT_VARIABLE_SENSOR: dict[str, str] = {
 SAT_SENSORS = tuple(dict.fromkeys(SAT_VARIABLE_SENSOR.values()))
 # Per-channel columns of a satellite footprint row, one set per sensor
 SAT_CHANNEL_COLUMNS = ("sensor_index", "wavenumber", "quality")
+# Sensors whose BUFR encodes each channel's wavenumber (ATMS SCCF, AIRS LOGRCW); IASI and
+# CrIS wavenumbers follow from the channel number, the other sensors have none
+_SAT_ENCODED_WAVENUMBER = frozenset({"atms", "airs"})
 
 # Default of the ``layout`` parameter of the NNJA and GDAS sources
 _DEFAULT_LAYOUT: Literal["long", "wide"] = "long"
@@ -743,6 +746,7 @@ _NCEP_MICROWAVE_WIDE_SCHEMA = pa.schema(
             )
             for sensor in SAT_SENSORS
             for name, arrow_type in _SAT_CHANNEL_TYPES.items()
+            if name != "wavenumber" or sensor in _SAT_ENCODED_WAVENUMBER
         ],
         *[_observation_field(v, pa.list_(pa.float32())) for v in SAT_VARIABLE_SENSOR],
     ]
@@ -879,6 +883,11 @@ def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Tabl
                         np.repeat(np.arange(len(values), dtype=np.int64), n_var)
                     )
                 columns[name] = values
+        if sensor in ("iasi", "cris") and "sensor_index" in columns:
+            channels = columns["sensor_index"].to_numpy(zero_copy_only=False)
+            columns["wavenumber"] = pa.array(
+                wavenumber_cm_inverse(sensor, channels.astype(np.int64))
+            )
         flat = [pc.list_flatten(obs) for obs in observations]
         if n_var > 1:
             stacked = np.stack(
@@ -929,6 +938,11 @@ def concat_tables(tables: Sequence[pa.Table]) -> pa.Table:
         types = {t.schema.field(name).type for t in tables if name in t.column_names}
         if len(types) == 1:
             target[name] = types.pop()
+            # A fixed-size list padded with nulls would store child values per row
+            if pa.types.is_fixed_size_list(target[name]) and any(
+                name not in t.column_names for t in tables
+            ):
+                target[name] = pa.list_(target[name].value_type)
         elif all(_is_list(t) for t in types):
             target[name] = pa.list_(next(iter(types)).value_type)
         else:
@@ -2351,11 +2365,12 @@ def _sat_batch(
         f"sensor_index_{sensor}": rows.lists(
             pa.array(channels.astype(np.uint16), type=pa.uint16())
         ),
-        f"wavenumber_{sensor}": rows.lists(
-            float_with_nulls(np.asarray(wavenumber, dtype=np.float64), pa.float64())
-        ),
         f"quality_{sensor}": rows.lists(uint_with_nulls(quality, pa.uint32())),
     }
+    if sensor in _SAT_ENCODED_WAVENUMBER:
+        columns[f"wavenumber_{sensor}"] = rows.lists(
+            float_with_nulls(np.asarray(wavenumber, dtype=np.float64), pa.float64())
+        )
     for variable, values_ in observations.items():
         columns[f"observation_{variable}"] = rows.lists(
             float_with_nulls(values_.astype(np.float32), pa.float32())
@@ -2376,7 +2391,7 @@ def decode_satellite(
     """Decode an NCEP aggregate satellite file into a wide table, one row per footprint.
 
     Per-channel values are lists in channel order: ``sensor_index_<sensor>``,
-    ``wavenumber_<sensor>``, ``quality_<sensor>`` and one
+    ``quality_<sensor>``, ``wavenumber_<sensor>`` for ATMS and AIRS and one
     ``observation_<variable>`` per requested variable, fixed-size when every
     footprint of a batch carries the same channels. IASI and CrIS radiances are
     returned as brightness temperature.
