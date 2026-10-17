@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added a `layout` option to `NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat` and
+  `NomadsGDASObsConv`: `"wide"` returns one row per report level, wind or footprint
+  with one `observation_<variable>` column per variable (per-channel values as lists
+  for satellites); `"long"` (default) is unchanged.
 
 ### Changed
 
@@ -32,6 +36,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
+- The NCEP observation sources (`NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat`,
+  `NomadsGDASObsConv`) decode BUFR with earth2bufr instead of PyBufrKit. Rows and
+  values are unchanged except PrepBUFR station identifiers with non-ASCII bytes,
+  which now carry spaces instead of U+FFFD.
+- The NCEP observation frames use `pd.ArrowDtype` columns throughout: missing values
+  are nulls (including missing satellite observations), string columns are
+  dictionary-encoded, and the `NNJAObsSatwnd` quality indicators are
+  `list<struct<application, confidence>>` instead of Python lists.
+- `NNJAObsSatwnd` reads each field from its first occurrence in the message template.
+- `NNJAObsSat` decodes only the `sensor_indices` channels of an IR sounder and returns
+  IASI and CrIS brightness temperature from a single Planck conversion.
+- `decode_workers` of the NCEP sources sets the threads transforming decoded batches;
+  the decode runs on earth2bufr's thread pool.
+- The NNJA and GDAS conventional lexicon modifiers are the identity; the decoders
+  return Earth2Studio units.
+- `HealDAv2` takes wide NNJA frames (`layout="wide"`) and raises on long frames.
+- `obstore_read_chunked` reads objects over 8 MiB as 8 MiB ranges with up to 64 in
+  flight, caps in-flight ranges across concurrent reads and re-requests a stalled
+  range; NNJA cycle files download 3-8x faster.
 
 ### Deprecated
 
