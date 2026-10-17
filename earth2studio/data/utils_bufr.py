@@ -14,115 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared PrepBUFR parsing utilities for NCEP-format BUFR files.
+"""Shared earth2bufr helpers for the NCEP BUFR sources.
 
-This module provides common helpers for decoding NCEP PrepBUFR files
-(DX table extraction, message splitting, and pybufrkit table
-registration) used by :mod:`earth2studio.data.gdas` and
-:mod:`earth2studio.data.nnja`.
+:mod:`earth2studio.data.gdas` and :mod:`earth2studio.data.nnja` decode NCEP BUFR
+with earth2bufr, which returns Arrow record batches. The helpers here turn decoded
+columns into numpy arrays with validity masks, build timestamps from BUFR time
+parts, and assemble Arrow columns without per-value Python work.
 """
 
 from __future__ import annotations
 
-import contextlib
-import os
-import struct
-import sys
-from collections.abc import Iterator
-from typing import Any
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from typing import Any, TypeVar
 
-from loguru import logger
+import numpy as np
+import pyarrow as pa
 
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-)
+from earth2studio.utils.imports import OptionalDependencyFailure
 
-# Shared optional-dependency key for pybufrkit. NCEP conventional sources decode
-# through this module, so their public classes check this key.
+# Shared optional-dependency key for earth2bufr. NCEP sources decode through
+# this module, so their public classes check this key.
 BUFR_DEPENDENCY_KEY = "bufr"
 
 try:
-    from pybufrkit.decoder import Decoder as BufrDecoder
-    from pybufrkit.tables import TableGroupCacheManager
+    import earth2bufr
 except ImportError:
     OptionalDependencyFailure("data", BUFR_DEPENDENCY_KEY)
-    BufrDecoder = None  # type: ignore[assignment,misc]
-    TableGroupCacheManager = None  # type: ignore[assignment,misc]
+    earth2bufr = None  # type: ignore[assignment]
 
-
-# ─────────────────────────────────────────────────────────────────────
-# PrepBUFR descriptor ID constants
-# ─────────────────────────────────────────────────────────────────────
-
-# Header field descriptors (per-subset, scalar)
-HDR_SID = 1194  # Station ID (CCITT IA5, 64 bits)
-HDR_XOB = 6240  # Longitude (degrees east)
-HDR_YOB = 5002  # Latitude (degrees north)
-HDR_DHR = 4215  # Obs time minus cycle time (hours)
-HDR_ELV = 10199  # Station elevation (m)
-HDR_TYP = 55007  # Report type code
-HDR_T29 = 55008  # Data dump report type code
-
-# Observation field descriptors
-OBS_CAT = 8193  # Observation category code
-OBS_POB = 7245  # Pressure observation (MB)
-OBS_ZOB = 10007  # Height observation (m)
-OBS_TOB = 12245  # Temperature observation (DEG C)
-OBS_QOB = 13245  # Specific humidity (MG/KG)
-OBS_UOB = 11003  # U-wind component (M/S)
-OBS_VOB = 11004  # V-wind component (M/S)
-OBS_HRDR = 4218  # Profile-level time minus cycle time (hours)
-OBS_XDR = 6241  # Profile-level longitude (degrees east)
-OBS_YDR = 5241  # Profile-level latitude (degrees north)
-
-# Quality mark descriptors
-OBS_PQM = 7246  # Pressure quality mark
-OBS_TQM = 12246  # Temperature quality mark
-OBS_QQM = 13246  # Moisture quality mark
-OBS_WQM = 11240  # Wind quality mark
-
-# Set of all header descriptor IDs
-HEADER_DESCR_IDS: set[int] = {
-    HDR_SID,
-    HDR_XOB,
-    HDR_YOB,
-    HDR_DHR,
-    HDR_ELV,
-    HDR_TYP,
-    HDR_T29,
-}
-
-# Set of core observation-level descriptor IDs (obs + quality marks)
-OBSERVATION_DESCR_IDS: set[int] = {
-    OBS_POB,
-    OBS_PQM,
-    OBS_ZOB,
-    OBS_TOB,
-    OBS_TQM,
-    OBS_QOB,
-    OBS_QQM,
-    OBS_UOB,
-    OBS_VOB,
-    OBS_WQM,
-    OBS_HRDR,
-    OBS_XDR,
-    OBS_YDR,
-}
-
-# Lexicon mnemonic -> descriptor ID for non-wind observation fields
-MNEMONIC_TO_DESCR: dict[str, int] = {
-    "TOB": OBS_TOB,
-    "QOB": OBS_QOB,
-    "POB": OBS_POB,
-    "ZOB": OBS_ZOB,
-    "UOB": OBS_UOB,
-    "VOB": OBS_VOB,
-}
-
-# PrepBUFR section-1 dataCategory -> NCEP message/subset family.
-# Ref: NCEP PREPBUFR Table 1.a / prepobs_prep.bufrtable Table A.
-# https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_1.htm
-# These are PREPBUFR message families, not inner report TYP values.
+# PrepBUFR Section 1 data category -> message family
 PREPBUFR_OBS_TYPES: dict[int, str] = {
     102: "ADPUPA",  # Upper-air: RAOB, PIBAL, RECCO, dropsonde
     103: "AIRCAR",  # Aircraft: MDCRS ACARS
@@ -146,381 +69,186 @@ PREPBUFR_OBS_TYPES: dict[int, str] = {
     121: "ASCATW",  # ASCAT scatterometer winds
 }
 
-# Per-variable quality mark mapping: observation descriptor -> QM descriptor
-OBS_QUALITY_MAP: dict[int, int] = {
-    OBS_POB: OBS_PQM,
-    OBS_TOB: OBS_TQM,
-    OBS_QOB: OBS_QQM,
-    OBS_UOB: OBS_WQM,
-    OBS_VOB: OBS_WQM,
-}
+_T = TypeVar("_T")
+_R = TypeVar("_R")
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Silence noisy C-level stderr from pybufrkit
-# ─────────────────────────────────────────────────────────────────────
+def open_bufr(path: str) -> Any:
+    """Open a BUFR file with earth2bufr."""
+    return earth2bufr.open_bufr(path)
 
 
-@contextlib.contextmanager
-def silence_bufr_noise() -> Iterator[None]:
-    """Suppress chatty C-library stderr from pybufrkit.
+def list_value_filter(field: str, key: str, values: Iterable[int]) -> Any:
+    """earth2bufr filter keeping list entries whose ``key`` is in ``values``."""
+    return earth2bufr.ListValueFilter(
+        field=field, key=key, values=tuple(sorted(values))
+    )
 
-    pybufrkit writes informational messages straight to file
-    descriptor 2 (e.g. ``Cannot find sub-centre 3 nor valid default``)
-    when the file uses NCEP-local descriptors. We rely on the DX
-    tables embedded in each file to decode those correctly, so
-    these messages are spurious and would otherwise flood the log
-    with one line per BUFR message.
 
-    The redirect only covers C-level writes; Python ``print``,
-    ``logger`` and exceptions still propagate normally. We also
-    flush ``sys.stderr`` first so any pending Python-side stderr
-    is preserved.
+def numpy_with_mask(array: pa.Array) -> tuple[np.ndarray, np.ndarray]:
+    """Values and validity of a numeric column; values are arbitrary at null slots."""
+    valid = (
+        np.asarray(array.is_valid())
+        if array.null_count
+        else np.ones(len(array), dtype=bool)
+    )
+    if len(array) and (
+        pa.types.is_floating(array.type) or pa.types.is_integer(array.type)
+    ):
+        values = np.frombuffer(array.buffers()[1], dtype=array.type.to_pandas_dtype())
+        return values[array.offset : array.offset + len(array)], valid
+    return array.fill_null(0).to_numpy(zero_copy_only=False), valid
+
+
+def float_values(array: pa.Array) -> np.ndarray:
+    """Numeric column as float64 with NaN at null slots."""
+    values, valid = numpy_with_mask(array)
+    values = values.astype(np.float64)
+    if not valid.all():
+        values[~valid] = np.nan
+    return values
+
+
+def physical_values(values: pa.StructArray, name: str) -> np.ndarray:
+    """Child field of a struct in physical units, NaN where missing.
+
+    Raw-code fields (``raw_code_paths``) are converted as
+    ``(code + reference) / 10**scale`` from the field metadata.
     """
-    sys.stderr.flush()
-    saved_fd = os.dup(2)
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
-    try:
-        os.dup2(devnull_fd, 2)
-        try:
-            yield
-        finally:
-            sys.stderr.flush()
-            os.dup2(saved_fd, 2)
-    finally:
-        os.close(devnull_fd)
-        os.close(saved_fd)
+    array = values.field(name)
+    meta = values.type.field(name).metadata or {}
+    out = float_values(array)
+    if meta.get(b"representation") != b"bufr_raw_code":
+        return out
+    reference = int(meta[b"reference"])
+    scale = int(meta[b"scale"])
+    if reference:
+        out = out + reference
+    if scale:
+        out = out / (1.0 * 10**scale)
+    return out
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Low-level helpers
-# ─────────────────────────────────────────────────────────────────────
+def masked(
+    values: np.ndarray, valid: np.ndarray | None, arrow_type: pa.DataType
+) -> pa.Array:
+    """Arrow array of ``values`` with nulls where ``valid`` is False."""
+    if valid is None or valid.all():
+        return pa.array(values, type=arrow_type)
+    return pa.array(values, type=arrow_type, mask=~valid)
 
 
-def safe_int(v: Any) -> int:
-    """Convert a value to int, handling bytes, strings, None, and floats."""
-    if isinstance(v, (int, float)):
-        return int(v)
-    if isinstance(v, bytes):
-        s = v.decode("ascii", errors="replace").strip()
-    elif v is None:
-        s = ""
-    else:
-        s = str(v).strip()
-    if not s:
-        return 0
-    try:
-        return int(s)
-    except ValueError:
-        return 0
+def float_with_nulls(values: np.ndarray, arrow_type: pa.DataType) -> pa.Array:
+    """Float array with NaN slots as nulls."""
+    return masked(values, ~np.isnan(values), arrow_type)
 
 
-def _str(v: Any) -> str:
-    """Convert a value to a stripped ASCII string."""
-    if isinstance(v, bytes):
-        return v.decode("ascii", errors="replace").strip()
-    if v is None:
-        return ""
-    return str(v).strip()
+def uint_with_nulls(values: np.ndarray, arrow_type: pa.DataType) -> pa.Array:
+    """Unsigned integer array from floats with NaN slots as nulls."""
+    valid = np.isfinite(values)
+    ints = np.where(valid, values, 0).astype(arrow_type.to_pandas_dtype())
+    return masked(ints, valid, arrow_type)
 
 
-def fxy_to_id(f: Any, x: Any, y: Any) -> int:
-    """Convert F, X, Y fields to an integer BUFR descriptor ID."""
-    return safe_int(f) * 100000 + safe_int(x) * 1000 + safe_int(y)
+def null_array(arrow_type: pa.DataType, n: int) -> pa.Array:
+    """All-null fixed-width array whose validity and data share one zero buffer."""
+    nbytes = max(n * max(arrow_type.bit_width, 1) // 8, (n + 7) // 8, 1)
+    zeros = pa.py_buffer(np.zeros(nbytes, dtype=np.uint8))
+    return pa.Array.from_buffers(arrow_type, n, [zeros, zeros], null_count=n)
 
 
-# ─────────────────────────────────────────────────────────────────────
-# DX table extraction
-# ─────────────────────────────────────────────────────────────────────
+def dictionary_column(codes: np.ndarray, names: list[str]) -> pa.Array:
+    """``dictionary<int8, string>`` column from codes into ``names``."""
+    return pa.DictionaryArray.from_arrays(
+        pa.array(codes, type=pa.int8()), pa.array(names, type=pa.utf8())
+    )
 
 
-def extract_dx_tables(
-    flat: list[Any],
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Extract NCEP Table B and D entries from a DX-message subset.
+def constant_dictionary(value: str, n: int) -> pa.Array:
+    """``dictionary<int8, string>`` column holding one value."""
+    return dictionary_column(np.zeros(n, dtype=np.int8), [value])
 
-    DX table messages (dataCategory=11) contain embedded NCEP-local BUFR
-    descriptor definitions.  The flat decoded values follow the layout
-    produced by the NCEP BUFRLIB DX table encoding:
 
-    - n_table_a, [table_a entries (3 fields each)...]
-    - n_table_b, [table_b entries (11 fields each)...]
-    - n_table_d, [table_d entries (variable-length)...]
+def timestamps_ns(values: np.ndarray, valid: np.ndarray | None = None) -> pa.Array:
+    """``timestamp[ns]`` column over int64 nanoseconds since the epoch."""
+    values = np.ascontiguousarray(values, dtype=np.int64)
+    validity = None if valid is None or valid.all() else pa.array(valid).buffers()[1]
+    return pa.Array.from_buffers(
+        pa.timestamp("ns"), len(values), [validity, pa.py_buffer(values)]
+    )
 
-    Each Table B entry has 11 fields:
-        F, X, Y, mnemonic(32), desc_cont(32), unit(24),
-        sign_scale(1), scale(3), sign_ref(1), reference(10), width(3)
 
-    Each Table D entry has:
-        F, X, Y, mnemonic(64), n_members,
-        [member F, X, Y, ...]
+def constant_timestamp(value: datetime, n: int) -> pa.Array:
+    """``timestamp[ns]`` column holding one value."""
+    stamp = np.datetime64(value, "ns").astype(np.int64)
+    return timestamps_ns(np.full(n, stamp, dtype=np.int64))
 
-    Parameters
-    ----------
-    flat : list
-        Decoded values from a single DX message subset.
-    table_b : dict
-        Accumulator dict to update with Table B entries (pybufrkit format).
-    table_d : dict
-        Accumulator dict to update with Table D entries.
+
+def datetime_ns(value: datetime) -> int:
+    """Nanoseconds since the epoch of a naive UTC datetime."""
+    return int(np.datetime64(value, "ns").astype(np.int64))
+
+
+_DAYS_IN_MONTH = np.array([0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+
+
+def civil_time_ns(
+    year: np.ndarray,
+    month: np.ndarray,
+    day: np.ndarray,
+    hour: np.ndarray,
+    minute: np.ndarray,
+    second: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Nanoseconds since the epoch from BUFR time parts given as floats (NaN = missing).
+
+    A missing hour, minute or second counts as zero. The result is valid where the
+    year, month and day form a calendar date and the hour and minute are in range.
     """
-    n = len(flat)
-    idx = 0
-    if idx >= n:
+    finite = np.isfinite(year) & np.isfinite(month) & np.isfinite(day)
+    y = np.where(finite, year, 1970).astype(np.int64)
+    m = np.where(finite, month, 1).astype(np.int64)
+    d = np.where(finite, day, 1).astype(np.int64)
+    hh = np.nan_to_num(hour).astype(np.int64)
+    mm = np.nan_to_num(minute).astype(np.int64)
+    leap = ((y % 4 == 0) & (y % 100 != 0)) | (y % 400 == 0)
+    month_ok = (m >= 1) & (m <= 12)
+    days_in_month = _DAYS_IN_MONTH[np.where(month_ok, m, 1)] + ((m == 2) & leap)
+    valid = (
+        finite
+        & month_ok
+        & (y >= 1)
+        & (y <= 9999)
+        & (d >= 1)
+        & (d <= days_in_month)
+        & (hh >= 0)
+        & (hh <= 23)
+        & (mm >= 0)
+        & (mm <= 59)
+    )
+    # Days from the civil date (proleptic Gregorian)
+    ya = y - (m <= 2)
+    era = np.floor_divide(ya, 400)
+    yoe = ya - era * 400
+    doy = (153 * ((m + 9) % 12) + 2) // 5 + d - 1
+    days = era * 146097 + yoe * 365 + yoe // 4 - yoe // 100 + doy - 719468
+    minutes = days * 1440 + hh * 60 + mm
+    seconds_ns = np.rint(np.nan_to_num(second) * 1e9).astype(np.int64)
+    return np.where(valid, minutes * 60_000_000_000 + seconds_ns, 0), valid
+
+
+def map_ordered(
+    fn: Callable[[_T], _R], items: Iterable[_T], workers: int
+) -> Iterator[_R]:
+    """``fn`` over ``items`` on a thread pool, in input order, at most ``2 * workers`` in flight."""
+    if workers <= 1:
+        yield from (fn(item) for item in items)
         return
-    n_a = safe_int(flat[idx])
-    idx += 1
-    idx += n_a * 3
-    if idx >= n:
-        return
-
-    # Table B
-    n_b = safe_int(flat[idx])
-    idx += 1
-    for _ in range(n_b):
-        if idx + 10 >= n:
-            return
-        f_v = flat[idx]
-        x_v = flat[idx + 1]
-        y_v = flat[idx + 2]
-        mnemonic = _str(flat[idx + 3])
-        unit = _str(flat[idx + 5])
-        sign_scale = _str(flat[idx + 6])
-        scale_s = _str(flat[idx + 7])
-        sign_ref = _str(flat[idx + 8])
-        ref_s = _str(flat[idx + 9])
-        width_s = _str(flat[idx + 10])
-        idx += 11
-
-        desc_id = fxy_to_id(f_v, x_v, y_v)
-        if desc_id == 0:
-            continue
-        scale = safe_int(scale_s)
-        if sign_scale == "-":
-            scale = -scale
-        reference = safe_int(ref_s)
-        if sign_ref == "-":
-            reference = -reference
-        width = safe_int(width_s)
-        table_b[desc_id] = (
-            mnemonic,
-            unit,
-            scale,
-            reference,
-            width,
-            unit,  # crex_unit = same as unit
-            scale,  # crex_scale = same as scale
-            max(1, (width + 3) // 4),  # crex_nchars approximation
-        )
-
-    # Table D
-    if idx >= n:
-        return
-    n_d = safe_int(flat[idx])
-    idx += 1
-    for _ in range(n_d):
-        if idx + 3 >= n:
-            return
-        f_v = flat[idx]
-        x_v = flat[idx + 1]
-        y_v = flat[idx + 2]
-        seq_mnemonic = _str(flat[idx + 3])
-        idx += 4
-        seq_id = fxy_to_id(f_v, x_v, y_v)
-        if seq_id == 0:
-            continue
-        if idx >= n:
-            return
-        n_members = safe_int(flat[idx])
-        idx += 1
-        members: list[str] = []
-        for _ in range(n_members):
-            if idx >= n:
-                break
-            members.append(_str(flat[idx]))
-            idx += 1
-        if members:
-            table_d[seq_id] = (seq_mnemonic, members)
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Table registration & decoder creation
-# ─────────────────────────────────────────────────────────────────────
-
-
-def register_dx_tables(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Reset pybufrkit's table cache and (re-)register NCEP DX tables.
-
-    Parameters
-    ----------
-    table_b : dict
-        NCEP Table B entries in pybufrkit format.
-    table_d : dict
-        NCEP Table D entries.
-    """
-    TableGroupCacheManager.clear_extra_entries()
-    try:
-        TableGroupCacheManager._TABLE_GROUP_CACHE.invalidate()
-    except AttributeError as exc:
-        logger.warning(
-            f"pybufrkit TableGroupCacheManager._TABLE_GROUP_CACHE not available "
-            f"({exc}); skipping cache invalidation"
-        )
-    if table_b or table_d:
-        TableGroupCacheManager.add_extra_entries(table_b, table_d)
-
-
-def create_decoder(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> Any:
-    """Register custom NCEP tables and create a pybufrkit decoder.
-
-    Parameters
-    ----------
-    table_b : dict
-        NCEP Table B entries.
-    table_d : dict
-        NCEP Table D entries.
-
-    Returns
-    -------
-    pybufrkit.decoder.Decoder
-        Configured decoder instance.
-    """
-    register_dx_tables(table_b, table_d)
-    return BufrDecoder()
-
-
-# ─────────────────────────────────────────────────────────────────────
-# PrepBUFR message parsing
-# ─────────────────────────────────────────────────────────────────────
-
-
-def parse_prepbufr_messages(
-    file_data: bytes,
-    silence_noise: bool = True,
-) -> tuple[
-    dict[int, tuple[Any, ...]],
-    dict[int, tuple[Any, ...]],
-    list[tuple[bytes, int]],
-]:
-    """Split a PrepBUFR byte stream into messages and extract DX tables.
-
-    The first several messages in a PrepBUFR file are DX-table messages
-    (dataCategory=11) containing NCEP-local BUFR Table B and Table D
-    definitions needed to decode subsequent data messages.
-
-    Parameters
-    ----------
-    file_data : bytes
-        Entire PrepBUFR file contents.
-    silence_noise : bool
-        If True (default), suppress noisy C-level stderr from pybufrkit
-        during DX table decoding.
-
-    Returns
-    -------
-    tuple[dict, dict, list[tuple[bytes, int]]]
-        (table_b_dict, table_d_dict, data_messages) where the dicts
-        are in pybufrkit ``add_extra_entries`` format and
-        data_messages is a list of (message_bytes, data_category) tuples
-        for all non-DX messages.
-    """
-    table_b: dict[int, tuple[Any, ...]] = {}
-    table_d: dict[int, tuple[Any, ...]] = {}
-    data_messages: list[tuple[bytes, int]] = []
-    dx_messages: list[bytes] = []
-
-    # Split into individual BUFR messages
-    pos = 0
-    while pos < len(file_data):
-        idx = file_data.find(b"BUFR", pos)
-        if idx == -1:
-            break
-        # BUFR edition 3/4: message length in bytes 5-7 (3 bytes, big-endian)
-        msg_len = struct.unpack(">I", b"\x00" + file_data[idx + 4 : idx + 7])[0]
-        if msg_len < 8:
-            pos = idx + 4
-            continue
-        msg_bytes = file_data[idx : idx + msg_len]
-
-        # BUFR ed3/4: section-0 = 8 bytes, section-1 octet-9 (offset 16)
-        # is dataCategory
-        data_cat = file_data[idx + 16] if idx + 16 < len(file_data) else 0
-        if data_cat == 11:
-            dx_messages.append(msg_bytes)
-        else:
-            data_messages.append((msg_bytes, data_cat))
-        pos = idx + msg_len
-
-    # Decode DX table messages using pybufrkit (they use standard descriptors). Every
-    # one that fails is fatal: a table missing from a later message leaves data
-    # messages that cannot decode. A file's last DX message can be empty.
-    if dx_messages:
-        ctx = silence_bufr_noise() if silence_noise else contextlib.nullcontext()
-        with ctx:
-            dx_decoder = BufrDecoder()
-            for index, dx_bytes in enumerate(dx_messages):
-                try:
-                    dvas = dx_decoder.process(
-                        dx_bytes
-                    ).template_data.value.decoded_values_all_subsets
-                    if dvas:
-                        extract_dx_tables(dvas[0], table_b, table_d)
-                except ImportError:
-                    raise
-                except Exception as exc:
-                    raise ValueError(
-                        f"DX-table message {index + 1} of {len(dx_messages)} failed"
-                    ) from exc
-        if not table_b or not table_d:
-            raise ValueError(f"{len(dx_messages)} DX-table messages gave no tables")
-
-    return table_b, table_d, data_messages
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Process-pool worker initialization
-# ─────────────────────────────────────────────────────────────────────
-
-# Module-level decoder for worker processes, set by init_decode_worker.
-_worker_decoder: Any = None
-
-
-def init_decode_worker(
-    table_b: dict[int, tuple[Any, ...]],
-    table_d: dict[int, tuple[Any, ...]],
-) -> None:
-    """Initializer for process pool workers.
-
-    Registers NCEP-local descriptor tables with pybufrkit in each
-    worker process and creates a reusable decoder instance stored
-    as a module-level global (``_worker_decoder``).
-
-    Parameters
-    ----------
-    table_b : dict
-        NCEP Table B entries in pybufrkit format.
-    table_d : dict
-        NCEP Table D entries.
-    """
-    global _worker_decoder  # noqa: PLW0603
-    register_dx_tables(table_b, table_d)
-    _worker_decoder = BufrDecoder()
-
-
-def get_worker_decoder() -> Any:
-    """Return the module-level worker decoder instance.
-
-    Returns
-    -------
-    pybufrkit.decoder.Decoder
-        The decoder created by :func:`init_decode_worker`.
-    """
-    return _worker_decoder
+    pending: deque = deque()
+    with ThreadPoolExecutor(workers) as pool:
+        for item in items:
+            pending.append(pool.submit(fn, item))
+            if len(pending) >= 2 * workers:
+                yield pending.popleft().result()
+        while pending:
+            yield pending.popleft().result()

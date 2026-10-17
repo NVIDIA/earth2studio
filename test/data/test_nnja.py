@@ -17,23 +17,34 @@
 import asyncio
 import shutil
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import SimpleNamespace
-from typing import Any
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.compute as pc
 import pytest
 
 import earth2studio.data.nnja as nnja
-from earth2studio.data import NNJAObsConv, NNJAObsSat, utils_ncep
+from earth2studio.data import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd, utils_ncep
+from earth2studio.data.utils import radiance_to_bt
+from earth2studio.data.utils_ir import wavenumber_cm_inverse
+from earth2studio.data.utils_ncep import (
+    NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
+    NCEP_MICROWAVE_OUTPUT_SCHEMA,
+    NCEP_SATWND_PUBLIC_SCHEMA,
+    _to_long,
+    cycle_windows,
+    decode_gpsro,
+    decode_prepbufr,
+    decode_satellite,
+    decode_satwnd,
+    observation_cycle_times,
+)
 
-ncep_microwave = utils_ncep
-
-pytest.importorskip("pybufrkit", reason="pybufrkit not installed")
+pytest.importorskip("earth2bufr", reason="earth2bufr not installed")
 
 
 @pytest.mark.slow
@@ -282,12 +293,10 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
 
     cached_file = tmp_path / "cached.bufr"
     cached_file.write_bytes(b"fixture")
-
-    frame = pd.DataFrame(
+    frame = pa.table(
         {
-            "time": pd.to_datetime(["2024-01-01 00:00:00"]),
-            "observation": [273.15],
-            "variable": ["t"],
+            "time": pa.array([np.datetime64("2024-01-01", "ns")]),
+            "observation_t": pa.array([273.15], type=pa.float32()),
         }
     )
     source = NNJAObsConv(cache=True, verbose=False)
@@ -304,7 +313,7 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
     monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
     monkeypatch.setattr(source, "cleanup", fake_cleanup)
-    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame.copy())
+    monkeypatch.setattr(source, "_decode_file", lambda path, task: frame)
 
     result = source(
         datetime(2024, 1, 1),
@@ -313,7 +322,8 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     )
 
     assert fetched == [source._build_uri("prepbufr", datetime(2024, 1, 1))]
-    assert result.equals(frame)
+    assert result["observation"].tolist() == [pytest.approx(273.15)]
+    assert result["variable"].tolist() == ["t"]
     assert result.attrs == {"source": source.SOURCE_ID}
     assert cleanup_calls["n"] == 1
 
@@ -372,231 +382,6 @@ def test_nnja_obs_conv_available():
     assert NNJAObsConv.available(np.datetime64("2024-01-01T01:00:00")) is True
 
     assert NNJAObsConv.available(np.datetime64("1970-01-01T00:00:00")) is False
-
-
-# These are unit tests for BUFR decoding
-
-
-def test_nnja_safe_int():
-    """Test _safe_int helper function with various input types."""
-    from earth2studio.data.utils_bufr import safe_int as _safe_int
-
-    # int/float inputs
-    assert _safe_int(42) == 42
-    assert _safe_int(3.14) == 3
-    assert _safe_int(-7.9) == -7
-
-    # bytes input
-    assert _safe_int(b"123") == 123
-    assert _safe_int(b"  456  ") == 456
-    assert _safe_int(b"") == 0
-    assert _safe_int(b"abc") == 0  # non-numeric bytes
-
-    # None input
-    assert _safe_int(None) == 0
-
-    # string input
-    assert _safe_int("789") == 789
-    assert _safe_int("  012  ") == 12
-    assert _safe_int("") == 0
-    assert _safe_int("not_a_number") == 0
-
-
-def test_nnja_extract_dx_tables_empty():
-    """Test _extract_dx_tables with empty/minimal inputs."""
-    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
-
-    table_b: dict = {}
-    table_d: dict = {}
-
-    # Empty flat list
-    _extract_dx_tables([], table_b, table_d)
-    assert table_b == {}
-    assert table_d == {}
-
-    # Only n_a (no entries)
-    _extract_dx_tables([0], table_b, table_d)
-    assert table_b == {}
-    assert table_d == {}
-
-    # n_a=0, n_b=0 (skip to table D)
-    _extract_dx_tables([0, 0], table_b, table_d)
-    assert table_b == {}
-    assert table_d == {}
-
-    # n_a=0, n_b=0, n_d=0 (all empty)
-    _extract_dx_tables([0, 0, 0], table_b, table_d)
-    assert table_b == {}
-    assert table_d == {}
-
-
-def test_nnja_extract_dx_tables_truncated():
-    """Test _extract_dx_tables with truncated/partial data."""
-    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
-
-    table_b: dict = {}
-    table_d: dict = {}
-
-    # n_a entries truncated (should return early)
-    _extract_dx_tables([1], table_b, table_d)  # n_a=1 but no entries
-    assert table_b == {}
-    assert table_d == {}
-
-    # Table B entry truncated (less than 11 fields)
-    # n_a=0, n_b=1, then only partial entry
-    table_b.clear()
-    table_d.clear()
-    _extract_dx_tables([0, 1, 0, 1, 2], table_b, table_d)  # truncated B entry
-    assert table_b == {}
-
-    # Table D entry truncated
-    # n_a=0, n_b=0, n_d=1, then only partial entry
-    table_b.clear()
-    table_d.clear()
-    _extract_dx_tables([0, 0, 1, 0, 1], table_b, table_d)  # truncated D entry
-    assert table_d == {}
-
-
-def test_nnja_extract_dx_tables_valid_entries():
-    """Test _extract_dx_tables with valid Table B and D entries."""
-    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
-
-    table_b: dict = {}
-    table_d: dict = {}
-
-    # Create a valid Table B entry
-    # Format: n_a, [a_entries...], n_b, [b_entries (11 fields each)...], n_d, [d_entries...]
-    # B entry: f, x, y, mnemonic, desc(skip), unit, sign_scale, scale, sign_ref, ref, width
-    flat = [
-        0,  # n_a = 0
-        1,  # n_b = 1
-        0,
-        1,
-        2,
-        b"TOB",
-        b"",
-        b"K",
-        b"+",
-        b"2",
-        b"+",
-        b"0",
-        b"16",  # 11 fields
-        0,  # n_d = 0
-    ]
-    _extract_dx_tables(flat, table_b, table_d)
-    # desc_id = 0*100000 + 1*1000 + 2 = 1002
-    assert 1002 in table_b
-    assert table_b[1002][0] == "TOB"  # mnemonic
-
-    # Test with zero descriptor (should be skipped)
-    table_b.clear()
-    table_d.clear()
-    flat_zero = [
-        0,  # n_a = 0
-        1,  # n_b = 1
-        0,
-        0,
-        0,
-        b"ZERO",
-        b"",
-        b"K",
-        b"+",
-        b"0",
-        b"+",
-        b"0",
-        b"8",  # desc_id = 0
-        0,  # n_d = 0
-    ]
-    _extract_dx_tables(flat_zero, table_b, table_d)
-    assert 0 not in table_b  # Zero descriptor skipped
-
-    # Test with negative scale/reference
-    table_b.clear()
-    table_d.clear()
-    flat_neg = [
-        0,  # n_a = 0
-        1,  # n_b = 1
-        0,
-        12,
-        1,
-        b"LAT",
-        b"",
-        b"DEG",
-        b"-",
-        b"5",
-        b"-",
-        b"9000000",
-        b"25",
-        0,  # n_d = 0
-    ]
-    _extract_dx_tables(flat_neg, table_b, table_d)
-    # desc_id = 0*100000 + 12*1000 + 1 = 12001
-    assert 12001 in table_b
-    assert table_b[12001][2] == -5  # scale is negative
-    assert table_b[12001][3] == -9000000  # reference is negative
-
-
-def test_nnja_extract_dx_tables_table_d():
-    """Test _extract_dx_tables Table D sequence entries."""
-    from earth2studio.data.utils_bufr import extract_dx_tables as _extract_dx_tables
-
-    table_b: dict = {}
-    table_d: dict = {}
-
-    # Table D entry: f, x, y, seq_mnemonic, n_members, [member_mnemonics...]
-    flat = [
-        0,  # n_a = 0
-        0,  # n_b = 0
-        1,  # n_d = 1
-        3,
-        1,
-        1,
-        b"HEADR",  # seq entry header (f=3, x=1, y=1)
-        2,  # n_members = 2
-        b"SID",
-        b"XOB",  # member mnemonics
-    ]
-    _extract_dx_tables(flat, table_b, table_d)
-    # seq_id = 3*100000 + 1*1000 + 1 = 301001
-    assert 301001 in table_d
-    assert table_d[301001][0] == "HEADR"
-    assert table_d[301001][1] == ["SID", "XOB"]
-
-    # Test zero seq_id (should be skipped)
-    table_b.clear()
-    table_d.clear()
-    flat_zero = [
-        0,  # n_a = 0
-        0,  # n_b = 0
-        1,  # n_d = 1
-        0,
-        0,
-        0,
-        b"ZERO",  # seq_id = 0
-        1,
-        b"X",
-    ]
-    _extract_dx_tables(flat_zero, table_b, table_d)
-    assert 0 not in table_d  # Zero seq_id skipped
-
-    # Test truncated member list
-    table_b.clear()
-    table_d.clear()
-    flat_trunc = [
-        0,  # n_a = 0
-        0,  # n_b = 0
-        1,  # n_d = 1
-        3,
-        1,
-        2,
-        b"SEQ",
-        3,  # n_members = 3 but only 1 provided
-        b"ONLY_ONE",
-    ]
-    _extract_dx_tables(flat_trunc, table_b, table_d)
-    # Should still create entry with partial members
-    assert 301002 in table_d
-    assert table_d[301002][1] == ["ONLY_ONE"]
 
 
 def test_nnja_obs_conv_build_uris():
@@ -672,7 +457,7 @@ def test_nnja_obs_conv_create_tasks_gpsro_route():
     assert tasks[0].route == "gpsro"
     assert "gpsro" in tasks[0].uri
     assert tasks[0].datetime_file == datetime(2024, 1, 1, 0)
-    assert tasks[0].var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
+    assert tasks[0].var_plan["gps"][0] == "15037"
 
 
 def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
@@ -685,469 +470,7 @@ def test_nnja_obs_conv_create_tasks_mixed_prepbufr_and_gpsro():
     gpsro_task = next(t for t in tasks if t.route == "gpsro")
     assert set(conv_task.var_plan) == {"t"}
     assert set(gpsro_task.var_plan) == {"gps"}
-    assert gpsro_task.var_plan["gps"][0] == str(utils_ncep.GPSRO_BNDA)
-
-
-def test_nnja_obs_conv_pres_modifier_keeps_station_pressure_only():
-    from earth2studio.lexicon import NNJAObsConvLexicon
-
-    _, modifier = NNJAObsConvLexicon["pres"]
-
-    df = pd.DataFrame(
-        {
-            "observation": [1000.0, 850.0, 850.0, 850.0, 850.0, 400.0, 850.0],
-            "type": [180, 181, 187, 120, 120, 180, 250],
-            "class": [
-                "SFCSHP",
-                "ADPSFC",
-                "ADPSFC",
-                "ADPUPA",
-                "ADPUPA",
-                "SFCSHP",
-                "SATWND",
-            ],
-            "level_cat": [0, 0, 0, 0, 1, 0, 0],
-            "quality": [2, 2, 2, 2, 2, 2, 2],
-        }
-    )
-
-    result = modifier(df)
-
-    assert result["observation"].tolist() == [100000.0, 85000.0, 85000.0, 85000.0]
-    assert result["type"].tolist() == [180, 181, 187, 120]
-
-
-@dataclass(frozen=True)
-class _MicrowaveDescriptor:
-    id: int
-
-
-def _decode_microwave_pairs(
-    pairs: list[tuple[int, Any]],
-    variable_fields: tuple[tuple[str, int], ...],
-    sensor: str = "atms",
-    satellites: frozenset[str] | None = None,
-    datetime_min: datetime = datetime(2023, 12, 31, 21),
-    datetime_max: datetime = datetime(2024, 1, 1, 3),
-) -> list[dict[str, Any]]:
-    return ncep_microwave._decode_microwave_subset(
-        [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs],
-        [value for _, value in pairs],
-        sensor,
-        variable_fields,
-        datetime_min,
-        datetime_max,
-        satellites,
-    )
-
-
-def _atms_microwave_pairs() -> list[tuple[int, Any]]:
-    return [
-        (ncep_microwave._YEAR, 2023),
-        (ncep_microwave._MONTH, 12),
-        (ncep_microwave._DAY, 31),
-        (ncep_microwave._HOUR, 21),
-        (ncep_microwave._MINUTE, 2),
-        (ncep_microwave._SECOND, 45.352),
-        (ncep_microwave._LAT_COARSE, 12.3),
-        (ncep_microwave._LON_COARSE, -45.7),
-        (ncep_microwave._LAT_HIGH, 12.34567),
-        (ncep_microwave._LON_HIGH, -45.67891),
-        (ncep_microwave._SAID, 225),
-        (ncep_microwave._SCAN_LINE, 8),
-        (ncep_microwave._FOV_NUMBER, 7),
-        (ncep_microwave._SURFACE_ELEVATION, 123.5),
-        (ncep_microwave._SATELLITE_ZENITH, 55.25),
-        (ncep_microwave._BEARING_OR_AZIMUTH, 269.17),
-        (ncep_microwave._SOLAR_ZENITH, 99.47),
-        (ncep_microwave._SOLAR_AZIMUTH, 153.88),
-        (ncep_microwave._CHANNEL_NUMBER, 2),
-        (ncep_microwave._CHANNEL_FREQUENCY, 31.4e9),
-        (ncep_microwave._ANTENNA_TEMPERATURE, 201.25),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 202.5),
-        (ncep_microwave._CHANNEL_QUALITY, 2),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._CHANNEL_FREQUENCY, 23.8e9),
-        (ncep_microwave._ANTENNA_TEMPERATURE, 190.25),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 191.5),
-        (ncep_microwave._CHANNEL_QUALITY, 1),
-    ]
-
-
-def _microwave_message(pairs: list[tuple[int, Any]]):
-    return _microwave_message_from_subsets([pairs])
-
-
-def _microwave_message_from_subsets(subsets: list[list[tuple[int, Any]]]):
-    template = SimpleNamespace(
-        decoded_descriptors_all_subsets=[
-            [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs]
-            for pairs in subsets
-        ],
-        decoded_values_all_subsets=[[value for _, value in pairs] for pairs in subsets],
-    )
-    return SimpleNamespace(template_data=SimpleNamespace(value=template))
-
-
-def test_nnja_obs_sat_decode_preserves_encoded_atms_quantities_and_identity():
-    rows = _decode_microwave_pairs(
-        _atms_microwave_pairs(),
-        (
-            ("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),
-            ("atms_antenna_temperature", ncep_microwave._ANTENNA_TEMPERATURE),
-        ),
-    )
-
-    assert [row["sensor_index"] for row in rows] == [2, 2, 1, 1]
-    assert [row["variable"] for row in rows] == [
-        "atms",
-        "atms_antenna_temperature",
-        "atms",
-        "atms_antenna_temperature",
-    ]
-    assert [row["observation"] for row in rows] == pytest.approx(
-        [202.5, 201.25, 191.5, 190.25]
-    )
-    assert all(
-        row["time"] == np.datetime64("2023-12-31T21:02:45.352000000") for row in rows
-    )
-    assert rows[0]["lat"] == pytest.approx(12.34567)
-    assert rows[0]["lon"] == pytest.approx(314.32109)
-    assert rows[0]["elev"] == pytest.approx(123.5)
-    assert rows[0]["satellite"] == "n20"
-    assert rows[0]["scan_angle"] == pytest.approx(-46.065)
-    assert rows[0]["scan_position"] == 7
-    assert rows[0]["scan_line"] == 8
-    assert rows[0]["satellite_aza"] == pytest.approx(269.17)
-    assert rows[0]["quality"] == 2
-    assert rows[0]["wavenumber"] == pytest.approx(31.4e9 / ncep_microwave._C_CM_S)
-
-    frame = ncep_microwave._rows_to_dataframe(rows)
-    assert NNJAObsSat.SCHEMA.names == [
-        "time",
-        "class",
-        "lat",
-        "lon",
-        "elev",
-        "scan_angle",
-        "scan_position",
-        "scan_line",
-        "detector",
-        "sensor_index",
-        "wavenumber",
-        "solza",
-        "solaza",
-        "satellite_za",
-        "satellite_aza",
-        "quality",
-        "scan_quality",
-        "granule_quality",
-        "footprint_quality",
-        "satellite",
-        "observation",
-        "variable",
-        "cycle_time",
-    ]
-    assert list(frame.columns) == NNJAObsSat.SCHEMA.names
-    # _rows_to_dataframe delegates to _table_to_dataframe, so every column is
-    # Arrow-backed — same dtype contract as the IR path
-    assert str(frame["time"].dtype) == "timestamp[ns][pyarrow]"
-    assert str(frame["sensor_index"].dtype) == "uint16[pyarrow]"
-    assert str(frame["lat"].dtype) == "float[pyarrow]"
-    assert str(frame["observation"].dtype) == "float[pyarrow]"
-
-
-def test_nnja_obs_sat_decode_atms_footprint_quality():
-    pairs = _atms_microwave_pairs()
-    pairs[12:12] = [
-        (ncep_microwave._GRANULE_QUALITY, 2),
-        (ncep_microwave._SCAN_QUALITY, 5),
-    ]
-    rows = _decode_microwave_pairs(
-        pairs, (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),)
-    )
-    assert all(row["scan_quality"] == 5 for row in rows)
-    assert all(row["granule_quality"] == 2 for row in rows)
-    assert all(row["footprint_quality"] is None for row in rows)
-
-
-@pytest.mark.parametrize(
-    "sensor,scan_position,expected",
-    [
-        ("atms", 1, -52.725),
-        ("atms", 96, 52.725),
-        ("amsua", 1, -145.0 / 3.0),
-        ("amsua", 30, 145.0 / 3.0),
-        ("amsub", 1, -48.95),
-        ("amsub", 90, 48.95),
-        ("mhs", 1, -445.0 / 9.0),
-        ("mhs", 90, 445.0 / 9.0),
-    ],
-)
-def test_ncep_microwave_nominal_scan_geometry(
-    sensor: str, scan_position: int, expected: float
-):
-    assert ncep_microwave._nominal_microwave_scan_angle(
-        sensor, scan_position
-    ) == pytest.approx(expected)
-
-
-def test_nnja_obs_sat_decode_preserves_amsub_channels_and_quantity():
-    pairs = [
-        (descriptor, 207 if descriptor == ncep_microwave._SAID else value)
-        for descriptor, value in _atms_microwave_pairs()
-        if descriptor
-        not in {
-            ncep_microwave._ANTENNA_TEMPERATURE,
-            ncep_microwave._CHANNEL_FREQUENCY,
-            ncep_microwave._CHANNEL_QUALITY,
-        }
-    ]
-    rows = _decode_microwave_pairs(
-        pairs,
-        (("amsub", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-        sensor="amsub",
-    )
-
-    assert [row["sensor_index"] for row in rows] == [2, 1]
-    assert [row["observation"] for row in rows] == pytest.approx([202.5, 191.5])
-    assert {row["satellite"] for row in rows} == {"n16"}
-    assert {row["variable"] for row in rows} == {"amsub"}
-    assert [row["scan_angle"] for row in rows] == pytest.approx([-42.35, -42.35])
-
-
-@pytest.mark.parametrize("decode_workers,message_count", [(1, 1), (2, 33)])
-def test_ncep_microwave_adapter_serial_and_parallel_batch_paths(
-    tmp_path, monkeypatch, decode_workers, message_count
-):
-    source_path = tmp_path / "atms.bufr"
-    source_path.write_bytes(b"synthetic")
-    decoder = SimpleNamespace(
-        process=lambda _message: _microwave_message(_atms_microwave_pairs())
-    )
-    monkeypatch.setattr(ncep_microwave, "_worker_decoder", decoder)
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_parse_prepbufr_messages",
-        lambda _data, silence_noise=True: (
-            {1: ("B",)},
-            {1: ("D",)},
-            [(b"message", 0)] * message_count,
-        ),
-    )
-    initialized = []
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_init_decode_worker",
-        lambda table_b, table_d: initialized.append((table_b, table_d)),
-    )
-
-    class _Executor:
-        def __init__(self, *, max_workers, initializer, initargs):
-            assert max_workers == 2
-            assert initializer is ncep_microwave._init_decode_worker
-            assert initargs == ({1: ("B",)}, {1: ("D",)})
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return None
-
-        def map(self, function, arguments):
-            return map(function, arguments)
-
-    monkeypatch.setattr(ncep_microwave, "ProcessPoolExecutor", _Executor)
-    frame = ncep_microwave.decode_microwave(
-        str(source_path),
-        "atms",
-        {"atms": "TMBR"},
-        datetime(2023, 12, 31, 21),
-        datetime(2024, 1, 1, 3),
-        decode_workers=decode_workers,
-    )
-
-    assert len(frame) == 2 * message_count
-    assert frame["sensor_index"].tolist() == [2, 1] * message_count
-    assert initialized == ([({1: ("B",)}, {1: ("D",)})] if decode_workers == 1 else [])
-
-
-def test_ncep_microwave_message_preserves_mixed_satellite_order(monkeypatch):
-    def pairs_for(satellite_id):
-        return [
-            (
-                descriptor,
-                satellite_id if descriptor == ncep_microwave._SAID else value,
-            )
-            for descriptor, value in _atms_microwave_pairs()
-        ]
-
-    message = _microwave_message_from_subsets(
-        [pairs_for(223), pairs_for(223), pairs_for(3), pairs_for(223)]
-    )
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_worker_decoder",
-        SimpleNamespace(process=lambda _message: message),
-    )
-    rows, failures = ncep_microwave._decode_message_batch(
-        (
-            "mhs",
-            [(17, b"message")],
-            (("mhs", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-            datetime(2023, 12, 31, 21),
-            datetime(2024, 1, 1, 3),
-            None,
-        )
-    )
-
-    assert failures == 0
-    assert [row["satellite"] for row in rows] == [
-        "n19",
-        "n19",
-        "n19",
-        "n19",
-        "metop-b",
-        "metop-b",
-        "n19",
-        "n19",
-    ]
-
-
-def test_ncep_microwave_adapter_rejects_missing_tables_and_failed_messages(
-    tmp_path, monkeypatch
-):
-    source_path = tmp_path / "atms.bufr"
-    source_path.write_bytes(b"synthetic")
-
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_parse_prepbufr_messages",
-        lambda _data, silence_noise=True: ({}, {}, []),
-    )
-    with pytest.raises(ValueError, match="tables are missing"):
-        ncep_microwave.decode_microwave(
-            str(source_path),
-            "atms",
-            {"atms": "TMBR"},
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 1),
-            decode_workers=1,
-        )
-
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_parse_prepbufr_messages",
-        lambda _data, silence_noise=True: (
-            {1: ("B",)},
-            {1: ("D",)},
-            [(b"good-message", 0), (b"bad-message", 0)],
-        ),
-    )
-    monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *_args: None)
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_worker_decoder",
-        SimpleNamespace(
-            process=lambda message: (
-                _microwave_message(_atms_microwave_pairs())
-                if message == b"good-message"
-                else (_ for _ in ()).throw(ValueError("bad message"))
-            )
-        ),
-    )
-    with pytest.raises(ncep_microwave._NCEPMicrowaveDecodeError) as error:
-        ncep_microwave.decode_microwave(
-            str(source_path),
-            "atms",
-            {"atms": "TMBR"},
-            datetime(2023, 12, 31, 21),
-            datetime(2024, 1, 1, 3),
-            decode_workers=1,
-        )
-    assert error.value.context == {
-        "path": str(source_path),
-        "decoded_messages": 1,
-        "failed_messages": 1,
-        "total_messages": 2,
-    }
-
-
-def test_nnja_obs_sat_decode_uses_coarse_location_and_preserves_missingness():
-    pairs = [
-        (ncep_microwave._YEAR, 2024),
-        (ncep_microwave._MONTH, 1),
-        (ncep_microwave._DAY, 1),
-        (ncep_microwave._HOUR, 0),
-        (ncep_microwave._MINUTE, 0),
-        (ncep_microwave._SECOND, 1),
-        (ncep_microwave._LAT_COARSE, -1.2286),
-        (ncep_microwave._LON_COARSE, -2.8979),
-        (ncep_microwave._SAID, 3),
-        (ncep_microwave._FOV_NUMBER, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 272.02),
-        (ncep_microwave._CHANNEL_NUMBER, 2),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, None),
-    ]
-    rows = _decode_microwave_pairs(
-        pairs,
-        (("mhs", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-        sensor="mhs",
-    )
-
-    # The missing channel 2 is a NaN row, so the footprint keeps all its channels
-    assert [row["sensor_index"] for row in rows] == [1, 2]
-    assert np.isnan(rows[1]["observation"])
-    assert rows[0]["lat"] == pytest.approx(-1.2286)
-    assert rows[0]["lon"] == pytest.approx(357.1021)
-    assert rows[0]["satellite"] == "metop-b"
-    assert rows[0]["observation"] == pytest.approx(272.02)
-    assert rows[0]["quality"] is None
-    assert np.isnan(rows[0]["wavenumber"])
-
-    assert not _decode_microwave_pairs(
-        pairs,
-        (("mhs", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-        sensor="mhs",
-        satellites=frozenset(["n19"]),
-    )
-
-
-@pytest.mark.asyncio
-async def test_nnja_obs_sat_fetch_uses_foundation_store(tmp_path, monkeypatch):
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    source = NNJAObsSat(
-        time_tolerance=timedelta(0),
-        cache=True,
-        verbose=False,
-        decode_workers=1,
-    )
-    local_path = tmp_path / "atms.bufr"
-    local_path.write_bytes(b"fixture")
-    monkeypatch.setattr(source, "local_path", lambda _uri: str(local_path))
-
-    rows = _decode_microwave_pairs(
-        _atms_microwave_pairs(),
-        (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-    )
-    decoded = ncep_microwave._rows_to_dataframe(rows)
-
-    async def fetch_files(_uris):
-        return None
-
-    monkeypatch.setattr(source, "fetch_files", fetch_files)
-    monkeypatch.setattr(source, "_decode_file", lambda _path, _task: decoded)
-
-    result = await source.fetch(
-        datetime(2024, 1, 1),
-        "atms",
-        fields=["time", "observation", "variable"],
-    )
-
-    assert list(result.columns) == ["time", "observation", "variable"]
-    assert len(result) == 2
-    assert result.attrs == {"source": NNJAObsSat.SOURCE_ID}
+    assert gpsro_task.var_plan["gps"][0] == "15037"
 
 
 @pytest.mark.asyncio
@@ -1201,27 +524,6 @@ async def test_nnja_obs_sat_fetch_and_task_failures_are_structured(
         "cause_type": "RuntimeError",
         "cause_message": "decode failed",
     }
-
-
-def test_nnja_obs_sat_decode_rejects_incomplete_or_out_of_window_subsets():
-    missing_fov = [
-        pair
-        for pair in _atms_microwave_pairs()
-        if pair[0] != ncep_microwave._FOV_NUMBER
-    ]
-    assert not _decode_microwave_pairs(
-        missing_fov,
-        (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-    )
-
-    out_of_window = [
-        (descriptor, 12 if descriptor == ncep_microwave._HOUR else value)
-        for descriptor, value in _atms_microwave_pairs()
-    ]
-    assert not _decode_microwave_pairs(
-        out_of_window,
-        (("atms", ncep_microwave._BRIGHTNESS_TEMPERATURE),),
-    )
 
 
 def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
@@ -1301,57 +603,6 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
     with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
         source._create_tasks([datetime(2000, 1, 1)], ["atms", "cris"])
     assert unavailable.value.context["reason"] == "archive_unavailable"
-    with pytest.raises(KeyError):
-        ncep_microwave.decode_microwave(
-            "not-read.bufr",
-            "atms",
-            {"atms": "UNKNOWN"},
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 1),
-            decode_workers=1,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Hyperspectral IR sounders folded into NNJAObsSat (airs / iasi / cris)
-# ---------------------------------------------------------------------------
-
-
-def _decode_ir_pairs(
-    pairs: list[tuple[int, Any]],
-    sensor: str,
-    channels_filter: frozenset[int] | None = None,
-    satellites: frozenset[str] | None = None,
-    datetime_min: datetime = datetime(2023, 12, 31, 21),
-    datetime_max: datetime = datetime(2024, 1, 1, 3),
-) -> list[dict[str, Any]]:
-    return ncep_microwave._decode_ir_subset(
-        [_MicrowaveDescriptor(descriptor) for descriptor, _ in pairs],
-        [value for _, value in pairs],
-        sensor,
-        channels_filter,
-        datetime_min,
-        datetime_max,
-        satellites,
-    )
-
-
-def _ir_scalar_pairs(said: int) -> list[tuple[int, Any]]:
-    return [
-        (ncep_microwave._YEAR, 2023),
-        (ncep_microwave._MONTH, 12),
-        (ncep_microwave._DAY, 31),
-        (ncep_microwave._HOUR, 21),
-        (ncep_microwave._MINUTE, 2),
-        (ncep_microwave._SECOND, 45.352),
-        (ncep_microwave._LAT_HIGH, 12.34567),
-        (ncep_microwave._LON_HIGH, -45.67891),
-        (ncep_microwave._SAID, said),
-        (ncep_microwave._SCAN_LINE, 8),
-        (ncep_microwave._FOV_NUMBER, 7),
-        (ncep_microwave._SATELLITE_ZENITH, 55.25),
-        (ncep_microwave._SOLAR_ZENITH, 99.47),
-    ]
 
 
 def test_nnja_obs_sat_ir_tasks_use_verified_archive_routes():
@@ -1411,455 +662,12 @@ def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
     assert {task.sensor for task in tasks} == {"atms", "cris"}
 
 
-def test_nnja_obs_sat_decode_file_routes_ir_and_microwave(monkeypatch):
-    source = NNJAObsSat(
-        satellites=["aqua", "npp", "metop-b"],
-        cache=False,
-        verbose=False,
-        decode_workers=1,
-    )
-    empty = ncep_microwave._rows_to_dataframe([])
-    calls: dict[str, dict[str, Any]] = {}
-
-    def fake_ir(path, sensor, channels, dt_min, dt_max, satellites, decode_workers):
-        calls["ir"] = {
-            "sensor": sensor,
-            "channels": channels,
-            "satellites": satellites,
-        }
-        return empty
-
-    def fake_mw(path, sensor, plan, dt_min, dt_max, satellites, decode_workers):
-        calls["mw"] = {"sensor": sensor, "satellites": satellites}
-        return empty
-
-    monkeypatch.setattr(nnja, "decode_ir_sounder", fake_ir)
-    monkeypatch.setattr(nnja, "decode_microwave", fake_mw)
-
-    cycle = datetime(2024, 1, 1)
-    cris_task = nnja._NNJASatTask(
-        uri="uri",
-        datetime_file=cycle,
-        datetime_min=cycle,
-        datetime_max=cycle,
-        sensor="cris",
-        var_plan={"cris": "SRAD"},
-    )
-    frame = source._decode_file("path", cris_task)
-    assert list(frame.columns) == list(NNJAObsSat.SCHEMA.names)
-    # Every published channel is decoded; narrowing happens downstream
-    assert calls["ir"]["channels"] is None
-    # The user filter is narrowed to the sensor's own platforms
-    assert calls["ir"]["satellites"] == ("npp",)
-    assert "mw" not in calls
-
-    atms_task = nnja._NNJASatTask(
-        uri="uri",
-        datetime_file=cycle,
-        datetime_min=cycle,
-        datetime_max=cycle,
-        sensor="atms",
-        var_plan={"atms": "TMBR"},
-    )
-    source._decode_file("path", atms_task)
-    assert calls["mw"]["sensor"] == "atms"
-    assert calls["mw"]["satellites"] == ("aqua", "metop-b", "npp")
-
-
 def test_nnja_obs_sat_lexicon_ir_routes():
     from earth2studio.lexicon import NNJAObsSatLexicon
 
     assert NNJAObsSatLexicon.VOCAB["airs"] == "airs::TMBR"
     assert NNJAObsSatLexicon.VOCAB["iasi"] == "iasi::SCRA"
     assert NNJAObsSatLexicon.VOCAB["cris"] == "cris::SRAD"
-
-
-def _airs_ir_pairs() -> list[tuple[int, Any]]:
-    # Mirrors the real airsev channel loop layout: CHNM, LOGRCW, ACQF, TMBR
-    return _ir_scalar_pairs(said=784) + [
-        (31002, 3),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(649.62 * 100.0)),
-        (ncep_microwave._ACQF, 0),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
-        (ncep_microwave._CHANNEL_NUMBER, 6),
-        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(650.814 * 100.0)),
-        (ncep_microwave._ACQF, 2),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 250.25),
-        # A channel missing LOGRCW keeps its BT but has no wavenumber
-        (ncep_microwave._CHANNEL_NUMBER, 92),
-        (ncep_microwave._ACQF, 0),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 260.0),
-    ]
-
-
-def test_nnja_ir_decode_airs_brightness_temperature_passthrough():
-    rows = _decode_ir_pairs(_airs_ir_pairs(), "airs")
-
-    assert len(rows) == 3
-    by_channel = {row["sensor_index"]: row for row in rows}
-    assert by_channel[1]["observation"] == 285.5
-    # Wavenumber decoded from the file's per-channel LOGRCW field
-    assert by_channel[1]["wavenumber"] == pytest.approx(649.62)
-    assert by_channel[1]["quality"] == 0
-    assert by_channel[6]["observation"] == 250.25
-    assert by_channel[6]["wavenumber"] == pytest.approx(650.814)
-    assert by_channel[6]["quality"] == 2
-    assert by_channel[92]["observation"] == 260.0
-    assert np.isnan(by_channel[92]["wavenumber"])
-    assert by_channel[1]["variable"] == "airs"
-    assert by_channel[1]["satellite"] == "aqua"
-
-    # The decode-layer channel filter still narrows rows (internal capability)
-    only = _decode_ir_pairs(_airs_ir_pairs(), "airs", channels_filter=frozenset({6}))
-    assert [row["sensor_index"] for row in only] == [6]
-
-    # Platform filtering drops the whole footprint
-    assert not _decode_ir_pairs(_airs_ir_pairs(), "airs", satellites=frozenset({"npp"}))
-
-
-def test_nnja_ir_decode_iasi_scaled_radiance_planck():
-    from earth2studio.data.utils import PLANCK_C1 as C1
-    from earth2studio.data.utils import PLANCK_C2 as C2
-
-    wavenumber = 645.0  # IASI channel 1
-    target_bt = 280.0
-    radiance_mw = C1 * wavenumber**3 / (np.exp(C2 * wavenumber / target_bt) - 1.0)
-    chsf = 7
-    scra = radiance_mw * 10.0**chsf / 1e5
-
-    pairs = _ir_scalar_pairs(said=3) + [
-        (ncep_microwave._STCH, 1),
-        (ncep_microwave._ENCH, 8461),
-        (ncep_microwave._CHSF, chsf),
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._SCRA, scra),
-    ]
-    rows = _decode_ir_pairs(pairs, "iasi")
-
-    assert len(rows) == 1
-    assert rows[0]["observation"] == pytest.approx(target_bt, abs=1e-6)
-    assert rows[0]["wavenumber"] == pytest.approx(645.0)
-    assert rows[0]["satellite"] == "metop-b"
-
-    # A channel outside every CHSF band cannot be converted: a NaN row, not a drop
-    no_band = _ir_scalar_pairs(said=3) + [
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._SCRA, scra),
-    ]
-    (row,) = _decode_ir_pairs(no_band, "iasi")
-    assert np.isnan(row["observation"])
-
-
-def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
-    from earth2studio.data.utils import PLANCK_C1 as C1
-    from earth2studio.data.utils import PLANCK_C2 as C2
-
-    wavenumber = 1210.0  # CrIS channel 714, first mid-wave channel
-    target_bt = 260.0
-    radiance_mw = C1 * wavenumber**3 / (np.exp(C2 * wavenumber / target_bt) - 1.0)
-    srad = radiance_mw / 1000.0
-
-    pairs = _ir_scalar_pairs(said=224) + [
-        (ncep_microwave._FORN, 15),
-        # Three per-band NFQF/NCQF occurrences (LW, MW, SW) precede the
-        # channel loop in crisf4; channel 714 is the first mid-wave channel
-        (ncep_microwave._NFQF, 1),
-        (ncep_microwave._NCQF, 0),
-        (ncep_microwave._NFQF, 4),
-        (ncep_microwave._NCQF, 2),
-        (ncep_microwave._NFQF, 0),
-        (ncep_microwave._NCQF, 0),
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 714),
-        (ncep_microwave._SRAD, srad),
-    ]
-    rows = _decode_ir_pairs(pairs, "cris")
-
-    assert len(rows) == 1
-    assert rows[0]["observation"] == pytest.approx(target_bt, abs=1e-6)
-    assert rows[0]["wavenumber"] == pytest.approx(1210.0)
-    assert rows[0]["satellite"] == "npp"
-    # CrIS scan_position is FORN (cross-track 1-30), not FOVN (detector 1-9)
-    assert rows[0]["scan_position"] == 15
-    # Mid-wave band quality: NFQF=4 | NCQF=2 << 19
-    assert rows[0]["quality"] == 4 | (2 << 19)
-
-
-def test_nnja_ir_decode_cris_quality_null_without_band_flags():
-    # A crisf4 subset without NFQF/NCQF occurrences leaves quality null
-    pairs = _ir_scalar_pairs(said=224) + [
-        (ncep_microwave._FORN, 3),
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 714),
-        (ncep_microwave._SRAD, 0.05),
-    ]
-    rows = _decode_ir_pairs(pairs, "cris")
-    assert len(rows) == 1
-    assert rows[0]["quality"] is None
-
-
-def test_nnja_ir_decode_footprint_quality():
-    cris = _ir_scalar_pairs(said=224) + [
-        (ncep_microwave._FORN, 3),
-        (ncep_microwave._CRIS_SCAN_QUALITY, 8),
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 714),
-        (ncep_microwave._SRAD, 0.05),
-    ]
-    (row,) = _decode_ir_pairs(cris, "cris")
-    assert row["scan_quality"] == 8
-    assert row["granule_quality"] is None
-    assert row["footprint_quality"] is None
-
-    iasi = _ir_scalar_pairs(said=3) + [
-        (ncep_microwave._IASI_SYSTEM_QUALITY, 1),
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._SCRA, 100),
-    ]
-    (row,) = _decode_ir_pairs(iasi, "iasi")
-    assert row["footprint_quality"] == 1
-    assert row["scan_quality"] is None
-
-
-def test_nnja_ir_decode_cris_guard_block_not_emitted():
-    # crisf4's guard-spectrum block opens with DRF8BIT (0-31-001) and reuses
-    # CHNM/SRAD; its slots must not be decoded as science channels
-    pairs = _ir_scalar_pairs(said=224) + [
-        (ncep_microwave._FORN, 3),
-        # Budget deliberately larger than the declared channels so the
-        # 31001 marker, not the budget, is what stops the guard block
-        (31002, 13),
-        (ncep_microwave._CHANNEL_NUMBER, 714),
-        (ncep_microwave._SRAD, 0.05),
-        # Guard block: replication marker then guard CHNM/SRAD slots
-        (31001, 12),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._SRAD, 0.07),
-    ]
-    rows = _decode_ir_pairs(pairs, "cris")
-    assert [row["sensor_index"] for row in rows] == [714]
-
-
-def test_nnja_ir_decode_second_marker_break_is_airs_only():
-    # A second DRF16BIT does not terminate IASI/CrIS decoding; the channel
-    # budget is the terminator, so a nested replication block added to a
-    # future product cannot silently truncate footprints
-    pairs = _ir_scalar_pairs(said=224) + [
-        (ncep_microwave._FORN, 3),
-        (31002, 2),
-        (ncep_microwave._CHANNEL_NUMBER, 714),
-        (ncep_microwave._SRAD, 0.05),
-        (31002, 5),  # unexpected nested marker mid-block
-        (ncep_microwave._CHANNEL_NUMBER, 715),
-        (ncep_microwave._SRAD, 0.05),
-    ]
-    rows = _decode_ir_pairs(pairs, "cris")
-    assert sorted(row["sensor_index"] for row in rows) == [714, 715]
-
-
-def test_nnja_ir_decode_footprint_without_scan_position_dropped():
-    # scan_position is non-nullable uint16 in the output schema; a footprint
-    # missing its cross-track position (FORN for CrIS, FOVN otherwise) is
-    # dropped rather than emitting None into a non-nullable column
-    pairs_no_forn = _ir_scalar_pairs(said=224) + [
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 714),
-        (ncep_microwave._SRAD, 0.05),
-    ]
-    assert not _decode_ir_pairs(pairs_no_forn, "cris")
-
-    pairs_no_fovn = [
-        pair
-        for pair in _ir_scalar_pairs(said=784)
-        if pair[0] != ncep_microwave._FOV_NUMBER
-    ] + [
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(649.62 * 100.0)),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
-    ]
-    assert not _decode_ir_pairs(pairs_no_fovn, "airs")
-
-
-def test_nnja_ir_decode_airs_stops_at_second_replication_block():
-    # airsev appends AMSU-A/HSB channel blocks that reuse the TMBR
-    # descriptor; their channels must not be emitted as AIRS rows
-    pairs = _airs_ir_pairs() + [
-        (31002, 2),
-        (ncep_microwave._CHANNEL_NUMBER, 2),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 199.75),
-        (ncep_microwave._CHANNEL_NUMBER, 3),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 201.5),
-    ]
-    rows = _decode_ir_pairs(pairs, "airs")
-    assert sorted(row["sensor_index"] for row in rows) == [1, 6, 92]
-
-
-def test_nnja_ir_decode_failure_raises(monkeypatch, tmp_path):
-    # decode_ir_sounder honors the same strict completeness contract as
-    # decode_microwave: failed messages raise instead of silently truncating
-    bufr = tmp_path / "fake.bufr"
-    bufr.write_bytes(b"")
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_parse_prepbufr_messages",
-        lambda *a, **k: ({1: 1}, {1: 1}, [(b"m", None)]),
-    )
-    monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *a: None)
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_decode_ir_message_batch",
-        lambda argument: (
-            ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA.empty_table(),
-            1,
-        ),
-    )
-    with pytest.raises(ncep_microwave._NCEPIRSounderDecodeError) as err:
-        ncep_microwave.decode_ir_sounder(
-            str(bufr),
-            "cris",
-            None,
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 2),
-            decode_workers=1,
-        )
-    assert err.value.context["failed_messages"] == 1
-
-
-def test_nnja_ir_batch_tables_concat_to_shared_dtypes():
-    # Workers now return per-batch Arrow tables; this exercises the real
-    # concat + conversion path those tables flow through in decode_ir_sounder
-    def _row(sensor_index, observation):
-        return {
-            "time": np.datetime64("2019-01-01T00:00:00", "ns"),
-            "class": "rad",
-            "lat": 10.0,
-            "lon": 240.0,
-            "elev": np.nan,
-            "scan_angle": np.nan,
-            "scan_position": 7,
-            "scan_line": 8,
-            "sensor_index": sensor_index,
-            "wavenumber": 1210.0,
-            "solza": 90.0,
-            "solaza": 100.0,
-            "satellite_za": 50.0,
-            "satellite_aza": 200.0,
-            "quality": None,
-            "satellite": "npp",
-            "observation": observation,
-            "variable": "cris",
-        }
-
-    schema = ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
-    batch_tables = [
-        pa.Table.from_pylist([_row(714, 250.0)], schema=schema),
-        pa.Table.from_pylist([_row(715, 251.0)], schema=schema),
-    ]
-    # Chunked on purpose: production hands _table_to_dataframe the
-    # concatenated table without consolidating it
-    df = ncep_microwave._table_to_dataframe(pa.concat_tables(batch_tables))
-    assert list(df.columns) == schema.names
-    assert len(df) == 2
-    assert sorted(df["sensor_index"]) == [714, 715]
-    assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
-    assert str(df["quality"].dtype) == "uint32[pyarrow]"
-
-    # The no-rows path returns a typed empty frame with the same columns
-    df_empty = ncep_microwave._table_to_dataframe(schema.empty_table())
-    assert df_empty.empty
-    assert list(df_empty.columns) == schema.names
-
-
-def test_nnja_ir_decode_sounder_concatenates_batch_tables(monkeypatch, tmp_path):
-    # Workers return per-batch Arrow tables; decode_ir_sounder concatenates
-    # them into one frame with the shared dtype contract
-    bufr = tmp_path / "fake.bufr"
-    bufr.write_bytes(b"")
-    monkeypatch.setattr(
-        ncep_microwave,
-        "_parse_prepbufr_messages",
-        lambda *a, **k: ({1: 1}, {1: 1}, [(b"m", None)]),
-    )
-    monkeypatch.setattr(ncep_microwave, "_init_decode_worker", lambda *a: None)
-
-    row = {
-        "time": np.datetime64("2019-01-01T00:00:00", "ns"),
-        "class": "rad",
-        "lat": 10.0,
-        "lon": 240.0,
-        "elev": np.nan,
-        "scan_angle": np.nan,
-        "scan_position": 7,
-        "scan_line": 8,
-        "sensor_index": 714,
-        "wavenumber": 1210.0,
-        "solza": 90.0,
-        "solaza": 100.0,
-        "satellite_za": 50.0,
-        "satellite_aza": 200.0,
-        "quality": None,
-        "satellite": "npp",
-        "observation": 250.0,
-        "variable": "cris",
-    }
-    table = pa.Table.from_pylist(
-        [row], schema=ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
-    )
-    monkeypatch.setattr(
-        ncep_microwave, "_decode_ir_message_batch", lambda argument: (table, 0)
-    )
-
-    df = ncep_microwave.decode_ir_sounder(
-        str(bufr),
-        "cris",
-        None,
-        datetime(2019, 1, 1),
-        datetime(2019, 1, 2),
-        decode_workers=1,
-    )
-    assert list(df.columns) == ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA.names
-    assert len(df) == 1
-    assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
-    assert str(df["quality"].dtype) == "uint32[pyarrow]"
-
-
-def test_nnja_obs_sat_sensor_indices_narrow_ir_decode(monkeypatch):
-    with pytest.raises(ValueError, match="sensor_indices"):
-        NNJAObsSat(sensor_indices={"atms": [1]}, cache=False, verbose=False)
-
-    source = NNJAObsSat(
-        sensor_indices={"cris": [19, 24]},
-        cache=False,
-        verbose=False,
-        decode_workers=1,
-    )
-    seen = {}
-
-    def fake_ir(path, sensor, channels, dt_min, dt_max, satellites, decode_workers):
-        seen[sensor] = channels
-        return ncep_microwave._rows_to_dataframe([])
-
-    monkeypatch.setattr(nnja, "decode_ir_sounder", fake_ir)
-    cycle = datetime(2024, 1, 1)
-
-    for sensor in ["cris", "iasi"]:
-        task = nnja._NNJASatTask(
-            uri="uri",
-            datetime_file=cycle,
-            datetime_min=cycle,
-            datetime_max=cycle,
-            sensor=sensor,
-            var_plan={sensor: "X"},
-        )
-        source._decode_file("path", task)
-
-    assert seen["cris"] == frozenset({19, 24})
-    assert seen["iasi"] is None
 
 
 def test_nnja_obs_sat_sensor_indices_validation():
@@ -1908,92 +716,15 @@ def test_nnja_obs_sat_ir_tasks_skipped_when_satellites_exclude_sensor():
     assert source._create_tasks([datetime(2019, 1, 1)], ["amsua"])
 
 
-def test_nnja_obs_sat_fetch_mixed_microwave_and_ir(monkeypatch, tmp_path):
-    # The folded single entry point returns one Arrow-typed frame for a
-    # request spanning both sensor families
-    source = NNJAObsSat(
-        time_tolerance=timedelta(0),
-        cache=False,
-        verbose=False,
-        decode_workers=1,
-    )
-
-    async def fake_fetch_files(uris):
-        return None
-
-    def _row(variable, observation, wavenumber):
-        return {
-            "time": np.datetime64("2019-01-01T00:00:00", "ns"),
-            "class": "rad",
-            "lat": 10.0,
-            "lon": 240.0,
-            "elev": np.nan,
-            "scan_angle": np.nan,
-            "scan_position": 7,
-            "scan_line": 8,
-            "sensor_index": 19,
-            "wavenumber": wavenumber,
-            "solza": 90.0,
-            "solaza": 100.0,
-            "satellite_za": 50.0,
-            "satellite_aza": 200.0,
-            "quality": None,
-            "satellite": "npp",
-            "observation": observation,
-            "variable": variable,
-        }
-
-    def fake_decode(path, task):
-        if task.sensor in nnja._NNJA_IR_SENSORS:
-            frame = ncep_microwave._rows_to_dataframe([_row("cris", 250.0, 661.25)])
-        else:
-            frame = ncep_microwave._rows_to_dataframe([_row("atms", 220.0, np.nan)])
-        return frame[NNJAObsSat.SCHEMA.names]
-
-    cached = tmp_path / "cached.bufr"
-    cached.write_bytes(b"fake")
-    monkeypatch.setattr(source, "fetch_files", fake_fetch_files)
-    monkeypatch.setattr(source, "local_path", lambda uri: str(cached))
-    monkeypatch.setattr(source, "_decode_file", fake_decode)
-
-    df = source(datetime(2019, 1, 1), ["atms", "cris"])
-
-    assert list(df.columns) == NNJAObsSat.SCHEMA.names
-    assert set(df["variable"]) == {"atms", "cris"}
-    assert len(df) == 2
-    # One dtype contract across sensor families after concat
-    assert str(df["scan_position"].dtype) == "uint16[pyarrow]"
-
-
-def test_nnja_ir_decode_respects_channel_replication_count():
-    # In real airsev subsets the AMSU-A/HSB blocks that follow the sounder
-    # channels are not always preceded by another replication descriptor;
-    # the declared count is the reliable block terminator
-    pairs = _ir_scalar_pairs(said=784) + [
-        (31002, 1),
-        (ncep_microwave._CHANNEL_NUMBER, 1),
-        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(649.62 * 100.0)),
-        (ncep_microwave._ACQF, 0),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 285.5),
-        # AMSU-A style channels without a second 31002 marker
-        (ncep_microwave._CHANNEL_NUMBER, 3),
-        (ncep_microwave._LOG10_CENTRAL_WAVENUMBER, np.log10(0.8 * 100.0)),
-        (ncep_microwave._BRIGHTNESS_TEMPERATURE, 210.0),
-    ]
-    rows = _decode_ir_pairs(pairs, "airs")
-    assert [row["sensor_index"] for row in rows] == [1]
-
-
 def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
     tmp_path, monkeypatch
 ):
     cached_file = tmp_path / "cached.bufr"
     cached_file.write_bytes(b"fixture")
-    frame = pd.DataFrame(
+    frame = pa.table(
         {
-            "time": pd.to_datetime(["2024-01-01 00:00:00"]),
-            "observation": [273.15],
-            "variable": ["t"],
+            "time": pa.array([np.datetime64("2024-01-01", "ns")]),
+            "observation_t": pa.array([273.15], type=pa.float32()),
         }
     )
     source = NNJAObsConv(cache=True, verbose=False, async_timeout=1)
@@ -2003,7 +734,7 @@ def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
 
     def slow_decode(path, task):
         time.sleep(1.5)
-        return frame.copy()
+        return frame
 
     monkeypatch.setattr(source, "fetch_files", quick_fetch)
     monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
@@ -2017,3 +748,496 @@ def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
     monkeypatch.setattr(source, "fetch_files", slow_fetch)
     with pytest.raises(TimeoutError):
         source(datetime(2024, 1, 1), ["t"], fields=fields)
+
+
+# Decoders on synthetic earth2bufr batches
+
+
+T0 = datetime(2024, 1, 1, 0)
+
+
+class _FakeBufr:
+    """Stands in for an earth2bufr file: yields the given batches, applying list filters."""
+
+    def __init__(self, batches, messages=()):
+        self.batches = batches
+        self.info = SimpleNamespace(
+            messages=list(messages), data_messages=list(messages)
+        )
+        self.options = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def iter_batches(self, **options):
+        self.options = options
+        for batch in self.batches:
+            for flt in options.get("list_filters", []):
+                batch = _filter_list(batch, flt.field, flt.key, set(flt.values))
+            yield batch
+
+
+def _filter_list(batch, field, key, values):
+    lists = batch.column(field)
+    keep = pc.is_in(
+        lists.values.field(key), value_set=pa.array(sorted(values))
+    ).to_numpy(zero_copy_only=False)
+    parent = np.repeat(np.arange(len(lists)), np.diff(lists.offsets.to_numpy()))
+    offsets = np.zeros(len(lists) + 1, dtype=np.int32)
+    np.cumsum(np.bincount(parent[keep], minlength=len(lists)), out=offsets[1:])
+    filtered = pa.ListArray.from_arrays(
+        pa.array(offsets), lists.values.filter(pa.array(keep))
+    )
+    index = batch.schema.get_field_index(field)
+    return batch.set_column(index, field, filtered)
+
+
+@pytest.fixture
+def fake_bufr(monkeypatch):
+    files = {}
+
+    def open_fake(path):
+        return files[path]
+
+    monkeypatch.setattr(utils_ncep, "open_bufr", open_fake)
+    return files
+
+
+def _batch(columns: dict) -> pa.RecordBatch:
+    names, arrays = [], []
+    for name, values in columns.items():
+        names.append(name.split("#")[0])
+        arrays.append(values if isinstance(values, pa.Array) else pa.array(values))
+    return pa.RecordBatch.from_arrays(arrays, names=names)
+
+
+def _time_parts(stamps: list[datetime]) -> dict:
+    return {
+        "YEAR": [float(t.year) for t in stamps],
+        "MNTH": [float(t.month) for t in stamps],
+        "DAYS": [float(t.day) for t in stamps],
+        "HOUR": [float(t.hour) for t in stamps],
+        "MINU": [float(t.minute) for t in stamps],
+        "SECO": [float(t.second) for t in stamps],
+    }
+
+
+def _struct_list(rows: list[list[tuple]], names: list[str]) -> pa.Array:
+    """list<struct> from per-row lists of tuples; duplicate child names allowed."""
+    flat = [entry for row in rows for entry in row]
+    children = [
+        pa.array([entry[i] for entry in flat], type=pa.float64())
+        for i in range(len(names))
+    ]
+    values = pa.StructArray.from_arrays(children, names=names)
+    offsets = np.concatenate([[0], np.cumsum([len(row) for row in rows])])
+    return pa.ListArray.from_arrays(pa.array(offsets, type=pa.int32()), values)
+
+
+def _gpsro_batch(stamps: list[datetime]) -> pa.RecordBatch:
+    n = len(stamps)
+    levels = _struct_list(
+        [[(10.5, 20.5)]] * n, ["CLATH", "CLONH"]
+    )  # one level per occultation
+    frequencies = _struct_list(
+        [[(0.0, 6.4e6, 0.01, 0.001), (1.5e9, 6.4e6, 0.02, 0.002)]] * n,
+        ["MEFR", "IMPP", "BNDA", "BNDA"],
+    )
+    level_values = pa.StructArray.from_arrays(
+        [levels.values.field(0), levels.values.field(1), frequencies],
+        names=["CLATH", "CLONH", "DRF8BIT"],
+    )
+    return _batch(
+        {
+            "SAID": [44.0] * n,
+            "PTID": [7.0] * n,
+            "QFRO": [0.0] * n,
+            "ELRC": [6.37e6] * n,
+            "GEODU": [12.0] * n,
+            "CLATH": [10.0] * n,
+            "CLONH": [-20.0] * n,
+            **_time_parts(stamps),
+            "DRF16BIT": pa.ListArray.from_arrays(levels.offsets, level_values),
+            "DRF16BIT_2": _struct_list(
+                [[(1000.0, 300.0, 1.0), (2000.0, 250.0, 1.0)]] * n,
+                ["HEIT", "ARFR", "ARFR"],
+            ),
+        }
+    )
+
+
+def _prepbufr_batch() -> tuple[pa.RecordBatch, list]:
+    scale = {b"bufr.scale": b"3"}
+    events = {
+        "P": _struct_list([[(850.0, 1.0)], [(1000.0, 2.0)]], ["POB", "PQM"]),
+        "T": _struct_list([[(10.0, 1.0), (11.0, 9.0)], [(20.0, 2.0)]], ["TOB", "TQM"]),
+        "W": _struct_list([[(1.0, 2.0, 3.0)], []], ["UOB", "VOB", "WQM"]),
+    }
+    level = pa.StructArray.from_arrays(
+        [pa.array([1.0, 0.0]), pa.array([1500.0, 10.0]), *events.values()],
+        names=["CAT", "ZOB", "P", "T", "W"],
+    )
+    levels = pa.ListArray.from_arrays(pa.array([0, 1, 2], type=pa.int32()), level)
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(["STN1    ", "STN2    "]),
+            pa.array([250.0, -10.0]),
+            pa.array([40.0, 41.0]),
+            pa.array([0.0, 3.0]),
+            pa.array([100.0, 5.0]),
+            pa.array([120.0, 181.0]),
+            levels,
+            pa.array([102.0, 102.0]),
+            pa.array([0, 0], type=pa.uint64()),
+        ],
+        schema=pa.schema(
+            [
+                ("SID", pa.string()),
+                ("XOB", pa.float64()),
+                ("YOB", pa.float64()),
+                pa.field("DHR", pa.float64(), metadata=scale),
+                ("ELV", pa.float64()),
+                ("TYP", pa.float64()),
+                ("DRF8BIT", levels.type),
+                ("_data_category", pa.float64()),
+                ("_source_message_index", pa.uint64()),
+            ]
+        ),
+    )
+    message = SimpleNamespace(
+        source_message_index=0,
+        edition=4,
+        year=2024,
+        month=1,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+    )
+    return batch, [message]
+
+
+def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
+    n = len(stamps)
+    return _batch(
+        {
+            **_time_parts(stamps),
+            "SAID": [270.0] * n,
+            "SWCM": [1.0] * n,
+            "PRLC": [50000.0] * n,
+            "PRLC#2": [3000.0] * n,
+            "SAZA": [30.0] * n,
+            "WDIR": [90.0] * n,
+            "WSPD": [10.0] * n,
+            "SWQM": [0.0] * n,
+            "CLATH": [10.0] * n,
+            "CLONH": [-30.0] * n,
+            "GNAP": [1.0] * n,
+            "PCCF": [90.0] * n,
+            "GNAP#2": [2.0] * n,
+            "PCCF#2": [80.0] * n,
+            "GNAP#3": [1.0] * n,
+            "PCCF#3": [70.0] * n,
+            "_source_message_index": pa.array([0] * n, type=pa.uint64()),
+        }
+    )
+
+
+def _sat_batch(
+    sensor: str, stamps: list[datetime], channels, entries
+) -> pa.RecordBatch:
+    n = len(stamps)
+    names = {
+        "atms": ["CHNM", "SCCF", "ATMSCHQ", "TMBR"],
+        "iasi": ["CHNM", "SCRA"],
+    }[sensor]
+    rows = [[(c, *entries(c)) for c in channels]] * n
+    extra = (
+        {"ATMSGQ": [0.0] * n, "ATMSSQ": [0.0] * n}
+        if sensor == "atms"
+        else {
+            "QGFQ": [0.0] * n,
+            "STCH": [1.0] * n,
+            "ENCH": [8461.0] * n,
+            "CHSF": [7.0] * n,
+        }
+    )
+    return _batch(
+        {
+            "SAID": [224.0 if sensor == "atms" else 4.0] * n,
+            **_time_parts(stamps),
+            "SLNM": [1.0] * n,
+            "FOVN": [5.0] * n,
+            "CLATH": [10.0] * n,
+            "CLONH": [-30.0] * n,
+            "SAZA": [20.0] * n,
+            "SOZA": [40.0] * n,
+            "BEARAZ": [100.0] * n,
+            "SOLAZI": [200.0] * n,
+            **extra,
+            "DRF16BIT": _struct_list(rows, names),
+        }
+    )
+
+
+def test_observation_cycle_times_cover_closed_window():
+    # A file at T holds (T - 6h, T]; a closed [T - 3h, T + 3h] request needs T and T + 6h
+    assert observation_cycle_times(T0, timedelta(hours=-3), timedelta(hours=3)) == [
+        T0,
+        T0 + timedelta(hours=6),
+    ]
+    windows = cycle_windows([T0], timedelta(hours=-3), timedelta(hours=3))
+    assert all(
+        w == (T0 - timedelta(hours=3), T0 + timedelta(hours=3))
+        for w in windows.values()
+    )
+
+
+def test_gpsro_long_wide_and_closed_window(fake_bufr):
+    end = T0 + timedelta(hours=3)
+    stamps = [T0, end, end + timedelta(seconds=1)]
+    fake_bufr["gpsro"] = _FakeBufr([_gpsro_batch(stamps)])
+    variables = ["gps", "gps_refractivity"]
+    wide = decode_gpsro("gpsro", variables, T0 - timedelta(hours=3), end, 1)
+    # Bending angle (MEFR 0 only) and two refractivity levels per kept occultation;
+    # the occultation at exactly the window end is kept
+    assert wide.num_rows == 2 * 3
+    assert pc.count(wide["observation_gps"]).as_py() == 2
+    assert pc.count(wide["observation_gps_refractivity"]).as_py() == 4
+    assert pc.max(wide["time"]).as_py() == end
+    long = _to_long(wide, variables, NCEP_CONVENTIONAL_PUBLIC_SCHEMA)
+    assert long.column_names == NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names
+    assert long["variable"].to_pylist() == ["gps"] * 2 + ["gps_refractivity"] * 4
+    np.testing.assert_allclose(long["observation"].to_numpy()[:2], 0.01, rtol=1e-6)
+    assert long["station"].to_pylist()[0] == "00440007"
+
+
+@pytest.mark.parametrize(
+    "original_event, temperature", [(False, 283.15), (True, 284.15)]
+)
+def test_prepbufr_units_events_and_pressure_subset(
+    fake_bufr, original_event, temperature
+):
+    batch, messages = _prepbufr_batch()
+    fake_bufr["prep"] = _FakeBufr([batch], messages)
+    variables = ["t", "u", "pres"]
+    wide = decode_prepbufr(
+        "prep",
+        variables,
+        T0 - timedelta(hours=3),
+        T0 + timedelta(hours=3),
+        decode_workers=1,
+        original_event=original_event,
+    )
+    # One row per report level giving a variable
+    assert wide.num_rows == 2
+    assert wide["station"].cast(pa.string()).to_pylist() == ["STN1", "STN2"]
+    assert wide["report_time"].to_pylist()[1] == T0 + timedelta(hours=3)
+    assert wide["observation_t"].to_pylist()[0] == pytest.approx(temperature)
+    # pres: CAT 0, report type 181, POB >= 500 hPa -> Pa; the CAT 1 level is not a
+    # pressure observation
+    assert wide["observation_pres"].to_pylist() == [None, 100000.0]
+    assert wide["observation_u"].to_pylist() == [1.0, None]
+    long = _to_long(wide, variables, NCEP_CONVENTIONAL_PUBLIC_SCHEMA)
+    assert long["variable"].to_pylist() == ["t", "t", "u", "pres"]
+    assert long["quality"].to_pylist()[2] == 3
+    assert long["pres"].to_pylist() == [85000.0, 100000.0, 85000.0, 100000.0]
+
+
+def test_prepbufr_excluded_families_are_not_decoded(fake_bufr):
+    batch, messages = _prepbufr_batch()
+    fake_bufr["prep"] = _FakeBufr([batch], messages)
+    decode_prepbufr(
+        "prep",
+        ["t"],
+        T0,
+        T0,
+        decode_workers=1,
+        exclude_message_types=("SATWND", "ADPUPA"),
+    )
+    categories = fake_bufr["prep"].options["data_category_filter"]
+    assert 105 not in categories and 102 not in categories and 109 in categories
+
+
+def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
+    stamps = [T0, T0 + timedelta(hours=3)]
+    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch(stamps)], messages)
+    wide = decode_satwnd("satwnd", ["u", "v"], T0, T0 + timedelta(hours=3), 1)
+    assert wide.num_rows == 2
+    # Wind from the east (90 deg) at 10 m/s: u = -10, v = 0
+    np.testing.assert_allclose(wide["observation_u"].to_numpy(), -10.0, rtol=1e-6)
+    np.testing.assert_allclose(wide["observation_v"].to_numpy(), 0.0, atol=1e-5)
+    # First top-level PRLC is the wind's pressure; a repeated application keeps its first
+    assert wide["pres"].to_pylist() == [50000.0, 50000.0]
+    assert wide["quality_indicators"].to_pylist()[0] == [
+        {"application": 1, "confidence": 90.0},
+        {"application": 2, "confidence": 80.0},
+    ]
+    assert wide["subset"].cast(pa.string()).to_pylist() == ["NC005030"] * 2
+    long = _to_long(wide, ["u", "v"], NCEP_SATWND_PUBLIC_SCHEMA)
+    assert long.num_rows == 4
+    assert long["variable"].to_pylist() == ["u", "u", "v", "v"]
+    assert (
+        long["quality_indicators"].to_pylist()[2]
+        == wide["quality_indicators"].to_pylist()[0]
+    )
+
+
+def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
+    channels = [1.0, 2.0, 3.0]
+    batch = _sat_batch(
+        "atms", [T0, T0], channels, lambda c: (23.8e9 * c, 0.0, 200.0 + c)
+    )
+    fake_bufr["atms"] = _FakeBufr([batch])
+    wide = decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, decode_workers=1)
+    assert pa.types.is_fixed_size_list(wide.schema.field("observation_atms").type)
+    np.testing.assert_allclose(
+        wide["observation_atms"].combine_chunks().values.to_numpy().reshape(2, 3),
+        [[201.0, 202.0, 203.0]] * 2,
+    )
+    long = _to_long(wide, ["atms"], NCEP_MICROWAVE_OUTPUT_SCHEMA)
+    assert long.num_rows == 6
+    assert long["sensor_index"].to_pylist() == [1, 2, 3, 1, 2, 3]
+    assert long["scan_angle"].to_pylist()[0] == pytest.approx(-52.725 + 4 * 1.11)
+    assert long["satellite"].cast(pa.string()).to_pylist() == ["npp"] * 6
+
+
+def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
+    channels = [16.0, 38.0, 49.0]
+    batch = _sat_batch("iasi", [T0], channels, lambda c: (1000.0 + c,))
+    fake_bufr["iasi"] = _FakeBufr([batch])
+    wide = decode_satellite(
+        "iasi",
+        "iasi",
+        {"iasi": "SCRA"},
+        T0,
+        T0,
+        channels=[16, 49],
+        decode_workers=1,
+    )
+    (flt,) = fake_bufr["iasi"].options["list_filters"]
+    assert (flt.field, flt.key, flt.values) == ("DRF16BIT", "CHNM", (16.0, 49.0))
+    long = _to_long(wide, ["iasi"], NCEP_MICROWAVE_OUTPUT_SCHEMA)
+    assert long["sensor_index"].to_pylist() == [16, 49]
+    radiance = np.array([1016.0, 1049.0]) * 10.0**-7 * 1e5
+    wavenumber = wavenumber_cm_inverse("iasi", [16, 49])
+    np.testing.assert_array_equal(
+        long["observation"].to_numpy(),
+        radiance_to_bt(radiance, wavenumber).astype(np.float32),
+    )
+    np.testing.assert_array_equal(long["wavenumber"].to_numpy(), wavenumber)
+
+
+def test_satellite_filter_and_window(fake_bufr):
+    batch = _sat_batch(
+        "atms", [T0, T0 + timedelta(hours=1)], [1.0], lambda c: (1.0, 0.0, 250.0)
+    )
+    fake_bufr["atms"] = _FakeBufr([batch])
+    kept = decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, decode_workers=1)
+    assert kept.num_rows == 1
+    none = decode_satellite(
+        "atms", "atms", {"atms": "TMBR"}, T0, T0, satellites=["n20"], decode_workers=1
+    )
+    assert none.num_rows == 0
+
+
+def _source_with_files(source, fake_bufr, monkeypatch, tmp_path, batches, messages=()):
+    async def fetch_files(uris):
+        return None
+
+    def local_path(uri):
+        path = tmp_path / uri.rsplit("/", 1)[-1]
+        path.write_bytes(b"fake")
+        fake_bufr[str(path)] = _FakeBufr(batches, messages)
+        return str(path)
+
+    monkeypatch.setattr(source, "fetch_files", fetch_files)
+    monkeypatch.setattr(source, "local_path", local_path)
+    return source
+
+
+@pytest.mark.parametrize("layout", ["long", "wide"])
+def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
+    tolerance = (timedelta(hours=-3), timedelta(hours=3))
+    end = T0 + timedelta(hours=3)
+    cases = [
+        (
+            NNJAObsConv(
+                time_tolerance=tolerance, cache=False, verbose=False, layout=layout
+            ),
+            ["gps"],
+            [_gpsro_batch([T0, end])],
+            (),
+        ),
+        (
+            NNJAObsSatwnd(
+                time_tolerance=tolerance, cache=False, verbose=False, layout=layout
+            ),
+            ["u", "v"],
+            [_satwnd_batch([T0, end])],
+            [SimpleNamespace(source_message_index=0, local_sub_category=30)],
+        ),
+        (
+            NNJAObsSat(
+                time_tolerance=tolerance, cache=False, verbose=False, layout=layout
+            ),
+            ["atms"],
+            [_sat_batch("atms", [T0, end], [1.0, 2.0], lambda c: (1.0, 0.0, 250.0))],
+            (),
+        ),
+    ]
+    for source, variables, batches, messages in cases:
+        _source_with_files(source, fake_bufr, monkeypatch, tmp_path, batches, messages)
+        frame = source(T0, variables)
+        assert all(isinstance(dtype, pd.ArrowDtype) for dtype in frame.dtypes)
+        assert frame.attrs["source"] == source.SOURCE_ID
+        # Two files cover [T0 - 3h, T0 + 3h]; each holds both observations, the one
+        # at exactly T0 + 3h included
+        assert frame["time"].max() == pd.Timestamp(end)
+        table = pa.Table.from_pandas(frame, preserve_index=False)
+        if layout == "long":
+            assert list(frame.columns) == source.SCHEMA.names
+            assert set(frame["variable"]) == set(variables)
+        else:
+            assert "variable" not in frame.columns
+            assert {f"observation_{v}" for v in variables} <= set(frame.columns)
+            # The source converts file by file
+            cycles = pc.unique(table["cycle_time"]).to_pylist()
+            long = pa.concat_tables(
+                [
+                    _to_long(
+                        table.filter(pc.equal(table["cycle_time"], cycle)),
+                        variables,
+                        source.SCHEMA,
+                    )
+                    for cycle in cycles
+                ]
+            )
+            reference = source.__class__(
+                time_tolerance=tolerance, cache=False, verbose=False, layout="long"
+            )
+            _source_with_files(
+                reference, fake_bufr, monkeypatch, tmp_path, batches, messages
+            )
+            expected = pa.Table.from_pandas(
+                reference(T0, variables), preserve_index=False
+            )
+            assert long.num_rows == expected.num_rows
+            for name in ("time", "observation", "variable"):
+                assert long[name].cast(expected[name].type).equals(expected[name])
+
+
+def test_nnja_layout_validation_and_wide_fields():
+    with pytest.raises(ValueError, match="layout"):
+        NNJAObsConv(layout="tall", cache=False, verbose=False)
+    wide = NNJAObsSatwnd(layout="wide", cache=False, verbose=False)
+    assert wide._output_fields(["observation_u", "pres"]).names == [
+        "observation_u",
+        "pres",
+    ]
+    with pytest.raises(KeyError):
+        wide._output_fields(["observation"])

@@ -30,6 +30,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -47,19 +48,22 @@ from earth2studio.data.utils import (
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
+    _DEFAULT_LAYOUT,
+    _NCEP_CONVENTIONAL_WIDE_SCHEMA,
+    _NCEP_MICROWAVE_WIDE_SCHEMA,
+    _NCEP_SATWND_WIDE_SCHEMA,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
     NCEP_SATWND_PUBLIC_SCHEMA,
     NCEPObsTask,
-    _NCEPIRSounderDecodeError,
-    _NCEPMicrowaveDecodeError,
-    compile_dataframe,
+    _validate_layout,
+    assemble_frame,
+    compile_tables,
     cycle_windows,
     decode_gpsro,
-    decode_ir_sounder,
-    decode_microwave,
     decode_prepbufr,
+    decode_satellite,
     decode_satwnd,
     map_aircraft_profile_types,
     plan_conv_tasks,
@@ -111,8 +115,6 @@ def _raise_task_failure(
         "cause_type": type(cause).__name__,
         "cause_message": str(cause),
     }
-    if isinstance(cause, (_NCEPMicrowaveDecodeError, _NCEPIRSounderDecodeError)):
-        context["cause_context"] = cause.context
     raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
 
 
@@ -234,9 +236,9 @@ class NNJAObsConv:
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Higher values
-        speed up decoding of large PrepBUFR files at the cost of more memory.
-        Set to 1 to disable multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches. The BUFR decode
+        itself runs on earth2bufr's thread pool (``EARTH2BUFR_NUM_THREADS``),
+        by default 8.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -247,6 +249,15 @@ class NNJAObsConv:
     original_event : bool, optional
         Return the report as first ingested (program code 1) instead of the latest
         quality-controlled event, by default False
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per observation with the columns of
+        ``SCHEMA``. ``"wide"`` returns one row per PrepBUFR report level or
+        GPS-RO profile level: the ``SCHEMA`` columns other than
+        ``observation``, ``variable`` and ``quality``, plus one
+        ``observation_<variable>`` and ``quality_<variable>`` column per
+        requested variable, null where the level has no such observation. In
+        wide output ``type`` is the encoded report type for
+        ``"prepbufr.acft_profiles"``. By default "long".
 
     Warning
     -------
@@ -270,6 +281,7 @@ class NNJAObsConv:
 
     SOURCE_ID = "earth2studio.data.NNJAObsConv"
     SCHEMA = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
+    _WIDE_SCHEMA = _NCEP_CONVENTIONAL_WIDE_SCHEMA
     LEXICON = NNJAObsConvLexicon
     MIN_DATE = datetime(1979, 1, 1)
 
@@ -287,7 +299,9 @@ class NNJAObsConv:
         retries: int = 3,
         exclude_message_types: Sequence[str] = (),
         original_event: bool = False,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
+        self._layout = _validate_layout(layout)
         if source == "convbufr":
             raise NotImplementedError(
                 "NNJAObsConv(source='convbufr') targets raw dump streams grouped "
@@ -356,21 +370,38 @@ class NNJAObsConv:
         """Async function to get data."""
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        schema = self.resolve_fields(fields)
+        schema = self._output_fields(fields)
 
         tasks = self._create_tasks(time_list, variable_list)
         await asyncio.wait_for(
             self.fetch_files(list({task.uri for task in tasks})), self.async_timeout
         )
 
-        return compile_dataframe(
+        pieces = compile_tables(
             tasks,
-            schema,
             self.SOURCE_ID,
             self.local_path,
             self._decode_file,
             _raise_task_failure,
         )
+        return assemble_frame(
+            pieces,
+            self._layout,
+            variable_list,
+            self.SCHEMA,
+            schema,
+            self.SOURCE_ID,
+            self._long_transform,
+        )
+
+    def _long_transform(self, task: NCEPObsTask, table: pa.Table) -> pa.Table:
+        if (
+            task.route == "prepbufr"
+            and self._source == "prepbufr.acft_profiles"
+            and self._map_acft_profile_report_types
+        ):
+            return map_aircraft_profile_types(table)
+        return table
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
@@ -468,32 +499,25 @@ class NNJAObsConv:
     # ------------------------------------------------------------------
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
-    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pa.Table:
         if task.route == "gpsro":
-            frame = decode_gpsro(
+            return decode_gpsro(
                 local_path,
-                task.var_plan,
+                list(task.var_plan),
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
             )
-            return frame[self.SCHEMA.names]
         if task.route == "prepbufr":
-            frame = decode_prepbufr(
+            return decode_prepbufr(
                 local_path,
-                task.var_plan,
+                list(task.var_plan),
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
                 exclude_message_types=self._exclude_message_types,
                 original_event=self._original_event,
             )
-            if (
-                self._source == "prepbufr.acft_profiles"
-                and self._map_acft_profile_report_types
-            ):
-                frame = map_aircraft_profile_types(frame)
-            return frame[self.SCHEMA.names]
         raise ValueError(f"Unsupported route '{task.route}'")
 
     @classmethod
@@ -533,6 +557,13 @@ class NNJAObsConv:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
 
+    def _output_fields(self, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+        if self._layout == "wide":
+            return resolve_output_schema(
+                self._WIDE_SCHEMA, fields, class_name=type(self).__name__
+            )
+        return self.resolve_fields(fields)
+
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NNJAObsSatwnd(NNJAObsConv):
@@ -571,13 +602,18 @@ class NNJAObsSatwnd(NNJAObsConv):
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Recent cycle
-        files hold 3-5 million winds and decode at roughly 1,500 winds per second
-        per worker, so decoding dominates run time and scales with workers.
-        Set to 1 to disable multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches. The BUFR decode
+        itself runs on earth2bufr's thread pool (``EARTH2BUFR_NUM_THREADS``),
+        by default 8.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per (wind, component) with the columns of
+        ``SCHEMA``. ``"wide"`` returns one row per wind: the ``SCHEMA`` columns
+        the dump fills other than ``observation`` and ``variable``, with the
+        components in ``observation_u`` and ``observation_v``. By default
+        "long".
 
     Warning
     -------
@@ -598,6 +634,7 @@ class NNJAObsSatwnd(NNJAObsConv):
 
     SOURCE_ID = "earth2studio.data.NNJAObsSatwnd"
     SCHEMA = NCEP_SATWND_PUBLIC_SCHEMA
+    _WIDE_SCHEMA = _NCEP_SATWND_WIDE_SCHEMA
     LEXICON = NNJAObsSatwndLexicon  # type: ignore[assignment]
     MIN_DATE = datetime(1979, 1, 1)
     # Last year of the reprocessed amv/merged product; the operational dump follows.
@@ -613,6 +650,7 @@ class NNJAObsSatwnd(NNJAObsConv):
         async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
         super().__init__(
             source="satwnd",
@@ -623,6 +661,7 @@ class NNJAObsSatwnd(NNJAObsConv):
             async_workers=async_workers,
             decode_workers=decode_workers,
             retries=retries,
+            layout=layout,
         )
 
     def _build_uri(self, route: str, cycle: datetime) -> str:
@@ -635,17 +674,16 @@ class NNJAObsSatwnd(NNJAObsConv):
             f"gdas.{cycle:%Y%m%d}.t{cycle.hour:02d}z.satwnd.tm00.bufr_d"
         )
 
-    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pa.Table:
         if task.route != "satwnd":
             raise ValueError(f"Unsupported route '{task.route}'")
-        frame = decode_satwnd(
+        return decode_satwnd(
             local_path,
-            task.var_plan,
+            list(task.var_plan),
             task.datetime_min,
             task.datetime_max,
             decode_workers=self._decode_workers,
         )
-        return frame[self.SCHEMA.names]
 
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
@@ -731,8 +769,9 @@ class NNJAObsSat:
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 8.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Set to 1 to
-        disable multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches. The BUFR decode
+        itself runs on earth2bufr's thread pool (``EARTH2BUFR_NUM_THREADS``),
+        by default 8.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -747,6 +786,15 @@ class NNJAObsSat:
         subset matches no rows. Sensors absent from the dict (and all
         microwave sensors) return every archived channel. By default None
         (all channels).
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per (footprint, channel) with the columns of
+        ``SCHEMA``. ``"wide"`` returns one row per footprint with the footprint
+        columns of ``SCHEMA`` and the per-channel values as lists in channel
+        order: per sensor
+        ``sensor_index_<sensor>``, ``wavenumber_<sensor>`` and
+        ``quality_<sensor>``, and per variable ``observation_<variable>``, null
+        on footprints of other sensors. The lists are fixed-size when every
+        footprint of the request carries the same channels. By default "long".
 
     Warning
     -------
@@ -785,6 +833,7 @@ class NNJAObsSat:
 
     SOURCE_ID = "earth2studio.data.NNJAObsSat"
     SCHEMA = NCEP_MICROWAVE_OUTPUT_SCHEMA
+    _WIDE_SCHEMA = _NCEP_MICROWAVE_WIDE_SCHEMA
     LEXICON = NNJAObsSatLexicon
     MIN_DATE = datetime(1998, 1, 1)
     VALID_SATELLITES = NCEP_MICROWAVE_SATELLITES
@@ -800,7 +849,9 @@ class NNJAObsSat:
         decode_workers: int = 8,
         retries: int = 3,
         sensor_indices: dict[str, Sequence[int]] | None = None,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
+        self._layout = _validate_layout(layout)
         if satellites is None:
             self._satellites: tuple[str, ...] | None = None
         else:
@@ -890,7 +941,7 @@ class NNJAObsSat:
         """Async function to get data."""
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        schema = self.resolve_fields(fields)
+        schema = self._output_fields(fields)
 
         tasks = self._create_tasks(time_list, variable_list)
         uris = list({task.uri for task in tasks})
@@ -899,13 +950,20 @@ class NNJAObsSat:
         except Exception as exc:
             self._handle_fetch_failure(uris, exc)
 
-        return compile_dataframe(
+        pieces = compile_tables(
             tasks,
-            schema,
             self.SOURCE_ID,
             self.local_path,
             self._decode_file,
             _raise_task_failure,
+        )
+        return assemble_frame(
+            pieces,
+            self._layout,
+            variable_list,
+            self.SCHEMA,
+            schema,
+            self.SOURCE_ID,
         )
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
@@ -1056,35 +1114,18 @@ class NNJAObsSat:
             return f"{base}{product.filename}.{cycle:%Y%m%d}.t{cycle:%H}z.bufr"
         return f"{base}gdas.{cycle:%Y%m%d}.t{cycle:%H}z.{product.filename}.tm00.bufr_d"
 
-    def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
-        if task.sensor in _NNJA_IR_SENSORS:
-            sensor_sats = _NNJA_IR_SATELLITES[task.sensor]
-            sat_filter = (
-                tuple(s for s in self._satellites if s in sensor_sats)
-                if self._satellites is not None
-                else None
-            )
-            frame = decode_ir_sounder(
-                local_path,
-                task.sensor,
-                # Every archived channel unless narrowed via sensor_indices
-                self._sensor_indices.get(task.sensor),
-                task.datetime_min,
-                task.datetime_max,
-                sat_filter,
-                decode_workers=self._decode_workers,
-            )
-        else:
-            frame = decode_microwave(
-                local_path,
-                task.sensor,
-                task.var_plan,
-                task.datetime_min,
-                task.datetime_max,
-                self._satellites,
-                decode_workers=self._decode_workers,
-            )
-        return frame[self.SCHEMA.names]
+    def _decode_file(self, local_path: str, task: _NNJASatTask) -> pa.Table:
+        return decode_satellite(
+            local_path,
+            task.sensor,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
+            satellites=self._satellites,
+            # Every archived channel unless narrowed via sensor_indices
+            channels=self._sensor_indices.get(task.sensor),
+            decode_workers=self._decode_workers,
+        )
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -1122,3 +1163,10 @@ class NNJAObsSat:
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
+
+    def _output_fields(self, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+        if self._layout == "wide":
+            return resolve_output_schema(
+                self._WIDE_SCHEMA, fields, class_name=type(self).__name__
+            )
+        return self.resolve_fields(fields)

@@ -21,9 +21,10 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 
-from earth2studio.data import NomadsGDASObsConv
+from earth2studio.data import NomadsGDASObsConv, utils_ncep
 from earth2studio.lexicon import GDASObsConvLexicon
 
 
@@ -253,28 +254,14 @@ def test_nomads_gdas_call_mock(tmp_path):
     obs_time1 = base_time + timedelta(minutes=30)
     obs_time2 = base_time + timedelta(hours=1)
 
-    # Mock _decode_file output in E2S units (t in K), with null GPSRO metadata.
-    mock_df = pd.DataFrame(
+    # Mock _decode_file output: wide PrepBUFR level rows in E2S units (t in K)
+    mock_df = pa.table(
         {
-            "time": pd.to_datetime([obs_time1, obs_time2]),
-            "report_time": pd.to_datetime([obs_time1, obs_time2]),
-            "pres": np.array([50000.0, 85000.0], dtype=np.float32),
-            "elev": np.array([5000.0, 1500.0], dtype=np.float32),
-            "type": np.array([101, 106], dtype=np.uint16),
-            "level_cat": pd.array([1, 1], dtype="uint16[pyarrow]"),
-            "class": ["1", "1"],
-            "lat": np.array([40.0, 35.0], dtype=np.float32),
-            "lon": np.array([250.0, 280.0], dtype=np.float32),
-            "report_lat": np.array([40.0, 35.0], dtype=np.float32),
-            "report_lon": np.array([250.0, 280.0], dtype=np.float32),
-            "station": ["72451", "72520"],
-            "station_elev": np.array([300.0, 200.0], dtype=np.float32),
-            "quality": np.array([0, 0], dtype=np.uint16),
-            "pressure_quality": pd.array([1, 1], dtype="uint16[pyarrow]"),
-            "radius_curvature": np.full(2, np.nan, dtype=np.float64),
-            "geoid_undulation": np.full(2, np.nan, dtype=np.float64),
-            "observation": np.array([250.0, 288.0], dtype=np.float32),
-            "variable": ["t", "t"],
+            "time": pa.array(
+                [np.datetime64(obs_time1, "ns"), np.datetime64(obs_time2, "ns")]
+            ),
+            "observation_t": pa.array([250.0, 288.0], type=pa.float32()),
+            "quality_t": pa.array([0, 0], type=pa.uint16()),
         }
     )
 
@@ -360,45 +347,30 @@ def test_nomads_gdas_create_tasks():
 
 
 @pytest.mark.timeout(15)
-def test_nomads_gdas_empty_result():
-    from earth2studio.data.utils_ncep import empty_dataframe
+def test_nomads_gdas_empty_result(tmp_path):
+    dummy_file = tmp_path / "mock.bin"
+    dummy_file.write_bytes(b"dummy")
+    empty = utils_ncep._NCEP_CONVENTIONAL_WIDE_SCHEMA.empty_table()
 
-    ds = NomadsGDASObsConv()
-    empty_df = empty_dataframe(ds.SCHEMA)
+    async def mock_fetch(uri):
+        return str(dummy_file)
 
-    assert isinstance(empty_df, pd.DataFrame)
-    assert empty_df.empty
-    assert list(empty_df.columns) == ds.SCHEMA.names
+    with (
+        patch.object(NomadsGDASObsConv, "_fetch_remote_file", side_effect=mock_fetch),
+        patch.object(NomadsGDASObsConv, "_decode_file", return_value=empty),
+        patch.object(NomadsGDASObsConv, "local_path", return_value=str(dummy_file)),
+    ):
+        ds = NomadsGDASObsConv(time_tolerance=timedelta(hours=3), cache=False)
+        df = ds(datetime.utcnow().replace(minute=0, second=0, microsecond=0), ["t"])
+
+    assert df.empty
+    assert list(df.columns) == ds.SCHEMA.names
 
 
 @pytest.mark.timeout(15)
 def test_nomads_gdas_lexicon_modifiers():
-    """Verify lexicon modifiers convert raw PrepBUFR units to E2S standard."""
-    # Temperature: DEG C -> K (+273.15)
-    _, mod_t = GDASObsConvLexicon.get_item("t")
-    df_t = pd.DataFrame({"observation": np.array([0.0, 20.0, -40.0], dtype=np.float32)})
-    df_t = mod_t(df_t)
-    np.testing.assert_allclose(df_t["observation"], [273.15, 293.15, 233.15], rtol=1e-5)
-
-    # Specific humidity: mg/kg -> kg/kg (÷1e6)
-    _, mod_q = GDASObsConvLexicon.get_item("q")
-    df_q = pd.DataFrame({"observation": np.array([10000.0, 5000.0], dtype=np.float32)})
-    df_q = mod_q(df_q)
-    np.testing.assert_allclose(df_q["observation"], [0.01, 0.005], rtol=1e-5)
-
-    # Pressure: hPa (MB) -> Pa (×100)
-    _, mod_p = GDASObsConvLexicon.get_item("pres")
-    df_p = pd.DataFrame({"observation": np.array([1013.25, 500.0], dtype=np.float32)})
-    df_p = mod_p(df_p)
-    np.testing.assert_allclose(df_p["observation"], [101325.0, 50000.0], rtol=1e-5)
-
-    # Wind u/v: already m/s, no change
-    _, mod_u = GDASObsConvLexicon.get_item("u")
-    df_u = pd.DataFrame({"observation": np.array([5.0, -3.0], dtype=np.float32)})
-    df_u = mod_u(df_u)
-    np.testing.assert_allclose(df_u["observation"], [5.0, -3.0], rtol=1e-5)
-
-    _, mod_v = GDASObsConvLexicon.get_item("v")
-    df_v = pd.DataFrame({"observation": np.array([2.0, -7.0], dtype=np.float32)})
-    df_v = mod_v(df_v)
-    np.testing.assert_allclose(df_v["observation"], [2.0, -7.0], rtol=1e-5)
+    # The decoders return Earth2Studio units, so the modifiers pass frames through
+    frame = pd.DataFrame({"observation": np.array([0.0, 20.0], dtype=np.float32)})
+    for var in GDASObsConvLexicon.VOCAB:
+        _, modifier = GDASObsConvLexicon.get_item(var)
+        assert modifier(frame) is frame
