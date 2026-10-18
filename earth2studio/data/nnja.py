@@ -378,6 +378,7 @@ class NNJAObsConv:
         downloaded = threading.Event()
 
         async def download() -> None:
+            """Fetch the files, then release the decodes still waiting for one."""
             try:
                 await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
             finally:
@@ -964,6 +965,7 @@ class NNJAObsSat:
         downloaded = threading.Event()
 
         async def download() -> None:
+            """Fetch the files, then release the decodes still waiting for one."""
             try:
                 await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
             except Exception as exc:
