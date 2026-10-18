@@ -101,31 +101,43 @@ def numpy_with_mask(array: pa.Array) -> tuple[np.ndarray, np.ndarray]:
 
 
 def float_values(array: pa.Array) -> np.ndarray:
-    """Numeric column as float64 with NaN at null slots."""
+    """Numeric column as float64 with NaN at null slots; a float64 column without nulls
+    is returned as a read-only view of the Arrow buffer."""
     values, valid = numpy_with_mask(array)
-    values = values.astype(np.float64)
-    if not valid.all():
-        values[~valid] = np.nan
-    return values
+    if valid.all():
+        return values.astype(np.float64, copy=False)
+    return np.where(valid, values, np.nan)
 
 
-def physical_values(values: pa.StructArray, name: str) -> np.ndarray:
-    """Child field of a struct in physical units, NaN where missing.
+def physical_values(
+    values: pa.StructArray,
+    name: str,
+    index: np.ndarray | None = None,
+    dtype: type = np.float64,
+) -> np.ndarray:
+    """Child field of a struct in physical units as ``dtype``, NaN where missing, at the
+    ``index`` entries if given.
 
     Raw-code fields (``raw_code_paths``) are converted as
-    ``(code + reference) / 10**scale`` from the field metadata.
+    ``(code + reference) / 10**scale`` from the field metadata, in float64 per element.
     """
-    array = values.field(name)
+    codes, valid = numpy_with_mask(values.field(name))
+    if index is not None:
+        codes, valid = codes[index], valid[index]
     meta = values.type.field(name).metadata or {}
-    out = float_values(array)
-    if meta.get(b"representation") != b"bufr_raw_code":
-        return out
-    reference = int(meta[b"reference"])
-    scale = int(meta[b"scale"])
+    raw = meta.get(b"representation") == b"bufr_raw_code"
+    reference = int(meta[b"reference"]) if raw else 0
+    scale = int(meta[b"scale"]) if raw else 0
     if reference:
-        out = out + reference
+        codes = codes.astype(np.int64) + reference
+    out = np.full(len(codes), np.nan, dtype=dtype)
     if scale:
-        out = out / (1.0 * 10**scale)
+        divisor = 1.0 * 10**scale
+        np.divide(
+            codes, divisor, out=out, where=valid, dtype=np.float64, casting="unsafe"
+        )
+    else:
+        np.copyto(out, codes, casting="unsafe", where=valid)
     return out
 
 

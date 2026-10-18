@@ -2152,14 +2152,11 @@ class _ChannelRows:
     def n_entries(self) -> int:
         return len(self.index)
 
-    def entry(self, values: np.ndarray) -> np.ndarray:
-        return values[self.index]
-
     # np.tile and np.repeat hold the GIL; broadcast copies of uniform rows do not
     def channel_numbers(self) -> np.ndarray:
         if self.width:
             return np.broadcast_to(self.channels, (len(self.kept), self.width)).ravel()
-        return self.entry(physical_values(self.values, "CHNM"))
+        return physical_values(self.values, "CHNM", self.index)
 
     def footprints(self) -> np.ndarray:
         """Batch row of each entry."""
@@ -2308,15 +2305,17 @@ def _sat_batch(
 
     observations: dict[str, np.ndarray] = {}
     if sensor == "airs":
-        log10_wavenumber = rows.entry(physical_values(values, "LOGRCW"))
+        log10_wavenumber = physical_values(values, "LOGRCW", rows.index)
         with np.errstate(over="ignore", invalid="ignore"):
             wavenumber = 10.0**log10_wavenumber / 100.0
-        quality = rows.entry(physical_values(values, "ACQF"))
+        quality = physical_values(values, "ACQF", rows.index)
         for variable, field in plan.items():
-            observations[variable] = rows.entry(physical_values(values, field))
+            observations[variable] = physical_values(
+                values, field, rows.index, np.float32
+            )
     elif sensor in ("iasi", "cris"):
         wavenumber = wavenumber_cm_inverse(sensor, channels.astype(np.int64))
-        coded = rows.entry(physical_values(values, _IR_OBSERVATION[sensor]))
+        coded = physical_values(values, _IR_OBSERVATION[sensor], rows.index)
         if is_cris:
             # SRAD W m-2 sr-1 (cm-1)-1 -> mW
             radiance = coded * 1000.0
@@ -2335,17 +2334,19 @@ def _sat_batch(
             observations[variable] = bt
     else:
         wavenumber = (
-            rows.entry(physical_values(values, "SCCF")) / _C_CM_S
+            physical_values(values, "SCCF", rows.index) / _C_CM_S
             if "SCCF" in child_names
             else np.full(len(channels), np.nan)
         )
         quality = (
-            rows.entry(physical_values(values, "ATMSCHQ"))
+            physical_values(values, "ATMSCHQ", rows.index)
             if "ATMSCHQ" in child_names
             else np.full(len(channels), np.nan)
         )
         for variable, field in plan.items():
-            observations[variable] = rows.entry(physical_values(values, field))
+            observations[variable] = physical_values(
+                values, field, rows.index, np.float32
+            )
 
     kept = rows.kept
 
@@ -2394,7 +2395,7 @@ def _sat_batch(
         )
     for variable, values_ in observations.items():
         columns[f"observation_{variable}"] = rows.lists(
-            float_with_nulls(values_.astype(np.float32), pa.float32())
+            float_with_nulls(values_.astype(np.float32, copy=False), pa.float32())
         )
     return pa.table(columns)
 
