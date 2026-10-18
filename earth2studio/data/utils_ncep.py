@@ -25,6 +25,7 @@ long format (one row per observation) is produced from it by :func:`_to_long`.
 from __future__ import annotations
 
 import pathlib
+import threading
 import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
@@ -995,6 +996,7 @@ def compile_tables(
     local_path: Callable[[str], str],
     decode_task: Callable[[str, Any], pa.Table],
     on_error: Callable[[str, int, int, Exception], None] | None = None,
+    downloaded: threading.Event | None = None,
 ) -> list[tuple[Any, pa.Table]]:
     """Decode cached task files into wide tables, each with a ``cycle_time`` column.
 
@@ -1011,6 +1013,10 @@ def compile_tables(
     on_error : Callable[[str, int, int, Exception], None] | None, optional
         Called as ``on_error(uri, idx, n_tasks, exc)`` when ``decode_task``
         raises; the task is then skipped. If None the error propagates.
+    downloaded : threading.Event | None, optional
+        Set once the downloads have finished. Until then a task waits for its file
+        to appear in the cache (written atomically) and is decoded as soon as it
+        does. If None every file is expected to be cached already.
 
     Returns
     -------
@@ -1023,6 +1029,9 @@ def compile_tables(
 
     def decode(task: Any) -> tuple[pa.Table | Exception | None, float]:
         path = local_path(task.uri)
+        if downloaded is not None:
+            while not pathlib.Path(path).is_file() and not downloaded.wait(0.05):
+                pass
         if not pathlib.Path(path).is_file():
             return None, 0.0
         t0 = time.perf_counter()

@@ -26,6 +26,7 @@ import asyncio
 import hashlib
 import os
 import shutil
+import threading
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -373,18 +374,28 @@ class NNJAObsConv:
         schema = self._output_fields(fields)
 
         tasks = self._create_tasks(time_list, variable_list)
-        await asyncio.wait_for(
-            self.fetch_files(list({task.uri for task in tasks})), self.async_timeout
-        )
+        uris = list(dict.fromkeys(task.uri for task in tasks))
+        downloaded = threading.Event()
 
-        # Decoding is CPU-bound; it runs off the event loop so gathered sources overlap
-        pieces = await asyncio.to_thread(
-            compile_tables,
-            tasks,
-            self.SOURCE_ID,
-            self.local_path,
-            self._decode_file,
-            _raise_task_failure,
+        async def download() -> None:
+            try:
+                await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
+            finally:
+                downloaded.set()
+
+        # Decoding is CPU-bound; it runs off the event loop, each file as soon as it is
+        # in the cache, so downloads, decodes and gathered sources overlap
+        _, pieces = await asyncio.gather(
+            download(),
+            asyncio.to_thread(
+                compile_tables,
+                tasks,
+                self.SOURCE_ID,
+                self.local_path,
+                self._decode_file,
+                _raise_task_failure,
+                downloaded,
+            ),
         )
         return await asyncio.to_thread(
             assemble_frame,
@@ -949,20 +960,30 @@ class NNJAObsSat:
         schema = self._output_fields(fields)
 
         tasks = self._create_tasks(time_list, variable_list)
-        uris = list({task.uri for task in tasks})
-        try:
-            await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
-        except Exception as exc:
-            self._handle_fetch_failure(uris, exc)
+        uris = list(dict.fromkeys(task.uri for task in tasks))
+        downloaded = threading.Event()
 
-        # Decoding is CPU-bound; it runs off the event loop so gathered sources overlap
-        pieces = await asyncio.to_thread(
-            compile_tables,
-            tasks,
-            self.SOURCE_ID,
-            self.local_path,
-            self._decode_file,
-            _raise_task_failure,
+        async def download() -> None:
+            try:
+                await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
+            except Exception as exc:
+                self._handle_fetch_failure(uris, exc)
+            finally:
+                downloaded.set()
+
+        # Decoding is CPU-bound; it runs off the event loop, each file as soon as it is
+        # in the cache, so downloads, decodes and gathered sources overlap
+        _, pieces = await asyncio.gather(
+            download(),
+            asyncio.to_thread(
+                compile_tables,
+                tasks,
+                self.SOURCE_ID,
+                self.local_path,
+                self._decode_file,
+                _raise_task_failure,
+                downloaded,
+            ),
         )
         return await asyncio.to_thread(
             assemble_frame,
