@@ -36,6 +36,28 @@ from earth2studio.utils.cupy import backend, from_torch
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
 
+@pytest.mark.parametrize("coordinate", [None, "lat", "lon"])
+def test_rmse_geographic_coordinates(coordinate) -> None:
+    x = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("hrrr_y", "hrrr_x"),
+        coords={
+            "hrrr_y": np.arange(2),
+            "hrrr_x": np.arange(3),
+            "lat": (("hrrr_y", "hrrr_x"), np.arange(6).reshape(2, 3)),
+            "lon": (("hrrr_y", "hrrr_x"), np.arange(6).reshape(2, 3) + 10),
+        },
+    )
+    y = x.transpose("hrrr_x", "hrrr_y")
+    metric = rmse(["hrrr_y", "hrrr_x"])
+    if coordinate is None:
+        assert metric(x, y).e2s.to_torch()[0].item() == 0
+    else:
+        y = y.assign_coords({coordinate: y.coords[coordinate] + 1})
+        with pytest.raises(ValueError):
+            metric(x, y)
+
+
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("metric", [rmse, mae])
 def test_error_metric_torch_autograd(device, metric) -> None:

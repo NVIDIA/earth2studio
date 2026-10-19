@@ -158,4 +158,6 @@ def _align_xy(
                 raise ValueError("Coordinates are incompatible.") from e
         elif x.sizes[d] != y.sizes[d]:
             raise ValueError("Coordinates are incompatible.")
+    for coord in {"lat", "lon"} & x.coords.keys() & y.coords.keys():
+        handshake_coords(x, y, coord)
     return y

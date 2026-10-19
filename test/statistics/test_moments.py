@@ -122,6 +122,16 @@ def test_mean_without_reduction_dimensions() -> None:
         assert np.array_equal(y.coords[dimension].values, coords[dimension])
 
 
+def test_mean_reversed_numpy() -> None:
+    x = xr.DataArray(
+        np.arange(12, dtype=np.float32).reshape(3, 4),
+        dims=("lat", "lon"),
+        coords={"lat": np.arange(3), "lon": np.arange(4)},
+    ).isel(lat=slice(None, None, -1))
+    result = moments.mean(["lat"])(x)
+    np.testing.assert_allclose(_to_np(result), x.mean("lat").values)
+
+
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("weighted", [False, True])
 @pytest.mark.parametrize("statistic", [moments.mean, moments.variance, moments.std])
