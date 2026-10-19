@@ -369,6 +369,33 @@ def test_zarr_accepts_ensemble_chunks_inside_member_groups(
     )
 
 
+def test_zarr_accepts_a_reopened_safe_store(tmp_path: Any, distributed: None) -> None:
+    # Coordinate arrays are stored whole; only the data arrays' chunks count.
+    path = str(tmp_path / "forecast.zarr")
+    items = deterministic_items()
+    OutputManager({"forecast": ZarrBackend(file_name=path)}).prepare(
+        {"forecast": signature()}, items
+    )
+    reopened = ZarrBackend(file_name=path)
+    OutputManager({"forecast": reopened}).prepare({"forecast": signature()}, items)
+
+
+def test_async_zarr_accepts_a_reopened_safe_store(
+    tmp_path: Any, distributed: None
+) -> None:
+    path = str(tmp_path / "forecast.zarr")
+    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
+    created = AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
+    OutputManager({"forecast": created}).prepare(
+        {"forecast": signature()}, deterministic_items()
+    )
+    created.close()
+    reopened = AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
+    OutputManager({"forecast": reopened}).prepare(
+        {"forecast": signature()}, deterministic_items()
+    )
+
+
 def test_zarr_rejects_a_reopened_store_with_wide_chunks(
     tmp_path: Any, distributed: None
 ) -> None:

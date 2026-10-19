@@ -362,13 +362,27 @@ def _widen_to_stored(blocks: dict[str, tuple[int, str]], root: Any) -> None:
 
 
 def _stored_layout(root: Any) -> tuple[dict[str, int], dict[str, int]]:
-    """Largest chunk and shard size per dimension of the arrays in a Zarr group."""
+    """Largest chunk and shard size per dimension of the data arrays in a group.
+
+    Coordinate arrays are skipped: both Zarr backends store them whole, and
+    only rank 0 writes them, so their chunks are not shared between items.
+    """
     chunks: dict[str, int] = {}
     shards: dict[str, int] = {}
     try:
-        for _, array in root.arrays():
-            dims = [str(dim) for dim in (array.metadata.dimension_names or ())]
-            if len(dims) != len(array.chunks):
+        arrays = dict(root.arrays())
+        dims_of = {
+            name: [str(dim) for dim in (array.metadata.dimension_names or ())]
+            for name, array in arrays.items()
+        }
+        # Dimension coordinates, and auxiliary ones listed CF style by data arrays
+        coordinates = {name for name, dims in dims_of.items() if dims == [name]}
+        for array in arrays.values():
+            listed = array.metadata.attributes.get("coordinates", "")
+            coordinates.update(str(listed).split())
+        for name, array in arrays.items():
+            dims = dims_of[name]
+            if name in coordinates or len(dims) != len(array.chunks):
                 continue
             for dim, chunk in zip(dims, array.chunks):
                 chunks[dim] = max(chunks.get(dim, 0), int(chunk))
