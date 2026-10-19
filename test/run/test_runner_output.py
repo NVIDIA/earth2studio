@@ -19,7 +19,8 @@
 Covers the boundary between the runner's planning signatures and
 ``OutputManager``, which neither side can exercise alone: a run's schemas plan
 every store, each stream lands in its own backend, and a stream without a
-backend is simply not written. ``Pipeline`` (not yet written) closes this loop.
+backend is simply not written. The tests drive the loop by hand, without
+``Pipeline``, so a failure points at one of these two layers.
 """
 
 from __future__ import annotations
