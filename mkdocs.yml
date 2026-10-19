@@ -568,6 +568,7 @@ nav:
   - Archive: blog/archive.md
   - Categories:
     - Overview: blog/categories.md
+    - Data: blog/categories/data.md
     - Documentation: blog/categories/documentation.md
 - Scorecards:
   - scorecard/generated/index.md
