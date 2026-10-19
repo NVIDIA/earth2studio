@@ -73,6 +73,61 @@ def test_grid_registry_builtins():
     assert isinstance(resolve_grid("hrrr"), GridDefinition)
 
 
+@pytest.mark.parametrize(
+    "position,satellites",
+    [("east", ("goes16", "goes19")), ("west", ("goes17", "goes18"))],
+)
+def test_goes_grid_builtins(position, satellites):
+    from earth2studio.data import GOES
+
+    grid = resolve_grid(f"goes-{position}-conus")
+    coords = grid.coords()
+    for satellite in satellites:
+        # Labels are the source's scan angles, so source fields regrid unchanged.
+        y, x = GOES.CONTINENTAL_US_YX[satellite]
+        np.testing.assert_array_equal(grid.y, y)
+        np.testing.assert_array_equal(grid.x, x)
+        latitude, longitude = GOES.grid(satellite=satellite, scan_mode="C")
+        # Off-disk points are non-finite in both; regridders skip them.
+        disk = np.isfinite(latitude)
+        np.testing.assert_array_equal(np.isfinite(coords["lat"].values), disk)
+        np.testing.assert_allclose(
+            coords["lat"].values[disk], latitude[disk], rtol=0, atol=1e-7
+        )
+        np.testing.assert_allclose(
+            coords["lon"].values[disk],
+            np.mod(longitude[disk], 360),
+            rtol=0,
+            atol=1e-7,
+        )
+
+    full = resolve_grid(f"goes-{position}-fulldisk")
+    assert full.shape == GOES.SCAN_DIMENSIONS["F"]
+    assert full.crs == grid.crs
+    np.testing.assert_array_equal(full.y, GOES.FULL_DISK_YX[0])
+    center = full.coords({"y": np.array([0.0]), "x": np.array([0.0])})
+    np.testing.assert_allclose(center["lat"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(
+        center["lon"],
+        np.mod(GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellites[0]], 360),
+        atol=1e-9,
+    )
+
+
+def test_observation_latlon_grid_builtins():
+    from earth2studio.data import GOESGLMGrid
+
+    mrms = resolve_grid("mrms-conus-0.01deg").coords()
+    assert mrms["lat"].shape == (3500,) and mrms["lon"].shape == (7000,)
+    np.testing.assert_allclose(mrms["lat"][[0, -1]], [54.995, 20.005], atol=1e-9)
+    np.testing.assert_allclose(mrms["lon"][[0, -1]], [230.005, 299.995], atol=1e-9)
+
+    glm = resolve_grid("glm-conus-0.1deg").coords()
+    source = GOESGLMGrid(cache=False, verbose=False)
+    np.testing.assert_allclose(glm["lat"], source.lat, rtol=0, atol=1e-9)
+    np.testing.assert_allclose(glm["lon"], source.lon, rtol=0, atol=1e-9)
+
+
 def test_grid_registry_registration():
     register_grid("test-registry-grid", GRID, aliases=("test-registry-alias",))
     register_grid("test-registry-grid", GRID, aliases=("test-registry-alias",))

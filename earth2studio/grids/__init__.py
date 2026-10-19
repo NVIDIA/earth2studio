@@ -237,6 +237,53 @@ _register_builtin(
     ),
     aliases=("hrrr",),
 )
+
+
+def _goes_grid(satellite: str, scan_mode: str) -> ProjectedGrid:
+    """GOES ABI fixed grid labelled by scan angle in radians, as the source returns.
+
+    The ``geos`` projection gives scan angle times the perspective height, so a
+    unit of that height makes the projected coordinates scan angles.
+    """
+    from earth2studio.data.goes import GOES
+
+    height = GOES.PERSPECTIVE_POINT_HEIGHT
+    if scan_mode == "F":
+        y, x = GOES.FULL_DISK_YX
+    else:
+        y, x = GOES.CONTINENTAL_US_YX[satellite]
+    return ProjectedGrid(
+        y=y,
+        x=x,
+        coordinate_reference_system=(
+            f"+proj=geos +h={height} "
+            f"+lon_0={GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellite]} +sweep=x "
+            f"+a={GOES.SEMI_MAJOR_AXIS} +b={GOES.SEMI_MINOR_AXIS} "
+            f"+to_meter={height} +no_defs +type=crs"
+        ),
+    )
+
+
+# GOES-East (GOES-16, GOES-19) and GOES-West (GOES-17, GOES-18) share sectors.
+for _position, _satellite in (("east", "goes16"), ("west", "goes18")):
+    _register_builtin(f"goes-{_position}-conus", partial(_goes_grid, _satellite, "C"))
+    _register_builtin(
+        f"goes-{_position}-fulldisk", partial(_goes_grid, _satellite, "F")
+    )
+_register_builtin(
+    "mrms-conus-0.01deg",
+    lambda: LatLonGrid(
+        latitude=54.995 - 0.01 * np.arange(3500),
+        longitude=230.005 + 0.01 * np.arange(7000),
+    ),
+)
+_register_builtin(
+    "glm-conus-0.1deg",
+    lambda: LatLonGrid(
+        latitude=20.05 + 0.1 * np.arange(350),
+        longitude=230.05 + 0.1 * np.arange(700),
+    ),
+)
 _register_builtin(
     "healpix-l6-nested",
     partial(HEALPixGrid, level=6, ordering="nested"),
