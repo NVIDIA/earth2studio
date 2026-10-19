@@ -149,9 +149,9 @@ def test_prepare_builds_template_from_all_items(tmp_path: Any) -> None:
 def test_prepare_times_are_sorted_and_unique(tmp_path: Any) -> None:
     backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"))
     items = [
-        WorkItem(TIME_B, HORIZON),
-        WorkItem(TIME_A, HORIZON),
-        WorkItem(TIME_B, HORIZON),
+        WorkItem(TIME_B, HORIZON, (0,)),
+        WorkItem(TIME_A, HORIZON, (0,)),
+        WorkItem(TIME_B, HORIZON, (1,)),
     ]
     OutputManager({"forecast": backend}).prepare({"forecast": signature()}, items)
     np.testing.assert_array_equal(
@@ -414,6 +414,35 @@ def test_async_zarr_rejects_shards_spanning_items(
     with pytest.raises(ValueError, match="'time'"):
         OutputManager({"forecast": backend}).prepare(
             {"forecast": signature()}, deterministic_items()
+        )
+
+
+def test_async_zarr_rejects_a_reopened_store_with_wide_shards(
+    tmp_path: Any, distributed: None
+) -> None:
+    path = str(tmp_path / "forecast.zarr")
+    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
+    created = AsyncZarrBackend(
+        path, parallel_coords={"time": times}, shard_coords={"time": 2}, blocking=True
+    )
+    created.add_array(
+        output_template(signature(), {"time": times}),
+    )
+    created.close()
+
+    # Reopened without shard_coords, the store still writes its two-time shards.
+    reopened = AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
+    with pytest.raises(ValueError, match="shards of 2 on 'time'"):
+        OutputManager({"forecast": reopened}).prepare(
+            {"forecast": signature()}, deterministic_items()
+        )
+
+
+def test_prepare_rejects_items_sharing_a_time_and_member() -> None:
+    items = [WorkItem(TIME_A, HORIZON), WorkItem(TIME_A, 2 * HORIZON)]
+    with pytest.raises(ValueError, match="Repeated"):
+        OutputManager({"forecast": RecordingBackend()}).prepare(
+            {"forecast": signature()}, items
         )
 
 

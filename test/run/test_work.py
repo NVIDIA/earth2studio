@@ -348,6 +348,24 @@ def test_progress_store_compaction_bounds_file_count(progress_dir: Path):
     assert final.remaining(items) == []
 
 
+def test_progress_store_reopen_keeps_records_after_compaction(progress_dir: Path):
+    items = _items_deterministic()
+    store = ProgressStore(progress_dir)
+    store.open({"version": 1})
+    store.mark_done(items[0])
+    # Another rank's log, so the next open compacts and deletes this rank's log.
+    record = {"time": str(np.datetime64(T1, "s")), "horizon": 21600, "members": []}
+    (progress_dir / "done-0000-0001.log").write_text(json.dumps(record) + "\n")
+
+    store.open({"version": 1})
+    store.mark_done(items[2])
+    store.close()
+
+    resumed = ProgressStore(progress_dir)
+    resumed.open({"version": 1})
+    assert resumed.remaining(items) == []
+
+
 def test_progress_store_manifest_includes_tags(progress_dir: Path):
     store = ProgressStore(progress_dir, tags={"model": "sfno", "step": 1})
     store.open({"version": 1})

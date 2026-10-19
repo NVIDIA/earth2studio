@@ -156,7 +156,10 @@ def _signature_for_stream(
     auxiliary coordinates, dtype and attributes carry over, and nothing is
     allocated.
     """
-    dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
+    # A diagnostic may declare lead_time dynamic; the stream fixes it instead.
+    dynamic = tuple(
+        dim for dim in signature.attrs.get(E2S_DYNAMIC_DIMS, ()) if dim != "lead_time"
+    )
     for reserved in ("time", "ensemble"):
         if reserved in signature.dims and reserved not in dynamic:
             raise ValueError(

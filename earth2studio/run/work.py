@@ -116,8 +116,8 @@ def work_items(
     for time in time_list:
         if time in seen:
             raise ValueError(
-                f"Repeated time {time} in work_items; every (time, horizon, "
-                "member) unit must appear once."
+                f"Repeated time {time} in work_items; every (time, member) "
+                "must appear once."
             )
         seen.add(time)
 
@@ -159,22 +159,29 @@ def _resolve_members(members: int | Sequence[int] | None) -> list[int] | None:
 
 
 def _validate_items(items: Sequence[WorkItem]) -> None:
-    """Check that an item list repeats no unit and is uniformly ensembled."""
+    """Check that items write disjoint outputs and are uniformly ensembled.
+
+    Every item writes lead times from zero at its ``(time, member)`` positions,
+    so two items sharing one would write the same outputs even with different
+    horizons.
+    """
     has_members = {bool(item.member_ids) for item in items}
     if len(has_members) > 1:
         raise ValueError(
             "Work items must either all carry members or none; got a mix of "
             "deterministic and ensemble items."
         )
-    seen: set[_Unit] = set()
+    seen: set[tuple[int, int | None]] = set()
     for item in items:
-        for unit in _unit_keys(item):
-            if unit in seen:
+        for time, _, member in _unit_keys(item):
+            if (time, member) in seen:
+                label = np.datetime64(time, "s")
                 raise ValueError(
-                    f"Repeated work unit {unit} (time, horizon, member) in the "
-                    "item list; every unit must appear once."
+                    f"Repeated (time, member) ({label}, {member}) in the item "
+                    "list; items write lead times from zero, so each time and "
+                    "member must appear in one item only, whatever its horizon."
                 )
-            seen.add(unit)
+            seen.add((time, member))
 
 
 def member_seed(base: int, time: np.datetime64, member_id: int) -> int:
@@ -326,6 +333,10 @@ class ProgressStore:
         """
         rank, _ = rank_info()
         payload = self._manifest_payload(manifest)
+        # Compaction may delete the log behind a handle from an earlier open,
+        # and the attempt changes below, so later records go to a fresh log.
+        self._close_log()
+        barrier()
 
         if rank == 0:
             if self.overwrite:

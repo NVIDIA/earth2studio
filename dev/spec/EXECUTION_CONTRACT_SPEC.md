@@ -73,8 +73,9 @@ Items are ordered time-major, in the caller's `times` order. Times and the horiz
 are normalized to second resolution, so items compare and hash by instant, matching
 progress keys and `member_seed`. Each time's members are split into consecutive
 groups of `member_batch`, so no group spans two times; `members=None` gives
-deterministic items. A valid item list repeats no `(time, horizon, member)` unit,
-and either every item has members or none does.
+deterministic items. Every item writes lead times from zero, so a valid item list
+repeats no `(time, member)`, whatever the horizons; either every item has members or
+none does. `work_items` and `OutputManager.prepare` raise `ValueError` otherwise.
 
 ## Runner
 
@@ -316,7 +317,8 @@ ranks, so `time` and `ensemble` are the distributed dimensions; other dimensions
 safe, since one item writes all their chunks.
 
 With `world_size > 1`, `prepare` checks known backends through their existing
-attributes, with no IO protocol or backend changes:
+attributes and the layout of arrays already stored, since a reopened store keeps the
+layout it was created with. This needs no IO protocol or backend changes:
 
 | Backend | Check |
 | --- | --- |

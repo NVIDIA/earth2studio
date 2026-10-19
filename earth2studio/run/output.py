@@ -37,7 +37,13 @@ from earth2studio.io.kv import KVBackend
 from earth2studio.io.utils import output_template
 from earth2studio.io.xarray import XarrayBackend
 from earth2studio.io.zarr import ZarrBackend
-from earth2studio.run.work import WorkItem, barrier, rank0_first, rank_info
+from earth2studio.run.work import (
+    WorkItem,
+    _validate_items,
+    barrier,
+    rank0_first,
+    rank_info,
+)
 from earth2studio.utils.type import CoordinateSystem
 
 # Dimensions work is distributed over: an item writes one `time` and its
@@ -91,14 +97,16 @@ class OutputManager:
         Raises
         ------
         ValueError
-            If a backend names a stream without a schema, ``items`` is empty, or
-            a distributed store's layout lets two items share storage.
+            If a backend names a stream without a schema, ``items`` is empty or
+            repeats a ``(time, member)``, or a distributed store's layout lets
+            two items share storage.
         """
         unknown = sorted(set(self.backends).difference(schemas))
         if unknown:
             raise ValueError(f"Output backends name unknown streams: {unknown}")
         if self.backends and not items:
             raise ValueError("Output stores cannot be prepared without work items")
+        _validate_items(items)
 
         times = np.unique(
             np.array([item.time for item in items], dtype="datetime64[ns]")
@@ -335,38 +343,53 @@ def _zarr_blocks(
         for dim in _DISTRIBUTED_DIMS
         if dim in sizes
     }
-    for dim, shard in _stored_shards(backend).items():
-        if dim in blocks and shard > blocks[dim][0]:
-            blocks[dim] = (shard, "shards")
+    _widen_to_stored(blocks, backend.root)
     return blocks
 
 
-def _stored_shards(backend: ZarrBackend) -> dict[str, int]:
-    """Shard size per dimension of the arrays already in a Zarr store."""
+def _widen_to_stored(blocks: dict[str, tuple[int, str]], root: Any) -> None:
+    """Widen ``blocks`` to the chunks and shards of the arrays already stored.
+
+    A reopened store keeps the layout it was created with, whatever the backend
+    was asked for this time, so the stored layout is what writers share.
+    """
+    chunks, shards = _stored_layout(root)
+    # Shards first: a sharded array may report its shard shape as its chunks.
+    for kind, sizes in (("shards", shards), ("chunks", chunks)):
+        for dim, size in sizes.items():
+            if dim in blocks and size > blocks[dim][0]:
+                blocks[dim] = (size, kind)
+
+
+def _stored_layout(root: Any) -> tuple[dict[str, int], dict[str, int]]:
+    """Largest chunk and shard size per dimension of the arrays in a Zarr group."""
+    chunks: dict[str, int] = {}
     shards: dict[str, int] = {}
     try:
-        names = [name for name in backend.root.array_keys()]
-        for name in names:
-            array: Any = backend[name]
+        for _, array in root.arrays():
             dims = [str(dim) for dim in (array.metadata.dimension_names or ())]
-            if array.shards is None or len(dims) != len(array.shards):
+            if len(dims) != len(array.chunks):
                 continue
-            for dim, shard in zip(dims, array.shards):
-                shards[dim] = max(shards.get(dim, 0), int(shard))
+            for dim, chunk in zip(dims, array.chunks):
+                chunks[dim] = max(chunks.get(dim, 0), int(chunk))
+            if array.shards is not None:
+                for dim, shard in zip(dims, array.shards):
+                    shards[dim] = max(shards.get(dim, 0), int(shard))
     except Exception as error:  # noqa: BLE001 - geometry is best effort
-        logger.debug(f"Could not read the shards of a Zarr store: {error}")
-    return shards
+        logger.debug(f"Could not read the layout of a Zarr store: {error}")
+    return chunks, shards
 
 
 def _async_zarr_blocks(
-    backend: IOBackend, sizes: Mapping[str, int]
+    backend: AsyncZarrBackend, sizes: Mapping[str, int]
 ) -> dict[str, tuple[int, str]]:
     """Chunk and shard sizes of an async Zarr store's distributed dimensions.
 
     The backend chunks a parallel coordinate at 1 and rejects any
     ``chunked_coords`` entry that would widen it, so ``chunked_coords`` is read
     only as a safeguard; ``shard_coords`` groups those chunks into one written
-    shard, which is what a rank must not share.
+    shard, which is what a rank must not share. A reopened store writes the
+    layout it was created with, so the stored arrays are read as well.
     """
     chunked: Mapping[Hashable, int] = getattr(backend, "chunked_coords", {})
     sharded: Mapping[Hashable, int] = getattr(backend, "shard_coords", {})
@@ -377,4 +400,5 @@ def _async_zarr_blocks(
         chunk = int(chunked.get(dim, 1))
         shard = int(sharded.get(dim, chunk))
         blocks[dim] = (chunk, "chunks") if chunk >= shard else (shard, "shards")
+    _widen_to_stored(blocks, backend._sync_root())
     return blocks

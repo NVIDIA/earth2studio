@@ -34,6 +34,7 @@ from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner, WorkItem
+from earth2studio.run.runner import _signature_for_stream
 from earth2studio.run.work import member_seed
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS
@@ -214,6 +215,20 @@ def test_output_coords_are_allocation_free_stream_signatures() -> None:
         forecast["lead_time"], np.arange(4) * np.timedelta64(6, "h")
     )
     np.testing.assert_array_equal(forecast["variable"], ["u10m", "v10m"])
+
+
+def test_stream_signature_fixes_a_dynamic_lead_time() -> None:
+    # Diagnostics such as WindGust declare lead_time dynamic; the stream fixes it.
+    signature = coord_array(
+        ("batch", "time", "lead_time", "variable", "lat", "lon"),
+        {"variable": np.array(["u10m"]), "lat": np.arange(2.0), "lon": np.arange(3.0)},
+        dynamic=("batch", "time", "lead_time"),
+    )
+    leads = np.arange(3) * np.timedelta64(6, "h")
+    stream = _signature_for_stream(signature, leads)
+    assert stream.dims == ("batch", "time", "lead_time", "variable", "lat", "lon")
+    assert stream.attrs[E2S_DYNAMIC_DIMS] == ("batch", "time")
+    np.testing.assert_array_equal(stream["lead_time"], leads)
 
 
 def test_output_coords_round_trip_to_io_templates() -> None:
