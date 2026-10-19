@@ -21,7 +21,8 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device | str = "cpu",
-    regridder: Regridder | None = None,
+    target_grid: GridDefinition | str | None = None,
+    regridder: Regridder | str | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     ...
@@ -35,58 +36,61 @@ def fetch_data(
   use `source.time_step`; statistical requests fail if neither is available.
   Instantaneous requests do not require a cadence.
 - `device` accepts CPU or CUDA destinations. CUDA output requires CuPy.
-- `regridder` is an optional `Regridder` applied after temporal reduction and
-  device placement. It owns both grids, so there is no separate target argument.
+- `target_grid` is the grid to return fields on, typically
+  `infer_grid(model.input_coords())`. Without it, fields stay on the source grid.
+- `regridder` is a `Regridder` to apply, or a registered method name resolved for
+  the source and target grids (see [REGRID_SPEC.md](REGRID_SPEC.md)).
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
-declared in variable labels. `regridder` replaces the former `interp_to` and
-`interp_method` arguments; string methods are not accepted, because the source grid
-is unknown before fetching and weights must be built at construction (`R1`).
+declared in variable labels. `target_grid` replaces the former `interp_to`, and
+`regridder` replaces `interp_method`.
 
 ### Regridding
 
-The regridder carries the target grid, typically reconstructed from a model
-signature:
+`fetch_data` maps the field the source returns; it never inspects how the source
+produced it, so a `RegriddedSource` is fetched like any other source.
 
-```python
-regridder = BilinearRegridder("latlon-0.25deg", infer_grid(model.input_coords()))
-field = fetch_data(source, time, variable, device="cuda", regridder=regridder)
-```
+| Arguments | Behavior |
+| --- | --- |
+| Neither | Fields stay on the source grid |
+| `regridder` object | Applied; with `target_grid`, it must produce that grid |
+| `target_grid` | Inferred source grid mapped onto it, cautiously, as below |
+| `target_grid` and a method name | As above, but with the named method |
 
-`fetch_data` unwraps a `RegriddedSource` whose `defer` is true (the default) and
-applies its regridder itself, so these calls are equivalent:
+Mapping onto `target_grid` infers the source grid from the fetched field with
+`infer_grid` and raises `ValueError` if it cannot. Then:
 
-```python
-fetch_data(RegriddedSource(source, regridder), time, variable)
-fetch_data(source, time, variable, regridder=regridder)
-```
+1. Fields already on the target pass through.
+2. A target that is an exact crop of the source, on rectilinear or projected grids
+   with the same CRS, is selected by label without interpolation.
+3. Otherwise the method's regridder is constructed with `resolve_regridder` and
+   applied, with an info log. Without a method name, `fetch_data` uses
+   `"nearest"`, limited to the source grid's resolution
+   (`max_dist_km="auto"`), and raises `ValueError` if any target point lies
+   beyond the source. Naming a method opts in to filling such points.
 
-Nested pairs unwrap from the outside in and stop at the first pair with
-`defer=False`, which is called as an opaque source. Unwrapped regridders apply
-innermost first, then the `regridder` argument. Without a regridder, fields stay on
-the source grid.
+Resolving a method constructs a regridder on every call. Callers fetching
+repeatedly on one pair of grids should build a `Regridder` once and pass it.
 
 ### Order of Operations
 
-1. Fetch from the unwrapped source on its native grid.
+1. Fetch from the source on its native grid.
 2. Apply temporal reductions on the backing the source returned.
 3. Move the result to `device` if it is not already there.
-4. Apply the regridders on `device`.
+4. Map onto the target grid on `device`.
 
-Reducing first regrids each window once rather than once per sample, and moving
-first runs large regrids on the GPU. Nearest and bilinear regridding commute with
-`mean` and `sum`, but bilinear `max` and `min` do not; an opaque pair regrids each
-sample before step 2.
+A `RegriddedSource` regrids each fetched sample before step 2. Nearest and
+bilinear regridding commute with `mean` and `sum`, but bilinear `max` and `min` do
+not.
 
 ### Source Backing and Device
 
-Sources return NumPy-backed fields unless constructed with a CUDA `device`. A
-source that does heavy array work, such as normalization, may accept a `device`
-constructor argument, default `"cpu"`, and return CuPy-backed fields on that device.
-It exposes the choice as a `device` attribute holding a `torch.device`. The source
+Data sources accept a `device` keyword, default `"cpu"`, and expose it as a `device`
+attribute holding a `torch.device`. On a CUDA device, field sources return
+CuPy-backed DataArrays and dataframe sources return cuDF frames. The source
 protocol is unchanged, and a source without the attribute is a CPU source.
 `RegriddedSource` and `CompositeSource` forward the attribute. `fetch_data` accepts
-either backing, and moves data only in step 3.
+either backing and moves data only in step 3.
 
 ## Source Dispatch
 

@@ -351,23 +351,6 @@ def test_regridded_source_errors():
         coarse(np.datetime64("2024-01-01"), "a")
 
 
-class _LoggingRegridder:
-    """Identity on the native grid that records each field it receives."""
-
-    source_grid = _NATIVE_GRID
-    target_grid = _NATIVE_GRID
-
-    def __init__(self, log, label):
-        self.log, self.label = log, label
-
-    def __call__(self, x):
-        self.log.append((self.label, x.sizes["time"]))
-        return x
-
-    def to(self, device):
-        return self
-
-
 class _LoggingCoarsener(_CoarseningRegridder):
     def __init__(self, log):
         self.log = log
@@ -377,47 +360,24 @@ class _LoggingCoarsener(_CoarseningRegridder):
         return super().__call__(x)
 
 
-def test_fetch_data_defers_regridded_source():
+def test_regridded_source_and_regridder_argument_order():
     time = np.array([np.datetime64("2024-01-01T12")])
     variable = np.array(["a:mean:12h"])
 
-    # Deferred: one regrid of the reduced field, as with the regridder argument.
+    # A regridded source is an ordinary source: each fetched frame is regridded.
     log = []
-    deferred = fetch_data(
+    composed = fetch_data(
         RegriddedSource(_NativeSource(), _LoggingCoarsener(log)), time, variable
     )
-    assert [sizes["time"] for sizes in log] == [1]
+    assert [sizes["time"] for sizes in log] == [2]
+
+    # The regridder argument regrids the reduced field once.
     log.clear()
-    keyword = fetch_data(
+    argument = fetch_data(
         _NativeSource(), time, variable, regridder=_LoggingCoarsener(log)
     )
     assert [sizes["time"] for sizes in log] == [1]
-    xr.testing.assert_identical(deferred, keyword)
-
-    # Opaque: each fetched frame is regridded before the 12h reduction.
-    log.clear()
-    opaque = fetch_data(
-        RegriddedSource(_NativeSource(), _LoggingCoarsener(log), defer=False),
-        time,
-        variable,
-    )
-    assert [sizes["time"] for sizes in log] == [2]
-    xr.testing.assert_allclose(opaque, deferred)
-
-
-def test_fetch_data_unwraps_until_opaque_source():
-    log = []
-    inner = RegriddedSource(
-        _NativeSource(), _LoggingRegridder(log, "inner"), defer=False
-    )
-    outer = RegriddedSource(inner, _LoggingRegridder(log, "outer"))
-    fetch_data(
-        outer,
-        np.array([np.datetime64("2024-01-01T12")]),
-        np.array(["a:mean:12h"]),
-        regridder=_LoggingRegridder(log, "argument"),
-    )
-    assert log == [("inner", 2), ("outer", 1), ("argument", 1)]
+    xr.testing.assert_allclose(composed, argument)
 
 
 def test_regridded_source_forwards_device():
@@ -432,12 +392,10 @@ def test_regridded_source_forwards_device():
     assert wrapped.device == torch.device("cuda", 1)
 
 
-def test_opaque_regridded_forecast_source_dispatch():
+def test_regridded_forecast_source_dispatch():
     time = np.array([np.datetime64("2024-01-01")])
     lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
-    source = RegriddedSource(
-        _NativeForecastSource(), _CoarseningRegridder(), defer=False
-    )
+    source = RegriddedSource(_NativeForecastSource(), _CoarseningRegridder())
     assert source.is_forecast
     array = fetch_data(source, time, np.array(["a"]), lead_time)
     assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
@@ -456,13 +414,15 @@ def test_fetch_data_device_aware_source():
 
     time = np.array([np.datetime64("2024-01-01T12")])
     variable = np.array(["a:mean:12h"])
-    for defer in (True, False):
+    for composed in (True, False):
         regridder = BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)
+        source = _DeviceSource()
         array = fetch_data(
-            RegriddedSource(_DeviceSource(), regridder, defer=defer),
+            RegriddedSource(source, regridder) if composed else source,
             time,
             variable,
             device="cuda:0",
+            regridder=None if composed else regridder,
         )
         assert isinstance(array.data, cp.ndarray)
         assert array.data.device.id == 0

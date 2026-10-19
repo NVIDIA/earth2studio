@@ -11,8 +11,9 @@ Grid geometry follows [GRID_SPEC.md](GRID_SPEC.md); this contract covers only mo
 field data between two such geometries.
 
 Status: the protocol is in `earth2studio/grids/base.py`, with `NearestRegridder`
-and `BilinearRegridder` as built-in implementations. `RegriddedSource` and
-`CompositeSource` live in `earth2studio.data`.
+and `BilinearRegridder` as built-in implementations and a method registry in
+`earth2studio.grids`. `RegriddedSource` and `CompositeSource` live in
+`earth2studio.data`.
 
 ## Interface
 
@@ -62,36 +63,47 @@ inherit. Wrappers around external engines conform without subclassing.
 - Floating dtypes are preserved. Other dtypes may be promoted so the fill is
   representable.
 
+## Registry
+
+Regridders register under a method name with
+`register_regridder(method, cls)`. A registered class declares the grid pairs it
+handles with a `supports(source_grid, target_grid)` class method and is constructed
+as `cls(source_grid, target_grid, **options)`.
+
+- `list_regridders(source, target)` lists the methods available for a pair.
+- `resolve_regridder(source, target, method="nearest", **options)` constructs the
+  most recently registered supporting class. This lets grid-specific
+  implementations, registered after the built-ins, take precedence. It raises
+  `ValueError` when no class supports the pair.
+- The built-ins register as `"nearest"`, for any grid with geographic coordinates,
+  and `"bilinear"`, for structured sources.
+
+General regridders support grid families rather than enumerated grids, because
+model grids are usually crops that are never registered.
+
 ## Composition
 
-`RegriddedSource(source, regridder, *, defer=True)` pairs a data or forecast source
-with a regridder bound to its grid. The pair stands in for the source wherever one
-is accepted. A model recommending a source off its slot's grid returns this pair
-from `default_sources()`, and drivers fetch from it like any other source:
+`RegriddedSource(source, regridder)` pairs a data or forecast source with a
+regridder bound to its grid. It is an ordinary source: calling it fetches from the
+wrapped source and regrids each returned field. A model recommending a source off
+its slot's grid returns the pair from `default_sources()`, and drivers fetch from it
+like any other source:
 
 ```python
 def default_sources(self):
     return (MRMS(), RegriddedSource(GOES(), NearestRegridder(goes_grid, self.grid)))
 ```
 
-- Calling the pair fetches from the source and regrids the result.
-- `fetch_data` unwraps a deferred pair and regrids after temporal reduction and
-  device placement (see [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md)). With
-  `defer=False` the pair is opaque, and each fetched frame is regridded before
-  reduction.
-- The pair forwards the source's `time_step` and `device`, and declares
-  `is_forecast`.
-
-Nothing regrids implicitly. A regridder is bound to its source's grid, so a caller
-replacing the source must replace the whole pair (`R2` raises otherwise).
+The pair forwards the source's `time_step` and `device`, and declares
+`is_forecast`. A regridder is bound to its source's grid, so a caller replacing the
+source must replace the whole pair (`R2` raises otherwise).
 
 `CompositeSource(sources, variables)` routes each requested variable to the one
 named component that provides it and joins the parts along `variable`:
 
-- Components must all be analysis sources or all forecast sources.
+- Components must all be analysis sources or all forecast sources, on one device.
 - They must share every coordinate other than `variable`. A component on another
   grid is wrapped in a `RegriddedSource` onto the shared target.
-- Parts with different backings are joined on the device of the first CuPy part.
 
 ## Migration
 
@@ -103,8 +115,3 @@ differences matter when migrating:
 - The built-ins take grid definitions rather than coordinate arrays.
 - The built-ins fill with NaN by default. Pass `fill_value=0` where the recipe
   relied on its bilinear default.
-
-## Open Questions
-
-- Should `fetch_data` also defer the regridding of components inside a
-  `CompositeSource`, regridding once after the join?

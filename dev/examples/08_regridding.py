@@ -48,6 +48,7 @@ from earth2studio.grids import (
     NearestRegridder,
     ProjectedGrid,
     infer_grid,
+    list_regridders,
     resolve_grid,
 )
 from earth2studio.utils import coord_array
@@ -127,33 +128,64 @@ target = infer_grid(signature)
 print("Target:", target.dims, target.shape)
 
 # %%
-# Regrid in fetch_data
-# --------------------
-# A regridder is built once between two grids; construction computes every index
-# and weight. ``fetch_data`` applies it after temporal reductions, so the 6 hour
-# mean below regrids one field rather than six.
+# Regrid to a Target Grid
+# -----------------------
+# Pass ``target_grid`` to receive fields on it. ``fetch_data`` infers the source
+# grid from the fetched field. Fields already on the target pass through, and exact
+# crops are selected. Anything else is regridded by nearest neighbor, with a log
+# message, and only if the target lies within the source; otherwise it raises.
 
 # %%
 time = np.array([np.datetime64("2024-06-01T12")])
+field = fetch_data(analysis, time, np.array(["t2m"]), target_grid=target)
+print("Field:", dict(field.sizes))
+print("Geometry follows the target:", field.attrs["type"], field.attrs["dims"])
+
+try:
+    fetch_data(radar, time, np.array(["refc"]), target_grid=target)
+except ValueError as error:
+    print("Radar does not cover the target:", error)
+
+# %%
+# Choose a Method
+# ---------------
+# ``list_regridders`` reports the methods available for two grids, and a method
+# name selects one. Naming a method also opts in to filling points the source does
+# not cover, with NaN.
+
+# %%
+print("Methods:", list_regridders(GLOBAL, target), list_regridders(RADAR, target))
+field = fetch_data(
+    radar, time, np.array(["refc"]), target_grid=target, regridder="bilinear"
+)
+print("Radar points without coverage (NaN):", f"{float(np.isnan(field).mean()):.0%}")
+
+# %%
+# Reuse a Regridder
+# -----------------
+# Resolving a method builds a regridder, which computes its indices and weights, on
+# every call. Build one once and pass it to reuse them. ``fetch_data`` applies it
+# after temporal reductions, so the 6 hour mean regrids one field rather than six.
+
+# %%
 bilinear = BilinearRegridder(GLOBAL, target)
 field = fetch_data(analysis, time, np.array(["t2m", "t2m:mean:6h"]), regridder=bilinear)
 print("Field:", dict(field.sizes))
-print("Geometry follows the target:", field.attrs["type"], field.attrs["dims"])
 
 # %%
 # Regridded Sources
 # -----------------
 # ``RegriddedSource`` pairs a source with its regridder so the pair stands in for a
-# source, which is how a model recommends a source on another grid. ``fetch_data``
-# unwraps it and regrids at the same point as the ``regridder`` argument. With
-# ``defer=False`` it regrids every fetched frame before reduction instead.
+# source, which is how a model recommends a source on another grid. It is an
+# ordinary source: each fetched frame is regridded before any temporal reduction.
+# For a mean the order does not matter.
 
 # %%
-deferred = RegriddedSource(analysis, bilinear)
-opaque = RegriddedSource(analysis, bilinear, defer=False)
-a = fetch_data(deferred, time, np.array(["t2m:mean:6h"]))
-b = fetch_data(opaque, time, np.array(["t2m:mean:6h"]))
-print("Mean commutes with bilinear:", np.allclose(a, b))
+paired = fetch_data(
+    RegriddedSource(analysis, bilinear), time, np.array(["t2m:mean:6h"])
+)
+direct = fetch_data(analysis, time, np.array(["t2m:mean:6h"]), regridder=bilinear)
+print("Mean commutes with bilinear:", np.allclose(paired, direct))
 
 # %%
 # Coverage

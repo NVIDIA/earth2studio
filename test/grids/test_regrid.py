@@ -29,7 +29,10 @@ from earth2studio.grids import (
     PointGrid,
     ProjectedGrid,
     Regridder,
+    list_regridders,
+    register_regridder,
     resolve_grid,
+    resolve_regridder,
 )
 from earth2studio.utils.coords import coord_array, handshake_dataarray
 
@@ -385,6 +388,60 @@ def test_parity_with_interp_kernels():
         GLOBAL.latitude, GLOBAL.longitude, lat, lon, max_dist_km=500.0
     )(values)
     np.testing.assert_allclose(nearest.values, reference.numpy(), atol=1e-6)
+
+
+def test_list_and_resolve_regridders():
+    points = PointGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
+    assert list_regridders(REGION, "hrrr") == ("nearest", "bilinear")
+    assert list_regridders(points, REGION) == ("nearest",)
+    assert NearestRegridder.supports(points, REGION)
+    assert not BilinearRegridder.supports(points, REGION)
+    assert not BilinearRegridder.supports(LatLonGrid([0.0], [0.0, 1.0]), REGION)
+
+    regridder = resolve_regridder(REGION, "hrrr", "bilinear", fill_value=0.0)
+    assert isinstance(regridder, BilinearRegridder) and regridder.fill_value == 0
+    assert isinstance(resolve_regridder(points, REGION), NearestRegridder)
+    with pytest.raises(ValueError, match="available methods: \\['nearest'\\]"):
+        resolve_regridder(points, REGION, "bilinear")
+    with pytest.raises(ValueError, match="No 'conservative' regridder"):
+        resolve_regridder(REGION, GLOBAL, "conservative")
+
+
+def test_registered_regridders_take_precedence(monkeypatch):
+    import earth2studio.grids as grids
+
+    monkeypatch.setattr(
+        grids, "_REGRIDDERS", {k: list(v) for k, v in grids._REGRIDDERS.items()}
+    )
+
+    class _RegionOnly(NearestRegridder):
+        @classmethod
+        def supports(cls, source_grid, target_grid):
+            return source_grid.fingerprint() == REGION.fingerprint()
+
+    register_regridder("nearest", _RegionOnly)
+    assert isinstance(resolve_regridder(REGION, GLOBAL), _RegionOnly)
+    assert type(resolve_regridder(GLOBAL, REGION)) is NearestRegridder
+    with pytest.raises(TypeError, match="supports"):
+        register_regridder("nearest", object)
+
+
+@pytest.mark.parametrize("curvilinear", [False, True])
+def test_nearest_auto_distance_follows_source_resolution(curvilinear):
+    if curvilinear:
+        pytest.importorskip("scipy")
+    source = REGION
+    if curvilinear:
+        source = CurvilinearGrid(
+            *np.meshgrid(REGION.latitude, REGION.longitude, indexing="ij")
+        )
+    # Inside the region, just past its edge, and far beyond it.
+    target = PointGrid(np.array([35.0, 45.0, 80.0]), np.array([255.0, 260.0, 260.0]))
+    np.testing.assert_array_equal(
+        NearestRegridder(source, target, max_dist_km="auto").coverage,
+        [True, True, False],
+    )
+    assert NearestRegridder(source, target).coverage.all()
 
 
 def test_to_rejects_unsupported_device():

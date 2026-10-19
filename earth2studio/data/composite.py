@@ -31,11 +31,6 @@ from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.data.utils import _is_forecast_source
 from earth2studio.utils.coords import E2S_STATISTICS
 
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
-
 
 class CompositeSource:
     """Data or forecast source assembled from components that provide disjoint
@@ -50,7 +45,8 @@ class CompositeSource:
     Parameters
     ----------
     sources : Mapping[str, DataSource | ForecastSource]
-        Named component sources, all analysis sources or all forecast sources.
+        Named component sources, all analysis sources or all forecast sources, on
+        one ``device``.
     variables : Mapping[str, Sequence[str]]
         Variables provided by each named component. A variable may be provided by
         only one component.
@@ -58,7 +54,8 @@ class CompositeSource:
     Raises
     ------
     ValueError
-        If ``variables`` names an unknown component or assigns a variable twice.
+        If ``variables`` names an unknown component or assigns a variable twice, or
+        components return fields on different devices.
     TypeError
         If analysis and forecast components are mixed.
 
@@ -93,6 +90,15 @@ class CompositeSource:
         if len(kinds) > 1:
             raise TypeError("Components must all be analysis or all forecast sources")
         self._forecast = kinds.pop() if kinds else False
+        devices = {
+            torch.device(getattr(source, "device", "cpu"))
+            for source in sources.values()
+        }
+        if len(devices) > 1:
+            raise ValueError(
+                f"Components must return fields on one device, not {sorted(map(str, devices))}"
+            )
+        self._device = devices.pop() if devices else torch.device("cpu")
         self._sources = MappingProxyType(dict(sources))
         self._routes = routes
 
@@ -116,12 +122,8 @@ class CompositeSource:
 
     @property
     def device(self) -> torch.device:
-        """Device joined fields are returned on: the first non-CPU component's."""
-        for source in self._sources.values():
-            device = torch.device(getattr(source, "device", "cpu"))
-            if device.type != "cpu":
-                return device
-        return torch.device("cpu")
+        """Device shared by every component, CPU for sources without one."""
+        return self._device
 
     @property
     def time_step(self) -> np.timedelta64 | None:
@@ -226,8 +228,7 @@ class CompositeSource:
 
 
 def _join(parts: list[xr.DataArray], requested: list[str]) -> xr.DataArray:
-    """Join component fields along ``variable`` on a common backing and device."""
-    parts = _common_backing(parts)
+    """Join component fields along ``variable``."""
     if len(parts) > 1:
         dims = parts[0].dims
         if any(set(part.dims) != set(dims) for part in parts):
@@ -256,24 +257,3 @@ def _join(parts: list[xr.DataArray], requested: list[str]) -> xr.DataArray:
     if statistics:
         field.attrs[E2S_STATISTICS] = statistics
     return field
-
-
-def _common_backing(parts: list[xr.DataArray]) -> list[xr.DataArray]:
-    """Move NumPy parts onto the device of the first CuPy part, if any."""
-    if cp is None:
-        return parts
-    devices = [
-        part.data.device.id for part in parts if isinstance(part.data, cp.ndarray)
-    ]
-    if not devices:
-        return parts
-    with cp.cuda.Device(devices[0]):
-        return [
-            (
-                part
-                if isinstance(part.data, cp.ndarray)
-                and part.data.device.id == devices[0]
-                else part.copy(data=cp.array(part.data))
-            )
-            for part in parts
-        ]

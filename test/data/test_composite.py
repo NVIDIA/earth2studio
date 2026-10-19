@@ -212,11 +212,20 @@ def test_time_step_requires_agreement():
     assert source.time_step is None
 
 
-def test_device_is_first_non_cpu_component():
-    source, _, satellite = _composite()
+def test_components_share_one_device():
+    source, _, _ = _composite()
     assert source.device == torch.device("cpu")
-    satellite.device = "cuda:1"
-    assert source.device == torch.device("cuda", 1)
+
+    on_gpu = _Source({"y": 2.0})
+    on_gpu.device = "cuda:1"
+    with pytest.raises(ValueError, match="one device"):
+        CompositeSource(
+            {"a": _Source({"x": 1.0}), "b": on_gpu}, {"a": ["x"], "b": ["y"]}
+        )
+    other = _Source({"x": 1.0})
+    other.device = torch.device("cuda", 1)
+    shared = CompositeSource({"a": other, "b": on_gpu}, {"a": ["x"], "b": ["y"]})
+    assert shared.device == torch.device("cuda", 1)
 
 
 def test_statistics_metadata_merged_from_every_component():
@@ -268,12 +277,12 @@ def test_temporal_statistics_through_regridded_components():
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
-def test_mixed_backings_join_on_device():
+def test_device_components_join_on_device():
     cp = pytest.importorskip("cupy")
-    source = CompositeSource(
-        {"a": _Source({"x": 1.0}, wrap=cp.asarray), "b": _Source({"y": 2.0})},
-        {"a": ["x"], "b": ["y"]},
-    )
+    a = _Source({"x": 1.0}, wrap=cp.asarray)
+    b = _Source({"y": 2.0}, wrap=cp.asarray)
+    a.device = b.device = torch.device("cuda", 0)
+    source = CompositeSource({"a": a, "b": b}, {"a": ["x"], "b": ["y"]})
     array = source(TIME, ["y", "x"])
     assert isinstance(array.data, cp.ndarray)
     np.testing.assert_allclose(cp.asnumpy(array.data[0, :, 0, 0]), [2.0, 1.0])

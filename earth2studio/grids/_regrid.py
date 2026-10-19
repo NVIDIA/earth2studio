@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Nearest-neighbor and bilinear regridders between grid definitions."""
+"""Shared geometry helpers and the base class of the built-in regridders."""
 
 from __future__ import annotations
 
@@ -25,21 +25,8 @@ import numpy as np
 import torch
 import xarray as xr
 from numpy.typing import NDArray
-from pyproj import CRS, Transformer
 
 from earth2studio.grids.base import E2S_CRS, E2S_GRID_ID, GridDefinition
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
-
-try:
-    from scipy.interpolate import LinearNDInterpolator
-    from scipy.spatial import KDTree
-except ImportError:
-    OptionalDependencyFailure("utils")
-    LinearNDInterpolator = None
-    KDTree = None
 
 try:
     import cupy as cp
@@ -203,46 +190,6 @@ def _latlon_neighbors(
     )
 
 
-def _rectilinear_nearest(
-    grid: GridDefinition, latitude: NDArray[Any], longitude: NDArray[Any]
-) -> tuple[NDArray[np.int64], NDArray[Any], NDArray[np.bool_]]:
-    """Nearest point on the sphere of a rectilinear grid, without a search tree.
-
-    Along every latitude row the nearest point lies in the column nearest in
-    longitude, so the nearest grid point lies on that column's meridian. When the
-    meridian's closest approach to the target lies between the poles, distance
-    along it has a single minimum there, so the nearest row brackets that
-    latitude. Otherwise the closest approach is on the far side of the globe,
-    distance peaks between the poles, and the nearest row is the first or last.
-    Both cases are covered by choosing among those four rows.
-    """
-    lat_axis, lon_axis = _latlon_axes(grid)
-    columns = np.zeros(latitude.shape, dtype=np.int64)
-    if lon_axis.size > 1:
-        period = _longitude_period(lon_axis)
-        wrapped = longitude
-        if period is None:
-            ascending = lon_axis if lon_axis[-1] > lon_axis[0] else lon_axis[::-1]
-            wrapped = _wrap_longitude(longitude, ascending)
-        lower, upper, weight, _ = _axis_neighbors(lon_axis, wrapped, period=period)
-        columns = np.where(weight >= 0.5, upper, lower)
-    meridian = lon_axis[columns]
-
-    rows = np.zeros(latitude.shape, dtype=np.int64)
-    if lat_axis.size > 1:
-        lat, dlon = np.radians(latitude), np.radians(longitude - meridian)
-        closest = np.degrees(np.arctan2(np.sin(lat), np.cos(lat) * np.cos(dlon)))
-        lower, upper, _, _ = _axis_neighbors(lat_axis, np.clip(closest, -90, 90))
-        ends = np.zeros_like(lower), np.full_like(lower, lat_axis.size - 1)
-        # Upper first, so exact ties resolve as rounding the bracket would.
-        candidates = np.stack((upper, lower, *ends))
-        km = _great_circle_km(latitude, longitude, lat_axis[candidates], meridian)
-        rows = np.take_along_axis(candidates, km.argmin(axis=0)[None], axis=0)[0]
-    distance = _great_circle_km(latitude, longitude, lat_axis[rows], meridian)
-    valid = np.isfinite(latitude) & np.isfinite(longitude)
-    return rows * lon_axis.size + columns, distance, valid
-
-
 def _unit_vectors(latitude: NDArray[Any], longitude: NDArray[Any]) -> NDArray[Any]:
     lat, lon = np.radians(latitude), np.radians(longitude)
     return np.stack(
@@ -257,60 +204,6 @@ def _great_circle_km(
         _unit_vectors(lat0, lon0) - _unit_vectors(lat1, lon1), axis=-1
     )
     return 2 * np.arcsin(np.clip(chord / 2, 0, 1)) * _EARTH_RADIUS_KM
-
-
-@check_optional_dependencies()
-def _tree_neighbors(
-    source: tuple[NDArray[Any], NDArray[Any]],
-    target: tuple[NDArray[Any], NDArray[Any]],
-) -> tuple[NDArray[np.int64], NDArray[Any], NDArray[np.bool_]]:
-    """Nearest source point and its distance for each target point, on the sphere."""
-    source_valid = np.isfinite(source[0]) & np.isfinite(source[1])
-    if not source_valid.any():
-        raise ValueError("Source grid has no finite geographic coordinates")
-    target_valid = np.isfinite(target[0]) & np.isfinite(target[1])
-    tree = KDTree(_unit_vectors(source[0][source_valid], source[1][source_valid]))
-    chord = np.full(target[0].size, np.inf)
-    nearest = np.zeros(target[0].size, dtype=np.int64)
-    chord[target_valid], found = tree.query(
-        _unit_vectors(target[0][target_valid], target[1][target_valid]), k=1
-    )
-    nearest[target_valid] = np.flatnonzero(source_valid)[found]
-    distance = 2 * np.arcsin(np.clip(chord / 2, 0, 1)) * _EARTH_RADIUS_KM
-    return nearest, distance, target_valid
-
-
-@check_optional_dependencies()
-def _triangulated_positions(
-    source: GridDefinition, latitude: NDArray[Any], longitude: NDArray[Any]
-) -> tuple[NDArray[Any], NDArray[Any]]:
-    """Fractional source indices of geographic points by Delaunay triangulation.
-
-    Interpolation is planar in degrees, so targets must not cross the longitude seam
-    of the source. Points outside the source's convex hull are NaN.
-    """
-    source_lat, source_lon = _geographic(source)
-    rows, columns = np.unravel_index(np.arange(source_lat.size), source.shape)
-    valid = np.isfinite(source_lat) & np.isfinite(source_lon)
-    points = np.stack((source_lat[valid], source_lon[valid]), axis=-1)
-    longitude = source_lon[valid].min() + np.mod(
-        longitude - source_lon[valid].min(), 360.0
-    )
-    queries = np.stack((latitude, longitude), axis=-1)
-    return (
-        LinearNDInterpolator(points, rows[valid].astype(np.float64))(queries),
-        LinearNDInterpolator(points, columns[valid].astype(np.float64))(queries),
-    )
-
-
-def _cell_neighbors(
-    position: NDArray[Any], size: int
-) -> tuple[NDArray[np.int64], NDArray[np.int64], NDArray[Any], NDArray[np.bool_]]:
-    """Bracket fractional indices, such as triangulated positions, on an axis."""
-    valid = np.isfinite(position)
-    position = np.where(valid, position, 0.0)
-    lower = np.clip(np.floor(position), 0, size - 2).astype(np.int64)
-    return lower, lower + 1, position - lower, valid
 
 
 class _IndexRegridder:
@@ -477,157 +370,82 @@ class _IndexRegridder:
         )
 
     def _attrs(self, attrs: dict[Any, Any]) -> dict[Any, Any]:
-        owned = _GRID_ATTRS.union(self._source_grid.attrs, self._target_grid.attrs)
-        result = {key: value for key, value in attrs.items() if key not in owned}
-        result.update(self._target_grid.attrs)
-        result["dims"] = list(self._target_grid.dims)
-        if self._target_grid.crs is not None:
-            result[E2S_CRS] = self._target_grid.crs.to_string()
-        if self._target_id is not None:
-            result[E2S_GRID_ID] = self._target_id
-        return result
+        return _grid_attrs(attrs, self._source_grid, self._target_grid, self._target_id)
 
 
-class NearestRegridder(_IndexRegridder):
-    """Map each target point to its nearest source point.
+def _grid_attrs(
+    attrs: dict[Any, Any],
+    source: GridDefinition,
+    target: GridDefinition,
+    target_id: str | None,
+) -> dict[Any, Any]:
+    """Replace a field's grid-owned attributes with the target grid's (R4)."""
+    owned = _GRID_ATTRS.union(source.attrs, target.attrs)
+    result = {key: value for key, value in attrs.items() if key not in owned}
+    result.update(target.attrs)
+    result["dims"] = list(target.dims)
+    if target.crs is not None:
+        result[E2S_CRS] = target.crs.to_string()
+    if target_id is not None:
+        result[E2S_GRID_ID] = target_id
+    return result
 
-    Distances are great-circle, so the regridder is indifferent to the longitude
-    convention of either grid. Source points without finite coordinates, such as
-    off-disk satellite pixels, are never selected. On a latitude-longitude source
-    the nearest point is found exactly from the grid axes, without a search tree.
 
-    Parameters
-    ----------
-    source_grid : str | GridDefinition
-        Grid of the fields to regrid, or a registered grid name.
-    target_grid : str | GridDefinition
-        Grid to produce, or a registered grid name. A name is recorded in the
-        output's ``earth2studio_grid_id``.
-    max_dist_km : float | None, optional
-        Targets farther than this from their nearest source point are outside
-        coverage. By default None, which accepts every target.
-    fill_value : float, optional
-        Value for targets outside coverage, by default NaN
+def _same_geometry(a: GridDefinition, b: GridDefinition) -> bool:
+    """Whether two definitions describe the same points, up to float tolerance."""
+    if a.fingerprint() == b.fingerprint():
+        return True
+    if (a.dims, a.shape, a.topology) != (b.dims, b.shape, b.topology):
+        return False
+    if (a.crs is None) != (b.crs is None) or (a.crs is not None and a.crs != b.crs):
+        return False
+    if a.topology == "healpix":
+        return a.attrs == b.attrs
+    names = ("lat", "lon") if a.topology in ("curvilinear", "points") else a.dims
+    full = a.topology in ("curvilinear", "points")
+    coords_a, coords_b = a.coords(only_index=not full), b.coords(only_index=not full)
+    return all(
+        name in coords_a
+        and name in coords_b
+        and np.allclose(coords_a[name], coords_b[name], rtol=0, atol=1e-9)
+        for name in names
+    )
 
-    Note
-    ----
-    Sources other than latitude-longitude grids need SciPy (the ``utils`` extra)
-    to build the search tree.
+
+def _subset_indexers(
+    source: GridDefinition, target: GridDefinition
+) -> dict[str, NDArray[np.int64]] | None:
+    """Positions selecting ``target`` from ``source``, when it is an exact crop.
+
+    Only grids whose dimension coordinates locate points, rectilinear and projected
+    on the same CRS, can be cropped by label. Labels match within a thousandth of
+    the source spacing.
     """
-
-    def __init__(
-        self,
-        source_grid: str | GridDefinition,
-        target_grid: str | GridDefinition,
-        *,
-        max_dist_km: float | None = None,
-        fill_value: float = np.nan,
-    ) -> None:
-        self.max_dist_km = max_dist_km
-        super().__init__(source_grid, target_grid, fill_value)
-
-    def _build(self) -> _Tables:
-        source, target = self._source_grid, self._target_grid
-        latitude, longitude = _geographic(target)
-        if source.topology == "rectilinear" and all(
-            map(_monotonic, _latlon_axes(source))
-        ):
-            index, distance, valid = _rectilinear_nearest(source, latitude, longitude)
+    if source.topology != target.topology or source.dims != target.dims:
+        return None
+    if source.topology not in ("rectilinear", "projected") or source.crs != target.crs:
+        return None
+    indexers = {}
+    for dim, source_axis, target_axis in zip(
+        source.dims, _index_axes(source), _index_axes(target)
+    ):
+        if source_axis.size == 1:
+            matches = np.zeros(target_axis.size, dtype=np.int64)
+            tolerance = 1e-9
         else:
-            index, distance, valid = _tree_neighbors(
-                _geographic(source), (latitude, longitude)
+            order = np.argsort(source_axis)
+            ordered = source_axis[order]
+            right = np.clip(np.searchsorted(ordered, target_axis), 1, ordered.size - 1)
+            left = right - 1
+            nearer = np.where(
+                np.abs(ordered[right] - target_axis)
+                < np.abs(ordered[left] - target_axis),
+                right,
+                left,
             )
-        if self.max_dist_km is not None:
-            valid = valid & (distance <= self.max_dist_km)
-        return np.where(valid, index, 0)[None], None, valid
-
-
-class BilinearRegridder(_IndexRegridder):
-    """Interpolate between the four source points surrounding each target point.
-
-    Source points are located by topology:
-
-    - Rectilinear sources bracket each target along their latitude and longitude
-      axes. Longitude wraps when the grid covers the globe, and target longitudes
-      are matched to the source convention.
-    - Projected sources transform targets into the source CRS and bracket them
-      along the projected axes, which is exact for any target.
-    - Curvilinear sources triangulate their geographic coordinates. This is planar
-      in degrees, needs SciPy (the ``utils`` extra), and does not wrap longitude.
-
-    Targets outside the source grid are outside coverage. Interpolation is in index
-    space, so a source NaN propagates to targets that weight it.
-
-    Parameters
-    ----------
-    source_grid : str | GridDefinition
-        Rectilinear, projected or curvilinear grid of the fields to regrid, or a
-        registered grid name.
-    target_grid : str | GridDefinition
-        Grid to produce, or a registered grid name. A name is recorded in the
-        output's ``earth2studio_grid_id``.
-    fill_value : float, optional
-        Value for targets outside coverage, by default NaN
-    """
-
-    def __init__(
-        self,
-        source_grid: str | GridDefinition,
-        target_grid: str | GridDefinition,
-        *,
-        fill_value: float = np.nan,
-    ) -> None:
-        super().__init__(source_grid, target_grid, fill_value)
-
-    def _build(self) -> _Tables:
-        source, target = self._source_grid, self._target_grid
-        if source.topology == "rectilinear":
-            latitude, longitude = _geographic(target)
-            rows, columns = _latlon_neighbors(source, latitude, longitude)
-        elif source.topology == "projected":
-            if source.crs is None:
-                raise ValueError("Projected source grids need a CRS")
-            y_axis, x_axis = _index_axes(source)
-            if target.topology == "projected" and target.crs == source.crs:
-                target_y, target_x = _index_axes(target)
-                y, x = (
-                    values.ravel()
-                    for values in np.meshgrid(target_y, target_x, indexing="ij")
-                )
-            else:
-                latitude, longitude = _geographic(target)
-                x, y = Transformer.from_crs(
-                    CRS.from_epsg(4326), source.crs, always_xy=True
-                ).transform(longitude, latitude)
-            rows, columns = _axis_neighbors(y_axis, y), _axis_neighbors(x_axis, x)
-        elif source.topology == "curvilinear":
-            latitude, longitude = _geographic(target)
-            row, column = _triangulated_positions(source, latitude, longitude)
-            rows = _cell_neighbors(row, source.shape[0])
-            columns = _cell_neighbors(column, source.shape[1])
-        else:
-            raise ValueError(
-                f"Bilinear regridding needs a structured source grid, not "
-                f"{source.topology}; use NearestRegridder"
-            )
-        width = source.shape[1]
-        row0, row1, row_weight, row_valid = rows
-        column0, column1, column_weight, column_valid = columns
-        valid = row_valid & column_valid
-        index = np.stack(
-            (
-                row0 * width + column0,
-                row0 * width + column1,
-                row1 * width + column0,
-                row1 * width + column1,
-            )
-        )
-        weight = np.stack(
-            (
-                (1 - row_weight) * (1 - column_weight),
-                (1 - row_weight) * column_weight,
-                row_weight * (1 - column_weight),
-                row_weight * column_weight,
-            )
-        )
-        return np.where(valid, index, 0), np.where(valid, weight, 0.0), valid
+            matches = order[nearer]
+            tolerance = 1e-3 * np.abs(np.diff(ordered)).min()
+        if not np.allclose(source_axis[matches], target_axis, rtol=0, atol=tolerance):
+            return None
+        indexers[dim] = matches
+    return indexers

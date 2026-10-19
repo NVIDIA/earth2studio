@@ -46,6 +46,18 @@ earth2studio.grids.BilinearRegridder
 earth2studio.grids.NearestRegridder
 {% endautosummary %}
 
+<!-- e2s-autosummary
+currentmodule: earth2studio.grids
+template: function
+output: generated/grids
+-->
+
+{% autosummary %}
+earth2studio.grids.list_regridders
+earth2studio.grids.register_regridder
+earth2studio.grids.resolve_regridder
+{% endautosummary %}
+
 ## Data Source Wrappers
 
 Compositions that stand in for a data or forecast source.

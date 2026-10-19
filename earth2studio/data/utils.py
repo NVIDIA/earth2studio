@@ -54,7 +54,14 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
-from earth2studio.grids import Regridder
+from earth2studio.grids import (
+    GridDefinition,
+    Regridder,
+    infer_grid,
+    resolve_grid,
+    resolve_regridder,
+)
+from earth2studio.grids._regrid import _grid_attrs, _same_geometry, _subset_indexers
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -282,15 +289,63 @@ def _fetch_dataarray(
     return array
 
 
-def _deferred_regridders(
+# Options making automatic regridding conservative: never extrapolate.
+_AUTO_REGRID_OPTIONS: dict[str, dict[str, Any]] = {"nearest": {"max_dist_km": "auto"}}
+
+
+def _map_to_target(
+    array: xr.DataArray,
     source: DataSource | ForecastSource,
-) -> tuple[DataSource | ForecastSource, list[Regridder]]:
-    """Unwrap deferred regridded sources, returning regridders in application order."""
-    regridders: list[Regridder] = []
-    while isinstance(source, RegriddedSource) and source.defer:
-        regridders.insert(0, source.regridder)
-        source = source.source
-    return source, regridders
+    target_grid: GridDefinition | str | None,
+    regridder: Regridder | str | None,
+) -> xr.DataArray:
+    """Bring a fetched field onto ``target_grid``, cautiously when inferring."""
+    if regridder is not None and not isinstance(regridder, str):
+        if target_grid is not None and not _same_geometry(
+            regridder.target_grid,
+            resolve_grid(target_grid) if isinstance(target_grid, str) else target_grid,
+        ):
+            raise ValueError("regridder.target_grid does not match target_grid")
+        return regridder(array)
+    if target_grid is None:
+        if regridder is not None:
+            raise ValueError("A regridding method needs a target_grid")
+        return array
+
+    target = resolve_grid(target_grid) if isinstance(target_grid, str) else target_grid
+    try:
+        source_grid = infer_grid(array)
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot determine the grid of fields from {type(source).__name__}; "
+            "pass a Regridder built for its grid"
+        ) from error
+    if _same_geometry(source_grid, target):
+        return array
+    indexers = _subset_indexers(source_grid, target)
+    if indexers is not None:
+        array = array.isel(indexers).assign_coords(target.coords(only_index=True))
+        target_id = target_grid if isinstance(target_grid, str) else None
+        array.attrs = _grid_attrs(array.attrs, source_grid, target, target_id)
+        return array
+
+    method = regridder or "nearest"
+    built = resolve_regridder(
+        source_grid, target_grid, method, **_AUTO_REGRID_OPTIONS.get(method, {})
+    )
+    coverage = getattr(built, "coverage", None)
+    if regridder is None and coverage is not None and not np.all(coverage):
+        raise ValueError(
+            f"The target grid extends beyond the grid of {type(source).__name__}; "
+            "pass regridder= to choose a method and fill explicitly"
+        )
+    logger.info(
+        f"Regridding {type(source).__name__} fields from a {source_grid.topology} "
+        f"grid {dict(zip(source_grid.dims, source_grid.shape))} to a "
+        f"{target.topology} grid {dict(zip(target.dims, target.shape))} by "
+        f"{method}; pass a Regridder to reuse its weights"
+    )
+    return built(array)
 
 
 def fetch_data(
@@ -299,7 +354,8 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
     device: torch.device | str = "cpu",
-    regridder: Regridder | None = None,
+    target_grid: GridDefinition | str | None = None,
+    regridder: Regridder | str | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays with temporal statistics, optionally regridded.
@@ -318,10 +374,17 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device | str, optional
         NumPy CPU or CuPy CUDA destination, by default "cpu"
-    regridder : Regridder, optional
-        Regridder applied on ``device`` after temporal reduction, by default None.
-        A :class:`RegriddedSource` with ``defer=True`` is unwrapped and its
-        regridder applied at the same point, before this one.
+    target_grid : GridDefinition | str, optional
+        Grid to return fields on, such as ``infer_grid(model.input_coords())``, by
+        default None, which keeps the source grid. Fields already on it pass
+        through and exact crops are selected. Otherwise fields are regridded by
+        ``regridder``, or by nearest neighbor, which raises if the target extends
+        beyond the source.
+    regridder : Regridder | str, optional
+        Regridder to apply, or a method name resolved for the source and target
+        grids, by default None. A method name needs ``target_grid``; a
+        :class:`~earth2studio.grids.Regridder` must produce ``target_grid`` when
+        both are given.
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
@@ -337,7 +400,9 @@ def fetch_data(
     ----
     Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
     that backing; the result then moves to ``device`` only if it is not already
-    there, and deferred regridders run last, on ``device``.
+    there, and regridding runs last, on ``device``. Resolving a method or regridding
+    automatically constructs a regridder on every call; pass a
+    :class:`~earth2studio.grids.Regridder` to reuse one.
     """
     device = torch.device(device)
     if device.type not in {"cpu", "cuda"}:
@@ -358,9 +423,6 @@ def fetch_data(
     if variable.ndim != 1 or not variable.size:
         raise ValueError("variable must be a nonempty 1D array")
     lead_time = lead_time.astype("timedelta64[ns]")
-    source, regridders = _deferred_regridders(source)
-    if regridder is not None:
-        regridders.append(regridder)
     da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
@@ -375,9 +437,7 @@ def fetch_data(
         da = da.copy(data=cp.asnumpy(da.data))
     else:
         da = da.copy(data=np.asarray(da.data))
-    for step in regridders:
-        da = step(da)
-    return da
+    return _map_to_target(da, source, target_grid, regridder)
 
 
 def fetch_dataframe(
@@ -455,26 +515,15 @@ class RegriddedSource:
     regridder : Regridder
         Regridder applied to fetched fields, on whatever backing and device the
         source returns them.
-    defer : bool, optional
-        Let :func:`fetch_data` unwrap this source and regrid after temporal
-        reduction and device placement, by default True. Set False to regrid each
-        fetched frame first, for example when a NumPy source maps onto a much
-        smaller target, or when a statistic must reduce regridded frames. Calling
-        the source directly always regrids immediately.
     """
 
     def __init__(
-        self,
-        source: DataSource | ForecastSource,
-        regridder: Regridder,
-        *,
-        defer: bool = True,
+        self, source: DataSource | ForecastSource, regridder: Regridder
     ) -> None:
         if not isinstance(regridder, Regridder):
             raise TypeError("regridder must implement the Regridder protocol")
         self.source = source
         self.regridder = regridder
-        self.defer = defer
 
     @property
     def time_step(self) -> np.timedelta64 | None:
