@@ -14,15 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.statistics.moments import mean
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _output_signature,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.metrics.general.crps import kcrps
@@ -43,7 +51,7 @@ class crps:
 
 
     This statistic reduces over a single dimension, where the presumed ensemble dimension
-    does not appear in the truth/observation tensor.
+    does not appear in the truth/observation array.
 
     Parameters
     ----------
@@ -53,8 +61,8 @@ class crps:
     reduction_dimensions: list[str]
         A list of dimensions over which to average the crps over.
         optional, by default none. If none, no additional reduction is done.
-    weights: torch.Tensor, optional
-        A tensor containing weights to assign to the reduction dimensions.
+    weights: torch.Tensor | np.ndarray, optional
+        An array containing weights to assign to the reduction dimensions.
         Note that these weights must have the same number of dimensions
         as passed in reduction_dimensions.
         Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -69,7 +77,7 @@ class crps:
         self,
         ensemble_dimension: str,
         reduction_dimensions: list[str] | None = None,
-        weights: torch.Tensor = None,
+        weights: torch.Tensor | np.ndarray | None = None,
         fair: bool = False,
     ):
         if not isinstance(ensemble_dimension, str):
@@ -94,90 +102,63 @@ class crps:
             else [self.ensemble_dimension] + self._reduction_dimensions
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output
         """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
+        return _output_signature(input_coords, self.reduction_dimensions)
 
-        return output_coords
-
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dims`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor of ensemble forecast or prediction data. This is the tensor
+        x : xr.DataArray
+            Input array of ensemble forecast or prediction data. This is the array
             over which the CRPS/CDF is calculated with respect to.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            Observation or validation tensor.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            Observation or validation array. Must not have the ensemble dimension.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns CRPS tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns CRPS array with appropriate reduced coordinates.
         """
-        if not all([rd in x_coords for rd in self.reduction_dimensions]):
-            raise ValueError(
-                "Initialized reduction dimension does not appear in passed coords"
-            )
-
         # Do some coordinate checking
-        # Assume ensemble_dim is in x_coords but not y_coords
-        if self.ensemble_dimension in y_coords:
-            raise ValueError(
-                f"{self.ensemble_dimension} should not be in y_coords but is."
-            )
+        # Assume ensemble_dim is in x but not y
+        if self.ensemble_dimension in y.dims:
+            raise ValueError(f"{self.ensemble_dimension} should not be in y but is.")
         if x.ndim != y.ndim + 1:
             raise ValueError(
                 "x and y must have broadcastable shapes but got"
                 + f"{x.shape} and {y.shape}"
             )
-        # Input coordinate checking
-        coord_count = 0
-        for c in x_coords:
-            if c != self.ensemble_dimension:
-                handshake_dim(y_coords, c, coord_count)
-                handshake_coords(y_coords, x_coords, c)
-                coord_count += 1
+        y = _align_xy(x, y, self.ensemble_dimension)
 
-        dim = list(x_coords).index(self.ensemble_dimension)
+        dim = x.dims.index(self.ensemble_dimension)
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
         if self.fair:
-            out = kcrps(x, y, dim=dim, biased=False)
+            out_t = kcrps(x_t, y_t, dim=dim, biased=False)
         else:
-            out = _crps_from_empirical_cdf(x, y, dim=dim)
-        out_coords = y_coords.copy()
+            out_t = _crps_from_empirical_cdf(x_t, y_t, dim=dim)
+        out = from_torch(out_t, _output_signature(x, [self.ensemble_dimension]))
 
         if self._reduction_dimensions is not None:
-            out, out_coords = self.mean(out, out_coords)
-        return out, out_coords
+            out = self.mean(out)
+        return out
 
 
 def _crps_from_empirical_cdf(
@@ -199,39 +180,29 @@ def _crps_from_empirical_cdf(
     Parameters
     ----------
     ensemble : torch.Tensor
-        tensor of ensemble members
+        array of ensemble members
     truth : torch.Tensor
-        tensor of observations
+        array of observations
     dim : int
         Dimension to perform CRPS reduction over.
 
     Returns
     -------
-        tensor of CRPS scores
+        array of CRPS scores
 
     """
     n = ensemble.shape[dim]
-    device = ensemble.device
-    ensemble, _ = torch.sort(ensemble, dim=dim)
+    ensemble = torch.sort(ensemble, dim=dim).values
     ans = torch.zeros_like(truth)
 
     # dx [F(x) - H(x-y)]^2 = dx [0 - 1]^2 = dx
     # val = ensemble[0] - truth
-    val = (
-        torch.index_select(
-            ensemble, dim, torch.tensor([0], device=device, dtype=torch.int32)
-        ).squeeze(dim)
-        - truth
-    )
+    val = ensemble.select(dim, 0) - truth
     ans += torch.where(val > 0, val, 0.0)
 
     for i in range(n - 1):
-        x0 = torch.index_select(
-            ensemble, dim, torch.tensor([i], device=device, dtype=torch.int32)
-        ).squeeze(dim)
-        x1 = torch.index_select(
-            ensemble, dim, torch.tensor([i + 1], device=device, dtype=torch.int32)
-        ).squeeze(dim)
+        x0 = ensemble.select(dim, i)
+        x1 = ensemble.select(dim, i + 1)
 
         cdf = (i + 1) / n
 
@@ -251,8 +222,6 @@ def _crps_from_empirical_cdf(
         ans += torch.where(mask, val, 0.0)
 
     # dx [F(x) - H(x-y)]^2 = dx [1 - 0]^2 = dx
-    val = truth - torch.index_select(
-        ensemble, dim, torch.tensor([n - 1], device=device, dtype=torch.int32)
-    ).squeeze(dim)
+    val = truth - ensemble.select(dim, n - 1)
     ans += torch.where(val > 0, val, 0.0)
     return ans

@@ -23,7 +23,7 @@ from copy import deepcopy
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import torch
@@ -43,6 +43,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 
 def _geographic_grid(lat: np.ndarray, lon: np.ndarray) -> GridDefinition:
@@ -606,12 +609,14 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
 
-    def default_sources(self) -> None:
+    def default_sources(self) -> "DataSource | None":
         """Return no recommended input data source.
+
+        Subclasses may override this to recommend a data source.
 
         Returns
         -------
-        None
+        DataSource | None
             Input data sources are chosen by the caller.
         """
         return None
@@ -1365,15 +1370,17 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.solver = solver
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "DataSource":
+        """Recommend the GFS data source.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        DataSource
+            ``GFS`` data source for the input slot.
         """
-        return None
+        from earth2studio.data import GFS
+
+        return GFS()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

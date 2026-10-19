@@ -60,7 +60,6 @@ from earth2studio.utils.checkpoint import (
     NullCheckpoint,
 )
 from earth2studio.utils.coords import CoordSystem
-from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
@@ -506,8 +505,7 @@ def ensemble(
                 ckpt.write_count = 0
 
             x = x0.expand_dims(ensemble=ensemble_coords).copy(deep=True)
-            tensor, coords = perturbation(*x.e2s.to_torch())
-            x = from_torch(tensor, x.assign_coords(coords))
+            x = perturbation(x)
 
             model = _rollout(prognostic, x, restart_step is None)
             initial_progress = 0 if restart_step is None else restart_step + 1

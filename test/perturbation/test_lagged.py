@@ -22,6 +22,7 @@ import torch
 
 from earth2studio.data import GFS, Random, fetch_data
 from earth2studio.perturbation import LaggedEnsemble
+from earth2studio.utils.cupy import from_torch
 
 
 @pytest.mark.parametrize(
@@ -91,7 +92,12 @@ def test_lagged_api(time, lags, lead_time, device):
         [len(c) for c in coords.values()], device=device, dtype=torch.float32
     )
 
-    y, y_coords = le(x, coords)
+    xda = from_torch(x, coords, attrs={"a": 1})
+    y = le(xda)
+    assert y.dims == xda.dims
+    assert y.shape == xda.shape
+    assert y.attrs == xda.attrs
+    assert y.e2s.is_cupy == (device != "cpu")
 
     with pytest.raises(ValueError):
         # Test with wrong size of ensemble
@@ -99,7 +105,7 @@ def test_lagged_api(time, lags, lead_time, device):
         x = torch.randn(
             [len(c) for c in coords.values()], device=device, dtype=torch.float32
         )
-        y, y_coords = le(x, coords)
+        le(from_torch(x, coords))
 
 
 @pytest.mark.slow
@@ -153,7 +159,7 @@ def test_lagged_accuracy(device):
     # Initialize Lagged Ensemble
     le = LaggedEnsemble(gfs, lags)
 
-    y, y_coords = le(x, coords)
+    y = le(from_torch(x, coords)).e2s.to_torch()[0]
 
     assert torch.allclose(y[1], x0), torch.linalg.norm(y[1] - x0) / torch.linalg.norm(
         x0
