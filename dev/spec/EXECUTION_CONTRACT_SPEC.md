@@ -6,11 +6,11 @@ runs, without pulling coupling mechanics into it.
 ## Shape
 
 - `Pipeline` supervises **work**: distribution across ranks, resume, output
-filtering and regridding, scoring, and IO. One concrete class, never
-subclassed; variation points are constructor arguments.
+  filtering and regridding, scoring, and IO. One concrete class, never
+  subclassed; variation points are constructor arguments.
 - A `Runner` executes **one work item**: it fetches inputs, steps models, and
-yields outputs. Built-in runners cover the common cases; anything else is a
-small hand-written class.
+  yields outputs. Built-in runners cover the common cases; anything else is a
+  small hand-written class.
 
 Rule of thumb: "what does model B receive from model A, and when?" belongs to the
 runner, or the coupler behind it. "Which rank runs this item, where does its
@@ -69,7 +69,9 @@ def work_items(
 ) -> list[WorkItem]: ...
 ```
 
-Items are ordered time-major. Each time's members are split into consecutive
+Items are ordered time-major, in the caller's `times` order. Times and the horizon
+are normalized to second resolution, so items compare and hash by instant, matching
+progress keys and `member_seed`. Each time's members are split into consecutive
 groups of `member_batch`, so no group spans two times; `members=None` gives
 deterministic items. A valid item list repeats no `(time, horizon, member)` unit,
 and either every item has members or none does.
@@ -88,21 +90,21 @@ class Runner(Protocol):
 ```
 
 - **Built once, run per item.** A runner binds sources, never data; initial
-conditions and forcing are fetched inside `run_item`.
+  conditions and forcing are fetched inside `run_item`.
 - **Streams.** A stream is a named sequence of outputs sharing one schema:
-variables, grid, and lead-time pattern. `Pipeline` writes each to its own
-store. Each yielded mapping is one step, holding one output per stream that
-published at it. Outputs with different grids or cadences, such as a coupled
-atmosphere and ocean, need separate streams. Names follow the producing model
-or component and stay stable across runs.
+  variables, grid, and lead-time pattern. `Pipeline` writes each to its own
+  store. Each yielded mapping is one step, holding one output per stream that
+  published at it. Outputs with different grids or cadences, such as a coupled
+  atmosphere and ocean, need separate streams. Names follow the producing model
+  or component and stay stable across runs.
 - **Requests.** `data_requests(item)` describes every `fetch_data` call as a
-`DataRequest` without fetching, for predownload. `()` means no inputs; `None`
-means not knowable upfront, which disables complete predownload but not
-execution.
+  `DataRequest` without fetching, for predownload. `()` means no inputs; `None`
+  means not knowable upfront, which disables complete predownload but not
+  execution.
 - **Members.** `WorkItem.member_ids` carries a member group. Without
-`supports_member_batching`, a runner gets at most one member per item, or
-`Pipeline` raises `ValueError` before running. A value sent into the model
-iterator is already forcing.
+  `supports_member_batching`, a runner gets at most one member per item, or
+  `Pipeline` raises `ValueError` before running. A value sent into the model
+  iterator is already forcing.
 
 ### Stream schemas
 
@@ -111,11 +113,11 @@ allocation-free `coord_array` like a model's `output_coords` (see
 [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)):
 
 - Fixed dimensions are `lead_time`, covering every lead time the horizon allows,
-then the field dimensions (`variable` and the grid's).
+  then the field dimensions (`variable` and the grid's).
 - Grid metadata, auxiliary coordinates (such as curvilinear latitude and longitude),
-dtype and attributes match the fields the stream yields.
+  dtype and attributes match the fields the stream yields.
 - `time` and `ensemble` may appear only in the dynamic prefix, as in a model's
-`(batch, time)`, never as fixed dimensions.
+  `(batch, time)`, never as fixed dimensions.
 - The schema is an upper bound; runs may stop early.
 
 `Pipeline` makes each store's template with
@@ -129,11 +131,11 @@ assembly.
 Each output yielded for a stream:
 
 - has dimensions `time`, labeled `item.time` alone, then the schema's fixed
-dimensions in order;
+  dimensions in order;
 - takes its `lead_time` labels from the schema's, and matches the schema's labels
-on every other fixed dimension;
+  on every other fixed dimension;
 - has no other dynamic dimension, except a leading `ensemble` labeled
-`item.member_ids` when the runner batches members.
+  `item.member_ids` when the runner batches members.
 
 ### Seeding
 
@@ -227,8 +229,8 @@ def run(self, items):
             self.progress and self.progress.mark_done(item)
     except Exception as e:
         error = e
-    outputs.close()                               # collective
-    raise_if_any_failed(error)                    # collective
+    close_error = outputs.close()                 # collective; returns, never raises
+    raise_if_any_failed(error or close_error)     # collective
 ```
 
 Without a `ProgressStore`, every item remains. `_emit` filters variables, regrids,
@@ -236,17 +238,18 @@ calls `scorer.update`, adds `ensemble` (labeled `item.member_ids`) if the store 
 it and `x` lacks it, then writes.
 
 - **Stores span all items.** Schemas and stores come from the full item list, not
-the remaining items, so a resume at any world size reuses them. The `lead_time`
-extent follows the largest horizon; shorter items leave fill values.
+  the remaining items, so a resume at any world size reuses them. The `lead_time`
+  extent follows the largest horizon; shorter items leave fill values.
 - **Identical items.** Every rank passes the same items in the same order; `run`
-compares digests and raises `ValueError` on a mismatch.
+  compares digests and raises `ValueError` on a mismatch.
 - **Durability.** An item is marked done only after its outputs flush and its
-scorer finishes it. An interrupted item reruns in full; label-addressed writes make
-that idempotent.
+  scorer finishes it. An interrupted item reruns in full; label-addressed writes make
+  that idempotent.
 - **Idle ranks** still join every collective: `open`, `prepare` and `close`.
 - **Failures.** A failing rank stops running items, closes its output and joins a
-final failure-flag reduction. It re-raises its error and the other ranks raise
-`RuntimeError`, so none hangs at a barrier, with or without `output`.
+  final failure-flag reduction. It re-raises its error and the other ranks raise
+  `RuntimeError`, so none hangs at a barrier, with or without `output`. A backend
+  that fails to close counts as that rank's failure when the run itself succeeded.
 
 ### Scorer
 
@@ -276,18 +279,20 @@ class OutputManager:
     ) -> None: ...
     def write(self, stream: str, x: xr.DataArray) -> None: ...
     def flush(self) -> None: ...
-    def close(self) -> None: ...
+    def close(self) -> Exception | None: ...
 ```
 
 - `prepare` builds each template from the sorted unique item times and, for
-ensembles, the sorted union of `member_ids`. Rank 0 calls `add_array`; after a
-barrier, the other ranks call it too, which validates the store and otherwise does
-nothing (`I4`).
+  ensembles, the sorted union of `member_ids`. Rank 0 calls `add_array`; after a
+  barrier, the other ranks call it too, which validates the store and otherwise does
+  nothing (`I4`).
 - `write` forwards to the stream's backend, skipping streams without one.
 - `flush` flushes every backend (`I9`).
 - `close` is collective and idempotent: every rank closes its backends (`I11`),
-even after a local failure, then barriers. Closed backends stay readable, so
-`run.*` wrappers can still return the caller's backend.
+  even after a local failure, then barriers. It returns the first backend error
+  rather than raising it, since a rank raising here would skip the failure-flag
+  reduction the other ranks wait in. Closed backends stay readable, so `run.*`
+  wrappers can still return the caller's backend.
 
 Callers build backends on every rank before `run`, creating or deleting storage on
 rank 0 only:
@@ -321,9 +326,10 @@ attributes, with no IO protocol or backend changes:
 | Others, including `NetCDF4Backend` | Unknown: shared storage may be corrupted |
 
 A failed check raises `ValueError`; the last two rows warn once instead. Default Zarr
-chunking passes. Single-process runs skip the check. `AsyncZarrBackend` chunks a
-parallel coordinate at 1 and rejects a `chunked_coords` entry that would widen it, so
-the shard is the only unit a rank can share.
+chunking passes; `chunks={}` leaves `time` in one chunk and fails. Single-process runs
+skip the check. `AsyncZarrBackend` chunks a parallel coordinate at 1 and rejects a
+`chunked_coords` entry that would widen it, so the shard is the only unit a rank can
+share.
 
 ## Progress
 
@@ -347,22 +353,26 @@ class ProgressStore:
 
 - **Always written.** Every finished item is recorded, not only in resumed runs.
 - **Unit keys.** Progress records `(time, horizon, member_id)` units, with no member
-for deterministic items; an item is done when all its units are. Keys ignore item
-order, rank, world size and member grouping, so a resume may change any of them.
-A partly done group reruns in full.
+  for deterministic items; an item is done when all its units are. Keys ignore item
+  order, rank, world size and member grouping, so a resume may change any of them.
+  A partly done group reruns in full.
 - **Per-rank logs.** Each rank appends to its own log under `path`, named by run
-attempt and rank, so no file has two writers. `mark_done` appends one line per item
-(time, horizon, members) and fsyncs; a torn last line is ignored, so no record
-outlives its data. `path` must be shared by all ranks.
+  attempt and rank, so no file has two writers. Rank 0 picks the attempt in `open`
+  and broadcasts it. `mark_done` appends one line per item (time, horizon, members)
+  and fsyncs, so no record outlives its data. A torn last line is ignored, and any
+  other unparseable line is skipped with a warning. `path` must be shared by all
+  ranks.
 - **Bounded file count.** In `open`, before any writes, rank 0 compacts existing
-logs into one `done` log: write a temporary file, rename it, delete the merged logs.
-The directory then holds the manifest, the compacted log and one log per rank,
-however large the campaign. An interrupted compaction only duplicates lines.
+  logs into one `done` log: write a temporary file, rename it, delete the merged logs.
+  The directory then holds the manifest, the compacted log and one log per rank,
+  however large the campaign. An interrupted compaction only duplicates lines.
 - **Listed once.** Only rank 0 calls `remaining`, and `Pipeline` broadcasts the
-result.
-- **Manifest.** `open` is collective. Rank 0 writes the manifest if none exists; if
-one differs, every rank raises `ValueError` naming the differing keys.
-`overwrite=True` clears the logs and manifest first.
+  result.
+- **Manifest.** `open` is collective. The store first merges its `tags` into the
+  manifest under `"tags"`, so a tag change is a mismatch. Rank 0 writes the manifest
+  if none exists; after a barrier, every rank reads the stored manifest, compares it
+  with its own and, if they differ, raises `ValueError` naming the differing keys.
+  `overwrite=True` clears the logs and manifest first.
 
 `Pipeline` builds the manifest as JSON:
 
@@ -393,14 +403,14 @@ def raise_if_any_failed(error: Exception | None) -> None: ...  # all ranks agree
 ```
 
 - **Split.** Each rank gets one contiguous, balanced slice; the first
-`len(items) % world_size` ranks get one extra item, and idle ranks get `[]`. A
-member group is one item, so it is never split.
+  `len(items) % world_size` ranks get one extra item, and idle ranks get `[]`. A
+  member group is one item, so it is never split.
 - **Process group.** Helpers call `torch.distributed` directly and are no-ops when
-it is uninitialized. Core never initializes it: launch with `torchrun` and call
-`init_process_group`, or physicsnemo's `DistributedManager.initialize()`, which
-sets up the same group. physicsnemo is optional.
+  it is uninitialized. Core never initializes it: launch with `torchrun` and call
+  `init_process_group`, or physicsnemo's `DistributedManager.initialize()`, which
+  sets up the same group. physicsnemo is optional.
 - **Collectives.** `broadcast` uses `broadcast_object_list` and the failure flag uses
-`all_reduce`. Under NCCL, tensors go to the rank's CUDA device.
+  `all_reduce`. Under NCCL, tensors go to the rank's CUDA device.
 
 ## Built-in runners
 
@@ -451,11 +461,11 @@ Its streams are named after components.
 | `X13` | Rank 0 creates stores before other ranks open them; reopening is a no-op (`I4`) |
 | `X14` | Distributed Zarr stores share no chunk or shard between items |
 | `X15` | Distributed runs warn once per backend they cannot check |
-| `X16` | Progress keys `(time, horizon, member_id)` in per-rank logs; torn lines ignored |
+| `X16` | Progress keys `(time, horizon, member_id)` in per-rank logs; bad lines skipped |
 | `X17` | Items are marked done only after outputs flush and the scorer finishes |
 | `X18` | Rank 0 lists remaining items and broadcasts them |
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |
-| `X20` | A failure on any rank raises on every rank at the end of `run`, never hanging |
+| `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
 
 Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18` and `X20` run
 under `torchrun` with two CPU ranks on gloo (integration check 6); the rest run
@@ -471,49 +481,49 @@ Where initial-condition perturbation lives is undecided (open decision 2).
 ## Phasing
 
 1. **Done.** `Runner`, `WorkItem`, `DataRequest`, `PrognosticRunner`, and
-`DiagnosticRunner`.
+   `DiagnosticRunner`.
 2. **Pipeline.** In parallel against this spec: `run/work.py`, the runner
-follow-up (DataArray stream schemas, seeding, removing
-`_yields_initial_condition`), and `run/output.py`; then `run/pipeline.py`. Replace
-the eval `forecast`, `diagnostic` and `dlesym` pipelines with built-in runners;
-fused DLESyM runs under the single-slot `PrognosticRunner`.
+   follow-up (DataArray stream schemas, seeding, removing
+   `_yields_initial_condition`), and `run/output.py`; then `run/pipeline.py`. Replace
+   the eval `forecast`, `diagnostic` and `dlesym` pipelines with built-in runners;
+   fused DLESyM runs under the single-slot `PrognosticRunner`.
 3. **Coupled runner.** Express StormScope GOES and MRMS as Driver components and
-replace the eval `stormscope` pipeline.
+   replace the eval `stormscope` pipeline.
 4. **Workflows.** Make `run.deterministic`, `run.diagnostic`, and `run.ensemble`
-thin wrappers over `Pipeline.from_model`.
+   thin wrappers over `Pipeline.from_model`.
 
 ## Resolved decisions
 
 - **Distributed layer:** `torch.distributed` directly; physicsnemo optional.
 - **Scoring:** core has only the `Scorer` hook; metrics and rank communication stay
-in recipes.
+  in recipes.
 - **Member grouping** moves from the `Pipeline` constructor to `work_items`, since
-groups are part of item identity.
+  groups are part of item identity.
 - **Plain mappings** for per-stream settings and backends: no shorthand types, no
-backend factory.
+  backend factory.
 - **Shard safety without IO changes:** known backends are checked through existing
-attributes; others get a warning.
+  attributes; others get a warning.
 
 ## Open decisions
 
 1. **Dependent work items**, such as warm-start cycling: support in v1 or
-declare out of scope?
+   declare out of scope?
 2. **Ensembles:** where perturbations are configured, likely a runner constructor
-argument, and member batching for coupled runs.
+   argument, and member batching for coupled runs.
 3. **Mid-item resume:** must `run.*` keep step-level checkpoint resume? If so,
-runners need an optional mid-item checkpoint built on `(y, state)`. Blocks phase
-4 only.
+   runners need an optional mid-item checkpoint built on `(y, state)`. Blocks phase
+   4 only.
 4. **Async fetching:** if needed, change runner and `Pipeline` loop together.
 
 ## Integration checks
 
 1. `PrognosticRunner` matches `run.deterministic` — `test/run/test_runner.py`.
 2. A hand-written runner stops early and returns `None` data requests —
-`dev/examples/06_runner.py`.
+   `dev/examples/06_runner.py`.
 3. `Pipeline` drives `PrognosticRunner` and `DiagnosticRunner` identically,
-writing one store per stream; later, a coupled runner too.
+   writing one store per stream; later, a coupled runner too.
 4. A forced model (StormCast-shaped mock) and fused DLESyM run through
-`PrognosticRunner` unchanged.
+   `PrognosticRunner` unchanged.
 5. Split DLESyM through the coupled runner reproduces the fused model.
 6. Resume survives a world-size change — `torchrun`, two CPU ranks, gloo.
 7. The StormScope coupled runner matches the eval `stormscope` pipeline.

@@ -268,8 +268,8 @@ def test_close_closes_every_backend_once_and_barriers(
     backends = {"a": RecordingBackend(), "b": RecordingBackend()}
     manager = OutputManager(backends)
 
-    manager.close()
-    manager.close()
+    assert manager.close() is None
+    assert manager.close() is None
 
     assert [backend.closes for backend in backends.values()] == [1, 1]
     assert barriers == [1]
@@ -284,11 +284,13 @@ def test_close_closes_the_rest_after_a_failure(
     healthy = RecordingBackend()
     manager = OutputManager({"a": failing, "b": healthy})
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        manager.close()
+    error = manager.close()
 
+    assert isinstance(error, RuntimeError)
+    assert "commit failed" in str(error)
     assert healthy.closes == 1
     assert barriers == [1]
+    assert manager.close() is None
 
 
 def test_close_keeps_stores_readable(tmp_path: Any) -> None:

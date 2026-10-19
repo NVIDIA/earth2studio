@@ -149,21 +149,26 @@ class OutputManager:
         for backend in self.backends.values():
             backend.flush()
 
-    def close(self) -> None:
+    def close(self) -> Exception | None:
         """Close every backend, then barrier. Collective and idempotent.
 
         Every rank closes its backends even if one of them fails, so a partial
         failure never leaves a rank out of the final barrier. Closed backends
         are kept, so they stay readable for callers that return them (``I11``).
 
-        Raises
-        ------
-        Exception
-            The first error a backend's ``close`` raised, after every backend
-            was closed and every rank reached the barrier.
+        A failure is returned rather than raised: raising on one rank would
+        skip the failure-flag reduction the other ranks then wait in, so the
+        caller passes it to :func:`~earth2studio.run.work.raise_if_any_failed`
+        instead.
+
+        Returns
+        -------
+        Exception | None
+            The first error a backend's ``close`` raised, or ``None``. Always
+            ``None`` on a repeated call.
         """
         if self._closed:
-            return
+            return None
         self._closed = True
         errors: list[Exception] = []
         for stream, backend in self.backends.items():
@@ -173,8 +178,7 @@ class OutputManager:
                 logger.error(f"Closing the store of stream '{stream}' failed: {error}")
                 errors.append(error)
         barrier()
-        if errors:
-            raise errors[0]
+        return errors[0] if errors else None
 
     def _check_ownership(
         self,
