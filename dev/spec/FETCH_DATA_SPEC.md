@@ -19,7 +19,7 @@ This spec is ahead of the code for temporal statistics. Until sources implement
 aggregation, `fetch_data` still reduces qualified labels itself, takes `delta_t`,
 and passes base names to sources. Source aggregation, the shared helper in
 [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md), and the metadata check land in
-a follow-up. `CompositeSource` already routes qualified labels by base name.
+a follow-up. The composites already route qualified labels by base name.
 
 ## Interface
 
@@ -30,8 +30,8 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device | str = "cpu",
-    target_grid: GridDefinition | str | None = None,
-    regridder: Regridder | Literal["nearest", "bilinear"] | None = None,
+    target_grid: GridDefinition | None = None,
+    regridder: Regridder | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -43,11 +43,11 @@ def fetch_data(
   qualified with a temporal statistic.
 - `device` accepts CPU or CUDA destinations. CUDA output requires CuPy.
 - `target_grid` is the grid to return fields on, typically
-  `infer_grid(model.input_coords())`. Without it, fields stay on the source grid.
-- `regridder` is a `Regridder` to apply, or a built-in method name resolved for
-  the source and target grids (see [REGRID_SPEC.md](REGRID_SPEC.md)). Other strings raise
-  `ValueError`. Classes registered under these names take part in resolution;
-  other methods are used by passing a `Regridder`.
+  `infer_grid(model.input_coords())`; use `resolve_grid` for a registered name.
+  Without it, fields stay on the source grid.
+- `regridder` is a `Regridder` to apply (see [REGRID_SPEC.md](REGRID_SPEC.md)).
+  Choosing a method, or a registered one with `resolve_regridder`, is the
+  caller's job.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and
@@ -62,9 +62,8 @@ produced it, so a `RegriddedSource` is fetched like any other source.
 | Arguments | Behavior |
 | --- | --- |
 | Neither | Fields stay on the source grid |
-| `regridder` object | Applied; with `target_grid`, it must produce that grid |
-| `target_grid` | Inferred source grid mapped onto it, cautiously, as below |
-| `target_grid` and a method name | As above, but with the named method |
+| `regridder` | Applied; with `target_grid`, it must produce that grid |
+| `target_grid` only | Inferred source grid mapped onto it, cautiously, as below |
 
 Mapping onto `target_grid` infers the source grid from the fetched field with
 `infer_grid` and raises `ValueError` if it cannot. Then:
@@ -72,14 +71,16 @@ Mapping onto `target_grid` infers the source grid from the fetched field with
 1. Fields already on the target pass through.
 2. A target that is an exact crop of the source, on rectilinear or projected grids
    with the same CRS, is selected by label without interpolation.
-3. Otherwise the method's regridder is constructed with `resolve_regridder` and
-   applied, with an info log. Without a method name, `fetch_data` uses
-   `"nearest"`, limited to the source grid's resolution
-   (`max_dist_km="auto"`), and raises `ValueError` if any target point lies
-   beyond the source. Naming a method opts in to filling such points.
+3. Otherwise a nearest-neighbor regridder is resolved with
+   `max_dist_km="auto"` and `fill_value=None`, and applied with an info log. The
+   regridder raises `ValueError` if any target point lies beyond the source's
+   resolution, and `fetch_data` re-raises it rather than fill; a caller wanting
+   fills passes a `Regridder` configured for them.
 
-Resolving a method constructs a regridder on every call. Callers fetching
-repeatedly on one pair of grids should build a `Regridder` once and pass it.
+Step 3 constructs a regridder on every call. Callers fetching repeatedly on one
+pair of grids, or wanting another method, should build a `Regridder` once and pass
+it. The helpers behind steps 1 and 2, `same_geometry` and `select_subset`, are
+public in `earth2studio.grids`.
 
 ### Order of Operations
 
@@ -97,15 +98,17 @@ Data sources accept a `device` keyword, default `"cpu"`, and expose it as a `dev
 attribute holding a `torch.device`. On a CUDA device, field sources return
 CuPy-backed DataArrays and dataframe sources return cuDF frames. The source
 protocol is unchanged, and a source without the attribute is a CPU source.
-`RegriddedSource` and `CompositeSource` forward the attribute. `fetch_data` accepts
+`RegriddedSource` and the composites forward the attribute; composites compare
+devices with the CUDA index made explicit, so `cuda` matches the current device. `fetch_data` accepts
 either backing and moves data only in step 3. Sources reduce on the backing they
 return, so aggregation on a CUDA source runs on the GPU.
 
 ## Source Dispatch
 
 A source whose `__call__` signature contains `lead_time` is a forecast source.
-Wrappers that forward requests through `*args`, such as `RegriddedSource` and
-`CompositeSource`, declare this instead with a boolean `is_forecast` property:
+Wrappers that forward requests through `*args`, such as `RegriddedSource`, declare
+this instead with a boolean `is_forecast` property. `CompositeSource` and
+`CompositeForecastSource` have explicit signatures:
 
 | Source | Call | Temporal interpretation |
 | --- | --- | --- |
@@ -139,8 +142,8 @@ a source that ignored a modifier cannot pass instantaneous values off as a
 statistic.
 
 Wrappers forward qualified labels. `RegriddedSource` passes them to its source and
-regrids the reduced field. `CompositeSource` routes a label by its base name, the
-text before the first `:`, so a component providing `t2m` also receives
+regrids the reduced field. The composites route a label by its base name, the text
+before the first `:`, so a component providing `t2m` also receives
 `t2m:mean:24h`.
 
 ## Output Contract

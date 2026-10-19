@@ -23,6 +23,7 @@ import torch
 import xarray as xr
 
 from earth2studio.data import (
+    CompositeForecastSource,
     CompositeSource,
     DataSource,
     ForecastSource,
@@ -126,6 +127,10 @@ def test_construction_errors():
         )
     with pytest.raises(ValueError, match="qualified"):
         CompositeSource({"a": _Source({})}, {"a": ["x:mean:24h"]})
+    with pytest.raises(TypeError, match="CompositeForecastSource"):
+        CompositeSource(
+            {"a": _Source({}), "b": _ForecastSource({})}, {"a": ["x"], "b": ["y"]}
+        )
 
 
 def test_qualified_labels_route_by_base_name():
@@ -174,11 +179,10 @@ def test_mismatched_grids_raise():
 
 
 def test_forecast_components():
-    source = CompositeSource(
+    source = CompositeForecastSource(
         {"a": _ForecastSource({"x": 1.0}), "b": _ForecastSource({"y": 2.0})},
         {"a": ["x"], "b": ["y"]},
     )
-    assert source.is_forecast
     assert isinstance(source, ForecastSource)
     lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
     array = source(TIME, lead_time, np.array(["y", "x"]))
@@ -191,8 +195,9 @@ def test_forecast_components():
 def test_mixed_components_present_forecast_interface():
     analysis = _Source({"x": 1.0})
     forecast = _ForecastSource({"y": 2.0})
-    source = CompositeSource({"a": analysis, "b": forecast}, {"a": ["x"], "b": ["y"]})
-    assert source.is_forecast
+    source = CompositeForecastSource(
+        {"a": analysis, "b": forecast}, {"a": ["x"], "b": ["y"]}
+    )
     assert isinstance(source, ForecastSource)
     lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
     array = source(TIME, lead_time, np.array(["x", "y"]))
@@ -263,6 +268,15 @@ def test_components_share_one_device():
     other.device = torch.device("cuda", 1)
     shared = CompositeSource({"a": other, "b": on_gpu}, {"a": ["x"], "b": ["y"]})
     assert shared.device == torch.device("cuda", 1)
+
+    # An unindexed CUDA device is the current device, index 0 without CUDA here.
+    current = _Source({"x": 1.0})
+    current.device = "cuda"
+    indexed = _Source({"y": 2.0})
+    indexed.device = "cuda:0"
+    if not torch.cuda.is_available() or torch.cuda.current_device() == 0:
+        shared = CompositeSource({"a": current, "b": indexed}, {"a": ["x"], "b": ["y"]})
+        assert shared.device == torch.device("cuda", 0)
 
 
 def test_statistics_metadata_merged_from_every_component():

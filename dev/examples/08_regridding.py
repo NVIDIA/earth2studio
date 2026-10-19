@@ -50,6 +50,7 @@ from earth2studio.grids import (
     infer_grid,
     list_regridders,
     resolve_grid,
+    resolve_regridder,
 )
 from earth2studio.utils import coord_array
 from earth2studio.utils.time import to_time_array
@@ -149,22 +150,25 @@ except ValueError as error:
 # %%
 # Choose a Method
 # ---------------
-# ``list_regridders`` reports the methods available for two grids, and a method
-# name selects one. Naming a method also opts in to filling points the source does
-# not cover, with NaN.
+# ``list_regridders`` reports the methods available for two grids, and
+# ``resolve_regridder`` builds one. Passing the regridder to ``fetch_data`` also
+# accepts its fill, NaN by default, for points the source does not cover.
 
 # %%
 print("Methods:", list_regridders(GLOBAL, target), list_regridders(RADAR, target))
 field = fetch_data(
-    radar, time, np.array(["refc"]), target_grid=target, regridder="bilinear"
+    radar,
+    time,
+    np.array(["refc"]),
+    regridder=resolve_regridder(RADAR, target, "bilinear"),
 )
 print("Radar points without coverage (NaN):", f"{float(np.isnan(field).mean()):.0%}")
 
 # %%
 # Reuse a Regridder
 # -----------------
-# Resolving a method builds a regridder, which computes its indices and weights, on
-# every call. Build one once and pass it to reuse them. ``fetch_data`` applies it
+# Mapping onto ``target_grid`` builds a regridder, which computes its indices and
+# weights, on every call. Build one once and pass it to reuse them. ``fetch_data`` applies it
 # after temporal reductions, so the 6 hour mean regrids one field rather than six.
 
 # %%

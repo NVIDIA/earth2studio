@@ -197,15 +197,6 @@ def _unit_vectors(latitude: NDArray[Any], longitude: NDArray[Any]) -> NDArray[An
     )
 
 
-def _great_circle_km(
-    lat0: NDArray[Any], lon0: NDArray[Any], lat1: NDArray[Any], lon1: NDArray[Any]
-) -> NDArray[Any]:
-    chord = np.linalg.norm(
-        _unit_vectors(lat0, lon0) - _unit_vectors(lat1, lon1), axis=-1
-    )
-    return 2 * np.arcsin(np.clip(chord / 2, 0, 1)) * _EARTH_RADIUS_KM
-
-
 class _IndexRegridder:
     """Apply precomputed neighbor indices and weights on the field's own device.
 
@@ -219,12 +210,17 @@ class _IndexRegridder:
         self,
         source_grid: str | GridDefinition,
         target_grid: str | GridDefinition,
-        fill_value: float,
+        fill_value: float | None,
     ) -> None:
         self._source_grid, _ = _resolve(source_grid)
         self._target_grid, self._target_id = _resolve(target_grid)
-        self.fill_value = float(fill_value)
+        self.fill_value = None if fill_value is None else float(fill_value)
         index, weight, valid = self._build()
+        if fill_value is None and not valid.all():
+            raise ValueError(
+                f"{(~valid).sum()} of {valid.size} target points lie beyond the "
+                "source grid and fill_value is None"
+            )
         for table in (index, weight, valid):
             if table is not None:
                 table.setflags(write=False)
@@ -311,7 +307,8 @@ class _IndexRegridder:
         Raises
         ------
         ValueError
-            If the spatial dimensions of ``x`` do not match ``source_grid``.
+            If the spatial dimensions of ``x``, or their coordinate labels where
+            present, do not match ``source_grid``.
         """
         if not isinstance(x, xr.DataArray):
             raise TypeError("Regridders apply to xr.DataArray fields")
@@ -322,6 +319,7 @@ class _IndexRegridder:
                 f"Field dimensions {dict(x.sizes)} do not match the source grid "
                 f"{dict(zip(source_dims, self._source_grid.shape))}"
             )
+        _check_axes(x, self._source_grid)
         leading = tuple(dim for dim in x.dims if dim not in source_dims)
         x = x.transpose(*leading, *source_dims)
         data = x.data
@@ -349,8 +347,9 @@ class _IndexRegridder:
                     values += xp.where(
                         factor != 0, xp.take(flat, neighbor, axis=-1) * factor, 0
                     )
-            fill = xp.asarray(self.fill_value, dtype=dtype)
-            values = xp.where(valid, values, fill)
+            if self.fill_value is not None:
+                fill = xp.asarray(self.fill_value, dtype=dtype)
+                values = xp.where(valid, values, fill)
             values = values.reshape(*leading_shape, *self._target_grid.shape)
 
         coords = {
@@ -373,6 +372,26 @@ class _IndexRegridder:
         return _grid_attrs(attrs, self._source_grid, self._target_grid, self._target_id)
 
 
+def _check_axes(x: xr.DataArray, grid: GridDefinition) -> None:
+    """Reject a field whose dimension labels differ from the grid's, e.g. flipped.
+
+    Labels match within a thousandth of the grid spacing; dimensions without
+    coordinate labels are not checked.
+    """
+    for dim, axis in grid.coords(only_index=True).items():
+        if dim not in x.coords or x.coords[dim].ndim != 1:
+            continue
+        axis = np.asarray(axis, dtype=np.float64)
+        labels = np.asarray(x.coords[dim].values, dtype=np.float64)
+        spacing = np.abs(np.diff(axis))
+        tolerance = 1e-3 * spacing.min() if spacing.size else 1e-9
+        if not np.allclose(labels, axis, rtol=0, atol=tolerance, equal_nan=True):
+            raise ValueError(
+                f"Field coordinate {dim!r} does not match the source grid; "
+                "reorder or relabel the field onto it"
+            )
+
+
 def _grid_attrs(
     attrs: dict[Any, Any],
     source: GridDefinition,
@@ -391,8 +410,21 @@ def _grid_attrs(
     return result
 
 
-def _same_geometry(a: GridDefinition, b: GridDefinition) -> bool:
-    """Whether two definitions describe the same points, up to float tolerance."""
+def same_geometry(a: GridDefinition, b: GridDefinition) -> bool:
+    """Whether two grid definitions describe the same points.
+
+    Coordinates match within 1e-9; HEALPix grids match by their attributes.
+
+    Parameters
+    ----------
+    a, b : GridDefinition
+        Grids to compare.
+
+    Returns
+    -------
+    bool
+        True when both have the same topology, dimensions, shape, CRS and points.
+    """
     if a.fingerprint() == b.fingerprint():
         return True
     if (a.dims, a.shape, a.topology) != (b.dims, b.shape, b.topology):
@@ -410,6 +442,38 @@ def _same_geometry(a: GridDefinition, b: GridDefinition) -> bool:
         and np.allclose(coords_a[name], coords_b[name], rtol=0, atol=1e-9)
         for name in names
     )
+
+
+def select_subset(
+    x: xr.DataArray, source_grid: GridDefinition, target_grid: GridDefinition
+) -> xr.DataArray | None:
+    """Select ``target_grid`` from a field on ``source_grid``, when it is an exact crop.
+
+    Only rectilinear and projected grids on the same CRS can be cropped, by their
+    dimension labels, which must match within a thousandth of the source spacing.
+    The result carries the target's coordinates and grid attributes.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Field on ``source_grid``.
+    source_grid : GridDefinition
+        Grid of ``x``.
+    target_grid : GridDefinition
+        Grid to select.
+
+    Returns
+    -------
+    xr.DataArray | None
+        Field on ``target_grid``, or None when the target is not a crop of the
+        source.
+    """
+    indexers = _subset_indexers(source_grid, target_grid)
+    if indexers is None:
+        return None
+    subset = x.isel(indexers).assign_coords(target_grid.coords(only_index=True))
+    subset.attrs = _grid_attrs(subset.attrs, source_grid, target_grid, None)
+    return subset
 
 
 def _subset_indexers(

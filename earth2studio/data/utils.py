@@ -58,10 +58,10 @@ from earth2studio.grids import (
     GridDefinition,
     Regridder,
     infer_grid,
-    resolve_grid,
     resolve_regridder,
+    same_geometry,
+    select_subset,
 )
-from earth2studio.grids._regrid import _grid_attrs, _same_geometry, _subset_indexers
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -289,30 +289,22 @@ def _fetch_dataarray(
     return array
 
 
-# Options making automatic regridding conservative: never extrapolate.
-_AUTO_REGRID_OPTIONS: dict[str, dict[str, Any]] = {"nearest": {"max_dist_km": "auto"}}
-
-
 def _map_to_target(
     array: xr.DataArray,
     source: DataSource | ForecastSource,
-    target_grid: GridDefinition | str | None,
-    regridder: Regridder | Literal["nearest", "bilinear"] | None,
+    target_grid: GridDefinition | None,
+    regridder: Regridder | None,
 ) -> xr.DataArray:
     """Bring a fetched field onto ``target_grid``, cautiously when inferring."""
-    if regridder is not None and not isinstance(regridder, str):
-        if target_grid is not None and not _same_geometry(
-            regridder.target_grid,
-            resolve_grid(target_grid) if isinstance(target_grid, str) else target_grid,
+    if regridder is not None:
+        if target_grid is not None and not same_geometry(
+            regridder.target_grid, target_grid
         ):
             raise ValueError("regridder.target_grid does not match target_grid")
         return regridder(array)
     if target_grid is None:
-        if regridder is not None:
-            raise ValueError("A regridding method needs a target_grid")
         return array
 
-    target = resolve_grid(target_grid) if isinstance(target_grid, str) else target_grid
     try:
         source_grid = infer_grid(array)
     except ValueError as error:
@@ -320,30 +312,29 @@ def _map_to_target(
             f"Cannot determine the grid of fields from {type(source).__name__}; "
             "pass a Regridder built for its grid"
         ) from error
-    if _same_geometry(source_grid, target):
+    if same_geometry(source_grid, target_grid):
         return array
-    indexers = _subset_indexers(source_grid, target)
-    if indexers is not None:
-        array = array.isel(indexers).assign_coords(target.coords(only_index=True))
-        target_id = target_grid if isinstance(target_grid, str) else None
-        array.attrs = _grid_attrs(array.attrs, source_grid, target, target_id)
-        return array
+    subset = select_subset(array, source_grid, target_grid)
+    if subset is not None:
+        return subset
 
-    method = regridder or "nearest"
-    built = resolve_regridder(
-        source_grid, target_grid, method, **_AUTO_REGRID_OPTIONS.get(method, {})
-    )
-    coverage = getattr(built, "coverage", None)
-    if regridder is None and coverage is not None and not np.all(coverage):
-        raise ValueError(
-            f"The target grid extends beyond the grid of {type(source).__name__}; "
-            "pass regridder= to choose a method and fill explicitly"
+    # Never extrapolate automatically: nearest within the source resolution, and
+    # raise rather than fill targets beyond the source.
+    try:
+        built = resolve_regridder(
+            source_grid, target_grid, "nearest", max_dist_km="auto", fill_value=None
         )
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot regrid {type(source).__name__} fields automatically: {error}; "
+            "pass a Regridder to choose a method and fill"
+        ) from error
     logger.info(
         f"Regridding {type(source).__name__} fields from a {source_grid.topology} "
         f"grid {dict(zip(source_grid.dims, source_grid.shape))} to a "
-        f"{target.topology} grid {dict(zip(target.dims, target.shape))} by "
-        f"{method}; pass a Regridder to reuse its weights"
+        f"{target_grid.topology} grid "
+        f"{dict(zip(target_grid.dims, target_grid.shape))} by nearest neighbor; "
+        "pass a Regridder to choose the method and reuse its weights"
     )
     return built(array)
 
@@ -354,8 +345,8 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
     device: torch.device | str = "cpu",
-    target_grid: GridDefinition | str | None = None,
-    regridder: Regridder | Literal["nearest", "bilinear"] | None = None,
+    target_grid: GridDefinition | None = None,
+    regridder: Regridder | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays with temporal statistics, optionally regridded.
@@ -374,16 +365,14 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device | str, optional
         NumPy CPU or CuPy CUDA destination, by default "cpu"
-    target_grid : GridDefinition | str, optional
+    target_grid : GridDefinition, optional
         Grid to return fields on, such as ``infer_grid(model.input_coords())``, by
-        default None, which keeps the source grid. Fields already on it pass
-        through and exact crops are selected. Otherwise fields are regridded by
-        ``regridder``, or by nearest neighbor, which raises if the target extends
-        beyond the source.
-    regridder : Regridder | Literal["nearest", "bilinear"], optional
-        Regridder to apply, or a built-in method resolved for the source and target
-        grids, by default None. A method name needs ``target_grid``; a
-        :class:`~earth2studio.grids.Regridder` must produce ``target_grid`` when
+        default None, which keeps the source grid. Without ``regridder``, fields
+        already on it pass through, exact crops are selected, and otherwise fields
+        are regridded by nearest neighbor within the source resolution, raising if
+        the target extends beyond the source.
+    regridder : Regridder, optional
+        Regridder to apply, by default None. It must produce ``target_grid`` when
         both are given.
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
@@ -400,18 +389,13 @@ def fetch_data(
     ----
     Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
     that backing; the result then moves to ``device`` only if it is not already
-    there, and regridding runs last, on ``device``. Resolving a method or regridding
-    automatically constructs a regridder on every call; pass a
-    :class:`~earth2studio.grids.Regridder` to reuse one.
+    there, and regridding runs last, on ``device``. Regridding automatically
+    constructs a regridder on every call; pass a
+    :class:`~earth2studio.grids.Regridder` to choose the method and reuse it.
     """
     device = torch.device(device)
     if device.type not in {"cpu", "cuda"}:
         raise ValueError("fetch_data supports only CPU and CUDA devices")
-    if isinstance(regridder, str) and regridder not in ("nearest", "bilinear"):
-        raise ValueError(
-            f"Unknown regridding method {regridder!r}; choose from "
-            "'nearest' or 'bilinear' or pass a Regridder"
-        )
     time = cast(TimeArray, np.asarray(time))
     lead_time = cast(LeadTimeArray, np.asarray(lead_time))
     variable = cast(VariableArray, np.asarray(variable))

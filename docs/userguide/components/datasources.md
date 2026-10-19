@@ -143,12 +143,11 @@ field = fetch_data(GFS(), time, variable, device="cuda", target_grid=target)
 
 Fields already on the target pass through, and exact crops of the source grid are
 selected. Otherwise `fetch_data` logs and regrids by nearest neighbor, and raises
-if the target extends beyond the source. Name a method, such as
-`regridder="bilinear"`, to choose another; `list_regridders(source_grid, target)`
-lists the methods available.
+if the target extends beyond the source.
 
-Each of these calls builds a regridder, which computes its weights. To fetch
-repeatedly, build one once and pass it:
+Each of these calls builds a regridder, which computes its weights. To choose
+another method, or to fetch repeatedly, build one once and pass it;
+`list_regridders(source_grid, target)` lists the methods available:
 
 ```python
 from earth2studio.grids import BilinearRegridder
@@ -160,8 +159,9 @@ field = fetch_data(GFS(), time, variable, device="cuda", regridder=regridder)
 `fetch_data` reduces temporal statistics on the source grid, moves the field to
 `device`, then regrids. `RegriddedSource(source, regridder)` packages a source and
 regridder as a single source, which regrids every field it fetches. Models use it to
-recommend sources on another grid. `CompositeSource` joins sources that provide
-different variables on a shared grid.
+recommend sources on another grid. `CompositeSource` joins analysis sources that
+provide different variables on a shared grid; `CompositeForecastSource` also joins
+forecast sources, fetching analysis components at each lead's valid time.
 
 #### Device
 

@@ -119,6 +119,9 @@ def test_source_grid_mismatch_raises(cls):
         regridder(field(GLOBAL, linear))
     with pytest.raises(ValueError, match="source grid"):
         regridder(field(REGION, linear).rename(lat="y"))
+    # Same shape, flipped latitude labels.
+    with pytest.raises(ValueError, match="does not match the source grid"):
+        regridder(field(REGION, linear).isel(lat=slice(None, None, -1)))
     with pytest.raises(TypeError):
         regridder(np.zeros(REGION.shape))
 
@@ -239,6 +242,8 @@ def test_bilinear_rejects_unstructured_source():
     points = PointGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
     with pytest.raises(ValueError, match="NearestRegridder"):
         BilinearRegridder(points, REGION)
+    with pytest.raises(ValueError, match="two points"):
+        BilinearRegridder(LatLonGrid(np.array([10.0]), np.array([20.0])), REGION)
 
 
 def test_nearest_latlon_selects_nearest_points():
@@ -255,6 +260,14 @@ def test_nearest_max_distance():
     assert np.isnan(y[0, 0, 1, 0]) and not np.isnan(y[0, 0, 0, 0])
     filled = NearestRegridder(REGION, target, max_dist_km=100.0, fill_value=-1.0)
     assert filled(field(REGION, linear))[0, 0, 1, 0] == -1
+    # Without a fill value, targets outside coverage raise at construction.
+    with pytest.raises(ValueError, match="1 of 2 target points"):
+        NearestRegridder(REGION, target, max_dist_km=100.0, fill_value=None)
+    covered = LatLonGrid(np.array([30.0]), np.array([260.0]))
+    y = NearestRegridder(REGION, covered, max_dist_km=100.0, fill_value=None)(
+        field(REGION, linear)
+    )
+    assert not np.isnan(y).any()
 
 
 def test_nearest_tree_skips_invalid_source_points():
@@ -269,56 +282,76 @@ def test_nearest_tree_skips_invalid_source_points():
     assert y[0, 0, 0] != 4 and y[0, 0, 1] == 0
 
 
-def test_nearest_latlon_matches_search_tree():
+_RANDOM = np.random.default_rng(0)
+
+
+@pytest.mark.parametrize(
+    "source, target",
+    [
+        # Random targets over the globe, including longitudes outside [0, 360).
+        (
+            GLOBAL,
+            PointGrid(_RANDOM.uniform(-90, 90, 500), _RANDOM.uniform(-180, 360, 500)),
+        ),
+        # Latitude 60 is nearer in degrees, but 80 is nearer on the sphere.
+        (
+            LatLonGrid(np.array([60.0, 80.0]), np.array([0.0, 60.0])),
+            PointGrid(np.array([69.0]), np.array([25.0])),
+        ),
+        # The meridian passes closest on the far side, so the end row is nearest.
+        (
+            LatLonGrid(np.array([-80.0, -60.0, -40.0]), np.array([0.0])),
+            PointGrid(np.array([10.0]), np.array([180.0])),
+        ),
+        # A longitude axis crossing the seam.
+        (
+            LatLonGrid(np.array([1.0, 0.0]), np.array([300.0, 350.0, 0.0, 10.0, 20.0])),
+            PointGrid(np.array([0.5, 0.5]), np.array([-8.0, 15.5])),
+        ),
+        # Single-point axes.
+        (
+            LatLonGrid(np.array([10.0]), np.array([20.0])),
+            PointGrid(np.array([0.0, 5.0]), np.array([0.0, 30.0])),
+        ),
+        (
+            LatLonGrid(np.array([10.0]), np.array([20.0, 30.0])),
+            PointGrid(np.array([0.0, 5.0]), np.array([0.0, 30.0])),
+        ),
+        (
+            LatLonGrid(np.array([10.0, 0.0]), np.array([20.0])),
+            PointGrid(np.array([0.0, 5.0]), np.array([0.0, 30.0])),
+        ),
+    ],
+)
+def test_nearest_matches_brute_force(source, target):
     pytest.importorskip("scipy")
-    # The same geometry as a curvilinear source is searched with the tree.
-    curvilinear = CurvilinearGrid(
-        *np.meshgrid(GLOBAL.latitude, GLOBAL.longitude, indexing="ij")
-    )
-    rng = np.random.default_rng(0)
-    lat, lon = rng.uniform(-90, 90, 500), rng.uniform(-180, 360, 500)
-    target = PointGrid(lat, lon)
+    lat, lon = target.latitude[:, None], target.longitude[:, None]
 
-    def selected(source):
-        # Regrid the source's own coordinates to recover each selected point.
-        x = field(source, lambda lat, lon: lat)
-        y = field(source, lambda lat, lon: lon)
-        regridder = NearestRegridder(source, target)
-        return regridder(x)[0, 0].values, regridder(y)[0, 0].values
-
-    def great_circle(points):
-        a, b = np.radians(points[0]), np.radians(points[1])
-        p, q = np.radians(lat), np.radians(lon)
+    def great_circle(a, b):
+        a, b, p, q = map(np.radians, (a, b, lat, lon))
         cosine = np.sin(a) * np.sin(p) + np.cos(a) * np.cos(p) * np.cos(b - q)
         return np.arccos(np.clip(cosine, -1, 1))
 
+    # Regrid the source's own coordinates to recover each selected point.
+    regridder = NearestRegridder(source, target)
+    selected = (
+        regridder(field(source, lambda lat, lon: lat + 0 * lon))[0, 0].values,
+        regridder(field(source, lambda lat, lon: lon + 0 * lat))[0, 0].values,
+    )
+    points = np.meshgrid(source.latitude, source.longitude, indexing="ij")
+    nearest = great_circle(*(axis.ravel()[None] for axis in points)).min(axis=1)
     # Pole rows tie across longitudes, so compare distances rather than indices.
     np.testing.assert_allclose(
-        great_circle(selected(GLOBAL)), great_circle(selected(curvilinear)), atol=1e-12
+        great_circle(*(np.asarray(axis)[:, None] for axis in selected))[:, 0],
+        nearest,
+        atol=1e-12,
     )
 
 
-def test_nearest_latlon_compares_rows_on_the_sphere():
-    # Latitude 60 is nearer in degrees, but 80 is nearer on the sphere.
-    source = LatLonGrid(np.array([60.0, 80.0]), np.array([0.0, 60.0]))
-    target = LatLonGrid(np.array([69.0]), np.array([25.0]))
-    x = field(source, lambda lat, lon: lat + 0 * lon)
-    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [[80.0]])
-
-
-def test_nearest_latlon_target_across_the_globe():
-    # The meridian passes closest on the far side, so the end row is nearest.
-    source = LatLonGrid(np.array([-80.0, -60.0, -40.0]), np.array([0.0]))
-    target = PointGrid(np.array([10.0]), np.array([180.0]))
-    x = field(source, lambda lat, lon: lat + 0 * lon)
-    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [-80.0])
-
-
-def test_longitude_axis_crossing_the_seam():
+def test_bilinear_across_the_seam():
     source = LatLonGrid(np.array([1.0, 0.0]), np.array([300.0, 350.0, 0.0, 10.0, 20.0]))
     target = PointGrid(np.array([0.5, 0.5]), np.array([-8.0, 15.5]))
     x = field(source, lambda lat, lon: np.mod(lon + 180, 360) + 0 * lat)
-    np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [170, 200])
     # Values are continuous across the seam here, so bilinear is exact.
     np.testing.assert_allclose(
         BilinearRegridder(source, target)(x)[0, 0], [172.0, 195.5]
@@ -336,30 +369,12 @@ def test_coarse_longitude_axes_keep_coverage(cls, longitude):
         np.testing.assert_allclose(y[0, 0], 0.5 + 2 * np.array([100.0, 250.0]))
 
 
-def test_nearest_non_monotonic_axes_use_search_tree():
+def test_nearest_non_monotonic_axes():
     pytest.importorskip("scipy")
     source = LatLonGrid(np.array([0.0, 20.0, 10.0]), np.array([0.0, 10.0]))
     target = PointGrid(np.array([18.0]), np.array([1.0]))
     x = field(source, lambda lat, lon: lat + 0 * lon)
     np.testing.assert_allclose(NearestRegridder(source, target)(x)[0, 0], [20.0])
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        LatLonGrid(np.array([10.0]), np.array([20.0])),
-        LatLonGrid(np.array([10.0]), np.array([20.0, 30.0])),
-        LatLonGrid(np.array([10.0, 0.0]), np.array([20.0])),
-    ],
-)
-def test_nearest_single_point_axes(source):
-    target = LatLonGrid(np.array([0.0, 5.0]), np.array([0.0, 30.0]))
-    x = field(source, linear)
-    y = NearestRegridder(source, target)(x)
-    assert not np.isnan(y).any()
-    assert set(np.unique(y[0, 0])) <= set(np.unique(x[0, 0]))
-    with pytest.raises(ValueError, match="two points"):
-        BilinearRegridder(source, target)
 
 
 def test_parity_with_interp_kernels():
@@ -390,7 +405,9 @@ def test_parity_with_interp_kernels():
     np.testing.assert_allclose(nearest.values, reference.numpy(), atol=1e-6)
 
 
-def test_list_and_resolve_regridders():
+def test_list_and_resolve_regridders(monkeypatch):
+    import earth2studio.grids as grids
+
     points = PointGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
     assert list_regridders(REGION, "hrrr") == ("nearest", "bilinear")
     assert list_regridders(points, REGION) == ("nearest",)
@@ -406,10 +423,7 @@ def test_list_and_resolve_regridders():
     with pytest.raises(ValueError, match="No 'conservative' regridder"):
         resolve_regridder(REGION, GLOBAL, "conservative")
 
-
-def test_registered_regridders_take_precedence(monkeypatch):
-    import earth2studio.grids as grids
-
+    # Later registrations take precedence for the grids they support.
     monkeypatch.setattr(
         grids, "_REGRIDDERS", {k: list(v) for k, v in grids._REGRIDDERS.items()}
     )

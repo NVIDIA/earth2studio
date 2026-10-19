@@ -56,6 +56,8 @@ output: generated/grids
 earth2studio.grids.list_regridders
 earth2studio.grids.register_regridder
 earth2studio.grids.resolve_regridder
+earth2studio.grids.same_geometry
+earth2studio.grids.select_subset
 {% endautosummary %}
 
 ## Data Source Wrappers
@@ -69,6 +71,7 @@ output: generated/data
 -->
 
 {% autosummary %}
+earth2studio.data.CompositeForecastSource
 earth2studio.data.CompositeSource
 earth2studio.data.RegriddedSource
 {% endautosummary %}

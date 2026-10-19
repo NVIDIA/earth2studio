@@ -12,8 +12,8 @@ field data between two such geometries.
 
 Status: the protocol is in `earth2studio/grids/base.py`, with `NearestRegridder`
 and `BilinearRegridder` as built-in implementations and a method registry in
-`earth2studio.grids`. `RegriddedSource` and `CompositeSource` live in
-`earth2studio.data`.
+`earth2studio.grids`. `RegriddedSource`, `CompositeSource` and
+`CompositeForecastSource` live in `earth2studio.data`.
 
 ## Interface
 
@@ -44,7 +44,7 @@ inherit. Wrappers around external engines conform without subclassing.
 | Rule | Requirement |
 | --- | --- |
 | `R1` | Indices and weights are computed at construction; `__call__` only applies them |
-| `R2` | `__call__` raises `ValueError` if the spatial dims or sizes differ from `source_grid` |
+| `R2` | `__call__` raises `ValueError` if spatial dims, sizes or labels differ from `source_grid` |
 | `R3` | Output dims are the non-spatial dims of `x`, in order, then `target_grid.dims` |
 | `R4` | Spatial coords and grid metadata match `coord_array(..., grid=target_grid)` |
 | `R5` | Output keeps the array backing (NumPy or CuPy) and device of `x` |
@@ -52,6 +52,9 @@ inherit. Wrappers around external engines conform without subclassing.
 | `R7` | Target points without source coverage get a documented fill value, NaN by default |
 | `R8` | A regridder never fetches data |
 
+- `R2`: dimension coordinate labels, where the field has them, must match the
+  grid's in order, so a field with flipped latitude is rejected rather than
+  silently mis-mapped.
 - `R3`: non-spatial coordinates and attributes pass through. Grid-owned attributes
   (`earth2studio_grid_id`, `earth2studio_crs` and the CRS attributes) follow
   `target_grid` under `R4`, so the output handshakes against a slot declared on
@@ -59,7 +62,10 @@ inherit. Wrappers around external engines conform without subclassing.
 - `R5`: a call must accept fields on any supported device, whether or not `to` was
   called. Caching device copies of precomputed state is allowed under `R6`.
 - `R7`: the fill applies only where the source has no coverage. NaNs in the source
-  data propagate and are never replaced by the fill.
+  data propagate and are never replaced by the fill. How a regridder is told its
+  fill is up to its constructor; it is not part of the protocol. The built-ins take
+  `fill_value`, where None means no fill is allowed and construction raises
+  `ValueError` if any target point lacks coverage.
 - Floating dtypes are preserved. Other dtypes may be promoted so the fill is
   representable.
 
@@ -74,10 +80,12 @@ as `cls(source_grid, target_grid, **options)`.
 - `resolve_regridder(source, target, method="nearest", **options)` constructs the
   most recently registered supporting class. This lets grid-specific
   implementations, registered after the built-ins, take precedence. It raises
-  `ValueError` when no class supports the pair. `fetch_data` accepts only the
-  built-in method names, `"nearest"` and `"bilinear"`.
+  `ValueError` when no class supports the pair. `fetch_data` takes regridder
+  objects, not method names; callers resolve a method themselves.
 - The built-ins register as `"nearest"`, for any grid with geographic coordinates,
   and `"bilinear"`, for structured sources.
+- A class registered as `"nearest"` must accept `max_dist_km="auto"` and
+  `fill_value=None`, which `fetch_data` passes when it regrids automatically.
 
 General regridders support grid families rather than enumerated grids, because
 model grids are usually crops that are never registered.
@@ -101,14 +109,18 @@ on its native grid, and regrids the reduced field. A regridder is bound to its
 source's grid, so a caller replacing the source must replace the whole pair (`R2`
 raises otherwise).
 
-`CompositeSource(sources, variables)` routes each requested variable to the one
-named component that provides it, matching qualified labels by base name, and joins
-the parts along `variable`:
+`CompositeSource(sources, variables)` and `CompositeForecastSource(sources,
+variables)` route each requested variable to the one named component that
+provides it, matching qualified labels by base name, and join the parts along
+`variable`:
 
+- `CompositeSource` is an analysis source, `(time, variable)`, and rejects
+  forecast components.
+- `CompositeForecastSource` is a forecast source, `(time, lead_time, variable)`.
+  It passes requests to forecast components unchanged, and fetches analysis
+  components at the valid times `time + lead_time`, labelled by the requested
+  times and leads.
 - Components must return fields on one device.
-- A composite of analysis sources is an analysis source. With any forecast
-  component it is a forecast source, and fetches analysis components at the valid
-  times `time + lead_time`, labelled by the requested times and leads.
 - They must share every coordinate other than `variable`. A component on another
   grid is wrapped in a `RegriddedSource` onto the shared target.
 

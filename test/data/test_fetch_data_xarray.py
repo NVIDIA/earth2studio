@@ -18,7 +18,6 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
-from loguru import logger
 
 from earth2studio.data import fetch_data
 from earth2studio.grids import (
@@ -328,96 +327,56 @@ def test_bilinear_onto_other_target_topologies(target):
     np.testing.assert_allclose(array[0, 0, 0], lat + 2 * lon)
 
 
-def _logged(level="INFO"):
-    messages = []
-    handler = logger.add(lambda message: messages.append(str(message)), level=level)
-    return messages, handler
+PROJECTED = ProjectedGrid(
+    np.array([0.0, 1.0, 2.0]) * 1000, np.array([0.0, 1.0, 2.0]) * 1000, "EPSG:3857"
+)
 
 
 @pytest.mark.parametrize(
-    "target",
-    [GRID, LatLonGrid(np.array([2, 1, 0]), np.array([0, 1, 2]))],
+    "grid, target, expected",
+    [
+        # Passes through the same grid, given by equal labels or the definition.
+        (GRID, GRID, None),
+        (GRID, LatLonGrid(np.array([2, 1, 0]), np.array([0, 1, 2])), None),
+        # Selects exact crops by label.
+        (GRID, LatLonGrid(np.array([1.0, 0.0]), np.array([1.0, 2.0])), None),
+        (
+            PROJECTED,
+            ProjectedGrid(PROJECTED.y[1:], PROJECTED.x[:2], PROJECTED.crs),
+            None,
+        ),
+        # Otherwise takes the nearest source point: lat + 2 * lon.
+        (
+            GRID,
+            LatLonGrid(np.array([1.6, 0.4]), np.array([0.4, 1.6])),
+            [[2, 6], [0, 4]],
+        ),
+    ],
 )
-def test_target_grid_matching_source_passes_through(target):
-    messages, handler = _logged()
-    try:
-        array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=target)
-    finally:
-        logger.remove(handler)
-    xr.testing.assert_identical(
-        array, fetch_data(AnalysisSource(), TIME, np.array(["a"]))
-    )
-    assert not any("Regridding" in message for message in messages)
-
-
-def test_target_grid_crop_is_selected():
-    target = LatLonGrid(np.array([1.0, 0.0]), np.array([1.0, 2.0]))
-    array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=target)
-    handshake_dataarray(array, request(grid=target))
-    np.testing.assert_allclose(array[0, 0, 0], [[3, 5], [2, 4]])
-    assert array.attrs["shape"] == [2, 2] and array.attrs["source"] == "offline"
-
-
-def test_projected_target_grid_crop_is_selected():
-    grid = ProjectedGrid(
-        np.array([0.0, 1.0, 2.0]) * 1000, np.array([0.0, 1.0, 2.0]) * 1000, "EPSG:3857"
-    )
-    crop = ProjectedGrid(grid.y[1:], grid.x[:2], grid.crs)
+def test_target_grid_without_regridder(grid, target, expected):
     source = AnalysisSource(grid, attrs=request(grid=grid).attrs)
-    array = fetch_data(source, TIME, np.array(["a"]), target_grid=crop)
-    handshake_dataarray(array, request(grid=crop))
-    full = fetch_data(source, TIME, np.array(["a"]))
-    np.testing.assert_allclose(array, full.isel(y=slice(1, None), x=slice(None, 2)))
-
-
-def test_target_grid_regrids_by_nearest_and_logs():
-    target = LatLonGrid(np.array([1.6, 0.4]), np.array([0.4, 1.6]))
-    messages, handler = _logged()
-    try:
-        array = fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=target)
-    finally:
-        logger.remove(handler)
+    array = fetch_data(source, TIME, np.array(["a"]), target_grid=target)
     handshake_dataarray(array, request(grid=target))
-    # Field values are lat + 2 * lon at the nearest source points.
-    np.testing.assert_allclose(array[0, 0, 0], [[2, 6], [0, 4]])
-    assert any("by nearest" in message for message in messages)
+    if expected is None:
+        native = fetch_data(source, TIME, np.array(["a"]))
+        expected = native.sel(target.coords(only_index=True))[0, 0, 0]
+    np.testing.assert_allclose(array[0, 0, 0], expected)
+    assert array.attrs["source"] == "offline"
 
 
 def test_target_grid_beyond_source_raises():
     target = LatLonGrid(np.array([20.0, 1.0]), np.array([1.0]))
-    with pytest.raises(ValueError, match="extends beyond"):
+    with pytest.raises(ValueError, match="beyond the source grid"):
         fetch_data(AnalysisSource(), TIME, np.array(["a"]), target_grid=target)
-    # Naming a method opts in: points without coverage are filled.
-    array = fetch_data(
-        AnalysisSource(), TIME, np.array(["a"]), target_grid=target, regridder="nearest"
-    )
-    assert np.isnan(array[0, 0, 0, 0, 0]) and array[0, 0, 0, 1, 0] == 3
-
-
-def test_target_grid_with_method_name():
-    target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
+    # A regridder fills points without coverage explicitly.
     array = fetch_data(
         AnalysisSource(),
         TIME,
         np.array(["a"]),
         target_grid=target,
-        regridder="bilinear",
+        regridder=NearestRegridder(GRID, target, max_dist_km="auto"),
     )
-    np.testing.assert_allclose(array[0, 0, 0], [[2.5, 4.5], [1.5, 3.5]])
-    with pytest.raises(ValueError, match="needs a target_grid"):
-        fetch_data(AnalysisSource(), TIME, np.array(["a"]), regridder="bilinear")
-    with pytest.raises(ValueError, match="Unknown regridding method"):
-        fetch_data(
-            AnalysisSource(), TIME, np.array(["a"]), target_grid=target, regridder="cubic"  # type: ignore[arg-type]
-        )
-    with pytest.raises(ValueError, match="No 'bilinear' regridder"):
-        fetch_data(
-            AnalysisSource(PointGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]))),
-            TIME,
-            np.array(["a"]),
-            target_grid=target,
-            regridder="bilinear",
-        )
+    assert np.isnan(array[0, 0, 0, 0, 0]) and array[0, 0, 0, 1, 0] == 3
 
 
 def test_regridder_must_produce_target_grid():

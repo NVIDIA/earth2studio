@@ -271,6 +271,7 @@ for _level in (3, 6, 10):
         )
 
 # Imported last: regridders resolve registered names through this module.
+from earth2studio.grids._regrid import same_geometry, select_subset  # noqa: E402
 from earth2studio.grids.regrid_bilinear import BilinearRegridder  # noqa: E402
 from earth2studio.grids.regrid_nearest import NearestRegridder  # noqa: E402
 
@@ -399,4 +400,6 @@ __all__ = [
     "register_regridder",
     "resolve_grid",
     "resolve_regridder",
+    "same_geometry",
+    "select_subset",
 ]

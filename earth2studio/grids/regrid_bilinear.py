@@ -104,15 +104,16 @@ class BilinearRegridder(_IndexRegridder):
     target_grid : str | GridDefinition
         Grid to produce, or a registered grid name. A name is recorded in the
         output's ``earth2studio_grid_id``.
-    fill_value : float, optional
-        Value for targets outside coverage, by default NaN
+    fill_value : float | None, optional
+        Value for targets outside coverage, by default NaN. None raises
+        ``ValueError`` at construction if any target is outside coverage.
     """
 
     def __init__(
         self,
         source_grid: str | GridDefinition,
         target_grid: str | GridDefinition,
-        fill_value: float = np.nan,
+        fill_value: float | None = np.nan,
     ) -> None:
         super().__init__(source_grid, target_grid, fill_value)
 
