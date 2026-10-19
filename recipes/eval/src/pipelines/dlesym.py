@@ -29,6 +29,7 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.utils.cupy import from_torch
 
 from ..distributed import get_rank
 from ..models import load_prognostic
@@ -172,7 +173,7 @@ class DLESyMPipeline(ForecastPipeline):
         self.seed_member(item)
 
         if self.perturbation is not None:
-            x, coords = self.perturbation(x, coords)
+            x, coords = self.perturbation(from_torch(x, coords)).e2s.to_torch()
 
         # This pipeline still uses the legacy tensor/coordinate model API.
         model_iter = cast(Callable, self.prognostic.create_iterator)(x, coords)

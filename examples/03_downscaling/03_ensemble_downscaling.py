@@ -127,7 +127,6 @@ def corrdiff_on_hens_ensemble(
     # Fetch initial data for the ensemble
     prognostic_ic = prognostic.input_coords()
     from earth2studio.run import _map_field
-    from earth2studio.utils.cupy import from_torch
 
     time = to_time_array(time)
     x0 = fetch_data(
@@ -181,8 +180,7 @@ def corrdiff_on_hens_ensemble(
             .expand_dims(ensemble=np.arange(batch_id, batch_id + mini_batch_size))
             .copy(deep=True)
         )
-        tensor, coords = perturbation(*x.e2s.to_torch())
-        x = from_torch(tensor, x.assign_coords(coords))
+        x = perturbation(x)
         model = prognostic.create_iterator(x)
 
         with tqdm(

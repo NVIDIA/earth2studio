@@ -319,7 +319,9 @@ class S2SEnsembleRunner:
 
         # Perturb ensemble
         # Use rank ordered execution to prevent race condition when using HENS perturbation
-        xx, coords = run_with_rank_ordered_execution(self.perturbation, xx, coords)
+        xx, coords = run_with_rank_ordered_execution(
+            self.perturbation, from_torch(xx, coords)
+        ).e2s.to_torch()
 
         # Create prognostic iterator
         # This pipeline still uses the legacy tensor/coordinate model API.

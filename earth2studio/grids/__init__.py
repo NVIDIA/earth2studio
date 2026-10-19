@@ -43,6 +43,7 @@ from earth2studio.grids.healpix import (
 from earth2studio.grids.latlon import LatLonGrid
 from earth2studio.grids.point import PointGrid
 from earth2studio.grids.projected import ProjectedGrid
+from earth2studio.grids.region import Region
 
 _GRID_REGISTRY: dict[str, GridDefinition | None] = {}
 _GRID_ALIASES: dict[str, str] = {}
@@ -286,6 +287,7 @@ __all__ = [
     "NearestRegridder",
     "PointGrid",
     "ProjectedGrid",
+    "Region",
     "Regridder",
     "infer_grid",
     "list_grids",

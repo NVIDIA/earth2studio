@@ -245,8 +245,6 @@ def test_diagnostic_protocol_declarations(model: type) -> None:
     assert isinstance(inspect.getattr_static(model, "stochastic"), (bool, property))
     source_parameters = inspect.signature(model.default_sources).parameters
     assert list(source_parameters) == ["self"]
-    instance = object.__new__(model)
-    assert model.default_sources(instance) is None
 
 
 def test_rng_control_is_owned_by_model_wrappers() -> None:

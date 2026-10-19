@@ -108,6 +108,19 @@ class InterpEquirectangular(torch.nn.Module):
         """Initialization coords (not required)"""
         return None
 
+    def default_sources(self) -> None:
+        """Return no recommended data sources.
+
+        This is a sample model that accepts observations from any provider that
+        reports the supported variables, so the choice is left to the caller.
+
+        Returns
+        -------
+        None
+            Observation data sources are chosen by the caller.
+        """
+        return None
+
     def input_coords(self) -> tuple[FrameSchema]:
         """Input coordinate system of the assimilation model.
 

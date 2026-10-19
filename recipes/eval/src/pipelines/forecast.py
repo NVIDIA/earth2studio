@@ -36,6 +36,7 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords
+from earth2studio.utils.cupy import from_torch
 
 from ..distributed import get_rank
 from ..models import load_diagnostics, load_prognostic
@@ -232,7 +233,7 @@ class ForecastPipeline(Pipeline):
 
         if self.perturbation is not None:
             torch.manual_seed(item.seed)
-            x, coords = self.perturbation(x, coords)
+            x, coords = self.perturbation(from_torch(x, coords)).e2s.to_torch()
 
         yield from self._rollout(x, coords, item, f"IC {item.time}")
 
@@ -283,7 +284,9 @@ class ForecastPipeline(Pipeline):
                     {"ensemble": member_ids[m : m + 1]} | dict(coords0)
                 )
                 torch.manual_seed(item.seed)
-                x_m, _ = self.perturbation(x[m : m + 1], member_coords)
+                x_m, _ = self.perturbation(
+                    from_torch(x[m : m + 1], member_coords)
+                ).e2s.to_torch()
                 x[m] = x_m[0]
 
         if len(items) > 1 and is_explicit_rng_component(self.prognostic):
